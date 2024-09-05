@@ -401,7 +401,7 @@ public class BsonToRowDataConverters implements Serializable {
     }
 
     private static long convertToLong(BsonValue bsonValue) {
-        if (bsonValue.isInt64()) {
+        if (bsonValue.isInt64() || bsonValue.isInt32()) {
             return bsonValue.asNumber().longValue();
         }
         throw new MongodbConnectorException(

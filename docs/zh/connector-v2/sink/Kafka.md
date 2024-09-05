@@ -24,25 +24,27 @@
 为了使用 Kafka 连接器，需要以下依赖项
 可以通过 install-plugin.sh 或从 Maven 中央存储库下载
 
-|  数据源  | 支持版本 |                                                 Maven                                                 |
-|-------|------|-------------------------------------------------------------------------------------------------------|
-| Kafka | 通用   | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-kafka) |
+| 数据源   | 支持版本 | Maven                                                                         |
+|-------|------|-------------------------------------------------------------------------------|
+| Kafka | 通用   | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-kafka) |
 
 ## 接收器选项
 
-|          名称          |   类型   | 是否需要 | 默认值  |                                                                                                                       描述                                                                                                                       |
-|----------------------|--------|------|------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| topic                | String | 是    | -    | 当表用作接收器时，topic 名称是要写入数据的 topic                                                                                                                                                                                                                 |
-| bootstrap.servers    | String | 是    | -    | Kafka brokers 使用逗号分隔                                                                                                                                                                                                                           |
-| kafka.config         | Map    | 否    | -    | 除了上述 Kafka Producer 客户端必须指定的参数外，用户还可以为 Producer 客户端指定多个非强制参数，涵盖 [Kafka官方文档中指定的所有生产者参数](https://kafka.apache.org/documentation.html#producerconfigs)                                                                                            |
-| semantics            | String | 否    | NON  | 可以选择的语义是 EXACTLY_ONCE/AT_LEAST_ONCE/NON，默认 NON。                                                                                                                                                                                                |
-| partition_key_fields | Array  | 否    | -    | 配置字段用作 kafka 消息的key                                                                                                                                                                                                                            |
-| partition            | Int    | 否    | -    | 可以指定分区，所有消息都会发送到此分区                                                                                                                                                                                                                            |
-| assign_partitions    | Array  | 否    | -    | 可以根据消息的内容决定发送哪个分区,该参数的作用是分发信息                                                                                                                                                                                                                  |
-| transaction_prefix   | String | 否    | -    | 如果语义指定为EXACTLY_ONCE，生产者将把所有消息写入一个 Kafka 事务中，kafka 通过不同的 transactionId 来区分不同的事务。该参数是kafka transactionId的前缀，确保不同的作业使用不同的前缀                                                                                                                       |
-| format               | String | 否    | json | 数据格式。默认格式是json。可选文本格式，canal-json、debezium-json 和 avro。如果使用 json 或文本格式。默认字段分隔符是`,`。如果自定义分隔符，请添加`field_delimiter`选项。如果使用canal格式，请参考[canal-json](../formats/canal-json.md)。如果使用debezium格式，请参阅 [debezium-json](../formats/debezium-json.md) 了解详细信息 |
-| field_delimiter      | String | 否    | ,    | 自定义数据格式的字段分隔符                                                                                                                                                                                                                                  |
-| common-options       |        | 否    | -    | Sink插件常用参数，请参考 [Sink常用选项 ](../sink-common-options.md) 了解详情                                                                                                                                                                                     |
+|          名称          |   类型   | 是否需要 | 默认值  | 描述                                                                                                                                                                                                                                                        |
+|----------------------|--------|------|------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| topic                | String | 是    | -    | 当表用作接收器时，topic 名称是要写入数据的 topic                                                                                                                                                                                                                            |
+| bootstrap.servers    | String | 是    | -    | Kafka brokers 使用逗号分隔                                                                                                                                                                                                                                      |
+| kafka.config         | Map    | 否    | -    | 除了上述 Kafka Producer 客户端必须指定的参数外，用户还可以为 Producer 客户端指定多个非强制参数，涵盖 [Kafka官方文档中指定的所有生产者参数](https://kafka.apache.org/documentation.html#producerconfigs)                                                                                                       |
+| semantics            | String | 否    | NON  | 可以选择的语义是 EXACTLY_ONCE/AT_LEAST_ONCE/NON，默认 NON。                                                                                                                                                                                                           |
+| partition_key_fields | Array  | 否    | -    | 配置字段用作 kafka 消息的key                                                                                                                                                                                                                                       |
+| partition            | Int    | 否    | -    | 可以指定分区，所有消息都会发送到此分区                                                                                                                                                                                                                                       |
+| assign_partitions    | Array  | 否    | -    | 可以根据消息的内容决定发送哪个分区,该参数的作用是分发信息                                                                                                                                                                                                                             |
+| transaction_prefix   | String | 否    | -    | 如果语义指定为EXACTLY_ONCE，生产者将把所有消息写入一个 Kafka 事务中，kafka 通过不同的 transactionId 来区分不同的事务。该参数是kafka transactionId的前缀，确保不同的作业使用不同的前缀                                                                                                                                  |
+| format               | String | 否    | json | 数据格式。默认格式是json。可选文本格式，canal-json、debezium-json 、 avro 和 protobuf。如果使用 json 或文本格式。默认字段分隔符是`,`。如果自定义分隔符，请添加`field_delimiter`选项。如果使用canal格式，请参考[canal-json](../formats/canal-json.md)。如果使用debezium格式，请参阅 [debezium-json](../formats/debezium-json.md) 了解详细信息 |
+| field_delimiter      | String | 否    | ,    | 自定义数据格式的字段分隔符                                                                                                                                                                                                                                             |
+| common-options       |        | 否    | -    | Sink插件常用参数，请参考 [Sink常用选项 ](../sink-common-options.md) 了解详情                                                                                                                                                                                                |
+|protobuf_message_name|String|否|-| format配置为protobuf时生效，取Message名称                                                                                                                                                                                                                           |
+|protobuf_schema|String|否|-| format配置为protobuf时生效取Schema名称                                                                                                                                                                                                                                      |
 
 ## 参数解释
 
@@ -190,6 +192,59 @@ sink {
          sasl.jaas.config="software.amazon.msk.auth.iam.IAMLoginModule required;"
          sasl.client.callback.handler.class="software.amazon.msk.auth.iam.IAMClientCallbackHandler"
       }
+  }
+}
+```
+
+### Protobuf配置
+
+`format` 设置为 `protobuf`，配置`protobuf`数据结构，`protobuf_message_name`和`protobuf_schema`参数
+
+使用样例：
+
+```hocon
+sink {
+  kafka {
+      topic = "test_protobuf_topic_fake_source"
+      bootstrap.servers = "kafkaCluster:9092"
+      format = protobuf
+      kafka.request.timeout.ms = 60000
+      kafka.config = {
+        acks = "all"
+        request.timeout.ms = 60000
+        buffer.memory = 33554432
+      }
+      protobuf_message_name = Person
+      protobuf_schema = """
+              syntax = "proto3";
+
+              package org.apache.seatunnel.format.protobuf;
+
+              option java_outer_classname = "ProtobufE2E";
+
+              message Person {
+                int32 c_int32 = 1;
+                int64 c_int64 = 2;
+                float c_float = 3;
+                double c_double = 4;
+                bool c_bool = 5;
+                string c_string = 6;
+                bytes c_bytes = 7;
+
+                message Address {
+                  string street = 1;
+                  string city = 2;
+                  string state = 3;
+                  string zip = 4;
+                }
+
+                Address address = 8;
+
+                map<string, float> attributes = 9;
+
+                repeated string phone_numbers = 10;
+              }
+              """
   }
 }
 ```

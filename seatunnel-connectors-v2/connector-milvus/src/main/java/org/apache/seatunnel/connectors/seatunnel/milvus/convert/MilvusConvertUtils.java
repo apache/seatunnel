@@ -34,6 +34,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.api.table.type.VectorType;
+import org.apache.seatunnel.common.utils.BufferUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.milvus.catalog.MilvusOptions;
 import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceConfig;
@@ -320,16 +321,14 @@ public class MilvusConvertUtils {
             case DATE:
                 return value.toString();
             case FLOAT_VECTOR:
-                List<Float> vector = new ArrayList<>();
-                for (Object o : (Object[]) value) {
-                    vector.add(Float.parseFloat(o.toString()));
-                }
-                return vector;
+                ByteBuffer floatVectorBuffer = (ByteBuffer) value;
+                Float[] floats = BufferUtils.toFloatArray(floatVectorBuffer);
+                return Arrays.stream(floats).collect(Collectors.toList());
             case BINARY_VECTOR:
             case BFLOAT16_VECTOR:
             case FLOAT16_VECTOR:
-                ByteBuffer binaryVector = (ByteBuffer) value;
-                return gson.toJsonTree(binaryVector.array());
+                ByteBuffer vector = (ByteBuffer) value;
+                return gson.toJsonTree(vector.array());
             case SPARSE_FLOAT_VECTOR:
                 return JsonParser.parseString(JacksonUtils.toJsonString(value)).getAsJsonObject();
             case FLOAT:

@@ -45,7 +45,7 @@ public class SourceReaderEventOperation extends SourceEventOperation {
     }
 
     @Override
-    public void run() throws Exception {
+    public void runInternal() throws Exception {
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(
                 () -> {

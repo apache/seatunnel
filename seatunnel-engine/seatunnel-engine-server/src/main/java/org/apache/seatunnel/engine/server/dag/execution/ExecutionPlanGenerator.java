@@ -150,10 +150,10 @@ public class ExecutionPlanGenerator {
         Collections.sort(
                 sortedLogicalEdges,
                 (o1, o2) -> {
-                    if (o1.getInputVertexId() != o2.getInputVertexId()) {
+                    if (!o1.getInputVertexId().equals(o2.getInputVertexId())) {
                         return o1.getInputVertexId() > o2.getInputVertexId() ? 1 : -1;
                     }
-                    if (o1.getTargetVertexId() != o2.getTargetVertexId()) {
+                    if (!o1.getTargetVertexId().equals(o2.getTargetVertexId())) {
                         return o1.getTargetVertexId() > o2.getTargetVertexId() ? 1 : -1;
                     }
                     return 0;

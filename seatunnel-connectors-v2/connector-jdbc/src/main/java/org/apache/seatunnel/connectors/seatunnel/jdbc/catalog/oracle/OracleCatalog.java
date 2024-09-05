@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeMapper;
 
@@ -71,13 +72,32 @@ public class OracleCatalog extends AbstractJdbcCatalog {
                     + "ORDER BY \n"
                     + "    cols.column_id \n";
 
+    private boolean decimalTypeNarrowing;
+
     public OracleCatalog(
             String catalogName,
             String username,
             String pwd,
             JdbcUrlUtil.UrlInfo urlInfo,
             String defaultSchema) {
+        this(
+                catalogName,
+                username,
+                pwd,
+                urlInfo,
+                defaultSchema,
+                JdbcOptions.DECIMAL_TYPE_NARROWING.defaultValue());
+    }
+
+    public OracleCatalog(
+            String catalogName,
+            String username,
+            String pwd,
+            JdbcUrlUtil.UrlInfo urlInfo,
+            String defaultSchema,
+            boolean decimalTypeNarrowing) {
         super(catalogName, username, pwd, urlInfo, defaultSchema);
+        this.decimalTypeNarrowing = decimalTypeNarrowing;
     }
 
     @Override
@@ -162,7 +182,7 @@ public class OracleCatalog extends AbstractJdbcCatalog {
                         .defaultValue(defaultValue)
                         .comment(columnComment)
                         .build();
-        return OracleTypeConverter.INSTANCE.convert(typeDefine);
+        return new OracleTypeConverter(decimalTypeNarrowing).convert(typeDefine);
     }
 
     @Override
@@ -183,7 +203,8 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     @Override
     public CatalogTable getTable(String sqlQuery) throws SQLException {
         Connection defaultConnection = getConnection(defaultUrl);
-        return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery, new OracleTypeMapper());
+        return CatalogUtils.getCatalogTable(
+                defaultConnection, sqlQuery, new OracleTypeMapper(decimalTypeNarrowing));
     }
 
     @Override

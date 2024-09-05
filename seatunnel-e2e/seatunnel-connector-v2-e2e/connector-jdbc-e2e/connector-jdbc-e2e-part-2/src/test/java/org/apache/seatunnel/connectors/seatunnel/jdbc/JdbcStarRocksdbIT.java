@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -105,6 +106,7 @@ public class JdbcStarRocksdbIT extends AbstractJdbcIT {
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
+                .tablePathFullName(TablePath.DEFAULT.getFullName())
                 .build();
     }
 
