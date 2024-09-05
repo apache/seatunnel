@@ -28,7 +28,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.impl.Parseable;
 import org.apache.seatunnel.api.configuration.ConfigAdapter;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.ParserException;
-import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -231,9 +230,6 @@ public class ConfigBuilder {
             String replacedValue =
                     replacePlaceholders(
                             variableString, placeholder, System.getProperty(placeholder), null);
-            if (variableString.equals(replacedValue)) {
-                throw new CommandExecuteException("Variable substitution error: " + variableValue);
-            }
             variableString = replacedValue;
         }
 
