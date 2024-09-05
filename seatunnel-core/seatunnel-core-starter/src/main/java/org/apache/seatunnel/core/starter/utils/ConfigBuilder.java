@@ -202,7 +202,10 @@ public class ConfigBuilder {
                         }
                     });
 
-            return ConfigFactory.parseMap(configMap);
+            return ConfigFactory.parseString(
+                            JsonUtils.toJsonString(configMap),
+                            ConfigParseOptions.defaults().setSyntax(ConfigSyntax.JSON))
+                    .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true));
         }
         return config;
     }
