@@ -418,10 +418,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                                         seaTunnelConfig
                                                                 .getEngineConfig()
                                                                 .getTaskExecutionThreadShareMode();
-                                                if (mode.equals(ThreadShareMode.ALL)) return true;
-                                                if (mode.equals(ThreadShareMode.OFF)) return false;
-                                                if (mode.equals(ThreadShareMode.PART))
+                                                if (mode.equals(ThreadShareMode.ALL)) {
+                                                    return true;
+                                                }
+                                                if (mode.equals(ThreadShareMode.OFF)) {
+                                                    return false;
+                                                }
+                                                if (mode.equals(ThreadShareMode.PART)) {
                                                     return t.isThreadsShare();
+                                                }
                                                 return true;
                                             }));
             executionContexts.put(

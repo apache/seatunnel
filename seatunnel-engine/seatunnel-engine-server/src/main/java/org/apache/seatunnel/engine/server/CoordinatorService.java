@@ -574,9 +574,11 @@ public class CoordinatorService {
             }
 
             CompletableFuture<JobResult> future = new CompletableFuture<>();
-            if (jobState == null) future.complete(new JobResult(JobStatus.UNKNOWABLE, null));
-            else
+            if (jobState == null) {
+                future.complete(new JobResult(JobStatus.UNKNOWABLE, null));
+            } else {
                 future.complete(new JobResult(jobState.getJobStatus(), jobState.getErrorMessage()));
+            }
             return new PassiveCompletableFuture<>(future);
         } else {
             return new PassiveCompletableFuture<>(runningJobMaster.getJobMasterCompleteFuture());

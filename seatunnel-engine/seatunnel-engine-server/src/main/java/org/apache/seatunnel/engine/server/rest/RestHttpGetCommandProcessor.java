@@ -474,7 +474,9 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
             String tableName,
             JsonNode metricNode,
             Map<String, JsonNode>[] tableMetricsMaps) {
-        if (metricNode == null) return;
+        if (metricNode == null) {
+            return;
+        }
 
         // Define index constant
         final int SOURCE_COUNT_IDX = 0,
