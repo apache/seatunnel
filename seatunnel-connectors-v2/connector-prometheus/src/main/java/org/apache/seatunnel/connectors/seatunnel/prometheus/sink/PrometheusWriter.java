@@ -42,15 +42,22 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class PrometheusWriter extends HttpSinkWriter {
     private final List<Point> batchList;
     private volatile Exception flushException;
     private final Integer batchSize;
+    private final long flushInterval;
     private PrometheusSinkConfig sinkConfig;
     private final Serializer serializer;
     protected final HttpClientProvider httpClient;
+    private ScheduledExecutorService executor;
+    private ScheduledFuture scheduledFuture;
 
     public PrometheusWriter(
             SeaTunnelRowType seaTunnelRowType,
@@ -61,6 +68,7 @@ public class PrometheusWriter extends HttpSinkWriter {
         this.batchList = new ArrayList<>();
         this.sinkConfig = PrometheusSinkConfig.loadConfig(pluginConfig);
         this.batchSize = sinkConfig.getBatchSize();
+        this.flushInterval = sinkConfig.getFlushInterval();
         this.serializer =
                 new PrometheusSerializer(
                         seaTunnelRowType,
@@ -68,20 +76,48 @@ public class PrometheusWriter extends HttpSinkWriter {
                         sinkConfig.getKeyLabel(),
                         sinkConfig.getKeyValue());
         this.httpClient = new HttpClientProvider(httpParameter);
+        if (flushInterval > 0) {
+            log.info("start schedule submit message,interval:{}", flushInterval);
+            this.executor =
+                    Executors.newScheduledThreadPool(
+                            1,
+                            runnable -> {
+                                Thread thread = new Thread(runnable);
+                                thread.setDaemon(true);
+                                thread.setName("Prometheus-Metric-Sender");
+                                return thread;
+                            });
+            this.scheduledFuture =
+                    executor.scheduleAtFixedRate(
+                            this::flushSchedule,
+                            flushInterval,
+                            flushInterval,
+                            TimeUnit.MILLISECONDS);
+        }
     }
 
     @Override
-    public void write(SeaTunnelRow element) throws IOException {
+    public void write(SeaTunnelRow element) {
         Point record = serializer.serialize(element);
         this.write(record);
     }
 
-    public void write(Point record) throws IOException {
+    public void write(Point record) {
         checkFlushException();
 
-        batchList.add(record);
-        if (batchSize > 0 && batchList.size() >= batchSize) {
-            flush();
+        synchronized (batchList) {
+            batchList.add(record);
+            if (batchSize > 0 && batchList.size() >= batchSize) {
+                flush();
+            }
+        }
+    }
+
+    private void flushSchedule() {
+        synchronized (batchList) {
+            if (!batchList.isEmpty()) {
+                flush();
+            }
         }
     }
 
@@ -114,8 +150,9 @@ public class PrometheusWriter extends HttpSinkWriter {
                     response.getContent());
         } catch (Exception e) {
             log.error(e.getMessage(), e);
+        } finally {
+            batchList.clear();
         }
-        batchList.clear();
     }
 
     /**
@@ -161,5 +198,17 @@ public class PrometheusWriter extends HttpSinkWriter {
             writeRequestBuilder.addTimeseries(timeSeriesBuilder);
         }
         return writeRequestBuilder.build();
+    }
+
+    @Override
+    public void close() throws IOException {
+        super.close();
+        if (scheduledFuture != null) {
+            scheduledFuture.cancel(false);
+            if (executor != null) {
+                executor.shutdownNow();
+            }
+        }
+        this.flush();
     }
 }

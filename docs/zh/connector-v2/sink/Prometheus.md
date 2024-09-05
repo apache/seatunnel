@@ -31,19 +31,22 @@
 
 ## 接收器选项
 
-|            Name             |  Type  | Required | Default | Description                                           |
-|-----------------------------|--------|----------|---------|-------------------------------------------------------|
-| url                         | String | Yes      | -       | Http 请求链接                                             |
-| headers                     | Map    | No       | -       | Http 标头                                               |
-| retry                       | Int    | No       | -       | 如果请求http返回`IOException`的最大重试次数                        |
-| retry_backoff_multiplier_ms | Int    | No       | 100     | http请求失败，重试回退次数（毫秒）乘数                                 |
-| retry_backoff_max_ms        | Int    | No       | 10000   | http请求失败，最大重试回退时间(毫秒)                                 |
-| connect_timeout_ms          | Int    | No       | 12000   | 连接超时设置，默认12s                                          |
-| socket_timeout_ms           | Int    | No       | 60000   | 套接字超时设置，默认为60s                                        |
-| key_timestamp               | Int    | NO       | -       | prometheus时间戳的key.                                    |
-| key_label                   | String | yes      | -       | prometheus标签的key                                      |
-| key_value                   | Double | yes      | -       | prometheus值的key                                       |
-| common-options              |        | No       | -       | Sink插件常用参数，请参考 [Sink常用选项 ](../sink-common-options.md) 了解详情 |
+| Name                        | Type   | Required | Default | Description                                                       |
+|-----------------------------|--------|----------|---------|-------------------------------------------------------------------|
+| url                         | String | Yes      | -       | Http 请求链接                                                         |
+| headers                     | Map    | No       | -       | Http 标头                                                           |
+| retry                       | Int    | No       | -       | 如果请求http返回`IOException`的最大重试次数                                    |
+| retry_backoff_multiplier_ms | Int    | No       | 100     | http请求失败，重试回退次数（毫秒）乘数                                             |
+| retry_backoff_max_ms        | Int    | No       | 10000   | http请求失败，最大重试回退时间(毫秒)                                             |
+| connect_timeout_ms          | Int    | No       | 12000   | 连接超时设置，默认12s                                                      |
+| socket_timeout_ms           | Int    | No       | 60000   | 套接字超时设置，默认为60s                                                    |
+| key_timestamp               | Int    | NO       | -       | prometheus时间戳的key.                                                |
+| key_label                   | String | yes      | -       | prometheus标签的key                                                  |
+| key_value                   | Double | yes      | -       | prometheus值的key                                                   |
+| key_value                   | Double | yes      | -       | prometheus值的key                                                   |
+| batch_size                  | Int    | false    | 1024       | prometheus批量写入大小                                                  |
+| flush_interval              | Long   | false      | 300000L  | prometheus定时写入  |
+| common-options              |        | No       | -       | Sink插件常用参数，请参考 [Sink常用选项 ](../sink-common-options.md) 了解详情        |
 
 ## 示例
 

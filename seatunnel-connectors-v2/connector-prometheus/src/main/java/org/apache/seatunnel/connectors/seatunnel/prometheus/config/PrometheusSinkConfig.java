@@ -34,6 +34,8 @@ public class PrometheusSinkConfig extends HttpConfig {
 
     private static final int DEFAULT_BATCH_SIZE = 1024;
 
+    private static final Long DEFAULT_FLUSH_INTERVAL = 300000L;
+
     public static final Option<String> KEY_TIMESTAMP =
             Options.key("key_timestamp")
                     .stringType()
@@ -52,6 +54,12 @@ public class PrometheusSinkConfig extends HttpConfig {
                     .defaultValue(DEFAULT_BATCH_SIZE)
                     .withDescription("the batch size writer to prometheus");
 
+    public static final Option<Long> FLUSH_INTERVAL =
+            Options.key("flush_interval")
+                    .longType()
+                    .defaultValue(DEFAULT_FLUSH_INTERVAL)
+                    .withDescription("the flush interval writer to prometheus");
+
     private String keyTimestamp;
 
     private String keyValue;
@@ -59,6 +67,8 @@ public class PrometheusSinkConfig extends HttpConfig {
     private String keyLabel;
 
     private int batchSize = BATCH_SIZE.defaultValue();
+
+    private long flushInterval = FLUSH_INTERVAL.defaultValue();
 
     public static PrometheusSinkConfig loadConfig(ReadonlyConfig pluginConfig) {
         PrometheusSinkConfig sinkConfig = new PrometheusSinkConfig();
@@ -74,6 +84,10 @@ public class PrometheusSinkConfig extends HttpConfig {
         if (pluginConfig.getOptional(BATCH_SIZE).isPresent()) {
             int batchSize = checkIntArgument(pluginConfig.get(BATCH_SIZE));
             sinkConfig.setBatchSize(batchSize);
+        }
+        if (pluginConfig.getOptional(FLUSH_INTERVAL).isPresent()) {
+            long flushInterval = pluginConfig.get(FLUSH_INTERVAL);
+            sinkConfig.setFlushInterval(flushInterval);
         }
         return sinkConfig;
     }
