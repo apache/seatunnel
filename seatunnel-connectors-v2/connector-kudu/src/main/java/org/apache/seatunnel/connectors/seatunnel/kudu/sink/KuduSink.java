@@ -54,8 +54,7 @@ public class KuduSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, KuduCommitInfo, KuduSinkState> createWriter(
-            SinkWriter.Context context) throws IOException {
+    public KuduSinkWriter createWriter(SinkWriter.Context context) throws IOException {
         return new KuduSinkWriter(seaTunnelRowType, kuduSinkConfig);
     }
 }

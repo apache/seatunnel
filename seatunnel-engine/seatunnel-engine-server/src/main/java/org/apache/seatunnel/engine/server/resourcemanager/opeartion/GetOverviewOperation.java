@@ -27,23 +27,33 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.serializable.ResourceDataSerializerHook;
 
 import com.hazelcast.map.IMap;
+import com.hazelcast.nio.ObjectDataInput;
+import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 public class GetOverviewOperation extends Operation implements IdentifiedDataSerializable {
 
     private OverviewInfo overviewInfo;
+    private Map<String, String> tags;
+
+    public GetOverviewOperation() {}
+
+    public GetOverviewOperation(Map<String, String> tags) {
+        this.tags = tags;
+    }
 
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-
-        overviewInfo = getOverviewInfo(server, getNodeEngine());
+        overviewInfo = getOverviewInfo(server, getNodeEngine(), tags);
     }
 
     @Override
@@ -66,17 +76,19 @@ public class GetOverviewOperation extends Operation implements IdentifiedDataSer
         return SeaTunnelServer.SERVICE_NAME;
     }
 
-    public static OverviewInfo getOverviewInfo(SeaTunnelServer server, NodeEngine nodeEngine) {
+    public static OverviewInfo getOverviewInfo(
+            SeaTunnelServer server, NodeEngine nodeEngine, Map<String, String> tags) {
         OverviewInfo overviewInfo = new OverviewInfo();
         ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
 
-        List<SlotProfile> assignedSlots = resourceManager.getAssignedSlots();
+        List<SlotProfile> assignedSlots = resourceManager.getAssignedSlots(tags);
 
-        List<SlotProfile> unassignedSlots = resourceManager.getUnassignedSlots();
+        List<SlotProfile> unassignedSlots = resourceManager.getUnassignedSlots(tags);
         IMap<Long, JobState> finishedJob =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE);
         overviewInfo.setTotalSlot(assignedSlots.size() + unassignedSlots.size());
         overviewInfo.setUnassignedSlot(unassignedSlots.size());
+        overviewInfo.setWorkers(resourceManager.workerCount(tags));
         overviewInfo.setRunningJobs(
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO).size());
         overviewInfo.setFailedJobs(
@@ -95,7 +107,6 @@ public class GetOverviewOperation extends Operation implements IdentifiedDataSer
                                                 .name()
                                                 .equals(JobStatus.CANCELED.toString()))
                         .count());
-        overviewInfo.setWorkers(resourceManager.workerCount());
         overviewInfo.setFinishedJobs(
                 finishedJob.values().stream()
                         .filter(
@@ -106,5 +117,17 @@ public class GetOverviewOperation extends Operation implements IdentifiedDataSer
                         .count());
 
         return overviewInfo;
+    }
+
+    @Override
+    protected void writeInternal(ObjectDataOutput out) throws IOException {
+        super.writeInternal(out);
+        out.writeObject(tags);
+    }
+
+    @Override
+    protected void readInternal(ObjectDataInput in) throws IOException {
+        super.readInternal(in);
+        tags = in.readObject();
     }
 }

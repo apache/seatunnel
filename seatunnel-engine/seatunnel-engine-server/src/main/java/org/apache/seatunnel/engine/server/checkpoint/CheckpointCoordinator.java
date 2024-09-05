@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
@@ -187,6 +188,7 @@ public class CheckpointCoordinator {
                             return thread;
                         });
         ((ScheduledThreadPoolExecutor) this.scheduler).setRemoveOnCancelPolicy(true);
+        this.scheduler = MDCTracer.tracing(scheduler);
         this.serializer = new ProtoStuffSerializer();
         this.pipelineTasks = getPipelineTasks(plan.getPipelineSubtasks());
         this.pipelineTaskStatus = new ConcurrentHashMap<>();
@@ -293,6 +295,9 @@ public class CheckpointCoordinator {
     private void restoreTaskState(TaskLocation taskLocation) {
         List<ActionSubtaskState> states = new ArrayList<>();
         if (latestCompletedCheckpoint != null) {
+            if (!latestCompletedCheckpoint.isRestored()) {
+                latestCompletedCheckpoint.setRestored(true);
+            }
             final Integer currentParallelism = pipelineTasks.get(taskLocation.getTaskVertexId());
             plan.getSubtaskActions()
                     .get(taskLocation)

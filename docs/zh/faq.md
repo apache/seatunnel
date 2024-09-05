@@ -93,7 +93,7 @@ sink {
 
 ## 有 HBase 插件吗？
 
-有一个 hbase 输入插件。 您可以从这里下载：https://github.com/garyelephant/waterdrop-input-hbase
+有一个 HBase 输入插件。 您可以从这里下载：https://github.com/garyelephant/waterdrop-input-hbase
 
 ## 如何使用SeaTunnel将数据写入Hive？
 
@@ -136,7 +136,7 @@ sink {
 }
 ```
 
-3. Configure multiple instances in the configuration:
+3. 在配置文件中配置多个ClickHouse实例:
 
    ```
    {
@@ -149,7 +149,7 @@ sink {
        }
    }
    ```
-4. Use cluster mode:
+4. 使用集群模式:
 
    ```
    {
@@ -185,7 +185,7 @@ sink {
 
 3、一般来说，M和N都确定了，从2可以得出结论：`spark.streaming.kafka.maxRatePerPartition`的大小与`spark.executor.cores` * `spark的大小正相关 .executor.instances`，可以在增加资源`maxRatePerPartition`的同时增加，以加快消耗。
 
-![kafka](../images/kafka.png)
+![Kafka](../images/kafka.png)
 
 ## 如何解决错误 `Exception in thread "main" java.lang.NoSuchFieldError: INSTANCE`？
 
@@ -204,26 +204,9 @@ spark {
 }
 ```
 
-## 如何为 Yarn 上的 SeaTunnel 指定不同的 JDK 版本？
-
-例如要设置JDK版本为JDK8，有两种情况：
-
-- Yarn集群已部署JDK8，但默认JDK不是JDK8。 在 SeaTunnel 配置文件中添加两个配置：
-
-  ```
-    env {
-   ...
-   spark.executorEnv.JAVA_HOME="/your/java_8_home/directory"
-   spark.yarn.appMasterEnv.JAVA_HOME="/your/java_8_home/directory"
-   ...
-  }
-  ```
-- Yarn集群未部署JDK8。 此时，启动附带JDK8的SeaTunnel。 详细操作参见：
-  https://www.cnblogs.com/jasondan/p/spark-specific-jdk-version.html
-
 ## Spark local[*]模式运行SeaTunnel时总是出现OOM怎么办？
 
-如果以本地模式运行，则需要修改`start-seatunnel.sh`启动脚本。 在 `spark-submit` 之后添加参数 `--driver-memory 4g` 。 一般情况下，生产环境中不使用本地模式。 因此，On Yarn时一般不需要设置该参数。 有关详细信息，请参阅：[应用程序属性](https://spark.apache.org/docs/latest/configuration.html#application-properties)。
+如果以本地模式运行，则需要修改`start-seatunnel.sh`启动脚本。 在 `spark-submit` 之后添加参数 `--driver-memory 4g` 。 一般情况下，生产环境中不使用本地模式。 因此，On YARN时一般不需要设置该参数。 有关详细信息，请参阅：[应用程序属性](https://spark.apache.org/docs/latest/configuration.html#application-properties)。
 
 ## 我可以在哪里放置自己编写的插件或第三方 jdbc.jar 以供 SeaTunnel 加载？
 
@@ -237,7 +220,7 @@ cp third-part.jar plugins/my_plugins/lib
 
 `my_plugins` 可以是任何字符串。
 
-## 如何在 SeaTunnel-v1(Spark) 中配置日志记录相关参数？
+## 如何在 SeaTunnel-V1(Spark) 中配置日志记录相关参数？
 
 可以通过三种方式配置日志相关参数（例如日志级别）：
 
@@ -284,7 +267,7 @@ log4j.appender.console.layout=org.apache.log4j.PatternLayout
 log4j.appender.console.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n
 ```
 
-## 如何在 SeaTunnel-v2(Spark、Flink) 中配置日志记录相关参数？
+## 如何在 SeaTunnel-V2(Spark、Flink) 中配置日志记录相关参数？
 
 目前，无法直接设置它们。 您需要修改SeaTunnel启动脚本。 相关参数在任务提交命令中指定。 具体参数请参考官方文档：
 
@@ -334,10 +317,6 @@ spark-submit --verbose
    --conf 'spark.executor.extraJavaOptions=-verbose:class'
     ...
 ```
-
-## 如何使用SeaTunnel跨HDFS集群同步数据？
-
-只需正确配置 hdfs-site.xml 即可。 参考：https://www.cnblogs.com/suanec/p/7828139.html。
 
 ## 我想学习SeaTunnel的源代码。 我应该从哪里开始？
 

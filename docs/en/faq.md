@@ -6,7 +6,7 @@ SeaTunnel now uses computing engines such as Spark and Flink to complete resourc
 
 ## I have a question, and I cannot solve it by myself
 
-I have encountered a problem when using SeaTunnel and I cannot solve it by myself. What should I do? First, search in [Issue list](https://github.com/apache/seatunnel/issues) or [mailing list](https://lists.apache.org/list.html?dev@seatunnel.apache.org) to see if someone has already asked the same question and got an answer. If you cannot find an answer to your question, you can contact community members for help in [these ways](https://github.com/apache/seatunnel#contact-us).
+I have encountered a problem when using SeaTunnel and I cannot solve it by myself. What should I do? First, search in [Issue List](https://github.com/apache/seatunnel/issues) or [Mailing List](https://lists.apache.org/list.html?dev@seatunnel.apache.org) to see if someone has already asked the same question and got an answer. If you cannot find an answer to your question, you can contact community members for help in [These Ways](https://github.com/apache/seatunnel#contact-us).
 
 ## How do I declare a variable?
 
@@ -61,7 +61,7 @@ your string 1
 
 Refer to: [lightbend/config#456](https://github.com/lightbend/config/issues/456).
 
-## Is SeaTunnel supportted in Azkaban, Oozie, DolphinScheduler?
+## Is SeaTunnel supported in Azkaban, Oozie, DolphinScheduler?
 
 Of course! See the screenshot below:
 
@@ -93,7 +93,7 @@ sink {
 
 ## Are there any HBase plugins?
 
-There is an hbase input plugin. You can download it from here: https://github.com/garyelephant/waterdrop-input-hbase .
+There is a HBase input plugin. You can download it from here: https://github.com/garyelephant/waterdrop-input-hbase .
 
 ## How can I use SeaTunnel to write data to Hive?
 
@@ -184,7 +184,7 @@ The following conclusions can be drawn:
 
 3. In general, both M and N are determined, and the conclusion can be drawn from 2: The size of `spark.streaming.kafka.maxRatePerPartition` is positively correlated with the size of `spark.executor.cores` * `spark.executor.instances`, and it can be increased while increasing the resource `maxRatePerPartition` to speed up consumption.
 
-![kafka](../images/kafka.png)
+![Kafka](../images/kafka.png)
 
 ## How can I solve the Error `Exception in thread "main" java.lang.NoSuchFieldError: INSTANCE`?
 
@@ -203,26 +203,9 @@ spark {
 }
 ```
 
-## How do I specify a different JDK version for SeaTunnel on Yarn?
-
-For example, if you want to set the JDK version to JDK8, there are two cases:
-
-- The Yarn cluster has deployed JDK8, but the default JDK is not JDK8. Add two configurations to the SeaTunnel config file:
-
-  ```
-    env {
-   ...
-   spark.executorEnv.JAVA_HOME="/your/java_8_home/directory"
-   spark.yarn.appMasterEnv.JAVA_HOME="/your/java_8_home/directory"
-   ...
-  }
-  ```
-- Yarn cluster does not deploy JDK8. At this time, start SeaTunnel attached with JDK8. For detailed operations, see:
-  https://www.cnblogs.com/jasondan/p/spark-specific-jdk-version.html
-
 ## What should I do if OOM always appears when running SeaTunnel in Spark local[*] mode?
 
-If you run in local mode, you need to modify the `start-seatunnel.sh` startup script. After `spark-submit`, add a parameter `--driver-memory 4g` . Under normal circumstances, local mode is not used in the production environment. Therefore, this parameter generally does not need to be set during On Yarn. See: [Application Properties](https://spark.apache.org/docs/latest/configuration.html#application-properties) for details.
+If you run in local mode, you need to modify the `start-seatunnel.sh` startup script. After `spark-submit`, add a parameter `--driver-memory 4g` . Under normal circumstances, local mode is not used in the production environment. Therefore, this parameter generally does not need to be set during On YARN. See: [Application Properties](https://spark.apache.org/docs/latest/configuration.html#application-properties) for details.
 
 ## Where can I place self-written plugins or third-party jdbc.jars to be loaded by SeaTunnel?
 
@@ -236,14 +219,14 @@ cp third-part.jar plugins/my_plugins/lib
 
 `my_plugins` can be any string.
 
-## How do I configure logging-related parameters in SeaTunnel-v1(Spark)?
+## How do I configure logging-related parameters in SeaTunnel-V1(Spark)?
 
 There are three ways to configure logging-related parameters (such as Log Level):
 
 - [Not recommended] Change the default `$SPARK_HOME/conf/log4j.properties`.
   - This will affect all programs submitted via `$SPARK_HOME/bin/spark-submit`.
 - [Not recommended] Modify logging related parameters directly in the Spark code of SeaTunnel.
-  - This is equivalent to writing dead, and each change needs to be recompiled.
+  - This is equivalent to hardcoding, and each change needs to be recompiled.
 - [Recommended] Use the following methods to change the logging configuration in the SeaTunnel configuration file (The change only takes effect if SeaTunnel >= 1.5.5 ):
 
   ```
@@ -283,7 +266,7 @@ log4j.appender.console.layout=org.apache.log4j.PatternLayout
 log4j.appender.console.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n
 ```
 
-## How do I configure logging related parameters in SeaTunnel-v2(Spark, Flink)?
+## How do I configure logging related parameters in SeaTunnel-V2(Spark, Flink)?
 
 Currently, they cannot be set directly. you need to modify the SeaTunnel startup script. The relevant parameters are specified in the task submission command. For specific parameters, please refer to the official documents:
 
@@ -309,7 +292,7 @@ For example, if you want to output more detailed logs of E2E Test, just downgrad
 In SeaTunnel, the data type will not be actively converted. After the Input reads the data, the corresponding
 Schema. When writing ClickHouse, the field type needs to be strictly matched, and the mismatch needs to be resolved.
 
-Data conversion can be achieved through the following two plug-ins:
+Data conversion can be achieved through the following two plugins:
 
 1. Filter Convert plugin
 2. Filter Sql plugin
@@ -333,10 +316,6 @@ spark-submit --verbose
    --conf 'spark.executor.extraJavaOptions=-verbose:class'
     ...
 ```
-
-## How do I use SeaTunnel to synchronize data across HDFS clusters?
-
-Just configure hdfs-site.xml properly. Refer to: https://www.cnblogs.com/suanec/p/7828139.html.
 
 ## I want to learn the source code of SeaTunnel. Where should I start?
 

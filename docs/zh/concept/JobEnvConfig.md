@@ -48,11 +48,11 @@
 
 指定加密方式，如果您没有加密或解密配置文件的需求，此选项可以忽略。
 
-更多详细信息，您可以参考文档 [config-encryption-decryption](../../en/connector-v2/Config-Encryption-Decryption.md)
+更多详细信息，您可以参考文档 [Config Encryption Decryption](../../en/connector-v2/Config-Encryption-Decryption.md)
 
 ## Flink 引擎参数
 
-这里列出了一些与 Flink 中名称相对应的 SeaTunnel 参数名称，并非全部，更多内容请参考官方 [flink documentation](https://flink.apache.org/) for more.
+这里列出了一些与 Flink 中名称相对应的 SeaTunnel 参数名称，并非全部，更多内容请参考官方 [Flink Documentation](https://flink.apache.org/) for more.
 
 |           Flink 配置名称            |            SeaTunnel 配置名称             |
 |---------------------------------|---------------------------------------|
@@ -63,5 +63,5 @@
 
 ## Spark 引擎参数
 
-由于spark配置项并无调整，这里就不列出来了，请参考官方 [spark documentation](https://spark.apache.org/).
+由于Spark配置项并无调整，这里就不列出来了，请参考官方 [Spark Documentation](https://spark.apache.org/).
 

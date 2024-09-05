@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSink;
@@ -35,12 +36,6 @@ import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
 public class PaimonSinkFactory implements TableSinkFactory {
-
-    public static final String REPLACE_TABLE_NAME_KEY = "${table_name}";
-
-    public static final String REPLACE_SCHEMA_NAME_KEY = "${schema_name}";
-
-    public static final String REPLACE_DATABASE_NAME_KEY = "${database_name}";
 
     @Override
     public String factoryIdentifier() {
@@ -60,7 +55,8 @@ public class PaimonSinkFactory implements TableSinkFactory {
                         PaimonSinkConfig.DATA_SAVE_MODE,
                         PaimonSinkConfig.PRIMARY_KEYS,
                         PaimonSinkConfig.PARTITION_KEYS,
-                        PaimonSinkConfig.WRITE_PROPS)
+                        PaimonSinkConfig.WRITE_PROPS,
+                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .conditional(
                         PaimonConfig.CATALOG_TYPE, PaimonCatalogEnum.HIVE, PaimonConfig.CATALOG_URI)
                 .build();
@@ -80,13 +76,13 @@ public class PaimonSinkFactory implements TableSinkFactory {
         String tableName;
         String namespace;
         if (StringUtils.isNotEmpty(paimonSinkConfig.getTable())) {
-            tableName = replaceName(paimonSinkConfig.getTable(), tableId);
+            tableName = paimonSinkConfig.getTable();
         } else {
             tableName = tableId.getTableName();
         }
 
         if (StringUtils.isNotEmpty(paimonSinkConfig.getNamespace())) {
-            namespace = replaceName(paimonSinkConfig.getNamespace(), tableId);
+            namespace = paimonSinkConfig.getNamespace();
         } else {
             namespace = tableId.getSchemaName();
         }
@@ -96,18 +92,5 @@ public class PaimonSinkFactory implements TableSinkFactory {
                         tableId.getCatalogName(), namespace, tableId.getSchemaName(), tableName);
 
         return CatalogTable.of(newTableId, catalogTable);
-    }
-
-    private String replaceName(String original, TableIdentifier tableId) {
-        if (tableId.getTableName() != null) {
-            original = original.replace(REPLACE_TABLE_NAME_KEY, tableId.getTableName());
-        }
-        if (tableId.getSchemaName() != null) {
-            original = original.replace(REPLACE_SCHEMA_NAME_KEY, tableId.getSchemaName());
-        }
-        if (tableId.getDatabaseName() != null) {
-            original = original.replace(REPLACE_DATABASE_NAME_KEY, tableId.getDatabaseName());
-        }
-        return original;
     }
 }

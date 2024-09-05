@@ -95,7 +95,8 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
                 String value = entry.getValue();
                 SeaTunnelDataType<?> dataType =
                         SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(key, value);
-                PhysicalColumn column = PhysicalColumn.of(key, dataType, 0, true, null, null);
+                PhysicalColumn column =
+                        PhysicalColumn.of(key, dataType, null, null, true, null, null);
                 columns.add(column);
             }
             return columns;

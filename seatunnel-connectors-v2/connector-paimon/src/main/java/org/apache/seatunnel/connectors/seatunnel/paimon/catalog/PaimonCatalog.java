@@ -40,6 +40,7 @@ import org.apache.paimon.table.Table;
 import org.apache.paimon.types.DataField;
 import org.apache.paimon.types.DataType;
 
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Closeable;
@@ -184,6 +185,35 @@ public class PaimonCatalog implements Catalog, PaimonTable {
     }
 
     @Override
+    public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists)
+            throws TableNotExistException, CatalogException {
+        try {
+            Identifier identifier = toIdentifier(tablePath);
+            FileStoreTable table = (FileStoreTable) catalog.getTable(identifier);
+            Schema schema = buildPaimonSchema(table.schema());
+            dropTable(tablePath, ignoreIfNotExists);
+            catalog.createTable(identifier, schema, ignoreIfNotExists);
+        } catch (org.apache.paimon.catalog.Catalog.TableNotExistException e) {
+            throw new TableNotExistException(this.catalogName, tablePath);
+        } catch (org.apache.paimon.catalog.Catalog.TableAlreadyExistException e) {
+            throw new DatabaseAlreadyExistException(this.catalogName, tablePath.getDatabaseName());
+        } catch (org.apache.paimon.catalog.Catalog.DatabaseNotExistException e) {
+            throw new DatabaseNotExistException(this.catalogName, tablePath.getDatabaseName());
+        }
+    }
+
+    private Schema buildPaimonSchema(@NonNull org.apache.paimon.schema.TableSchema schema) {
+        Schema.Builder builder = Schema.newBuilder();
+        schema.fields()
+                .forEach(field -> builder.column(field.name(), field.type(), field.description()));
+        builder.options(schema.options());
+        builder.primaryKey(schema.primaryKeys());
+        builder.partitionKeys(schema.partitionKeys());
+        builder.comment(schema.comment());
+        return builder.build();
+    }
+
+    @Override
     public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
             throws DatabaseNotExistException, CatalogException {
         try {
@@ -222,7 +252,8 @@ public class PaimonCatalog implements Catalog, PaimonTable {
                             BasicTypeDefine.<DataType>builder()
                                     .name(dataField.name())
                                     .comment(dataField.description())
-                                    .nativeType(dataField.type());
+                                    .nativeType(dataField.type())
+                                    .nullable(dataField.type().isNullable());
                     Column column = SchemaUtil.toSeaTunnelType(typeDefineBuilder.build());
                     builder.column(column);
                 });

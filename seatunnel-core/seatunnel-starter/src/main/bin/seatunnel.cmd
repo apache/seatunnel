@@ -58,22 +58,12 @@ if defined JvmOption (
     set "JAVA_OPTS=%JAVA_OPTS% %JvmOption%"
 )
 
-for %%i in (%*) do (
-    set "arg=%%i"
-    if "!arg:~0,9!"=="JvmOption" (
-        set "JVM_OPTION=!arg:~9!"
-        set "JAVA_OPTS=!JAVA_OPTS! !JVM_OPTION!"
-        goto :break_loop
-    )
-)
-:break_loop
-
 set "JAVA_OPTS=%JAVA_OPTS% -Dhazelcast.client.config=%HAZELCAST_CLIENT_CONFIG%"
 set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.config=%SEATUNNEL_CONFIG%"
 set "JAVA_OPTS=%JAVA_OPTS% -Dhazelcast.config=%HAZELCAST_CONFIG%"
 
 REM if you want to debug, please
-REM set "JAVA_OPTS=%JAVA_OPTS% -Xdebug -Xrunjdwp:transport=dt_socket,server=y,address=5000,suspend=y"
+REM set "JAVA_OPTS=%JAVA_OPTS% -Xdebug -Xrunjdwp:transport=dt_socket,server=y,address=5000,suspend=n"
 
 REM Log4j2 Config
 if exist "%CONF_DIR%\log4j2_client.properties" (
@@ -104,5 +94,16 @@ for /f "usebackq delims=" %%a in ("%APP_DIR%\config\jvm_client_options") do (
         set "JAVA_OPTS=!JAVA_OPTS! !line!"
     )
 )
+
+REM Parse JvmOption from command line, it should be parsed after jvm_client_options
+for %%i in (%*) do (
+    set "arg=%%i"
+    if "!arg:~0,9!"=="JvmOption" (
+        set "JVM_OPTION=!arg:~9!"
+        set "JAVA_OPTS=!JAVA_OPTS! !JVM_OPTION!"
+        goto :break_loop
+    )
+)
+:break_loop
 
 java %JAVA_OPTS% -cp %CLASS_PATH% %APP_MAIN% %args%

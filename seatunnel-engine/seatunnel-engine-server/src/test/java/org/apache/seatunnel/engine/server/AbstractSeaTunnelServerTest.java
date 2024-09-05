@@ -113,7 +113,8 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
         Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
 
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
-                server.getCoordinatorService().submitJob(jobId, data);
+                server.getCoordinatorService()
+                        .submitJob(jobId, data, jobImmutableInformation.isStartWithSavePoint());
         voidPassiveCompletableFuture.join();
     }
 

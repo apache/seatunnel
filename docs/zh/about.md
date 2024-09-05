@@ -7,7 +7,7 @@
 
 SeaTunnel是一个非常易用、超高性能的分布式数据集成平台，支持实时海量数据同步。 每天可稳定高效同步数百亿数据，已被近百家企业应用于生产。
 
-## 我们为什么需要 SeaTunnel
+## 为什么需要 SeaTunnel
 
 SeaTunnel专注于数据集成和数据同步，主要旨在解决数据集成领域的常见问题：
 
@@ -18,21 +18,21 @@ SeaTunnel专注于数据集成和数据同步，主要旨在解决数据集成�
 - 技术栈复杂：企业使用的技术组件不同，用户需要针对不同组件开发相应的同步程序来完成数据集成。
 - 管理和维护困难：受限于底层技术组件（Flink/Spark）不同，离线同步和实时同步往往需要分开开发和管理，增加了管理和维护的难度。
 
-## Features of SeaTunnel
+## SeaTunnel 相关特性
 
-- 丰富且可扩展的Connector：SeaTunnel提供了不依赖于特定执行引擎的Connector API。 基于该API开发的Connector（Source、Transform、Sink）可以运行在很多不同的引擎上，例如目前支持的SeaTunnel Engine、Flink、Spark等。
-- Connector插件：插件式设计让用户可以轻松开发自己的Connector并将其集成到SeaTunnel项目中。 目前，SeaTunnel 支持超过 100 个连接器，并且数量正在激增。 这是[当前支持的连接器]的列表(Connector-v2-release-state.md)
+- 丰富且可扩展的Connector：SeaTunnel提供了不依赖于特定执行引擎的Connector API。 基于该API开发的Connector（Source、Transform、Sink）可以运行在很多不同的引擎上，例如目前支持的SeaTunnel引擎（Zeta）、Flink、Spark等。
+- Connector插件：插件式设计让用户可以轻松开发自己的Connector并将其集成到SeaTunnel项目中。 目前，SeaTunnel 支持超过 100 个连接器，并且数量正在激增。
 - 批流集成：基于SeaTunnel Connector API开发的Connector完美兼容离线同步、实时同步、全量同步、增量同步等场景。 它们大大降低了管理数据集成任务的难度。
 - 支持分布式快照算法，保证数据一致性。
-- 多引擎支持：SeaTunnel默认使用SeaTunnel引擎进行数据同步。 SeaTunnel还支持使用Flink或Spark作为Connector的执行引擎，以适应企业现有的技术组件。 SeaTunnel 支持 Spark 和 Flink 的多个版本。
+- 多引擎支持：SeaTunnel默认使用SeaTunnel引擎（Zeta）进行数据同步。 SeaTunnel还支持使用Flink或Spark作为Connector的执行引擎，以适应企业现有的技术组件。 SeaTunnel 支持 Spark 和 Flink 的多个版本。
 - JDBC复用、数据库日志多表解析：SeaTunnel支持多表或全库同步，解决了过度JDBC连接的问题； 支持多表或全库日志读取解析，解决了CDC多表同步场景下需要处理日志重复读取解析的问题。
 - 高吞吐量、低延迟：SeaTunnel支持并行读写，提供稳定可靠、高吞吐量、低延迟的数据同步能力。
 - 完善的实时监控：SeaTunnel支持数据同步过程中每一步的详细监控信息，让用户轻松了解同步任务读写的数据数量、数据大小、QPS等信息。
 - 支持两种作业开发方法：编码和画布设计。 SeaTunnel Web 项目 https://github.com/apache/seatunnel-web 提供作业、调度、运行和监控功能的可视化管理。
 
-## SeaTunnel work flowchart
+## SeaTunnel 工作流图
 
-![SeaTunnel work flowchart](../images/architecture_diagram.png)
+![SeaTunnel Work Flowchart](../images/architecture_diagram.png)
 
 SeaTunnel的运行流程如上图所示。
 
@@ -52,11 +52,11 @@ SeaTunnel 使用的默认引擎是 [SeaTunnel Engine](seatunnel-engine/about.md)
 
 - **Sink Connector** SeaTunnel 支持将数据写入各种关系型、图形、NoSQL、文档和内存数据库； 分布式文件系统，例如HDFS； 以及各种云存储解决方案，例如S3和OSS。 我们还支持将数据写入许多常见的 SaaS 服务。 您可以在[此处]访问详细列表。 如果您愿意，您可以开发自己的 Sink 连接器并轻松将其集成到 SeaTunnel 中。
 
-## Who uses SeaTunnel
+## 谁在使用 SeaTunnel
 
 SeaTunnel 拥有大量用户。 您可以在[用户](https://seatunnel.apache.org/user)中找到有关他们的更多信息.
 
-## Landscapes
+## 展望
 
 <p align="center">
 <br/><br/>
@@ -65,6 +65,6 @@ SeaTunnel 拥有大量用户。 您可以在[用户](https://seatunnel.apache.or
 SeaTunnel 丰富了<a href="https://landscape.cncf.io/card-mode?category=streaming-messaging&license=apache-license-2-0&grouping=category&selected=sea-tunnal">CNCF 云原生景观</a >。
 </p >
 
-## Learn more
+## 了解更多
 
-您可以参阅[快速入门](/docs/category/start-v2/locally/deployment) 了解后续步骤。
+您可以参阅[快速入门](/docs/category/start-v2/locally/deployment) 了解后续相关步骤。

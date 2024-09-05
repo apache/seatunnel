@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.CPU;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.Memory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -29,9 +30,14 @@ import org.junit.jupiter.api.Test;
 
 import com.hazelcast.cluster.Address;
 
+import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
@@ -46,6 +52,11 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
         super.before();
         resourceManager = server.getCoordinatorService().getResourceManager();
         server.getSlotService();
+    }
+
+    @Test
+    public void testHaveWorkerWhenUseHybridDeployment() {
+        Assertions.assertEquals(1, resourceManager.workerCount(null));
     }
 
     @Test
@@ -87,23 +98,110 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
     public void testApplyResourceWithRandomResult()
             throws ExecutionException, InterruptedException {
         FakeResourceManager resourceManager = new FakeResourceManager(nodeEngine);
+        boolean hasDifferentWorker = false;
+        for (int i = 0; i < 5; i++) {
+            List<ResourceProfile> resourceProfiles = new ArrayList<>();
+            resourceProfiles.add(new ResourceProfile());
+            resourceProfiles.add(new ResourceProfile());
+            resourceProfiles.add(new ResourceProfile());
+            resourceProfiles.add(new ResourceProfile());
+            resourceProfiles.add(new ResourceProfile());
+            List<SlotProfile> slotProfiles =
+                    resourceManager.applyResources(1L, resourceProfiles, null).get();
+            Assertions.assertEquals(slotProfiles.size(), 5);
+            Set<Address> addresses =
+                    slotProfiles.stream().map(SlotProfile::getWorker).collect(Collectors.toSet());
+            hasDifferentWorker |= addresses.size() > 1;
+        }
+        Assertions.assertTrue(hasDifferentWorker, "should have different worker for each slot");
+    }
 
+    @Test
+    public void testApplyResourceWithRetryWhenSameNodeNoSlotSuited()
+            throws ExecutionException, InterruptedException {
+        // test retry request slot times 1
+        FakeResourceManagerForRequestSlotRetryTest resourceManager =
+                new FakeResourceManagerForRequestSlotRetryTest(nodeEngine, 2, 1);
         List<ResourceProfile> resourceProfiles = new ArrayList<>();
-        resourceProfiles.add(new ResourceProfile());
-        resourceProfiles.add(new ResourceProfile());
-        resourceProfiles.add(new ResourceProfile());
         resourceProfiles.add(new ResourceProfile());
         resourceProfiles.add(new ResourceProfile());
         List<SlotProfile> slotProfiles =
                 resourceManager.applyResources(1L, resourceProfiles, null).get();
-        Assertions.assertEquals(slotProfiles.size(), 5);
+        Assertions.assertEquals(slotProfiles.size(), 2);
 
-        boolean hasDifferentWorker = false;
-        for (int i = 0; i < 5; i++) {
-            Set<Address> addresses =
-                    slotProfiles.stream().map(SlotProfile::getWorker).collect(Collectors.toSet());
-            hasDifferentWorker = addresses.size() > 1;
-        }
-        Assertions.assertTrue(hasDifferentWorker, "should have different worker for each slot");
+        // test retry request slot time 2 but no enough slot with worker
+        resourceManager = new FakeResourceManagerForRequestSlotRetryTest(nodeEngine, 2, 2);
+        FakeResourceManagerForRequestSlotRetryTest finalResourceManager = resourceManager;
+        List<ResourceProfile> finalResourceProfiles = resourceProfiles;
+        ExecutionException exception =
+                Assertions.assertThrows(
+                        ExecutionException.class,
+                        () ->
+                                finalResourceManager
+                                        .applyResources(1L, finalResourceProfiles, null)
+                                        .get());
+        Assertions.assertInstanceOf(NoEnoughResourceException.class, exception.getCause());
+
+        // test retry request slot time 4 so that more than max retry times
+        resourceProfiles = new ArrayList<>();
+        resourceProfiles.add(new ResourceProfile());
+        resourceManager = new FakeResourceManagerForRequestSlotRetryTest(nodeEngine, 5, 4);
+        List<ResourceProfile> finalResourceProfiles2 = resourceProfiles;
+        FakeResourceManagerForRequestSlotRetryTest finalResourceManager2 = resourceManager;
+        ExecutionException exception2 =
+                Assertions.assertThrows(
+                        ExecutionException.class,
+                        () ->
+                                finalResourceManager2
+                                        .applyResources(1L, finalResourceProfiles2, null)
+                                        .get());
+        Assertions.assertInstanceOf(
+                NoEnoughResourceException.class, exception2.getCause().getCause());
+        Assertions.assertEquals(
+                "can't apply resource request with retry times: 3",
+                exception2.getCause().getCause().getMessage());
+    }
+
+    @Test
+    public void testPreCheckWorkerResourceWithDynamicSlot() throws UnknownHostException {
+        testPreCheckWorkerResource(true);
+        testPreCheckWorkerResource(false);
+    }
+
+    public void testPreCheckWorkerResource(boolean dynamicSlot) throws UnknownHostException {
+        List<ResourceProfile> resourceProfiles = new ArrayList<>();
+        resourceProfiles.add(new ResourceProfile());
+        ConcurrentMap<Address, WorkerProfile> registerWorker = new ConcurrentHashMap<>();
+        Address address1 = new Address("localhost", 5801);
+        WorkerProfile workerProfile1 =
+                new WorkerProfile(
+                        address1,
+                        new ResourceProfile(),
+                        new ResourceProfile(),
+                        dynamicSlot,
+                        new SlotProfile[] {},
+                        new SlotProfile[] {},
+                        Collections.emptyMap());
+        registerWorker.put(address1, workerProfile1);
+
+        Address address2 = new Address("localhost", 5802);
+        WorkerProfile workerProfile2 =
+                new WorkerProfile(
+                        address2,
+                        new ResourceProfile(),
+                        new ResourceProfile(),
+                        dynamicSlot,
+                        new SlotProfile[] {},
+                        new SlotProfile[] {},
+                        Collections.emptyMap());
+        registerWorker.put(address2, workerProfile2);
+        Optional<WorkerProfile> result =
+                new ResourceRequestHandler(
+                                jobId,
+                                resourceProfiles,
+                                registerWorker,
+                                (AbstractResourceManager) this.resourceManager)
+                        .preCheckWorkerResource(new ResourceProfile());
+        Assertions.assertEquals(result.isPresent(), dynamicSlot);
     }
 }

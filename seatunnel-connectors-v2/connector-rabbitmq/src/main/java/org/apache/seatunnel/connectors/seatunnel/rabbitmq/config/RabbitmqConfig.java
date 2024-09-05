@@ -53,6 +53,9 @@ public class RabbitmqConfig implements Serializable {
     private Integer prefetchCount;
     private long deliveryTimeout;
     private String queueName;
+    private Boolean durable;
+    private Boolean exclusive;
+    private Boolean autoDelete;
     private String routingKey;
     private boolean logFailuresOnly = false;
     private String exchange = "";
@@ -195,6 +198,30 @@ public class RabbitmqConfig implements Serializable {
                             "Whether the messages received are supplied with a unique"
                                     + "id to deduplicate messages (in case of failed acknowledgments).");
 
+    public static final Option<Boolean> DURABLE =
+            Options.key("durable")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "true: The queue will survive a server restart."
+                                    + "false: The queue will be deleted on server restart.");
+
+    public static final Option<Boolean> EXCLUSIVE =
+            Options.key("exclusive")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "true: The queue is used only by the current connection and will be deleted when the connection closes."
+                                    + "false: The queue can be used by multiple connections.");
+
+    public static final Option<Boolean> AUTO_DELETE =
+            Options.key("auto_delete")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "true: The queue will be deleted automatically when the last consumer unsubscribes."
+                                    + "false: The queue will not be automatically deleted.");
+
     private void parseSinkOptionProperties(Config pluginConfig) {
         if (CheckConfigUtil.isValidParam(pluginConfig, RABBITMQ_CONFIG.key())) {
             pluginConfig
@@ -258,6 +285,15 @@ public class RabbitmqConfig implements Serializable {
         }
         if (config.hasPath(USE_CORRELATION_ID.key())) {
             this.usesCorrelationId = config.getBoolean(USE_CORRELATION_ID.key());
+        }
+        if (config.hasPath(DURABLE.key())) {
+            this.durable = config.getBoolean(DURABLE.key());
+        }
+        if (config.hasPath(EXCLUSIVE.key())) {
+            this.exclusive = config.getBoolean(EXCLUSIVE.key());
+        }
+        if (config.hasPath(AUTO_DELETE.key())) {
+            this.autoDelete = config.getBoolean(AUTO_DELETE.key());
         }
         parseSinkOptionProperties(config);
     }

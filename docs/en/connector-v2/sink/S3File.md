@@ -12,6 +12,7 @@
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [ ] [cdc](../../concept/connector-v2-features.md)
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
 
 By default, we use 2PC commit to ensure `exactly-once`
 
@@ -244,7 +245,7 @@ Tips: excel type does not support any compression format
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.
 
 ### max_rows_in_memory [int]
 
@@ -280,7 +281,8 @@ Before turning on the synchronous task, do different treatment of the target pat
 Option introduction：  
 `RECREATE_SCHEMA` ：Will be created when the path does not exist. If the path already exists, delete the path and recreate it.         
 `CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the path does not exist, use the path when the path is existed.        
-`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the path does not exist
+`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the path does not exist  
+`IGNORE` ：Ignore the treatment of the table
 
 ### data_save_mode[Enum]
 
@@ -336,7 +338,7 @@ source {
     }
   }
   # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-  # please go to https://seatunnel.apache.org/docs/category/source-v2
+  # please go to https://seatunnel.apache.org/docs/connector-v2/source
 }
 
 transform {
@@ -369,7 +371,7 @@ sink {
       }
   }
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/category/sink-v2
+  # please go to https://seatunnel.apache.org/docs/connector-v2/sink
 }
 ```
 
@@ -445,45 +447,34 @@ For orc file format simple config with `org.apache.hadoop.fs.s3a.SimpleAWSCreden
 
 Multi-table writing and saveMode
 
-```
+```hocon
 env {
-"job.name"="SeaTunnel_job"
-"job.mode"=STREAMING
+  "job.name"="SeaTunnel_job"
+  "job.mode"=STREAMING
 }
 source {
-MySQL-CDC {
-    
-    "connect.max-retries"=3
-    "connection.pool.size"=6
-    "startup.mode"=INITIAL
-    "exactly_once"="true"
-    "stop.mode"=NEVER
-    parallelism=1
-    "result_table_name"=Table11519548644512
-    "dag-parsing.mode"=MULTIPLEX
-    catalog {
-        factory=Mysql
-    }
-    database-names=[
-        "wls_t1"
-    ]
-    table-names=[
-        "wls_t1.mysqlcdc_to_s3_t3",
-        "wls_t1.mysqlcdc_to_s3_t4",
-        "wls_t1.mysqlcdc_to_s3_t5",
-        "wls_t1.mysqlcdc_to_s3_t1",
-        "wls_t1.mysqlcdc_to_s3_t2"
-    ]
-    password="xxxxxx"
-    username="xxxxxxxxxxxxx"
-    base-url="jdbc:mysql://localhost:3306/qa_source"
-    server-time-zone=UTC
+  MySQL-CDC {
+      database-names=[
+          "wls_t1"
+      ]
+      table-names=[
+          "wls_t1.mysqlcdc_to_s3_t3",
+          "wls_t1.mysqlcdc_to_s3_t4",
+          "wls_t1.mysqlcdc_to_s3_t5",
+          "wls_t1.mysqlcdc_to_s3_t1",
+          "wls_t1.mysqlcdc_to_s3_t2"
+      ]
+      password="xxxxxx"
+      username="xxxxxxxxxxxxx"
+      base-url="jdbc:mysql://localhost:3306/qa_source"
+  }
 }
-}
+
 transform {
 }
+
 sink {
-S3File {
+  S3File {
     bucket = "s3a://seatunnel-test"
     tmp_path = "/tmp/seatunnel/${table_name}"
     path="/test/${table_name}"
