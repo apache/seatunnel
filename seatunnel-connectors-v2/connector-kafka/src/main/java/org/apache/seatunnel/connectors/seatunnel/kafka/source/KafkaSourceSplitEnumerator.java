@@ -151,8 +151,7 @@ public class KafkaSourceSplitEnumerator
                             listOffsets(topicPartitions, OffsetSpec.earliest()));
                     break;
                 case GROUP_OFFSETS:
-                    topicPartitionOffsets.putAll(
-                            listConsumerGroupOffsets(topicPartitions, metadata));
+                    topicPartitionOffsets.putAll(listConsumerGroupOffsets(topicPartitions));
                     break;
                 case LATEST:
                     topicPartitionOffsets.putAll(listOffsets(topicPartitions, OffsetSpec.latest()));
@@ -366,13 +365,12 @@ public class KafkaSourceSplitEnumerator
                 .get();
     }
 
-    public Map<TopicPartition, Long> listConsumerGroupOffsets(
-            Collection<TopicPartition> partitions, ConsumerMetadata metadata)
+    public Map<TopicPartition, Long> listConsumerGroupOffsets(Collection<TopicPartition> partitions)
             throws ExecutionException, InterruptedException {
         ListConsumerGroupOffsetsOptions options =
                 new ListConsumerGroupOffsetsOptions().topicPartitions(new ArrayList<>(partitions));
         return adminClient
-                .listConsumerGroupOffsets(metadata.getConsumerGroup(), options)
+                .listConsumerGroupOffsets(kafkaSourceConfig.getConsumerGroup(), options)
                 .partitionsToOffsetAndMetadata()
                 .thenApply(
                         result -> {

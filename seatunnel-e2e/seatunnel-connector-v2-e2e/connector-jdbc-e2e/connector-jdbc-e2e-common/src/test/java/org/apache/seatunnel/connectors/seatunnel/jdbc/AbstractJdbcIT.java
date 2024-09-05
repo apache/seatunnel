@@ -99,7 +99,8 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                                 "bash",
                                 "-c",
                                 "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + driverUrl());
+                                        + driverUrl()
+                                        + " --no-check-certificate");
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
 
@@ -122,7 +123,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     protected URLClassLoader getUrlClassLoader() throws MalformedURLException {
         if (urlClassLoader == null) {
             urlClassLoader =
-                    new URLClassLoader(
+                    new InsecureURLClassLoader(
                             new URL[] {new URL(driverUrl())},
                             AbstractJdbcIT.class.getClassLoader());
             Thread.currentThread().setContextClassLoader(urlClassLoader);

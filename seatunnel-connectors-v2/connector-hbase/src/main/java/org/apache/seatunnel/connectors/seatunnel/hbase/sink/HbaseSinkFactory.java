@@ -18,8 +18,13 @@
 package org.apache.seatunnel.connectors.seatunnel.hbase.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.SinkCommonOptions;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
 
 import com.google.auto.service.AutoService;
 
@@ -50,6 +55,7 @@ public class HbaseSinkFactory implements TableSinkFactory {
         return OptionRule.builder()
                 .required(ZOOKEEPER_QUORUM, TABLE, ROWKEY_COLUMNS, FAMILY_NAME)
                 .optional(
+                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA,
                         ROWKEY_DELIMITER,
                         VERSION_COLUMN,
                         NULL_MODE,
@@ -58,5 +64,12 @@ public class HbaseSinkFactory implements TableSinkFactory {
                         ENCODING,
                         HBASE_EXTRA_CONFIG)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        HbaseParameters hbaseParameters = HbaseParameters.buildWithConfig(context.getOptions());
+        CatalogTable catalogTable = context.getCatalogTable();
+        return () -> new HbaseSink(hbaseParameters, catalogTable);
     }
 }
