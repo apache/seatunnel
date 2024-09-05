@@ -320,7 +320,7 @@ transform {
             inputx = ["${input}"]
         }
     }
-    result_table_name = "embedding_output_3"
+    result_table_name = "embedding_output_1"
   }
 }
 
