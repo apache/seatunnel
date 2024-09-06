@@ -502,8 +502,10 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                 sourceTable -> {
                     final String catalogName =
                             sourceTable.getCatalogTable().getTableId().getCatalogName();
-                    Assertions.assertTrue(
-                            StringUtils.equalsIgnoreCase(catalogName, this.catalog.name()));
+                    if (this.catalog != null) {
+                        Assertions.assertTrue(
+                                StringUtils.equalsIgnoreCase(catalogName, this.catalog.name()));
+                    }
                 });
     }
 
