@@ -143,12 +143,7 @@ docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluste
 
 > docker cluster mode is only support zeta engine.
 
-In this part, we will use docker to set up SeaTunnel Cluster with 1 master node and 2 worker nodes.
-
-And there has 2 ways to create cluster within docker.
-
-## 1. Use Docker-compose
-`docker-compose.yaml` :
+The `docker-compose.yaml` file is :
 ```yaml
 version: '3.8'
 
@@ -207,52 +202,92 @@ networks:
 
 ```
 
-run `docker-compose up` command to start the cluster.
-
-## 2. Use Docker Directly
-
-1. create a network
-```shell
-docker network create seatunnel-network
-```
-
-2. get this network's Gateway IP
-```shell
-docker network inspect seatunnel-network
-```
-![docker-network-gateway.png](../../../images/docker-network-gateway.png)
-
-3. start the nodes
-```shell
-## start master and export 5801 port 
-docker run -d --name seatunnel_master \
-    --network seatunnel-network \
-    --rm \
-    -e ST_DOCKER_MEMBER_LIST=172.18.0.1:5801 \ # set to the Gateway IP
-    -p 5801:5801 \
-    apache/seatunnel \
-    ./bin/seatunnel-cluster.sh -r master
-
-## start worker1
-docker run -d --name seatunnel_worker_1 \
-    --network seatunnel-network \
-    --rm \
-    -e ST_DOCKER_MEMBER_LIST=172.18.0.1:5801 \
-    apache/seatunnel \
-    ./bin/seatunnel-cluster.sh -r worker
-
-## start worker2
-docker run -d --name seatunnel_worker_2 \ 
-    --network seatunnel-network \
-    --rm \
-     -e ST_DOCKER_MEMBER_LIST=172.18.0.1:5801 \   
-    apache/seatunnel \
-    ./bin/seatunnel-cluster.sh -r worker    
-
-```
+run `docker-compose up -d` command to start the cluster.
 
 
 You can use `docker logs -f seatunne_master`, `docker logs -f seatunnel_worker_1` to check the node log.
 And when you call `http://localhost:5801/hazelcast/rest/maps/system-monitoring-information`, you will see there are 2 nodes as we excepted.
 
 After that, you can use client or restapi to submit job to this cluster.
+
+## Scale your Cluster
+
+If you want to increase cluster node, like add a new work node.
+
+```yaml
+version: '3.8'
+
+services:
+  master:
+    image: apache/seatunnel
+    container_name: seatunnel_master
+    environment:
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4    
+    entrypoint: >
+      /bin/sh -c "
+      /opt/seatunnel/bin/seatunnel-cluster.sh -r master
+      "    
+    ports:
+      - "5801:5801"  
+    networks:
+      seatunnel_network:
+        ipv4_address: 172.16.0.2
+
+  worker1:
+    image: apache/seatunnel
+    container_name: seatunnel_worker_1
+    environment:
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4
+    entrypoint: >
+      /bin/sh -c "
+      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
+      " 
+    depends_on:
+      - master
+    networks:
+      seatunnel_network:
+        ipv4_address: 172.16.0.3
+
+  worker2:
+    image: apache/seatunnel
+    container_name: seatunnel_worker_2
+    environment:
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4
+    entrypoint: >
+      /bin/sh -c "
+      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
+      " 
+    depends_on:
+      - master
+    networks:
+      seatunnel_network:
+        ipv4_address: 172.16.0.4
+  ####
+  ## add new worker node
+  ####      
+  worker3:
+    image: apache/seatunnel
+    container_name: seatunnel_worker_3
+    environment:
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4,172.16.0.5 # add ip to here
+    entrypoint: >
+      /bin/sh -c "
+      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
+      " 
+    depends_on:
+      - master
+    networks:
+      seatunnel_network:
+        ipv4_address: 172.16.0.5        # use a not used ip
+
+networks:
+  seatunnel_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.16.0.0/24
+
+```
+
+and run `docker-compose up -d` command, the new worker node will start, and the current node won't restart.
+

@@ -142,12 +142,7 @@ docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluste
 
 docker下的集群模式仅支持Zeta引擎
 
-有两种方式可以来创建SeaTunnel集群
-1. 使用docker-compose
-2. 直接使用docker来创建
-
-## 1. 使用Docker-compose
-配置文件为：
+`docker-compose.yaml` 配置文件为：
 ```yaml
 version: '3.8'
 
@@ -205,50 +200,87 @@ networks:
         - subnet: 172.16.0.0/24
 
 ```
-
 运行 `docker-compose up`命令来启动集群，该配置会启动一个master节点，2个worker节点
 
-## 2. 直接使用docker来创建
-
-1. 创建一个Network
-```shell
-docker network create seatunnel-network
-```
-
-2. 查看刚刚创建Network的Gateway IP
-```shell
-docker network inspect seatunnel-network
-```
-![docker-network-gateway.png](../../../images/docker-network-gateway.png)
-
-3. 启动节点
-```shell
-## start master and export 5801 port 
-docker run -d --name seatunnel_master \
-    --network seatunnel-network \
-    --rm \
-    -e ST_DOCKER_MEMBER_LIST=172.18.0.1:5801 \ # set to the Gateway IP
-    -p 5801:5801 \
-    apache/seatunnel \
-    ./bin/seatunnel-cluster.sh -r master
-
-## start worker1
-docker run -d --name seatunnel_worker_1 \
-    --network seatunnel-network \
-    --rm \
-    -e ST_DOCKER_MEMBER_LIST=172.18.0.1:5801 \
-    apache/seatunnel \
-    ./bin/seatunnel-cluster.sh -r worker
-
-## start worker2
-docker run -d --name seatunnel_worker_2 \ 
-    --network seatunnel-network \
-    --rm \
-     -e ST_DOCKER_MEMBER_LIST=172.18.0.1:5801 \   
-    apache/seatunnel \
-    ./bin/seatunnel-cluster.sh -r worker    
-
-```
 
 启动完成后，可以运行`docker logs -f seatunne_master`, `docker logs -f seatunnel_worker_1`来查看节点的日志  
 当你访问`http://localhost:5801/hazelcast/rest/maps/system-monitoring-information` 时，可以看到集群的状态为1个master节点，2个worker节点.
+
+## 集群扩容
+当你需要对集群扩容, 例如需要添加一个worker节点时
+```yaml
+version: '3.8'
+
+services:
+  master:
+    image: apache/seatunnel
+    container_name: seatunnel_master
+    environment:
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4    
+    entrypoint: >
+      /bin/sh -c "
+      /opt/seatunnel/bin/seatunnel-cluster.sh -r master
+      "    
+    ports:
+      - "5801:5801"  
+    networks:
+      seatunnel_network:
+        ipv4_address: 172.16.0.2
+
+  worker1:
+    image: apache/seatunnel
+    container_name: seatunnel_worker_1
+    environment:
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4
+    entrypoint: >
+      /bin/sh -c "
+      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
+      " 
+    depends_on:
+      - master
+    networks:
+      seatunnel_network:
+        ipv4_address: 172.16.0.3
+
+  worker2:
+    image: apache/seatunnel
+    container_name: seatunnel_worker_2
+    environment:
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4
+    entrypoint: >
+      /bin/sh -c "
+      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
+      " 
+    depends_on:
+      - master
+    networks:
+      seatunnel_network:
+        ipv4_address: 172.16.0.4
+  ####
+  ## 添加新节点配置
+  ####      
+  worker3:
+    image: apache/seatunnel
+    container_name: seatunnel_worker_3
+    environment:
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4,172.16.0.5 # 添加ip到这里
+    entrypoint: >
+      /bin/sh -c "
+      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
+      " 
+    depends_on:
+      - master
+    networks:
+      seatunnel_network:
+        ipv4_address: 172.16.0.5        # 设置新节点ip
+
+networks:
+  seatunnel_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.16.0.0/24
+
+```
+
+然后运行`docker-compose up -d`命令, 将会新建一个worker阶段, 已有的节点不会重启.
