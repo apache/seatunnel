@@ -277,7 +277,16 @@ public class RestApiIT {
     public void testUpdateTagsSuccess() {
 
         String config = "{\n" + "    \"tag1\": \"dev_1\",\n" + "    \"tag2\": \"dev_2\"\n" + "}";
-
+        given().get(
+                        HOST
+                                + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + RestConstant.OVERVIEW
+                                + "?tag1=dev_1")
+                .then()
+                .statusCode(200)
+                .body("projectVersion", notNullValue())
+                .body("totalSlot", equalTo("0"))
+                .body("workers", equalTo("0"));
         given().body(config)
                 .put(
                         HOST
@@ -315,7 +324,16 @@ public class RestApiIT {
     public void testClearTags() {
 
         String config = "{}";
-
+        given().get(
+                        HOST
+                                + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + RestConstant.OVERVIEW
+                                + "?node=node1")
+                .then()
+                .statusCode(200)
+                .body("projectVersion", notNullValue())
+                .body("totalSlot", equalTo("20"))
+                .body("workers", equalTo("1"));
         given().body(config)
                 .put(
                         HOST
@@ -329,7 +347,7 @@ public class RestApiIT {
                         HOST
                                 + node1.getCluster().getLocalMember().getAddress().getPort()
                                 + RestConstant.OVERVIEW
-                                + "?tag1=dev_1")
+                                + "?node=node1")
                 .then()
                 .statusCode(200)
                 .body("projectVersion", notNullValue())
