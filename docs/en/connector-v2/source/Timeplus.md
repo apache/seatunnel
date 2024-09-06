@@ -30,7 +30,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 | Datasource | Supported Versions |                                                    Dependency                                                    |
 |------------|--------------------|------------------------------------------------------------------------------------------------------------------|
-| Timeplus | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-timeplus) |
+| Timeplus | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-timeplus) |
 
 ## Data Type Mapping
 
