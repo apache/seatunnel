@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundExce
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
+import org.apache.seatunnel.engine.server.task.operation.TracingOperation;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.logging.ILogger;
@@ -31,11 +32,10 @@ import com.hazelcast.logging.Logger;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
-import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 
-public class SinkRegisterOperation extends Operation implements IdentifiedDataSerializable {
+public class SinkRegisterOperation extends TracingOperation implements IdentifiedDataSerializable {
 
     private static final ILogger LOGGER = Logger.getLogger(SinkRegisterOperation.class);
     private TaskLocation writerTaskID;
@@ -49,7 +49,7 @@ public class SinkRegisterOperation extends Operation implements IdentifiedDataSe
     }
 
     @Override
-    public void run() throws Exception {
+    public void runInternal() throws Exception {
         SeaTunnelServer server = getService();
         Address readerAddress = getCallerAddress();
         RetryUtils.retryWithException(

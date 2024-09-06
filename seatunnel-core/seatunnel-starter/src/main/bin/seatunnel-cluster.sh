@@ -68,8 +68,7 @@ fi
 for i in "$@"
 do
   if [[ "${i}" == *"JvmOption"* ]]; then
-    JVM_OPTION="${i}"
-    JAVA_OPTS="${JAVA_OPTS} ${JVM_OPTION#*=}"
+    :
   elif [[ "${i}" == "-d" || "${i}" == "--daemon" ]]; then
     DAEMON=true
   elif [[ "${i}" == "-r" || "${i}" == "--role" ]]; then
@@ -84,6 +83,7 @@ done
 
 # Log4j2 Config
 JAVA_OPTS="${JAVA_OPTS} -Dlog4j2.contextSelector=org.apache.logging.log4j.core.async.AsyncLoggerContextSelector"
+JAVA_OPTS="${JAVA_OPTS} -Dlog4j2.isThreadContextMapInheritable=true"
 if [ -e "${CONF_DIR}/log4j2.properties" ]; then
   JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.logging.type=log4j2 -Dlog4j2.configurationFile=${CONF_DIR}/log4j2.properties"
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.path=${APP_DIR}/logs"
@@ -138,6 +138,15 @@ JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.config=${HAZELCAST_CONFIG}"
 # If you need to debug your code in cluster mode, please enable this configuration option and listen to the specified
 # port in your IDE. After that, you can happily debug your code.
 # JAVA_OPTS="${JAVA_OPTS} -Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=5001,suspend=n"
+
+# Parse JvmOption from command line, it should be parsed after jvm_options
+for i in "$@"
+do
+  if [[ "${i}" == *"JvmOption"* ]]; then
+    JVM_OPTION="${i}"
+    JAVA_OPTS="${JAVA_OPTS} ${JVM_OPTION#*=}"
+  fi
+done
 
 CLASS_PATH=${APP_DIR}/lib/*:${APP_JAR}
 

@@ -2,7 +2,7 @@
 sidebar_position: 3
 ---
 
-# Set Up with Docker in local mode
+# Set Up With Docker In Local Mode
 
 ## Zeta Engine
 
@@ -15,17 +15,53 @@ docker pull apache/seatunnel:<version_tag>
 How to submit job in local mode
 
 ```shell
-docker run --rm -it apache/seatunnel bash ./bin/seatunnel.sh -e local -c <CONFIG_FILE>
+# Run fake source to console sink
+docker run --rm -it apache/seatunnel:<version_tag> ./bin/seatunnel.sh -m local -c config/v2.batch.config.template
 
+# Run job with custom config file
+docker run --rm -it -v /<The-Config-Directory-To-Mount>/:/config apache/seatunnel:<version_tag> ./bin/seatunnel.sh -m local -c /config/fake_to_console.conf
 
-# eg: a fake source to console sink
-docker run --rm -it apache/seatunnel bash ./bin/seatunnel.sh -e local -c config/v2.batch.config.template
+# Example
+# If you config file is in /tmp/job/fake_to_console.conf
+docker run --rm -it -v /tmp/job/:/config apache/seatunnel:<version_tag> ./bin/seatunnel.sh -m local -c /config/fake_to_console.conf
 
+# Set JVM options when running
+docker run --rm -it -v /tmp/job/:/config apache/seatunnel:<version_tag> ./bin/seatunnel.sh -DJvmOption="-Xms4G -Xmx4G" -m local -c /config/fake_to_console.conf
 ```
 
 ### Build Image By Yourself
 
-```Dockerfile
+Build from source code. The way of downloading the source code is the same as the way of downloading the binary package.
+You can download the source code from the [download page](https://seatunnel.apache.org/download/) or clone the source code from the [GitHub repository](https://github.com/apache/seatunnel/releases)
+
+#### Build With One Command
+```shell
+cd seatunnel
+# Use already sett maven profile
+sh ./mvnw -B clean install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Dlicense.skipAddThirdParty=true -D"docker.build.skip"=false -D"docker.verify.skip"=false -D"docker.push.skip"=true -D"docker.tag"=2.3.8 -Dmaven.deploy.skip --no-snapshot-updates -Pdocker,seatunnel
+
+# Check the docker image
+docker images | grep apache/seatunnel
+```
+
+#### Build Step By Step
+```shell
+# Build binary package from source code
+sh ./mvnw clean package -DskipTests -Dskip.spotless=true
+
+# Build docker image
+cd seatunnel-dist
+docker build -f src/main/docker/Dockerfile --build-arg VERSION=2.3.8 -t apache/seatunnel:2.3.8 .
+
+# If you build from dev branch, you should add SNAPSHOT suffix to the version
+docker build -f src/main/docker/Dockerfile --build-arg VERSION=2.3.8-SNAPSHOT -t apache/seatunnel:2.3.8-SNAPSHOT .
+
+# Check the docker image
+docker images | grep apache/seatunnel
+```
+
+The Dockerfile is like this:
+```dockerfile
 FROM openjdk:8
 
 ARG VERSION
@@ -64,7 +100,7 @@ docker run \
 
 Or you can change the `SPARK_HOME`, `FLINK_HOME` environment variable in Dockerfile and re-build your  and mount the spark/flink to related path.
 
-```Dockerfile
+```dockerfile
 FROM apache/seatunnel
 
 ENV SPARK_HOME=<YOUR_CUSTOMIZATION_PATH>

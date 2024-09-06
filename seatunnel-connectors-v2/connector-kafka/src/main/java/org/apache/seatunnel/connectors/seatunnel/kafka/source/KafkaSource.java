@@ -27,20 +27,31 @@ import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordsWithSplitIds;
+import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SourceReaderOptions;
+import org.apache.seatunnel.connectors.seatunnel.kafka.source.fetch.KafkaSourceFetcherManager;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+
+import com.google.common.base.Supplier;
+
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 
 public class KafkaSource
         implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSplit, KafkaSourceState>,
                 SupportParallelism {
 
+    private final ReadonlyConfig readonlyConfig;
     private JobContext jobContext;
 
     private final KafkaSourceConfig kafkaSourceConfig;
 
     public KafkaSource(ReadonlyConfig readonlyConfig) {
+        this.readonlyConfig = readonlyConfig;
         kafkaSourceConfig = new KafkaSourceConfig(readonlyConfig);
     }
 
@@ -66,10 +77,28 @@ public class KafkaSource
     @Override
     public SourceReader<SeaTunnelRow, KafkaSourceSplit> createReader(
             SourceReader.Context readerContext) {
+
+        BlockingQueue<RecordsWithSplitIds<ConsumerRecord<byte[], byte[]>>> elementsQueue =
+                new LinkedBlockingQueue<>();
+
+        Supplier<KafkaPartitionSplitReader> kafkaPartitionSplitReaderSupplier =
+                () -> new KafkaPartitionSplitReader(kafkaSourceConfig, readerContext);
+
+        KafkaSourceFetcherManager kafkaSourceFetcherManager =
+                new KafkaSourceFetcherManager(
+                        elementsQueue, kafkaPartitionSplitReaderSupplier::get);
+        KafkaRecordEmitter kafkaRecordEmitter =
+                new KafkaRecordEmitter(
+                        kafkaSourceConfig.getMapMetadata(),
+                        kafkaSourceConfig.getMessageFormatErrorHandleWay());
+
         return new KafkaSourceReader(
+                elementsQueue,
+                kafkaSourceFetcherManager,
+                kafkaRecordEmitter,
+                new SourceReaderOptions(readonlyConfig),
                 kafkaSourceConfig,
-                readerContext,
-                kafkaSourceConfig.getMessageFormatErrorHandleWay());
+                readerContext);
     }
 
     @Override
