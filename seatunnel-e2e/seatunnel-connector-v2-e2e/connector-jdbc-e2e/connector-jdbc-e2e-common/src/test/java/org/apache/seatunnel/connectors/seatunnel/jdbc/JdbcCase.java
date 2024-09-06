@@ -57,8 +57,4 @@ public class JdbcCase {
     private String catalogDatabase;
     private String catalogSchema;
     private String catalogTable;
-
-    // The full path of the table created when initializing data
-    // According to whether jdbc api supports setting
-    private String tablePathFullName;
 }

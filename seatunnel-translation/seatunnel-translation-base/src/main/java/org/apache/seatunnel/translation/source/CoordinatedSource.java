@@ -24,10 +24,6 @@ import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.api.source.event.EnumeratorCloseEvent;
-import org.apache.seatunnel.api.source.event.EnumeratorOpenEvent;
-import org.apache.seatunnel.api.source.event.ReaderCloseEvent;
-import org.apache.seatunnel.api.source.event.ReaderOpenEvent;
 import org.apache.seatunnel.translation.util.ThreadPoolExecutorFactory;
 
 import lombok.extern.slf4j.Slf4j;
@@ -140,7 +136,6 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
                 ThreadPoolExecutorFactory.createScheduledThreadPoolExecutor(
                         parallelism, "parallel-split-enumerator-executor");
         splitEnumerator.open();
-        coordinatedEnumeratorContext.getEventListener().onEvent(new EnumeratorOpenEvent());
         restoredSplitStateMap.forEach(
                 (subtaskId, splits) -> {
                     splitEnumerator.addSplitsBack(splits, subtaskId);
@@ -152,10 +147,6 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
                         entry -> {
                             try {
                                 entry.getValue().open();
-                                readerContextMap
-                                        .get(entry.getKey())
-                                        .getEventListener()
-                                        .onEvent(new ReaderOpenEvent());
                                 splitEnumerator.registerReader(entry.getKey());
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
@@ -212,7 +203,6 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
         for (Map.Entry<Integer, SourceReader<T, SplitT>> entry : readerMap.entrySet()) {
             readerRunningMap.get(entry.getKey()).set(false);
             entry.getValue().close();
-            readerContextMap.get(entry.getKey()).getEventListener().onEvent(new ReaderCloseEvent());
         }
 
         if (executorService != null) {
@@ -221,7 +211,6 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
 
         try (SourceSplitEnumerator<SplitT, StateT> closed = splitEnumerator) {
             // just close the resources
-            coordinatedEnumeratorContext.getEventListener().onEvent(new EnumeratorCloseEvent());
         }
     }
 

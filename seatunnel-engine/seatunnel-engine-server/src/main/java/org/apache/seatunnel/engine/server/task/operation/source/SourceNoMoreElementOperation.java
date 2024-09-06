@@ -24,16 +24,15 @@ import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundExce
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
-import org.apache.seatunnel.engine.server.task.operation.TracingOperation;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 
-public class SourceNoMoreElementOperation extends TracingOperation
-        implements IdentifiedDataSerializable {
+public class SourceNoMoreElementOperation extends Operation implements IdentifiedDataSerializable {
 
     private TaskLocation currentTaskID;
     private TaskLocation enumeratorTaskID;
@@ -46,7 +45,7 @@ public class SourceNoMoreElementOperation extends TracingOperation
     }
 
     @Override
-    public void runInternal() throws Exception {
+    public void run() throws Exception {
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(
                 () -> {

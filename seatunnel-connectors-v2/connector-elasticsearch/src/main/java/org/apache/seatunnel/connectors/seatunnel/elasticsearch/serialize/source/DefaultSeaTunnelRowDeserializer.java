@@ -137,9 +137,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                             fieldName, value, seaTunnelDataType, JsonUtils.toJsonString(rowRecord)),
                     ex);
         }
-        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(seaTunnelFields);
-        seaTunnelRow.setTableId(rowRecord.getTableId());
-        return seaTunnelRow;
+        return new SeaTunnelRow(seaTunnelFields);
     }
 
     Object convertValue(SeaTunnelDataType<?> fieldType, String fieldValue)

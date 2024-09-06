@@ -295,9 +295,6 @@ public final class SeaTunnelRow implements Serializable {
                     size += getBytesForValue(entry.getKey()) + getBytesForValue(entry.getValue());
                 }
                 return size;
-            case "HeapByteBuffer":
-            case "ByteBuffer":
-                return ((ByteBuffer) v).capacity();
             case "SeaTunnelRow":
                 int rowSize = 0;
                 SeaTunnelRow row = (SeaTunnelRow) v;

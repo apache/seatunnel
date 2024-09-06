@@ -20,8 +20,6 @@ package org.apache.seatunnel.translation.flink.source;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.source.event.ReaderCloseEvent;
-import org.apache.seatunnel.api.source.event.ReaderOpenEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.flink.api.connector.source.ReaderOutput;
@@ -68,7 +66,6 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
     public void start() {
         try {
             sourceReader.open();
-            context.getEventListener().onEvent(new ReaderOpenEvent());
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -124,7 +121,6 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
     @Override
     public void close() throws Exception {
         sourceReader.close();
-        context.getEventListener().onEvent(new ReaderCloseEvent());
     }
 
     @Override

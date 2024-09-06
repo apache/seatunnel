@@ -63,6 +63,6 @@ public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFa
             throw new RuntimeException("Failed to create SinkCommitter.", e);
         }
         return new SparkDataWriter<>(
-                writer, committer, new MultiTableManager(catalogTables), epochId, context);
+                writer, committer, new MultiTableManager(catalogTables), epochId);
     }
 }

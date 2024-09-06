@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.fake.source;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.source.event.ReaderCloseEvent;
+import org.apache.seatunnel.api.source.event.ReaderOpenEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.MultipleTableFakeSourceConfig;
@@ -71,10 +73,14 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     }
 
     @Override
-    public void open() {}
+    public void open() {
+        context.getEventListener().onEvent(new ReaderOpenEvent());
+    }
 
     @Override
-    public void close() {}
+    public void close() {
+        context.getEventListener().onEvent(new ReaderCloseEvent());
+    }
 
     @Override
     @SuppressWarnings("MagicNumber")

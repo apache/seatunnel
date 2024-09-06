@@ -86,16 +86,6 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final long BYTES_4GB = (long) Math.pow(2, 32);
     public static final OracleTypeConverter INSTANCE = new OracleTypeConverter();
 
-    private final boolean decimalTypeNarrowing;
-
-    public OracleTypeConverter() {
-        this(true);
-    }
-
-    public OracleTypeConverter(boolean decimalTypeNarrowing) {
-        this.decimalTypeNarrowing = decimalTypeNarrowing;
-    }
-
     @Override
     public String identifier() {
         return DatabaseIdentifier.ORACLE;
@@ -129,14 +119,12 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
 
                 if (scale <= 0) {
                     int newPrecision = (int) (precision - scale);
-                    if (newPrecision <= 18 && decimalTypeNarrowing) {
-                        if (newPrecision == 1) {
-                            builder.dataType(BasicType.BOOLEAN_TYPE);
-                        } else if (newPrecision <= 9) {
-                            builder.dataType(BasicType.INT_TYPE);
-                        } else {
-                            builder.dataType(BasicType.LONG_TYPE);
-                        }
+                    if (newPrecision == 1) {
+                        builder.dataType(BasicType.BOOLEAN_TYPE);
+                    } else if (newPrecision <= 9) {
+                        builder.dataType(BasicType.INT_TYPE);
+                    } else if (newPrecision <= 18) {
+                        builder.dataType(BasicType.LONG_TYPE);
                     } else if (newPrecision < 38) {
                         builder.dataType(new DecimalType(newPrecision, 0));
                         builder.columnLength((long) newPrecision);

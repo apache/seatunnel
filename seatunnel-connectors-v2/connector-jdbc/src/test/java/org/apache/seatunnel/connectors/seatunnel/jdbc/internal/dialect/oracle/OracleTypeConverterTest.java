@@ -36,127 +36,18 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.or
 
 public class OracleTypeConverterTest {
 
-    private static final OracleTypeConverter INSTANCE = new OracleTypeConverter();
-
     @Test
     public void testConvertUnsupported() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("aaa").dataType("aaa").build();
         try {
-            INSTANCE.convert(typeDefine);
+            OracleTypeConverter.INSTANCE.convert(typeDefine);
             Assertions.fail();
         } catch (SeaTunnelRuntimeException e) {
             // ignore
         } catch (Throwable e) {
             Assertions.fail();
         }
-    }
-
-    @Test
-    public void testConvertNumberWithoutDecimalTypeNarrowing() {
-        OracleTypeConverter converter = new OracleTypeConverter(false);
-
-        BasicTypeDefine<Object> typeDefine =
-                BasicTypeDefine.builder()
-                        .name("test")
-                        .columnType("number")
-                        .dataType("number")
-                        .build();
-        Column column = converter.convert(typeDefine);
-
-        Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(new DecimalType(38, 18), column.getDataType());
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
-
-        typeDefine =
-                BasicTypeDefine.builder()
-                        .name("test")
-                        .columnType("number(38,127)")
-                        .dataType("number")
-                        .precision(38L)
-                        .scale(127)
-                        .build();
-        column = converter.convert(typeDefine);
-        Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(new DecimalType(38, 18), column.getDataType());
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
-
-        typeDefine =
-                BasicTypeDefine.builder()
-                        .name("test")
-                        .columnType("number")
-                        .dataType("number")
-                        .scale(0)
-                        .build();
-        column = converter.convert(typeDefine);
-        Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(new DecimalType(38, 0), column.getDataType());
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
-
-        typeDefine =
-                BasicTypeDefine.builder()
-                        .name("test")
-                        .columnType("number(1,0)")
-                        .dataType("number")
-                        .precision(1L)
-                        .scale(0)
-                        .build();
-        column = converter.convert(typeDefine);
-        Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(new DecimalType(1, 0), column.getDataType());
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
-
-        typeDefine =
-                BasicTypeDefine.builder()
-                        .name("test")
-                        .columnType("number(8,0)")
-                        .dataType("number")
-                        .precision(8L)
-                        .scale(0)
-                        .build();
-        column = converter.convert(typeDefine);
-        Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(new DecimalType(8, 0), column.getDataType());
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
-
-        typeDefine =
-                BasicTypeDefine.builder()
-                        .name("test")
-                        .columnType("number(18,0)")
-                        .dataType("number")
-                        .precision(18L)
-                        .scale(0)
-                        .build();
-        column = converter.convert(typeDefine);
-        Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(new DecimalType(18, 0), column.getDataType());
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
-
-        typeDefine =
-                BasicTypeDefine.builder()
-                        .name("test")
-                        .columnType("number(38,0)")
-                        .dataType("number")
-                        .precision(38L)
-                        .scale(0)
-                        .build();
-        column = converter.convert(typeDefine);
-        Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(new DecimalType(38, 0), column.getDataType());
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
-
-        typeDefine =
-                BasicTypeDefine.builder()
-                        .name("test")
-                        .columnType("number(39,0)")
-                        .dataType("number")
-                        .precision(39L)
-                        .scale(0)
-                        .build();
-        column = converter.convert(typeDefine);
-        Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(new DecimalType(38, 0), column.getDataType());
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
     }
 
     @Test
@@ -167,24 +58,10 @@ public class OracleTypeConverterTest {
                         .columnType("integer")
                         .dataType("integer")
                         .build();
-        Column column = INSTANCE.convert(typeDefine);
+        Column column = OracleTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(new DecimalType(38, 0), column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
-
-        // generated by int/smallint type in oracle create table sql
-        BasicTypeDefine<Object> numberTypeDefine =
-                BasicTypeDefine.builder()
-                        .name("test")
-                        .columnType("number")
-                        .dataType("number")
-                        .precision(null)
-                        .scale(0)
-                        .build();
-        column = INSTANCE.convert(numberTypeDefine);
-        Assertions.assertEquals(numberTypeDefine.getName(), column.getName());
-        Assertions.assertEquals(new DecimalType(38, 0), column.getDataType());
-        Assertions.assertEquals(numberTypeDefine.getColumnType(), column.getSourceType());
     }
 
     @Test
@@ -195,7 +72,7 @@ public class OracleTypeConverterTest {
                         .columnType("number")
                         .dataType("number")
                         .build();
-        Column column = INSTANCE.convert(typeDefine);
+        Column column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(new DecimalType(38, 18), column.getDataType());
@@ -209,7 +86,7 @@ public class OracleTypeConverterTest {
                         .precision(38L)
                         .scale(127)
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(new DecimalType(38, 18), column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -221,7 +98,7 @@ public class OracleTypeConverterTest {
                         .dataType("number")
                         .scale(0)
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(new DecimalType(38, 0), column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -234,7 +111,7 @@ public class OracleTypeConverterTest {
                         .precision(1L)
                         .scale(0)
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.BOOLEAN_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -247,7 +124,7 @@ public class OracleTypeConverterTest {
                         .precision(8L)
                         .scale(0)
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.INT_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -260,7 +137,7 @@ public class OracleTypeConverterTest {
                         .precision(18L)
                         .scale(0)
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.LONG_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -273,7 +150,7 @@ public class OracleTypeConverterTest {
                         .precision(38L)
                         .scale(0)
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(new DecimalType(38, 0), column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -286,7 +163,7 @@ public class OracleTypeConverterTest {
                         .precision(39L)
                         .scale(0)
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(new DecimalType(38, 0), column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -300,7 +177,7 @@ public class OracleTypeConverterTest {
                         .columnType("float")
                         .dataType("float")
                         .build();
-        Column column = INSTANCE.convert(typeDefine);
+        Column column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(new DecimalType(38, 18), column.getDataType());
@@ -312,7 +189,7 @@ public class OracleTypeConverterTest {
                         .columnType("binary_float")
                         .dataType("binary_float")
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.FLOAT_TYPE, column.getDataType());
@@ -320,7 +197,7 @@ public class OracleTypeConverterTest {
 
         typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("real").dataType("real").build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.FLOAT_TYPE, column.getDataType());
@@ -335,7 +212,7 @@ public class OracleTypeConverterTest {
                         .columnType("binary_double")
                         .dataType("binary_double")
                         .build();
-        Column column = INSTANCE.convert(typeDefine);
+        Column column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.DOUBLE_TYPE, column.getDataType());
@@ -351,7 +228,7 @@ public class OracleTypeConverterTest {
                         .dataType("char")
                         .length(1L)
                         .build();
-        Column column = INSTANCE.convert(typeDefine);
+        Column column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
@@ -365,7 +242,7 @@ public class OracleTypeConverterTest {
                         .dataType("nchar")
                         .length(1L)
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
@@ -379,7 +256,7 @@ public class OracleTypeConverterTest {
                         .dataType("varchar")
                         .length(1L)
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
@@ -393,7 +270,7 @@ public class OracleTypeConverterTest {
                         .dataType("varchar2")
                         .length(1L)
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
@@ -407,7 +284,7 @@ public class OracleTypeConverterTest {
                         .dataType("nvarchar2")
                         .length(1L)
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
@@ -420,7 +297,7 @@ public class OracleTypeConverterTest {
                         .columnType("rowid")
                         .dataType("rowid")
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
@@ -434,7 +311,7 @@ public class OracleTypeConverterTest {
                         .dataType("xmltype")
                         .length(1L)
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
@@ -448,7 +325,7 @@ public class OracleTypeConverterTest {
                         .dataType("sys.xmltype")
                         .length(1L)
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
@@ -462,7 +339,7 @@ public class OracleTypeConverterTest {
                         .dataType("long")
                         .length(1L)
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
@@ -471,7 +348,7 @@ public class OracleTypeConverterTest {
 
         typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("clob").dataType("clob").build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
@@ -484,7 +361,7 @@ public class OracleTypeConverterTest {
                         .columnType("nclob")
                         .dataType("nclob")
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
@@ -496,7 +373,7 @@ public class OracleTypeConverterTest {
     public void testConvertBytes() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("blob").dataType("blob").build();
-        Column column = INSTANCE.convert(typeDefine);
+        Column column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
@@ -505,7 +382,7 @@ public class OracleTypeConverterTest {
 
         typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("raw").dataType("raw").build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
@@ -519,7 +396,7 @@ public class OracleTypeConverterTest {
                         .dataType("raw")
                         .length(10L)
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
@@ -532,7 +409,7 @@ public class OracleTypeConverterTest {
                         .columnType("long raw")
                         .dataType("long raw")
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
@@ -544,7 +421,7 @@ public class OracleTypeConverterTest {
     public void testConvertDatetime() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("date").dataType("date").build();
-        Column column = INSTANCE.convert(typeDefine);
+        Column column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
@@ -558,7 +435,7 @@ public class OracleTypeConverterTest {
                         .dataType("timestamp")
                         .scale(6)
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
@@ -572,7 +449,7 @@ public class OracleTypeConverterTest {
                         .dataType("timestamp with time zone")
                         .scale(6)
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
@@ -586,7 +463,7 @@ public class OracleTypeConverterTest {
                         .dataType("timestamp with local time zone")
                         .scale(6)
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
@@ -605,7 +482,7 @@ public class OracleTypeConverterTest {
                         null,
                         null);
         try {
-            INSTANCE.reconvert(column);
+            OracleTypeConverter.INSTANCE.reconvert(column);
             Assertions.fail();
         } catch (SeaTunnelRuntimeException e) {
             // ignore
@@ -619,7 +496,7 @@ public class OracleTypeConverterTest {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(BasicType.BOOLEAN_TYPE).build();
 
-        BasicTypeDefine typeDefine = INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 String.format("%s(%s)", OracleTypeConverter.ORACLE_NUMBER, 1),
@@ -632,7 +509,7 @@ public class OracleTypeConverterTest {
     public void testReconvertByte() {
         Column column = PhysicalColumn.builder().name("test").dataType(BasicType.BYTE_TYPE).build();
 
-        BasicTypeDefine typeDefine = INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_INTEGER, typeDefine.getColumnType());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_INTEGER, typeDefine.getDataType());
@@ -643,7 +520,7 @@ public class OracleTypeConverterTest {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(BasicType.SHORT_TYPE).build();
 
-        BasicTypeDefine typeDefine = INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_INTEGER, typeDefine.getColumnType());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_INTEGER, typeDefine.getDataType());
@@ -653,7 +530,7 @@ public class OracleTypeConverterTest {
     public void testReconvertInt() {
         Column column = PhysicalColumn.builder().name("test").dataType(BasicType.INT_TYPE).build();
 
-        BasicTypeDefine typeDefine = INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_INTEGER, typeDefine.getColumnType());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_INTEGER, typeDefine.getDataType());
@@ -663,7 +540,7 @@ public class OracleTypeConverterTest {
     public void testReconvertLong() {
         Column column = PhysicalColumn.builder().name("test").dataType(BasicType.LONG_TYPE).build();
 
-        BasicTypeDefine typeDefine = INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_INTEGER, typeDefine.getColumnType());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_INTEGER, typeDefine.getDataType());
@@ -674,7 +551,7 @@ public class OracleTypeConverterTest {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(BasicType.FLOAT_TYPE).build();
 
-        BasicTypeDefine typeDefine = INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 OracleTypeConverter.ORACLE_BINARY_FLOAT, typeDefine.getColumnType());
@@ -686,7 +563,7 @@ public class OracleTypeConverterTest {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(BasicType.DOUBLE_TYPE).build();
 
-        BasicTypeDefine typeDefine = INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 OracleTypeConverter.ORACLE_BINARY_DOUBLE, typeDefine.getColumnType());
@@ -698,7 +575,7 @@ public class OracleTypeConverterTest {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(new DecimalType(0, 0)).build();
 
-        BasicTypeDefine typeDefine = INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 String.format(
@@ -711,7 +588,7 @@ public class OracleTypeConverterTest {
 
         column = PhysicalColumn.builder().name("test").dataType(new DecimalType(10, 2)).build();
 
-        typeDefine = INSTANCE.reconvert(column);
+        typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 String.format("%s(%s,%s)", OracleTypeConverter.ORACLE_NUMBER, 10, 2),
@@ -728,7 +605,7 @@ public class OracleTypeConverterTest {
                         .columnLength(null)
                         .build();
 
-        BasicTypeDefine typeDefine = INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_BLOB, typeDefine.getColumnType());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_BLOB, typeDefine.getDataType());
@@ -740,7 +617,7 @@ public class OracleTypeConverterTest {
                         .columnLength(2000L)
                         .build();
 
-        typeDefine = INSTANCE.reconvert(column);
+        typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 String.format("%s(%s)", OracleTypeConverter.ORACLE_RAW, column.getColumnLength()),
@@ -754,7 +631,7 @@ public class OracleTypeConverterTest {
                         .columnLength(BYTES_2GB)
                         .build();
 
-        typeDefine = INSTANCE.reconvert(column);
+        typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_BLOB, typeDefine.getColumnType());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_BLOB, typeDefine.getDataType());
@@ -766,7 +643,7 @@ public class OracleTypeConverterTest {
                         .columnLength(BYTES_2GB + 1)
                         .build();
 
-        typeDefine = INSTANCE.reconvert(column);
+        typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_BLOB, typeDefine.getColumnType());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_BLOB, typeDefine.getDataType());
@@ -781,7 +658,7 @@ public class OracleTypeConverterTest {
                         .columnLength(null)
                         .build();
 
-        BasicTypeDefine typeDefine = INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals("VARCHAR2(4000)", typeDefine.getColumnType());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_VARCHAR2, typeDefine.getDataType());
@@ -793,7 +670,7 @@ public class OracleTypeConverterTest {
                         .columnLength(2000L)
                         .build();
 
-        typeDefine = INSTANCE.reconvert(column);
+        typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 String.format(
@@ -808,7 +685,7 @@ public class OracleTypeConverterTest {
                         .columnLength(4000L)
                         .build();
 
-        typeDefine = INSTANCE.reconvert(column);
+        typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 String.format(
@@ -823,7 +700,7 @@ public class OracleTypeConverterTest {
                         .columnLength(40001L)
                         .build();
 
-        typeDefine = INSTANCE.reconvert(column);
+        typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_CLOB, typeDefine.getColumnType());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_CLOB, typeDefine.getDataType());
@@ -837,7 +714,7 @@ public class OracleTypeConverterTest {
                         .dataType(LocalTimeType.LOCAL_DATE_TYPE)
                         .build();
 
-        BasicTypeDefine typeDefine = INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_DATE, typeDefine.getColumnType());
         Assertions.assertEquals(OracleTypeConverter.ORACLE_DATE, typeDefine.getDataType());
@@ -851,7 +728,7 @@ public class OracleTypeConverterTest {
                         .dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE)
                         .build();
 
-        BasicTypeDefine typeDefine = INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 OracleTypeConverter.ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE,
@@ -867,7 +744,7 @@ public class OracleTypeConverterTest {
                         .scale(3)
                         .build();
 
-        typeDefine = INSTANCE.reconvert(column);
+        typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 String.format("TIMESTAMP(%s) WITH LOCAL TIME ZONE", column.getScale()),
@@ -888,7 +765,7 @@ public class OracleTypeConverterTest {
                         .precision(38L)
                         .scale(-1)
                         .build();
-        Column column = INSTANCE.convert(typeDefine);
+        Column column = OracleTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(new DecimalType(38, 0), column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -901,7 +778,7 @@ public class OracleTypeConverterTest {
                         .precision(5L)
                         .scale(-2)
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.INT_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -914,7 +791,7 @@ public class OracleTypeConverterTest {
                         .precision(9L)
                         .scale(-2)
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.LONG_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -927,7 +804,7 @@ public class OracleTypeConverterTest {
                         .precision(14L)
                         .scale(-11)
                         .build();
-        column = INSTANCE.convert(typeDefine);
+        column = OracleTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(new DecimalType(25, 0), column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());

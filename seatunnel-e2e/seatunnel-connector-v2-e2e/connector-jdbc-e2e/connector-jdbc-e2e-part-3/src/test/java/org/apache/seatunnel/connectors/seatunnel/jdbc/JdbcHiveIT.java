@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -44,7 +43,7 @@ public class JdbcHiveIT extends AbstractJdbcIT {
 
     private static final String HIVE_DATABASE = "default";
 
-    private static final String HIVE_SOURCE = "hive_e2e_source_table";
+    private static final String HIVE_SOURCE = "e2e_table_source";
     private static final String HIVE_USERNAME = "root";
     private static final String HIVE_PASSWORD = null;
     private static final int HIVE_PORT = 10000;
@@ -95,7 +94,6 @@ public class JdbcHiveIT extends AbstractJdbcIT {
                 .sourceTable(HIVE_SOURCE)
                 .createSql(CREATE_SQL)
                 .configFile(CONFIG_FILE)
-                .tablePathFullName(TablePath.DEFAULT.getFullName())
                 .build();
     }
 

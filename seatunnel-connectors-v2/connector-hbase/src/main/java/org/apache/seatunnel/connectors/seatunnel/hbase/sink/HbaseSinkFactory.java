@@ -45,8 +45,6 @@ import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig
 @AutoService(Factory.class)
 public class HbaseSinkFactory implements TableSinkFactory {
 
-    public static final String IDENTIFIER = "Hbase";
-
     @Override
     public String factoryIdentifier() {
         return HbaseIdentifier.IDENTIFIER_NAME;

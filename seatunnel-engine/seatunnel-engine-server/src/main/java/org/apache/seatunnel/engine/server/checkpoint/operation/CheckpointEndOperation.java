@@ -76,7 +76,7 @@ public class CheckpointEndOperation extends TaskOperation {
     }
 
     @Override
-    public void runInternal() throws Exception {
+    public void run() throws Exception {
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(
                 () -> {

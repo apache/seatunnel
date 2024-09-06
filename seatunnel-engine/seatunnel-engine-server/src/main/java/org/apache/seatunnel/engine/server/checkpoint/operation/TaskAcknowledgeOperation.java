@@ -22,11 +22,11 @@ import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook;
-import org.apache.seatunnel.engine.server.task.operation.TracingOperation;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import com.hazelcast.spi.impl.operationservice.Operation;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -37,8 +37,7 @@ import java.util.List;
 @Getter
 @AllArgsConstructor
 @Slf4j
-public class TaskAcknowledgeOperation extends TracingOperation
-        implements IdentifiedDataSerializable {
+public class TaskAcknowledgeOperation extends Operation implements IdentifiedDataSerializable {
 
     private TaskLocation taskLocation;
 
@@ -60,7 +59,6 @@ public class TaskAcknowledgeOperation extends TracingOperation
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
-        super.writeInternal(out);
         out.writeObject(taskLocation);
         out.writeObject(barrier);
         out.writeObject(states);
@@ -68,14 +66,13 @@ public class TaskAcknowledgeOperation extends TracingOperation
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        super.readInternal(in);
         taskLocation = in.readObject();
         barrier = in.readObject();
         states = in.readObject();
     }
 
     @Override
-    public void runInternal() {
+    public void run() {
         log.debug("TaskAcknowledgeOperation {}", taskLocation);
         ((SeaTunnelServer) getService())
                 .getCoordinatorService()

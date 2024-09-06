@@ -23,10 +23,6 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.api.source.event.EnumeratorCloseEvent;
-import org.apache.seatunnel.api.source.event.EnumeratorOpenEvent;
-import org.apache.seatunnel.api.source.event.ReaderCloseEvent;
-import org.apache.seatunnel.api.source.event.ReaderOpenEvent;
 import org.apache.seatunnel.translation.util.ThreadPoolExecutorFactory;
 
 import org.slf4j.Logger;
@@ -119,9 +115,7 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
             splitEnumerator.addSplitsBack(restoredSplitState, subtaskId);
         }
         reader.open();
-        readerContext.getEventListener().onEvent(new ReaderOpenEvent());
         parallelEnumeratorContext.register();
-        parallelEnumeratorContext.getEventListener().onEvent(new EnumeratorOpenEvent());
         splitEnumerator.registerReader(subtaskId);
     }
 
@@ -176,8 +170,6 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
         if (reader != null) {
             LOG.debug("Close the data reader for the Apache SeaTunnel source.");
             reader.close();
-            readerContext.getEventListener().onEvent(new ReaderCloseEvent());
-            parallelEnumeratorContext.getEventListener().onEvent(new EnumeratorCloseEvent());
         }
     }
 

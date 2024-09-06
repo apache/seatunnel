@@ -108,12 +108,7 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
                 clientProvider.getDefaultCollection().getNamespace().getCollectionName();
         BsonDocument statsCmd = new BsonDocument("collStats", new BsonString(collectionName));
         Document res = clientProvider.getDefaultDatabase().runCommand(statsCmd);
-        Object count = res.get("count");
-        // fix issue https://github.com/apache/seatunnel/issues/7575
-        long total =
-                Optional.ofNullable(count)
-                        .map(v -> Long.parseLong(String.valueOf(count)))
-                        .orElse(0L);
+        long total = res.getInteger("count");
         Object avgDocumentBytes = res.get("avgObjSize");
         long avgObjSize =
                 Optional.ofNullable(avgDocumentBytes)

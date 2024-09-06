@@ -21,8 +21,6 @@ import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.api.event.EventHandler;
 import org.apache.seatunnel.api.event.EventProcessor;
-import org.apache.seatunnel.api.tracing.MDCExecutorService;
-import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
@@ -318,7 +316,7 @@ public class CoordinatorService {
                                                                     "restore job (%s) from master active switch finished",
                                                                     entry.getKey()));
                                                 },
-                                                MDCTracer.tracing(entry.getKey(), executorService)))
+                                                executorService))
                         .collect(Collectors.toList());
 
         try {
@@ -470,12 +468,11 @@ public class CoordinatorService {
             return new PassiveCompletableFuture<>(jobSubmitFuture);
         }
 
-        MDCExecutorService mdcExecutorService = MDCTracer.tracing(jobId, executorService);
         JobMaster jobMaster =
                 new JobMaster(
                         jobImmutableInformation,
                         this.nodeEngine,
-                        mdcExecutorService,
+                        executorService,
                         getResourceManager(),
                         getJobHistoryService(),
                         runningJobStateIMap,
@@ -485,7 +482,7 @@ public class CoordinatorService {
                         metricsImap,
                         engineConfig,
                         seaTunnelServer);
-        mdcExecutorService.submit(
+        executorService.submit(
                 () -> {
                     try {
                         if (!isStartWithSavePoint
@@ -574,11 +571,9 @@ public class CoordinatorService {
             }
 
             CompletableFuture<JobResult> future = new CompletableFuture<>();
-            if (jobState == null) {
-                future.complete(new JobResult(JobStatus.UNKNOWABLE, null));
-            } else {
+            if (jobState == null) future.complete(new JobResult(JobStatus.UNKNOWABLE, null));
+            else
                 future.complete(new JobResult(jobState.getJobStatus(), jobState.getErrorMessage()));
-            }
             return new PassiveCompletableFuture<>(future);
         } else {
             return new PassiveCompletableFuture<>(runningJobMaster.getJobMasterCompleteFuture());

@@ -85,7 +85,6 @@ public class WorkerProfile implements IdentifiedDataSerializable {
             out.writeObject(unassignedSlot);
         }
         out.writeBoolean(dynamicSlot);
-        out.writeObject(attributes);
     }
 
     @Override
@@ -104,6 +103,5 @@ public class WorkerProfile implements IdentifiedDataSerializable {
             unassignedSlots[i] = in.readObject();
         }
         dynamicSlot = in.readBoolean();
-        attributes = in.readObject();
     }
 }

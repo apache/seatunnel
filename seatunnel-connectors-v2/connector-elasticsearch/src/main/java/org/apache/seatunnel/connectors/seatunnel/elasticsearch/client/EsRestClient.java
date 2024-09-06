@@ -58,7 +58,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import javax.net.ssl.SSLContext;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -77,7 +76,7 @@ import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsT
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.OBJECT;
 
 @Slf4j
-public class EsRestClient implements Closeable {
+public class EsRestClient {
 
     private static final int CONNECTION_REQUEST_TIMEOUT = 10 * 1000;
 
@@ -259,7 +258,6 @@ public class EsRestClient implements Closeable {
         }
     }
 
-    @Override
     public void close() {
         try {
             restClient.close();
@@ -370,30 +368,6 @@ public class EsRestClient implements Closeable {
             docs.add(doc);
         }
         return scrollResult;
-    }
-
-    /**
-     * Instead of the getIndexDocsCount method to determine if the index exists,
-     *
-     * <p>
-     *
-     * <p>getIndexDocsCount throws an exception if the index does not exist
-     *
-     * <p>
-     *
-     * @param index index
-     * @return true or false
-     */
-    public boolean checkIndexExist(String index) {
-        Request request = new Request("HEAD", "/" + index);
-        try {
-            Response response = restClient.performRequest(request);
-            int statusCode = response.getStatusLine().getStatusCode();
-            return statusCode == 200;
-        } catch (Exception ex) {
-            throw new ElasticsearchConnectorException(
-                    ElasticsearchConnectorErrorCode.CHECK_INDEX_FAILED, ex);
-        }
     }
 
     public List<IndexDocsCount> getIndexDocsCount(String index) {

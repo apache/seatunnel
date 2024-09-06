@@ -188,21 +188,15 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                     getPartitionKeyFields(pluginConfig, seaTunnelRowType),
                     seaTunnelRowType,
                     messageFormat,
-                    delimiter,
-                    pluginConfig);
+                    delimiter);
         }
         if (pluginConfig.get(PARTITION) != null) {
             return DefaultSeaTunnelRowSerializer.create(
-                    topic,
-                    pluginConfig.get(PARTITION),
-                    seaTunnelRowType,
-                    messageFormat,
-                    delimiter,
-                    pluginConfig);
+                    topic, pluginConfig.get(PARTITION), seaTunnelRowType, messageFormat, delimiter);
         }
         // By default, all partitions are sent randomly
         return DefaultSeaTunnelRowSerializer.create(
-                topic, Arrays.asList(), seaTunnelRowType, messageFormat, delimiter, pluginConfig);
+                topic, Arrays.asList(), seaTunnelRowType, messageFormat, delimiter);
     }
 
     private KafkaSemantics getKafkaSemantics(ReadonlyConfig pluginConfig) {

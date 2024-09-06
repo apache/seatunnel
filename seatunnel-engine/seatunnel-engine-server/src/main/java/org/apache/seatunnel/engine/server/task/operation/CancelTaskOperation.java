@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 
@@ -33,7 +34,7 @@ import java.io.IOException;
  * is cancelled, the {@link org.apache.seatunnel.engine.server.TaskExecutionService} will notified
  * JobMaster
  */
-public class CancelTaskOperation extends TracingOperation implements IdentifiedDataSerializable {
+public class CancelTaskOperation extends Operation implements IdentifiedDataSerializable {
     private TaskGroupLocation taskGroupLocation;
 
     public CancelTaskOperation() {}
@@ -53,7 +54,7 @@ public class CancelTaskOperation extends TracingOperation implements IdentifiedD
     }
 
     @Override
-    public void runInternal() throws Exception {
+    public void run() throws Exception {
         SeaTunnelServer server = getService();
         server.getTaskExecutionService().cancelTaskGroup(taskGroupLocation);
     }

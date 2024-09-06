@@ -27,12 +27,12 @@ import com.hazelcast.cluster.Address;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 import java.util.Objects;
 
-public class GetTaskGroupAddressOperation extends TracingOperation
-        implements IdentifiedDataSerializable {
+public class GetTaskGroupAddressOperation extends Operation implements IdentifiedDataSerializable {
 
     private TaskLocation taskLocation;
 
@@ -45,7 +45,7 @@ public class GetTaskGroupAddressOperation extends TracingOperation
     }
 
     @Override
-    public void runInternal() throws Exception {
+    public void run() throws Exception {
         SeaTunnelServer server = getService();
         response =
                 RetryUtils.retryWithException(

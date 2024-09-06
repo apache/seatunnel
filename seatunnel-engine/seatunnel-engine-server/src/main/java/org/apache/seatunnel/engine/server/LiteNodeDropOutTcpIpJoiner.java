@@ -76,7 +76,6 @@ public class LiteNodeDropOutTcpIpJoiner extends TcpIpJoiner {
         joinConfig = getActiveMemberNetworkConfig(config).getJoin();
     }
 
-    @Override
     public boolean isClaimingMastership() {
         return claimingMastership;
     }
@@ -199,7 +198,6 @@ public class LiteNodeDropOutTcpIpJoiner extends TcpIpJoiner {
         return consensus;
     }
 
-    @Override
     protected Collection<Address> getPossibleAddressesForInitialJoin() {
         return getPossibleAddresses();
     }
@@ -374,7 +372,6 @@ public class LiteNodeDropOutTcpIpJoiner extends TcpIpJoiner {
     }
 
     @SuppressWarnings({"checkstyle:npathcomplexity", "checkstyle:cyclomaticcomplexity"})
-    @Override
     protected Collection<Address> getPossibleAddresses() {
         final Collection<String> possibleMembers = getMembers();
         final Set<Address> possibleAddresses = new HashSet<>();
@@ -481,7 +478,6 @@ public class LiteNodeDropOutTcpIpJoiner extends TcpIpJoiner {
         return local;
     }
 
-    @Override
     protected Collection<String> getMembers() {
         return getConfigurationMembers(config);
     }

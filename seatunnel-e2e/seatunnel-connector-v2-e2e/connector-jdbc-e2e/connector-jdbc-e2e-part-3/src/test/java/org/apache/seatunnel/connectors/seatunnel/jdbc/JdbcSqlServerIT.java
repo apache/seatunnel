@@ -180,7 +180,6 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
-                .tablePathFullName(TablePath.DEFAULT.getFullName())
                 .build();
     }
 

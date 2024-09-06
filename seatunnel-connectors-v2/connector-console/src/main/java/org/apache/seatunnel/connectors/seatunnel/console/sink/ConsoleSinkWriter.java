@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.event.handler.DataTypeChangeEventDispatcher;
 import org.apache.seatunnel.api.table.event.handler.DataTypeChangeEventHandler;
@@ -98,7 +99,9 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     }
 
     @Override
-    public void close() {}
+    public void close() {
+        context.getEventListener().onEvent(new WriterCloseEvent());
+    }
 
     private String fieldsInfo(SeaTunnelRowType seaTunnelRowType) {
         String[] fieldsInfo = new String[seaTunnelRowType.getTotalFields()];

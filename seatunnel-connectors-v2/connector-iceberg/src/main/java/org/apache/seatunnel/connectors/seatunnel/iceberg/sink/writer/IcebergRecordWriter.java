@@ -54,7 +54,7 @@ public class IcebergRecordWriter implements RecordWriter {
     private final List<WriteResult> writerResults;
     private TaskWriter<Record> writer;
     private RowConverter recordConverter;
-    private final IcebergWriterFactory writerFactory;
+    private IcebergWriterFactory writerFactory;
 
     public IcebergRecordWriter(Table table, IcebergWriterFactory writerFactory, SinkConfig config) {
         this.config = config;
@@ -122,7 +122,12 @@ public class IcebergRecordWriter implements RecordWriter {
         }
     }
 
-    /** apply schema update */
+    /**
+     * apply schema update
+     *
+     * @param updates
+     * @return
+     */
     private void applySchemaUpdate(SchemaChangeWrapper updates) {
         // complete the current file
         flush();
@@ -164,4 +169,7 @@ public class IcebergRecordWriter implements RecordWriter {
                         table.spec().partitionType()));
         writer = null;
     }
+
+    @Override
+    public void close() {}
 }

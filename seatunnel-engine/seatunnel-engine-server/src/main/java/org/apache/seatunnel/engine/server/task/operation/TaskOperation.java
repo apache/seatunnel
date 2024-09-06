@@ -23,6 +23,7 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import com.hazelcast.spi.impl.operationservice.Operation;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -32,7 +33,7 @@ import java.io.IOException;
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
-public abstract class TaskOperation extends TracingOperation implements IdentifiedDataSerializable {
+public abstract class TaskOperation extends Operation implements IdentifiedDataSerializable {
 
     protected TaskLocation taskLocation;
 
@@ -43,13 +44,11 @@ public abstract class TaskOperation extends TracingOperation implements Identifi
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
-        super.writeInternal(out);
         out.writeObject(taskLocation);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        super.readInternal(in);
         taskLocation = in.readObject(TaskLocation.class);
     }
 }

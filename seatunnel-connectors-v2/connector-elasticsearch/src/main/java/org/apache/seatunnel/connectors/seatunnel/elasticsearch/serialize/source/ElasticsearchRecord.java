@@ -30,6 +30,4 @@ import java.util.Map;
 public class ElasticsearchRecord {
     private Map<String, Object> doc;
     private List<String> source;
-
-    private String tableId;
 }

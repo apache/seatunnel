@@ -36,7 +36,6 @@ import com.google.common.collect.Lists;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -306,13 +305,6 @@ public class AssertExecutor {
 
         if (fieldType.getSqlType() == SqlType.DECIMAL) {
             return checkDecimalType(value, fieldType);
-        }
-
-        if (fieldType.getSqlType() == SqlType.FLOAT_VECTOR
-                || fieldType.getSqlType() == SqlType.FLOAT16_VECTOR
-                || fieldType.getSqlType() == SqlType.BFLOAT16_VECTOR
-                || fieldType.getSqlType() == SqlType.BINARY_VECTOR) {
-            return value instanceof ByteBuffer;
         }
 
         return value.getClass().equals(fieldType.getTypeClass());

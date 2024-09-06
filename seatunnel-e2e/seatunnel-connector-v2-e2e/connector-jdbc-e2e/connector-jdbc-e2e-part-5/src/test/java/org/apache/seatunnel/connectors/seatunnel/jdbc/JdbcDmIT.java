@@ -127,7 +127,6 @@ public class JdbcDmIT extends AbstractJdbcIT {
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
-                .tablePathFullName(String.format("%s.%s", DM_DATABASE, DM_SOURCE))
                 .build();
     }
 

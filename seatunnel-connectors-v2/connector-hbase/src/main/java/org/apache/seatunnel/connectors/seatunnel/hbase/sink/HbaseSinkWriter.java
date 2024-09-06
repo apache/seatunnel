@@ -58,7 +58,7 @@ public class HbaseSinkWriter
 
     private int versionColumnIndex;
 
-    private String defaultFamilyName = "value";
+    private String writeAllColumnFamily;
 
     public HbaseSinkWriter(
             SeaTunnelRowType seaTunnelRowType,
@@ -71,8 +71,7 @@ public class HbaseSinkWriter
         this.versionColumnIndex = versionColumnIndex;
 
         if (hbaseParameters.getFamilyNames().size() == 1) {
-            defaultFamilyName =
-                    hbaseParameters.getFamilyNames().getOrDefault(ALL_COLUMNS, defaultFamilyName);
+            this.writeAllColumnFamily = hbaseParameters.getFamilyNames().get(ALL_COLUMNS);
         }
 
         this.hbaseClient = HbaseClient.createInstance(hbaseParameters);
@@ -122,7 +121,11 @@ public class HbaseSinkWriter
             String fieldName = seaTunnelRowType.getFieldName(writeColumnIndex);
             Map<String, String> configurationFamilyNames = hbaseParameters.getFamilyNames();
             String familyName =
-                    hbaseParameters.getFamilyNames().getOrDefault(fieldName, defaultFamilyName);
+                    configurationFamilyNames.getOrDefault(fieldName, writeAllColumnFamily);
+            if (!configurationFamilyNames.containsKey(ALL_COLUMNS)
+                    && !configurationFamilyNames.containsKey(fieldName)) {
+                continue;
+            }
             byte[] bytes = convertColumnToBytes(row, writeColumnIndex);
             if (bytes != null) {
                 put.addColumn(Bytes.toBytes(familyName), Bytes.toBytes(fieldName), bytes);

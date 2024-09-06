@@ -272,15 +272,6 @@ public class CatalogUtils {
             throws SQLException {
         TableSchema.Builder schemaBuilder = TableSchema.builder();
         Map<String, String> unsupported = new LinkedHashMap<>();
-        String tableName = null;
-        String databaseName = null;
-        String schemaName = null;
-        try {
-            tableName = metadata.getTableName(1);
-            databaseName = metadata.getCatalogName(1);
-            schemaName = metadata.getSchemaName(1);
-        } catch (SQLException ignored) {
-        }
         for (int index = 1; index <= metadata.getColumnCount(); index++) {
             try {
                 Column column = columnConverter.apply(metadata, index);
@@ -298,14 +289,8 @@ public class CatalogUtils {
             throw CommonError.getCatalogTableWithUnsupportedType("UNKNOWN", sqlQuery, unsupported);
         }
         String catalogName = "jdbc_catalog";
-        databaseName = StringUtils.isBlank(databaseName) ? null : databaseName;
-        schemaName = StringUtils.isBlank(schemaName) ? null : schemaName;
-        TablePath tablePath =
-                StringUtils.isBlank(tableName)
-                        ? TablePath.DEFAULT
-                        : TablePath.of(databaseName, schemaName, tableName);
         return CatalogTable.of(
-                TableIdentifier.of(catalogName, tablePath),
+                TableIdentifier.of(catalogName, "default", "default", "default"),
                 schemaBuilder.build(),
                 new HashMap<>(),
                 new ArrayList<>(),
@@ -322,11 +307,11 @@ public class CatalogUtils {
     }
 
     /**
+     * @deprecated instead by {@link #getCatalogTable(Connection, String, JdbcDialectTypeMapper)}
      * @param connection
      * @param sqlQuery
      * @return
      * @throws SQLException
-     * @deprecated instead by {@link #getCatalogTable(Connection, String, JdbcDialectTypeMapper)}
      */
     @Deprecated
     public static CatalogTable getCatalogTable(Connection connection, String sqlQuery)

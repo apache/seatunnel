@@ -65,7 +65,7 @@ public class HbaseSink
     private int versionColumnIndex = -1;
 
     public HbaseSink(ReadonlyConfig config, CatalogTable catalogTable) {
-        this.hbaseParameters = HbaseParameters.buildWithConfig(config);
+        this.hbaseParameters = HbaseParameters.buildWithSinkConfig(config.toConfig());
         this.config = config;
         this.catalogTable = catalogTable;
         this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();

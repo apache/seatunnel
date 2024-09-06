@@ -180,7 +180,6 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                 .testData(testDataSet)
                 .catalogDatabase(CATALOG_DATABASE)
                 .catalogTable(MYSQL_SINK)
-                .tablePathFullName(MYSQL_DATABASE + "." + MYSQL_SOURCE)
                 .build();
     }
 

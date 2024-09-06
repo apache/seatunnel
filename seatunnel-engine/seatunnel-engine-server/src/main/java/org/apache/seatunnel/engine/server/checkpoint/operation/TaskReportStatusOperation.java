@@ -23,12 +23,12 @@ import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook;
-import org.apache.seatunnel.engine.server.task.operation.TracingOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import com.hazelcast.spi.impl.operationservice.Operation;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -38,8 +38,7 @@ import java.io.IOException;
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
-public class TaskReportStatusOperation extends TracingOperation
-        implements IdentifiedDataSerializable {
+public class TaskReportStatusOperation extends Operation implements IdentifiedDataSerializable {
 
     private TaskLocation location;
     private SeaTunnelTaskState status;
@@ -56,20 +55,18 @@ public class TaskReportStatusOperation extends TracingOperation
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
-        super.writeInternal(out);
         out.writeObject(location);
         out.writeObject(status);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        super.readInternal(in);
         location = in.readObject(TaskLocation.class);
         status = in.readObject();
     }
 
     @Override
-    public void runInternal() throws Exception {
+    public void run() throws Exception {
         CoordinatorService coordinatorService =
                 ((SeaTunnelServer) getService()).getCoordinatorService();
         RetryUtils.retryWithException(

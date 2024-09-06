@@ -27,11 +27,12 @@ import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import com.hazelcast.spi.impl.operationservice.Operation;
 import lombok.NonNull;
 
 import java.io.IOException;
 
-public class DeployTaskOperation extends TracingOperation implements IdentifiedDataSerializable {
+public class DeployTaskOperation extends Operation implements IdentifiedDataSerializable {
     private Data taskImmutableInformation;
     private SlotProfile slotProfile;
 
@@ -46,7 +47,7 @@ public class DeployTaskOperation extends TracingOperation implements IdentifiedD
     }
 
     @Override
-    public void runInternal() throws Exception {
+    public void run() throws Exception {
         SeaTunnelServer server = getService();
         state =
                 server.getSlotService()

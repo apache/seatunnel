@@ -42,7 +42,6 @@ public class JdbcSourceConfig implements Serializable {
     private double splitEvenDistributionFactorLowerBound;
     private int splitSampleShardingThreshold;
     private int splitInverseSamplingRate;
-    private boolean decimalTypeNarrowing;
 
     public static JdbcSourceConfig of(ReadonlyConfig config) {
         JdbcSourceConfig.Builder builder = JdbcSourceConfig.builder();
@@ -54,7 +53,7 @@ public class JdbcSourceConfig implements Serializable {
         boolean isOldVersion =
                 config.getOptional(JdbcOptions.QUERY).isPresent()
                         && config.getOptional(JdbcOptions.PARTITION_COLUMN).isPresent();
-        builder.useDynamicSplitter(!isOldVersion);
+        builder.useDynamicSplitter(isOldVersion ? false : true);
 
         builder.splitSize(config.get(JdbcSourceOptions.SPLIT_SIZE));
         builder.splitEvenDistributionFactorUpperBound(
@@ -64,8 +63,6 @@ public class JdbcSourceConfig implements Serializable {
         builder.splitSampleShardingThreshold(
                 config.get(JdbcSourceOptions.SPLIT_SAMPLE_SHARDING_THRESHOLD));
         builder.splitInverseSamplingRate(config.get(JdbcSourceOptions.SPLIT_INVERSE_SAMPLING_RATE));
-
-        builder.decimalTypeNarrowing(config.get(JdbcOptions.DECIMAL_TYPE_NARROWING));
 
         config.getOptional(JdbcSourceOptions.WHERE_CONDITION)
                 .ifPresent(

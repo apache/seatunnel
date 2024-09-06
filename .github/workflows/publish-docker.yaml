@@ -20,6 +20,8 @@ on:
   push:
     tags:
       - '*'
+    branches:
+      - dev
     paths-ignore:
       - 'docs/**'
       - '**/*.md'
@@ -70,8 +72,8 @@ jobs:
           MAVEN_OPTS: -Xmx4096m
         run: |
           ./mvnw -B clean install \
-          -Dmaven.test.skip=true \
-          -Dmaven.javadoc.skip=true \
+          -Dmaven.test.skip \
+          -Dmaven.javadoc.skip \
           -Dlicense.skipAddThirdParty=true \
           -D"docker.build.skip"=false \
           -D"docker.verify.skip"=false \
