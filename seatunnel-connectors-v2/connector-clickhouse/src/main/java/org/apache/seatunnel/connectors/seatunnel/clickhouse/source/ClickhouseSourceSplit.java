@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseCatalogConfig;
 
 import lombok.Data;
 
@@ -30,4 +31,5 @@ public class ClickhouseSourceSplit implements SourceSplit {
     }
 
     private TablePath tablePath;
+    private ClickhouseCatalogConfig clickhouseCatalogConfig;
 }
