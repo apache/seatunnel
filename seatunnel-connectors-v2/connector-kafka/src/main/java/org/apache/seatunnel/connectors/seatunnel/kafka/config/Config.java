@@ -177,10 +177,24 @@ public class Config {
                     .defaultValue(KafkaSemantics.NON)
                     .withDescription(
                             "Semantics that can be chosen EXACTLY_ONCE/AT_LEAST_ONCE/NON, default NON.");
+
     public static final Option<List<Map<String, Object>>> TABLE_LIST =
             Options.key("table_list")
                     .type(new TypeReference<List<Map<String, Object>>>() {})
                     .noDefaultValue()
                     .withDescription(
                             "Topic list config. You can configure only one `table_list` or one `topic` at the same time");
+
+    public static final Option<String> PROTOBUF_SCHEMA =
+            Options.key("protobuf_schema")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Data serialization method protobuf metadata, used to parse protobuf data.");
+
+    public static final Option<String> PROTOBUF_MESSAGE_NAME =
+            Options.key("protobuf_message_name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Parsing entity class names from Protobuf data.");
 }

@@ -61,9 +61,9 @@ public class IcebergSink
                 SupportSaveMode,
                 SupportMultiTableSink {
     private static String PLUGIN_NAME = "Iceberg";
-    private SinkConfig config;
-    private ReadonlyConfig readonlyConfig;
-    private CatalogTable catalogTable;
+    private final SinkConfig config;
+    private final ReadonlyConfig readonlyConfig;
+    private final CatalogTable catalogTable;
 
     public IcebergSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
         this.readonlyConfig = pluginConfig;
@@ -130,7 +130,6 @@ public class IcebergSink
         }
         Catalog catalog =
                 catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), readonlyConfig);
-        catalog.open();
         return Optional.of(
                 new DefaultSaveModeHandler(
                         config.getSchemaSaveMode(),

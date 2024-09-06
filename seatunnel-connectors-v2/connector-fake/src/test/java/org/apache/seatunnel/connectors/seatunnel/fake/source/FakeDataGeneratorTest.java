@@ -23,9 +23,12 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.RowKind;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 
 import org.junit.jupiter.api.Assertions;
@@ -36,6 +39,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.ByteBuffer;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
@@ -110,6 +114,86 @@ public class FakeDataGeneratorTest {
         List<SeaTunnelRow> seaTunnelRows =
                 fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
         Assertions.assertIterableEquals(expected, seaTunnelRows);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"fake-vector.conf"})
+    public void testVectorParse(String conf) throws FileNotFoundException, URISyntaxException {
+        ReadonlyConfig testConfig = getTestConfigFile(conf);
+        FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
+        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig);
+        List<SeaTunnelRow> seaTunnelRows =
+                fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
+        seaTunnelRows.forEach(
+                seaTunnelRow ->
+                        Assertions.assertEquals(
+                                65,
+                                seaTunnelRow.getBytesSize(
+                                        new SeaTunnelRowType(
+                                                new String[] {
+                                                    "field1", "field2", "field3", "field4", "field5"
+                                                },
+                                                new SeaTunnelDataType<?>[] {
+                                                    VectorType.VECTOR_FLOAT_TYPE,
+                                                    VectorType.VECTOR_BINARY_TYPE,
+                                                    VectorType.VECTOR_FLOAT16_TYPE,
+                                                    VectorType.VECTOR_BFLOAT16_TYPE,
+                                                    VectorType.VECTOR_SPARSE_FLOAT_TYPE
+                                                }))));
+        Assertions.assertNotNull(seaTunnelRows);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"fake-data.column.conf"})
+    public void testColumnDataParse(String conf) throws FileNotFoundException, URISyntaxException {
+        ReadonlyConfig testConfig = getTestConfigFile(conf);
+        FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
+        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig);
+        List<SeaTunnelRow> seaTunnelRows =
+                fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
+        seaTunnelRows.forEach(
+                seaTunnelRow -> {
+                    Assertions.assertEquals(
+                            seaTunnelRow.getField(0).toString(), "Andersen's Fairy Tales");
+                    Assertions.assertEquals(seaTunnelRow.getField(1).toString().length(), 100);
+                    Assertions.assertEquals(seaTunnelRow.getField(2).toString(), "10.1");
+                    Assertions.assertNotNull(seaTunnelRow.getField(3).toString());
+                    Assertions.assertNotNull(seaTunnelRow.getField(4).toString());
+                    //  VectorType.VECTOR_FLOAT_TYPE
+                    Assertions.assertEquals(
+                            8, ((ByteBuffer) seaTunnelRow.getField(5)).capacity() / 4);
+                    // VectorType.VECTOR_BINARY_TYPE
+                    Assertions.assertEquals(
+                            16, ((ByteBuffer) seaTunnelRow.getField(6)).capacity() * 8);
+                    // VectorType.VECTOR_FLOAT16_TYPE
+                    Assertions.assertEquals(
+                            8, ((ByteBuffer) seaTunnelRow.getField(7)).capacity() / 2);
+                    // VectorType.VECTOR_BFLOAT16_TYPE
+                    Assertions.assertEquals(
+                            8, ((ByteBuffer) seaTunnelRow.getField(8)).capacity() / 2);
+                    // VectorType.VECTOR_SPARSE_FLOAT_TYPE
+                    Assertions.assertEquals(8, ((Map) seaTunnelRow.getField(9)).size());
+                    Assertions.assertEquals(
+                            268,
+                            seaTunnelRow.getBytesSize(
+                                    new SeaTunnelRowType(
+                                            new String[] {
+                                                "field1", "field2", "field3", "field4", "field5",
+                                                "field6", "field7", "field8", "field9", "field10"
+                                            },
+                                            new SeaTunnelDataType<?>[] {
+                                                BasicType.STRING_TYPE,
+                                                BasicType.STRING_TYPE,
+                                                BasicType.FLOAT_TYPE,
+                                                BasicType.FLOAT_TYPE,
+                                                BasicType.DOUBLE_TYPE,
+                                                VectorType.VECTOR_FLOAT_TYPE,
+                                                VectorType.VECTOR_BINARY_TYPE,
+                                                VectorType.VECTOR_FLOAT16_TYPE,
+                                                VectorType.VECTOR_BFLOAT16_TYPE,
+                                                VectorType.VECTOR_SPARSE_FLOAT_TYPE
+                                            })));
+                });
     }
 
     private ReadonlyConfig getTestConfigFile(String configFile)

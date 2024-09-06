@@ -76,6 +76,8 @@ public class SeaTunnelServer
 
     private volatile boolean isRunning = true;
 
+    @Getter private EventService eventService;
+
     public SeaTunnelServer(@NonNull SeaTunnelConfig seaTunnelConfig) {
         this.liveOperationRegistry = new LiveOperationRegistry();
         this.seaTunnelConfig = seaTunnelConfig;
@@ -116,6 +118,8 @@ public class SeaTunnelServer
                 new DefaultClassLoaderService(
                         seaTunnelConfig.getEngineConfig().isClassloaderCacheMode());
 
+        eventService = new EventService(nodeEngine);
+
         if (EngineConfig.ClusterRole.MASTER_AND_WORKER.ordinal()
                 == seaTunnelConfig.getEngineConfig().getClusterRole().ordinal()) {
             startWorker();
@@ -149,7 +153,7 @@ public class SeaTunnelServer
     private void startWorker() {
         taskExecutionService =
                 new TaskExecutionService(
-                        classLoaderService, nodeEngine, nodeEngine.getProperties());
+                        classLoaderService, nodeEngine, nodeEngine.getProperties(), eventService);
         nodeEngine.getMetricsRegistry().registerDynamicMetricsProvider(taskExecutionService);
         taskExecutionService.start();
         getSlotService();
@@ -175,6 +179,10 @@ public class SeaTunnelServer
         }
         if (coordinatorService != null) {
             coordinatorService.shutdown();
+        }
+
+        if (eventService != null) {
+            eventService.shutdownNow();
         }
     }
 

@@ -22,9 +22,11 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigParseOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigSyntax;
 import org.apache.seatunnel.shade.com.typesafe.config.impl.Parseable;
 
 import org.apache.seatunnel.api.configuration.ConfigAdapter;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.ParserException;
 
 import lombok.NonNull;
@@ -32,10 +34,15 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.core.starter.utils.ConfigShadeUtils.DEFAULT_SENSITIVE_KEYWORDS;
 
 /** Used to build the {@link Config} from config file. */
 @Slf4j
@@ -76,14 +83,19 @@ public class ConfigBuilder {
                 adapterSupplier
                         .map(adapter -> of(adapter, filePath, variables))
                         .orElseGet(() -> ofInner(filePath, variables));
+        boolean isJson = filePath.getFileName().toString().endsWith(".json");
+        log.info(
+                "Parsed config file: \n{}",
+                mapToString(configDesensitization(config.root().unwrapped())));
         return config;
     }
 
     public static Config of(@NonNull Map<String, Object> objectMap) {
-        return of(objectMap, false);
+        return of(objectMap, false, false);
     }
 
-    public static Config of(@NonNull Map<String, Object> objectMap, boolean isEncrypt) {
+    public static Config of(
+            @NonNull Map<String, Object> objectMap, boolean isEncrypt, boolean isJson) {
         log.info("Loading config file from objectMap");
         Config config =
                 ConfigFactory.parseMap(objectMap)
@@ -94,7 +106,47 @@ public class ConfigBuilder {
         if (!isEncrypt) {
             config = ConfigShadeUtils.decryptConfig(config);
         }
+        log.info(
+                "Parsed config file: \n{}",
+                mapToString(configDesensitization(config.root().unwrapped())));
         return config;
+    }
+
+    public static Map<String, Object> configDesensitization(Map<String, Object> configMap) {
+        return configMap.entrySet().stream()
+                .collect(
+                        HashMap::new,
+                        (m, p) -> {
+                            String key = p.getKey();
+                            Object value = p.getValue();
+                            if (Arrays.asList(DEFAULT_SENSITIVE_KEYWORDS)
+                                    .contains(key.toLowerCase())) {
+                                m.put(key, "******");
+                            } else {
+                                if (value instanceof Map<?, ?>) {
+                                    m.put(key, configDesensitization((Map<String, Object>) value));
+                                } else if (value instanceof List<?>) {
+                                    List<?> listValue = (List<?>) value;
+                                    List<Object> newList =
+                                            listValue.stream()
+                                                    .map(
+                                                            v -> {
+                                                                if (v instanceof Map<?, ?>) {
+                                                                    return configDesensitization(
+                                                                            (Map<String, Object>)
+                                                                                    v);
+                                                                } else {
+                                                                    return v;
+                                                                }
+                                                            })
+                                                    .collect(Collectors.toList());
+                                    m.put(key, newList);
+                                } else {
+                                    m.put(key, value);
+                                }
+                            }
+                        },
+                        HashMap::putAll);
     }
 
     public static Config of(
@@ -132,5 +184,17 @@ public class ConfigBuilder {
                     systemConfig, ConfigResolveOptions.defaults().setAllowUnresolved(true));
         }
         return config;
+    }
+
+    public static String mapToString(Map<String, Object> configMap) {
+        ConfigParseOptions configParseOptions =
+                ConfigParseOptions.defaults().setSyntax(ConfigSyntax.JSON);
+        Config config =
+                ConfigFactory.parseString(JsonUtils.toJsonString(configMap), configParseOptions)
+                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+                        .resolveWith(
+                                ConfigFactory.systemProperties(),
+                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        return config.root().render(CONFIG_RENDER_OPTIONS);
     }
 }

@@ -27,9 +27,9 @@ This document describes how to set up the MongoDB connector to run data writers 
 In order to use the Mongodb connector, the following dependencies are required.
 They can be downloaded via install-plugin.sh or from the Maven central repository.
 
-| Datasource | Supported Versions |                                                  Dependency                                                   |
-|------------|--------------------|---------------------------------------------------------------------------------------------------------------|
-| MongoDB    | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-mongodb) |
+| Datasource | Supported Versions | Dependency                                                                            |
+|------------|--------------------|---------------------------------------------------------------------------------------|
+| MongoDB    | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-mongodb) |
 
 ## Data Type Mapping
 
@@ -73,7 +73,7 @@ The following table lists the field data type mapping from MongoDB BSON type to 
 | upsert-enable         | Boolean  | No       | false   | Whether to write documents via upsert mode.                                                                                  |
 | primary-key           | List     | No       | -       | The primary keys for upsert/update. Keys are in `["id","name",...]` format for properties.                                   |
 | transaction           | Boolean  | No       | false   | Whether to use transactions in MongoSink (requires MongoDB 4.2+).                                                            |
-| common-options        |          | No       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                      |
+| common-options        |          | No       | -       | Source plugin common parameters, please refer to [Source Common Options](../sink-common-options.md) for details              |
 
 ### Tips
 

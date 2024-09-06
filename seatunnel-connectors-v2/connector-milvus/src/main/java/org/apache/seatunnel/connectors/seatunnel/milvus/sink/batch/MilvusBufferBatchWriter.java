@@ -29,7 +29,8 @@ import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnecto
 
 import org.apache.commons.collections4.CollectionUtils;
 
-import com.alibaba.fastjson.JSONObject;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import io.milvus.v2.client.MilvusClientV2;
 import io.milvus.v2.service.vector.request.InsertReq;
 import io.milvus.v2.service.vector.request.UpsertReq;
@@ -48,8 +49,9 @@ public class MilvusBufferBatchWriter implements MilvusBatchWriter {
     private final String collectionName;
     private MilvusClientV2 milvusClient;
 
-    private volatile List<JSONObject> milvusDataCache;
+    private volatile List<JsonObject> milvusDataCache;
     private volatile int writeCount = 0;
+    private static final Gson GSON = new Gson();
 
     public MilvusBufferBatchWriter(
             CatalogTable catalogTable,
@@ -68,7 +70,7 @@ public class MilvusBufferBatchWriter implements MilvusBatchWriter {
 
     @Override
     public void addToBatch(SeaTunnelRow element) {
-        JSONObject data = buildMilvusData(element);
+        JsonObject data = buildMilvusData(element);
         milvusDataCache.add(data);
         writeCount++;
     }
@@ -98,11 +100,11 @@ public class MilvusBufferBatchWriter implements MilvusBatchWriter {
         }
     }
 
-    private JSONObject buildMilvusData(SeaTunnelRow element) {
+    private JsonObject buildMilvusData(SeaTunnelRow element) {
         SeaTunnelRowType seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
 
-        JSONObject data = new JSONObject();
+        JsonObject data = new JsonObject();
         for (int i = 0; i < seaTunnelRowType.getFieldNames().length; i++) {
             String fieldName = seaTunnelRowType.getFieldNames()[i];
 
@@ -117,7 +119,10 @@ public class MilvusBufferBatchWriter implements MilvusBatchWriter {
                 throw new MilvusConnectorException(
                         MilvusConnectionErrorCode.FIELD_IS_NULL, fieldName);
             }
-            data.put(fieldName, MilvusConvertUtils.convertBySeaTunnelType(fieldType, value));
+
+            data.add(
+                    fieldName,
+                    GSON.toJsonTree(MilvusConvertUtils.convertBySeaTunnelType(fieldType, value)));
         }
         return data;
     }

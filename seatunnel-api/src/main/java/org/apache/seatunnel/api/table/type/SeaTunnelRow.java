@@ -18,6 +18,7 @@
 package org.apache.seatunnel.api.table.type;
 
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
@@ -142,7 +143,12 @@ public final class SeaTunnelRow implements Serializable {
             case TIMESTAMP:
                 return 48;
             case FLOAT_VECTOR:
-                return getArrayNotNullSize((Object[]) v) * 4;
+            case FLOAT16_VECTOR:
+            case BFLOAT16_VECTOR:
+            case BINARY_VECTOR:
+                return ((ByteBuffer) v).capacity();
+            case SPARSE_FLOAT_VECTOR:
+                return ((Map<?, ?>) v).entrySet().size() * 8;
             case ARRAY:
                 SeaTunnelDataType elementType = ((ArrayType) dataType).getElementType();
                 if (elementType instanceof DecimalType) {
@@ -289,6 +295,9 @@ public final class SeaTunnelRow implements Serializable {
                     size += getBytesForValue(entry.getKey()) + getBytesForValue(entry.getValue());
                 }
                 return size;
+            case "HeapByteBuffer":
+            case "ByteBuffer":
+                return ((ByteBuffer) v).capacity();
             case "SeaTunnelRow":
                 int rowSize = 0;
                 SeaTunnelRow row = (SeaTunnelRow) v;

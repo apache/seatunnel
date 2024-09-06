@@ -992,7 +992,6 @@ public class ClusterFaultToleranceIT {
                             + "          fs.oss.endpoint: "
                             + OSS_ENDPOINT
                             + "\n"
-                            + "          fs.oss.credentials.provider: org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider\n"
                             + "  properties:\n"
                             + "    hazelcast.invocation.max.retry.count: 200\n"
                             + "    hazelcast.tcp.join.port.try.count: 30\n"

@@ -58,16 +58,6 @@ if defined JvmOption (
     set "JAVA_OPTS=%JAVA_OPTS% %JvmOption%"
 )
 
-for %%i in (%*) do (
-    set "arg=%%i"
-    if "!arg:~0,9!"=="JvmOption" (
-        set "JVM_OPTION=!arg:~9!"
-        set "JAVA_OPTS=!JAVA_OPTS! !JVM_OPTION!"
-        goto :break_loop
-    )
-)
-:break_loop
-
 set "JAVA_OPTS=%JAVA_OPTS% -Dhazelcast.client.config=%HAZELCAST_CLIENT_CONFIG%"
 set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.config=%SEATUNNEL_CONFIG%"
 set "JAVA_OPTS=%JAVA_OPTS% -Dhazelcast.config=%HAZELCAST_CONFIG%"
@@ -104,5 +94,16 @@ for /f "usebackq delims=" %%a in ("%APP_DIR%\config\jvm_client_options") do (
         set "JAVA_OPTS=!JAVA_OPTS! !line!"
     )
 )
+
+REM Parse JvmOption from command line, it should be parsed after jvm_client_options
+for %%i in (%*) do (
+    set "arg=%%i"
+    if "!arg:~0,9!"=="JvmOption" (
+        set "JVM_OPTION=!arg:~9!"
+        set "JAVA_OPTS=!JAVA_OPTS! !JVM_OPTION!"
+        goto :break_loop
+    )
+)
+:break_loop
 
 java %JAVA_OPTS% -cp %CLASS_PATH% %APP_MAIN% %args%
