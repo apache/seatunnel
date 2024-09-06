@@ -217,26 +217,32 @@ public class ConfigBuilder {
                     if (innerValue instanceof Map) {
                         processVariablesMap((Map<String, Object>) innerValue);
                     } else if (innerValue instanceof List) {
-                        mapValue.put(innerKey, processVariablesList((List<String>) innerValue));
+                        mapValue.put(innerKey, processVariablesList((List<?>) innerValue));
                     } else {
                         processVariable(innerKey, innerValue, mapValue);
                     }
                 });
     }
 
-    private static List<String> processVariablesList(List<String> list) {
+    private static List<?> processVariablesList(List<?> list) {
         return list.stream()
                 .map(
-                        variableString ->
-                                extractPlaceholder(variableString).stream()
+                        variable -> {
+                            if (variable instanceof String) {
+                                String variableString = (String) variable;
+                                return extractPlaceholder(variableString).stream()
                                         .reduce(
                                                 variableString,
-                                                (result, placeholder) ->
-                                                        replacePlaceholders(
-                                                                result,
-                                                                placeholder,
-                                                                System.getProperty(placeholder),
-                                                                null)))
+                                                (result, placeholder) -> {
+                                                    return replacePlaceholders(
+                                                            result,
+                                                            placeholder,
+                                                            System.getProperty(placeholder),
+                                                            null);
+                                                });
+                            }
+                            return variable;
+                        })
                 .collect(Collectors.toList());
     }
 
