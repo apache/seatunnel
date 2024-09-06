@@ -64,7 +64,7 @@
 
 ## 连接器选项
 
-|              名称               |   类型    |       是否必要       |             默认值              |                                                                                描述                                                                                 |
+|              名称               |   类型    |       是否必要       |             默认值              | 描述                                                                                                                                                                |
 |-------------------------------|---------|------------------|------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | table_name                    | string  | yes              | -                            | 要写入的表名称 例如: `db1.table1`, 如果source端支持多表, 你可以使用 `${database_name}.${table_name}` 来生成表名,  `${database_name}`和`${table_name}` 这两个值会根据source端生成的信息进行替换. 样例可参考下方`多表写入` |
 | metastore_uri                 | string  | yes              | -                            | Hive Metastore的地址                                                                                                                                                 |
@@ -82,7 +82,7 @@
 | kerberos_principal            | string  | no               | -                            | The principal of kerberos                                                                                                                                         |
 | kerberos_keytab_path          | string  | no               | -                            | keytab文件路径                                                                                                                                                        |
 | abort_drop_partition_metadata | boolean | no               | true                         | 当遇到异常时, 是否回滚Hive MetaStore中的元数据.                                                                                                                                  |
-| common-options                |         | no               | -                            | Sink插件常用参数，请参考 [Sink常用选项 ](common-options.md) 了解详情                                                                                                                |
+| common-options                |         | no               | -                            | Sink插件常用参数，请参考 [Sink常用选项 ](../sink-common-options.md) 了解详情                                                                                                        |
 
 ### schema_save_mode [Enum]
 
