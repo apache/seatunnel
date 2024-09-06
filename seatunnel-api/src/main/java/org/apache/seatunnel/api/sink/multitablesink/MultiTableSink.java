@@ -64,6 +64,7 @@ public class MultiTableSink
     public SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState> createWriter(
             SinkWriter.Context context) throws IOException {
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
         for (int i = 0; i < replicaNum; i++) {
             for (String tableIdentifier : sinks.keySet()) {
                 SeaTunnelSink sink = sinks.get(tableIdentifier);
@@ -71,15 +72,18 @@ public class MultiTableSink
                 writers.put(
                         SinkIdentifier.of(tableIdentifier, index),
                         sink.createWriter(new SinkContextProxy(index, context)));
+                sinkWritersContext.put(SinkIdentifier.of(tableIdentifier, index), context);
             }
         }
-        return new MultiTableSinkWriter(writers, replicaNum);
+        return new MultiTableSinkWriter(writers, replicaNum, sinkWritersContext);
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState> restoreWriter(
             SinkWriter.Context context, List<MultiTableState> states) throws IOException {
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+
         for (int i = 0; i < replicaNum; i++) {
             for (String tableIdentifier : sinks.keySet()) {
                 SeaTunnelSink sink = sinks.get(tableIdentifier);
@@ -102,9 +106,10 @@ public class MultiTableSink
                             sinkIdentifier,
                             sink.restoreWriter(new SinkContextProxy(index, context), state));
                 }
+                sinkWritersContext.put(SinkIdentifier.of(tableIdentifier, index), context);
             }
         }
-        return new MultiTableSinkWriter(writers, replicaNum);
+        return new MultiTableSinkWriter(writers, replicaNum, sinkWritersContext);
     }
 
     @Override

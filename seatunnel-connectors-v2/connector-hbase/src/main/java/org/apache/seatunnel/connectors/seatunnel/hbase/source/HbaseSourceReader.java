@@ -51,7 +51,7 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
 
     private final transient Map<String, byte[][]> namesMap;
 
-    private final SourceReader.Context context;
+    private final Context context;
     private final SeaTunnelRowType seaTunnelRowType;
     private volatile boolean noMoreSplit = false;
     private final HbaseClient hbaseClient;

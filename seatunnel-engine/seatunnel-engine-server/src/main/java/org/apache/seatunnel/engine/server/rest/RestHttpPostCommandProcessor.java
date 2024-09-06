@@ -40,22 +40,31 @@ import org.apache.seatunnel.engine.server.utils.RestUtil;
 
 import org.apache.commons.lang3.StringUtils;
 
+import com.hazelcast.cluster.impl.MemberImpl;
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
 import com.hazelcast.internal.ascii.rest.HttpPostCommand;
 import com.hazelcast.internal.json.Json;
+import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.spi.impl.NodeEngineImpl;
+import scala.Tuple2;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_400;
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.ENCRYPT_CONFIG;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.STOP_JOBS_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.STOP_JOB_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.SUBMIT_JOBS_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.SUBMIT_JOB_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.UPDATE_TAGS_URL;
 
 public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostCommand> {
 
@@ -78,12 +87,18 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
     public void handle(HttpPostCommand httpPostCommand) {
         String uri = httpPostCommand.getURI();
         try {
-            if (uri.startsWith(SUBMIT_JOB_URL)) {
+            if (uri.startsWith(SUBMIT_JOBS_URL)) {
+                handleSubmitJobs(httpPostCommand);
+            } else if (uri.startsWith(SUBMIT_JOB_URL)) {
                 handleSubmitJob(httpPostCommand, uri);
+            } else if (uri.startsWith(STOP_JOBS_URL)) {
+                handleStopJobs(httpPostCommand);
             } else if (uri.startsWith(STOP_JOB_URL)) {
-                handleStopJob(httpPostCommand, uri);
+                handleStopJob(httpPostCommand);
             } else if (uri.startsWith(ENCRYPT_CONFIG)) {
                 handleEncrypt(httpPostCommand);
+            } else if (uri.startsWith(UPDATE_TAGS_URL)) {
+                handleUpdateTags(httpPostCommand);
             } else {
                 original.handle(httpPostCommand);
             }
@@ -93,7 +108,6 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
             logger.warning("An error occurred while handling request " + httpPostCommand, e);
             prepareResponse(SC_500, httpPostCommand, exceptionResponse(e));
         }
-
         this.textCommandService.sendResponse(httpPostCommand);
     }
 
@@ -103,11 +117,41 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         return (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
     }
 
+    private void handleSubmitJobs(HttpPostCommand httpPostCommand) throws IllegalArgumentException {
+        List<Tuple2<Map<String, String>, Config>> configTuples =
+                RestUtil.buildConfigList(requestHandle(httpPostCommand), false);
+
+        JsonArray jsonArray =
+                configTuples.stream()
+                        .map(
+                                tuple -> {
+                                    String urlParams = mapToUrlParams(tuple._1);
+                                    Map<String, String> requestParams = new HashMap<>();
+                                    RestUtil.buildRequestParams(requestParams, urlParams);
+                                    return submitJobInternal(tuple._2, requestParams);
+                                })
+                        .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+
+        prepareResponse(httpPostCommand, jsonArray);
+    }
+
+    private String mapToUrlParams(Map<String, String> params) {
+        return params.entrySet().stream()
+                .map(entry -> entry.getKey() + "=" + entry.getValue())
+                .collect(Collectors.joining("&", "?", ""));
+    }
+
     private void handleSubmitJob(HttpPostCommand httpPostCommand, String uri)
             throws IllegalArgumentException {
         Map<String, String> requestParams = new HashMap<>();
         RestUtil.buildRequestParams(requestParams, uri);
         Config config = RestUtil.buildConfig(requestHandle(httpPostCommand), false);
+
+        JsonObject jsonObject = submitJobInternal(config, requestParams);
+        this.prepareResponse(httpPostCommand, jsonObject);
+    }
+
+    private JsonObject submitJobInternal(Config config, Map<String, String> requestParams) {
         ReadonlyConfig envOptions = ReadonlyConfig.fromConfig(config.getConfig("env"));
         String jobName = envOptions.get(EnvCommonOptions.JOB_NAME);
 
@@ -146,15 +190,35 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
             submitJob(seaTunnelServer, jobImmutableInformation, jobConfig);
         }
 
-        this.prepareResponse(
-                httpPostCommand,
-                new JsonObject()
-                        .add(RestConstant.JOB_ID, String.valueOf(jobId))
-                        .add(RestConstant.JOB_NAME, jobConfig.getName()));
+        return new JsonObject()
+                .add(RestConstant.JOB_ID, String.valueOf(jobId))
+                .add(RestConstant.JOB_NAME, jobConfig.getName());
     }
 
-    private void handleStopJob(HttpPostCommand httpPostCommand, String uri) {
+    private void handleStopJobs(HttpPostCommand command) {
+        List<Map> jobList = JsonUtils.toList(requestHandle(command).toString(), Map.class);
+        JsonArray jsonResponse = new JsonArray();
+
+        jobList.forEach(
+                job -> {
+                    handleStopJob(job);
+                    jsonResponse.add(
+                            new JsonObject()
+                                    .add(RestConstant.JOB_ID, (Long) job.get(RestConstant.JOB_ID)));
+                });
+
+        this.prepareResponse(command, jsonResponse);
+    }
+
+    private void handleStopJob(HttpPostCommand httpPostCommand) {
         Map<String, Object> map = JsonUtils.toMap(requestHandle(httpPostCommand));
+        handleStopJob(map);
+        this.prepareResponse(
+                httpPostCommand,
+                new JsonObject().add(RestConstant.JOB_ID, map.get(RestConstant.JOB_ID).toString()));
+    }
+
+    private void handleStopJob(Map<String, Object> map) {
         boolean isStopWithSavePoint = false;
         if (map.get(RestConstant.JOB_ID) == null) {
             throw new IllegalArgumentException("jobId cannot be empty.");
@@ -186,10 +250,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                 coordinatorService.cancelJob(jobId);
             }
         }
-
-        this.prepareResponse(
-                httpPostCommand,
-                new JsonObject().add(RestConstant.JOB_ID, map.get(RestConstant.JOB_ID).toString()));
+        logger.info("Stop job with jobId: " + jobId);
     }
 
     private void handleEncrypt(HttpPostCommand httpPostCommand) {
@@ -199,6 +260,30 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                 encryptConfig.root().render(ConfigRenderOptions.concise().setJson(true));
         JsonObject jsonObject = Json.parse(encryptString).asObject();
         this.prepareResponse(httpPostCommand, jsonObject);
+    }
+
+    private void handleUpdateTags(HttpPostCommand httpPostCommand) {
+        Map<String, Object> params = JsonUtils.toMap(requestHandle(httpPostCommand));
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer();
+
+        NodeEngineImpl nodeEngine = seaTunnelServer.getNodeEngine();
+        MemberImpl localMember = nodeEngine.getLocalMember();
+
+        Map<String, String> tags =
+                params.entrySet().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Map.Entry::getKey,
+                                        value ->
+                                                value.getValue() != null
+                                                        ? value.getValue().toString()
+                                                        : ""));
+        localMember.updateAttribute(tags);
+        this.prepareResponse(
+                httpPostCommand,
+                new JsonObject()
+                        .add("status", ResponseType.SUCCESS.toString())
+                        .add("message", "update node tags done."));
     }
 
     @Override

@@ -26,7 +26,8 @@ public enum PaimonConnectorErrorCode implements SeaTunnelErrorCode {
     TABLE_PRE_COMMIT_FAILED("PAIMON-03", "Paimon pre commit failed"),
     GET_TABLE_FAILED("PAIMON-04", "Get table from database failed"),
     AUTHENTICATE_KERBEROS_FAILED("PAIMON-05", "Authenticate kerberos failed"),
-    LOAD_CATALOG("PAIMON-06", "Load catalog failed");
+    LOAD_CATALOG("PAIMON-06", "Load catalog failed"),
+    GET_FILED_FAILED("PAIMON-07", "Get field failed");
 
     private final String code;
     private final String description;

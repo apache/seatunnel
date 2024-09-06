@@ -34,7 +34,7 @@ public class HbaseCatalogFactory implements CatalogFactory {
     public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
         // Create an instance of HbaseCatalog, passing in the catalog name, namespace, and Hbase
         // parameters
-        HbaseParameters hbaseParameters = HbaseParameters.buildWithSinkConfig(options.toConfig());
+        HbaseParameters hbaseParameters = HbaseParameters.buildWithConfig(options);
         return new HbaseCatalog(catalogName, hbaseParameters.getNamespace(), hbaseParameters);
     }
 

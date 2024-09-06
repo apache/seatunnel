@@ -23,8 +23,8 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.SourceIndexInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source.DefaultSeaTunnelRowDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source.ElasticsearchRecord;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source.SeaTunnelRowDeserializer;
@@ -44,27 +44,23 @@ public class ElasticsearchSourceReader
 
     SourceReader.Context context;
 
-    private final ReadonlyConfig config;
+    private final ReadonlyConfig connConfig;
 
     private EsRestClient esRestClient;
-
-    private final SeaTunnelRowDeserializer deserializer;
 
     Deque<ElasticsearchSourceSplit> splits = new LinkedList<>();
     boolean noMoreSplit;
 
     private final long pollNextWaitTime = 1000L;
 
-    public ElasticsearchSourceReader(
-            SourceReader.Context context, ReadonlyConfig config, SeaTunnelRowType rowTypeInfo) {
+    public ElasticsearchSourceReader(SourceReader.Context context, ReadonlyConfig connConfig) {
         this.context = context;
-        this.config = config;
-        this.deserializer = new DefaultSeaTunnelRowDeserializer(rowTypeInfo);
+        this.connConfig = connConfig;
     }
 
     @Override
     public void open() {
-        esRestClient = EsRestClient.createInstance(this.config);
+        esRestClient = EsRestClient.createInstance(this.connConfig);
     }
 
     @Override
@@ -77,7 +73,10 @@ public class ElasticsearchSourceReader
         synchronized (output.getCheckpointLock()) {
             ElasticsearchSourceSplit split = splits.poll();
             if (split != null) {
-                SourceIndexInfo sourceIndexInfo = split.getSourceIndexInfo();
+                SeaTunnelRowType seaTunnelRowType = split.getSeaTunnelRowType();
+                SeaTunnelRowDeserializer deserializer =
+                        new DefaultSeaTunnelRowDeserializer(seaTunnelRowType);
+                SourceConfig sourceIndexInfo = split.getSourceConfig();
                 ScrollResult scrollResult =
                         esRestClient.searchByScroll(
                                 sourceIndexInfo.getIndex(),
@@ -85,12 +84,12 @@ public class ElasticsearchSourceReader
                                 sourceIndexInfo.getQuery(),
                                 sourceIndexInfo.getScrollTime(),
                                 sourceIndexInfo.getScrollSize());
-                outputFromScrollResult(scrollResult, sourceIndexInfo.getSource(), output);
+                outputFromScrollResult(scrollResult, sourceIndexInfo, output, deserializer);
                 while (scrollResult.getDocs() != null && scrollResult.getDocs().size() > 0) {
                     scrollResult =
                             esRestClient.searchWithScrollId(
                                     scrollResult.getScrollId(), sourceIndexInfo.getScrollTime());
-                    outputFromScrollResult(scrollResult, sourceIndexInfo.getSource(), output);
+                    outputFromScrollResult(scrollResult, sourceIndexInfo, output, deserializer);
                 }
             } else if (noMoreSplit) {
                 // signal to the source that we have reached the end of the data.
@@ -103,10 +102,15 @@ public class ElasticsearchSourceReader
     }
 
     private void outputFromScrollResult(
-            ScrollResult scrollResult, List<String> source, Collector<SeaTunnelRow> output) {
+            ScrollResult scrollResult,
+            SourceConfig sourceConfig,
+            Collector<SeaTunnelRow> output,
+            SeaTunnelRowDeserializer deserializer) {
+        List<String> source = sourceConfig.getSource();
+        String tableId = sourceConfig.getCatalogTable().getTablePath().toString();
         for (Map<String, Object> doc : scrollResult.getDocs()) {
             SeaTunnelRow seaTunnelRow =
-                    deserializer.deserialize(new ElasticsearchRecord(doc, source));
+                    deserializer.deserialize(new ElasticsearchRecord(doc, source, tableId));
             output.collect(seaTunnelRow);
         }
     }

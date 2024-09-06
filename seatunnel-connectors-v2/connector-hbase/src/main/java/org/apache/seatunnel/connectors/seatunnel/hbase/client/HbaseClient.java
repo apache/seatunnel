@@ -311,7 +311,7 @@ public class HbaseClient {
         try {
             Table table =
                     connection.getTable(
-                            org.apache.hadoop.hbase.TableName.valueOf(databaseName, tableName));
+                            TableName.valueOf(databaseName, tableName));
             Scan scan = new Scan();
             scan.setCaching(1);
             scan.setLimit(1);
