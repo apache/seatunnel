@@ -23,7 +23,6 @@ import com.hazelcast.config.Config;
 import com.hazelcast.config.YamlConfigBuilder;
 import com.hazelcast.internal.config.YamlConfigLocator;
 import lombok.NonNull;
-import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayInputStream;
 import java.util.Arrays;
@@ -39,7 +38,6 @@ import static com.hazelcast.internal.util.StringUtil.isNullOrEmptyAfterTrim;
  *
  * @see YamlSeaTunnelConfigLocator
  */
-@Slf4j
 public final class ConfigProvider {
 
     private ConfigProvider() {}
