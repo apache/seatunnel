@@ -101,6 +101,13 @@ public interface JdbcOptions {
                     .defaultValue(false)
                     .withDescription("generate sql using the database table");
 
+    Option<Boolean> DECIMAL_TYPE_NARROWING =
+            Options.key("decimal_type_narrowing")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "decimal type narrowing, if true, the decimal type will be narrowed to the int or long type if without loss of precision. Only support for Oracle at now.");
+
     Option<String> XA_DATA_SOURCE_CLASS_NAME =
             Options.key("xa_data_source_class_name")
                     .stringType()

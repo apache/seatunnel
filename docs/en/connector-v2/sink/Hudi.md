@@ -115,7 +115,7 @@ Note: When this configuration corresponds to a single table, you can flatten the
 
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
+Source plugin common parameters, please refer to [Source Common Options](../sink-common-options.md) for details.
 
 ## Examples
 

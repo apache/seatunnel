@@ -66,7 +66,6 @@
                             <appendAssemblyId>true</appendAssemblyId>
                         </configuration>
                     </execution>
-
                 </executions>
             </plugin>
         </plugins>
@@ -83,6 +82,9 @@
                 </property>
             </activation>
             <properties>
+                <docker.build.skip>false</docker.build.skip>
+                <docker.verify.skip>false</docker.verify.skip>
+                <docker.push.skip>false</docker.push.skip>
                 <mysql.version>8.0.27</mysql.version>
                 <postgresql.version>42.4.3</postgresql.version>
                 <postgis.jdbc.version>2.5.1</postgis.jdbc.version>
@@ -518,6 +520,12 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-cdc-opengauss</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-tdengine</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -586,6 +594,13 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-activemq</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-qdrant</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -961,6 +976,23 @@
                                 </configuration>
                             </execution>
                         </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>docker</id>
+            <activation>
+                <property>
+                    <name>release</name>
+                    <value>false</value>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
                     </plugin>
                 </plugins>
             </build>

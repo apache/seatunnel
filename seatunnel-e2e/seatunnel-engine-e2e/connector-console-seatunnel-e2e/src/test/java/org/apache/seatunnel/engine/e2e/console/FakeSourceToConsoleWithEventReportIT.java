@@ -109,7 +109,7 @@ public class FakeSourceToConsoleWithEventReportIT extends SeaTunnelContainer {
                 arrayNode.elements().forEachRemaining(jsonNode -> events.add(jsonNode));
             }
         }
-        Assertions.assertEquals(8, events.size());
+        Assertions.assertEquals(10, events.size());
         Set<String> eventTypes =
                 events.stream().map(e -> e.get("eventType").asText()).collect(Collectors.toSet());
         Assertions.assertTrue(

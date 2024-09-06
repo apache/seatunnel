@@ -1,7 +1,6 @@
 ---
-
 sidebar_position: 12
---------------------
+---
 
 # Command Line Tool
 

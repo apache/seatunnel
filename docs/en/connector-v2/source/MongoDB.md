@@ -27,9 +27,9 @@ This document describes how to set up the MongoDB connector to run data reads ag
 In order to use the Mongodb connector, the following dependencies are required.
 They can be downloaded via install-plugin.sh or from the Maven central repository.
 
-| Datasource | Supported Versions |                                                  Dependency                                                   |
-|------------|--------------------|---------------------------------------------------------------------------------------------------------------|
-| MongoDB    | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-mongodb) |
+| Datasource | Supported Versions | Dependency                                                                            |
+|------------|--------------------|---------------------------------------------------------------------------------------|
+| MongoDB    | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-mongodb) |
 
 ## Data Type Mapping
 
@@ -79,7 +79,7 @@ For specific types in MongoDB, we use Extended JSON format to map them to SeaTun
 | fetch.size           | Int     | No       | 2048             | Set the number of documents obtained from the server for each batch. Setting the appropriate batch size can improve query performance and avoid the memory pressure caused by obtaining a large amount of data at one time.                                                                                    |
 | max.time-min         | Long    | No       | 600              | This parameter is a MongoDB query option that limits the maximum execution time for query operations. The value of maxTimeMin is in Minute. If the execution time of the query exceeds the specified time limit, MongoDB will terminate the operation and return an error.                                     |
 | flat.sync-string     | Boolean | No       | true             | By utilizing flatSyncString, only one field attribute value can be set, and the field type must be a String. This operation will perform a string mapping on a single MongoDB data entry.                                                                                                                      |
-| common-options       |         | No       | -                | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                                                                        |
+| common-options       |         | No       | -                | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details                                                                                                                                                                                              |
 
 ### Tips
 

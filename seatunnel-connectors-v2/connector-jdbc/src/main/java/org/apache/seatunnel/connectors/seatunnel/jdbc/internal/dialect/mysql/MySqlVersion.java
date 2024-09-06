@@ -18,28 +18,27 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql;
 
 public enum MySqlVersion {
-    V_5_5,
-    V_5_6,
-    V_5_7,
-    V_8,
-    V_8_4;
+    V_5_5("5.5"),
+    V_5_6("5.6"),
+    V_5_7("5.7"),
+    V_8("8.0"),
+    V_8_1("8.1"),
+    V_8_2("8.2"),
+    V_8_3("8.3"),
+    V_8_4("8.4");
+
+    private final String versionPrefix;
+
+    MySqlVersion(String versionPrefix) {
+        this.versionPrefix = versionPrefix;
+    }
 
     public static MySqlVersion parse(String version) {
         if (version != null) {
-            if (version.startsWith("5.5")) {
-                return V_5_5;
-            }
-            if (version.startsWith("5.6")) {
-                return V_5_6;
-            }
-            if (version.startsWith("5.7")) {
-                return V_5_7;
-            }
-            if (version.startsWith("8.0")) {
-                return V_8;
-            }
-            if (version.startsWith("8.4")) {
-                return V_8_4;
+            for (MySqlVersion mySqlVersion : values()) {
+                if (version.startsWith(mySqlVersion.versionPrefix)) {
+                    return mySqlVersion;
+                }
             }
         }
         throw new UnsupportedOperationException("Unsupported MySQL version: " + version);

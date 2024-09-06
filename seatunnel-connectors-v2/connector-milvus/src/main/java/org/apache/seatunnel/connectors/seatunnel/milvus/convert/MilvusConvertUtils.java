@@ -34,6 +34,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.api.table.type.VectorType;
+import org.apache.seatunnel.common.utils.BufferUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.milvus.catalog.MilvusOptions;
 import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceConfig;
@@ -44,6 +45,8 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.util.Lists;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonParser;
 import com.google.protobuf.ProtocolStringList;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.common.utils.JacksonUtils;
@@ -62,6 +65,7 @@ import io.milvus.param.collection.DescribeCollectionParam;
 import io.milvus.param.collection.ShowCollectionsParam;
 import io.milvus.param.index.DescribeIndexParam;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -72,6 +76,8 @@ import java.util.stream.Collectors;
 public class MilvusConvertUtils {
 
     private static final String CATALOG_NAME = "Milvus";
+
+    private static final Gson gson = new Gson();
 
     public static Map<TablePath, CatalogTable> getSourceTables(ReadonlyConfig config) {
         MilvusServiceClient client =
@@ -315,11 +321,16 @@ public class MilvusConvertUtils {
             case DATE:
                 return value.toString();
             case FLOAT_VECTOR:
-                List<Float> vector = new ArrayList<>();
-                for (Object o : (Object[]) value) {
-                    vector.add(Float.parseFloat(o.toString()));
-                }
-                return vector;
+                ByteBuffer floatVectorBuffer = (ByteBuffer) value;
+                Float[] floats = BufferUtils.toFloatArray(floatVectorBuffer);
+                return Arrays.stream(floats).collect(Collectors.toList());
+            case BINARY_VECTOR:
+            case BFLOAT16_VECTOR:
+            case FLOAT16_VECTOR:
+                ByteBuffer vector = (ByteBuffer) value;
+                return gson.toJsonTree(vector.array());
+            case SPARSE_FLOAT_VECTOR:
+                return JsonParser.parseString(JacksonUtils.toJsonString(value)).getAsJsonObject();
             case FLOAT:
                 return Float.parseFloat(value.toString());
             case BOOLEAN:
