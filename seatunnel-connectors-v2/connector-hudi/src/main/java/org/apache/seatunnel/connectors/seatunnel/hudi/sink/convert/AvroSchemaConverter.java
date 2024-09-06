@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer;
+package org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -29,11 +29,12 @@ import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
 
 /** Converts an Avro schema into Seatunnel's type information. */
-public class AvroSchemaConverter {
+public class AvroSchemaConverter implements Serializable {
 
     private AvroSchemaConverter() {
         // private

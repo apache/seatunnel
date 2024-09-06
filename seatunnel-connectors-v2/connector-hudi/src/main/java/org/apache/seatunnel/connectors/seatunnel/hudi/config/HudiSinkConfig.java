@@ -19,13 +19,14 @@ package org.apache.seatunnel.connectors.seatunnel.hudi.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
-import org.apache.hudi.common.model.HoodieTableType;
 import org.apache.hudi.common.model.WriteOperationType;
 
 import lombok.Builder;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
+import java.util.Optional;
 
 @Data
 @Builder(builderClassName = "Builder")
@@ -33,9 +34,9 @@ public class HudiSinkConfig implements Serializable {
 
     private static final long serialVersionUID = 2L;
 
-    private String tableName;
+    private List<HudiTableConfig> tableList;
 
-    private String tableDfsPath;
+    private WriteOperationType opType;
 
     private int insertShuffleParallelism;
 
@@ -45,38 +46,52 @@ public class HudiSinkConfig implements Serializable {
 
     private int maxCommitsToKeep;
 
-    private HoodieTableType tableType;
-
-    private WriteOperationType opType;
-
     private String confFilesPath;
 
     private int batchIntervalMs;
 
-    private String recordKeyFields;
+    private int batchSize;
 
-    private String partitionFields;
+    private boolean autoCommit;
 
     public static HudiSinkConfig of(ReadonlyConfig config) {
-        HudiSinkConfig.Builder builder = HudiSinkConfig.builder();
+        Builder builder = HudiSinkConfig.builder();
+        Optional<Integer> optionalInsertShuffleParallelism =
+                config.getOptional(HudiOptions.INSERT_SHUFFLE_PARALLELISM);
+        Optional<Integer> optionalUpsertShuffleParallelism =
+                config.getOptional(HudiOptions.UPSERT_SHUFFLE_PARALLELISM);
+        Optional<Integer> optionalMinCommitsToKeep =
+                config.getOptional(HudiOptions.MIN_COMMITS_TO_KEEP);
+        Optional<Integer> optionalMaxCommitsToKeep =
+                config.getOptional(HudiOptions.MAX_COMMITS_TO_KEEP);
+
+        Optional<WriteOperationType> optionalOpType = config.getOptional(HudiOptions.OP_TYPE);
+
+        Optional<Integer> optionalBatchIntervalMs =
+                config.getOptional(HudiOptions.BATCH_INTERVAL_MS);
+        Optional<Integer> optionalBatchSize = config.getOptional(HudiOptions.BATCH_SIZE);
+        Optional<Boolean> optionalAutoCommit = config.getOptional(HudiOptions.AUTO_COMMIT);
+
         builder.confFilesPath(config.get(HudiOptions.CONF_FILES_PATH));
-        builder.tableName(config.get(HudiOptions.TABLE_NAME));
-        builder.tableDfsPath(config.get(HudiOptions.TABLE_DFS_PATH));
-        builder.tableType(config.get(HudiOptions.TABLE_TYPE));
-        builder.opType(config.get(HudiOptions.OP_TYPE));
+        builder.tableList(HudiTableConfig.of(config));
+        builder.opType(optionalOpType.orElseGet(HudiOptions.OP_TYPE::defaultValue));
 
-        builder.batchIntervalMs(config.get(HudiOptions.BATCH_INTERVAL_MS));
+        builder.batchIntervalMs(
+                optionalBatchIntervalMs.orElseGet(HudiOptions.BATCH_INTERVAL_MS::defaultValue));
+        builder.batchSize(optionalBatchSize.orElseGet(HudiOptions.BATCH_SIZE::defaultValue));
 
-        builder.partitionFields(config.get(HudiOptions.PARTITION_FIELDS));
+        builder.insertShuffleParallelism(
+                optionalInsertShuffleParallelism.orElseGet(
+                        HudiOptions.INSERT_SHUFFLE_PARALLELISM::defaultValue));
+        builder.upsertShuffleParallelism(
+                optionalUpsertShuffleParallelism.orElseGet(
+                        HudiOptions.UPSERT_SHUFFLE_PARALLELISM::defaultValue));
 
-        builder.recordKeyFields(config.get(HudiOptions.RECORD_KEY_FIELDS));
-
-        builder.insertShuffleParallelism(config.get(HudiOptions.INSERT_SHUFFLE_PARALLELISM));
-
-        builder.upsertShuffleParallelism(config.get(HudiOptions.UPSERT_SHUFFLE_PARALLELISM));
-
-        builder.minCommitsToKeep(config.get(HudiOptions.MIN_COMMITS_TO_KEEP));
-        builder.maxCommitsToKeep(config.get(HudiOptions.MAX_COMMITS_TO_KEEP));
+        builder.minCommitsToKeep(
+                optionalMinCommitsToKeep.orElseGet(HudiOptions.MIN_COMMITS_TO_KEEP::defaultValue));
+        builder.maxCommitsToKeep(
+                optionalMaxCommitsToKeep.orElseGet(HudiOptions.MAX_COMMITS_TO_KEEP::defaultValue));
+        builder.autoCommit(optionalAutoCommit.orElseGet(HudiOptions.AUTO_COMMIT::defaultValue));
         return builder.build();
     }
 }

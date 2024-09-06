@@ -20,12 +20,14 @@ package org.apache.seatunnel.e2e.connector.hudi;
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.hadoop.ParquetReader;
@@ -40,19 +42,16 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URISyntaxException;
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.given;
 
-@DisabledOnContainer(
-        value = {TestContainerId.SPARK_2_4},
-        type = {},
-        disabledReason = "")
 @Slf4j
-public class HudiIT extends TestSuiteBase {
+public class HudiMultiTableIT extends TestSuiteBase {
 
-    private static final String TABLE_NAME = "st_test";
+    private static final String TABLE_NAME_1 = "st_test_1";
+    private static final String TABLE_NAME_2 = "st_test_2";
     private static final String TABLE_PATH = "/tmp/hudi/";
     private static final String NAMESPACE = "hudi";
     private static final String NAMESPACE_TAR = "hudi.tar.gz";
@@ -99,13 +98,15 @@ public class HudiIT extends TestSuiteBase {
             };
 
     @TestTemplate
-    public void testWriteHudi(TestContainer container)
-            throws IOException, InterruptedException, URISyntaxException {
-        Container.ExecResult textWriteResult = container.executeJob("/fake_to_hudi.conf");
+    @DisabledOnContainer(
+            value = {TestContainerId.SPARK_2_4},
+            type = {EngineType.FLINK},
+            disabledReason = "Currently FLINK do not support multiple tables")
+    public void testMultiWriteHudi(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult textWriteResult = container.executeJob("/multi_fake_to_hudi.conf");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
         Configuration configuration = new Configuration();
-        Path inputPath = new Path(TABLE_PATH + File.separator + TABLE_NAME);
-
         given().ignoreExceptions()
                 .await()
                 .atMost(60000, TimeUnit.MILLISECONDS)
@@ -113,19 +114,60 @@ public class HudiIT extends TestSuiteBase {
                         () -> {
                             // copy hudi to local
                             container.executeExtraCommands(containerExtendedFactory);
-                            ParquetReader<Group> reader =
-                                    ParquetReader.builder(new GroupReadSupport(), inputPath)
+                            Path inputPath1 =
+                                    getNewestCommitFilePath(
+                                            new File(TABLE_PATH + File.separator + TABLE_NAME_1));
+                            Path inputPath2 =
+                                    getNewestCommitFilePath(
+                                            new File(TABLE_PATH + File.separator + TABLE_NAME_2));
+                            ParquetReader<Group> reader1 =
+                                    ParquetReader.builder(new GroupReadSupport(), inputPath1)
+                                            .withConf(configuration)
+                                            .build();
+                            ParquetReader<Group> reader2 =
+                                    ParquetReader.builder(new GroupReadSupport(), inputPath2)
                                             .withConf(configuration)
                                             .build();
 
-                            long rowCount = 0;
-
+                            long rowCount1 = 0;
+                            long rowCount2 = 0;
                             // Read data and count rows
-                            while (reader.read() != null) {
-                                rowCount++;
+                            while (reader1.read() != null) {
+                                rowCount1++;
                             }
-                            Assertions.assertEquals(5, rowCount);
+                            // Read data and count rows
+                            while (reader2.read() != null) {
+                                rowCount2++;
+                            }
+                            Assertions.assertEquals(100, rowCount1);
+                            Assertions.assertEquals(240, rowCount2);
                         });
         FileUtils.deleteFile(TABLE_PATH);
+    }
+
+    public static Path getNewestCommitFilePath(File tablePathDir) throws IOException {
+        File[] files = FileUtil.listFiles(tablePathDir);
+        Long newestCommitTime =
+                Arrays.stream(files)
+                        .filter(file -> file.getName().endsWith(".parquet"))
+                        .map(
+                                file ->
+                                        Long.parseLong(
+                                                file.getName()
+                                                        .substring(
+                                                                file.getName().lastIndexOf("_") + 1,
+                                                                file.getName()
+                                                                        .lastIndexOf(".parquet"))))
+                        .max(Long::compareTo)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Not found parquet file in " + tablePathDir));
+        for (File file : files) {
+            if (file.getName().endsWith(newestCommitTime + ".parquet")) {
+                return new Path(file.toURI());
+            }
+        }
+        throw new IllegalArgumentException("Not found parquet file in " + tablePathDir);
     }
 }

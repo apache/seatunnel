@@ -22,8 +22,9 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-import org.apache.hudi.common.model.HoodieTableType;
 import org.apache.hudi.common.model.WriteOperationType;
+
+import java.util.List;
 
 public interface HudiOptions {
 
@@ -33,37 +34,23 @@ public interface HudiOptions {
                     .noDefaultValue()
                     .withDescription("hudi conf files");
 
-    Option<String> TABLE_NAME =
-            Options.key("table_name").stringType().noDefaultValue().withDescription("table_name");
-
-    Option<String> TABLE_DFS_PATH =
-            Options.key("table_dfs_path")
-                    .stringType()
+    Option<List<HudiTableConfig>> TABLE_LIST =
+            Options.key("table_list")
+                    .listType(HudiTableConfig.class)
                     .noDefaultValue()
-                    .withDescription("table_dfs_path");
+                    .withDescription("table_list");
 
-    Option<String> RECORD_KEY_FIELDS =
-            Options.key("record_key_fields")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("recordKeyFields");
-
-    Option<String> PARTITION_FIELDS =
-            Options.key("partition_fields")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("partitionFields");
-
-    Option<HoodieTableType> TABLE_TYPE =
-            Options.key("table_type")
-                    .type(new TypeReference<HoodieTableType>() {})
-                    .defaultValue(HoodieTableType.COPY_ON_WRITE)
-                    .withDescription("table_type");
     Option<WriteOperationType> OP_TYPE =
             Options.key("op_type")
                     .type(new TypeReference<WriteOperationType>() {})
                     .defaultValue(WriteOperationType.INSERT)
                     .withDescription("op_type");
+
+    Option<Integer> BATCH_SIZE =
+            Options.key("batch_size")
+                    .intType()
+                    .defaultValue(1000)
+                    .withDescription("the size of each insert batch");
 
     Option<Integer> BATCH_INTERVAL_MS =
             Options.key("batch_interval_ms")
@@ -94,4 +81,10 @@ public interface HudiOptions {
                     .intType()
                     .defaultValue(30)
                     .withDescription("hoodie.keep.max.commits");
+
+    Option<Boolean> AUTO_COMMIT =
+            Options.key("auto_commit")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription("auto commit");
 }

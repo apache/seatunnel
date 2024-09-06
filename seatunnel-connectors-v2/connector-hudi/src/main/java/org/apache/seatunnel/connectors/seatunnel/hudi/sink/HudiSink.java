@@ -28,25 +28,32 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.hudi.sink.committer.HudiSinkAggregatedCommitter;
+import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableConfig;
+import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.hudi.sink.commiter.HudiSinkAggregatedCommitter;
+import org.apache.seatunnel.connectors.seatunnel.hudi.sink.state.HudiAggregatedCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.hudi.sink.state.HudiCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.hudi.sink.state.HudiSinkState;
 import org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer.HudiSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.hudi.state.HudiAggregatedCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.hudi.state.HudiCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.hudi.state.HudiSinkState;
+
+import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiErrorCode.TABLE_CONFIG_NOT_FOUND;
+
+@AutoService(SeaTunnelSink.class)
 public class HudiSink
         implements SeaTunnelSink<
                         SeaTunnelRow, HudiSinkState, HudiCommitInfo, HudiAggregatedCommitInfo>,
                 SupportMultiTableSink {
 
-    private HudiSinkConfig hudiSinkConfig;
-    private SeaTunnelRowType seaTunnelRowType;
-    private CatalogTable catalogTable;
+    private final HudiSinkConfig hudiSinkConfig;
+    private final SeaTunnelRowType seaTunnelRowType;
+    private final CatalogTable catalogTable;
 
     public HudiSink(ReadonlyConfig config, CatalogTable table) {
         this.hudiSinkConfig = HudiSinkConfig.of(config);
@@ -60,9 +67,21 @@ public class HudiSink
     }
 
     @Override
-    public HudiSinkWriter restoreWriter(SinkWriter.Context context, List<HudiSinkState> states)
-            throws IOException {
-        return new HudiSinkWriter(context, seaTunnelRowType, hudiSinkConfig, states);
+    public SinkWriter<SeaTunnelRow, HudiCommitInfo, HudiSinkState> createWriter(
+            SinkWriter.Context context) throws IOException {
+        HudiTableConfig hudiTableConfig =
+                getHudiTableConfig(hudiSinkConfig, catalogTable.getTableId().getTableName());
+        return new HudiSinkWriter(
+                context, seaTunnelRowType, hudiSinkConfig, hudiTableConfig, new ArrayList<>());
+    }
+
+    @Override
+    public SinkWriter<SeaTunnelRow, HudiCommitInfo, HudiSinkState> restoreWriter(
+            SinkWriter.Context context, List<HudiSinkState> states) throws IOException {
+        HudiTableConfig hudiTableConfig =
+                getHudiTableConfig(hudiSinkConfig, catalogTable.getTableId().getTableName());
+        return new HudiSinkWriter(
+                context, seaTunnelRowType, hudiSinkConfig, hudiTableConfig, states);
     }
 
     @Override
@@ -78,7 +97,12 @@ public class HudiSink
     @Override
     public Optional<SinkAggregatedCommitter<HudiCommitInfo, HudiAggregatedCommitInfo>>
             createAggregatedCommitter() throws IOException {
-        return Optional.of(new HudiSinkAggregatedCommitter(hudiSinkConfig, seaTunnelRowType));
+        return Optional.of(
+                new HudiSinkAggregatedCommitter(
+                        getHudiTableConfig(
+                                hudiSinkConfig, catalogTable.getTableId().getTableName()),
+                        hudiSinkConfig,
+                        seaTunnelRowType));
     }
 
     @Override
@@ -86,8 +110,23 @@ public class HudiSink
         return Optional.of(new DefaultSerializer<>());
     }
 
-    @Override
-    public HudiSinkWriter createWriter(SinkWriter.Context context) throws IOException {
-        return new HudiSinkWriter(context, seaTunnelRowType, hudiSinkConfig, new ArrayList<>());
+    private HudiTableConfig getHudiTableConfig(HudiSinkConfig hudiSinkConfig, String tableName) {
+        List<HudiTableConfig> tableList = hudiSinkConfig.getTableList();
+        if (tableList.size() == 1) {
+            return tableList.get(0);
+        } else if (tableList.size() > 1) {
+            Optional<HudiTableConfig> optionalHudiTableConfig =
+                    tableList.stream()
+                            .filter(table -> table.getTableName().equals(tableName))
+                            .findFirst();
+            if (!optionalHudiTableConfig.isPresent()) {
+                throw new HudiConnectorException(
+                        TABLE_CONFIG_NOT_FOUND,
+                        "The corresponding table configuration is not found");
+            }
+            return optionalHudiTableConfig.get();
+        }
+        throw new HudiConnectorException(
+                TABLE_CONFIG_NOT_FOUND, "The corresponding table configuration is not found");
     }
 }
