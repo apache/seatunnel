@@ -184,6 +184,7 @@ public class RedshiftCatalog extends AbstractJdbcCatalog {
         return CatalogUtils.getCatalogTable(
                 getConnection(getUrlFromDatabaseName(defaultDatabase)),
                 sqlQuery,
-                new RedshiftTypeMapper());
+                new RedshiftTypeMapper(),
+                catalogName);
     }
 }

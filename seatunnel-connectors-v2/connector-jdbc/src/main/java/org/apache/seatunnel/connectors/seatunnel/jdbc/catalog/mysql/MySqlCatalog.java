@@ -200,7 +200,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     public CatalogTable getTable(String sqlQuery) throws SQLException {
         Connection defaultConnection = getConnection(defaultUrl);
         return CatalogUtils.getCatalogTable(
-                defaultConnection, sqlQuery, new MySqlTypeMapper(typeConverter));
+                defaultConnection, sqlQuery, new MySqlTypeMapper(typeConverter), catalogName);
     }
 
     @Override

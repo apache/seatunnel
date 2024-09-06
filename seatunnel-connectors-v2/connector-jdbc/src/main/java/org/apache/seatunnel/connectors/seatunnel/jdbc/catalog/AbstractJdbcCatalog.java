@@ -588,7 +588,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     public CatalogTable getTable(String sqlQuery) throws SQLException {
         Connection defaultConnection = getConnection(defaultUrl);
-        return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery);
+        return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery, catalogName);
     }
 
     protected void truncateTableInternal(TablePath tablePath) throws CatalogException {

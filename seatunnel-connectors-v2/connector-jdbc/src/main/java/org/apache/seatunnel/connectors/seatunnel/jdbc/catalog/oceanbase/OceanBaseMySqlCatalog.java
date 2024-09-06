@@ -202,7 +202,7 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
                 ResultSet resultSet = statement.executeQuery(sqlQuery)) {
             ResultSetMetaData metaData = resultSet.getMetaData();
             return CatalogUtils.getCatalogTable(
-                    metaData, new OceanBaseMySqlTypeMapper(typeConverter), sqlQuery);
+                    metaData, new OceanBaseMySqlTypeMapper(typeConverter), sqlQuery, catalogName);
         }
     }
 

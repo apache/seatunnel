@@ -234,7 +234,8 @@ public class CatalogUtils {
                 catalogName);
     }
 
-    public static CatalogTable getCatalogTable(ResultSetMetaData resultSetMetaData, String sqlQuery)
+    public static CatalogTable getCatalogTable(
+            ResultSetMetaData resultSetMetaData, String sqlQuery, String catalogName)
             throws SQLException {
         return getCatalogTable(
                 resultSetMetaData,
@@ -246,11 +247,15 @@ public class CatalogUtils {
                                 throw new RuntimeException(e);
                             }
                         },
-                sqlQuery);
+                sqlQuery,
+                catalogName);
     }
 
     public static CatalogTable getCatalogTable(
-            ResultSetMetaData metadata, JdbcDialectTypeMapper typeMapper, String sqlQuery)
+            ResultSetMetaData metadata,
+            JdbcDialectTypeMapper typeMapper,
+            String sqlQuery,
+            String catalogName)
             throws SQLException {
         return getCatalogTable(
                 metadata,
@@ -262,13 +267,15 @@ public class CatalogUtils {
                                 throw new RuntimeException(e);
                             }
                         },
-                sqlQuery);
+                sqlQuery,
+                catalogName);
     }
 
     public static CatalogTable getCatalogTable(
             ResultSetMetaData metadata,
             BiFunction<ResultSetMetaData, Integer, Column> columnConverter,
-            String sqlQuery)
+            String sqlQuery,
+            String catalogName)
             throws SQLException {
         TableSchema.Builder schemaBuilder = TableSchema.builder();
         Map<String, String> unsupported = new LinkedHashMap<>();
@@ -297,7 +304,7 @@ public class CatalogUtils {
         if (!unsupported.isEmpty()) {
             throw CommonError.getCatalogTableWithUnsupportedType("UNKNOWN", sqlQuery, unsupported);
         }
-        String catalogName = "jdbc_catalog";
+        String defaultCatalogName = "jdbc_catalog";
         databaseName = StringUtils.isBlank(databaseName) ? null : databaseName;
         schemaName = StringUtils.isBlank(schemaName) ? null : schemaName;
         TablePath tablePath =
@@ -305,7 +312,8 @@ public class CatalogUtils {
                         ? TablePath.DEFAULT
                         : TablePath.of(databaseName, schemaName, tableName);
         return CatalogTable.of(
-                TableIdentifier.of(catalogName, tablePath),
+                TableIdentifier.of(
+                        catalogName == null ? defaultCatalogName : catalogName, tablePath),
                 schemaBuilder.build(),
                 new HashMap<>(),
                 new ArrayList<>(),
@@ -314,10 +322,13 @@ public class CatalogUtils {
     }
 
     public static CatalogTable getCatalogTable(
-            Connection connection, String sqlQuery, JdbcDialectTypeMapper typeMapper)
+            Connection connection,
+            String sqlQuery,
+            JdbcDialectTypeMapper typeMapper,
+            String catalogName)
             throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement(sqlQuery)) {
-            return getCatalogTable(ps.getMetaData(), typeMapper, sqlQuery);
+            return getCatalogTable(ps.getMetaData(), typeMapper, sqlQuery, catalogName);
         }
     }
 
@@ -326,15 +337,16 @@ public class CatalogUtils {
      * @param sqlQuery
      * @return
      * @throws SQLException
-     * @deprecated instead by {@link #getCatalogTable(Connection, String, JdbcDialectTypeMapper)}
+     * @deprecated instead by {@link #getCatalogTable(Connection, String,
+     *     JdbcDialectTypeMapper,String)}
      */
     @Deprecated
-    public static CatalogTable getCatalogTable(Connection connection, String sqlQuery)
-            throws SQLException {
+    public static CatalogTable getCatalogTable(
+            Connection connection, String sqlQuery, String catalogName) throws SQLException {
         ResultSetMetaData resultSetMetaData;
         try (PreparedStatement ps = connection.prepareStatement(sqlQuery)) {
             resultSetMetaData = ps.getMetaData();
-            return getCatalogTable(resultSetMetaData, sqlQuery);
+            return getCatalogTable(resultSetMetaData, sqlQuery, catalogName);
         }
     }
 }

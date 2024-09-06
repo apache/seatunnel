@@ -204,7 +204,10 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     public CatalogTable getTable(String sqlQuery) throws SQLException {
         Connection defaultConnection = getConnection(defaultUrl);
         return CatalogUtils.getCatalogTable(
-                defaultConnection, sqlQuery, new OracleTypeMapper(decimalTypeNarrowing));
+                defaultConnection,
+                sqlQuery,
+                new OracleTypeMapper(decimalTypeNarrowing),
+                catalogName);
     }
 
     @Override
