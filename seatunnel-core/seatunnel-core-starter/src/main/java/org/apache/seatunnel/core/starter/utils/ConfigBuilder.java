@@ -196,9 +196,10 @@ public class ConfigBuilder {
             configMap.forEach(
                     (key, value) -> {
                         if (value instanceof Map) {
-                            processMap((Map<String, Object>) value);
+                            processVariablesMap((Map<String, Object>) value);
                         } else if (value instanceof List) {
-                            ((List<Map<String, Object>>) value).forEach(map -> processMap(map));
+                            ((List<Map<String, Object>>) value)
+                                    .forEach(map -> processVariablesMap(map));
                         }
                     });
 
@@ -210,15 +211,33 @@ public class ConfigBuilder {
         return config;
     }
 
-    private static void processMap(Map<String, Object> mapValue) {
+    private static void processVariablesMap(Map<String, Object> mapValue) {
         mapValue.forEach(
                 (innerKey, innerValue) -> {
                     if (innerValue instanceof Map) {
-                        processMap((Map<String, Object>) innerValue);
+                        processVariablesMap((Map<String, Object>) innerValue);
+                    } else if (innerValue instanceof List) {
+                        mapValue.put(innerKey, processVariablesList((List<String>) innerValue));
                     } else {
                         processVariable(innerKey, innerValue, mapValue);
                     }
                 });
+    }
+
+    private static List<String> processVariablesList(List<String> list) {
+        return list.stream()
+                .map(
+                        variableString ->
+                                extractPlaceholder(variableString).stream()
+                                        .reduce(
+                                                variableString,
+                                                (result, placeholder) ->
+                                                        replacePlaceholders(
+                                                                result,
+                                                                placeholder,
+                                                                System.getProperty(placeholder),
+                                                                null)))
+                .collect(Collectors.toList());
     }
 
     private static void processVariable(
