@@ -647,39 +647,59 @@ network:
 ### 更新运行节点的tags
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/update-tags</b></code> <code>(如果更新成功，则返回"success"信息)</code></summary>
+<summary><code>POST</code><code><b>/hazelcast/rest/maps/update-tags</b></code><code>因为更新只能针对于某个节点，因此需要用当前节点ip:port用于更新</code><code>(如果更新成功，则返回"success"信息)</code></summary>
 
-#### 请求体
 
+#### 更新节点tags
+##### 请求体
+如果请求参数是`Map`对象，表示要更新当前节点的tags
 ```json
 {
-    "tags": {
-        "tag1": "value_1",
-        "tag2": "value_2"
-    }
+  "tag1": "dev_1",
+  "tag2": "dev_2"
 }
 ```
-#### 响应
-如果示例请求正文中的参数，标签将成功更新，响应正文将是：
+##### 响应
+
 ```json
 {
   "status": "success",
-  "message": "update node tags done"
+  "message": "update node tags done."
 }
 ```
-如果请求体参数为空或不包含参数 "tags"，则响应体将为：
+#### 移除节点tags
+##### 请求体
+如果参数为空`Map`对象，表示要清除当前节点的tags
 ```json
-{
-    "status": "fail",
-    "message": "param tags can not be empty"
-}
+{}
 ```
-如果参数 "tags" 不是"Map"的实例，则响应体将是：
+##### 响应
+响应体将为：
 ```json
 {
-    "status": "fail",
-    "message": "class java.lang.String cannot be cast to class java.util.Map (java.lang.String and java.util.Map are in module java.base of loader 'bootstrap')"
+  "status": "success",
+  "message": "update node tags done."
 }
 ```
 
+#### 请求参数异常
+- 如果请求参数为空
+
+##### 响应
+
+```json
+{
+    "status": "fail",
+    "message": "Request body is empty."
+}
+```
+- 如果参数不是`Map`对象
+##### 响应
+
+```json
+{
+  "status": "fail",
+  "message": "Invalid JSON format in request body."
+}
+```
 </details>

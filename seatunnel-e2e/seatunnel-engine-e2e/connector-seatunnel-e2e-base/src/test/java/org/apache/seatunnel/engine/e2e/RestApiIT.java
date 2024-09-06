@@ -274,15 +274,9 @@ public class RestApiIT {
     }
 
     @Test
-    public void testUpdateTags() {
+    public void testUpdateTagsSuccess() {
 
-        String config =
-                "{\n"
-                        + "    \"tags\": {\n"
-                        + "        \"tag1\": \"dev_1\",\n"
-                        + "        \"tag2\": \"dev_2\"\n"
-                        + "    }\n"
-                        + "}";
+        String config = "{\n" + "    \"tag1\": \"dev_1\",\n" + "    \"tag2\": \"dev_2\"\n" + "}";
 
         given().body(config)
                 .put(
@@ -291,7 +285,7 @@ public class RestApiIT {
                                 + RestConstant.UPDATE_TAGS_URL)
                 .then()
                 .statusCode(200)
-                .body("message", equalTo("update node tags done"));
+                .body("message", equalTo("update node tags done."));
 
         given().get(
                         HOST
@@ -303,6 +297,44 @@ public class RestApiIT {
                 .body("projectVersion", notNullValue())
                 .body("totalSlot", equalTo("20"))
                 .body("workers", equalTo("1"));
+    }
+
+    @Test
+    public void testUpdateTagsFail() {
+
+        given().put(
+                        HOST
+                                + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + RestConstant.UPDATE_TAGS_URL)
+                .then()
+                .statusCode(400)
+                .body("message", equalTo("Request body is empty."));
+    }
+
+    @Test
+    public void testClearTags() {
+
+        String config = "{}";
+
+        given().body(config)
+                .put(
+                        HOST
+                                + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + RestConstant.UPDATE_TAGS_URL)
+                .then()
+                .statusCode(200)
+                .body("message", equalTo("update node tags done."));
+
+        given().get(
+                        HOST
+                                + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + RestConstant.OVERVIEW
+                                + "?tag1=dev_1")
+                .then()
+                .statusCode(200)
+                .body("projectVersion", notNullValue())
+                .body("totalSlot", equalTo("0"))
+                .body("workers", equalTo("0"));
     }
 
     @Test

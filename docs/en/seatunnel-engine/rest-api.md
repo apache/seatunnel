@@ -642,39 +642,59 @@ For more information about customize encryption, please refer to the documentati
 
 ### Update the tags of running node
 
-<details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/update-tags</b></code> <code>(Returns message "success" if update successfully.)</code></summary>
+<details><summary><code>POST</code><code><b>/hazelcast/rest/maps/update-tags</b></code><code>Because the update can only target a specific node, the current node's `ip:port` needs to be used for the update</code><code>(If the update is successful, return a success message)</code></summary>
 
-#### Body
 
+#### update node tags
+##### Body
+If the request parameter is a `Map` object, it indicates that the tags of the current node need to be updated
 ```json
 {
-    "tags": {
-        "tag1": "value_1",
-        "tag2": "value_2"
-    }
+  "tag1": "dev_1",
+  "tag2": "dev_2"
 }
 ```
-#### Responses
-If  the parameters in the example request body, the tags will be updated successfully, the response body will be:
+##### Responses
+
 ```json
 {
   "status": "success",
-  "message": "update node tags done"
+  "message": "update node tags done."
 }
 ```
-If  request body param is empty  or not contain param `tags` , the response body will be:
+#### remove node tags
+##### Body
+If the parameter is an empty `Map` object, it means that the tags of the current node need to be cleared
+```json
+{}
+```
+##### Responses
+
+```json
+{
+  "status": "success",
+  "message": "update node tags done."
+}
+```
+
+#### Request parameter exception
+- If the parameter body is empty
+
+##### Responses
+
 ```json
 {
     "status": "fail",
-    "message": "param tags can not be empty"
+    "message": "Request body is empty."
 }
 ```
-If param  `tags` are not instanceof  `Map`, the response body  will be:
+- If the parameter is not a `Map` object
+##### Responses
+
 ```json
 {
-    "status": "fail",
-    "message": "class java.lang.String cannot be cast to class java.util.Map (java.lang.String and java.util.Map are in module java.base of loader 'bootstrap')"
+  "status": "fail",
+  "message": "Invalid JSON format in request body."
 }
 ```
 </details>

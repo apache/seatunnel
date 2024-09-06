@@ -173,8 +173,8 @@ public final class MemberImpl extends AbstractMember
 
     public void updateAttribute(Map<String, String> tags) {
         ensureLocalMember();
-        if (tags != null && tags.size() > 0) {
-            attributes.clear();
+        attributes.clear();
+        if (tags.size() > 0) {
             attributes.putAll(tags);
         }
     }

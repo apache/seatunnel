@@ -268,20 +268,22 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
 
         NodeEngineImpl nodeEngine = seaTunnelServer.getNodeEngine();
         MemberImpl localMember = nodeEngine.getLocalMember();
-        if (!params.isEmpty() && params.containsKey("tags")) {
-            localMember.updateAttribute((Map<String, String>) params.get("tags"));
-            this.prepareResponse(
-                    httpPostCommand,
-                    new JsonObject()
-                            .add("status", ResponseType.SUCCESS.toString())
-                            .add("message", "update node tags done"));
-        } else {
-            this.prepareResponse(
-                    httpPostCommand,
-                    new JsonObject()
-                            .add("status", ResponseType.FAIL.toString())
-                            .add("message", "param tags can not be empty"));
-        }
+
+        Map<String, String> tags =
+                params.entrySet().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Map.Entry::getKey,
+                                        value ->
+                                                value.getValue() != null
+                                                        ? value.getValue().toString()
+                                                        : ""));
+        localMember.updateAttribute(tags);
+        this.prepareResponse(
+                httpPostCommand,
+                new JsonObject()
+                        .add("status", ResponseType.SUCCESS.toString())
+                        .add("message", "update node tags done."));
     }
 
     @Override
