@@ -309,9 +309,7 @@ public class HbaseClient {
      */
     public boolean isExistsData(String databaseName, String tableName) {
         try {
-            Table table =
-                    connection.getTable(
-                            TableName.valueOf(databaseName, tableName));
+            Table table = connection.getTable(TableName.valueOf(databaseName, tableName));
             Scan scan = new Scan();
             scan.setCaching(1);
             scan.setLimit(1);
