@@ -75,6 +75,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -495,6 +496,14 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                             tablePath
                                     .getFullName()
                                     .equalsIgnoreCase(jdbcCase.getTablePathFullName()));
+                });
+        Collection<JdbcSourceTable> sourceTables = tables.values();
+        sourceTables.forEach(
+                sourceTable -> {
+                    final String catalogName =
+                            sourceTable.getCatalogTable().getTableId().getCatalogName();
+                    Assertions.assertTrue(
+                            StringUtils.equalsIgnoreCase(catalogName, this.catalog.name()));
                 });
     }
 
