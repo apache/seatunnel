@@ -61,19 +61,19 @@
 
 ## 连接器选项
 
-|          名称          |   类型   | 是否必要 |      默认值       |                        描述                        |
-|----------------------|--------|------|----------------|--------------------------------------------------|
-| table_name           | string | yes  | -              | 读取的表名 例如: `db1.table1`                           |
-| metastore_uri        | string | yes  | -              | Hive metastore 地址                                |
-| krb5_path            | string | no   | /etc/krb5.conf | `krb5.conf`文件地址                                  |
-| kerberos_principal   | string | no   | -              | The principal of kerberos authentication         |
-| kerberos_keytab_path | string | no   | -              | keytab文件地址                                       |
-| hdfs_site_path       | string | no   | -              | `hdfs-site.xml`文件地址                              |
-| hive_site_path       | string | no   | -              | `hive-site.xml`文件地址                              |
-| read_partitions      | list   | no   | -              | 需要读取的分区配置, 如果未进行配置会读取所有分区                        |
-| read_columns         | list   | no   | -              | 需要抽取的字段                                          |
-| compress_codec       | string | no   | none           | 文件压缩方式                                           |
-| common-options       |        | no   | -              | 插件常用参数，请参考 [Source常用选项 ](common-options.md) 了解详情 |
+|          名称          |   类型   | 是否必要 |      默认值       | 描述                                                         |
+|----------------------|--------|------|----------------|------------------------------------------------------------|
+| table_name           | string | yes  | -              | 读取的表名 例如: `db1.table1`                                     |
+| metastore_uri        | string | yes  | -              | Hive metastore 地址                                          |
+| krb5_path            | string | no   | /etc/krb5.conf | `krb5.conf`文件地址                                            |
+| kerberos_principal   | string | no   | -              | The principal of kerberos authentication                   |
+| kerberos_keytab_path | string | no   | -              | keytab文件地址                                                 |
+| hdfs_site_path       | string | no   | -              | `hdfs-site.xml`文件地址                                        |
+| hive_site_path       | string | no   | -              | `hive-site.xml`文件地址                                        |
+| read_partitions      | list   | no   | -              | 需要读取的分区配置, 如果未进行配置会读取所有分区                                  |
+| read_columns         | list   | no   | -              | 需要抽取的字段                                                    |
+| compress_codec       | string | no   | none           | 文件压缩方式                                                     |
+| common-options       |        | no   | -              | 插件常用参数，请参考 [Source常用选项 ](../source-common-options.md) 了解详情 |
 
 ### read_partitions
 
