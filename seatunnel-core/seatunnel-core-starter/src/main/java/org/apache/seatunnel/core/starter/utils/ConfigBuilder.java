@@ -26,8 +26,10 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigSyntax;
 import org.apache.seatunnel.shade.com.typesafe.config.impl.Parseable;
 
 import org.apache.seatunnel.api.configuration.ConfigAdapter;
+import org.apache.seatunnel.api.sink.TablePlaceholder;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.ParserException;
+import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -178,6 +180,14 @@ public class ConfigBuilder {
                     .filter(Objects::nonNull)
                     .map(variable -> variable.split("=", 2))
                     .filter(pair -> pair.length == 2)
+                    .peek(
+                            pair -> {
+                                if (TablePlaceholder.isSystemPlaceholder(pair[0])) {
+                                    throw new ConfigCheckException(
+                                            "System placeholders cannot be used. Incorrect config parameter: "
+                                                    + pair[0]);
+                                }
+                            })
                     .forEach(pair -> System.setProperty(pair[0], pair[1]));
             Config systemConfig =
                     Parseable.newProperties(

@@ -255,7 +255,7 @@ sink {
 -i nameVal=abc 
 -i username=seatunnel=2.3.1 
 -i password='$a^b%c.d~e0*9(' 
--e local
+-m local
 ```
 
 其中 `resName`，`rowNum`，`nameType` 我们未设置，他将获取默认值

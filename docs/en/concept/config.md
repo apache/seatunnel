@@ -203,7 +203,7 @@ sql = """ select * from "table" """
 
 ```
 
-## Configuration Variable Substitution
+## Config Variable Substitution
 
 In a configuration file, we can define variables and replace them at runtime. However, note that only HOCON format files are supported.
 
@@ -268,7 +268,7 @@ In the configuration above, we have defined several variables like `${rowNum}`, 
 -i nameVal=abc 
 -i username=seatunnel=2.3.1 
 -i password='$a^b%c.d~e0*9(' 
--e local
+-m local
 ```
 
 In this case, `resName`, `rowNum`, and `nameType` are not set, so they will take their default values.

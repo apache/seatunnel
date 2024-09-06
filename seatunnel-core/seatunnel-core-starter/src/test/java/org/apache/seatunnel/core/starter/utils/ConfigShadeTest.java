@@ -25,6 +25,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
 import org.apache.seatunnel.api.configuration.ConfigShade;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -185,15 +186,15 @@ public class ConfigShadeTest {
     public void testVariableReplacementWithDefaultValue() throws URISyntaxException {
         String jobName = "seatunnel variable test job";
         String ageType = "int";
-        String username = "seatunnel=2.3.1";
-        String password = "$a^b%c.d~e0*9(";
-        String blankSpace = "2023-12-26 11:30:00";
         String sourceTableName = "sql";
+        String containSpaceString = "f h";
         List<String> variables = new ArrayList<>();
         variables.add("jobName=" + jobName);
-        variables.add("strTemplate=[abc,de~,f h]");
+        variables.add("strTemplate=[abc,de~," + containSpaceString + "]");
         variables.add("ageType=" + ageType);
-        variables.add("nameVal=abc");
+        // Set the environment variable value nameVal to `f h` to verify whether setting the space
+        // through the environment variable is effective
+        System.setProperty("nameValForEnv", containSpaceString);
         variables.add("sourceTableName=" + sourceTableName);
         URL resource =
                 ConfigShadeTest.class.getResource("/config_variables_with_default_value.conf");
@@ -207,7 +208,7 @@ public class ConfigShadeTest {
             List<String> list1 = sourceConfig.getStringList("string.template");
             Assertions.assertEquals(list1.get(0), "abc");
             Assertions.assertEquals(list1.get(1), "de~");
-            Assertions.assertEquals(list1.get(2), "f h");
+            Assertions.assertEquals(list1.get(2), containSpaceString);
             Assertions.assertEquals(sourceConfig.getInt("row.num"), 50);
             Assertions.assertEquals(sourceConfig.getString("result_table_name"), "fake_test_table");
         }
@@ -216,13 +217,32 @@ public class ConfigShadeTest {
             Config transformConfig = configObject.toConfig();
             Assertions.assertEquals(
                     transformConfig.getString("query"),
-                    "select * from fake_test_table where name = 'abc' ");
+                    "select * from fake_test_table where name = 'f h' ");
         }
         List<? extends ConfigObject> sinkConfigs = config.getObjectList("sink");
         for (ConfigObject sinkObject : sinkConfigs) {
             Config sinkConfig = sinkObject.toConfig();
             Assertions.assertEquals(sinkConfig.getString("source_table_name"), sourceTableName);
         }
+    }
+
+    @Test
+    public void testVariableReplacementWithReservedPlaceholder() {
+        List<String> variables = new ArrayList<>();
+        variables.add("strTemplate=[abc,de~,f h]");
+        // Set up a reserved placeholder
+        variables.add("table_name=sql");
+        URL resource =
+                ConfigShadeTest.class.getResource(
+                        "/config_variables_with_reserved_placeholder.conf");
+        Assertions.assertNotNull(resource);
+        ConfigCheckException configCheckException =
+                Assertions.assertThrows(
+                        ConfigCheckException.class,
+                        () -> ConfigBuilder.of(Paths.get(resource.toURI()), variables));
+        Assertions.assertEquals(
+                "System placeholders cannot be used. Incorrect config parameter: table_name",
+                configCheckException.getMessage());
     }
 
     @Test
