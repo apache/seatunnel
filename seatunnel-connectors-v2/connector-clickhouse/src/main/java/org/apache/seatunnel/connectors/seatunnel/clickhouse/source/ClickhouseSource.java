@@ -75,8 +75,8 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Clickh
 @AutoService(SeaTunnelSource.class)
 public class ClickhouseSource
         implements SeaTunnelSource<SeaTunnelRow, ClickhouseSourceSplit, ClickhouseSourceState>,
-                SupportParallelism,
-                SupportColumnProjection {
+        SupportParallelism,
+        SupportColumnProjection {
 
     private List<ClickHouseNode> servers;
     private SeaTunnelRowType rowTypeInfo;
@@ -101,10 +101,10 @@ public class ClickhouseSource
         Map<String, String> customConfig =
                 CheckConfigUtil.isValidParam(config, CLICKHOUSE_CONFIG.key())
                         ? config.getObject(CLICKHOUSE_CONFIG.key()).entrySet().stream()
-                                .collect(
-                                        Collectors.toMap(
-                                                Map.Entry::getKey,
-                                                entry -> entry.getValue().unwrapped().toString()))
+                        .collect(
+                                Collectors.toMap(
+                                        Map.Entry::getKey,
+                                        entry -> entry.getValue().unwrapped().toString()))
                         : null;
 
         servers =
@@ -172,11 +172,11 @@ public class ClickhouseSource
 
     public SeaTunnelRowType getClickhouseRowType(ClickHouseNode currentServer, String sql) {
         try (ClickHouseClient client = ClickHouseClient.newInstance(currentServer.getProtocol());
-                ClickHouseResponse response =
-                        client.connect(currentServer)
-                                .format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
-                                .query(String.format("SELECT * FROM (%s) s LIMIT 1", sql))
-                                .executeAndWait()) {
+             ClickHouseResponse response =
+                     client.connect(currentServer)
+                             .format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
+                             .query(String.format("SELECT * FROM (%s) s LIMIT 1", sql))
+                             .executeAndWait()) {
 
             int columnSize = response.getColumns().size();
             String[] fieldNames = new String[columnSize];
@@ -212,7 +212,7 @@ public class ClickhouseSource
     @Override
     public SourceReader<SeaTunnelRow, ClickhouseSourceSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
-        return new ClickhouseSourceReader(servers, readerContext, tableClickhouseCatalogConfigMap);
+        return new ClickhouseSourceReader(servers, readerContext);
     }
 
     @Override
@@ -229,6 +229,6 @@ public class ClickhouseSource
             ClickhouseSourceState checkpointState)
             throws Exception {
         return new ClickhouseSourceSplitEnumerator(
-                enumeratorContext, tableClickhouseCatalogConfigMap);
+                enumeratorContext, tableClickhouseCatalogConfigMap, checkpointState);
     }
 }
