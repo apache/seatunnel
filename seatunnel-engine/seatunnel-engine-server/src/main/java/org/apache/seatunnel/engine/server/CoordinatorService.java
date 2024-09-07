@@ -829,44 +829,43 @@ public class CoordinatorService {
         AtomicLong cancellingJobCount = new AtomicLong();
         AtomicLong canceledJobCount = new AtomicLong();
         AtomicLong finishedJobCount = new AtomicLong();
-        if (runningJobInfoIMap != null) {
-            runningJobInfoIMap
-                    .keySet()
+
+        if (jobHistoryService != null) {
+            jobHistoryService
+                    .getJobStatusData()
                     .forEach(
-                            jobId -> {
-                                if (runningJobStateIMap.get(jobId) != null) {
-                                    JobStatus jobStatus =
-                                            (JobStatus) runningJobStateIMap.get(jobId);
-                                    switch (jobStatus) {
-                                        case CREATED:
-                                            createdJobCount.addAndGet(1);
-                                            break;
-                                        case SCHEDULED:
-                                            scheduledJobCount.addAndGet(1);
-                                            break;
-                                        case RUNNING:
-                                            runningJobCount.addAndGet(1);
-                                            break;
-                                        case FAILING:
-                                            failingJobCount.addAndGet(1);
-                                            break;
-                                        case FAILED:
-                                            failedJobCount.addAndGet(1);
-                                            break;
-                                        case CANCELING:
-                                            cancellingJobCount.addAndGet(1);
-                                            break;
-                                        case CANCELED:
-                                            canceledJobCount.addAndGet(1);
-                                            break;
-                                        case FINISHED:
-                                            finishedJobCount.addAndGet(1);
-                                            break;
-                                        default:
-                                    }
+                            jobStatusData -> {
+                                JobStatus jobStatus = jobStatusData.getJobStatus();
+                                switch (jobStatus) {
+                                    case CREATED:
+                                        createdJobCount.addAndGet(1);
+                                        break;
+                                    case SCHEDULED:
+                                        scheduledJobCount.addAndGet(1);
+                                        break;
+                                    case RUNNING:
+                                        runningJobCount.addAndGet(1);
+                                        break;
+                                    case FAILING:
+                                        failingJobCount.addAndGet(1);
+                                        break;
+                                    case FAILED:
+                                        failedJobCount.addAndGet(1);
+                                        break;
+                                    case CANCELING:
+                                        cancellingJobCount.addAndGet(1);
+                                        break;
+                                    case CANCELED:
+                                        canceledJobCount.addAndGet(1);
+                                        break;
+                                    case FINISHED:
+                                        finishedJobCount.addAndGet(1);
+                                        break;
+                                    default:
                                 }
                             });
         }
+
         return new JobCounter(
                 createdJobCount.longValue(),
                 scheduledJobCount.longValue(),

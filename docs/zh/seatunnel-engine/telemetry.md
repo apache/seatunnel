@@ -149,4 +149,4 @@ scrape_configs:
 - 在 Grafana 中添加 Prometheus 数据源。
 - 将 `Seatunnel Cluster` 监控仪表板导入到 Grafana 中，使用 [仪表板 JSON](./telemetry/grafana-dashboard.json)。
 
-仪表板的效果图
+监控[效果图](../../images/grafana.png)
