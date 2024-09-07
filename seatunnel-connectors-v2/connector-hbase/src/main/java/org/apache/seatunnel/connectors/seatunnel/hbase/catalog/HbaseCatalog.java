@@ -22,9 +22,7 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.InfoPreviewResult;
 import org.apache.seatunnel.api.table.catalog.PreviewResult;
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
@@ -35,7 +33,6 @@ import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -113,16 +110,7 @@ public class HbaseCatalog implements Catalog {
     @Override
     public CatalogTable getTable(TablePath tablePath)
             throws CatalogException, TableNotExistException {
-        checkNotNull(tablePath, "tablePath cannot be null");
-        // Hbase cannot retrieve the columns of the table
-        return CatalogTable.of(
-                TableIdentifier.of(
-                        catalogName, tablePath.getDatabaseName(), tablePath.getTableName()),
-                // Hbase cannot obtain column names, so TableSchema was directly built here
-                TableSchema.builder().build(),
-                buildTableOptions(tablePath),
-                Collections.emptyList(),
-                "");
+        throw new UnsupportedOperationException("Not implement");
     }
 
     @Override
