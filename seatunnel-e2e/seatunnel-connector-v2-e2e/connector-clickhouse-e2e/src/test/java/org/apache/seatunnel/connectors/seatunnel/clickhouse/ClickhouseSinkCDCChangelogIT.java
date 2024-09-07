@@ -178,34 +178,34 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
                                             + "    `score`         Int32\n"
                                             + ")engine=MergeTree ORDER BY(pk_id) PRIMARY KEY(pk_id)",
                                     DATABASE, SINK_TABLE),
-                            "create table if not exists default.t1\n"
+                            "CREATE TABLE IF NOT EXISTS default.t1\n"
                                     + "(\n"
-                                    + "    `course_id` UInt32,\n"
-                                    + "    `course_name` String,\n"
-                                    + "    `instructor` String\n"
-                                    + ")\n"
-                                    + "ENGINE = MergeTree\n"
-                                    + "ORDER BY course_id\n"
-                                    + "SETTINGS index_granularity = 8192",
-                            "create table if not exists default.t2\n"
+                                    + "    student_id   UInt32,\n"
+                                    + "    student_name String,\n"
+                                    + "    age          UInt8,\n"
+                                    + "    grade        String\n"
+                                    + ") \n"
+                                    + "ENGINE = MergeTree()\n"
+                                    + "ORDER BY student_id\n",
+                            "TRUNCATE  table default.t1",
+                            "INSERT INTO default.t1 (student_id, student_name, age, grade) VALUES\n"
+                                    + "(1, 'Alice', 20, 'A'),\n"
+                                    + "(2, 'Bob', 22, 'B'),\n"
+                                    + "(3, 'Charlie', 21, 'A')",
+                            "CREATE TABLE IF NOT EXISTS default.t2\n"
                                     + "(\n"
-                                    + "    `course_id` UInt32,\n"
-                                    + "    `course_name` String,\n"
-                                    + "    `instructor` String\n"
-                                    + ")\n"
-                                    + "ENGINE = MergeTree\n"
-                                    + "ORDER BY course_id\n"
-                                    + "SETTINGS index_granularity = 8192",
-                            "INSERT INTO default.t1 (course_id, course_name, instructor)\n"
-                                    + "VALUES \n"
-                                    + "(1, 'Math', 'Mr. Smith'),\n"
-                                    + "(2, 'History', 'Ms. Johnson'),\n"
-                                    + "(3, 'Science', 'Dr. Brown')\n",
-                            "INSERT INTO default.t2 (course_id, course_name, instructor)\n"
-                                    + "VALUES \n"
-                                    + "(1, 'Math', 'Mr. Smith'),\n"
-                                    + "(2, 'History', 'Ms. Johnson'),\n"
-                                    + "(3, 'Science', 'Dr. Brown')\n");
+                                    + "    student_id   UInt32,\n"
+                                    + "    student_name String,\n"
+                                    + "    age          UInt8,\n"
+                                    + "    grade        String\n"
+                                    + ") \n"
+                                    + "ENGINE = MergeTree()\n"
+                                    + "ORDER BY student_id\n",
+                            "TRUNCATE  table default.t2",
+                            "INSERT INTO default.t2 (student_id, student_name, age, grade) VALUES\n"
+                                    + "(1, 'Alice', 20, 'A'),\n"
+                                    + "(2, 'Bob', 22, 'B'),\n"
+                                    + "(3, 'Charlie', 21, 'A')");
             for (String sql : initSqlList) {
                 statement.execute(sql);
             }
