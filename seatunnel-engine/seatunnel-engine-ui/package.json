@@ -1,0 +1,53 @@
+{
+  "name": "seatunnel-ui",
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build --mode production",
+    "preview": "vite preview",
+    "lint": "eslint src --fix --ext .ts,.tsx,.vue",
+    "prettier": "prettier --write \"src/**/*.{vue,ts,tsx}\""
+  },
+  "dependencies": {
+    "@antv/layout": "0.1.31",
+    "@antv/x6": "1.30.1",
+    "@antv/x6-vue-shape": "1.5.3",
+    "@vueuse/core": "^9.13.0",
+    "autoprefixer": "^10.4.13",
+    "axios": "^1.3.4",
+    "date-fns": "^2.29.3",
+    "date-fns-tz": "^2.0.0",
+    "naive-ui": "2.34.3",
+    "nprogress": "^0.2.0",
+    "pinia": "^2.0.32",
+    "pinia-plugin-persistedstate": "^3.1.0",
+    "postcss": "^8.4.21",
+    "tailwindcss": "^3.2.7",
+    "vue": "^3.2.47",
+    "vue-i18n": "^9.2.2",
+    "vue-router": "^4.1.6"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.14.191",
+    "@types/node": "^18.14.6",
+    "@types/nprogress": "^0.2.0",
+    "@typescript-eslint/eslint-plugin": "^5.54.0",
+    "@typescript-eslint/parser": "^5.54.0",
+    "@vicons/antd": "^0.12.0",
+    "@vitejs/plugin-vue": "^4.0.0",
+    "@vitejs/plugin-vue-jsx": "^3.0.0",
+    "dart-sass": "^1.25.0",
+    "eslint": "^8.35.0",
+    "eslint-config-prettier": "^8.6.0",
+    "eslint-plugin-prettier": "^4.2.1",
+    "eslint-plugin-vue": "^9.9.0",
+    "prettier": "^2.8.4",
+    "sass": "^1.58.3",
+    "sass-loader": "^13.2.0",
+    "typescript": "^4.9.5",
+    "typescript-plugin-css-modules": "^4.2.2",
+    "vite": "^4.1.4",
+    "vite-plugin-compression": "^0.5.1",
+    "vue-tsc": "^1.2.0"
+  }
+}
