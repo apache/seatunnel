@@ -29,11 +29,11 @@ import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junitpioneer.jupiter.SetEnvironmentVariable;
 
 import com.beust.jcommander.internal.Lists;
 import lombok.extern.slf4j.Slf4j;
 
-import java.lang.reflect.Field;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -41,7 +41,6 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
-import java.util.Map;
 
 import static org.apache.seatunnel.core.starter.utils.ConfigBuilder.CONFIG_RENDER_OPTIONS;
 
@@ -184,17 +183,10 @@ public class ConfigShadeTest {
         }
     }
 
+    @SetEnvironmentVariable(key = "jobName", value = "seatunnel variable test job")
     @Test
-    public void testVariableReplacementWithDefaultValue()
-            throws URISyntaxException, NoSuchFieldException, IllegalAccessException {
-        // Support obtaining environment variables through Env
-        Class<?> classOfMap = System.getenv().getClass();
-        Field field = classOfMap.getDeclaredField("m");
-        field.setAccessible(true);
+    public void testVariableReplacementWithDefaultValue() throws URISyntaxException {
         String jobName = "seatunnel variable test job";
-        Map<String, String> writeableEnvironmentVariables =
-                (Map<String, String>) field.get(System.getenv());
-        writeableEnvironmentVariables.put("jobName", jobName);
         Assertions.assertEquals(System.getenv("jobName"), jobName);
         String ageType = "int";
         String sourceTableName = "sql";
