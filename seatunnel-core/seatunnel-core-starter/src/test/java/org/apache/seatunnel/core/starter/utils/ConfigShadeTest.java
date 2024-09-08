@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import com.beust.jcommander.internal.Lists;
 import lombok.extern.slf4j.Slf4j;
 
+import java.lang.reflect.Field;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -40,6 +41,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.seatunnel.core.starter.utils.ConfigBuilder.CONFIG_RENDER_OPTIONS;
 
@@ -183,13 +185,21 @@ public class ConfigShadeTest {
     }
 
     @Test
-    public void testVariableReplacementWithDefaultValue() throws URISyntaxException {
+    public void testVariableReplacementWithDefaultValue()
+            throws URISyntaxException, NoSuchFieldException, IllegalAccessException {
+        // Support obtaining environment variables through Env
+        Class<?> classOfMap = System.getenv().getClass();
+        Field field = classOfMap.getDeclaredField("m");
+        field.setAccessible(true);
         String jobName = "seatunnel variable test job";
+        Map<String, String> writeableEnvironmentVariables =
+                (Map<String, String>) field.get(System.getenv());
+        writeableEnvironmentVariables.put("jobName", jobName);
+        Assertions.assertEquals(System.getenv("jobName"), jobName);
         String ageType = "int";
         String sourceTableName = "sql";
         String containSpaceString = "f h";
         List<String> variables = new ArrayList<>();
-        variables.add("jobName=" + jobName);
         variables.add("strTemplate=[abc,de~," + containSpaceString + "]");
         variables.add("ageType=" + ageType);
         // Set the environment variable value nameVal to `f h` to verify whether setting the space

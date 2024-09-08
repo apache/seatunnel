@@ -205,14 +205,14 @@ sql = """ select * from "table" """
 
 ## Config Variable Substitution
 
-In a configuration file, we can define variables and replace them at runtime. However, note that only HOCON format files are supported.
+In a config file, we can define variables and replace them at runtime. However, note that only HOCON format files are supported.
 
 ### Usage of Variables:
 - `${varName}`: If the variable is not provided, an exception will be thrown.
 - `${varName:default}`: If the variable is not provided, the default value will be used. If you set a default value, it should be enclosed in double quotes.
 - `${varName:}`: If the variable is not provided, an empty string will be used.
 
-If you set a variable in the configuration file but do not pass it during execution, an exception will be thrown. Example:
+If you set a variable in the config file but do not pass it during execution, an exception will be thrown. Example:
 ```shell
 Caused by: org.apache.seatunnel.core.starter.exception.CommandExecuteException: Variable substitution error: ${resName}_table
 ```
@@ -320,7 +320,8 @@ sink {
 - If the substitution variable contains double or single quotes (e.g., `"resName"` or `"nameVal"`), you need to include them with the value.
 - The value cannot contain spaces (`' '`). For example, `-i jobName='this is a job name'` will be replaced with `job.name = "this"`.
 - For dynamic parameters, you can use the following format: `-i date=$(date +"%Y%m%d")`.
-- 
+- Cannot use specified system reserved characters; they will not be replaced by `-i`, such as: `${database_name}`, `${schema_name}`, `${table_name}`, `${schema_full_name}`, `${table_full_name}`, `${primary_key}`, `${unique_key}`, `${field_names}`. For details, please refer to [Sink Parameter Placeholders](sink-options-placeholders.md).
+
 ## What's More
 
 - Start write your own config file now, choose the [connector](../connector-v2/source) you want to use, and configure the parameters according to the connector's documentation.
