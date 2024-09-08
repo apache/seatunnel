@@ -142,6 +142,10 @@ docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluste
 
 # Set Up With Docker In Cluster Mode
 
+there has 2 ways to create cluster within docker.
+
+## 1. Use Docker-compose
+
 > docker cluster mode is only support zeta engine.
 
 The `docker-compose.yaml` file is :
@@ -211,7 +215,7 @@ And when you call `http://localhost:5801/hazelcast/rest/maps/system-monitoring-i
 
 After that, you can use client or restapi to submit job to this cluster.
 
-## Scale your Cluster
+### Scale your Cluster
 
 If you want to increase cluster node, like add a new work node.
 
@@ -291,4 +295,70 @@ networks:
 ```
 
 and run `docker-compose up -d` command, the new worker node will start, and the current node won't restart.
+
+## 2. Use Docker Directly
+
+1. create a network
+```shell
+docker network create seatunnel-network
+```
+
+2. start the nodes
+- start master node
+```shell
+## start master and export 5801 port 
+docker run -d --name seatunnel_master \
+    --network seatunnel-network \
+    --rm \
+    -p 5801:5801 \
+    apache/seatunnel \
+    ./bin/seatunnel-cluster.sh -r master
+```
+
+- get created container ip
+```shell
+docker inspect master-1
+```
+run this command to get the pod ip.
+
+- start worker node
+```shell
+docker run -d --name seatunnel_worker_1 \
+    --network seatunnel-network \
+    --rm \
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # set master container ip to here
+    apache/seatunnel \
+    ./bin/seatunnel-cluster.sh -r worker
+
+## start worker2
+docker run -d --name seatunnel_worker_2 \ 
+    --network seatunnel-network \
+    --rm \
+     -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \    # set master container ip to here
+    apache/seatunnel \
+    ./bin/seatunnel-cluster.sh -r worker    
+
+```
+
+### Scale your Cluster
+
+run this command to start master node.
+```shell
+docker run -d --name seatunnel_master \
+    --network seatunnel-network \
+    --rm \
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # set exist master container ip to here
+    apache/seatunnel \
+    ./bin/seatunnel-cluster.sh -r master
+```
+
+run this command to start worker node.
+```shell
+docker run -d --name seatunnel_worker_1 \
+    --network seatunnel-network \
+    --rm \
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # set master container ip to here
+    apache/seatunnel \
+    ./bin/seatunnel-cluster.sh -r worker
+```
 

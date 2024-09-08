@@ -144,6 +144,9 @@ docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluste
 
 docker下的集群模式仅支持Zeta引擎
 
+有两种方式来启动集群
+
+## 1. Use Docker-compose
 `docker-compose.yaml` 配置文件为：
 ```yaml
 version: '3.8'
@@ -208,7 +211,7 @@ networks:
 启动完成后，可以运行`docker logs -f seatunne_master`, `docker logs -f seatunnel_worker_1`来查看节点的日志  
 当你访问`http://localhost:5801/hazelcast/rest/maps/system-monitoring-information` 时，可以看到集群的状态为1个master节点，2个worker节点.
 
-## 集群扩容
+### 集群扩容
 当你需要对集群扩容, 例如需要添加一个worker节点时
 ```yaml
 version: '3.8'
@@ -286,3 +289,69 @@ networks:
 ```
 
 然后运行`docker-compose up -d`命令, 将会新建一个worker阶段, 已有的节点不会重启.
+
+
+## 2. 直接使用Docker
+
+1. 创建一个network
+```shell
+docker network create seatunnel-network
+```
+
+2. 启动节点
+- 启动master节点
+```shell
+## start master and export 5801 port 
+docker run -d --name seatunnel_master \
+    --network seatunnel-network \
+    --rm \
+    -p 5801:5801 \
+    apache/seatunnel \
+    ./bin/seatunnel-cluster.sh -r master
+```
+
+- 获取容器的ip
+```shell
+docker inspect master-1
+```
+运行此命令获取master容器的ip
+
+- 启动worker节点
+```shell
+docker run -d --name seatunnel_worker_1 \
+    --network seatunnel-network \
+    --rm \
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # 设置为刚刚启动的master容器ip
+    apache/seatunnel \
+    ./bin/seatunnel-cluster.sh -r worker
+
+docker run -d --name seatunnel_worker_2 \ 
+    --network seatunnel-network \
+    --rm \
+     -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \    # 设置为刚刚启动的master容器ip
+    apache/seatunnel \
+    ./bin/seatunnel-cluster.sh -r worker    
+
+```
+
+### 集群扩容
+
+```shell
+## start master and export 5801 port 
+docker run -d --name seatunnel_master \
+    --network seatunnel-network \
+    --rm \
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # 设置为已启动的master容器ip
+    apache/seatunnel \
+    ./bin/seatunnel-cluster.sh -r master
+```
+
+运行这个命令创建一个worker节点
+```shell
+docker run -d --name seatunnel_worker_1 \
+    --network seatunnel-network \
+    --rm \
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # 设置为已启动的master容器ip
+    apache/seatunnel \
+    ./bin/seatunnel-cluster.sh -r worker
+```
