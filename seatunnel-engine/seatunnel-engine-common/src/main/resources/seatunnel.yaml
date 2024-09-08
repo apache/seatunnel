@@ -40,5 +40,5 @@ seatunnel:
             connector-jar-expiry-time: 600
         telemetry:
             metric:
-                enabled: true
+                enabled: false
 

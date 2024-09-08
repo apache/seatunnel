@@ -36,4 +36,4 @@ seatunnel:
           fs.defaultFS: file:///tmp/ # Ensure that the directory has written permission
     telemetry:
       metric:
-        enabled: true
+        enabled: false
