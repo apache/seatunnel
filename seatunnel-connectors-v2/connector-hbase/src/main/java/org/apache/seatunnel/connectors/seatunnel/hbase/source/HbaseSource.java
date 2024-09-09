@@ -35,10 +35,8 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
+import org.apache.seatunnel.connectors.seatunnel.hbase.constant.HbaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorException;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
 
@@ -51,9 +49,6 @@ public class HbaseSource
         implements SeaTunnelSource<SeaTunnelRow, HbaseSourceSplit, HbaseSourceState>,
                 SupportParallelism,
                 SupportColumnProjection {
-    private static final Logger LOG = LoggerFactory.getLogger(HbaseSource.class);
-    public static final String PLUGIN_NAME = "Hbase";
-    private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
     private HbaseParameters hbaseParameters;
 
@@ -61,11 +56,10 @@ public class HbaseSource
 
     @Override
     public String getPluginName() {
-        return PLUGIN_NAME;
+        return HbaseIdentifier.IDENTIFIER_NAME;
     }
 
     HbaseSource(Config pluginConfig) {
-        this.pluginConfig = pluginConfig;
         CheckResult result =
                 CheckConfigUtil.checkAllExists(pluginConfig, ZOOKEEPER_QUORUM.key(), TABLE.key());
         if (!result.isSuccess()) {
