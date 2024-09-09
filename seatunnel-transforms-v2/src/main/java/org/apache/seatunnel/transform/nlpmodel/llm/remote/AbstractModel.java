@@ -66,4 +66,8 @@ public abstract class AbstractModel implements Model {
 
     protected abstract List<String> chatWithModel(String promptWithLimit, String rowsJson)
             throws IOException;
+
+    protected String convertData(String data) {
+        return outputType == SqlType.BOOLEAN ? data.toLowerCase() : data;
+    }
 }

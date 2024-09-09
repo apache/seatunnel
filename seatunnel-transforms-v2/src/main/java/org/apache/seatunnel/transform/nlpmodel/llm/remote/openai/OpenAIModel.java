@@ -82,7 +82,8 @@ public class OpenAIModel extends AbstractModel {
 
         JsonNode result = OBJECT_MAPPER.readTree(responseStr);
         String resultData = result.get("choices").get(0).get("message").get("content").asText();
-        return OBJECT_MAPPER.readValue(resultData, new TypeReference<List<String>>() {});
+        return OBJECT_MAPPER.readValue(
+                convertData(resultData), new TypeReference<List<String>>() {});
     }
 
     @VisibleForTesting
