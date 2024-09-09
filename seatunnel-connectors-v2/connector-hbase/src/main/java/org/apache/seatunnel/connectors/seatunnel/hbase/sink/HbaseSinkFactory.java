@@ -17,23 +17,25 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hbase.sink;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.SinkCommonOptions;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
+import org.apache.seatunnel.connectors.seatunnel.hbase.constant.HbaseIdentifier;
 
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.DATA_SAVE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ENCODING;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.FAMILY_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.HBASE_EXTRA_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.NULL_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ROWKEY_COLUMNS;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ROWKEY_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.SCHEMA_SAVE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.VERSION_COLUMN;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.WAL_WRITE;
@@ -47,29 +49,34 @@ public class HbaseSinkFactory implements TableSinkFactory {
 
     @Override
     public String factoryIdentifier() {
-        return IDENTIFIER;
+        return HbaseIdentifier.IDENTIFIER_NAME;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(ZOOKEEPER_QUORUM, TABLE, ROWKEY_COLUMNS, FAMILY_NAME)
+                .required(
+                        ZOOKEEPER_QUORUM,
+                        TABLE,
+                        ROWKEY_COLUMNS,
+                        FAMILY_NAME,
+                        SCHEMA_SAVE_MODE,
+                        DATA_SAVE_MODE)
                 .optional(
-                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA,
                         ROWKEY_DELIMITER,
                         VERSION_COLUMN,
                         NULL_MODE,
                         WAL_WRITE,
                         WRITE_BUFFER_SIZE,
                         ENCODING,
-                        HBASE_EXTRA_CONFIG)
+                        HBASE_EXTRA_CONFIG,
+                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
 
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
-        HbaseParameters hbaseParameters = HbaseParameters.buildWithConfig(context.getOptions());
-        CatalogTable catalogTable = context.getCatalogTable();
-        return () -> new HbaseSink(hbaseParameters, catalogTable);
+        ReadonlyConfig readonlyConfig = context.getOptions();
+        return () -> new HbaseSink(readonlyConfig, context.getCatalogTable());
     }
 }
