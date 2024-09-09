@@ -212,6 +212,8 @@ In a config file, we can define variables and replace them at runtime. However, 
 - `${varName:default}`: If the variable is not provided, the default value will be used. If you set a default value, it should be enclosed in double quotes.
 - `${varName:}`: If the variable is not provided, an empty string will be used.
 
+If you do not set the variable value through `-i`, you can also pass the value by setting the system environment variables. Variable substitution supports obtaining variable values through environment variables.
+
 If you set a variable in the config file but do not pass it during execution, an exception will be thrown. Example:
 ```shell
 Caused by: org.apache.seatunnel.core.starter.exception.CommandExecuteException: Variable substitution error: ${resName}_table

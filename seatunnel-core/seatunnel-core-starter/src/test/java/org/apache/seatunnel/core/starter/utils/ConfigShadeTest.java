@@ -183,6 +183,8 @@ public class ConfigShadeTest {
         }
     }
 
+    // Set the system environment variables through SetEnvironmentVariable to verify whether the
+    // parameters set by the system environment variables are effective
     @SetEnvironmentVariable(key = "jobName", value = "seatunnel variable test job")
     @Test
     public void testVariableReplacementWithDefaultValue() throws URISyntaxException {
