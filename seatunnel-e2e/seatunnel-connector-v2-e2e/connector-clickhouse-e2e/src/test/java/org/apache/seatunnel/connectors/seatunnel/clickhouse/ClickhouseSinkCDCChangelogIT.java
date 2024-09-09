@@ -28,6 +28,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.ClickHouseContainer;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -52,6 +54,9 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestResource {
+
+    private static final Logger LOG = LoggerFactory.getLogger(ClickhouseSinkCDCChangelogIT.class);
+
     private static final String CLICKHOUSE_DOCKER_IMAGE = "clickhouse/clickhouse-server:23.3.13.6";
     private static final String HOST = "clickhouse";
     private static final String DRIVER_CLASS = "com.clickhouse.jdbc.ClickHouseDriver";
@@ -155,6 +160,11 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
         initializeClickhouseMergeTreeTable();
         Container.ExecResult execResult = container.executeJob("/multi_source_clickhouse.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+        LOG.info(
+                "testClickhouseSourceMultiTable Command executed with exit code: "
+                        + execResult.getExitCode());
+        LOG.info("testClickhouseSourceMultiTable Stdout: " + execResult.getStdout());
+        LOG.info("testClickhouseSourceMultiTable Stderr: " + execResult.getStderr());
     }
 
     private void initConnection() throws Exception {
