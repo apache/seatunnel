@@ -38,3 +38,7 @@ seatunnel:
             connector-jar-storage-path: ""
             connector-jar-cleanup-task-interval: 3600
             connector-jar-expiry-time: 600
+        telemetry:
+            metric:
+                enabled: false
+
