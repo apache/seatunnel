@@ -63,11 +63,11 @@ import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import io.prometheus.client.exporter.common.TextFormat;
 
+import java.io.IOException;
+import java.io.StringWriter;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
-import java.io.IOException;
-import java.io.StringWriter;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
