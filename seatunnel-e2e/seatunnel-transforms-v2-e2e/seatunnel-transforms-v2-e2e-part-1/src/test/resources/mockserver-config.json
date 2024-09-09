@@ -72,5 +72,37 @@
         "Content-Type": "application/json"
       }
     }
+  },
+  {
+    "httpRequest": {
+      "method": "POST",
+      "path": "/v3/chat/completions"
+    },
+    "httpResponse": {
+      "body": {
+        "id": "chatcmpl-66e0291f428f9d4703bf4edc",
+        "object": "chat.completion",
+        "created": 1725966623,
+        "model": "moonshot-v1-8k",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "[False]"
+            },
+            "finish_reason": "stop"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 113,
+          "completion_tokens": 10,
+          "total_tokens": 123
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
   }
 ]
