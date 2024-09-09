@@ -110,14 +110,14 @@ Note: All metrics both have the same labelName `cluster`, that's value is the co
 | jvm_buffer_pool_capacity_bytes             | Gauge   | **pool**, including: "direct" "mapped"                                                                                                                | Bytes capacity of a given JVM buffer pool                                                              |
 | jvm_buffer_pool_used_buffers               | Gauge   | **pool**, including: "direct" "mapped"                                                                                                                | Used buffers of a given JVM buffer pool                                                                |
 
-### Cluster Monitoring By Prometheus & Grafana
+## Cluster Monitoring By Prometheus & Grafana
 
-#### Install Prometheus
+### Install Prometheus
 
 For a guide on how to set up Prometheus server go to
 the [Installation](https://prometheus.io/docs/prometheus/latest/installation)
 
-#### Configuration Prometheus
+### Configuration Prometheus
 
 Add seatunnel instance metric exports into `/etc/prometheus/prometheus.yaml`. For example:
 
@@ -139,12 +139,12 @@ scrape_configs:
       # labels: [<labelName>:<labelValue>]
 ```
 
-#### Install Grafana
+### Install Grafana
 
 For a guide on how to set up Grafana server go to
 the [Installation](https://grafana.com/docs/grafana/latest/setup-grafana/installation)
 
-#### Monitoring Dashboard
+### Monitoring Dashboard
 
 - Add Prometheus DataSource on Grafana.
   - Import `Seatunnel Cluster` monitoring dashboard by [Dashboard JSON](./telemetry/grafana-dashboard.json) into Grafana.
