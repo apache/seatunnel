@@ -19,6 +19,8 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.api.common.metrics.MetricTags;
 import org.apache.seatunnel.api.event.Event;
+import org.apache.seatunnel.api.tracing.MDCExecutorService;
+import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
@@ -55,6 +57,7 @@ import org.apache.commons.collections4.CollectionUtils;
 
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.hazelcast.core.OperationTimeoutException;
 import com.hazelcast.instance.impl.NodeState;
 import com.hazelcast.internal.metrics.DynamicMetricsProvider;
 import com.hazelcast.internal.metrics.MetricDescriptor;
@@ -275,6 +278,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     private void submitBlockingTask(
             TaskGroupExecutionTracker taskGroupExecutionTracker, List<Task> tasks) {
+        MDCExecutorService mdcExecutorService = MDCTracer.tracing(executorService);
 
         CountDownLatch startedLatch = new CountDownLatch(tasks.size());
         taskGroupExecutionTracker.blockingFutures =
@@ -291,7 +295,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                                 "BlockingWorker-"
                                                         + taskGroupExecutionTracker.taskGroup
                                                                 .getTaskGroupLocation()))
-                        .map(executorService::submit)
+                        .map(mdcExecutorService::submit)
                         .collect(toList());
 
         // Do not return from this method until all workers have started. Otherwise,
@@ -414,10 +418,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                                         seaTunnelConfig
                                                                 .getEngineConfig()
                                                                 .getTaskExecutionThreadShareMode();
-                                                if (mode.equals(ThreadShareMode.ALL)) return true;
-                                                if (mode.equals(ThreadShareMode.OFF)) return false;
-                                                if (mode.equals(ThreadShareMode.PART))
+                                                if (mode.equals(ThreadShareMode.ALL)) {
+                                                    return true;
+                                                }
+                                                if (mode.equals(ThreadShareMode.OFF)) {
+                                                    return false;
+                                                }
+                                                if (mode.equals(ThreadShareMode.PART)) {
                                                     return t.isThreadsShare();
+                                                }
                                                 return true;
                                             }));
             executionContexts.put(
@@ -458,7 +467,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                             r.getTaskGroupLocation(), r.getExecutionState()));
                             notifyTaskStatusToMaster(taskGroup.getTaskGroupLocation(), r);
                         }),
-                executorService);
+                MDCTracer.tracing(executorService));
         return new PassiveCompletableFuture<>(resultFuture);
     }
 
@@ -530,7 +539,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         if (!taskAsyncFunctionFuture.containsKey(taskGroupLocation)) {
             taskAsyncFunctionFuture.put(taskGroupLocation, new ConcurrentHashMap<>());
         }
-        CompletableFuture<?> future = CompletableFuture.runAsync(task, executorService);
+        CompletableFuture<?> future =
+                CompletableFuture.runAsync(task, MDCTracer.tracing(executorService));
         taskAsyncFunctionFuture.get(taskGroupLocation).put(id, future);
         future.whenComplete(
                 (r, e) -> {
@@ -624,9 +634,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                     });
                 });
         if (localMap.size() > 0) {
+            boolean lockedIMap = false;
             try {
-                if (!metricsImap.tryLock(
-                        Constant.IMAP_RUNNING_JOB_METRICS_KEY, 2, TimeUnit.SECONDS)) {
+                lockedIMap =
+                        metricsImap.tryLock(
+                                Constant.IMAP_RUNNING_JOB_METRICS_KEY, 5, TimeUnit.SECONDS);
+                if (!lockedIMap) {
                     logger.warning("try lock failed in update metrics");
                     return;
                 }
@@ -640,7 +653,17 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         "The Imap acquisition failed due to the hazelcast node being offline or restarted, and will be retried next time",
                         e);
             } finally {
-                metricsImap.unlock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+                if (lockedIMap) {
+                    boolean unLockedIMap = false;
+                    while (!unLockedIMap) {
+                        try {
+                            metricsImap.unlock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+                            unLockedIMap = true;
+                        } catch (OperationTimeoutException e) {
+                            logger.warning("unlock imap failed in update metrics", e);
+                        }
+                    }
+                }
             }
         }
         this.printTaskExecutionRuntimeInfo();
@@ -954,10 +977,14 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 cancellationFutures.remove(taskGroupLocation);
                 try {
                     cancelAsyncFunction(taskGroupLocation);
-                } catch (Throwable e) {
-                    throw new RuntimeException(e);
+                } catch (Throwable t) {
+                    logger.severe("cancel async function failed", t);
                 }
-                updateMetricsContextInImap();
+                try {
+                    updateMetricsContextInImap();
+                } catch (Throwable t) {
+                    logger.severe("update metrics context in imap failed", t);
+                }
                 if (ex == null) {
                     logger.info(
                             String.format(

@@ -45,7 +45,7 @@ class PostgresCreateTableSqlBuilderTest {
                         otherDB -> {
                             CatalogTable catalogTable = catalogTable(otherDB);
                             PostgresCreateTableSqlBuilder postgresCreateTableSqlBuilder =
-                                    new PostgresCreateTableSqlBuilder(catalogTable);
+                                    new PostgresCreateTableSqlBuilder(catalogTable, true);
                             String createTableSql =
                                     postgresCreateTableSqlBuilder.build(
                                             catalogTable.getTableId().toTablePath());
@@ -61,6 +61,23 @@ class PostgresCreateTableSqlBuilderTest {
                                     Lists.newArrayList(
                                             "CREATE INDEX test_index_age ON \"test\"(\"age\");"),
                                     postgresCreateTableSqlBuilder.getCreateIndexSqls());
+
+                            // skip index
+                            PostgresCreateTableSqlBuilder postgresCreateTableSqlBuilderSkipIndex =
+                                    new PostgresCreateTableSqlBuilder(catalogTable, false);
+                            String createTableSqlSkipIndex =
+                                    postgresCreateTableSqlBuilderSkipIndex.build(
+                                            catalogTable.getTableId().toTablePath());
+                            Assertions.assertEquals(
+                                    "CREATE TABLE \"test\" (\n"
+                                            + "\"id\" int4 NOT NULL,\n"
+                                            + "\"name\" text NOT NULL,\n"
+                                            + "\"age\" int4 NOT NULL\n"
+                                            + ");",
+                                    createTableSqlSkipIndex);
+                            Assertions.assertEquals(
+                                    Lists.newArrayList(),
+                                    postgresCreateTableSqlBuilderSkipIndex.getCreateIndexSqls());
                         });
     }
 

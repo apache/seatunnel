@@ -20,14 +20,14 @@ package org.apache.seatunnel.translation.flink.source;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.source.event.ReaderCloseEvent;
+import org.apache.seatunnel.api.source.event.ReaderOpenEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import org.apache.flink.api.connector.source.ReaderOutput;
 import org.apache.flink.api.connector.source.SourceEvent;
 import org.apache.flink.api.connector.source.SourceReader;
 import org.apache.flink.core.io.InputStatus;
-import org.apache.flink.types.Row;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,7 +43,7 @@ import java.util.stream.Collectors;
  * @param <SplitT>
  */
 public class FlinkSourceReader<SplitT extends SourceSplit>
-        implements SourceReader<Row, SplitWrapper<SplitT>> {
+        implements SourceReader<SeaTunnelRow, SplitWrapper<SplitT>> {
 
     private final Logger LOGGER = LoggerFactory.getLogger(FlinkSourceReader.class);
 
@@ -58,25 +58,24 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
     public FlinkSourceReader(
             org.apache.seatunnel.api.source.SourceReader<SeaTunnelRow, SplitT> sourceReader,
             org.apache.seatunnel.api.source.SourceReader.Context context,
-            Config envConfig,
-            SeaTunnelRowType seaTunnelRowType) {
+            Config envConfig) {
         this.sourceReader = sourceReader;
         this.context = context;
-        this.flinkRowCollector =
-                new FlinkRowCollector(seaTunnelRowType, envConfig, context.getMetricsContext());
+        this.flinkRowCollector = new FlinkRowCollector(envConfig, context.getMetricsContext());
     }
 
     @Override
     public void start() {
         try {
             sourceReader.open();
+            context.getEventListener().onEvent(new ReaderOpenEvent());
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
     @Override
-    public InputStatus pollNext(ReaderOutput<Row> output) throws Exception {
+    public InputStatus pollNext(ReaderOutput<SeaTunnelRow> output) throws Exception {
         if (!((FlinkSourceReaderContext) context).isSendNoMoreElementEvent()) {
             sourceReader.pollNext(flinkRowCollector.withReaderOutput(output));
         } else {
@@ -125,6 +124,7 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
     @Override
     public void close() throws Exception {
         sourceReader.close();
+        context.getEventListener().onEvent(new ReaderCloseEvent());
     }
 
     @Override

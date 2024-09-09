@@ -49,11 +49,9 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
     WRITE_SEATUNNEL_ROW_ERROR(
             "COMMON-23",
             "<connector> write SeaTunnelRow failed, the SeaTunnelRow value is '<seaTunnelRow>'."),
-
     SQL_TEMPLATE_HANDLED_ERROR(
             "COMMON-24",
             "The table of <tableName> has no <keyName>, but the template \n <template> \n which has the place holder named <placeholder>. Please use the option named <optionName> to specify sql template"),
-
     VERSION_NOT_SUPPORTED("COMMON-25", "<identifier> <version> is unsupported."),
     OPERATION_NOT_SUPPORTED("COMMON-26", "<identifier> <operation> is unsupported."),
     CONVERT_TO_SEATUNNEL_PROPS_BLANK_ERROR(
@@ -77,6 +75,8 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
     FORMAT_DATETIME_ERROR(
             "COMMON-33",
             "The datetime format '<datetime>' of field '<field>' is not supported. Please check the datetime format."),
+    UNSUPPORTED_METHOD("COMMON-34", "'<identifier>' unsupported the method '<methodName>'"),
+    KERBEROS_AUTHORIZED_FAILED("COMMON-35", "Kerberos authorized failed"),
     ;
 
     private final String code;

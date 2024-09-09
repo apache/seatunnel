@@ -146,7 +146,8 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     + "    `c_integer_unsigned`     int(10) unsigned      DEFAULT NULL,\n"
                     + "    `c_bigint_30`            BIGINT(40)  unsigned  DEFAULT NULL,\n"
                     + "    `c_decimal_unsigned_30`  DECIMAL(30) unsigned  DEFAULT NULL,\n"
-                    + "    `c_decimal_30`           DECIMAL(30)           DEFAULT NULL\n"
+                    + "    `c_decimal_30`           DECIMAL(30)           DEFAULT NULL,\n"
+                    + "    UNIQUE (c_bigint_30)\n"
                     + ");";
 
     @Override
@@ -179,6 +180,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                 .testData(testDataSet)
                 .catalogDatabase(CATALOG_DATABASE)
                 .catalogTable(MYSQL_SINK)
+                .tablePathFullName(MYSQL_DATABASE + "." + MYSQL_SOURCE)
                 .build();
     }
 

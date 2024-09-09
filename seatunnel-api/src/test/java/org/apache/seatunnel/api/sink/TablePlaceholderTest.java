@@ -77,7 +77,7 @@ public class TablePlaceholderTest {
     @Test
     public void testSinkOptionsWithNoTablePath() {
         ReadonlyConfig config = createConfig();
-        CatalogTable table = createTestTableWithNoTablePath();
+        CatalogTable table = createTestTableWithNoDatabaseAndSchemaName();
         ReadonlyConfig newConfig = TablePlaceholder.replaceTablePlaceholder(config, table);
 
         Assertions.assertEquals("xyz_default_db_test", newConfig.get(DATABASE));
@@ -95,7 +95,7 @@ public class TablePlaceholderTest {
     @Test
     public void testSinkOptionsWithExcludeKeys() {
         ReadonlyConfig config = createConfig();
-        CatalogTable table = createTestTableWithNoTablePath();
+        CatalogTable table = createTestTableWithNoDatabaseAndSchemaName();
         ReadonlyConfig newConfig =
                 TablePlaceholder.replaceTablePlaceholder(
                         config, table, Arrays.asList(DATABASE.key()));
@@ -116,7 +116,7 @@ public class TablePlaceholderTest {
     public void testSinkOptionsWithMultiTable() {
         ReadonlyConfig config = createConfig();
         CatalogTable table1 = createTestTable();
-        CatalogTable table2 = createTestTableWithNoTablePath();
+        CatalogTable table2 = createTestTableWithNoDatabaseAndSchemaName();
         ReadonlyConfig newConfig1 =
                 TablePlaceholder.replaceTablePlaceholder(config, table1, Arrays.asList());
         ReadonlyConfig newConfig2 =
@@ -159,8 +159,8 @@ public class TablePlaceholderTest {
         return ReadonlyConfig.fromMap(configMap);
     }
 
-    private static CatalogTable createTestTableWithNoTablePath() {
-        TableIdentifier tableId = TableIdentifier.of("my-catalog", null, null, null);
+    private static CatalogTable createTestTableWithNoDatabaseAndSchemaName() {
+        TableIdentifier tableId = TableIdentifier.of("my-catalog", null, null, "default_table");
         TableSchema tableSchema =
                 TableSchema.builder()
                         .primaryKey(PrimaryKey.of("my-pk", Arrays.asList("f1", "f2")))

@@ -1,7 +1,6 @@
 ---
-
 sidebar_position: 11
---------------------
+---
 
 # RESTful API
 
@@ -69,7 +68,7 @@ network:
 
 ------------------------------------------------------------------------------------------
 
-### 返回所有作业及其当前状态的概览。
+### 返回所有作业及其当前状态的概览
 
 <details>
  <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-jobs</b></code> <code>(返回所有作业及其当前状态的概览。)</code></summary>
@@ -108,7 +107,7 @@ network:
 
 ------------------------------------------------------------------------------------------
 
-### 返回作业的详细信息。
+### 返回作业的详细信息
 
 <details>
  <summary><code>GET</code> <code><b>/hazelcast/rest/maps/job-info/:jobId</b></code> <code>(返回作业的详细信息。)</code></summary>
@@ -134,8 +133,22 @@ network:
     ]
   },
   "metrics": {
-    "sourceReceivedCount": "",
-    "sinkWriteCount": ""
+    "SourceReceivedCount": "",
+    "SourceReceivedQPS": "",
+    "SourceReceivedBytes": "",
+    "SourceReceivedBytesPerSeconds": "",
+    "SinkWriteCount": "",
+    "SinkWriteQPS": "",
+    "SinkWriteBytes": "",
+    "SinkWriteBytesPerSeconds": "",
+    "TableSourceReceivedCount": {},
+    "TableSourceReceivedBytes": {},
+    "TableSourceReceivedBytesPerSeconds": {},
+    "TableSourceReceivedQPS": {},
+    "TableSinkWriteCount": {},
+    "TableSinkWriteQPS": {},
+    "TableSinkWriteBytes": {},
+    "TableSinkWriteBytesPerSeconds": {}
   },
   "finishedTime": "",
   "errorMsg": null,
@@ -220,7 +233,7 @@ network:
 
 ------------------------------------------------------------------------------------------
 
-### 返回所有已完成的作业信息。
+### 返回所有已完成的作业信息
 
 <details>
  <summary><code>GET</code> <code><b>/hazelcast/rest/maps/finished-jobs/:state</b></code> <code>(返回所有已完成的作业信息。)</code></summary>
@@ -252,7 +265,7 @@ network:
 
 ------------------------------------------------------------------------------------------
 
-### 返回系统监控信息。
+### 返回系统监控信息
 
 <details>
  <summary><code>GET</code> <code><b>/hazelcast/rest/maps/system-monitoring-information</b></code> <code>(返回系统监控信息。)</code></summary>
@@ -317,7 +330,7 @@ network:
 
 ------------------------------------------------------------------------------------------
 
-### 提交作业。
+### 提交作业
 
 <details>
 <summary><code>POST</code> <code><b>/hazelcast/rest/maps/submit-job</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
@@ -375,7 +388,110 @@ network:
 
 ------------------------------------------------------------------------------------------
 
-### 停止作业。
+
+### 批量提交作业
+
+<details>
+<summary><code>POST</code> <code><b>/hazelcast/rest/maps/submit-jobs</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
+
+#### 参数(在请求体中params字段中添加)
+
+> |         参数名称         |   是否必传   |  参数类型  |               参数描述                |
+> |----------------------|----------|--------|-----------------------------------|
+> | jobId                | optional | string | job id                            |
+> | jobName              | optional | string | job name                          |
+> | isStartWithSavePoint | optional | string | if job is started with save point |
+
+
+
+#### 请求体
+
+```json
+[
+  {
+    "params":{
+      "jobId":"123456",
+      "jobName":"SeaTunnel-01"
+    },
+    "env": {
+      "job.mode": "batch"
+    },
+    "source": [
+      {
+        "plugin_name": "FakeSource",
+        "result_table_name": "fake",
+        "row.num": 1000,
+        "schema": {
+          "fields": {
+            "name": "string",
+            "age": "int",
+            "card": "int"
+          }
+        }
+      }
+    ],
+    "transform": [
+    ],
+    "sink": [
+      {
+        "plugin_name": "Console",
+        "source_table_name": ["fake"]
+      }
+    ]
+  },
+  {
+    "params":{
+      "jobId":"1234567",
+      "jobName":"SeaTunnel-02"
+    },
+    "env": {
+      "job.mode": "batch"
+    },
+    "source": [
+      {
+        "plugin_name": "FakeSource",
+        "result_table_name": "fake",
+        "row.num": 1000,
+        "schema": {
+          "fields": {
+            "name": "string",
+            "age": "int",
+            "card": "int"
+          }
+        }
+      }
+    ],
+    "transform": [
+    ],
+    "sink": [
+      {
+        "plugin_name": "Console",
+        "source_table_name": ["fake"]
+      }
+    ]
+  }
+]
+```
+
+#### 响应
+
+```json
+[
+  {
+    "jobId": "123456",
+    "jobName": "SeaTunnel-01"
+  },{
+    "jobId": "1234567",
+    "jobName": "SeaTunnel-02"
+  }
+]
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### 停止作业
 
 <details>
 <summary><code>POST</code> <code><b>/hazelcast/rest/maps/stop-job</b></code> <code>(如果作业成功停止，返回jobId。)</code></summary>
@@ -399,9 +515,47 @@ network:
 
 </details>
 
+
 ------------------------------------------------------------------------------------------
 
-### 加密配置。
+### 批量停止作业
+
+<details>
+<summary><code>POST</code> <code><b>/hazelcast/rest/maps/stop-jobs</b></code> <code>(如果作业成功停止，返回jobId。)</code></summary>
+
+#### 请求体
+
+```json
+[
+  {
+    "jobId": 881432421482889220,
+    "isStopWithSavePoint": false
+  },
+  {
+    "jobId": 881432456517910529,
+    "isStopWithSavePoint": false
+  }
+]
+```
+
+#### 响应
+
+```json
+[
+  {
+    "jobId": 881432421482889220
+  },
+  {
+    "jobId": 881432456517910529
+  }
+]
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### 加密配置
 
 <details>
 <summary><code>POST</code> <code><b>/hazelcast/rest/maps/encrypt-config</b></code> <code>(如果配置加密成功，则返回加密后的配置。)</code></summary>

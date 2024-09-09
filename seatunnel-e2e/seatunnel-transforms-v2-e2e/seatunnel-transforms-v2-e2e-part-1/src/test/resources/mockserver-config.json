@@ -1,0 +1,40 @@
+// https://www.mock-server.com/mock_server/getting_started.html#request_matchers
+
+[
+  {
+    "httpRequest": {
+      "method": "POST",
+      "path": "/v1/chat/completions"
+    },
+    "httpResponse": {
+      "body": {
+        "id": "chatcmpl-9s4hoBNGV0d9Mudkhvgzg64DAWPnx",
+        "object": "chat.completion",
+        "created": 1722674828,
+        "model": "gpt-4o-mini",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "[\"Chinese\"]"
+            },
+            "logprobs": null,
+            "finish_reason": "stop"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 107,
+          "completion_tokens": 3,
+          "total_tokens": 110
+        },
+        "system_fingerprint": "fp_0f03d4f0ee",
+        "code": 0,
+        "msg": "ok"
+      },
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  }
+]

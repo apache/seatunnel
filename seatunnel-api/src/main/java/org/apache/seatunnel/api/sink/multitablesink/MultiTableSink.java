@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
@@ -63,6 +64,7 @@ public class MultiTableSink
     public SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState> createWriter(
             SinkWriter.Context context) throws IOException {
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
         for (int i = 0; i < replicaNum; i++) {
             for (String tableIdentifier : sinks.keySet()) {
                 SeaTunnelSink sink = sinks.get(tableIdentifier);
@@ -70,15 +72,18 @@ public class MultiTableSink
                 writers.put(
                         SinkIdentifier.of(tableIdentifier, index),
                         sink.createWriter(new SinkContextProxy(index, context)));
+                sinkWritersContext.put(SinkIdentifier.of(tableIdentifier, index), context);
             }
         }
-        return new MultiTableSinkWriter(writers, replicaNum);
+        return new MultiTableSinkWriter(writers, replicaNum, sinkWritersContext);
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState> restoreWriter(
             SinkWriter.Context context, List<MultiTableState> states) throws IOException {
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+
         for (int i = 0; i < replicaNum; i++) {
             for (String tableIdentifier : sinks.keySet()) {
                 SeaTunnelSink sink = sinks.get(tableIdentifier);
@@ -101,9 +106,10 @@ public class MultiTableSink
                             sinkIdentifier,
                             sink.restoreWriter(new SinkContextProxy(index, context), state));
                 }
+                sinkWritersContext.put(SinkIdentifier.of(tableIdentifier, index), context);
             }
         }
-        return new MultiTableSinkWriter(writers, replicaNum);
+        return new MultiTableSinkWriter(writers, replicaNum, sinkWritersContext);
     }
 
     @Override
@@ -147,6 +153,10 @@ public class MultiTableSink
             return Optional.empty();
         }
         return Optional.of(new MultiTableSinkAggregatedCommitter(aggCommitters));
+    }
+
+    public List<TablePath> getSinkTables() {
+        return sinks.keySet().stream().map(TablePath::of).collect(Collectors.toList());
     }
 
     @Override

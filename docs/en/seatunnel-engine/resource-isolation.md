@@ -1,11 +1,12 @@
 ---
-
 sidebar_position: 9
--------------------
+---
+
+# Resource Isolation
 
 After version 2.3.6. SeaTunnel can add `tag` to each worker node, when you submit job you can use `tag_filter` to filter the node you want run this job.
 
-# How To Archive This:
+## How To Archive This:
 
 1. update the config in `hazelcast.yaml`,
 

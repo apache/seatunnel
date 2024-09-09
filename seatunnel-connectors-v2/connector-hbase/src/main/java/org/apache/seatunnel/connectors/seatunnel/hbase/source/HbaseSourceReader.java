@@ -31,6 +31,7 @@ import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
@@ -39,13 +40,13 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Deque;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSourceSplit> {
@@ -54,7 +55,6 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
 
     private final transient Map<String, byte[][]> namesMap;
 
-    private final Set<String> columnFamilies = new LinkedHashSet<>();
     private final SourceReader.Context context;
     private final SeaTunnelRowType seaTunnelRowType;
     private volatile boolean noMoreSplit = false;
@@ -74,16 +74,17 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
         this.seaTunnelRowType = seaTunnelRowType;
         this.namesMap = Maps.newConcurrentMap();
 
-        this.columnNames = hbaseParameters.getColumns();
+        this.columnNames =
+                Arrays.asList(seaTunnelRowType.getFieldNames()).stream()
+                        .filter(name -> !ROW_KEY.equals(name))
+                        .collect(Collectors.toList());
         // Check if input column names are in format: [ columnFamily:column ].
         this.columnNames.stream()
-                .peek(
+                .forEach(
                         column ->
                                 Preconditions.checkArgument(
-                                        (column.contains(":") && column.split(":").length == 2)
-                                                || this.ROW_KEY.equalsIgnoreCase(column),
-                                        "Invalid column names, it should be [ColumnFamily:Column] format"))
-                .forEach(column -> this.columnFamilies.add(column.split(":")[0]));
+                                        column.contains(":") && column.split(":").length == 2,
+                                        "Invalid column names, it should be [ColumnFamily:Column] format"));
 
         connection = HbaseConnectionUtil.getHbaseConnection(hbaseParameters);
     }
@@ -122,6 +123,15 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
                     Scan scan = new Scan();
                     scan.withStartRow(split.getStartRow(), true);
                     scan.withStopRow(split.getEndRow(), true);
+                    scan.setCacheBlocks(hbaseParameters.isCacheBlocks());
+                    scan.setCaching(hbaseParameters.getCaching());
+                    scan.setBatch(hbaseParameters.getBatch());
+                    for (String columnName : this.columnNames) {
+                        String[] columnNameSplit = columnName.split(":");
+                        scan.addColumn(
+                                Bytes.toBytes(columnNameSplit[0]),
+                                Bytes.toBytes(columnNameSplit[1]));
+                    }
                     this.currentScanner =
                             this.connection
                                     .getTable(TableName.valueOf(hbaseParameters.getTable()))
@@ -152,7 +162,7 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
             byte[] bytes;
             try {
                 // handle rowkey column
-                if (this.ROW_KEY.equals(columnName)) {
+                if (ROW_KEY.equals(columnName)) {
                     bytes = result.getRow();
                 } else {
                     byte[][] arr = this.namesMap.get(columnName);

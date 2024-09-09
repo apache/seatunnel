@@ -1,7 +1,6 @@
 ---
-
 sidebar_position: 6
--------------------
+---
 
 # Deploy SeaTunnel Engine In Separated Cluster Mode
 
@@ -268,7 +267,6 @@ map:
         fs.oss.accessKeyId: OSS access key id
         fs.oss.accessKeySecret: OSS access key secret
         fs.oss.endpoint: OSS endpoint
-        fs.oss.credentials.provider: org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider
 ```
 
 Notice: When using OSS, make sure that the following jars are in the lib directory.

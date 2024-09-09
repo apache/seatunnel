@@ -22,12 +22,15 @@ import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -36,8 +39,10 @@ import org.junit.jupiter.api.Test;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import com.hazelcast.map.IMap;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -73,11 +78,17 @@ public class JobExecutionIT {
 
     @Test
     public void testExecuteJob() throws Exception {
-        Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("batch_fakesource_to_file.conf");
-        JobConfig jobConfig = new JobConfig();
-        jobConfig.setName("fake_to_file");
+        runJobFileWithAssertEndStatus(
+                "batch_fakesource_to_file.conf", "fake_to_file", JobStatus.FINISHED);
+    }
 
+    private static void runJobFileWithAssertEndStatus(
+            String confFile, String name, JobStatus finished)
+            throws ExecutionException, InterruptedException {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource(confFile);
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName(name);
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
         try (SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig)) {
@@ -94,8 +105,22 @@ public class JobExecutionIT {
                             () ->
                                     Assertions.assertTrue(
                                             objectCompletableFuture.isDone()
-                                                    && JobStatus.FINISHED.equals(
+                                                    && finished.equals(
                                                             objectCompletableFuture.get())));
+        }
+    }
+
+    @Test
+    public void testExecuteJobWithLockMetrics() throws Exception {
+        // lock metrics map
+        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
+                hazelcastInstance.getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+        metricsImap.lock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+        try {
+            runJobFileWithAssertEndStatus(
+                    "batch_fakesource_to_file.conf", "fake_to_file", JobStatus.FINISHED);
+        } finally {
+            metricsImap.unlock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
         }
     }
 
@@ -229,29 +254,9 @@ public class JobExecutionIT {
 
     @Test
     public void testLastCheckpointErrorJob() throws Exception {
-        Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("batch_last_checkpoint_error.conf");
-        JobConfig jobConfig = new JobConfig();
-        jobConfig.setName("batch_last_checkpoint_error");
-
-        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
-        try (SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig)) {
-            ClientJobExecutionEnvironment jobExecutionEnv =
-                    engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
-
-            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-
-            CompletableFuture<JobStatus> objectCompletableFuture =
-                    CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
-
-            await().atMost(600000, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () ->
-                                    Assertions.assertTrue(
-                                            objectCompletableFuture.isDone()
-                                                    && JobStatus.FAILED.equals(
-                                                            objectCompletableFuture.get())));
-        }
+        runJobFileWithAssertEndStatus(
+                "batch_last_checkpoint_error.conf",
+                "batch_last_checkpoint_error",
+                JobStatus.FAILED);
     }
 }

@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import com.google.auto.service.AutoService;
@@ -52,7 +53,8 @@ public class OracleCatalogFactory implements CatalogFactory {
                 options.get(JdbcCatalogOptions.USERNAME),
                 options.get(JdbcCatalogOptions.PASSWORD),
                 urlInfo,
-                options.get(JdbcCatalogOptions.SCHEMA));
+                options.get(JdbcCatalogOptions.SCHEMA),
+                options.get(JdbcOptions.DECIMAL_TYPE_NARROWING));
     }
 
     @Override

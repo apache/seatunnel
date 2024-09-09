@@ -19,7 +19,9 @@ package org.apache.seatunnel.core.starter.utils;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigObject;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
 import org.apache.seatunnel.api.configuration.ConfigShade;
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -27,6 +29,7 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import com.beust.jcommander.internal.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.URISyntaxException;
@@ -66,6 +69,67 @@ public class ConfigShadeTest {
                 config.getConfigList("source").get(0).getString("username"), USERNAME);
         Assertions.assertEquals(
                 config.getConfigList("source").get(0).getString("password"), PASSWORD);
+    }
+
+    @Test
+    public void testUsePrivacyHandlerHocon() throws URISyntaxException {
+        URL resource = ConfigShadeTest.class.getResource("/config.shade.conf");
+        Assertions.assertNotNull(resource);
+        Config config = ConfigBuilder.of(Paths.get(resource.toURI()), Lists.newArrayList());
+        config =
+                ConfigFactory.parseMap(
+                                ConfigBuilder.configDesensitization(config.root().unwrapped()))
+                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+                        .resolveWith(
+                                ConfigFactory.systemProperties(),
+                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getString("username"), "******");
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getString("password"), "******");
+        String conf = ConfigBuilder.mapToString(config.root().unwrapped());
+        Assertions.assertTrue(conf.contains("\"password\" : \"******\""));
+    }
+
+    @Test
+    public void testUsePrivacyHandlerJson() throws URISyntaxException {
+        URL resource = ConfigShadeTest.class.getResource("/config.shade.json");
+        Assertions.assertNotNull(resource);
+        Config config = ConfigBuilder.of(Paths.get(resource.toURI()), Lists.newArrayList());
+        config =
+                ConfigFactory.parseMap(
+                                ConfigBuilder.configDesensitization(config.root().unwrapped()))
+                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+                        .resolveWith(
+                                ConfigFactory.systemProperties(),
+                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getString("username"), "******");
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getString("password"), "******");
+        String json = ConfigBuilder.mapToString(config.root().unwrapped());
+        Assertions.assertTrue(json.contains("\"password\" : \"******\""));
+    }
+
+    @Test
+    public void testConfNull() throws URISyntaxException {
+        URL resource = ConfigShadeTest.class.getResource("/config.shade_caseNull.conf");
+        Assertions.assertNotNull(resource);
+        Config config = ConfigBuilder.of(Paths.get(resource.toURI()), Lists.newArrayList());
+        config =
+                ConfigFactory.parseMap(
+                                ConfigBuilder.configDesensitization(config.root().unwrapped()))
+                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+                        .resolveWith(
+                                ConfigFactory.systemProperties(),
+                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getString("username"), "******");
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getString("password"), "******");
+        String conf = ConfigBuilder.mapToString(config.root().unwrapped());
+        Assertions.assertTrue(conf.contains("\"password\" : \"******\""));
+        Assertions.assertTrue(conf.contains("\"test\" : null"));
     }
 
     @Test

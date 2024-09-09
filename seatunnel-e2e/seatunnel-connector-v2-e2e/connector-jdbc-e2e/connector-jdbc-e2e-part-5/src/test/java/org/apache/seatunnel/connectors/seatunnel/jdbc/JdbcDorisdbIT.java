@@ -332,9 +332,9 @@ public class JdbcDorisdbIT extends TestSuiteBase implements TestResource {
     }
 
     private void assertHasData(String table) {
-        try (Statement statement = jdbcConnection.createStatement()) {
-            String sql = String.format("select * from %s.%s limit 1", DATABASE, table);
-            ResultSet source = statement.executeQuery(sql);
+        String sql = String.format("select * from %s.%s limit 1", DATABASE, table);
+        try (Statement statement = jdbcConnection.createStatement();
+                ResultSet source = statement.executeQuery(sql)) {
             Assertions.assertTrue(source.next());
         } catch (Exception e) {
             throw new RuntimeException("Test doris server image error", e);

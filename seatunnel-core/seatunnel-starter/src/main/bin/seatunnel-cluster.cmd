@@ -45,14 +45,9 @@ for %%I in (%*) do (
 
 set "JAVA_OPTS=%JvmOption%"
 set "SEATUNNEL_CONFIG=%CONF_DIR%\seatunnel.yaml"
-for %%I in (%*) do (
-    set "arg=%%I"
-    if "!arg:~0,10!"=="JvmOption=" (
-        set "JAVA_OPTS=%JAVA_OPTS% !arg:~10!"
-    )
-)
 
 set "JAVA_OPTS=%JAVA_OPTS% -Dlog4j2.contextSelector=org.apache.logging.log4j.core.async.AsyncLoggerContextSelector"
+set "JAVA_OPTS=%JAVA_OPTS% -Dlog4j2.isThreadContextMapInheritable=true"
 
 REM Server Debug Config
 REM Usage instructions:
@@ -78,7 +73,7 @@ if "%NODE_ROLE%" == "master" (
     REM SeaTunnel Engine Config
     set "HAZELCAST_CONFIG=%CONF_DIR%\hazelcast-master.yaml"
 
-) elseif "%NODE_ROLE%" == "worker" (
+) else if "%NODE_ROLE%" == "worker" (
     set "OUT=%WORKER_OUT%"
     set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.logs.file_name=seatunnel-engine-worker"
     for /f "usebackq delims=" %%I in ("%APP_DIR%\config\jvm_worker_options") do (
@@ -89,7 +84,7 @@ if "%NODE_ROLE%" == "master" (
     )
     REM SeaTunnel Engine Config
     set "HAZELCAST_CONFIG=%CONF_DIR%\hazelcast-worker.yaml"
-) elseif "%NODE_ROLE%" == "master_and_worker" (
+) else if "%NODE_ROLE%" == "master_and_worker" (
     set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.logs.file_name=seatunnel-engine-server"
     for /f "usebackq delims=" %%I in ("%APP_DIR%\config\jvm_options") do (
         set "line=%%I"
@@ -102,6 +97,14 @@ if "%NODE_ROLE%" == "master" (
 ) else (
     echo Unknown node role: %NODE_ROLE%
     exit 1
+)
+
+REM Parse JvmOption from command line, it should be parsed after jvm_options
+for %%I in (%*) do (
+    set "arg=%%I"
+    if "!arg:~0,10!"=="JvmOption=" (
+        set "JAVA_OPTS=%JAVA_OPTS% !arg:~10!"
+    )
 )
 
 IF NOT EXIST "%HAZELCAST_CONFIG%" (
