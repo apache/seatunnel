@@ -114,9 +114,11 @@ Both failed jobs and jobs paused by seatunnel.sh -s &lt;jobId&gt; can be resumed
 ## Canceling Jobs
 
 ```shell
-sh bin/seatunnel.sh -can &lt;jobId&gt;
+sh bin/seatunnel.sh -can <jobId1> [<jobId2> <jobId3> ...]
 ```
 
 This command will cancel the specified job. After canceling the job, the job will be stopped and its status will become `CANCELED`.
+
+Supports batch cancellation of jobs, and can cancel multiple jobs at one time.
 
 All breakpoint information of the canceled job will be deleted and cannot be resumed by seatunnel.sh -r &lt;jobId&gt;.

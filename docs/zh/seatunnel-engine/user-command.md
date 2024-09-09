@@ -129,10 +129,12 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template
 ## 取消作业
 
 ```shell
-./bin/seatunnel.sh -can &lt;jobId&gt;
+./bin/seatunnel.sh -can <jobId1> [<jobId2> <jobId3> ...]
 ```
 
 该命令会取消指定作业，取消作业后，作业会被停止，作业的状态会变为`CANCELED`。
+
+支持批量取消作业，可以一次取消多个作业。
 
 被cancel的作业的所有断点信息都将被删除，无法通过seatunnel.sh -r &lt;jobId&gt;恢复。
 
