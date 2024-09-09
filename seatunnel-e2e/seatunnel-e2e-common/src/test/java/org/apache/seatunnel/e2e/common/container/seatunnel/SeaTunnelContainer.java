@@ -265,7 +265,8 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         return executeCommand(server, command);
     }
 
-    public Container.ExecResult executeBaseCommand(String[] args) throws IOException, InterruptedException {
+    public Container.ExecResult executeBaseCommand(String[] args)
+            throws IOException, InterruptedException {
         final List<String> command = new ArrayList<>();
         String binPath = Paths.get(SEATUNNEL_HOME, "bin", getStartShellName()).toString();
         command.add(adaptPathForWin(binPath));
