@@ -55,7 +55,6 @@ import java.util.stream.Collectors;
 public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSourceSplit> {
 
     private static final long THREAD_WAIT_TIME = 500L;
-    private static final long POLL_TIMEOUT = 10000L;
 
     private final SourceReader.Context context;
     private final KafkaSourceConfig kafkaSourceConfig;
@@ -68,6 +67,8 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     private final MessageFormatErrorHandleWay messageFormatErrorHandleWay;
 
     private final LinkedBlockingQueue<KafkaSourceSplit> pendingPartitionsQueue;
+
+    private final long pollTimeout;
 
     private volatile boolean running = false;
 
@@ -85,6 +86,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
         this.executorService =
                 Executors.newCachedThreadPool(r -> new Thread(r, "Kafka Source Data Consumer"));
         pendingPartitionsQueue = new LinkedBlockingQueue<>();
+        this.pollTimeout = kafkaSourceConfig.getPollTimeout();
     }
 
     @Override
@@ -146,7 +148,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                                 }
                                                 ConsumerRecords<byte[], byte[]> records =
                                                         consumer.poll(
-                                                                Duration.ofMillis(POLL_TIMEOUT));
+                                                                Duration.ofMillis(pollTimeout));
                                                 for (TopicPartition partition : partitions) {
                                                     List<ConsumerRecord<byte[], byte[]>>
                                                             recordList = records.records(partition);
