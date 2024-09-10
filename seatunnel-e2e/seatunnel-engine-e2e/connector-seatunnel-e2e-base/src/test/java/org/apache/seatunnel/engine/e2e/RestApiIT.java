@@ -390,6 +390,7 @@ public class RestApiIT {
                                     .time(lessThan(5000L))
                                     .body("[0].host", equalTo("localhost"))
                                     .body("[0].port", notNullValue())
+                                    .body("[0].isMaster", notNullValue())
                                     .statusCode(200);
                         });
     }
