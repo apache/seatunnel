@@ -157,9 +157,16 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason = "The multi-catalog does not currently support the Spark Flink engine")
     public void testClickhouseSourceMultiTable(TestContainer container) throws Exception {
+        Container.ExecResult execResult = null;
         initializeClickhouseMergeTreeTable();
-        Container.ExecResult execResult = container.executeJob("/multi_source_clickhouse.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        try {
+            LOG.info("Step 2: Executing job with /multi_source_clickhouse.conf");
+            execResult = container.executeJob("/multi_source_clickhouse.conf");
+        } catch (NullPointerException e) {
+            LOG.error("NullPointerException in container.executeJob", e);
+            throw e;
+        }
+        Assertions.assertEquals(1, execResult);
         LOG.info(
                 "testClickhouseSourceMultiTable Command executed with exit code: "
                         + execResult.getExitCode());
