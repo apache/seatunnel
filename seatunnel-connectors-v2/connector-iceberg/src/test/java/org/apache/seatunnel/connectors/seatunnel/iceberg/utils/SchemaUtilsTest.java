@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.iceberg.utils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -54,7 +55,10 @@ class SchemaUtilsTest {
                                 put(SinkConfig.TABLE_PRIMARY_KEYS.key(), String.join(",", pks));
                             }
                         });
-        Schema schema = SchemaUtils.toIcebergSchema(rowType, readonlyConfig);
+        Schema schema =
+                SchemaUtils.toIcebergSchema(
+                        CatalogTableUtil.getCatalogTable("default", rowType).getTableSchema(),
+                        readonlyConfig);
         Assertions.assertNotNull(schema);
         Assertions.assertEquals(fieldNames.length, schema.columns().size());
         for (Types.NestedField column : schema.columns()) {
@@ -90,7 +94,10 @@ class SchemaUtilsTest {
                             {
                             }
                         });
-        Schema schema = SchemaUtils.toIcebergSchema(rowType, readonlyConfig);
+        Schema schema =
+                SchemaUtils.toIcebergSchema(
+                        CatalogTableUtil.getCatalogTable("default", rowType).getTableSchema(),
+                        readonlyConfig);
         Assertions.assertNotNull(schema);
         Assertions.assertEquals(fieldNames.length, schema.columns().size());
         for (Types.NestedField column : schema.columns()) {
