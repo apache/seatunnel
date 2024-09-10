@@ -15,25 +15,39 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.ftp.sink;
+package org.apache.seatunnel.connectors.seatunnel.file.ftp.catalog;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.factory.CatalogFactory;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConf;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseMultipleTableFileSink;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 
 import com.google.auto.service.AutoService;
 
-@AutoService(SeaTunnelSink.class)
-public class FtpFileSink extends BaseMultipleTableFileSink {
+@AutoService(Factory.class)
+public class FtpFileCatalogFactory implements CatalogFactory {
     @Override
-    public String getPluginName() {
+    public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
+        HadoopFileSystemProxy fileSystemUtils =
+                new HadoopFileSystemProxy(FtpConf.buildWithConfig(options));
+        return new FtpFileCatalog(
+                fileSystemUtils,
+                options.get(BaseSourceConfigOptions.FILE_PATH),
+                FileSystemType.FTP.getFileSystemPluginName());
+    }
+
+    @Override
+    public String factoryIdentifier() {
         return FileSystemType.FTP.getFileSystemPluginName();
     }
 
-    public FtpFileSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
-        super(FtpConf.buildWithConfig(readonlyConfig), readonlyConfig, catalogTable);
+    @Override
+    public OptionRule optionRule() {
+        return OptionRule.builder().build();
     }
 }

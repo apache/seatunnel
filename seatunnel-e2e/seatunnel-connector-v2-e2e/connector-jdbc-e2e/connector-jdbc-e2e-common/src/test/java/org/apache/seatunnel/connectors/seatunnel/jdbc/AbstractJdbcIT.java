@@ -38,7 +38,9 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.apache.commons.lang3.StringUtils;
@@ -344,6 +346,11 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "Fink test is multi-node, LocalFile connector will use different containers for obtaining files")
     public void testJdbcDb(TestContainer container)
             throws IOException, InterruptedException, SQLException {
         List<String> configFiles = jdbcCase.getConfigFile();
