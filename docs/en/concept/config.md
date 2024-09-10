@@ -213,8 +213,13 @@ In a config file, we can define variables and replace them at runtime. However, 
 - `${varName:}`: If the variable is not provided, an empty string will be used.
 
 If you do not set the variable value through `-i`, you can also pass the value by setting the system environment variables. Variable substitution supports obtaining variable values through environment variables.
+For example, you can set the environment variable in the shell script as follows:
+```shell
+export varName="value with space"
+```
+Then you can use the variable in the config file.
 
-If you set a variable in the config file but do not pass it during execution, an exception will be thrown. Example:
+If you set a variable without default value in the config file but do not pass it during execution, an exception will be thrown. Example:
 ```shell
 Caused by: org.apache.seatunnel.core.starter.exception.CommandExecuteException: Variable substitution error: ${resName}_table
 ```
@@ -320,7 +325,7 @@ sink {
 ### Important Notes:
 - If a value contains special characters like `(`, enclose it in single quotes (`'`).
 - If the substitution variable contains double or single quotes (e.g., `"resName"` or `"nameVal"`), you need to include them with the value.
-- The value cannot contain spaces (`' '`). For example, `-i jobName='this is a job name'` will be replaced with `job.name = "this"`.
+- The value cannot contain spaces (`' '`). For example, `-i jobName='this is a job name'` will be replaced with `job.name = "this"`. You can use environment variables to pass values with spaces.
 - For dynamic parameters, you can use the following format: `-i date=$(date +"%Y%m%d")`.
 - Cannot use specified system reserved characters; they will not be replaced by `-i`, such as: `${database_name}`, `${schema_name}`, `${table_name}`, `${schema_full_name}`, `${table_full_name}`, `${primary_key}`, `${unique_key}`, `${field_names}`. For details, please refer to [Sink Parameter Placeholders](sink-options-placeholders.md).
 

@@ -198,8 +198,13 @@ sql = """ select * from "table" """
  - `${varName:}`，如果变量未传值，则使用空字符串。
 
 如果您不通过`-i`设置变量值，也可以通过设置系统的环境变量传值，变量替换支持通过环境变量获取变量值。
+例如，您可以在shell脚本中设置环境变量如下：
+```shell
+export varName="value with space"
+```
+然后您可以在配置文件中使用变量。
 
-如果您在配置文件中设置变量变量，但在执行中未传递，则会抛出异常。
+如果您在配置文件中设置了没有默认值的变量，但在执行中未传递，则会抛出异常。
 如：
 ```shell
 Caused by: org.apache.seatunnel.core.starter.exception.CommandExecuteException: Variable substitution error: ${resName}_table
@@ -310,7 +315,7 @@ sink {
 
 - 如果值包含特殊字符，如`(`，请使用`'`引号将其括起来。
 - 如果替换变量包含`"`或`'`(如`"resName"`和`"nameVal"`)，需要添加`"`。
-- 值不能包含空格`' '`。例如, `-i jobName='this is a job name'`将被替换为`job.name = "this"`。
+- 值不能包含空格`' '`。例如, `-i jobName='this is a job name'`将被替换为`job.name = "this"`。 你可以使用环境变量传递带有空格的值。 
 - 如果要使用动态参数,可以使用以下格式: `-i date=$(date +"%Y%m%d")`。
 - 不能使用指定系统保留字符，它将不会被`-i`替换，如:`${database_name}`、`${schema_name}`、`${table_name}`、`${schema_full_name}`、`${table_full_name}`、`${primary_key}`、`${unique_key}`、`${field_names}`。具体可参考[Sink参数占位符](sink-options-placeholders.md)
 ## 此外
