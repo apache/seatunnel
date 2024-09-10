@@ -70,6 +70,7 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FIEL
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KEY_POLL_TIMEOUT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.MESSAGE_FORMAT_ERROR_HANDLE_WAY_OPTION;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PATTERN;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PROTOBUF_MESSAGE_NAME;
@@ -90,6 +91,7 @@ public class KafkaSourceConfig implements Serializable {
     @Getter private final long discoveryIntervalMillis;
     @Getter private final MessageFormatErrorHandleWay messageFormatErrorHandleWay;
     @Getter private final String consumerGroup;
+    @Getter private final long pollTimeout;
 
     public KafkaSourceConfig(ReadonlyConfig readonlyConfig) {
         this.bootstrap = readonlyConfig.get(BOOTSTRAP_SERVERS);
@@ -99,6 +101,7 @@ public class KafkaSourceConfig implements Serializable {
         this.discoveryIntervalMillis = readonlyConfig.get(KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS);
         this.messageFormatErrorHandleWay =
                 readonlyConfig.get(MESSAGE_FORMAT_ERROR_HANDLE_WAY_OPTION);
+        this.pollTimeout = readonlyConfig.get(KEY_POLL_TIMEOUT);
         this.consumerGroup = readonlyConfig.get(CONSUMER_GROUP);
     }
 

@@ -62,7 +62,6 @@ public class KafkaPartitionSplitReader
 
     private static final Logger LOG = LoggerFactory.getLogger(KafkaPartitionSplitReader.class);
 
-    private static final long POLL_TIMEOUT = 10000L;
     private static final String CLIENT_ID_PREFIX = "seatunnel";
     private final KafkaSourceConfig kafkaSourceConfig;
 
@@ -74,6 +73,8 @@ public class KafkaPartitionSplitReader
 
     private final Set<String> emptySplits = new HashSet<>();
 
+    private final long pollTimeout;
+
     public KafkaPartitionSplitReader(
             KafkaSourceConfig kafkaSourceConfig, SourceReader.Context context) {
         this.kafkaSourceConfig = kafkaSourceConfig;
@@ -81,13 +82,14 @@ public class KafkaPartitionSplitReader
         this.stoppingOffsets = new HashMap<>();
         this.groupId =
                 kafkaSourceConfig.getProperties().getProperty(ConsumerConfig.GROUP_ID_CONFIG);
+        this.pollTimeout = kafkaSourceConfig.getPollTimeout();
     }
 
     @Override
     public RecordsWithSplitIds<ConsumerRecord<byte[], byte[]>> fetch() throws IOException {
         ConsumerRecords<byte[], byte[]> consumerRecords;
         try {
-            consumerRecords = consumer.poll(Duration.ofMillis(POLL_TIMEOUT));
+            consumerRecords = consumer.poll(Duration.ofMillis(pollTimeout));
         } catch (WakeupException | IllegalStateException e) {
             // IllegalStateException will be thrown if the consumer is not assigned any partitions.
             // This happens if all assigned partitions are invalid or empty (starting offset >=
