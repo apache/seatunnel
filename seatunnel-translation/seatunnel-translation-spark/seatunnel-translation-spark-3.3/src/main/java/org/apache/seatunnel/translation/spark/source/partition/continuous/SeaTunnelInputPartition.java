@@ -19,4 +19,20 @@ package org.apache.seatunnel.translation.spark.source.partition.continuous;
 
 import org.apache.spark.sql.connector.read.InputPartition;
 
-public class SeaTunnelInputPartition implements InputPartition {}
+public class SeaTunnelInputPartition implements InputPartition {
+    private final String endpointName;
+    private final int partitionId;
+
+    public SeaTunnelInputPartition(String endpointName, int partitionId) {
+        this.endpointName = endpointName;
+        this.partitionId = partitionId;
+    }
+
+    public String getEndpointName() {
+        return endpointName;
+    }
+
+    public int getPartitionId() {
+        return partitionId;
+    }
+}

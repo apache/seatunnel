@@ -25,10 +25,15 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.translation.spark.serialization.InternalMultiRowCollector;
+import org.apache.seatunnel.translation.spark.source.partition.continuous.source.rpc.RpcSourceReaderContext;
+import org.apache.seatunnel.translation.spark.source.partition.continuous.source.rpc.RpcSplitEnumeratorContext;
 
+import org.apache.spark.SparkEnv;
+import org.apache.spark.rpc.RpcEndpointRef;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.read.streaming.ContinuousPartitionReader;
 import org.apache.spark.sql.connector.read.streaming.PartitionOffset;
+import org.apache.spark.util.RpcUtils;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -37,42 +42,39 @@ import java.util.List;
 public class SeaTunnelContinuousPartitionReader<
                 SplitT extends SourceSplit, StateT extends Serializable>
         implements ContinuousPartitionReader<InternalRow> {
-    private final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
-    private final String jobId;
-    private final Integer subtaskId;
-    private final Integer parallelism;
-    private final SourceSplitEnumerator splitEnumerator;
-    private final SourceSplitEnumerator.Context splitEnumeratorCtx;
-    protected final List<SplitT> restoredSplitState;
-    protected final SourceReader<SeaTunnelRow, SplitT> reader;
+    private final SeaTunnelSource<SeaTunnelRow, SourceSplit, ?> source;
+    private final SeaTunnelInputPartition inputPartition;
+    private final RpcEndpointRef driverRef;
+    protected List<SplitT> restoredSplitState;
+    protected SourceReader<SeaTunnelRow, SourceSplit> reader;
+    protected SourceSplitEnumerator<SourceSplit, Serializable> splitEnumerator;
 
-    protected final Serializer<SplitT> splitSerializer;
-    protected final Serializer<StateT> enumeratorStateSerializer;
+    protected Serializer<SplitT> splitSerializer;
+    protected Serializer<StateT> enumeratorStateSerializer;
     private InternalMultiRowCollector collector;
     Handover<InternalRow> handover;
 
     public SeaTunnelContinuousPartitionReader(
-            SeaTunnelSource<SeaTunnelRow, ?, ?> source,
-            String jobId,
-            Integer subtaskId,
-            Integer parallelism,
-            SourceSplitEnumerator splitEnumerator,
-            SourceSplitEnumerator.Context splitEnumeratorCtx,
-            List<SplitT> restoredSplitState,
-            SourceReader<SeaTunnelRow, SplitT> reader,
-            Serializer<SplitT> splitSerializer,
-            Serializer<StateT> enumeratorStateSerializer,
-            int subTaskId) {
+            SeaTunnelSource<SeaTunnelRow, SourceSplit, ?> source,
+            SeaTunnelInputPartition inputPartition) {
         this.source = source;
-        this.jobId = jobId;
-        this.subtaskId = subtaskId;
-        this.parallelism = parallelism;
-        this.splitEnumerator = splitEnumerator;
-        this.splitEnumeratorCtx = splitEnumeratorCtx;
-        this.restoredSplitState = restoredSplitState;
-        this.reader = reader;
-        this.splitSerializer = splitSerializer;
-        this.enumeratorStateSerializer = enumeratorStateSerializer;
+        this.inputPartition = inputPartition;
+        this.driverRef =
+                RpcUtils.makeDriverRef(
+                        inputPartition.getEndpointName(),
+                        SparkEnv.get().conf(),
+                        SparkEnv.get().rpcEnv());
+        RpcSourceReaderContext readerCtx = new RpcSourceReaderContext(this.driverRef);
+        RpcSplitEnumeratorContext<SourceSplit> splitEnumeratorContext =
+                new RpcSplitEnumeratorContext<SourceSplit>(this.driverRef);
+        try {
+            reader = (SourceReader<SeaTunnelRow, SourceSplit>) this.source.createReader(readerCtx);
+            splitEnumerator =
+                    (SourceSplitEnumerator<SourceSplit, Serializable>)
+                            this.source.createEnumerator(splitEnumeratorContext);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -86,7 +88,7 @@ public class SeaTunnelContinuousPartitionReader<
             if (handover.isEmpty()) {
                 reader.pollNext(collector);
                 if (handover.isEmpty()) {
-                    // splitEnumeratorCtx.assignSplit();
+                    splitEnumerator.run();
                 }
             }
             return true;

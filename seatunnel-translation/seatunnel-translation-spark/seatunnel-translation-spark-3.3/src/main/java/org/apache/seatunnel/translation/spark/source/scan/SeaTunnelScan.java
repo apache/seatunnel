@@ -18,6 +18,7 @@
 package org.apache.seatunnel.translation.spark.source.scan;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 import org.apache.seatunnel.translation.spark.source.partition.batch.SeaTunnelBatch;
@@ -82,7 +83,7 @@ public class SeaTunnelScan implements Scan {
     @Override
     public ContinuousStream toContinuousStream(String checkpointLocation) {
         return new SeaTunnelContinuousStream(
-                source,
+                (SeaTunnelSource<SeaTunnelRow, SourceSplit, ?>) source,
                 parallelism,
                 jobId,
                 checkpointLocation,

@@ -18,26 +18,32 @@
 package org.apache.seatunnel.translation.spark.source.partition.continuous;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
+import org.apache.seatunnel.translation.spark.source.partition.continuous.source.endpoint.EndpointSplitEnumeratorContext;
 import org.apache.seatunnel.translation.spark.utils.CaseInsensitiveStringMap;
 
+import org.apache.spark.rpc.RpcEndpointRef;
 import org.apache.spark.sql.connector.read.InputPartition;
 import org.apache.spark.sql.connector.read.streaming.ContinuousPartitionReaderFactory;
 import org.apache.spark.sql.connector.read.streaming.ContinuousStream;
 import org.apache.spark.sql.connector.read.streaming.Offset;
 import org.apache.spark.sql.connector.read.streaming.PartitionOffset;
+import org.apache.spark.sql.execution.streaming.continuous.seatunnel.rpc.SplitEnumeratorEndpoint;
 
 public class SeaTunnelContinuousStream implements ContinuousStream {
-    private final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
+    private final SeaTunnelSource<SeaTunnelRow, SourceSplit, ?> source;
     private final int parallelism;
     private final String jobId;
     private final String checkpointLocation;
     private final CaseInsensitiveStringMap caseInsensitiveStringMap;
     private final MultiTableManager multiTableManager;
+    private RpcEndpointRef endpointRef;
 
     public SeaTunnelContinuousStream(
-            SeaTunnelSource<SeaTunnelRow, ?, ?> source,
+            SeaTunnelSource<SeaTunnelRow, SourceSplit, ?> source,
             int parallelism,
             String jobId,
             String checkpointLocation,
@@ -53,7 +59,23 @@ public class SeaTunnelContinuousStream implements ContinuousStream {
 
     @Override
     public InputPartition[] planInputPartitions(Offset start) {
-        return new InputPartition[0];
+        SourceSplitEnumerator.Context<SourceSplit> enumeratorContext =
+                new EndpointSplitEnumeratorContext<>(parallelism, jobId);
+
+        try {
+            SourceSplitEnumerator enumerator = source.createEnumerator(enumeratorContext);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        SplitEnumeratorEndpoint enumeratorEndpoint = new SplitEnumeratorEndpoint();
+        String endpointName = "SplitEnumeratorEndpoint-" + java.util.UUID.randomUUID();
+        endpointRef = enumeratorEndpoint.rpcEnv().setupEndpoint(endpointName, enumeratorEndpoint);
+        InputPartition[] inputPartitions = new SeaTunnelInputPartition[parallelism];
+        for (int idx = 0; idx < inputPartitions.length; idx++) {
+            inputPartitions[idx] = new SeaTunnelInputPartition(endpointName, idx);
+        }
+        return inputPartitions;
     }
 
     @Override

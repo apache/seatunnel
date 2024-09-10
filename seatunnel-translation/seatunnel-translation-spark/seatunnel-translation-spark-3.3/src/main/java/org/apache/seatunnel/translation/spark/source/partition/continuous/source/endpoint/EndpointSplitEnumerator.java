@@ -15,24 +15,6 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.execution.streaming.continuous.seatunnel.rpc;
+package org.apache.seatunnel.translation.spark.source.partition.continuous.source.endpoint;
 
-import org.apache.spark.rpc.RpcCallContext;
-import org.apache.spark.rpc.RpcEnv;
-import org.apache.spark.rpc.ThreadSafeRpcEndpoint;
-
-import scala.PartialFunction;
-import scala.runtime.BoxedUnit;
-
-public class SplitEnumeratorEndPoint implements ThreadSafeRpcEndpoint {
-
-    @Override
-    public RpcEnv rpcEnv() {
-        return null;
-    }
-
-    @Override
-    public PartialFunction<Object, BoxedUnit> receiveAndReply(RpcCallContext context) {
-        return null;
-    }
-}
+public class EndpointSplitEnumerator {}

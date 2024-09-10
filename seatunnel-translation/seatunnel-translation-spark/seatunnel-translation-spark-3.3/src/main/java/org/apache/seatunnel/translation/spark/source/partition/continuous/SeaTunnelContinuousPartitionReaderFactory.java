@@ -17,20 +17,26 @@
 
 package org.apache.seatunnel.translation.spark.source.partition.continuous;
 
-import org.apache.spark.SparkEnv;
-import org.apache.spark.rpc.RpcEndpointRef;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.read.InputPartition;
 import org.apache.spark.sql.connector.read.streaming.ContinuousPartitionReader;
 import org.apache.spark.sql.connector.read.streaming.ContinuousPartitionReaderFactory;
-import org.apache.spark.util.RpcUtils;
 
 public class SeaTunnelContinuousPartitionReaderFactory implements ContinuousPartitionReaderFactory {
+    private final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
+
+    public SeaTunnelContinuousPartitionReaderFactory(SeaTunnelSource<SeaTunnelRow, ?, ?> source) {
+        this.source = source;
+    }
+
     @Override
     public ContinuousPartitionReader<InternalRow> createReader(InputPartition partition) {
-        RpcEndpointRef endpointRef =
-                RpcUtils.makeDriverRef("", SparkEnv.get().conf(), SparkEnv.get().rpcEnv());
-
-        return null;
+        SeaTunnelInputPartition inputPartition = (SeaTunnelInputPartition) partition;
+        return new SeaTunnelContinuousPartitionReader<>(
+                (SeaTunnelSource<SeaTunnelRow, SourceSplit, ?>) source, inputPartition);
     }
 }
