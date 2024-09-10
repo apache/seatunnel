@@ -83,11 +83,12 @@ public class PrometheusIT extends TestSuiteBase implements TestResource {
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK},
-            disabledReason = "Currently protobuf version is conflict")
+            disabledReason =
+                    "The version(3.25.4) introduced by Prometheus is higher than the version(2.5.0) in spark"
+                            + " hadoop,do not support AbstractMessageLite$Builder.addAll")
     public void testPrometheusSinkAndSource(TestContainer container)
             throws IOException, InterruptedException {
-        //
-        // http prometheus
+
         Container.ExecResult execResult = container.executeJob("/prometheus_remote_write.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 

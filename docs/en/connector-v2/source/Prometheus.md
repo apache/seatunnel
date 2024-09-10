@@ -49,7 +49,7 @@ https://prometheus.io/docs/prometheus/latest/querying/api/
 
 ### params [Map]
 
-http params
+http request params
 
 ### poll_interval_millis [int]
 
