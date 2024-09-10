@@ -100,6 +100,7 @@ public class SeaTunnelConnectorBatchCancelTest extends TestSuiteBase implements 
                                 })
                         .filter(jobId -> jobId != null)
                         .collect(Collectors.toList());
+        Assertions.assertEquals(2, runningJobId.size());
 
         // Verify that the status is Running
         for (String jobId : runningJobId) {
