@@ -54,11 +54,12 @@ public class OpenAIModel extends AbstractModel {
     public OpenAIModel(
             SeaTunnelRowType rowType,
             SqlType outputType,
+            List<String> projectionColumns,
             String prompt,
             String model,
             String apiKey,
             String apiPath) {
-        super(rowType, outputType, prompt);
+        super(rowType, outputType, projectionColumns, prompt);
         this.apiKey = apiKey;
         this.apiPath = apiPath;
         this.model = model;

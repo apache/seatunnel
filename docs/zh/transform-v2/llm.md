@@ -8,18 +8,19 @@
 
 ## 属性
 
-| 名称                     | 类型     | 是否必须 | 默认值    |
-|------------------------|--------|------|--------|
-| model_provider         | enum   | yes  |        |
-| output_data_type       | enum   | no   | String |
-| prompt                 | string | yes  |        |
-| model                  | string | yes  |        |
-| api_key                | string | yes  |        |
-| api_path               | string | no   |        |
-| custom_config          | map    | no   |        | 
-| custom_response_parse  | string | no   |        | 
-| custom_request_headers | map    | no   |        |
-| custom_request_body    | map    | no   |        | 
+| 名称                   | 类型   | 是否必须 | 默认值 |
+| ---------------------- | ------ | -------- | ------ |
+| model_provider         | enum   | yes      |        |
+| output_data_type       | enum   | no       | String |
+| prompt                 | string | yes      |        |
+| inference_columns   | list   | no       |        |
+| model                  | string | yes      |        |
+| api_key                | string | yes      |        |
+| api_path               | string | no       |        |
+| custom_config          | map    | no       |        |
+| custom_response_parse  | string | no       |        |
+| custom_request_headers | map    | no       |        |
+| custom_request_body    | map    | no       |        |
 
 ### model_provider
 
@@ -59,6 +60,23 @@ Determine whether someone is Chinese or American by their name
 | Hailin Wang   | 20  | Chinese    |
 | Eric          | 20  | American   |
 | Guangdong Liu | 20  | Chinese    |
+
+### inference_columns
+
+`inference_columns`选项允许您指定应该将输入数据中的哪些列用作LLM的输入。默认情况下，所有列都将用作输入。
+
+For example:
+```hocon
+transform {
+  LLM {
+    model_provider = OPENAI
+    model = gpt-4o-mini
+    api_key = sk-xxx
+    inference_columns = ["name", "age"]
+    prompt = "Determine whether someone is Chinese or American by their name"
+  }
+}
+```
 
 ### model
 
@@ -252,5 +270,4 @@ sink {
   }
 }
 ```
-
 
