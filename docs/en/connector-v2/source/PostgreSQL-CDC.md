@@ -157,7 +157,7 @@ sink {
     generate_sink_sql = true
     # You need to configure both database and table
     database = postgres_cdc
-    chema = "inventory"
+    schema = "inventory"
     tablePrefix = "sink_"
     primary_keys = ["id"]
   }

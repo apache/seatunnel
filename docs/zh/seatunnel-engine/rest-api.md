@@ -642,3 +642,64 @@ network:
 
 </details>
 
+------------------------------------------------------------------------------------------
+
+### 更新运行节点的tags
+
+<details>
+<summary><code>POST</code><code><b>/hazelcast/rest/maps/update-tags</b></code><code>因为更新只能针对于某个节点，因此需要用当前节点ip:port用于更新</code><code>(如果更新成功，则返回"success"信息)</code></summary>
+
+
+#### 更新节点tags
+##### 请求体
+如果请求参数是`Map`对象，表示要更新当前节点的tags
+```json
+{
+  "tag1": "dev_1",
+  "tag2": "dev_2"
+}
+```
+##### 响应
+
+```json
+{
+  "status": "success",
+  "message": "update node tags done."
+}
+```
+#### 移除节点tags
+##### 请求体
+如果参数为空`Map`对象，表示要清除当前节点的tags
+```json
+{}
+```
+##### 响应
+响应体将为：
+```json
+{
+  "status": "success",
+  "message": "update node tags done."
+}
+```
+
+#### 请求参数异常
+- 如果请求参数为空
+
+##### 响应
+
+```json
+{
+    "status": "fail",
+    "message": "Request body is empty."
+}
+```
+- 如果参数不是`Map`对象
+##### 响应
+
+```json
+{
+  "status": "fail",
+  "message": "Invalid JSON format in request body."
+}
+```
+</details>
