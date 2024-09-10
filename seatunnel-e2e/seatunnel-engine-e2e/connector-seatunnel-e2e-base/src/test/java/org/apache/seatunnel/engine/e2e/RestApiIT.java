@@ -453,6 +453,27 @@ public class RestApiIT {
                         });
     }
 
+    @Test
+    public void testGetThreadDump() {
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance -> {
+                            given().get(
+                                            HOST
+                                                    + instance.getCluster()
+                                                            .getLocalMember()
+                                                            .getAddress()
+                                                            .getPort()
+                                                    + RestConstant.THREAD_DUMP)
+                                    .then()
+                                    .statusCode(200)
+                                    .body("[0].threadName", notNullValue())
+                                    .body("[0].threadState", notNullValue())
+                                    .body("[0].stackTrace", notNullValue())
+                                    .body("[0].threadId", notNullValue());
+                        });
+    }
+
     @AfterEach
     void afterClass() {
         if (engineClient != null) {
