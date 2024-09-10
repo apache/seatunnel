@@ -21,13 +21,13 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.utils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.IcebergTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.schema.SchemaAddColumn;
@@ -61,6 +61,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -100,7 +101,7 @@ public class SchemaUtils {
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         TableSchema tableSchema = table.getTableSchema();
         // Convert to iceberg schema
-        Schema schema = toIcebergSchema(tableSchema.toPhysicalRowDataType(), readonlyConfig);
+        Schema schema = toIcebergSchema(tableSchema, readonlyConfig);
         // Convert sink config
         SinkConfig config = new SinkConfig(readonlyConfig);
         // build auto create table
@@ -114,9 +115,9 @@ public class SchemaUtils {
             Catalog catalog,
             TableIdentifier tableIdentifier,
             SinkConfig config,
-            SeaTunnelRowType rowType) {
+            TableSchema tableSchema) {
         // Generate struct type
-        Schema schema = toIcebergSchema(rowType, config.getReadonlyConfig());
+        Schema schema = toIcebergSchema(tableSchema, config.getReadonlyConfig());
         return createTable(catalog, tableIdentifier, config, schema, config.getAutoCreateProps());
     }
 
@@ -158,8 +159,8 @@ public class SchemaUtils {
 
     @VisibleForTesting
     @NotNull protected static Schema toIcebergSchema(
-            SeaTunnelRowType rowType, ReadonlyConfig readonlyConfig) {
-        Types.StructType structType = SchemaUtils.toIcebergType(rowType).asStructType();
+            TableSchema tableSchema, ReadonlyConfig readonlyConfig) {
+        Types.StructType structType = SchemaUtils.toIcebergType(tableSchema);
         Set<Integer> identifierFieldIds = new HashSet<>();
         if (Objects.nonNull(readonlyConfig)) {
             List<String> pks =
@@ -271,6 +272,22 @@ public class SchemaUtils {
 
     public static Type toIcebergType(SeaTunnelDataType<?> rowType) {
         return IcebergTypeMapper.toIcebergType(rowType);
+    }
+
+    public static Types.StructType toIcebergType(TableSchema tableSchema) {
+        List<Types.NestedField> structFields = new ArrayList<>();
+        AtomicInteger idIncrementer = new AtomicInteger(1);
+        for (Column column : tableSchema.getColumns()) {
+            Types.NestedField icebergField =
+                    Types.NestedField.of(
+                            idIncrementer.getAndIncrement(),
+                            true,
+                            column.getName(),
+                            IcebergTypeMapper.toIcebergType(column.getDataType(), idIncrementer),
+                            column.getComment());
+            structFields.add(icebergField);
+        }
+        return Types.StructType.of(structFields);
     }
 
     public static PartitionSpec createPartitionSpec(Schema schema, List<String> partitionBy) {

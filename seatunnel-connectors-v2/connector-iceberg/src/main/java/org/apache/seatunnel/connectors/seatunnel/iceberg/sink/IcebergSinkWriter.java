@@ -22,6 +22,7 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.sink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.event.handler.DataTypeChangeEventDispatcher;
 import org.apache.seatunnel.api.table.event.handler.DataTypeChangeEventHandler;
@@ -53,6 +54,7 @@ import java.util.UUID;
 public class IcebergSinkWriter
         implements SinkWriter<SeaTunnelRow, IcebergCommitInfo, IcebergSinkState>,
                 SupportMultiTableSinkWriter<Void> {
+    private TableSchema tableSchema;
     private SeaTunnelRowType rowType;
     private final SinkConfig config;
     private final IcebergTableLoader icebergTableLoader;
@@ -66,11 +68,12 @@ public class IcebergSinkWriter
     public IcebergSinkWriter(
             IcebergTableLoader icebergTableLoader,
             SinkConfig config,
-            SeaTunnelRowType seaTunnelRowType,
+            TableSchema tableSchema,
             List<IcebergSinkState> states) {
         this.config = config;
         this.icebergTableLoader = icebergTableLoader;
-        this.rowType = seaTunnelRowType;
+        this.tableSchema = tableSchema;
+        this.rowType = tableSchema.toPhysicalRowDataType();
         this.filesCommitter = IcebergFilesCommitter.of(config, icebergTableLoader);
         this.dataTypeChangeEventHandler = new DataTypeChangeEventDispatcher();
         tryCreateRecordWriter();
@@ -91,7 +94,7 @@ public class IcebergSinkWriter
         if (this.writer == null) {
             IcebergWriterFactory icebergWriterFactory =
                     new IcebergWriterFactory(icebergTableLoader, config);
-            this.writer = icebergWriterFactory.createWriter(this.rowType);
+            this.writer = icebergWriterFactory.createWriter(this.tableSchema);
         }
     }
 
@@ -104,7 +107,7 @@ public class IcebergSinkWriter
         IcebergTableLoader icebergTableLoader =
                 IcebergTableLoader.create(config, catalogTable).open();
         return new IcebergSinkWriter(
-                icebergTableLoader, config, catalogTable.getSeaTunnelRowType(), states);
+                icebergTableLoader, config, catalogTable.getTableSchema(), states);
     }
 
     @Override
