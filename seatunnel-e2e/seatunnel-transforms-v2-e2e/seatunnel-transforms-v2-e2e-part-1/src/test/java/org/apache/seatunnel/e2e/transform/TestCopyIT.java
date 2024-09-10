@@ -32,4 +32,11 @@ public class TestCopyIT extends TestSuiteBase {
         Container.ExecResult execResult = container.executeJob("/copy_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    @TestTemplate
+    public void testCopyMultiTable(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/copy_transform_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }

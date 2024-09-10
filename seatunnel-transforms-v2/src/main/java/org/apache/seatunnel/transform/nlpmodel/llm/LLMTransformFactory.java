@@ -20,11 +20,11 @@ package org.apache.seatunnel.transform.nlpmodel.llm;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.transform.common.TransformCommonOptions;
 import org.apache.seatunnel.transform.nlpmodel.ModelProvider;
 
 import com.google.auto.service.AutoService;
@@ -64,12 +64,13 @@ public class LLMTransformFactory implements TableTransformFactory {
                         LLMTransformConfig.MODEL_PROVIDER,
                         ModelProvider.CUSTOM,
                         LLMTransformConfig.CustomRequestConfig.CUSTOM_CONFIG)
+                .optional(TransformCommonOptions.MULTI_TABLES)
+                .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
                 .build();
     }
 
     @Override
     public TableTransform createTransform(TableTransformFactoryContext context) {
-        CatalogTable catalogTable = context.getCatalogTables().get(0);
-        return () -> new LLMTransform(context.getOptions(), catalogTable);
+        return () -> new LLMMultiCatalogTransform(context.getCatalogTables(), context.getOptions());
     }
 }

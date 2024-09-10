@@ -29,6 +29,7 @@ import java.util.List;
 @Getter
 @Setter
 public class FilterFieldTransformConfig implements Serializable {
+
     public static final Option<List<String>> INCLUDE_FIELDS =
             Options.key("include_fields")
                     .listType()

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
@@ -84,6 +85,20 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
             // ack after #addState
             runningTask.ack(barrier);
             collector.collect(record);
+        } else if (record.getData() instanceof SchemaChangeEvent) {
+            if (prepareClose) {
+                return;
+            }
+            SchemaChangeEvent event = (SchemaChangeEvent) record.getData();
+            for (SeaTunnelTransform<T> t : transform) {
+                event = t.mapSchemaChangeEvent(event);
+                if (event == null) {
+                    break;
+                }
+            }
+            if (event != null) {
+                collector.collect(new Record<>(event));
+            }
         } else {
             if (prepareClose) {
                 return;

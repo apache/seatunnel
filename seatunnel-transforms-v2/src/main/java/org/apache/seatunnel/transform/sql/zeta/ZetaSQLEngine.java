@@ -24,9 +24,6 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.SQLEngine;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
@@ -49,7 +46,6 @@ import java.util.ServiceLoader;
 import java.util.stream.Collectors;
 
 public class ZetaSQLEngine implements SQLEngine {
-    private static final Logger log = LoggerFactory.getLogger(ZetaSQLEngine.class);
     public static final String ESCAPE_IDENTIFIER = "`";
 
     private String inputTableName;
@@ -122,15 +118,11 @@ public class ZetaSQLEngine implements SQLEngine {
                 if (table.getAlias() != null) {
                     throw new IllegalArgumentException("Unsupported table alias name syntax");
                 }
-                String tableName = table.getName();
-                if (!inputTableName.equalsIgnoreCase(tableName)
-                        && !tableName.equalsIgnoreCase(catalogTableName)) {
-                    log.warn(
-                            "SQL table name {} is not equal to input table name {} or catalog table name {}",
-                            tableName,
-                            inputTableName,
-                            catalogTableName);
-                }
+                //                String tableName = table.getName();
+                //                if (!inputTableName.equalsIgnoreCase(tableName)) {
+                //                    throw new IllegalArgumentException(
+                //                        String.format("Table name: %s not found", tableName));
+                //                }
             } else {
                 throw new IllegalArgumentException("Unsupported sub table syntax");
             }
@@ -195,6 +187,7 @@ public class ZetaSQLEngine implements SQLEngine {
             } else if (selectItem instanceof SelectExpressionItem) {
                 SelectExpressionItem expressionItem = (SelectExpressionItem) selectItem;
                 Expression expression = expressionItem.getExpression();
+
                 if (expressionItem.getAlias() != null) {
                     String aliasName = expressionItem.getAlias().getName();
                     if (aliasName.startsWith(ESCAPE_IDENTIFIER)
