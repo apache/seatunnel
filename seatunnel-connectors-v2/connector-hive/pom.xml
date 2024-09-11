@@ -147,6 +147,11 @@
                                     <shadedPattern>${seatunnel.shade.package}.${connector.name}.org.apache.parquet</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>org.xerial.snappy</pattern>
+                                    <!--suppress UnresolvedMavenProperty -->
+                                    <shadedPattern>${seatunnel.shade.package}.${connector.name}.org.xerial.snappy</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>shaded.parquet</pattern>
                                     <!--suppress UnresolvedMavenProperty -->
                                     <shadedPattern>${seatunnel.shade.package}.${connector.name}.shaded.parquet</shadedPattern>
