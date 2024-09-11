@@ -202,6 +202,7 @@ public class SeaTunnelHealthMonitor {
         public String render() {
             update();
             sb.setLength(0);
+            isMasterFlag();
             ipPort();
             renderProcessors();
             renderPhysicalMemory();
@@ -224,6 +225,10 @@ public class SeaTunnelHealthMonitor {
         private void ipPort() {
             sb.append("host=").append(node.address.getHost()).append(", ");
             sb.append("port=").append(node.address.getPort()).append(", ");
+        }
+
+        private void isMasterFlag() {
+            sb.append("isMaster=").append(node.isMaster()).append(", ");
         }
 
         private void renderConnection() {

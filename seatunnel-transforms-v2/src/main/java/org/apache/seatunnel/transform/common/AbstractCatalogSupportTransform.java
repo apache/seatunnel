@@ -22,21 +22,47 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.transform.exception.ErrorDataTransformException;
 
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public abstract class AbstractCatalogSupportTransform implements SeaTunnelTransform<SeaTunnelRow> {
+    protected final ErrorHandleWay rowErrorHandleWay;
     protected CatalogTable inputCatalogTable;
 
     protected volatile CatalogTable outputCatalogTable;
 
     public AbstractCatalogSupportTransform(@NonNull CatalogTable inputCatalogTable) {
+        this(inputCatalogTable, CommonOptions.ROW_ERROR_HANDLE_WAY_OPTION.defaultValue());
+    }
+
+    public AbstractCatalogSupportTransform(
+            @NonNull CatalogTable inputCatalogTable, ErrorHandleWay rowErrorHandleWay) {
         this.inputCatalogTable = inputCatalogTable;
+        this.rowErrorHandleWay = rowErrorHandleWay;
     }
 
     @Override
     public SeaTunnelRow map(SeaTunnelRow row) {
-        return transformRow(row);
+        try {
+            return transformRow(row);
+        } catch (ErrorDataTransformException e) {
+            if (e.getErrorHandleWay() != null) {
+                ErrorHandleWay errorHandleWay = e.getErrorHandleWay();
+                if (errorHandleWay.allowSkipThisRow()) {
+                    log.debug("Skip row due to error", e);
+                    return null;
+                }
+                throw e;
+            }
+            if (rowErrorHandleWay.allowSkip()) {
+                log.debug("Skip row due to error", e);
+                return null;
+            }
+            throw e;
+        }
     }
 
     /**

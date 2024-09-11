@@ -24,11 +24,10 @@ import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
-import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 
-public class CleanTaskGroupContextOperation extends Operation
+public class CleanTaskGroupContextOperation extends TracingOperation
         implements IdentifiedDataSerializable {
 
     private TaskGroupLocation taskGroupLocation;
@@ -40,7 +39,7 @@ public class CleanTaskGroupContextOperation extends Operation
     }
 
     @Override
-    public void run() {
+    public void runInternal() {
 
         // remove TaskGroupContext for TaskExecutionService
         SeaTunnelServer service = getService();

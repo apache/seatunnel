@@ -23,6 +23,9 @@ import org.apache.seatunnel.core.starter.command.UsageFormatter;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
 
+import java.util.Arrays;
+import java.util.List;
+
 import static org.apache.seatunnel.core.starter.constants.SeaTunnelStarterConstants.USAGE_EXIT_CODE;
 
 public class CommandLineUtils {
@@ -38,6 +41,12 @@ public class CommandLineUtils {
 
     public static <T extends CommandArgs> T parse(
             String[] args, T obj, String programName, boolean acceptUnknownOptions) {
+        List<String> list = Arrays.asList(args);
+        if (list.contains("-can") || list.contains("--cancel-job")) {
+            // When acceptUnknown Options is true, the List parameter cannot be parsed.
+            // For details, please refer to the official code JCommander.class#DefaultVariableArity
+            acceptUnknownOptions = false;
+        }
         JCommander jCommander =
                 JCommander.newBuilder()
                         .programName(programName)

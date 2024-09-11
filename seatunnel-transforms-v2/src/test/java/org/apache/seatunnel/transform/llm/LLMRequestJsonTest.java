@@ -24,12 +24,17 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.transform.llm.model.openai.OpenAIModel;
+import org.apache.seatunnel.transform.nlpmodel.llm.remote.custom.CustomModel;
+import org.apache.seatunnel.transform.nlpmodel.llm.remote.openai.OpenAIModel;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class LLMRequestJsonTest {
 
@@ -57,5 +62,51 @@ public class LLMRequestJsonTest {
                 "{\"model\":\"gpt-3.5-turbo\",\"messages\":[{\"role\":\"system\",\"content\":\"Determine whether someone is Chinese or American by their name\"},{\"role\":\"user\",\"content\":\"{\\\"id\\\":1, \\\"name\\\":\\\"John\\\"}\"}]}",
                 OBJECT_MAPPER.writeValueAsString(node));
         model.close();
+    }
+
+    @Test
+    void testCustomRequestJson() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
+
+        Map<String, String> header = new HashMap<>();
+        header.put("Content-Type", "application/json");
+        header.put("Authorization", "Bearer " + "apikey");
+
+        List<Map<String, String>> messagesList = new ArrayList<>();
+
+        Map<String, String> systemMessage = new HashMap<>();
+        systemMessage.put("role", "system");
+        systemMessage.put("content", "${prompt}");
+        messagesList.add(systemMessage);
+
+        Map<String, String> userMessage = new HashMap<>();
+        userMessage.put("role", "user");
+        userMessage.put("content", "${input}");
+        messagesList.add(userMessage);
+
+        Map<String, Object> resultMap = new HashMap<>();
+        resultMap.put("model", "${model}");
+        resultMap.put("messages", messagesList);
+
+        CustomModel model =
+                new CustomModel(
+                        rowType,
+                        SqlType.STRING,
+                        "Determine whether someone is Chinese or American by their name",
+                        "custom-model",
+                        "https://api.custom.com/v1/chat/completions",
+                        header,
+                        resultMap,
+                        "{\"model\":\"${model}\",\"messages\":[{\"role\":\"system\",\"content\":\"${prompt}\"},{\"role\":\"user\",\"content\":\"${data}\"}]}");
+        ObjectNode node =
+                model.createJsonNodeFromData(
+                        "Determine whether someone is Chinese or American by their name",
+                        "{\"id\":1, \"name\":\"John\"}");
+        Assertions.assertEquals(
+                "{\"messages\":[{\"role\":\"system\",\"content\":\"Determine whether someone is Chinese or American by their name\"},{\"role\":\"user\",\"content\":\"{\\\"id\\\":1, \\\"name\\\":\\\"John\\\"}\"}],\"model\":\"custom-model\"}",
+                OBJECT_MAPPER.writeValueAsString(node));
     }
 }
