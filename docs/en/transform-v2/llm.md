@@ -11,17 +11,18 @@ more.
 ## Options
 
 | name                   | type   | required | default value |
-|------------------------|--------|----------|---------------|
+| ---------------------- | ------ | -------- | ------------- |
 | model_provider         | enum   | yes      |               |
 | output_data_type       | enum   | no       | String        |
 | prompt                 | string | yes      |               |
+| inference_columns   | list   | no       |               |
 | model                  | string | yes      |               |
 | api_key                | string | yes      |               |
 | api_path               | string | no       |               |
-| custom_config          | map    | no       |               | 
-| custom_response_parse  | string | no       |               | 
+| custom_config          | map    | no       |               |
+| custom_response_parse  | string | no       |               |
 | custom_request_headers | map    | no       |               |
-| custom_request_body    | map    | no       |               | 
+| custom_request_body    | map    | no       |               |
 
 ### model_provider
 
@@ -61,6 +62,23 @@ The result will be:
 | Hailin Wang   | 20  | Chinese    |
 | Eric          | 20  | American   |
 | Guangdong Liu | 20  | Chinese    |
+
+### inference_columns
+
+The `inference_columns` option allows you to specify which columns from the input data should be used as inputs for the LLM. By default, all columns will be used as inputs.
+
+For example:
+```hocon
+transform {
+  LLM {
+    model_provider = OPENAI
+    model = gpt-4o-mini
+    api_key = sk-xxx
+    inference_columns = ["name", "age"]
+    prompt = "Determine whether someone is Chinese or American by their name"
+  }
+}
+```
 
 ### model
 
