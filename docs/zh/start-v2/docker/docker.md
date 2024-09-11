@@ -2,19 +2,19 @@
 sidebar_position: 3
 ---
 
-# Set Up With Docker
+# 使用Docker进行部署
 
-## Set Up With Docker In Local Mode
+## 使用Docker启用本地模式
 
-### Zeta Engine
+### Zeta 引擎
 
-#### Download
+#### 下载镜像
 
 ```shell
 docker pull apache/seatunnel:<version_tag>
 ```
 
-How to submit job in local mode
+当下载完成后，可以使用如下命令来提交任务
 
 ```shell
 # Run fake source to console sink
@@ -31,25 +31,25 @@ docker run --rm -it -v /tmp/job/:/config apache/seatunnel:<version_tag> ./bin/se
 docker run --rm -it -v /tmp/job/:/config apache/seatunnel:<version_tag> ./bin/seatunnel.sh -DJvmOption="-Xms4G -Xmx4G" -m local -c /config/fake_to_console.conf
 ```
 
-#### Build Image By Yourself
+#### 自己构建镜像
 
-Build from source code. The way of downloading the source code is the same as the way of downloading the binary package.
-You can download the source code from the [download page](https://seatunnel.apache.org/download/) or clone the source code from the [GitHub repository](https://github.com/apache/seatunnel/releases)
+从源代码构建。下载源码的方式和下载二进制包的方式是一样的。
+你可以从[下载地址](https://seatunnel.apache.org/download/)下载源码， 或者从[GitHub 仓库](https://github.com/apache/seatunnel/releases)克隆源代码
 
-##### Build With One Command
+##### 一个命令来构建容器
 ```shell
 cd seatunnel
 # Use already sett maven profile
-sh ./mvnw -B clean install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Dlicense.skipAddThirdParty=true -D"docker.build.skip"=false -D"docker.verify.skip"=false -D"docker.push.skip"=true -D"docker.tag"=2.3.8 -Dmaven.deploy.skip --no-snapshot-updates -Pdocker,seatunnel
+mvn -B clean install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Dlicense.skipAddThirdParty=true -D"docker.build.skip"=false -D"docker.verify.skip"=false -D"docker.push.skip"=true -D"docker.tag"=2.3.8 -Dmaven.deploy.skip --no-snapshot-updates -Pdocker,seatunnel
 
 # Check the docker image
 docker images | grep apache/seatunnel
 ```
 
-##### Build Step By Step
+##### 分步骤构建
 ```shell
 # Build binary package from source code
-sh ./mvnw clean package -DskipTests -Dskip.spotless=true
+mvn clean package -DskipTests -Dskip.spotless=true
 
 # Build docker image
 cd seatunnel-dist
@@ -62,7 +62,7 @@ docker build -f src/main/docker/Dockerfile --build-arg VERSION=2.3.8-SNAPSHOT -t
 docker images | grep apache/seatunnel
 ```
 
-The Dockerfile is like this:
+Dockerfile文件内容为：
 ```dockerfile
 FROM openjdk:8
 
@@ -84,13 +84,13 @@ RUN cd /opt && \
 WORKDIR /opt/seatunnel
 ```
 
-### Spark or Flink Engine
+### Spark/Flink引擎
 
 
-#### Mount Spark/Flink library
+#### 挂载 Spark/Flink 
 
-By default, Spark home is `/opt/spark`, Flink home is `/opt/flink`.
-If you need run with spark/flink, you can mount the related library to `/opt/spark` or `/opt/flink`.
+默认设值下，Spark的目录为`/opt/spark`, Flink的目录为 `/opt/flink`.
+如果你需要运行Spark或Flink引擎，你需要将相关依赖挂载到`/opt/spark`或`/opt/flink`目录下.
 
 ```shell
 docker run \ 
@@ -99,7 +99,7 @@ docker run \
   ...
 ```
 
-Or you can change the `SPARK_HOME`, `FLINK_HOME` environment variable in Dockerfile and re-build your  and mount the spark/flink to related path.
+或者你可以在Dockerfile中修改 `SPARK_HOME`, `FLINK_HOME`环境变量，并且重新构建基础镜像，然后再进行挂载.
 
 ```dockerfile
 FROM apache/seatunnel
@@ -116,9 +116,9 @@ docker run \
   ...
 ```
 
-### Submit job
+### 提交任务
 
-The command is different for different engines and different versions of the same engine, please choose the correct command.
+不同引擎和同一引擎的不同版本命令不同，请选择正确的命令。
 
 - Spark
 
@@ -131,7 +131,7 @@ docker run --rm -it apache/seatunnel bash ./bin/start-seatunnel-spark-3-connecto
 ```
 
 - Flink
-  before you submit job, you need start flink cluster first.
+  在提交作业之前，您需要先启动 Flink 集群。
 
 ```shell
 # flink version between `1.12.x` and `1.14.x`
@@ -142,19 +142,22 @@ docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluste
 
 
 
-## Set Up With Docker In Cluster Mode
+## 使用Docker配置集群模式
 
-there has 2 ways to create cluster within docker.
+docker下的集群模式仅支持Zeta引擎
 
-### 1. Use Docker Directly
+有两种方式来启动集群
 
-1. create a network
+
+### 1. 直接使用Docker
+
+1. 创建一个network
 ```shell
 docker network create seatunnel-network
 ```
 
-2. start the nodes
-- start master node
+2. 启动节点
+- 启动master节点
 ```shell
 ## start master and export 5801 port 
 docker run -d --name seatunnel_master \
@@ -165,59 +168,54 @@ docker run -d --name seatunnel_master \
     ./bin/seatunnel-cluster.sh -r master
 ```
 
-- get created container ip
+- 获取容器的ip
 ```shell
 docker inspect master-1
 ```
-run this command to get the pod ip.
+运行此命令获取master容器的ip
 
-- start worker node
+- 启动worker节点
 ```shell
 docker run -d --name seatunnel_worker_1 \
     --network seatunnel-network \
     --rm \
-    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # set master container ip to here
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # 设置为刚刚启动的master容器ip
     apache/seatunnel \
     ./bin/seatunnel-cluster.sh -r worker
 
-## start worker2
 docker run -d --name seatunnel_worker_2 \ 
     --network seatunnel-network \
     --rm \
-     -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \    # set master container ip to here
+     -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \    # 设置为刚刚启动的master容器ip
     apache/seatunnel \
     ./bin/seatunnel-cluster.sh -r worker    
 
 ```
 
-#### Scale your Cluster
+#### 集群扩容
 
-run this command to start master node.
 ```shell
+## start master and export 5801 port 
 docker run -d --name seatunnel_master \
     --network seatunnel-network \
     --rm \
-    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # set exist master container ip to here
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # 设置为已启动的master容器ip
     apache/seatunnel \
     ./bin/seatunnel-cluster.sh -r master
 ```
 
-run this command to start worker node.
+运行这个命令创建一个worker节点
 ```shell
 docker run -d --name seatunnel_worker_1 \
     --network seatunnel-network \
     --rm \
-    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # set master container ip to here
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # 设置为已启动的master容器ip
     apache/seatunnel \
     ./bin/seatunnel-cluster.sh -r worker
 ```
 
-
-### 2. Use Docker-compose
-
-> docker cluster mode is only support zeta engine.
-
-The `docker-compose.yaml` file is :
+### 2. 使用docker-compose
+`docker-compose.yaml` 配置文件为：
 ```yaml
 version: '3.8'
 
@@ -226,13 +224,13 @@ services:
     image: apache/seatunnel
     container_name: seatunnel_master
     environment:
-      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4    
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4
     entrypoint: >
       /bin/sh -c "
       /opt/seatunnel/bin/seatunnel-cluster.sh -r master
       "    
     ports:
-      - "5801:5801"  
+      - "5801:5801"
     networks:
       seatunnel_network:
         ipv4_address: 172.16.0.2
@@ -275,19 +273,14 @@ networks:
         - subnet: 172.16.0.0/24
 
 ```
+运行 `docker-compose up`命令来启动集群，该配置会启动一个master节点，2个worker节点
 
-run `docker-compose up -d` command to start the cluster.
 
+启动完成后，可以运行`docker logs -f seatunne_master`, `docker logs -f seatunnel_worker_1`来查看节点的日志  
+当你访问`http://localhost:5801/hazelcast/rest/maps/system-monitoring-information` 时，可以看到集群的状态为1个master节点，2个worker节点.
 
-You can use `docker logs -f seatunne_master`, `docker logs -f seatunnel_worker_1` to check the node log.
-And when you call `http://localhost:5801/hazelcast/rest/maps/system-monitoring-information`, you will see there are 2 nodes as we excepted.
-
-After that, you can use client or restapi to submit job to this cluster.
-
-#### Scale your Cluster
-
-If you want to increase cluster node, like add a new work node.
-
+#### 集群扩容
+当你需要对集群扩容, 例如需要添加一个worker节点时
 ```yaml
 version: '3.8'
 
@@ -337,13 +330,13 @@ services:
       seatunnel_network:
         ipv4_address: 172.16.0.4
   ####
-  ## add new worker node
+  ## 添加新节点配置
   ####      
   worker3:
     image: apache/seatunnel
     container_name: seatunnel_worker_3
     environment:
-      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4,172.16.0.5 # add ip to here
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4,172.16.0.5 # 添加ip到这里
     entrypoint: >
       /bin/sh -c "
       /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
@@ -352,7 +345,7 @@ services:
       - master
     networks:
       seatunnel_network:
-        ipv4_address: 172.16.0.5        # use a not used ip
+        ipv4_address: 172.16.0.5        # 设置新节点ip
 
 networks:
   seatunnel_network:
@@ -363,23 +356,22 @@ networks:
 
 ```
 
-and run `docker-compose up -d` command, the new worker node will start, and the current node won't restart.
+然后运行`docker-compose up -d`命令, 将会新建一个worker节点, 已有的节点不会重启.
 
+### 提交作业到集群
 
-### Job Operation on cluster
-
-1. use docker as a client
-- submit job :
+1. 使用docker container作为客户端
+- 提交任务
 ```shell
 docker run --name seatunnel_client \
     --network seatunnel-network \
     --rm \
     apache/seatunnel \
     -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # set it as master node container ip
-    ./bin/seatunnel.sh  -c config/v2.batch.config.template # this is an default config, if you need submit your self config, you can mount config file.
+    ./bin/seatunnel.sh  -c config/v2.batch.config.template
 ```
 
-- list job
+- 查看作业列表
 ```shell
 docker run --name seatunnel_client \
     --network seatunnel-network \
@@ -389,11 +381,7 @@ docker run --name seatunnel_client \
     ./bin/seatunnel.sh  -l
 ```
 
-more command please refer [user-command](../../seatunnel-engine/user-command.md)
+更多其他命令请参考[命令行工具](../../seatunnel-engine/user-command.md)
 
-
-
-2. use rest api
-
-please refer [Submit A Job](../../seatunnel-engine/rest-api.md#submit-a-job)
-
+2. 使用RestAPI
+请参考 [提交作业](../../seatunnel-engine/rest-api.md#提交作业)
