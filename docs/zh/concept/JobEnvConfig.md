@@ -21,13 +21,25 @@
 
 ### checkpoint.interval
 
-获取定时调度检查点的时间间隔。
+获取定时调度检查点的时间间隔(毫秒)。
 
-在`STREAMING`模式下，检查点是必须的，如果不设置，将从应用程序配置文件`seatunnel.yaml`中获取。 在`BATCH`模式下，您可以通过不设置此参数来禁用检查点。
+在`STREAMING`模式下，检查点是必须的，如果不设置，将从应用程序配置文件`seatunnel.yaml`中获取。 在`BATCH`模式下，您可以通过不设置此参数来禁用检查点。在Zeta `STREAMING`模式下，默认值为30000毫秒。
+
+### checkpoint.timeout
+
+检查点的超时时间(毫秒)。如果检查点在超时之前没有完成，作业将失败。在Zeta中，默认值为30000毫秒。
 
 ### parallelism
 
 该参数配置source和sink的并行度。
+
+### shade.identifier
+
+指定加密方式，如果您没有加密或解密配置文件的需求，此选项可以忽略。
+
+更多详细信息，您可以参考文档 [Config Encryption Decryption](../../en/connector-v2/Config-Encryption-Decryption.md)
+
+## Zeta 引擎参数
 
 ### job.retry.times
 
@@ -43,12 +55,6 @@
 默认值为`CLUSTER`，这意味着SaveMode在作业提交到集群上之后在集群上执行。
 当值为`CLIENT`时，SaveMode操作在作业提交的过程中执行，使用shell脚本提交作业时，该过程在提交作业的shell进程中执行。使用rest api提交作业时，该过程在http请求的处理线程中执行。
 请尽量使用`CLUSTER`模式，因为当`CLUSTER`模式没有问题时，我们将删除`CLIENT`模式。
-
-### shade.identifier
-
-指定加密方式，如果您没有加密或解密配置文件的需求，此选项可以忽略。
-
-更多详细信息，您可以参考文档 [Config Encryption Decryption](../../en/connector-v2/Config-Encryption-Decryption.md)
 
 ## Flink 引擎参数
 
