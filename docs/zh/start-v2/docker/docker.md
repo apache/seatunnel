@@ -146,7 +146,73 @@ docker下的集群模式仅支持Zeta引擎
 
 有两种方式来启动集群
 
-## 1. Use Docker-compose
+
+## 1. 直接使用Docker
+
+1. 创建一个network
+```shell
+docker network create seatunnel-network
+```
+
+2. 启动节点
+- 启动master节点
+```shell
+## start master and export 5801 port 
+docker run -d --name seatunnel_master \
+    --network seatunnel-network \
+    --rm \
+    -p 5801:5801 \
+    apache/seatunnel \
+    ./bin/seatunnel-cluster.sh -r master
+```
+
+- 获取容器的ip
+```shell
+docker inspect master-1
+```
+运行此命令获取master容器的ip
+
+- 启动worker节点
+```shell
+docker run -d --name seatunnel_worker_1 \
+    --network seatunnel-network \
+    --rm \
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # 设置为刚刚启动的master容器ip
+    apache/seatunnel \
+    ./bin/seatunnel-cluster.sh -r worker
+
+docker run -d --name seatunnel_worker_2 \ 
+    --network seatunnel-network \
+    --rm \
+     -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \    # 设置为刚刚启动的master容器ip
+    apache/seatunnel \
+    ./bin/seatunnel-cluster.sh -r worker    
+
+```
+
+### 集群扩容
+
+```shell
+## start master and export 5801 port 
+docker run -d --name seatunnel_master \
+    --network seatunnel-network \
+    --rm \
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # 设置为已启动的master容器ip
+    apache/seatunnel \
+    ./bin/seatunnel-cluster.sh -r master
+```
+
+运行这个命令创建一个worker节点
+```shell
+docker run -d --name seatunnel_worker_1 \
+    --network seatunnel-network \
+    --rm \
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # 设置为已启动的master容器ip
+    apache/seatunnel \
+    ./bin/seatunnel-cluster.sh -r worker
+```
+
+## 2. 使用docker-compose
 `docker-compose.yaml` 配置文件为：
 ```yaml
 version: '3.8'
@@ -288,70 +354,32 @@ networks:
 
 ```
 
-然后运行`docker-compose up -d`命令, 将会新建一个worker阶段, 已有的节点不会重启.
+然后运行`docker-compose up -d`命令, 将会新建一个worker节点, 已有的节点不会重启.
 
+## 提交作业到集群
 
-## 2. 直接使用Docker
-
-1. 创建一个network
+1. 使用docker container作为客户端
+- 提交任务
 ```shell
-docker network create seatunnel-network
-```
-
-2. 启动节点
-- 启动master节点
-```shell
-## start master and export 5801 port 
-docker run -d --name seatunnel_master \
+docker run --name seatunnel_client \
     --network seatunnel-network \
     --rm \
-    -p 5801:5801 \
     apache/seatunnel \
-    ./bin/seatunnel-cluster.sh -r master
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # set it as master node container ip
+    ./bin/seatunnel.sh  -c config/v2.batch.config.template
 ```
 
-- 获取容器的ip
+- 查看作业列表
 ```shell
-docker inspect master-1
-```
-运行此命令获取master容器的ip
-
-- 启动worker节点
-```shell
-docker run -d --name seatunnel_worker_1 \
+docker run --name seatunnel_client \
     --network seatunnel-network \
     --rm \
-    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # 设置为刚刚启动的master容器ip
     apache/seatunnel \
-    ./bin/seatunnel-cluster.sh -r worker
-
-docker run -d --name seatunnel_worker_2 \ 
-    --network seatunnel-network \
-    --rm \
-     -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \    # 设置为刚刚启动的master容器ip
-    apache/seatunnel \
-    ./bin/seatunnel-cluster.sh -r worker    
-
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # set it as master node container ip
+    ./bin/seatunnel.sh  -l
 ```
 
-### 集群扩容
+更多其他命令请参考[命令行工具](../../seatunnel-engine/user-command.md)
 
-```shell
-## start master and export 5801 port 
-docker run -d --name seatunnel_master \
-    --network seatunnel-network \
-    --rm \
-    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # 设置为已启动的master容器ip
-    apache/seatunnel \
-    ./bin/seatunnel-cluster.sh -r master
-```
-
-运行这个命令创建一个worker节点
-```shell
-docker run -d --name seatunnel_worker_1 \
-    --network seatunnel-network \
-    --rm \
-    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # 设置为已启动的master容器ip
-    apache/seatunnel \
-    ./bin/seatunnel-cluster.sh -r worker
-```
+2. 使用RestAPI
+请参考 [提交作业](../../seatunnel-engine/rest-api.md#提交作业)
