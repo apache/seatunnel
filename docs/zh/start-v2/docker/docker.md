@@ -2,11 +2,13 @@
 sidebar_position: 3
 ---
 
-# 使用Docker启用本地模式
+# 使用Docker进行部署
 
-## Zeta 引擎
+## 使用Docker启用本地模式
 
-### 下载镜像
+### Zeta 引擎
+
+#### 下载镜像
 
 ```shell
 docker pull apache/seatunnel:<version_tag>
@@ -29,12 +31,12 @@ docker run --rm -it -v /tmp/job/:/config apache/seatunnel:<version_tag> ./bin/se
 docker run --rm -it -v /tmp/job/:/config apache/seatunnel:<version_tag> ./bin/seatunnel.sh -DJvmOption="-Xms4G -Xmx4G" -m local -c /config/fake_to_console.conf
 ```
 
-### 自己构建镜像
+#### 自己构建镜像
 
 从源代码构建。下载源码的方式和下载二进制包的方式是一样的。
 你可以从[下载地址](https://seatunnel.apache.org/download/)下载源码， 或者从[GitHub 仓库](https://github.com/apache/seatunnel/releases)克隆源代码
 
-#### 一个命令来构建容器
+##### 一个命令来构建容器
 ```shell
 cd seatunnel
 # Use already sett maven profile
@@ -44,7 +46,7 @@ mvn -B clean install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Dlicense.
 docker images | grep apache/seatunnel
 ```
 
-#### 分步骤构建
+##### 分步骤构建
 ```shell
 # Build binary package from source code
 mvn clean package -DskipTests -Dskip.spotless=true
@@ -82,10 +84,10 @@ RUN cd /opt && \
 WORKDIR /opt/seatunnel
 ```
 
-## Spark/Flink引擎
+### Spark/Flink引擎
 
 
-### 挂载 Spark/Flink 
+#### 挂载 Spark/Flink 
 
 默认设值下，Spark的目录为`/opt/spark`, Flink的目录为 `/opt/flink`.
 如果你需要运行Spark或Flink引擎，你需要将相关依赖挂载到`/opt/spark`或`/opt/flink`目录下.
@@ -140,14 +142,14 @@ docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluste
 
 
 
-# 使用Docker配置集群模式
+## 使用Docker配置集群模式
 
 docker下的集群模式仅支持Zeta引擎
 
 有两种方式来启动集群
 
 
-## 1. 直接使用Docker
+### 1. 直接使用Docker
 
 1. 创建一个network
 ```shell
@@ -190,7 +192,7 @@ docker run -d --name seatunnel_worker_2 \
 
 ```
 
-### 集群扩容
+#### 集群扩容
 
 ```shell
 ## start master and export 5801 port 
@@ -212,7 +214,7 @@ docker run -d --name seatunnel_worker_1 \
     ./bin/seatunnel-cluster.sh -r worker
 ```
 
-## 2. 使用docker-compose
+### 2. 使用docker-compose
 `docker-compose.yaml` 配置文件为：
 ```yaml
 version: '3.8'
@@ -277,7 +279,7 @@ networks:
 启动完成后，可以运行`docker logs -f seatunne_master`, `docker logs -f seatunnel_worker_1`来查看节点的日志  
 当你访问`http://localhost:5801/hazelcast/rest/maps/system-monitoring-information` 时，可以看到集群的状态为1个master节点，2个worker节点.
 
-### 集群扩容
+#### 集群扩容
 当你需要对集群扩容, 例如需要添加一个worker节点时
 ```yaml
 version: '3.8'
@@ -356,7 +358,7 @@ networks:
 
 然后运行`docker-compose up -d`命令, 将会新建一个worker节点, 已有的节点不会重启.
 
-## 提交作业到集群
+### 提交作业到集群
 
 1. 使用docker container作为客户端
 - 提交任务

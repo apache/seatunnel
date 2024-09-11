@@ -2,11 +2,13 @@
 sidebar_position: 3
 ---
 
-# Set Up With Docker In Local Mode
+# Set Up With Docker
 
-## Zeta Engine
+## Set Up With Docker In Local Mode
 
-### Download
+### Zeta Engine
+
+#### Download
 
 ```shell
 docker pull apache/seatunnel:<version_tag>
@@ -29,12 +31,12 @@ docker run --rm -it -v /tmp/job/:/config apache/seatunnel:<version_tag> ./bin/se
 docker run --rm -it -v /tmp/job/:/config apache/seatunnel:<version_tag> ./bin/seatunnel.sh -DJvmOption="-Xms4G -Xmx4G" -m local -c /config/fake_to_console.conf
 ```
 
-### Build Image By Yourself
+#### Build Image By Yourself
 
 Build from source code. The way of downloading the source code is the same as the way of downloading the binary package.
 You can download the source code from the [download page](https://seatunnel.apache.org/download/) or clone the source code from the [GitHub repository](https://github.com/apache/seatunnel/releases)
 
-#### Build With One Command
+##### Build With One Command
 ```shell
 cd seatunnel
 # Use already sett maven profile
@@ -44,7 +46,7 @@ sh ./mvnw -B clean install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Dli
 docker images | grep apache/seatunnel
 ```
 
-#### Build Step By Step
+##### Build Step By Step
 ```shell
 # Build binary package from source code
 sh ./mvnw clean package -DskipTests -Dskip.spotless=true
@@ -82,10 +84,10 @@ RUN cd /opt && \
 WORKDIR /opt/seatunnel
 ```
 
-## Spark or Flink Engine
+### Spark or Flink Engine
 
 
-### Mount Spark/Flink library
+#### Mount Spark/Flink library
 
 By default, Spark home is `/opt/spark`, Flink home is `/opt/flink`.
 If you need run with spark/flink, you can mount the related library to `/opt/spark` or `/opt/flink`.
@@ -140,11 +142,11 @@ docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluste
 
 
 
-# Set Up With Docker In Cluster Mode
+## Set Up With Docker In Cluster Mode
 
 there has 2 ways to create cluster within docker.
 
-## 1. Use Docker Directly
+### 1. Use Docker Directly
 
 1. create a network
 ```shell
@@ -188,7 +190,7 @@ docker run -d --name seatunnel_worker_2 \
 
 ```
 
-### Scale your Cluster
+#### Scale your Cluster
 
 run this command to start master node.
 ```shell
@@ -211,8 +213,7 @@ docker run -d --name seatunnel_worker_1 \
 ```
 
 
-
-## 2. Use Docker-compose
+### 2. Use Docker-compose
 
 > docker cluster mode is only support zeta engine.
 
@@ -283,7 +284,7 @@ And when you call `http://localhost:5801/hazelcast/rest/maps/system-monitoring-i
 
 After that, you can use client or restapi to submit job to this cluster.
 
-### Scale your Cluster
+#### Scale your Cluster
 
 If you want to increase cluster node, like add a new work node.
 
@@ -364,7 +365,8 @@ networks:
 
 and run `docker-compose up -d` command, the new worker node will start, and the current node won't restart.
 
-## Job Operation on cluster
+
+### Job Operation on cluster
 
 1. use docker as a client
 - submit job :
