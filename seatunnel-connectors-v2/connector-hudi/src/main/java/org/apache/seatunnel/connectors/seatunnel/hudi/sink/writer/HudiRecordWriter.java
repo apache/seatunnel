@@ -27,26 +27,19 @@ import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hudi.sink.client.WriteClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.HudiRecordConverter;
 import org.apache.seatunnel.connectors.seatunnel.hudi.sink.state.HudiCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil;
 
 import org.apache.avro.Schema;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.hudi.client.HoodieJavaWriteClient;
 import org.apache.hudi.client.WriteStatus;
 import org.apache.hudi.common.model.HoodieAvroPayload;
 import org.apache.hudi.common.model.HoodieRecord;
-import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.util.StringUtils;
-import org.apache.hudi.storage.hadoop.HadoopStorageConfiguration;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -121,13 +114,6 @@ public class HudiRecordWriter implements Serializable {
     public void open() {
         this.schema = new Schema.Parser().parse(convertToSchema(seaTunnelRowType).toString());
         try {
-            initTableIfNotExists();
-        } catch (IOException e) {
-            LOG.error("Initialize table '{}' error.", hudiTableConfig.getTableName());
-            throw new HudiConnectorException(
-                    HudiErrorCode.INITIALIZE_TABLE_FAILED, "Initialize table error.", e);
-        }
-        try {
             HoodieJavaWriteClient<HoodieAvroPayload> writeClient =
                     clientProvider.getOrCreateClient();
             if (StringUtils.nonEmpty(writeInstantTime) && Objects.nonNull(writeStatusList)) {
@@ -140,24 +126,6 @@ public class HudiRecordWriter implements Serializable {
                     CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
                     "Commit history data error.",
                     e);
-        }
-    }
-
-    protected void initTableIfNotExists() throws IOException {
-        Configuration hadoopConf = new Configuration();
-        if (hudiSinkConfig.getConfFilesPath() != null) {
-            hadoopConf = HudiUtil.getConfiguration(hudiSinkConfig.getConfFilesPath());
-        }
-        Path path = new Path(hudiTableConfig.getTableDfsPath());
-        FileSystem fs = FileSystem.get(path.toUri(), hadoopConf);
-        if (!fs.exists(path)) {
-            HoodieTableMetaClient.withPropertyBuilder()
-                    .setTableType(hudiTableConfig.getTableType())
-                    .setTableName(hudiTableConfig.getTableName())
-                    .setPayloadClassName(HoodieAvroPayload.class.getName())
-                    .initTable(
-                            new HadoopStorageConfiguration(hadoopConf),
-                            hudiTableConfig.getTableDfsPath());
         }
     }
 

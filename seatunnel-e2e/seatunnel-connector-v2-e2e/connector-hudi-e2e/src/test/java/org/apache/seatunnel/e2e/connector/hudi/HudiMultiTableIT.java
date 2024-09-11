@@ -50,7 +50,9 @@ import static org.awaitility.Awaitility.given;
 @Slf4j
 public class HudiMultiTableIT extends TestSuiteBase {
 
+    private static final String DATABASE_1 = "st1";
     private static final String TABLE_NAME_1 = "st_test_1";
+    private static final String DATABASE_2 = "st2";
     private static final String TABLE_NAME_2 = "st_test_2";
     private static final String TABLE_PATH = "/tmp/hudi/";
     private static final String NAMESPACE = "hudi";
@@ -116,10 +118,10 @@ public class HudiMultiTableIT extends TestSuiteBase {
                             container.executeExtraCommands(containerExtendedFactory);
                             Path inputPath1 =
                                     getNewestCommitFilePath(
-                                            new File(TABLE_PATH + File.separator + TABLE_NAME_1));
+                                            new File(TABLE_PATH + File.separator + DATABASE_1 + File.separator + TABLE_NAME_1));
                             Path inputPath2 =
                                     getNewestCommitFilePath(
-                                            new File(TABLE_PATH + File.separator + TABLE_NAME_2));
+                                            new File(TABLE_PATH + File.separator + DATABASE_2 + File.separator +  TABLE_NAME_2));
                             ParquetReader<Group> reader1 =
                                     ParquetReader.builder(new GroupReadSupport(), inputPath1)
                                             .withConf(configuration)

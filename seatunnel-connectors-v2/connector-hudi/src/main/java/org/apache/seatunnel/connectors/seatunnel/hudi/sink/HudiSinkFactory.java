@@ -19,12 +19,23 @@ package org.apache.seatunnel.connectors.seatunnel.hudi.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.SinkCommonOptions;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableConfig;
+import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiConnectorException;
+
+import org.apache.commons.lang3.StringUtils;
 
 import com.google.auto.service.AutoService;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.AUTO_COMMIT;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.BATCH_INTERVAL_MS;
@@ -34,6 +45,7 @@ import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.MAX_COMMITS_TO_KEEP;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.MIN_COMMITS_TO_KEEP;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.OP_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.TABLE_DFS_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.TABLE_LIST;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.UPSERT_SHUFFLE_PARALLELISM;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.INDEX_CLASS_NAME;
@@ -41,9 +53,9 @@ import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOpt
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.PARTITION_FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.RECORD_BYTE_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.RECORD_KEY_FIELDS;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.TABLE_DFS_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.TABLE_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.TABLE_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiErrorCode.TABLE_CONFIG_NOT_FOUND;
 
 @AutoService(Factory.class)
 public class HudiSinkFactory implements TableSinkFactory {
@@ -80,6 +92,67 @@ public class HudiSinkFactory implements TableSinkFactory {
 
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
-        return () -> new HudiSink(context.getOptions(), context.getCatalogTable());
+        HudiSinkConfig hudiSinkConfig = HudiSinkConfig.of(context.getOptions());
+        CatalogTable catalogTable = context.getCatalogTable();
+        HudiTableConfig hudiTableConfig =
+                getHudiTableConfig(hudiSinkConfig, catalogTable.getTableId().getTableName());
+        TableIdentifier tableId = catalogTable.getTableId();
+
+        // rebuild TableIdentifier and catalogTable
+        TableIdentifier newTableId =
+                TableIdentifier.of(
+                        tableId.getCatalogName(),
+                        hudiTableConfig.getDatabase(),
+                        tableId.getSchemaName(),
+                        hudiTableConfig.getTableName());
+        // partition keys
+        List<String> finalPartitionKeys = catalogTable.getPartitionKeys();
+        if (StringUtils.isNoneEmpty(hudiTableConfig.getPartitionFields())) {
+            finalPartitionKeys = Arrays.asList(hudiTableConfig.getPartitionFields().split(","));
+            catalogTable
+                    .getOptions()
+                    .put(PARTITION_FIELDS.key(), hudiTableConfig.getPartitionFields());
+        }
+        // record keys
+        if (StringUtils.isNoneEmpty(hudiTableConfig.getRecordKeyFields())) {
+            catalogTable
+                    .getOptions()
+                    .put(RECORD_KEY_FIELDS.key(), hudiTableConfig.getRecordKeyFields());
+        }
+        // table type
+        catalogTable.getOptions().put(TABLE_TYPE.key(), hudiTableConfig.getTableType().name());
+        catalogTable =
+                CatalogTable.of(
+                        newTableId,
+                        catalogTable.getTableSchema(),
+                        catalogTable.getOptions(),
+                        finalPartitionKeys,
+                        catalogTable.getComment(),
+                        catalogTable.getCatalogName());
+        // set record keys to options
+        CatalogTable finalCatalogTable = catalogTable;
+        return () ->
+                new HudiSink(
+                        context.getOptions(), hudiSinkConfig, hudiTableConfig, finalCatalogTable);
+    }
+
+    private HudiTableConfig getHudiTableConfig(HudiSinkConfig hudiSinkConfig, String tableName) {
+        List<HudiTableConfig> tableList = hudiSinkConfig.getTableList();
+        if (tableList.size() == 1) {
+            return tableList.get(0);
+        } else if (tableList.size() > 1) {
+            Optional<HudiTableConfig> optionalHudiTableConfig =
+                    tableList.stream()
+                            .filter(table -> table.getTableName().equals(tableName))
+                            .findFirst();
+            if (!optionalHudiTableConfig.isPresent()) {
+                throw new HudiConnectorException(
+                        TABLE_CONFIG_NOT_FOUND,
+                        "The corresponding table configuration is not found");
+            }
+            return optionalHudiTableConfig.get();
+        }
+        throw new HudiConnectorException(
+                TABLE_CONFIG_NOT_FOUND, "The corresponding table configuration is not found");
     }
 }

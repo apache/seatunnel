@@ -17,16 +17,24 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.sink;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiConnectorException;
@@ -43,22 +51,31 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiErrorCode.TABLE_CONFIG_NOT_FOUND;
+import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 
 @AutoService(SeaTunnelSink.class)
 public class HudiSink
         implements SeaTunnelSink<
                         SeaTunnelRow, HudiSinkState, HudiCommitInfo, HudiAggregatedCommitInfo>,
+                SupportSaveMode,
                 SupportMultiTableSink {
 
+    private final ReadonlyConfig config;
     private final HudiSinkConfig hudiSinkConfig;
     private final SeaTunnelRowType seaTunnelRowType;
     private final CatalogTable catalogTable;
+    private final HudiTableConfig hudiTableConfig;
 
-    public HudiSink(ReadonlyConfig config, CatalogTable table) {
-        this.hudiSinkConfig = HudiSinkConfig.of(config);
+    public HudiSink(
+            ReadonlyConfig config,
+            HudiSinkConfig hudiSinkConfig,
+            HudiTableConfig hudiTableConfig,
+            CatalogTable table) {
+        this.config = config;
+        this.hudiSinkConfig = hudiSinkConfig;
         this.catalogTable = table;
         this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
+        this.hudiTableConfig = hudiTableConfig;
     }
 
     @Override
@@ -69,8 +86,6 @@ public class HudiSink
     @Override
     public SinkWriter<SeaTunnelRow, HudiCommitInfo, HudiSinkState> createWriter(
             SinkWriter.Context context) throws IOException {
-        HudiTableConfig hudiTableConfig =
-                getHudiTableConfig(hudiSinkConfig, catalogTable.getTableId().getTableName());
         return new HudiSinkWriter(
                 context, seaTunnelRowType, hudiSinkConfig, hudiTableConfig, new ArrayList<>());
     }
@@ -78,8 +93,6 @@ public class HudiSink
     @Override
     public SinkWriter<SeaTunnelRow, HudiCommitInfo, HudiSinkState> restoreWriter(
             SinkWriter.Context context, List<HudiSinkState> states) throws IOException {
-        HudiTableConfig hudiTableConfig =
-                getHudiTableConfig(hudiSinkConfig, catalogTable.getTableId().getTableName());
         return new HudiSinkWriter(
                 context, seaTunnelRowType, hudiSinkConfig, hudiTableConfig, states);
     }
@@ -98,11 +111,7 @@ public class HudiSink
     public Optional<SinkAggregatedCommitter<HudiCommitInfo, HudiAggregatedCommitInfo>>
             createAggregatedCommitter() throws IOException {
         return Optional.of(
-                new HudiSinkAggregatedCommitter(
-                        getHudiTableConfig(
-                                hudiSinkConfig, catalogTable.getTableId().getTableName()),
-                        hudiSinkConfig,
-                        seaTunnelRowType));
+                new HudiSinkAggregatedCommitter(hudiTableConfig, hudiSinkConfig, seaTunnelRowType));
     }
 
     @Override
@@ -110,23 +119,32 @@ public class HudiSink
         return Optional.of(new DefaultSerializer<>());
     }
 
-    private HudiTableConfig getHudiTableConfig(HudiSinkConfig hudiSinkConfig, String tableName) {
-        List<HudiTableConfig> tableList = hudiSinkConfig.getTableList();
-        if (tableList.size() == 1) {
-            return tableList.get(0);
-        } else if (tableList.size() > 1) {
-            Optional<HudiTableConfig> optionalHudiTableConfig =
-                    tableList.stream()
-                            .filter(table -> table.getTableName().equals(tableName))
-                            .findFirst();
-            if (!optionalHudiTableConfig.isPresent()) {
-                throw new HudiConnectorException(
-                        TABLE_CONFIG_NOT_FOUND,
-                        "The corresponding table configuration is not found");
-            }
-            return optionalHudiTableConfig.get();
+    @Override
+    public Optional<SaveModeHandler> getSaveModeHandler() {
+        TablePath tablePath =
+                TablePath.of(
+                        catalogTable.getTableId().getDatabaseName(),
+                        catalogTable.getTableId().getTableName());
+        CatalogFactory catalogFactory =
+                discoverFactory(
+                        Thread.currentThread().getContextClassLoader(),
+                        CatalogFactory.class,
+                        "Hudi");
+        if (catalogFactory == null) {
+            throw new HudiConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SINK, "Cannot find Doris catalog factory"));
         }
-        throw new HudiConnectorException(
-                TABLE_CONFIG_NOT_FOUND, "The corresponding table configuration is not found");
+        Catalog catalog = catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), config);
+        return Optional.of(
+                new DefaultSaveModeHandler(
+                        hudiSinkConfig.getSchemaSaveMode(),
+                        hudiSinkConfig.getDataSaveMode(),
+                        catalog,
+                        tablePath,
+                        catalogTable,
+                        null));
     }
 }

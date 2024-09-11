@@ -52,6 +52,7 @@ import static org.awaitility.Awaitility.given;
 @Slf4j
 public class HudiIT extends TestSuiteBase {
 
+    private static final String DATABASE = "st";
     private static final String TABLE_NAME = "st_test";
     private static final String TABLE_PATH = "/tmp/hudi/";
     private static final String NAMESPACE = "hudi";
@@ -104,7 +105,7 @@ public class HudiIT extends TestSuiteBase {
         Container.ExecResult textWriteResult = container.executeJob("/fake_to_hudi.conf");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
         Configuration configuration = new Configuration();
-        Path inputPath = new Path(TABLE_PATH + File.separator + TABLE_NAME);
+        Path inputPath = new Path(TABLE_PATH + File.separator + DATABASE + File.separator + TABLE_NAME);
 
         given().ignoreExceptions()
                 .await()

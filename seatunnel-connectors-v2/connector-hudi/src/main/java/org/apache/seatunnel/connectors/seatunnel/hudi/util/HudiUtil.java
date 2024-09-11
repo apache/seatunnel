@@ -42,8 +42,10 @@ public class HudiUtil {
 
     public static Configuration getConfiguration(String confPaths) {
         Configuration configuration = new Configuration();
-        Arrays.stream(confPaths.split(";"))
-                .forEach(file -> configuration.addResource(new Path(file)));
+        if (confPaths != null) {
+            Arrays.stream(confPaths.split(";"))
+                    .forEach(file -> configuration.addResource(new Path(file)));
+        }
         return configuration;
     }
 

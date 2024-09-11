@@ -20,12 +20,12 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.INDEX_CLASS_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.INDEX_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.PARTITION_FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.RECORD_BYTE_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.RECORD_KEY_FIELDS;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.TABLE_DFS_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.TABLE_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.TABLE_TYPE;
 
@@ -41,8 +41,8 @@ public class HudiTableConfig implements Serializable {
     @JsonProperty("table_name")
     private String tableName;
 
-    @JsonProperty("table_dfs_path")
-    private String tableDfsPath;
+    @JsonProperty("database")
+    private String database;
 
     @JsonProperty("table_type")
     private HoodieTableType tableType;
@@ -70,7 +70,7 @@ public class HudiTableConfig implements Serializable {
             HudiTableConfig hudiTableConfig =
                     HudiTableConfig.builder()
                             .tableName(connectorConfig.get(TABLE_NAME))
-                            .tableDfsPath(connectorConfig.get(TABLE_DFS_PATH))
+                            .database(connectorConfig.get(DATABASE))
                             .tableType(connectorConfig.get(TABLE_TYPE))
                             .recordKeyFields(connectorConfig.get(RECORD_KEY_FIELDS))
                             .partitionFields(connectorConfig.get(PARTITION_FIELDS))
@@ -90,26 +90,13 @@ public class HudiTableConfig implements Serializable {
                         "Please configure unique `table_name`, not allow null/duplicate table name: "
                                 + tableNameSet);
             }
-            Set<String> tablePathSet =
-                    tableList.stream()
-                            .map(HudiTableConfig::getTableDfsPath)
-                            .collect(Collectors.toSet());
-            if (tablePathSet.size() < tableList.size() - 1) {
-                throw new IllegalArgumentException(
-                        "Please configure unique `table_dfs_path`, not allow null/duplicate table path: "
-                                + tablePathSet);
-            }
         }
         for (HudiTableConfig hudiTableConfig : tableList) {
             if (Objects.isNull(hudiTableConfig.getTableName())) {
                 throw new IllegalArgumentException(
                         "Please configure `table_name`, not allow null table name in config.");
             }
-            if (Objects.isNull(hudiTableConfig.getTableDfsPath())) {
-                throw new IllegalArgumentException(
-                        "Please configure `table_type`, not allow null table dfs path in config.");
-            }
-            if (Objects.isNull(hudiTableConfig.getIndexType())) {
+            if (Objects.isNull(hudiTableConfig.getTableType())) {
                 log.info(
                         "The hudi table '{}' not set table type, default uses 'COPY_ON_WRITE'.",
                         hudiTableConfig.getTableName());

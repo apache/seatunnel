@@ -45,6 +45,8 @@ import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiErrorCode.TABLE_CONFIG_NOT_FOUND;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.AvroSchemaConverter.convertToSchema;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiCatalogUtil.inferTablePath;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil.getConfiguration;
 
 @Slf4j
 public class HudiWriteClientUtil implements Serializable {
@@ -63,35 +65,33 @@ public class HudiWriteClientUtil implements Serializable {
                             + tableName
                             + " is not found in the table list of hudi sink config.");
         }
-        Configuration hadoopConf;
-        if (hudiSinkConfig.getConfFilesPath() != null) {
-            hadoopConf = HudiUtil.getConfiguration(hudiSinkConfig.getConfFilesPath());
-        } else {
-            hadoopConf = new Configuration();
-        }
+        Configuration hadoopConf = getConfiguration(hudiSinkConfig.getConfFilesPath());
 
+        HudiTableConfig hudiTable = hudiTableConfig.get();
         HoodieWriteConfig.Builder writeConfigBuilder = HoodieWriteConfig.newBuilder();
         // build index config
-        if (Objects.nonNull(hudiTableConfig.get().getIndexClassName())) {
+        if (Objects.nonNull(hudiTable.getIndexClassName())) {
             writeConfigBuilder.withIndexConfig(
                     HoodieIndexConfig.newBuilder()
-                            .withIndexClass(hudiTableConfig.get().getIndexClassName())
+                            .withIndexClass(hudiTable.getIndexClassName())
                             .build());
         } else {
             writeConfigBuilder.withIndexConfig(
-                    HoodieIndexConfig.newBuilder()
-                            .withIndexType(hudiTableConfig.get().getIndexType())
-                            .build());
+                    HoodieIndexConfig.newBuilder().withIndexType(hudiTable.getIndexType()).build());
         }
         HoodieWriteConfig cfg =
                 writeConfigBuilder
                         .withEngineType(EngineType.JAVA)
-                        .withPath(hudiTableConfig.get().getTableDfsPath())
+                        .withPath(
+                                inferTablePath(
+                                        hudiSinkConfig.getTableDfsPath(),
+                                        hudiTable.getDatabase(),
+                                        hudiTable.getTableName()))
                         .withSchema(convertToSchema(seaTunnelRowType).toString())
                         .withParallelism(
                                 hudiSinkConfig.getInsertShuffleParallelism(),
                                 hudiSinkConfig.getUpsertShuffleParallelism())
-                        .forTable(hudiTableConfig.get().getTableName())
+                        .forTable(hudiTable.getTableName())
                         .withArchivalConfig(
                                 HoodieArchivalConfig.newBuilder()
                                         .archiveCommitsWith(
@@ -107,7 +107,7 @@ public class HudiWriteClientUtil implements Serializable {
                         .withEmbeddedTimelineServerEnabled(false)
                         .withCompactionConfig(
                                 HoodieCompactionConfig.newBuilder()
-                                        .approxRecordSize(hudiTableConfig.get().getRecordByteSize())
+                                        .approxRecordSize(hudiTable.getRecordByteSize())
                                         .build())
                         .withStorageConfig(
                                 HoodieStorageConfig.newBuilder()

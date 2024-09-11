@@ -33,11 +33,11 @@ public interface HudiTableOptions {
                     .noDefaultValue()
                     .withDescription("hudi table name");
 
-    Option<String> TABLE_DFS_PATH =
-            Options.key("table_dfs_path")
+    Option<String> DATABASE =
+            Options.key("database")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("the dfs path of hudi table");
+                    .withDescription("hudi database name");
 
     Option<HoodieTableType> TABLE_TYPE =
             Options.key("table_type")
