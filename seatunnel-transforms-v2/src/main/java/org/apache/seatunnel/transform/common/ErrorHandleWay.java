@@ -14,17 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.transform;
 
-import org.apache.seatunnel.transform.jsonpath.JsonPathTransformFactory;
+package org.apache.seatunnel.transform.common;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+public enum ErrorHandleWay {
+    // Fail the transformation when error occurs
+    FAIL,
+    // Skip the data when error occurs
+    SKIP,
+    // Skip the row when error occurs
+    SKIP_ROW;
 
-public class JsonPathTransformFactoryTest {
-    @Test
-    public void testOptionRule() {
-        JsonPathTransformFactory jsonPathTransformFactory = new JsonPathTransformFactory();
-        Assertions.assertNotNull(jsonPathTransformFactory.optionRule());
+    public boolean allowSkipThisRow() {
+        return this == SKIP_ROW;
+    }
+
+    public boolean allowSkip() {
+        return this == SKIP;
     }
 }
