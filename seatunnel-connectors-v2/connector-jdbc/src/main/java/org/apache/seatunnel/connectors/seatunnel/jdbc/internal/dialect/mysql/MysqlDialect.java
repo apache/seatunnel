@@ -19,10 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
-import org.apache.seatunnel.api.table.event.AlterTableColumnEvent;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -87,6 +83,11 @@ public class MysqlDialect implements JdbcDialect {
     @Override
     public String quoteDatabaseIdentifier(String identifier) {
         return "`" + identifier + "`";
+    }
+
+    @Override
+    public String tableIdentifier(TablePath tablePath) {
+        return tableIdentifier(tablePath.getDatabaseName(), tablePath.getTableName());
     }
 
     @Override
@@ -224,24 +225,6 @@ public class MysqlDialect implements JdbcDialect {
         }
 
         return SQLUtils.countForSubquery(connection, table.getQuery());
-    }
-
-    @Override
-    public void refreshTableSchemaBySchemaChangeEvent(
-            String sourceDialectName,
-            AlterTableColumnEvent event,
-            JdbcConnectionProvider refreshTableSchemaConnectionProvider,
-            TablePath sinkTablePath) {
-        try (Connection connection =
-                        refreshTableSchemaConnectionProvider.getOrEstablishConnection();
-                Statement stmt = connection.createStatement()) {
-            String alterTableSql = generateAlterTableSql(sourceDialectName, event, sinkTablePath);
-            log.info("Apply schema change with sql: {}", alterTableSql);
-            stmt.execute(alterTableSql);
-        } catch (Exception e) {
-            throw new JdbcConnectorException(
-                    JdbcConnectorErrorCode.REFRESH_PHYSICAL_TABLESCHEMA_BY_SCHEMA_CHANGE_EVENT, e);
-        }
     }
 
     @Override
