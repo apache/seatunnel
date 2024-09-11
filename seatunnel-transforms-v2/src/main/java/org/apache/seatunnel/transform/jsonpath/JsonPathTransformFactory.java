@@ -47,7 +47,8 @@ public class JsonPathTransformFactory implements TableTransformFactory {
     public TableTransform createTransform(TableTransformFactoryContext context) {
         CatalogTable catalogTable = context.getCatalogTables().get(0);
         ReadonlyConfig options = context.getOptions();
-        JsonPathTransformConfig jsonPathTransformConfig = JsonPathTransformConfig.of(options);
+        JsonPathTransformConfig jsonPathTransformConfig =
+                JsonPathTransformConfig.of(options, catalogTable);
         return () -> new JsonPathTransform(jsonPathTransformConfig, catalogTable);
     }
 }
