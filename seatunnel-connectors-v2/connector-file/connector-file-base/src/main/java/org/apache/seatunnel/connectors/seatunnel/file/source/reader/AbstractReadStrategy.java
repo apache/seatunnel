@@ -82,13 +82,6 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     public void init(HadoopConf conf) {
         this.hadoopConf = conf;
         this.hadoopFileSystemProxy = new HadoopFileSystemProxy(hadoopConf);
-        // Determine whether it is a compressed file
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC.key())) {
-            String archiveCompressCodec =
-                    pluginConfig.getString(BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC.key());
-            archiveCompressFormat =
-                    ArchiveCompressFormat.valueOf(archiveCompressCodec.toUpperCase());
-        }
     }
 
     @Override
@@ -138,6 +131,13 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     @Override
     public void setPluginConfig(Config pluginConfig) {
         this.pluginConfig = pluginConfig;
+        // Determine whether it is a compressed file
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC.key())) {
+            String archiveCompressCodec =
+                    pluginConfig.getString(BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC.key());
+            archiveCompressFormat =
+                    ArchiveCompressFormat.valueOf(archiveCompressCodec.toUpperCase());
+        }
         if (pluginConfig.hasPath(BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH.key())) {
             isMergePartition =
                     pluginConfig.getBoolean(

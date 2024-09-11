@@ -67,7 +67,7 @@ import java.util.zip.ZipOutputStream;
 
 @DisabledOnContainer(
         value = {TestContainerId.SPARK_2_4},
-        type = {},
+        type = {EngineType.FLINK, EngineType.SEATUNNEL},
         disabledReason = "The apache-compress version is not compatible with apache-poi")
 @Slf4j
 public class LocalFileIT extends TestSuiteBase {
@@ -103,7 +103,7 @@ public class LocalFileIT extends TestSuiteBase {
                                 Lists.newArrayList(ContainerUtil.getResourcesFile("/text/e2e.txt")),
                                 "e2e-txt");
                 ContainerUtil.copyFileIntoContainers(
-                        txtZip, "/seatunnel/read/zip/e2e-txt.zip", container);
+                        txtZip, "/seatunnel/read/zip/txt/single/e2e-txt.zip", container);
 
                 Path multiTxtZip =
                         covertToZipFile(
@@ -112,14 +112,14 @@ public class LocalFileIT extends TestSuiteBase {
                                         ContainerUtil.getResourcesFile("/text/e2e.txt")),
                                 "multiZip");
                 ContainerUtil.copyFileIntoContainers(
-                        multiTxtZip, "/seatunnel/read/multifile/zip/multiZip.tar", container);
+                        multiTxtZip, "/seatunnel/read/zip/txt/multifile/multiZip.zip", container);
 
                 Path txtTar =
                         covertToTarFile(
                                 Lists.newArrayList(ContainerUtil.getResourcesFile("/text/e2e.txt")),
                                 "e2e-txt");
                 ContainerUtil.copyFileIntoContainers(
-                        txtTar, "/seatunnel/read/tar/e2e-txt.tar", container);
+                        txtTar, "/seatunnel/read/tar/txt/single/e2e-txt.tar", container);
 
                 Path multiTxtTar =
                         covertToTarFile(
@@ -128,7 +128,7 @@ public class LocalFileIT extends TestSuiteBase {
                                         ContainerUtil.getResourcesFile("/text/e2e.txt")),
                                 "multiTar");
                 ContainerUtil.copyFileIntoContainers(
-                        multiTxtTar, "/seatunnel/read/multifile/tar/multiTar.tar", container);
+                        multiTxtTar, "/seatunnel/read/tar/txt/multifile/multiTar.tar", container);
 
                 Path jsonZip =
                         covertToZipFile(
@@ -136,7 +136,7 @@ public class LocalFileIT extends TestSuiteBase {
                                         ContainerUtil.getResourcesFile("/json/e2e.json")),
                                 "e2e-json");
                 ContainerUtil.copyFileIntoContainers(
-                        jsonZip, "/seatunnel/read/json/zip/e2e-json.zip", container);
+                        jsonZip, "/seatunnel/read/zip/json/single/e2e-json.zip", container);
 
                 Path multiJsonZip =
                         covertToZipFile(
@@ -146,7 +146,7 @@ public class LocalFileIT extends TestSuiteBase {
                                 "multiJson");
                 ContainerUtil.copyFileIntoContainers(
                         multiJsonZip,
-                        "/seatunnel/read/json/multifile/zip/multiJson.zip",
+                        "/seatunnel/read/zip/json/multifile/multiJson.zip",
                         container);
 
                 ContainerUtil.copyFileIntoContainers(
@@ -172,7 +172,7 @@ public class LocalFileIT extends TestSuiteBase {
                                 Lists.newArrayList(ContainerUtil.getResourcesFile("/xml/e2e.xml")),
                                 "e2e-xml");
                 ContainerUtil.copyFileIntoContainers(
-                        xmlZip, "/seatunnel/read/xml-zip/e2e-xml.zip", container);
+                        xmlZip, "/seatunnel/read/zip/xml/single/e2e-xml.zip", container);
 
                 Path txtLzo = convertToLzoFile(ContainerUtil.getResourcesFile("/text/e2e.txt"));
                 ContainerUtil.copyFileIntoContainers(
