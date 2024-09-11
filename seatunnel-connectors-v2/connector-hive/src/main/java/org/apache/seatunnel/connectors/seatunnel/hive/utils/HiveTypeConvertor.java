@@ -35,8 +35,7 @@ public class HiveTypeConvertor {
             return BasicType.STRING_TYPE;
         }
         if (hiveType.contains("char")) {
-            throw CommonError.convertToSeaTunnelTypeError(
-                    HiveConstants.CONNECTOR_NAME, PluginType.SOURCE, hiveType, name);
+            return BasicType.STRING_TYPE;
         }
         if (hiveType.contains("binary")) {
             return PrimitiveByteArrayType.INSTANCE;
