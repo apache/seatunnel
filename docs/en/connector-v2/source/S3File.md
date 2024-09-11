@@ -20,14 +20,14 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 - [x] file format type
-  - [x] text
-  - [x] csv
-  - [x] parquet
-  - [x] orc
-  - [x] json
-  - [x] excel
-  - [x] xml
-  - [x] binary
+    - [x] text
+    - [x] csv
+    - [x] parquet
+    - [x] orc
+    - [x] json
+    - [x] excel
+    - [x] xml
+    - [x] binary
 
 ## Description
 
@@ -41,10 +41,13 @@ Read data from aws s3 file system.
 
 ## Dependency
 
-> If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.<br/>
+> If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated
+> hadoop. The tested hadoop version is 2.x.<br/>
 >
-> If you use SeaTunnel Zeta, It automatically integrated the hadoop jar when you download and install SeaTunnel Zeta. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.<br/>
-> To use this connector you need put hadoop-aws-3.1.4.jar and aws-java-sdk-bundle-1.12.692.jar in ${SEATUNNEL_HOME}/lib dir.
+> If you use SeaTunnel Zeta, It automatically integrated the hadoop jar when you download and install SeaTunnel Zeta.
+> You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.<br/>
+> To use this connector you need put hadoop-aws-3.1.4.jar and aws-java-sdk-bundle-1.12.692.jar in ${SEATUNNEL_HOME}/lib
+> dir.
 
 ## Data Type Mapping
 
@@ -54,7 +57,8 @@ Data type mapping is related to the type of file being read, We supported as the
 
 ### JSON File Type
 
-If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
+If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row
+you want.
 
 For example:
 
@@ -62,7 +66,11 @@ upstream data is the following:
 
 ```json
 
-{"code":  200, "data":  "get success", "success":  true}
+{
+  "code": 200,
+  "data": "get success",
+  "success": true
+}
 
 ```
 
@@ -70,8 +78,16 @@ You can also save multiple pieces of data in one file and split them by newline:
 
 ```json lines
 
-{"code":  200, "data":  "get success", "success":  true}
-{"code":  300, "data":  "get failed", "success":  false}
+{
+  "code": 200,
+  "data": "get success",
+  "success": true
+}
+{
+  "code": 300,
+  "data": "get failed",
+  "success": false
+}
 
 ```
 
@@ -91,7 +107,7 @@ schema {
 
 connector will generate data as the following:
 
-| code |    data     | success |
+| code | data        | success |
 |------|-------------|---------|
 | 200  | get success | true    |
 
@@ -109,7 +125,7 @@ tyrantlucifer#26#male
 
 If you do not assign data schema connector will treat the upstream data as the following:
 
-|        content        |
+| content               |
 |-----------------------|
 | tyrantlucifer#26#male |
 
@@ -132,15 +148,16 @@ schema {
 
 connector will generate data as the following:
 
-|     name      | age | gender |
+| name          | age | gender |
 |---------------|-----|--------|
 | tyrantlucifer | 26  | male   |
 
 ### Orc File Type
 
-If you assign file type to `parquet` `orc`, schema option not required, connector can find the schema of upstream data automatically.
+If you assign file type to `parquet` `orc`, schema option not required, connector can find the schema of upstream data
+automatically.
 
-|          Orc Data type           |                      SeaTunnel Data type                       |
+| Orc Data type                    | SeaTunnel Data type                                            |
 |----------------------------------|----------------------------------------------------------------|
 | BOOLEAN                          | BOOLEAN                                                        |
 | INT                              | INT                                                            |
@@ -167,9 +184,10 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 
 ### Parquet File Type
 
-If you assign file type to `parquet` `orc`, schema option not required, connector can find the schema of upstream data automatically.
+If you assign file type to `parquet` `orc`, schema option not required, connector can find the schema of upstream data
+automatically.
 
-|    Orc Data type     |                      SeaTunnel Data type                       |
+| Orc Data type        | SeaTunnel Data type                                            |
 |----------------------|----------------------------------------------------------------|
 | INT_8                | BYTE                                                           |
 | INT_16               | SHORT                                                          |
@@ -196,7 +214,7 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 
 ## Options
 
-|              name               |  type   | required |                     default value                     |                                                                                                                                                                                                Description                                                                                                                                                                                                 |
+| name                            | type    | required | default value                                         | Description                                                                                                                                                                                                                                                                                                                                                                                                |
 |---------------------------------|---------|----------|-------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                            | string  | yes      | -                                                     | The s3 path that needs to be read can have sub paths, but the sub paths need to meet certain format requirements. Specific requirements can be referred to "parse_partition_from_path" option                                                                                                                                                                                                              |
 | file_format_type                | string  | yes      | -                                                     | File type, supported as the following file types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`                                                                                                                                                                                                                                                                                               |
@@ -218,7 +236,8 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | xml_row_tag                     | string  | no       | -                                                     | Specifies the tag name of the data rows within the XML file, only valid for XML files.                                                                                                                                                                                                                                                                                                                     |
 | xml_use_attr_format             | boolean | no       | -                                                     | Specifies whether to process data using the tag attribute format, only valid for XML files.                                                                                                                                                                                                                                                                                                                |
 | compress_codec                  | string  | no       | none                                                  |
-| encoding                        | string  | no       | UTF-8                                                 |
+| archive_compress_codec          | string  | no       | none                                                  |                                                                                                                                                                                                                                                                                                                                                                                                            |
+| encoding                        | string  | no       | UTF-8                                                 |                                                                                                                                                                                                                                                                                                                                                                                                            |
 | common-options                  |         | no       | -                                                     | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                                                                                                                                                         |
 
 ### delimiter/field_delimiter [string]
@@ -235,6 +254,13 @@ The compress codec of files and the details that supported as the following show
 - orc/parquet:  
   automatically recognizes the compression type, no additional settings required.
 
+### archive_compress_codec [string]
+
+The compress codec of archive files and the details that supported as the following shown:
+
+- zip: text,json,xml
+- tar: text,json,xml
+
 ### encoding [string]
 
 Only used when file_format_type is json,text,csv,xml.
@@ -242,8 +268,10 @@ The encoding of the file to read. This param will be parsed by `Charset.forName(
 
 ## Example
 
-1. In this example, We read data from s3 path `s3a://seatunnel-test/seatunnel/text` and the file type is orc in this path.
-   We use `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` to authentication so `access_key` and `secret_key` is required.
+1. In this example, We read data from s3 path `s3a://seatunnel-test/seatunnel/text` and the file type is orc in this
+   path.
+   We use `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` to authentication so `access_key` and `secret_key` is
+   required.
    All columns in the file will be read and send to sink.
 
 ```
@@ -346,8 +374,8 @@ sink {
 ### Next version
 
 - [Feature] Support S3A protocol ([3632](https://github.com/apache/seatunnel/pull/3632))
-  - Allow user to add additional hadoop-s3 parameters
-  - Allow the use of the s3a protocol
-  - Decouple hadoop-aws dependencies
+    - Allow user to add additional hadoop-s3 parameters
+    - Allow the use of the s3a protocol
+    - Decouple hadoop-aws dependencies
 - [Feature]Set S3 AK to optional ([3688](https://github.com/apache/seatunnel/pull/))
 

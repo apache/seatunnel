@@ -22,7 +22,9 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.file.config.ArchiveCompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 
@@ -30,7 +32,10 @@ import org.apache.hadoop.fs.FileStatus;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -68,6 +73,8 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected long skipHeaderNumber = BaseSourceConfigOptions.SKIP_HEADER_ROW_NUMBER.defaultValue();
     protected transient boolean isKerberosAuthorization = false;
     protected HadoopFileSystemProxy hadoopFileSystemProxy;
+    protected ArchiveCompressFormat archiveCompressFormat =
+            BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC.defaultValue();
 
     protected Pattern pattern;
 
@@ -75,6 +82,13 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     public void init(HadoopConf conf) {
         this.hadoopConf = conf;
         this.hadoopFileSystemProxy = new HadoopFileSystemProxy(hadoopConf);
+        // Determine whether it is a compressed file
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC.key())) {
+            String archiveCompressCodec =
+                    pluginConfig.getString(BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC.key());
+            archiveCompressFormat =
+                    ArchiveCompressFormat.valueOf(archiveCompressCodec.toUpperCase());
+        }
     }
 
     @Override
@@ -200,6 +214,28 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             return pattern.matcher(fileStatus.getPath().getName()).matches();
         }
         return true;
+    }
+
+    protected static InputStream copyInputStream(InputStream inputStream) throws IOException {
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        byte[] buffer = new byte[1024];
+        int bytesRead;
+
+        while ((bytesRead = inputStream.read(buffer)) != -1) {
+            byteArrayOutputStream.write(buffer, 0, bytesRead);
+        }
+
+        return new ByteArrayInputStream(byteArrayOutputStream.toByteArray());
+    }
+
+    protected boolean checkFileType(String fileName, FileFormat fileFormat) {
+        if (fileName.endsWith(fileFormat.getSuffix())) {
+            return true;
+        }
+        log.warn(
+                "The {} file format is incorrect. Please check the format in the compressed file.",
+                fileFormat.getSuffix());
+        return false;
     }
 
     @Override

@@ -20,14 +20,14 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 - [x] file format file
-  - [x] text
-  - [x] csv
-  - [x] parquet
-  - [x] orc
-  - [x] json
-  - [x] excel
-  - [x] xml
-  - [x] binary
+    - [x] text
+    - [x] csv
+    - [x] parquet
+    - [x] orc
+    - [x] json
+    - [x] excel
+    - [x] xml
+    - [x] binary
 
 ## Description
 
@@ -41,7 +41,7 @@ Read data from hdfs file system.
 
 ## Source Options
 
-|           Name            |  Type   | Required |       Default       |                                                                                                                                                                  Description                                                                                                                                                                  |
+| Name                      | Type    | Required | Default             | Description                                                                                                                                                                                                                                                                                                                                   |
 |---------------------------|---------|----------|---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                      | string  | yes      | -                   | The source file path.                                                                                                                                                                                                                                                                                                                         |
 | file_format_type          | string  | yes      | -                   | We supported as the following file types:`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`.Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.                                                                                                                       |
@@ -63,7 +63,8 @@ Read data from hdfs file system.
 | xml_row_tag               | string  | no       | -                   | Specifies the tag name of the data rows within the XML file, only used when file_format is xml.                                                                                                                                                                                                                                               |
 | xml_use_attr_format       | boolean | no       | -                   | Specifies whether to process data using the tag attribute format, only used when file_format is xml.                                                                                                                                                                                                                                          |
 | compress_codec            | string  | no       | none                | The compress codec of files                                                                                                                                                                                                                                                                                                                   |
-| encoding                  | string  | no       | UTF-8               |
+| archive_compress_codec    | string  | no       | none                |
+| encoding                  | string  | no       | UTF-8               |                                                                                                                                                                                                                                                                                                                                               |
 | common-options            |         | no       | -                   | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                                                                                            |
 
 ### delimiter/field_delimiter [string]
@@ -80,6 +81,13 @@ The compress codec of files and the details that supported as the following show
 - orc/parquet:  
   automatically recognizes the compression type, no additional settings required.
 
+### archive_compress_codec [string]
+
+The compress codec of archive files and the details that supported as the following shown:
+
+- zip: text,json,xml
+- tar: text,json,xml
+
 ### encoding [string]
 
 Only used when file_format_type is json,text,csv,xml.
@@ -87,13 +95,15 @@ The encoding of the file to read. This param will be parsed by `Charset.forName(
 
 ### Tips
 
-> If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x. If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
+> If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated
+> hadoop. The tested hadoop version is 2.x. If you use SeaTunnel Engine, It automatically integrated the hadoop jar when
+> you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
 
 ## Task Example
 
 ### Simple:
 
-> This example defines a SeaTunnel synchronization task that  read data from Hdfs and sends it to Hdfs.
+> This example defines a SeaTunnel synchronization task that read data from Hdfs and sends it to Hdfs.
 
 ```
 # Defining the runtime environment

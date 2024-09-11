@@ -22,13 +22,17 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
+
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 
 import io.airlift.compress.lzo.LzopCodec;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +43,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 @Slf4j
 public class JsonReadStrategy extends AbstractReadStrategy {
@@ -76,20 +82,67 @@ public class JsonReadStrategy extends AbstractReadStrategy {
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
+        InputStream archiveInputStream;
+        switch (archiveCompressFormat) {
+            case ZIP:
+                try (ZipInputStream zis =
+                        new ZipInputStream(hadoopFileSystemProxy.getInputStream(path))) {
+                    ZipEntry entry;
+                    while ((entry = zis.getNextEntry()) != null) {
+                        if (!entry.isDirectory()
+                                && checkFileType(entry.getName(), FileFormat.JSON)) {
+                            jsonRead(tableId, output, copyInputStream(zis), partitionsMap);
+                        }
+                        zis.closeEntry();
+                    }
+                }
+                break;
+            case TAR:
+                try (TarArchiveInputStream tarInput =
+                        new TarArchiveInputStream(hadoopFileSystemProxy.getInputStream(path))) {
+                    TarArchiveEntry entry;
+                    while ((entry = tarInput.getNextTarEntry()) != null) {
+                        if (!entry.isDirectory()
+                                && checkFileType(entry.getName(), FileFormat.JSON)) {
+
+                            jsonRead(tableId, output, copyInputStream(tarInput), partitionsMap);
+                        }
+                    }
+                }
+                break;
+            case NONE:
+                archiveInputStream = hadoopFileSystemProxy.getInputStream(path);
+                jsonRead(tableId, output, archiveInputStream, partitionsMap);
+                break;
+            default:
+                log.warn(
+                        "Json file does not support this archive compress type: {}",
+                        archiveCompressFormat);
+                archiveInputStream = hadoopFileSystemProxy.getInputStream(path);
+                jsonRead(tableId, output, archiveInputStream, partitionsMap);
+        }
+    }
+
+    private void jsonRead(
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            InputStream archiveInputStream,
+            Map<String, String> partitionsMap)
+            throws IOException {
         InputStream inputStream;
         switch (compressFormat) {
             case LZO:
                 LzopCodec lzo = new LzopCodec();
-                inputStream = lzo.createInputStream(hadoopFileSystemProxy.getInputStream(path));
+                inputStream = lzo.createInputStream(archiveInputStream);
                 break;
             case NONE:
-                inputStream = hadoopFileSystemProxy.getInputStream(path);
+                inputStream = archiveInputStream;
                 break;
             default:
                 log.warn(
                         "Text file does not support this compress type: {}",
                         compressFormat.getCompressCodec());
-                inputStream = hadoopFileSystemProxy.getInputStream(path);
+                inputStream = archiveInputStream;
                 break;
         }
         try (BufferedReader reader =
@@ -110,8 +163,14 @@ public class JsonReadStrategy extends AbstractReadStrategy {
                                     seaTunnelRow.setTableId(tableId);
                                     output.collect(seaTunnelRow);
                                 } catch (IOException e) {
-                                    throw CommonError.fileOperationFailed(
-                                            "JsonFile", "read", path, e);
+                                    String errorMsg =
+                                            String.format(
+                                                    "Deserialize this jsonFile data [%s] failed, please check the origin data",
+                                                    line);
+                                    throw new FileConnectorException(
+                                            FileConnectorErrorCode.DATA_DESERIALIZE_FAILED,
+                                            errorMsg,
+                                            e);
                                 }
                             });
         }

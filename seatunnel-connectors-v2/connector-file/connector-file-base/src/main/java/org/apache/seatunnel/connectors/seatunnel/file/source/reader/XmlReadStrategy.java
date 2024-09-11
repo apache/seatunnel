@@ -32,11 +32,14 @@ import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 
@@ -50,6 +53,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -60,6 +64,8 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 /** The XmlReadStrategy class is used to read data from XML files in SeaTunnel. */
 @Slf4j
@@ -88,13 +94,62 @@ public class XmlReadStrategy extends AbstractReadStrategy {
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
+        InputStream archiveInputStream;
+        switch (archiveCompressFormat) {
+            case ZIP:
+                try (ZipInputStream zis =
+                        new ZipInputStream(hadoopFileSystemProxy.getInputStream(path))) {
+                    ZipEntry entry;
+                    while ((entry = zis.getNextEntry()) != null) {
+                        if (!entry.isDirectory()
+                                && checkFileType(entry.getName(), FileFormat.XML)) {
+                            xmlRead(path, tableId, output, copyInputStream(zis), partitionsMap);
+                        }
+                        zis.closeEntry();
+                    }
+                }
+                break;
+            case TAR:
+                try (TarArchiveInputStream tarInput =
+                        new TarArchiveInputStream(hadoopFileSystemProxy.getInputStream(path))) {
+                    TarArchiveEntry entry;
+                    while ((entry = tarInput.getNextTarEntry()) != null) {
+                        if (!entry.isDirectory()
+                                && checkFileType(entry.getName(), FileFormat.XML)) {
+                            xmlRead(
+                                    path,
+                                    tableId,
+                                    output,
+                                    copyInputStream(tarInput),
+                                    partitionsMap);
+                        }
+                    }
+                }
+                break;
+            case NONE:
+                archiveInputStream = hadoopFileSystemProxy.getInputStream(path);
+                xmlRead(path, tableId, output, archiveInputStream, partitionsMap);
+                break;
+            default:
+                log.warn(
+                        "Xml file does not support this archive compress type: {}",
+                        archiveCompressFormat);
+                archiveInputStream = hadoopFileSystemProxy.getInputStream(path);
+                xmlRead(path, tableId, output, archiveInputStream, partitionsMap);
+        }
+    }
+
+    private void xmlRead(
+            String path,
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            InputStream archiveInputStream,
+            Map<String, String> partitionsMap)
+            throws IOException {
         SAXReader saxReader = new SAXReader();
         Document document;
         try {
-            document =
-                    saxReader.read(
-                            new InputStreamReader(
-                                    hadoopFileSystemProxy.getInputStream(path), encoding));
+            document = saxReader.read(new InputStreamReader(archiveInputStream, encoding));
         } catch (DocumentException e) {
             throw new FileConnectorException(
                     FileConnectorErrorCode.FILE_READ_FAILED, "Failed to read xml file: " + path, e);

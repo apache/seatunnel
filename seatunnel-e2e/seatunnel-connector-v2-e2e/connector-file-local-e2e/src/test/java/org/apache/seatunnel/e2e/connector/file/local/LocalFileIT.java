@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.connector.file.local;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
@@ -32,6 +34,8 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.Assertions;
@@ -49,11 +53,17 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 @DisabledOnContainer(
         value = {TestContainerId.SPARK_2_4},
@@ -88,6 +98,57 @@ public class LocalFileIT extends TestSuiteBase {
                         "/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt",
                         container);
 
+                Path txtZip =
+                        covertToZipFile(
+                                Lists.newArrayList(ContainerUtil.getResourcesFile("/text/e2e.txt")),
+                                "e2e-txt");
+                ContainerUtil.copyFileIntoContainers(
+                        txtZip, "/seatunnel/read/zip/e2e-txt.zip", container);
+
+                Path multiTxtZip =
+                        covertToZipFile(
+                                Lists.newArrayList(
+                                        ContainerUtil.getResourcesFile("/text/e2e.txt"),
+                                        ContainerUtil.getResourcesFile("/text/e2e.txt")),
+                                "multiZip");
+                ContainerUtil.copyFileIntoContainers(
+                        multiTxtZip, "/seatunnel/read/multifile/zip/multiZip.tar", container);
+
+                Path txtTar =
+                        covertToTarFile(
+                                Lists.newArrayList(ContainerUtil.getResourcesFile("/text/e2e.txt")),
+                                "e2e-txt");
+                ContainerUtil.copyFileIntoContainers(
+                        txtTar, "/seatunnel/read/tar/e2e-txt.tar", container);
+
+                Path multiTxtTar =
+                        covertToTarFile(
+                                Lists.newArrayList(
+                                        ContainerUtil.getResourcesFile("/text/e2e.txt"),
+                                        ContainerUtil.getResourcesFile("/text/e2e.txt")),
+                                "multiTar");
+                ContainerUtil.copyFileIntoContainers(
+                        multiTxtTar, "/seatunnel/read/multifile/tar/multiTar.tar", container);
+
+                Path jsonZip =
+                        covertToZipFile(
+                                Lists.newArrayList(
+                                        ContainerUtil.getResourcesFile("/json/e2e.json")),
+                                "e2e-json");
+                ContainerUtil.copyFileIntoContainers(
+                        jsonZip, "/seatunnel/read/json/zip/e2e-json.zip", container);
+
+                Path multiJsonZip =
+                        covertToZipFile(
+                                Lists.newArrayList(
+                                        ContainerUtil.getResourcesFile("/json/e2e.json"),
+                                        ContainerUtil.getResourcesFile("/json/e2e.json")),
+                                "multiJson");
+                ContainerUtil.copyFileIntoContainers(
+                        multiJsonZip,
+                        "/seatunnel/read/json/multifile/zip/multiJson.zip",
+                        container);
+
                 ContainerUtil.copyFileIntoContainers(
                         "/text/e2e_gbk.txt",
                         "/seatunnel/read/encoding/text/e2e_gbk.txt",
@@ -102,6 +163,16 @@ public class LocalFileIT extends TestSuiteBase {
                         "/text/e2e_time_format.txt",
                         "/seatunnel/read/text_time_format/e2e.txt",
                         container);
+
+                ContainerUtil.copyFileIntoContainers(
+                        "/xml/e2e.xml", "/seatunnel/read/xml/e2e.xml", container);
+
+                Path xmlZip =
+                        covertToZipFile(
+                                Lists.newArrayList(ContainerUtil.getResourcesFile("/xml/e2e.xml")),
+                                "e2e-xml");
+                ContainerUtil.copyFileIntoContainers(
+                        xmlZip, "/seatunnel/read/xml-zip/e2e-xml.zip", container);
 
                 Path txtLzo = convertToLzoFile(ContainerUtil.getResourcesFile("/text/e2e.txt"));
                 ContainerUtil.copyFileIntoContainers(
@@ -199,6 +270,23 @@ public class LocalFileIT extends TestSuiteBase {
             // from jobManager will be failed in Flink
             helper.execute("/binary/local_file_binary_to_assert.conf");
         }
+
+        helper.execute("/xml/local_file_xml_to_assert.conf");
+        /** Compressed file test */
+        // test read single local text file with zip compression
+        helper.execute("/text/local_file_zip_text_to_assert.conf");
+        // test read multi local text file with zip compression
+        helper.execute("/text/local_file_multi_zip_text_to_assert.conf");
+        // test read single local text file with rar compression
+        helper.execute("/text/local_file_tar_text_to_assert.conf");
+        // test read multi local text file with rar compression
+        helper.execute("/text/local_file_multi_tar_text_to_assert.conf");
+        // test read single local json file with zip compression
+        helper.execute("/json/local_file_json_zip_to_assert.conf");
+        // test read multi local json file with zip compression
+        helper.execute("/json/local_file_json_multi_zip_to_assert.conf");
+        // test read single local xml file with zip compression
+        helper.execute("/xml/local_file_zip_xml_to_assert.conf");
     }
 
     @TestTemplate
@@ -273,5 +361,106 @@ public class LocalFileIT extends TestSuiteBase {
         outputStream.write(Files.readAllBytes(file.toPath()));
         outputStream.close();
         return path;
+    }
+
+    public Path covertToZipFile(List<File> files, String name) throws IOException {
+        if (files == null || files.isEmpty()) {
+            throw new IllegalArgumentException("File list is empty or invalid");
+        }
+
+        File firstFile = files.get(0);
+        Path zipFilePath = Paths.get(firstFile.getParent(), String.format("%s.zip", name));
+
+        try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(zipFilePath))) {
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    Path dirPath = file.toPath();
+                    Files.walkFileTree(
+                            dirPath,
+                            new SimpleFileVisitor<Path>() {
+                                @Override
+                                public FileVisitResult visitFile(
+                                        Path file, BasicFileAttributes attrs) throws IOException {
+                                    addToZipFile(file, dirPath.getParent(), zos);
+                                    return FileVisitResult.CONTINUE;
+                                }
+                            });
+                } else {
+                    addToZipFile(file.toPath(), file.getParentFile().toPath(), zos);
+                }
+            }
+        }
+
+        return zipFilePath;
+    }
+
+    private void addToZipFile(Path file, Path baseDir, ZipOutputStream zos) throws IOException {
+        Path relativePath = baseDir.relativize(file);
+        ZipEntry zipEntry;
+
+        if (relativePath.toString().contains(".")) {
+            String fileName = relativePath.toString().split("\\.")[0];
+            zipEntry =
+                    new ZipEntry(
+                            new Random().nextInt()
+                                    + fileName
+                                    + "_"
+                                    + System.currentTimeMillis()
+                                    + ".txt");
+            zos.putNextEntry(zipEntry);
+        }
+        Files.copy(file, zos);
+        zos.closeEntry();
+    }
+
+    public Path covertToTarFile(List<File> files, String name) throws IOException {
+        if (files == null || files.isEmpty()) {
+            throw new IllegalArgumentException("File list is empty or invalid");
+        }
+
+        File firstFile = files.get(0);
+        Path tarFilePath = Paths.get(firstFile.getParent(), String.format("%s.tar", name));
+
+        try (TarArchiveOutputStream tarOut =
+                new TarArchiveOutputStream(Files.newOutputStream(tarFilePath))) {
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    Path dirPath = file.toPath();
+                    Files.walkFileTree(
+                            dirPath,
+                            new SimpleFileVisitor<Path>() {
+                                @Override
+                                public FileVisitResult visitFile(
+                                        Path file, BasicFileAttributes attrs) throws IOException {
+                                    addToTarFile(file, dirPath.getParent(), tarOut);
+                                    return FileVisitResult.CONTINUE;
+                                }
+                            });
+                } else {
+                    addToTarFile(file.toPath(), file.getParentFile().toPath(), tarOut);
+                }
+            }
+        }
+
+        return tarFilePath;
+    }
+
+    private void addToTarFile(Path file, Path baseDir, TarArchiveOutputStream tarOut)
+            throws IOException {
+        Path relativePath = baseDir.relativize(file);
+
+        TarArchiveEntry tarEntry;
+        if (relativePath.toString().contains(".")) {
+            String fileName = relativePath.toString().split("\\.")[0];
+            String entryName =
+                    new Random().nextInt() + fileName + "_" + System.currentTimeMillis() + ".txt";
+            tarEntry = new TarArchiveEntry(file.toFile(), entryName);
+        } else {
+            tarEntry = new TarArchiveEntry(file.toFile(), relativePath.toString());
+        }
+
+        tarOut.putArchiveEntry(tarEntry);
+        Files.copy(file, tarOut);
+        tarOut.closeArchiveEntry();
     }
 }
