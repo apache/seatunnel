@@ -27,6 +27,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.fake.utils.FakeDataRandomUtils;
@@ -35,12 +37,20 @@ import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.function.Function;
 
 public class FakeDataGenerator {
+    private static final String CURRENT_DATE = "CURRENT_DATE";
+    private static final String CURRENT_TIME = "CURRENT_TIME";
+    private static final String CURRENT_TIMESTAMP = "CURRENT_TIMESTAMP";
+
     private final CatalogTable catalogTable;
     private final FakeConfig fakeConfig;
     private final JsonDeserializationSchema jsonDeserializationSchema;
@@ -152,11 +162,47 @@ public class FakeDataGenerator {
             case BYTES:
                 return value(column, String::getBytes, fakeDataRandomUtils::randomBytes);
             case DATE:
-                return value(column, String::toString, fakeDataRandomUtils::randomLocalDate);
+                return value(
+                        column,
+                        defaultValue -> {
+                            if (defaultValue.equalsIgnoreCase(CURRENT_DATE)) {
+                                return LocalDate.now();
+                            }
+                            DateTimeFormatter dateTimeFormatter =
+                                    DateUtils.matchDateFormatter(defaultValue);
+                            return LocalDate.parse(
+                                    defaultValue,
+                                    dateTimeFormatter == null
+                                            ? DateTimeFormatter.ISO_LOCAL_DATE
+                                            : dateTimeFormatter);
+                        },
+                        fakeDataRandomUtils::randomLocalDate);
             case TIME:
-                return value(column, String::toString, fakeDataRandomUtils::randomLocalTime);
+                return value(
+                        column,
+                        defaultValue -> {
+                            if (defaultValue.equalsIgnoreCase(CURRENT_TIME)) {
+                                return LocalTime.now();
+                            }
+                            return LocalTime.parse(defaultValue, DateTimeFormatter.ISO_LOCAL_TIME);
+                        },
+                        fakeDataRandomUtils::randomLocalTime);
             case TIMESTAMP:
-                return value(column, String::toString, fakeDataRandomUtils::randomLocalDateTime);
+                return value(
+                        column,
+                        defaultValue -> {
+                            if (defaultValue.equalsIgnoreCase(CURRENT_TIMESTAMP)) {
+                                return LocalDateTime.now();
+                            }
+                            DateTimeFormatter dateTimeFormatter =
+                                    DateTimeUtils.matchDateTimeFormatter(defaultValue);
+                            return LocalDateTime.parse(
+                                    defaultValue,
+                                    dateTimeFormatter == null
+                                            ? DateTimeFormatter.ISO_LOCAL_DATE_TIME
+                                            : dateTimeFormatter);
+                        },
+                        fakeDataRandomUtils::randomLocalDateTime);
             case ROW:
                 SeaTunnelDataType<?>[] fieldTypes = ((SeaTunnelRowType) fieldType).getFieldTypes();
                 Object[] objects = new Object[fieldTypes.length];

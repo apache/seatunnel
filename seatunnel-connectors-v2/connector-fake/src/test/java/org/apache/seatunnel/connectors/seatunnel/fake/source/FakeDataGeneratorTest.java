@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -173,13 +174,17 @@ public class FakeDataGeneratorTest {
                             8, ((ByteBuffer) seaTunnelRow.getField(8)).capacity() / 2);
                     // VectorType.VECTOR_SPARSE_FLOAT_TYPE
                     Assertions.assertEquals(8, ((Map) seaTunnelRow.getField(9)).size());
+                    Assertions.assertNotNull(seaTunnelRow.getField(10).toString());
+                    Assertions.assertNotNull(seaTunnelRow.getField(11).toString());
                     Assertions.assertEquals(
-                            268,
+                            436,
                             seaTunnelRow.getBytesSize(
                                     new SeaTunnelRowType(
                                             new String[] {
                                                 "field1", "field2", "field3", "field4", "field5",
-                                                "field6", "field7", "field8", "field9", "field10"
+                                                "field6", "field7", "field8", "field9", "field10",
+                                                "field11", "field12", "field13", "field14",
+                                                "field15", "field16"
                                             },
                                             new SeaTunnelDataType<?>[] {
                                                 BasicType.STRING_TYPE,
@@ -191,7 +196,13 @@ public class FakeDataGeneratorTest {
                                                 VectorType.VECTOR_BINARY_TYPE,
                                                 VectorType.VECTOR_FLOAT16_TYPE,
                                                 VectorType.VECTOR_BFLOAT16_TYPE,
-                                                VectorType.VECTOR_SPARSE_FLOAT_TYPE
+                                                VectorType.VECTOR_SPARSE_FLOAT_TYPE,
+                                                LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                                LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                                LocalTimeType.LOCAL_TIME_TYPE,
+                                                LocalTimeType.LOCAL_TIME_TYPE,
+                                                LocalTimeType.LOCAL_DATE_TYPE,
+                                                LocalTimeType.LOCAL_DATE_TYPE
                                             })));
                 });
     }
