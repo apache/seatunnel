@@ -96,14 +96,15 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private ClickHouseContainer container;
     private Connection connection;
 
-    //    @TestTemplate
-    //    public void testClickhouse(TestContainer container) throws Exception {
-    //        Container.ExecResult execResult = container.executeJob(CLICKHOUSE_JOB_CONFIG);
-    //        Assertions.assertEquals(0, execResult.getExitCode());
-    //        assertHasData(SINK_TABLE);
-    //        compareResult();
-    //        clearSinkTable();
-    //    }
+    @TestTemplate
+    public void testClickhouse(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob(CLICKHOUSE_JOB_CONFIG);
+        Assertions.assertEquals(0, execResult.getExitCode());
+        assertHasData(SINK_TABLE);
+        compareResult();
+        clearSinkTable();
+    }
+
     @TestTemplate
     @DisabledOnContainer(
             value = {},
