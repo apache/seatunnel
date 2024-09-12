@@ -297,7 +297,9 @@ public class CoordinatorService {
     }
 
     public JobMaster getJobMaster(Long jobId) {
-        return runningJobMasterMap.get(jobId);
+        return pendingJobMasterMap.containsKey(jobId)
+                ? pendingJobMasterMap.get(jobId)._2
+                : runningJobMasterMap.get(jobId);
     }
 
     public EventProcessor getEventProcessor() {
