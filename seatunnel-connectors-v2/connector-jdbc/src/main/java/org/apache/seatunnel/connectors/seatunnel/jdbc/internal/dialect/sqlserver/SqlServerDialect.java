@@ -159,7 +159,15 @@ public class SqlServerDialect implements JdbcDialect {
 
     @Override
     public TablePath parse(String tablePath) {
-        return TablePath.of(tablePath, true);
+        if (!tablePath.contains("].[")) {
+            return TablePath.of(tablePath, true);
+        } else {
+            String[] parts = tablePath.substring(1, tablePath.length() - 1).split("\\]\\.\\[");
+            String databaseName = parts[0];
+            String schemaName = parts[1];
+            String tableName = parts[2];
+            return TablePath.of(databaseName, schemaName, tableName);
+        }
     }
 
     @Override
