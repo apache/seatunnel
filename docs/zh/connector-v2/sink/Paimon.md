@@ -240,7 +240,9 @@ sink {
 }
 ```
 
-### 动态分桶paimon单表，只有在主键表并指定bucket = -1时才会生效, 只在zeta引擎上有效
+### 动态分桶paimon单表
+
+只有在主键表并指定bucket = -1时才会生效
 
 #### 核心参数：[参考官网](https://paimon.apache.org/docs/master/primary-key-table/data-distribution/#dynamic-bucket)
 

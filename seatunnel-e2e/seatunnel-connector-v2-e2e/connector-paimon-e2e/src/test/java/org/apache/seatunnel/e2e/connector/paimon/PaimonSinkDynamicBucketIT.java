@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.e2e.connector.paimon;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalogLoader;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 import org.apache.seatunnel.core.starter.utils.CompressionUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -47,6 +50,7 @@ import org.apache.paimon.types.TimestampType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 
@@ -81,6 +85,8 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
     private String CATALOG_DIR_WIN = CATALOG_ROOT_DIR_WIN + NAMESPACE + "/";
     private boolean isWindows;
 
+    private Map<String, Object> PAIMON_SINK_PROPERTIES;
+
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -88,6 +94,22 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
                 System.getProperties().getProperty("os.name").toUpperCase().contains("WINDOWS");
         CATALOG_ROOT_DIR_WIN = CATALOG_ROOT_DIR_WIN + System.getProperty("user.name") + "/tmp/";
         CATALOG_DIR_WIN = CATALOG_ROOT_DIR_WIN + NAMESPACE + "/";
+        Map<String, Object> map = new HashMap<>();
+        map.put("warehouse", "hdfs:///tmp/paimon");
+        map.put("database", "default");
+        map.put("table", "st_test5");
+        Map<String, Object> paimonHadoopConf = new HashMap<>();
+        paimonHadoopConf.put("fs.defaultFS", "hdfs://nameservice1");
+        paimonHadoopConf.put("dfs.nameservices", "nameservice1");
+        paimonHadoopConf.put("dfs.ha.namenodes.nameservice1", "nn1,nn2");
+        paimonHadoopConf.put("dfs.namenode.rpc-address.nameservice1.nn1", "dp06:8020");
+        paimonHadoopConf.put("dfs.namenode.rpc-address.nameservice1.nn2", "dp07:8020");
+        paimonHadoopConf.put(
+                "dfs.client.failover.proxy.provider.nameservice1",
+                "org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider");
+        paimonHadoopConf.put("dfs.client.use.datanode.hostname", "true");
+        map.put("paimon.hadoop.conf", paimonHadoopConf);
+        this.PAIMON_SINK_PROPERTIES = map;
     }
 
     @AfterAll
@@ -133,6 +155,46 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
                                         row -> bucketList.add(row.getInt(bucketIndexOf)));
                             }
                             Assertions.assertEquals(2, bucketList.size());
+                        });
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SEATUNNEL})
+    @Disabled(
+            "Spark and Flink engine can not auto create paimon table on worker node in local file, this e2e case work on hdfs environment, please set up your own HDFS environment in the test case file and the below setup")
+    public void testPaimonBucketCountOnSparkAndFlink(TestContainer container)
+            throws IOException, InterruptedException, Catalog.TableNotExistException {
+        PaimonSinkConfig paimonSinkConfig =
+                new PaimonSinkConfig(ReadonlyConfig.fromMap(PAIMON_SINK_PROPERTIES));
+        PaimonCatalogLoader paimonCatalogLoader = new PaimonCatalogLoader(paimonSinkConfig);
+        Catalog catalog = paimonCatalogLoader.loadCatalog();
+        Identifier identifier = Identifier.create("default", "st_test_5");
+        if (catalog.tableExists(identifier)) {
+            catalog.dropTable(identifier, true);
+        }
+        Container.ExecResult textWriteResult =
+                container.executeJob("/fake_to_dynamic_bucket_paimon_case5.conf");
+        Assertions.assertEquals(0, textWriteResult.getExitCode());
+        given().ignoreExceptions()
+                .await()
+                .atLeast(100L, TimeUnit.MILLISECONDS)
+                .atMost(30L, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            FileStoreTable table = (FileStoreTable) catalog.getTable(identifier);
+                            IndexBootstrap indexBootstrap = new IndexBootstrap(table);
+                            List<String> fieldNames =
+                                    IndexBootstrap.bootstrapType(table.schema()).getFieldNames();
+                            int bucketIndexOf = fieldNames.indexOf("_BUCKET");
+                            Set<Integer> bucketList = new HashSet<>();
+                            try (RecordReader<InternalRow> recordReader =
+                                    indexBootstrap.bootstrap(1, 0)) {
+                                recordReader.forEachRemaining(
+                                        row -> bucketList.add(row.getInt(bucketIndexOf)));
+                            }
+                            Assertions.assertEquals(4, bucketList.size());
                         });
     }
 

@@ -36,10 +36,12 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
 
     private final Sink.InitContext writerContext;
     private final EventListener eventListener;
+    private final int parallelism;
 
-    public FlinkSinkWriterContext(InitContext writerContext) {
+    public FlinkSinkWriterContext(InitContext writerContext, int parallelism) {
         this.writerContext = writerContext;
         this.eventListener = new DefaultEventProcessor(getFlinkJobId(writerContext));
+        this.parallelism = parallelism;
     }
 
     @Override

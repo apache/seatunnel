@@ -241,9 +241,13 @@ sink {
 }
 ```
 
-### Single dynamic bucket table with write props of paimon，operates on the primary key table and bucket is -1, only worked on zeta.
+### Write to dynamic bucket table 
 
-#### core options：[reference](https://paimon.apache.org/docs/master/primary-key-table/data-distribution/#dynamic-bucket)
+Single dynamic bucket table with write props of paimon，operates on the primary key table and bucket is -1.
+
+#### core options
+
+Please [reference](https://paimon.apache.org/docs/master/primary-key-table/data-distribution/#dynamic-bucket)
 
 |              name              | type | required | default values |                  Description                   |
 |--------------------------------|------|----------|----------------|------------------------------------------------|
