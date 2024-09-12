@@ -70,6 +70,7 @@ public class JsonToRowConverters implements Serializable {
                     .toFormatter();
 
     public static final String FORMAT = "Common";
+
     /** Flag indicating whether to fail if a field is missing. */
     private final boolean failOnMissingField;
 
@@ -263,8 +264,7 @@ public class JsonToRowConverters implements Serializable {
     }
 
     private LocalTime convertToLocalTime(JsonNode jsonNode) {
-        String localTime = jsonNode.asText();
-        TemporalAccessor parsedTime = TIME_FORMAT.parse(localTime);
+        TemporalAccessor parsedTime = TIME_FORMAT.parse(jsonNode.asText());
         return parsedTime.query(TemporalQueries.localTime());
     }
 
