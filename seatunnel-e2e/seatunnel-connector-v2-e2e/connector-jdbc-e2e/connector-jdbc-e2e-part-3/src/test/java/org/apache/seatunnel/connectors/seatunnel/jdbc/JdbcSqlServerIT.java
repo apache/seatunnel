@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -40,6 +41,7 @@ import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -55,6 +57,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
     private static final String SQLSERVER_IMAGE = "mcr.microsoft.com/mssql/server:2022-latest";
     private static final String SQLSERVER_CONTAINER_HOST = "sqlserver";
     private static final String SQLSERVER_SOURCE = "source";
+    private static final String SQLSERVER_SOURCE_WITH_DOT = "source.source.source.source";
     private static final String SQLSERVER_SINK = "sink";
     private static final String SQLSERVER_DATABASE = "master";
     private static final String SQLSERVER_SCHEMA = "dbo";
@@ -67,7 +70,9 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     + SQLSERVER_DATABASE;
     private static final String DRIVER_CLASS = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
     private static final List<String> CONFIG_FILE =
-            Lists.newArrayList("/jdbc_sqlserver_source_to_sink.conf");
+            Lists.newArrayList(
+                    "/jdbc_sqlserver_source_to_sink.conf",
+                    "/jdbc_sqlserver_source_to_sink_with_dot.conf");
     private static final String CREATE_SQL =
             "CREATE TABLE %s (\n"
                     + "\tINT_IDENTITY_TEST int identity,\n"
@@ -182,6 +187,48 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                 .testData(testDataSet)
                 .tablePathFullName(TablePath.DEFAULT.getFullName())
                 .build();
+    }
+
+    @Override
+    protected void createNeededTables() {
+        try (Statement statement = connection.createStatement()) {
+            String createTemplate = jdbcCase.getCreateSql();
+
+            String createSource =
+                    String.format(
+                            createTemplate,
+                            buildTableInfoWithSchema(
+                                    jdbcCase.getDatabase(),
+                                    jdbcCase.getSchema(),
+                                    jdbcCase.getSourceTable()));
+
+            String createSourceWithDot =
+                    String.format(
+                            createTemplate,
+                            buildTableInfoWithSchema(
+                                    jdbcCase.getDatabase(),
+                                    jdbcCase.getSchema(),
+                                    SQLSERVER_SOURCE_WITH_DOT));
+            if (jdbcCase.getSinkCreateSql() != null) {
+                createTemplate = jdbcCase.getSinkCreateSql();
+            }
+            String createSink =
+                    String.format(
+                            createTemplate,
+                            buildTableInfoWithSchema(
+                                    jdbcCase.getDatabase(),
+                                    jdbcCase.getSchema(),
+                                    jdbcCase.getSinkTable()));
+
+            statement.execute(createSource);
+            statement.execute(createSourceWithDot);
+            statement.execute(createSink);
+
+            connection.commit();
+        } catch (Exception exception) {
+            log.error(ExceptionUtils.getMessage(exception));
+            throw new SeaTunnelRuntimeException(JdbcITErrorCode.CREATE_TABLE_FAILED, exception);
+        }
     }
 
     @Override
