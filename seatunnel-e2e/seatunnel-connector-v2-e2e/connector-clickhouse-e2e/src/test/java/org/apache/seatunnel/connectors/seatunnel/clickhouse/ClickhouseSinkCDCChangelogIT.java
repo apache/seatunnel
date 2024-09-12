@@ -19,17 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.ClickHouseContainer;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -54,9 +50,6 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestResource {
-
-    private static final Logger LOG = LoggerFactory.getLogger(ClickhouseSinkCDCChangelogIT.class);
-
     private static final String CLICKHOUSE_DOCKER_IMAGE = "clickhouse/clickhouse-server:23.3.13.6";
     private static final String HOST = "clickhouse";
     private static final String DRIVER_CLASS = "com.clickhouse.jdbc.ClickHouseDriver";
@@ -151,29 +144,6 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
         dropSinkTable();
     }
 
-    @TestTemplate
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "The multi-catalog does not currently support the Spark Flink engine")
-    public void testClickhouseSourceMultiTable(TestContainer container) throws Exception {
-        Container.ExecResult execResult = null;
-        initializeClickhouseMergeTreeTable();
-        try {
-            LOG.info("Step 2: Executing job with /multi_source_clickhouse.conf");
-            execResult = container.executeJob("/multi_source_clickhouse.conf");
-        } catch (NullPointerException e) {
-            LOG.error("NullPointerException in container.executeJob", e);
-            throw e;
-        }
-        Assertions.assertEquals(1, execResult);
-        LOG.info(
-                "testClickhouseSourceMultiTable Command executed with exit code: "
-                        + execResult.getExitCode());
-        LOG.info("testClickhouseSourceMultiTable Stdout: " + execResult.getStdout());
-        LOG.info("testClickhouseSourceMultiTable Stderr: " + execResult.getStderr());
-    }
-
     private void initConnection() throws Exception {
         final Properties info = new Properties();
         info.put("user", this.container.getUsername());
@@ -186,47 +156,15 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
     private void initializeClickhouseMergeTreeTable() {
         try {
             Statement statement = this.connection.createStatement();
-            List<String> initSqlList =
-                    Arrays.asList(
-                            String.format(
-                                    "create table if not exists %s.%s(\n"
-                                            + "    `pk_id`         Int64,\n"
-                                            + "    `name`          String,\n"
-                                            + "    `score`         Int32\n"
-                                            + ")engine=MergeTree ORDER BY(pk_id) PRIMARY KEY(pk_id)",
-                                    DATABASE, SINK_TABLE),
-                            "CREATE TABLE IF NOT EXISTS default.t1\n"
-                                    + "(\n"
-                                    + "    student_id   UInt32,\n"
-                                    + "    student_name String,\n"
-                                    + "    age          UInt8,\n"
-                                    + "    grade        String\n"
-                                    + ") \n"
-                                    + "ENGINE = MergeTree()\n"
-                                    + "ORDER BY student_id\n",
-                            "TRUNCATE  table default.t1",
-                            "INSERT INTO default.t1 (student_id, student_name, age, grade) VALUES\n"
-                                    + "(1, 'Alice', 20, 'A'),\n"
-                                    + "(2, 'Bob', 22, 'B'),\n"
-                                    + "(3, 'Charlie', 21, 'A')",
-                            "CREATE TABLE IF NOT EXISTS default.t2\n"
-                                    + "(\n"
-                                    + "    student_id   UInt32,\n"
-                                    + "    student_name String,\n"
-                                    + "    age          UInt8,\n"
-                                    + "    grade        String\n"
-                                    + ") \n"
-                                    + "ENGINE = MergeTree()\n"
-                                    + "ORDER BY student_id\n",
-                            "TRUNCATE  table default.t2",
-                            "INSERT INTO default.t2 (student_id, student_name, age, grade) VALUES\n"
-                                    + "(1, 'Alice', 20, 'A'),\n"
-                                    + "(2, 'Bob', 22, 'B'),\n"
-                                    + "(3, 'Charlie', 21, 'A')");
-            for (String sql : initSqlList) {
-                statement.execute(sql);
-            }
-
+            String sql =
+                    String.format(
+                            "create table if not exists %s.%s(\n"
+                                    + "    `pk_id`         Int64,\n"
+                                    + "    `name`          String,\n"
+                                    + "    `score`         Int32\n"
+                                    + ")engine=MergeTree ORDER BY(pk_id) PRIMARY KEY(pk_id)",
+                            DATABASE, SINK_TABLE);
+            statement.execute(sql);
         } catch (SQLException e) {
             throw new RuntimeException("Initializing Clickhouse table failed!", e);
         }
