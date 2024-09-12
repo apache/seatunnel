@@ -69,6 +69,26 @@ network:
 
 ------------------------------------------------------------------------------------------
 
+###  Returns thread dump information for the current node.
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/thread-dump</b></code> <code>(Returns thread dump information for the current node..)</code></summary>
+
+#### Parameters
+
+
+#### Responses
+
+```json
+
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+
+
 ### Returns An Overview And State Of All Jobs
 
 <details>
