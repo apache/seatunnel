@@ -30,6 +30,12 @@ import java.util.concurrent.CompletableFuture;
 public interface ResourceManager {
     void init();
 
+    List<WorkerProfile> isWorkerResourceEnough(
+            long jobId,
+            List<ResourceProfile> resourceProfile,
+            Map<String, String> tagFilter,
+            List<WorkerProfile> workerProfileList);
+
     CompletableFuture<SlotProfile> applyResource(
             long jobId, ResourceProfile resourceProfile, Map<String, String> tagFilter)
             throws NoEnoughResourceException;

@@ -38,6 +38,9 @@ public enum JobStatus {
     /** The job is already running, and each pipeline is already running. */
     RUNNING(EndState.NOT_END),
 
+    /** The job is waiting for resources. */
+    PENDING(EndState.NOT_END),
+
     /** The job has failed and is currently waiting for the cleanup to complete. */
     FAILING(EndState.NOT_END),
 

@@ -56,6 +56,7 @@ import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 import org.apache.seatunnel.engine.server.dag.DAGUtils;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
@@ -65,7 +66,9 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
@@ -341,6 +344,38 @@ public class JobMaster {
                             cleanJob();
                             jobMasterCompleteFuture.complete(jobResult);
                         }));
+    }
+
+    public boolean isResourceEnough() {
+        boolean enoughResource = true;
+        List<WorkerProfile> workerProfileList = null;
+        for (SubPlan subPlan : physicalPlan.getPipelineList()) {
+            Map<String, String> tags = subPlan.getTags();
+            for (PhysicalVertex physicalVertex : subPlan.getCoordinatorVertexList()) {
+                List<ResourceProfile> resourceProfiles =
+                        Collections.singletonList(new ResourceProfile());
+                workerProfileList =
+                        resourceManager.isWorkerResourceEnough(
+                                physicalVertex.getTaskGroupLocation().getJobId(),
+                                resourceProfiles,
+                                tags,
+                                workerProfileList);
+
+                enoughResource = enoughResource && workerProfileList != null;
+            }
+            for (PhysicalVertex physicalVertex : subPlan.getPhysicalVertexList()) {
+                List<ResourceProfile> resourceProfiles =
+                        Collections.singletonList(new ResourceProfile());
+                workerProfileList =
+                        resourceManager.isWorkerResourceEnough(
+                                physicalVertex.getTaskGroupLocation().getJobId(),
+                                resourceProfiles,
+                                tags,
+                                workerProfileList);
+                enoughResource = enoughResource && workerProfileList != null;
+            }
+        }
+        return enoughResource;
     }
 
     public void run() {
