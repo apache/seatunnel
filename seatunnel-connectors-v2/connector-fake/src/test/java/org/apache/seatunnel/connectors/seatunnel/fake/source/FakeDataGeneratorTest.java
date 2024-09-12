@@ -42,6 +42,9 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.file.Paths;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -204,6 +207,25 @@ public class FakeDataGeneratorTest {
                                                 LocalTimeType.LOCAL_DATE_TYPE,
                                                 LocalTimeType.LOCAL_DATE_TYPE
                                             })));
+                });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"fake-data.schema.default.conf"})
+    public void testDataParse(String conf) throws FileNotFoundException, URISyntaxException {
+        ReadonlyConfig testConfig = getTestConfigFile(conf);
+        FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
+        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig);
+        List<SeaTunnelRow> seaTunnelRows =
+                fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
+        seaTunnelRows.forEach(
+                seaTunnelRow -> {
+                    Assertions.assertInstanceOf(Long.class, seaTunnelRow.getField(0));
+                    Assertions.assertInstanceOf(String.class, seaTunnelRow.getField(1));
+                    Assertions.assertInstanceOf(Integer.class, seaTunnelRow.getField(2));
+                    Assertions.assertInstanceOf(LocalDateTime.class, seaTunnelRow.getField(3));
+                    Assertions.assertInstanceOf(LocalTime.class, seaTunnelRow.getField(4));
+                    Assertions.assertInstanceOf(LocalDate.class, seaTunnelRow.getField(5));
                 });
     }
 

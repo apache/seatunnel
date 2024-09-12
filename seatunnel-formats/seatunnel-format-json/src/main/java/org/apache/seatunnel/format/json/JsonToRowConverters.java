@@ -70,9 +70,6 @@ public class JsonToRowConverters implements Serializable {
                     .toFormatter();
 
     public static final String FORMAT = "Common";
-    private static final String CURRENT_DATE = "CURRENT_DATE";
-    private static final String CURRENT_TIME = "CURRENT_TIME";
-    private static final String CURRENT_TIMESTAMP = "CURRENT_TIMESTAMP";
     /** Flag indicating whether to fail if a field is missing. */
     private final boolean failOnMissingField;
 
@@ -253,9 +250,6 @@ public class JsonToRowConverters implements Serializable {
 
     private LocalDate convertToLocalDate(JsonNode jsonNode, String fieldName) {
         String dateStr = jsonNode.asText();
-        if (dateStr.equalsIgnoreCase(CURRENT_DATE)) {
-            return LocalDate.now();
-        }
         DateTimeFormatter dateFormatter = fieldFormatterMap.get(fieldName);
         if (dateFormatter == null) {
             dateFormatter = DateUtils.matchDateFormatter(dateStr);
@@ -270,18 +264,12 @@ public class JsonToRowConverters implements Serializable {
 
     private LocalTime convertToLocalTime(JsonNode jsonNode) {
         String localTime = jsonNode.asText();
-        if (localTime.equalsIgnoreCase(CURRENT_TIME)) {
-            return LocalTime.now();
-        }
         TemporalAccessor parsedTime = TIME_FORMAT.parse(localTime);
         return parsedTime.query(TemporalQueries.localTime());
     }
 
     private LocalDateTime convertToLocalDateTime(JsonNode jsonNode, String fieldName) {
         String datetimeStr = jsonNode.asText();
-        if (datetimeStr.equalsIgnoreCase(CURRENT_TIMESTAMP)) {
-            return LocalDateTime.now();
-        }
         DateTimeFormatter dateTimeFormatter = fieldFormatterMap.get(fieldName);
         if (dateTimeFormatter == null) {
             dateTimeFormatter = DateTimeUtils.matchDateTimeFormatter(datetimeStr);
