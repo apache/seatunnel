@@ -8,12 +8,13 @@
 
 ## 属性
 
-| 名称                   | 类型   | 是否必须 | 默认值 |
-| ---------------------- | ------ | -------- | ------ |
+| 名称                     | 类型   | 是否必须 | 默认值    |
+|------------------------| ------ | -------- |--------|
 | model_provider         | enum   | yes      |        |
 | output_data_type       | enum   | no       | String |
+| output_column_name     | string | no       |        |
 | prompt                 | string | yes      |        |
-| inference_columns   | list   | no       |        |
+| inference_columns      | list   | no       |        |
 | model                  | string | yes      |        |
 | api_key                | string | yes      |        |
 | api_path               | string | no       |        |
@@ -32,6 +33,10 @@ OPENAI、DOUBAO、CUSTOM
 输出数据的数据类型。可用选项为:
 STRING,INT,BIGINT,DOUBLE,BOOLEAN.
 默认值为 STRING。
+
+### output_column_name
+
+自定义输出数据字段名称。自定义字段名称与现有字段名称相同时,将替换为`llm_output`。
 
 ### prompt
 

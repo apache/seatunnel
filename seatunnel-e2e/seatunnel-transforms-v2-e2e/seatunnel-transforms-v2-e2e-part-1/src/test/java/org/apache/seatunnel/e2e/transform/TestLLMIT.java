@@ -93,6 +93,7 @@ public class TestLLMIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/llm_openai_transform_boolean.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate
@@ -100,6 +101,14 @@ public class TestLLMIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/llm_openai_transform_columns.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testLLMWithOpenAIOutputColumnName(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/llm_openai_transform_custom_output_name.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
