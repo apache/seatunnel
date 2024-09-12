@@ -63,7 +63,6 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
             throws IOException {
         org.apache.seatunnel.api.sink.SinkWriter.Context stContext =
                 new FlinkSinkWriterContext(context);
-
         if (states == null || states.isEmpty()) {
             return new FlinkSinkWriter<>(
                     sink.createWriter(stContext), 1, catalogTable.getSeaTunnelRowType(), stContext);

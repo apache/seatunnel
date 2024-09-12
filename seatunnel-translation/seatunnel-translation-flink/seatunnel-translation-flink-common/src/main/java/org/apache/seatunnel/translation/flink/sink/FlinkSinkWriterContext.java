@@ -48,6 +48,11 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
     }
 
     @Override
+    public int getNumberOfParallelSubtasks() {
+        return writerContext.getNumberOfParallelSubtasks();
+    }
+
+    @Override
     public MetricsContext getMetricsContext() {
         return new FlinkMetricContext(getStreamingRuntimeContextForV15(writerContext));
     }
