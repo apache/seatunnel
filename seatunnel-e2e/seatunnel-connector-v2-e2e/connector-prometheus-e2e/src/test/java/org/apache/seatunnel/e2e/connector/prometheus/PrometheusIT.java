@@ -68,7 +68,7 @@ public class PrometheusIT extends TestSuiteBase implements TestResource {
                                         .withStartupTimeout(Duration.ofMinutes(2)));
         prometheusContainer.setPortBindings(Lists.newArrayList(String.format("%s:9090", "9090")));
         Startables.deepStart(Stream.of(prometheusContainer)).join();
-        log.info("Mongodb container started");
+        log.info("Prometheus container started");
     }
 
     @AfterAll
