@@ -79,6 +79,7 @@ public class LLMTransform extends SingleFieldOutputTransform {
                         new CustomModel(
                                 inputCatalogTable.getSeaTunnelRowType(),
                                 outputDataType.getSqlType(),
+                                config.get(LLMTransformConfig.INFERENCE_COLUMNS),
                                 config.get(LLMTransformConfig.PROMPT),
                                 config.get(LLMTransformConfig.MODEL),
                                 provider.usedLLMPath(config.get(LLMTransformConfig.API_PATH)),
@@ -97,6 +98,7 @@ public class LLMTransform extends SingleFieldOutputTransform {
                         new OpenAIModel(
                                 inputCatalogTable.getSeaTunnelRowType(),
                                 outputDataType.getSqlType(),
+                                config.get(LLMTransformConfig.INFERENCE_COLUMNS),
                                 config.get(LLMTransformConfig.PROMPT),
                                 config.get(LLMTransformConfig.MODEL),
                                 config.get(LLMTransformConfig.API_KEY),

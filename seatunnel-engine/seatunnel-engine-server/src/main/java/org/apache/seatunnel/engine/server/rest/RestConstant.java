@@ -51,6 +51,7 @@ public class RestConstant {
     public static final String JOB_INFO_URL = "/hazelcast/rest/maps/job-info";
     public static final String FINISHED_JOBS_INFO = "/hazelcast/rest/maps/finished-jobs";
     public static final String ENCRYPT_CONFIG = "/hazelcast/rest/maps/encrypt-config";
+    public static final String THREAD_DUMP = "/hazelcast/rest/maps/thread-dump";
 
     // only for test use
     public static final String RUNNING_THREADS = "/hazelcast/rest/maps/running-threads";
@@ -62,4 +63,9 @@ public class RestConstant {
     public static final String SUBMIT_JOBS_URL = "/hazelcast/rest/maps/submit-jobs";
     public static final String STOP_JOB_URL = "/hazelcast/rest/maps/stop-job";
     public static final String STOP_JOBS_URL = "/hazelcast/rest/maps/stop-jobs";
+    public static final String UPDATE_TAGS_URL = "/hazelcast/rest/maps/update-tags";
+
+    // metrics
+    public static final String TELEMETRY_METRICS_URL = "/hazelcast/rest/instance/metrics";
+    public static final String TELEMETRY_OPEN_METRICS_URL = "/hazelcast/rest/instance/openmetrics";
 }

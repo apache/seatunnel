@@ -1,5 +1,7 @@
 # SQL Configuration File
 
+Before writing the sql config file, please make sure that the name of the config file should end with `.sql`.
+
 ## Structure of SQL Configuration File
 
 The `SQL` configuration file appears as follows:

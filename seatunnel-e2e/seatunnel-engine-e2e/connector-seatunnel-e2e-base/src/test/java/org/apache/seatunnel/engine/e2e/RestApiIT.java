@@ -274,6 +274,88 @@ public class RestApiIT {
     }
 
     @Test
+    public void testUpdateTagsSuccess() {
+
+        String config = "{\n" + "    \"tag1\": \"dev_1\",\n" + "    \"tag2\": \"dev_2\"\n" + "}";
+        given().get(
+                        HOST
+                                + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + RestConstant.OVERVIEW
+                                + "?tag1=dev_1")
+                .then()
+                .statusCode(200)
+                .body("projectVersion", notNullValue())
+                .body("totalSlot", equalTo("0"))
+                .body("workers", equalTo("0"));
+        given().body(config)
+                .put(
+                        HOST
+                                + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + RestConstant.UPDATE_TAGS_URL)
+                .then()
+                .statusCode(200)
+                .body("message", equalTo("update node tags done."));
+
+        given().get(
+                        HOST
+                                + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + RestConstant.OVERVIEW
+                                + "?tag1=dev_1")
+                .then()
+                .statusCode(200)
+                .body("projectVersion", notNullValue())
+                .body("totalSlot", equalTo("20"))
+                .body("workers", equalTo("1"));
+    }
+
+    @Test
+    public void testUpdateTagsFail() {
+
+        given().put(
+                        HOST
+                                + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + RestConstant.UPDATE_TAGS_URL)
+                .then()
+                .statusCode(400)
+                .body("message", equalTo("Request body is empty."));
+    }
+
+    @Test
+    public void testClearTags() {
+
+        String config = "{}";
+        given().get(
+                        HOST
+                                + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + RestConstant.OVERVIEW
+                                + "?node=node1")
+                .then()
+                .statusCode(200)
+                .body("projectVersion", notNullValue())
+                .body("totalSlot", equalTo("20"))
+                .body("workers", equalTo("1"));
+        given().body(config)
+                .put(
+                        HOST
+                                + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + RestConstant.UPDATE_TAGS_URL)
+                .then()
+                .statusCode(200)
+                .body("message", equalTo("update node tags done."));
+
+        given().get(
+                        HOST
+                                + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + RestConstant.OVERVIEW
+                                + "?node=node1")
+                .then()
+                .statusCode(200)
+                .body("projectVersion", notNullValue())
+                .body("totalSlot", equalTo("0"))
+                .body("workers", equalTo("0"));
+    }
+
+    @Test
     public void testGetRunningThreads() {
         Arrays.asList(node2, node1)
                 .forEach(
@@ -308,6 +390,7 @@ public class RestApiIT {
                                     .time(lessThan(5000L))
                                     .body("[0].host", equalTo("localhost"))
                                     .body("[0].port", notNullValue())
+                                    .body("[0].isMaster", notNullValue())
                                     .statusCode(200);
                         });
     }
@@ -368,6 +451,27 @@ public class RestApiIT {
                                     .body(
                                             "source[0].password",
                                             equalTo("c2VhdHVubmVsX3Bhc3N3b3Jk"));
+                        });
+    }
+
+    @Test
+    public void testGetThreadDump() {
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance -> {
+                            given().get(
+                                            HOST
+                                                    + instance.getCluster()
+                                                            .getLocalMember()
+                                                            .getAddress()
+                                                            .getPort()
+                                                    + RestConstant.THREAD_DUMP)
+                                    .then()
+                                    .statusCode(200)
+                                    .body("[0].threadName", notNullValue())
+                                    .body("[0].threadState", notNullValue())
+                                    .body("[0].stackTrace", notNullValue())
+                                    .body("[0].threadId", notNullValue());
                         });
     }
 

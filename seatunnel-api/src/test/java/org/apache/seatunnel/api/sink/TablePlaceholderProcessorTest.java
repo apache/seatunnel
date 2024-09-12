@@ -37,7 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class TablePlaceholderTest {
+public class TablePlaceholderProcessorTest {
     private static final Option<String> DATABASE =
             Options.key("database").stringType().noDefaultValue();
     private static final Option<String> SCHEMA =
@@ -60,7 +60,7 @@ public class TablePlaceholderTest {
     public void testSinkOptions() {
         ReadonlyConfig config = createConfig();
         CatalogTable table = createTestTable();
-        ReadonlyConfig newConfig = TablePlaceholder.replaceTablePlaceholder(config, table);
+        ReadonlyConfig newConfig = TablePlaceholderProcessor.replaceTablePlaceholder(config, table);
 
         Assertions.assertEquals("xyz_my-database_test", newConfig.get(DATABASE));
         Assertions.assertEquals("xyz_my-schema_test", newConfig.get(SCHEMA));
@@ -78,7 +78,7 @@ public class TablePlaceholderTest {
     public void testSinkOptionsWithNoTablePath() {
         ReadonlyConfig config = createConfig();
         CatalogTable table = createTestTableWithNoDatabaseAndSchemaName();
-        ReadonlyConfig newConfig = TablePlaceholder.replaceTablePlaceholder(config, table);
+        ReadonlyConfig newConfig = TablePlaceholderProcessor.replaceTablePlaceholder(config, table);
 
         Assertions.assertEquals("xyz_default_db_test", newConfig.get(DATABASE));
         Assertions.assertEquals("xyz_default_schema_test", newConfig.get(SCHEMA));
@@ -97,7 +97,7 @@ public class TablePlaceholderTest {
         ReadonlyConfig config = createConfig();
         CatalogTable table = createTestTableWithNoDatabaseAndSchemaName();
         ReadonlyConfig newConfig =
-                TablePlaceholder.replaceTablePlaceholder(
+                TablePlaceholderProcessor.replaceTablePlaceholder(
                         config, table, Arrays.asList(DATABASE.key()));
 
         Assertions.assertEquals("xyz_${database_name: default_db}_test", newConfig.get(DATABASE));
@@ -118,9 +118,9 @@ public class TablePlaceholderTest {
         CatalogTable table1 = createTestTable();
         CatalogTable table2 = createTestTableWithNoDatabaseAndSchemaName();
         ReadonlyConfig newConfig1 =
-                TablePlaceholder.replaceTablePlaceholder(config, table1, Arrays.asList());
+                TablePlaceholderProcessor.replaceTablePlaceholder(config, table1, Arrays.asList());
         ReadonlyConfig newConfig2 =
-                TablePlaceholder.replaceTablePlaceholder(config, table2, Arrays.asList());
+                TablePlaceholderProcessor.replaceTablePlaceholder(config, table2, Arrays.asList());
 
         Assertions.assertEquals("xyz_my-database_test", newConfig1.get(DATABASE));
         Assertions.assertEquals("xyz_my-schema_test", newConfig1.get(SCHEMA));
