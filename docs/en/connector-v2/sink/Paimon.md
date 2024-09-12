@@ -43,7 +43,7 @@ libfb303-xxx.jar
 | data_save_mode              | Enum   | No       | APPEND_DATA                  | The data save mode                                                                                                                                               |
 | paimon.table.primary-keys   | String | No       | -                            | Default comma-separated list of columns (primary key) that identify a row in tables.(Notice: The partition field needs to be included in the primary key fields) |
 | paimon.table.partition-keys | String | No       | -                            | Default comma-separated list of partition fields to use when creating tables.                                                                                    |
-| paimon.table.write-props    | Map    | No       | -                            | Properties passed through to paimon table initialization, [reference](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions).            |
+| paimon.table.write-props    | Map    | No       | -                            | Properties passed through to paimon table initialization, [reference](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions).               |
 | paimon.hadoop.conf          | Map    | No       | -                            | Properties in hadoop conf                                                                                                                                        |
 | paimon.hadoop.conf-path     | String | No       | -                            | The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files                                                                       |
 
@@ -241,14 +241,14 @@ sink {
 }
 ```
 
-### Single dynamic bucket table with write props of paimon，operates on the primary key table and bucket is -1
+### Single dynamic bucket table with write props of paimon，operates on the primary key table and bucket is -1, only worked on zeta.
 
-#### core options：[reference](https://paimon.apache.org/docs/0.8/primary-key-table/data-distribution/#dynamic-bucket)
+#### core options：[reference](https://paimon.apache.org/docs/master/primary-key-table/data-distribution/#dynamic-bucket)
 
 |              name              | type | required | default values |                  Description                   |
 |--------------------------------|------|----------|----------------|------------------------------------------------|
-| dynamic-bucket.target-row-num  | long | 是        | 2000000L       | controls the target row number for one bucket. |
-| dynamic-bucket.initial-buckets | int  | 否        |                | controls the number of initialized bucket.     |
+| dynamic-bucket.target-row-num  | long | yes      | 2000000L       | controls the target row number for one bucket. |
+| dynamic-bucket.initial-buckets | int  | no       |                | controls the number of initialized bucket.     |
 
 ```hocon
 env {

@@ -38,6 +38,11 @@ public class SinkContextProxy implements SinkWriter.Context {
     }
 
     @Override
+    public int getNumberOfParallelSubtasks() {
+        return context.getNumberOfParallelSubtasks();
+    }
+
+    @Override
     public MetricsContext getMetricsContext() {
         return context.getMetricsContext();
     }
