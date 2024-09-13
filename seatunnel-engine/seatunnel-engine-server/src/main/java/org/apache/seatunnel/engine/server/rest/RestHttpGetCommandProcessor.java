@@ -93,6 +93,7 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_THREA
 import static org.apache.seatunnel.engine.server.rest.RestConstant.SYSTEM_MONITORING_INFORMATION;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.TELEMETRY_METRICS_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.TELEMETRY_OPEN_METRICS_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.THREAD_DUMP;
 
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
 
@@ -144,6 +145,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 handleMetrics(httpGetCommand, TextFormat.CONTENT_TYPE_004);
             } else if (uri.equals(TELEMETRY_OPEN_METRICS_URL)) {
                 handleMetrics(httpGetCommand, TextFormat.CONTENT_TYPE_OPENMETRICS_100);
+            } else if (uri.startsWith(THREAD_DUMP)) {
+                getThreadDump(httpGetCommand);
             } else {
                 original.handle(httpGetCommand);
             }
@@ -201,6 +204,26 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         this.prepareResponse(
                 command,
                 JsonUtil.toJsonObject(JsonUtils.toMap(JsonUtils.toJsonString(overviewInfo))));
+    }
+
+    public void getThreadDump(HttpGetCommand command) {
+        Map<Thread, StackTraceElement[]> threadStacks = Thread.getAllStackTraces();
+        JsonArray threadInfoList = new JsonArray();
+        for (Map.Entry<Thread, StackTraceElement[]> entry : threadStacks.entrySet()) {
+            StringBuilder stackTraceBuilder = new StringBuilder();
+            for (StackTraceElement element : entry.getValue()) {
+                stackTraceBuilder.append(element.toString()).append("\n");
+            }
+            String stackTrace = stackTraceBuilder.toString().trim();
+            JsonObject threadInfo = new JsonObject();
+            threadInfo.add("threadName", entry.getKey().getName());
+            threadInfo.add("threadId", entry.getKey().getId());
+            threadInfo.add("threadState", entry.getKey().getState().name());
+            threadInfo.add("stackTrace", stackTrace);
+            threadInfoList.add(threadInfo);
+        }
+
+        this.prepareResponse(command, threadInfoList);
     }
 
     private void getSystemMonitoringInformation(HttpGetCommand command) {

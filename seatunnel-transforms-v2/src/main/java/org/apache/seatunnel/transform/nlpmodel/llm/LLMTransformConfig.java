@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.transform.nlpmodel.ModelTransformConfig;
 
+import java.util.List;
+
 public class LLMTransformConfig extends ModelTransformConfig {
 
     public static final Option<String> PROMPT =
@@ -28,6 +30,12 @@ public class LLMTransformConfig extends ModelTransformConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("The prompt of LLM");
+
+    public static final Option<List<String>> INFERENCE_COLUMNS =
+            Options.key("inference_columns")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription("The row projection field of each inference");
 
     public static final Option<Integer> INFERENCE_BATCH_SIZE =
             Options.key("inference_batch_size")

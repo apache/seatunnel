@@ -22,10 +22,10 @@ seatunnel:
 ## Metrics
 
 The [metric text of prometheus](./telemetry/metrics.txt),which get
-from `http:{instanceHost}:5801/hazelcast/rest/instance/metrics`.
+from `http://{instanceHost}:5801/hazelcast/rest/instance/metrics`.
 
 The [metric text of openMetrics](./telemetry/openmetrics.txt),which get
-from `http:{instanceHost}:5801/hazelcast/rest/instance/openmetrics`.
+from `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics`.
 
 Available metrics include the following categories.
 

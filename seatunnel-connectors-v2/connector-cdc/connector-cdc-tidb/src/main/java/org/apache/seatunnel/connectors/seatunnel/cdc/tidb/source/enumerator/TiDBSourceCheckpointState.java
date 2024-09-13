@@ -14,17 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.transform;
 
-import org.apache.seatunnel.transform.jsonpath.JsonPathTransformFactory;
+package org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.enumerator;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.split.TiDBSourceSplit;
 
-public class JsonPathTransformFactoryTest {
-    @Test
-    public void testOptionRule() {
-        JsonPathTransformFactory jsonPathTransformFactory = new JsonPathTransformFactory();
-        Assertions.assertNotNull(jsonPathTransformFactory.optionRule());
-    }
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+
+import java.io.Serializable;
+import java.util.Map;
+
+@Getter
+@Setter
+@AllArgsConstructor
+@ToString
+public class TiDBSourceCheckpointState implements Serializable {
+    private boolean shouldEnumerate;
+    private Map<Integer, TiDBSourceSplit> pendingSplit;
 }
