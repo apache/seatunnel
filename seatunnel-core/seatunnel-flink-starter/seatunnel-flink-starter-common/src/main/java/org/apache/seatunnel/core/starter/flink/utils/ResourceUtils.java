@@ -25,6 +25,8 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.core.starter.enums.MasterType;
+import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
+import org.apache.seatunnel.core.starter.utils.FileUtils;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -77,8 +79,12 @@ public class ResourceUtils {
         }
     }
 
-    public static Path getConfigFile(MasterType type, String configFile) {
-        switch (type) {
+    public static Path getConfigFile(FlinkCommandArgs args) {
+        if (args.getMasterType() == null) {
+            return FileUtils.getConfigPath(args);
+        }
+        String configFile = args.getConfigFile();
+        switch (args.getMasterType()) {
             case REMOTE:
             case YARN_PER_JOB:
             case YARN_SESSION:
@@ -89,7 +95,8 @@ public class ResourceUtils {
             case KUBERNETES_APPLICATION:
                 return Paths.get(getFileName(configFile));
             default:
-                throw new IllegalArgumentException("Unsupported deploy mode: " + type);
+                throw new IllegalArgumentException(
+                        "Unsupported deploy mode: " + args.getMasterType());
         }
     }
 
