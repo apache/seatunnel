@@ -79,6 +79,9 @@ public class SeaTunnelSourcePluginRemoteDiscoveryTest extends SeaTunnelSourcePlu
         originSeatunnelHome = Common.getSeaTunnelHome();
         // The file is created under target directory.
         for (Path pluginJar : pluginJars) {
+            if (Files.exists(pluginJar)) {
+                continue;
+            }
             Files.createFile(pluginJar);
         }
 
