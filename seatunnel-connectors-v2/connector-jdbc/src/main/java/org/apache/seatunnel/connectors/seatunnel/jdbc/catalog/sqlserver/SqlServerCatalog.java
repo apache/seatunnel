@@ -89,9 +89,9 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getListTableSql(String databaseName) {
-        return "SELECT TABLE_SCHEMA, TABLE_NAME FROM "
-                + databaseName
-                + ".INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'";
+        return String.format(
+                "SELECT TABLE_SCHEMA, TABLE_NAME FROM [%s].[INFORMATION_SCHEMA].[TABLES] WHERE TABLE_TYPE = 'BASE TABLE'",
+                databaseName);
     }
 
     @Override

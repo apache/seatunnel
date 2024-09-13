@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -40,6 +41,7 @@ import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -55,6 +57,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
     private static final String SQLSERVER_IMAGE = "mcr.microsoft.com/mssql/server:2022-latest";
     private static final String SQLSERVER_CONTAINER_HOST = "sqlserver";
     private static final String SQLSERVER_SOURCE = "source";
+    private static final String SQLSERVER_SOURCE_WITH_DOT = "source.source.source.source";
     private static final String SQLSERVER_SINK = "sink";
     private static final String SQLSERVER_DATABASE = "master";
     private static final String SQLSERVER_SCHEMA = "dbo";
@@ -67,7 +70,9 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     + SQLSERVER_DATABASE;
     private static final String DRIVER_CLASS = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
     private static final List<String> CONFIG_FILE =
-            Lists.newArrayList("/jdbc_sqlserver_source_to_sink.conf");
+            Lists.newArrayList(
+                    "/jdbc_sqlserver_source_to_sink.conf",
+                    "/jdbc_sqlserver_source_to_sink_with_dot.conf");
     private static final String CREATE_SQL =
             "CREATE TABLE %s (\n"
                     + "\tINT_IDENTITY_TEST int identity,\n"
@@ -104,6 +109,44 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     + "\tVARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS DEFAULT NULL NULL,\n"
                     + "\tXML_TEST xml NULL,\n"
                     + "\tCONSTRAINT PK_TEST_INDEX PRIMARY KEY (INT_IDENTITY_TEST)\n"
+                    + ");";
+
+    private static final String CREATE_SQL_WITH_DOT =
+            "CREATE TABLE %s (\n"
+                    + "\tINT_IDENTITY_TEST int identity,\n"
+                    + "\tBIGINT_TEST bigint NOT NULL,\n"
+                    + "\tBINARY_TEST binary(255) NULL,\n"
+                    + "\tBIT_TEST bit NULL,\n"
+                    + "\tCHAR_TEST char(255) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tDATE_TEST date NULL,\n"
+                    + "\tDATETIME_TEST datetime NULL,\n"
+                    + "\tDATETIME2_TEST datetime2 NULL,\n"
+                    + "\tDATETIMEOFFSET_TEST datetimeoffset NULL,\n"
+                    + "\tDECIMAL_TEST decimal(18,2) NULL,\n"
+                    + "\tFLOAT_TEST float NULL,\n"
+                    + "\tIMAGE_TEST image NULL,\n"
+                    + "\tINT_TEST int NULL,\n"
+                    + "\tMONEY_TEST money NULL,\n"
+                    + "\tNCHAR_TEST nchar(1) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tNTEXT_TEST ntext COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tNUMERIC_TEST numeric(18,2) NULL,\n"
+                    + "\tNVARCHAR_TEST nvarchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tNVARCHAR_MAX_TEST nvarchar(MAX) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tREAL_TEST real NULL,\n"
+                    + "\tSMALLDATETIME_TEST smalldatetime NULL,\n"
+                    + "\tSMALLINT_TEST smallint NULL,\n"
+                    + "\tSMALLMONEY_TEST smallmoney NULL,\n"
+                    + "\tSQL_VARIANT_TEST sql_variant NULL,\n"
+                    + "\tTEXT_TEST text COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tTIME_TEST time NULL,\n"
+                    + "\tTINYINT_TEST tinyint NULL,\n"
+                    + "\tUNIQUEIDENTIFIER_TEST uniqueidentifier NULL,\n"
+                    + "\tVARBINARY_TEST varbinary(255) NULL,\n"
+                    + "\tVARBINARY_MAX_TEST varbinary(MAX) NULL,\n"
+                    + "\tVARCHAR_TEST varchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tVARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS DEFAULT NULL NULL,\n"
+                    + "\tXML_TEST xml NULL,\n"
+                    + "\tCONSTRAINT PK_TEST_INDEX_WITH_DOT PRIMARY KEY (INT_IDENTITY_TEST)\n"
                     + ");";
 
     private static final String SINK_CREATE_SQL =
@@ -182,6 +225,48 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                 .testData(testDataSet)
                 .tablePathFullName(TablePath.DEFAULT.getFullName())
                 .build();
+    }
+
+    @Override
+    protected void createNeededTables() {
+        try (Statement statement = connection.createStatement()) {
+            String createTemplate = jdbcCase.getCreateSql();
+
+            String createSource =
+                    String.format(
+                            createTemplate,
+                            buildTableInfoWithSchema(
+                                    jdbcCase.getDatabase(),
+                                    jdbcCase.getSchema(),
+                                    jdbcCase.getSourceTable()));
+
+            String createSourceWithDot =
+                    String.format(
+                            CREATE_SQL_WITH_DOT,
+                            buildTableInfoWithSchema(
+                                    jdbcCase.getDatabase(),
+                                    jdbcCase.getSchema(),
+                                    SQLSERVER_SOURCE_WITH_DOT));
+            if (jdbcCase.getSinkCreateSql() != null) {
+                createTemplate = jdbcCase.getSinkCreateSql();
+            }
+            String createSink =
+                    String.format(
+                            createTemplate,
+                            buildTableInfoWithSchema(
+                                    jdbcCase.getDatabase(),
+                                    jdbcCase.getSchema(),
+                                    jdbcCase.getSinkTable()));
+
+            statement.execute(createSource);
+            statement.execute(createSourceWithDot);
+            statement.execute(createSink);
+
+            connection.commit();
+        } catch (Exception exception) {
+            log.error(ExceptionUtils.getMessage(exception));
+            throw new SeaTunnelRuntimeException(JdbcITErrorCode.CREATE_TABLE_FAILED, exception);
+        }
     }
 
     @Override
