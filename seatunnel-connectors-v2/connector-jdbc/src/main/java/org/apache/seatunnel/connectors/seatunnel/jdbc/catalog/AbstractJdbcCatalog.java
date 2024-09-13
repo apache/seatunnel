@@ -37,6 +37,7 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 
 import org.apache.commons.lang3.StringUtils;
@@ -279,9 +280,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             return false;
         }
         try {
-            return querySQLResultExists(
-                    getUrlFromDatabaseName(databaseName),
-                    getDatabaseWithConditionSql(databaseName));
+            return querySQLResultExists(defaultUrl, getDatabaseWithConditionSql(databaseName));
         } catch (SeaTunnelRuntimeException e) {
             if (e.getSeaTunnelErrorCode().getCode().equals(UNSUPPORTED_METHOD.getCode())) {
                 log.warn(
@@ -290,6 +289,8 @@ public abstract class AbstractJdbcCatalog implements Catalog {
                 return listDatabases().contains(databaseName);
             }
             throw e;
+        } catch (SQLException e) {
+            throw new SeaTunnelException("Failed to querySQLResult", e);
         }
     }
 
@@ -350,6 +351,8 @@ public abstract class AbstractJdbcCatalog implements Catalog {
                 }
             }
             throw e1;
+        } catch (SQLException e) {
+            throw new SeaTunnelException("Failed to querySQLResult", e);
         }
     }
 
@@ -566,14 +569,10 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         }
     }
 
-    protected boolean querySQLResultExists(String dbUrl, String sql) {
-        try (PreparedStatement stmt = getConnection(dbUrl).prepareStatement(sql)) {
-            try (ResultSet rs = stmt.executeQuery()) {
-                return rs.next();
-            }
-        } catch (Exception e) {
-            log.info("query exists error", e);
-            return false;
+    protected boolean querySQLResultExists(String dbUrl, String sql) throws SQLException {
+        try (PreparedStatement stmt = getConnection(dbUrl).prepareStatement(sql);
+                ResultSet rs = stmt.executeQuery()) {
+            return rs.next();
         }
     }
 
