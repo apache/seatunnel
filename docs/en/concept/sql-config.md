@@ -1,5 +1,7 @@
 # SQL Configuration File
 
+Before writing the sql config file, please make sure that the name of the config file should end with `.sql`.
+
 ## Structure of SQL Configuration File
 
 The `SQL` configuration file appears as follows:
@@ -120,7 +122,10 @@ CREATE TABLE sink_table WITH (
 INSERT INTO sink_table SELECT id, name, age, email FROM source_table;
 ```
 
-* The `SELECT FROM` part is the table name of the source-mapped table.
+* The `SELECT FROM` part is the table name of the source-mapped table. If the select field has keyword([refrence](https://github.com/JSQLParser/JSqlParser/blob/master/src/main/jjtree/net/sf/jsqlparser/parser/JSqlParserCC.jjt)),you should use it like \`filedName\`.
+```sql
+INSERT INTO sink_table SELECT id, name, age, email,`output` FROM source_table;
+```
 * The `INSERT INTO` part is the table name of the target-mapped table.
 * Note: This syntax does **not support** specifying fields in `INSERT`, like this: `INSERT INTO sink_table (id, name, age, email) SELECT id, name, age, email FROM source_table;`
 

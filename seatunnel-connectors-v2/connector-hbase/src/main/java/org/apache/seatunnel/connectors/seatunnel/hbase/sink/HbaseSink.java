@@ -17,52 +17,97 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hbase.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
+import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
+import org.apache.seatunnel.connectors.seatunnel.hbase.constant.HbaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.hbase.state.HbaseAggregatedCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.hbase.state.HbaseCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.hbase.state.HbaseSinkState;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
-public class HbaseSink extends AbstractSimpleSink<SeaTunnelRow, Void>
-        implements SupportMultiTableSink {
+import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 
-    private Config pluginConfig;
+public class HbaseSink
+        implements SeaTunnelSink<
+                        SeaTunnelRow, HbaseSinkState, HbaseCommitInfo, HbaseAggregatedCommitInfo>,
+                SupportMultiTableSink,
+                SupportSaveMode {
+
+    private ReadonlyConfig config;
+
+    private CatalogTable catalogTable;
+
+    private final HbaseParameters hbaseParameters;
 
     private SeaTunnelRowType seaTunnelRowType;
-
-    private HbaseParameters hbaseParameters;
 
     private List<Integer> rowkeyColumnIndexes = new ArrayList<>();
 
     private int versionColumnIndex = -1;
 
-    @Override
-    public String getPluginName() {
-        return HbaseSinkFactory.IDENTIFIER;
-    }
-
-    public HbaseSink(HbaseParameters hbaseParameters, CatalogTable catalogTable) {
-        this.hbaseParameters = hbaseParameters;
-        this.seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
-        for (String rowkeyColumn : hbaseParameters.getRowkeyColumns()) {
-            this.rowkeyColumnIndexes.add(seaTunnelRowType.indexOf(rowkeyColumn));
-        }
+    public HbaseSink(ReadonlyConfig config, CatalogTable catalogTable) {
+        this.hbaseParameters = HbaseParameters.buildWithConfig(config);
+        this.config = config;
+        this.catalogTable = catalogTable;
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         if (hbaseParameters.getVersionColumn() != null) {
             this.versionColumnIndex = seaTunnelRowType.indexOf(hbaseParameters.getVersionColumn());
         }
     }
 
     @Override
+    public String getPluginName() {
+        return HbaseIdentifier.IDENTIFIER_NAME;
+    }
+
+    @Override
     public HbaseSinkWriter createWriter(SinkWriter.Context context) throws IOException {
+        for (String rowkeyColumn : hbaseParameters.getRowkeyColumns()) {
+            this.rowkeyColumnIndexes.add(seaTunnelRowType.indexOf(rowkeyColumn));
+        }
+        if (hbaseParameters.getVersionColumn() != null) {
+            this.versionColumnIndex = seaTunnelRowType.indexOf(hbaseParameters.getVersionColumn());
+        }
         return new HbaseSinkWriter(
                 seaTunnelRowType, hbaseParameters, rowkeyColumnIndexes, versionColumnIndex);
+    }
+
+    @Override
+    public Optional<SaveModeHandler> getSaveModeHandler() {
+        CatalogFactory catalogFactory =
+                discoverFactory(
+                        Thread.currentThread().getContextClassLoader(),
+                        CatalogFactory.class,
+                        getPluginName());
+        if (catalogFactory == null) {
+            return Optional.empty();
+        }
+        Catalog catalog = catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), config);
+        SchemaSaveMode schemaSaveMode = config.get(HbaseConfig.SCHEMA_SAVE_MODE);
+        DataSaveMode dataSaveMode = config.get(HbaseConfig.DATA_SAVE_MODE);
+        TablePath tablePath =
+                TablePath.of(hbaseParameters.getNamespace(), hbaseParameters.getTable());
+        return Optional.of(
+                new DefaultSaveModeHandler(
+                        schemaSaveMode, dataSaveMode, catalog, tablePath, null, null));
     }
 }

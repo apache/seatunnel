@@ -1,0 +1,296 @@
+# HELP jvm_buffer_pool_used_bytes Used bytes of a given JVM buffer pool.
+# TYPE jvm_buffer_pool_used_bytes gauge
+jvm_buffer_pool_used_bytes{pool="mapped",} 0.0
+jvm_buffer_pool_used_bytes{pool="direct",} 414142.0
+# HELP jvm_buffer_pool_capacity_bytes Bytes capacity of a given JVM buffer pool.
+# TYPE jvm_buffer_pool_capacity_bytes gauge
+jvm_buffer_pool_capacity_bytes{pool="mapped",} 0.0
+jvm_buffer_pool_capacity_bytes{pool="direct",} 414139.0
+# HELP jvm_buffer_pool_used_buffers Used buffers of a given JVM buffer pool.
+# TYPE jvm_buffer_pool_used_buffers gauge
+jvm_buffer_pool_used_buffers{pool="mapped",} 0.0
+jvm_buffer_pool_used_buffers{pool="direct",} 7.0
+# HELP jvm_gc_collection_seconds Time spent in a given JVM garbage collector in seconds.
+# TYPE jvm_gc_collection_seconds summary
+jvm_gc_collection_seconds_count{gc="G1 Young Generation",} 6.0
+jvm_gc_collection_seconds_sum{gc="G1 Young Generation",} 0.047
+jvm_gc_collection_seconds_count{gc="G1 Old Generation",} 0.0
+jvm_gc_collection_seconds_sum{gc="G1 Old Generation",} 0.0
+# HELP jvm_memory_objects_pending_finalization The number of objects waiting in the finalizer queue.
+# TYPE jvm_memory_objects_pending_finalization gauge
+jvm_memory_objects_pending_finalization 0.0
+# HELP jvm_memory_bytes_used Used bytes of a given JVM memory area.
+# TYPE jvm_memory_bytes_used gauge
+jvm_memory_bytes_used{area="heap",} 8.4778896E7
+jvm_memory_bytes_used{area="nonheap",} 7.2728624E7
+# HELP jvm_memory_bytes_committed Committed (bytes) of a given JVM memory area.
+# TYPE jvm_memory_bytes_committed gauge
+jvm_memory_bytes_committed{area="heap",} 5.36870912E8
+jvm_memory_bytes_committed{area="nonheap",} 7.7594624E7
+# HELP jvm_memory_bytes_max Max (bytes) of a given JVM memory area.
+# TYPE jvm_memory_bytes_max gauge
+jvm_memory_bytes_max{area="heap",} 8.589934592E9
+jvm_memory_bytes_max{area="nonheap",} -1.0
+# HELP jvm_memory_bytes_init Initial bytes of a given JVM memory area.
+# TYPE jvm_memory_bytes_init gauge
+jvm_memory_bytes_init{area="heap",} 5.36870912E8
+jvm_memory_bytes_init{area="nonheap",} 7667712.0
+# HELP jvm_memory_pool_bytes_used Used bytes of a given JVM memory pool.
+# TYPE jvm_memory_pool_bytes_used gauge
+jvm_memory_pool_bytes_used{pool="CodeHeap 'non-nmethods'",} 1307520.0
+jvm_memory_pool_bytes_used{pool="Metaspace",} 4.9585376E7
+jvm_memory_pool_bytes_used{pool="CodeHeap 'profiled nmethods'",} 1.2327296E7
+jvm_memory_pool_bytes_used{pool="Compressed Class Space",} 6124368.0
+jvm_memory_pool_bytes_used{pool="G1 Eden Space",} 5.4525952E7
+jvm_memory_pool_bytes_used{pool="G1 Old Gen",} 1.3475728E7
+jvm_memory_pool_bytes_used{pool="G1 Survivor Space",} 1.6777216E7
+jvm_memory_pool_bytes_used{pool="CodeHeap 'non-profiled nmethods'",} 3384064.0
+# HELP jvm_memory_pool_bytes_committed Committed bytes of a given JVM memory pool.
+# TYPE jvm_memory_pool_bytes_committed gauge
+jvm_memory_pool_bytes_committed{pool="CodeHeap 'non-nmethods'",} 2555904.0
+jvm_memory_pool_bytes_committed{pool="Metaspace",} 5.2035584E7
+jvm_memory_pool_bytes_committed{pool="CodeHeap 'profiled nmethods'",} 1.2386304E7
+jvm_memory_pool_bytes_committed{pool="Compressed Class Space",} 7208960.0
+jvm_memory_pool_bytes_committed{pool="G1 Eden Space",} 3.20864256E8
+jvm_memory_pool_bytes_committed{pool="G1 Old Gen",} 1.9922944E8
+jvm_memory_pool_bytes_committed{pool="G1 Survivor Space",} 1.6777216E7
+jvm_memory_pool_bytes_committed{pool="CodeHeap 'non-profiled nmethods'",} 3407872.0
+# HELP jvm_memory_pool_bytes_max Max bytes of a given JVM memory pool.
+# TYPE jvm_memory_pool_bytes_max gauge
+jvm_memory_pool_bytes_max{pool="CodeHeap 'non-nmethods'",} 5849088.0
+jvm_memory_pool_bytes_max{pool="Metaspace",} -1.0
+jvm_memory_pool_bytes_max{pool="CodeHeap 'profiled nmethods'",} 1.22896384E8
+jvm_memory_pool_bytes_max{pool="Compressed Class Space",} 1.073741824E9
+jvm_memory_pool_bytes_max{pool="G1 Eden Space",} -1.0
+jvm_memory_pool_bytes_max{pool="G1 Old Gen",} 8.589934592E9
+jvm_memory_pool_bytes_max{pool="G1 Survivor Space",} -1.0
+jvm_memory_pool_bytes_max{pool="CodeHeap 'non-profiled nmethods'",} 1.22912768E8
+# HELP jvm_memory_pool_bytes_init Initial bytes of a given JVM memory pool.
+# TYPE jvm_memory_pool_bytes_init gauge
+jvm_memory_pool_bytes_init{pool="CodeHeap 'non-nmethods'",} 2555904.0
+jvm_memory_pool_bytes_init{pool="Metaspace",} 0.0
+jvm_memory_pool_bytes_init{pool="CodeHeap 'profiled nmethods'",} 2555904.0
+jvm_memory_pool_bytes_init{pool="Compressed Class Space",} 0.0
+jvm_memory_pool_bytes_init{pool="G1 Eden Space",} 2.7262976E7
+jvm_memory_pool_bytes_init{pool="G1 Old Gen",} 5.09607936E8
+jvm_memory_pool_bytes_init{pool="G1 Survivor Space",} 0.0
+jvm_memory_pool_bytes_init{pool="CodeHeap 'non-profiled nmethods'",} 2555904.0
+# HELP jvm_memory_pool_collection_used_bytes Used bytes after last collection of a given JVM memory pool.
+# TYPE jvm_memory_pool_collection_used_bytes gauge
+jvm_memory_pool_collection_used_bytes{pool="G1 Eden Space",} 0.0
+jvm_memory_pool_collection_used_bytes{pool="G1 Old Gen",} 0.0
+jvm_memory_pool_collection_used_bytes{pool="G1 Survivor Space",} 1.6777216E7
+# HELP jvm_memory_pool_collection_committed_bytes Committed after last collection bytes of a given JVM memory pool.
+# TYPE jvm_memory_pool_collection_committed_bytes gauge
+jvm_memory_pool_collection_committed_bytes{pool="G1 Eden Space",} 3.20864256E8
+jvm_memory_pool_collection_committed_bytes{pool="G1 Old Gen",} 0.0
+jvm_memory_pool_collection_committed_bytes{pool="G1 Survivor Space",} 1.6777216E7
+# HELP jvm_memory_pool_collection_max_bytes Max bytes after last collection of a given JVM memory pool.
+# TYPE jvm_memory_pool_collection_max_bytes gauge
+jvm_memory_pool_collection_max_bytes{pool="G1 Eden Space",} -1.0
+jvm_memory_pool_collection_max_bytes{pool="G1 Old Gen",} 8.589934592E9
+jvm_memory_pool_collection_max_bytes{pool="G1 Survivor Space",} -1.0
+# HELP jvm_memory_pool_collection_init_bytes Initial after last collection bytes of a given JVM memory pool.
+# TYPE jvm_memory_pool_collection_init_bytes gauge
+jvm_memory_pool_collection_init_bytes{pool="G1 Eden Space",} 2.7262976E7
+jvm_memory_pool_collection_init_bytes{pool="G1 Old Gen",} 5.09607936E8
+jvm_memory_pool_collection_init_bytes{pool="G1 Survivor Space",} 0.0
+# HELP job_thread_pool_activeCount The activeCount of seatunnel coordinator job's executor cached thread pool
+# TYPE job_thread_pool_activeCount gauge
+job_thread_pool_activeCount{cluster="seatunnel",address="127.0.0.1:5801",} 0.0
+# HELP job_thread_pool_completedTask_total The completedTask of seatunnel coordinator job's executor cached thread pool
+# TYPE job_thread_pool_completedTask_total counter
+job_thread_pool_completedTask_total{cluster="seatunnel",address="127.0.0.1:5801",} 1.0
+# HELP job_thread_pool_corePoolSize The corePoolSize of seatunnel coordinator job's executor cached thread pool
+# TYPE job_thread_pool_corePoolSize gauge
+job_thread_pool_corePoolSize{cluster="seatunnel",address="127.0.0.1:5801",} 0.0
+# HELP job_thread_pool_maximumPoolSize The maximumPoolSize of seatunnel coordinator job's executor cached thread pool
+# TYPE job_thread_pool_maximumPoolSize gauge
+job_thread_pool_maximumPoolSize{cluster="seatunnel",address="127.0.0.1:5801",} 2.147483647E9
+# HELP job_thread_pool_poolSize The poolSize of seatunnel coordinator job's executor cached thread pool
+# TYPE job_thread_pool_poolSize gauge
+job_thread_pool_poolSize{cluster="seatunnel",address="127.0.0.1:5801",} 0.0
+# HELP job_thread_pool_task_total The taskCount of seatunnel coordinator job's executor cached thread pool
+# TYPE job_thread_pool_task_total counter
+job_thread_pool_task_total{cluster="seatunnel",address="127.0.0.1:5801",} 1.0
+# HELP job_thread_pool_queueTaskCount The queueTaskCount of seatunnel coordinator job's executor cached thread pool
+# TYPE job_thread_pool_queueTaskCount gauge
+job_thread_pool_queueTaskCount{cluster="seatunnel",address="127.0.0.1:5801",} 0.0
+# HELP job_thread_pool_rejection_total The rejectionCount of seatunnel coordinator job's executor cached thread pool
+# TYPE job_thread_pool_rejection_total counter
+job_thread_pool_rejection_total{cluster="seatunnel",address="127.0.0.1:5801",} 0.0
+# HELP jvm_memory_pool_allocated_bytes_total Total bytes allocated in a given JVM memory pool. Only updated after GC, not continuously.
+# TYPE jvm_memory_pool_allocated_bytes_total counter
+jvm_memory_pool_allocated_bytes_total{pool="CodeHeap 'profiled nmethods'",} 1.1970688E7
+jvm_memory_pool_allocated_bytes_total{pool="G1 Old Gen",} 1.3475728E7
+jvm_memory_pool_allocated_bytes_total{pool="G1 Eden Space",} 1.61480704E8
+jvm_memory_pool_allocated_bytes_total{pool="CodeHeap 'non-profiled nmethods'",} 3166720.0
+jvm_memory_pool_allocated_bytes_total{pool="G1 Survivor Space",} 1.6777216E7
+jvm_memory_pool_allocated_bytes_total{pool="Compressed Class Space",} 6084208.0
+jvm_memory_pool_allocated_bytes_total{pool="Metaspace",} 4.927032E7
+jvm_memory_pool_allocated_bytes_total{pool="CodeHeap 'non-nmethods'",} 1303936.0
+# HELP jvm_threads_current Current thread count of a JVM
+# TYPE jvm_threads_current gauge
+jvm_threads_current 114.0
+# HELP jvm_threads_daemon Daemon thread count of a JVM
+# TYPE jvm_threads_daemon gauge
+jvm_threads_daemon 10.0
+# HELP jvm_threads_peak Peak thread count of a JVM
+# TYPE jvm_threads_peak gauge
+jvm_threads_peak 124.0
+# HELP jvm_threads_started_total Started thread count of a JVM
+# TYPE jvm_threads_started_total counter
+jvm_threads_started_total 140.0
+# HELP jvm_threads_deadlocked Cycles of JVM-threads that are in deadlock waiting to acquire object monitors or ownable synchronizers
+# TYPE jvm_threads_deadlocked gauge
+jvm_threads_deadlocked 0.0
+# HELP jvm_threads_deadlocked_monitor Cycles of JVM-threads that are in deadlock waiting to acquire object monitors
+# TYPE jvm_threads_deadlocked_monitor gauge
+jvm_threads_deadlocked_monitor 0.0
+# HELP jvm_threads_state Current count of threads by state
+# TYPE jvm_threads_state gauge
+jvm_threads_state{state="NEW",} 0.0
+jvm_threads_state{state="TERMINATED",} 0.0
+jvm_threads_state{state="RUNNABLE",} 12.0
+jvm_threads_state{state="BLOCKED",} 0.0
+jvm_threads_state{state="WAITING",} 80.0
+jvm_threads_state{state="TIMED_WAITING",} 22.0
+jvm_threads_state{state="UNKNOWN",} 0.0
+# HELP cluster_info Cluster info
+# TYPE cluster_info gauge
+cluster_info{cluster="seatunnel",hazelcastVersion="5.1",master="127.0.0.1:5801",} 1.0
+# HELP cluster_time Cluster start time
+# TYPE cluster_time gauge
+cluster_time{cluster="seatunnel",hazelcastVersion="5.1",} 1.725364524614E12
+# HELP node_count Cluster node total count
+# TYPE node_count gauge
+node_count{cluster="seatunnel",} 1.0
+# HELP process_cpu_seconds_total Total user and system CPU time spent in seconds.
+# TYPE process_cpu_seconds_total counter
+process_cpu_seconds_total 16.511054
+# HELP process_start_time_seconds Start time of the process since unix epoch in seconds.
+# TYPE process_start_time_seconds gauge
+process_start_time_seconds 1.725363614623E9
+# HELP process_open_fds Number of open file descriptors.
+# TYPE process_open_fds gauge
+process_open_fds 162.0
+# HELP process_max_fds Maximum number of open file descriptors.
+# TYPE process_max_fds gauge
+process_max_fds 10240.0
+# HELP job_count All job counts of seatunnel cluster
+# TYPE job_count gauge
+job_count{cluster="seatunnel",type="canceled",} 0.0
+job_count{cluster="seatunnel",type="cancelling",} 0.0
+job_count{cluster="seatunnel",type="created",} 0.0
+job_count{cluster="seatunnel",type="failed",} 0.0
+job_count{cluster="seatunnel",type="failing",} 0.0
+job_count{cluster="seatunnel",type="finished",} 0.0
+job_count{cluster="seatunnel",type="running",} 0.0
+job_count{cluster="seatunnel",type="scheduled",} 0.0
+# HELP node_state Whether is up of seatunnel node
+# TYPE node_state gauge
+node_state{cluster="seatunnel",address="127.0.0.1:5801",} 1.0
+# HELP hazelcast_executor_executedCount The hazelcast executor executedCount of seatunnel cluster node
+# TYPE hazelcast_executor_executedCount gauge
+hazelcast_executor_executedCount{cluster="seatunnel",address="127.0.0.1:5801",type="async",} 0.0
+hazelcast_executor_executedCount{cluster="seatunnel",address="127.0.0.1:5801",type="client",} 0.0
+hazelcast_executor_executedCount{cluster="seatunnel",address="127.0.0.1:5801",type="clientBlocking",} 0.0
+hazelcast_executor_executedCount{cluster="seatunnel",address="127.0.0.1:5801",type="clientQuery",} 0.0
+hazelcast_executor_executedCount{cluster="seatunnel",address="127.0.0.1:5801",type="io",} 224.0
+hazelcast_executor_executedCount{cluster="seatunnel",address="127.0.0.1:5801",type="offloadable",} 0.0
+hazelcast_executor_executedCount{cluster="seatunnel",address="127.0.0.1:5801",type="scheduled",} 16469.0
+hazelcast_executor_executedCount{cluster="seatunnel",address="127.0.0.1:5801",type="system",} 0.0
+# HELP hazelcast_executor_isShutdown The hazelcast executor isShutdown of seatunnel cluster node
+# TYPE hazelcast_executor_isShutdown gauge
+hazelcast_executor_isShutdown{cluster="seatunnel",address="127.0.0.1:5801",type="async",} 0.0
+hazelcast_executor_isShutdown{cluster="seatunnel",address="127.0.0.1:5801",type="client",} 0.0
+hazelcast_executor_isShutdown{cluster="seatunnel",address="127.0.0.1:5801",type="clientBlocking",} 0.0
+hazelcast_executor_isShutdown{cluster="seatunnel",address="127.0.0.1:5801",type="clientQuery",} 0.0
+hazelcast_executor_isShutdown{cluster="seatunnel",address="127.0.0.1:5801",type="io",} 0.0
+hazelcast_executor_isShutdown{cluster="seatunnel",address="127.0.0.1:5801",type="offloadable",} 0.0
+hazelcast_executor_isShutdown{cluster="seatunnel",address="127.0.0.1:5801",type="scheduled",} 0.0
+hazelcast_executor_isShutdown{cluster="seatunnel",address="127.0.0.1:5801",type="system",} 0.0
+# HELP hazelcast_executor_isTerminated The hazelcast executor isTerminated of seatunnel cluster node
+# TYPE hazelcast_executor_isTerminated gauge
+hazelcast_executor_isTerminated{cluster="seatunnel",address="127.0.0.1:5801",type="async",} 0.0
+hazelcast_executor_isTerminated{cluster="seatunnel",address="127.0.0.1:5801",type="client",} 0.0
+hazelcast_executor_isTerminated{cluster="seatunnel",address="127.0.0.1:5801",type="clientBlocking",} 0.0
+hazelcast_executor_isTerminated{cluster="seatunnel",address="127.0.0.1:5801",type="clientQuery",} 0.0
+hazelcast_executor_isTerminated{cluster="seatunnel",address="127.0.0.1:5801",type="io",} 0.0
+hazelcast_executor_isTerminated{cluster="seatunnel",address="127.0.0.1:5801",type="offloadable",} 0.0
+hazelcast_executor_isTerminated{cluster="seatunnel",address="127.0.0.1:5801",type="scheduled",} 0.0
+hazelcast_executor_isTerminated{cluster="seatunnel",address="127.0.0.1:5801",type="system",} 0.0
+# HELP hazelcast_executor_maxPoolSize The hazelcast executor maxPoolSize of seatunnel cluster node
+# TYPE hazelcast_executor_maxPoolSize gauge
+hazelcast_executor_maxPoolSize{cluster="seatunnel",address="127.0.0.1:5801",type="async",} 10.0
+hazelcast_executor_maxPoolSize{cluster="seatunnel",address="127.0.0.1:5801",type="client",} 10.0
+hazelcast_executor_maxPoolSize{cluster="seatunnel",address="127.0.0.1:5801",type="clientBlocking",} 200.0
+hazelcast_executor_maxPoolSize{cluster="seatunnel",address="127.0.0.1:5801",type="clientQuery",} 10.0
+hazelcast_executor_maxPoolSize{cluster="seatunnel",address="127.0.0.1:5801",type="io",} 16.0
+hazelcast_executor_maxPoolSize{cluster="seatunnel",address="127.0.0.1:5801",type="offloadable",} 10.0
+hazelcast_executor_maxPoolSize{cluster="seatunnel",address="127.0.0.1:5801",type="scheduled",} 20.0
+hazelcast_executor_maxPoolSize{cluster="seatunnel",address="127.0.0.1:5801",type="system",} 10.0
+# HELP hazelcast_executor_poolSize The hazelcast executor poolSize of seatunnel cluster node
+# TYPE hazelcast_executor_poolSize gauge
+hazelcast_executor_poolSize{cluster="seatunnel",address="127.0.0.1:5801",type="async",} 0.0
+hazelcast_executor_poolSize{cluster="seatunnel",address="127.0.0.1:5801",type="client",} 0.0
+hazelcast_executor_poolSize{cluster="seatunnel",address="127.0.0.1:5801",type="clientBlocking",} 0.0
+hazelcast_executor_poolSize{cluster="seatunnel",address="127.0.0.1:5801",type="clientQuery",} 0.0
+hazelcast_executor_poolSize{cluster="seatunnel",address="127.0.0.1:5801",type="io",} 0.0
+hazelcast_executor_poolSize{cluster="seatunnel",address="127.0.0.1:5801",type="offloadable",} 0.0
+hazelcast_executor_poolSize{cluster="seatunnel",address="127.0.0.1:5801",type="scheduled",} 0.0
+hazelcast_executor_poolSize{cluster="seatunnel",address="127.0.0.1:5801",type="system",} 0.0
+# HELP hazelcast_executor_queueRemainingCapacity The hazelcast executor queueRemainingCapacity of seatunnel cluster
+# TYPE hazelcast_executor_queueRemainingCapacity gauge
+hazelcast_executor_queueRemainingCapacity{cluster="seatunnel",address="127.0.0.1:5801",type="async",} 100000.0
+hazelcast_executor_queueRemainingCapacity{cluster="seatunnel",address="127.0.0.1:5801",type="client",} 1000000.0
+hazelcast_executor_queueRemainingCapacity{cluster="seatunnel",address="127.0.0.1:5801",type="clientBlocking",} 1000000.0
+hazelcast_executor_queueRemainingCapacity{cluster="seatunnel",address="127.0.0.1:5801",type="clientQuery",} 1000000.0
+hazelcast_executor_queueRemainingCapacity{cluster="seatunnel",address="127.0.0.1:5801",type="io",} 2.147483647E9
+hazelcast_executor_queueRemainingCapacity{cluster="seatunnel",address="127.0.0.1:5801",type="offloadable",} 100000.0
+hazelcast_executor_queueRemainingCapacity{cluster="seatunnel",address="127.0.0.1:5801",type="scheduled",} 1000000.0
+hazelcast_executor_queueRemainingCapacity{cluster="seatunnel",address="127.0.0.1:5801",type="system",} 2.147483647E9
+# HELP hazelcast_executor_queueSize The hazelcast executor queueSize of seatunnel cluster node
+# TYPE hazelcast_executor_queueSize gauge
+hazelcast_executor_queueSize{cluster="seatunnel",address="127.0.0.1:5801",type="async",} 0.0
+hazelcast_executor_queueSize{cluster="seatunnel",address="127.0.0.1:5801",type="client",} 0.0
+hazelcast_executor_queueSize{cluster="seatunnel",address="127.0.0.1:5801",type="clientBlocking",} 0.0
+hazelcast_executor_queueSize{cluster="seatunnel",address="127.0.0.1:5801",type="clientQuery",} 0.0
+hazelcast_executor_queueSize{cluster="seatunnel",address="127.0.0.1:5801",type="io",} 0.0
+hazelcast_executor_queueSize{cluster="seatunnel",address="127.0.0.1:5801",type="offloadable",} 0.0
+hazelcast_executor_queueSize{cluster="seatunnel",address="127.0.0.1:5801",type="scheduled",} 0.0
+hazelcast_executor_queueSize{cluster="seatunnel",address="127.0.0.1:5801",type="system",} 0.0
+# HELP hazelcast_partition_partitionCount The partitionCount of seatunnel cluster node
+# TYPE hazelcast_partition_partitionCount gauge
+hazelcast_partition_partitionCount{cluster="seatunnel",address="127.0.0.1:5801",} 271.0
+# HELP hazelcast_partition_activePartition The activePartition of seatunnel cluster node
+# TYPE hazelcast_partition_activePartition gauge
+hazelcast_partition_activePartition{cluster="seatunnel",address="127.0.0.1:5801",} 271.0
+# HELP hazelcast_partition_isClusterSafe Whether is cluster safe of partition
+# TYPE hazelcast_partition_isClusterSafe gauge
+hazelcast_partition_isClusterSafe{cluster="seatunnel",address="127.0.0.1:5801",} 1.0
+# HELP hazelcast_partition_isLocalMemberSafe Whether is local member safe of partition
+# TYPE hazelcast_partition_isLocalMemberSafe gauge
+hazelcast_partition_isLocalMemberSafe{cluster="seatunnel",address="127.0.0.1:5801",} 1.0
+# HELP jvm_info VM version info
+# TYPE jvm_info gauge
+jvm_info{runtime="OpenJDK Runtime Environment",vendor="Azul Systems, Inc.",version="11.0.13+8-LTS",} 1.0
+# HELP jvm_classes_currently_loaded The number of classes that are currently loaded in the JVM
+# TYPE jvm_classes_currently_loaded gauge
+jvm_classes_currently_loaded 9168.0
+# HELP jvm_classes_loaded_total The total number of classes that have been loaded since the JVM has started execution
+# TYPE jvm_classes_loaded_total counter
+jvm_classes_loaded_total 9168.0
+# HELP jvm_classes_unloaded_total The total number of classes that have been unloaded since the JVM has started execution
+# TYPE jvm_classes_unloaded_total counter
+jvm_classes_unloaded_total 0.0
+# HELP jvm_memory_pool_allocated_bytes_created Total bytes allocated in a given JVM memory pool. Only updated after GC, not continuously.
+# TYPE jvm_memory_pool_allocated_bytes_created gauge
+jvm_memory_pool_allocated_bytes_created{pool="CodeHeap 'profiled nmethods'",} 1.725364266616E9
+jvm_memory_pool_allocated_bytes_created{pool="G1 Old Gen",} 1.725364266619E9
+jvm_memory_pool_allocated_bytes_created{pool="G1 Eden Space",} 1.725364266619E9
+jvm_memory_pool_allocated_bytes_created{pool="CodeHeap 'non-profiled nmethods'",} 1.725364266619E9
+jvm_memory_pool_allocated_bytes_created{pool="G1 Survivor Space",} 1.725364266619E9
+jvm_memory_pool_allocated_bytes_created{pool="Compressed Class Space",} 1.725364266619E9
+jvm_memory_pool_allocated_bytes_created{pool="Metaspace",} 1.725364266619E9
+jvm_memory_pool_allocated_bytes_created{pool="CodeHeap 'non-nmethods'",} 1.725364266619E9

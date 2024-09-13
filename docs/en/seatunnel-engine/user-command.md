@@ -68,7 +68,7 @@ This command will output the list of all jobs in the current cluster (including 
 ## Viewing The Job Status
 
 ```shell
-sh bin/seatunnel.sh -j &lt;jobId&gt;
+sh bin/seatunnel.sh -j <jobId>
 ```
 
 This command will output the status information of the specified job.
@@ -86,13 +86,13 @@ This command will output the monitoring information of running jobs.
 The --metrics parameter can get the monitoring information of a specified job.
 
 ```shell
-sh bin/seatunnel.sh --metrics &lt;jobId&gt;
+sh bin/seatunnel.sh --metrics <jobId>
 ```
 
 ## Pausing Jobs
 
 ```shell
-sh bin/seatunnel.sh -s &lt;jobId&gt;
+sh bin/seatunnel.sh -s <jobId>
 ```
 
 This command will pause the specified job. Note that only jobs with checkpoints enabled support pausing jobs (real-time synchronization jobs have checkpoints enabled by default, and batch jobs do not have checkpoints enabled by default and need to configure checkpoint.interval in `env` to enable checkpoints).
@@ -102,7 +102,7 @@ Pausing a job is in the smallest unit of split. That is, after pausing a job, it
 ## Resuming Jobs
 
 ```shell
-sh bin/seatunnel.sh -r &lt;jobId&gt; -c $SEATUNNEL_HOME/config/v2.batch.config.template
+sh bin/seatunnel.sh -r <jobId> -c $SEATUNNEL_HOME/config/v2.batch.config.template
 ```
 
 This command will resume the specified job. Note that only jobs with checkpoints enabled support resuming jobs (real-time synchronization jobs have checkpoints enabled by default, and batch jobs do not have checkpoints enabled by default and need to configure checkpoint.interval in `env` to enable checkpoints).
@@ -114,9 +114,11 @@ Both failed jobs and jobs paused by seatunnel.sh -s &lt;jobId&gt; can be resumed
 ## Canceling Jobs
 
 ```shell
-sh bin/seatunnel.sh -can &lt;jobId&gt;
+sh bin/seatunnel.sh -can <jobId1> [<jobId2> <jobId3> ...]
 ```
 
 This command will cancel the specified job. After canceling the job, the job will be stopped and its status will become `CANCELED`.
+
+Supports batch cancellation of jobs, and can cancel multiple jobs at one time.
 
 All breakpoint information of the canceled job will be deleted and cannot be resumed by seatunnel.sh -r &lt;jobId&gt;.

@@ -137,9 +137,13 @@ public class IrisCatalog extends AbstractJdbcCatalog {
 
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
-        return querySQLResultExists(
-                this.getUrlFromDatabaseName(tablePath.getDatabaseName()),
-                getTableWithConditionSql(tablePath));
+        try {
+            return querySQLResultExists(
+                    this.getUrlFromDatabaseName(tablePath.getDatabaseName()),
+                    getTableWithConditionSql(tablePath));
+        } catch (SQLException e) {
+            throw new SeaTunnelException("Failed to querySQLResult", e);
+        }
     }
 
     @Override
