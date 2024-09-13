@@ -110,6 +110,42 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     + "\tXML_TEST xml NULL,\n"
                     + "\tCONSTRAINT PK_TEST_INDEX PRIMARY KEY (INT_IDENTITY_TEST)\n"
                     + ");";
+    private static final String CREATE_SQL_WITH_DOT =
+            "CREATE TABLE %s (\n"
+                    + "\tINT_IDENTITY_TEST int identity,\n"
+                    + "\tBIGINT_TEST bigint NOT NULL,\n"
+                    + "\tBINARY_TEST binary(255) NULL,\n"
+                    + "\tBIT_TEST bit NULL,\n"
+                    + "\tCHAR_TEST char(255) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tDATE_TEST date NULL,\n"
+                    + "\tDATETIME_TEST datetime NULL,\n"
+                    + "\tDATETIME2_TEST datetime2 NULL,\n"
+                    + "\tDATETIMEOFFSET_TEST datetimeoffset NULL,\n"
+                    + "\tDECIMAL_TEST decimal(18,2) NULL,\n"
+                    + "\tFLOAT_TEST float NULL,\n"
+                    + "\tIMAGE_TEST image NULL,\n"
+                    + "\tINT_TEST int NULL,\n"
+                    + "\tMONEY_TEST money NULL,\n"
+                    + "\tNCHAR_TEST nchar(1) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tNTEXT_TEST ntext COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tNUMERIC_TEST numeric(18,2) NULL,\n"
+                    + "\tNVARCHAR_TEST nvarchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tNVARCHAR_MAX_TEST nvarchar(MAX) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tREAL_TEST real NULL,\n"
+                    + "\tSMALLDATETIME_TEST smalldatetime NULL,\n"
+                    + "\tSMALLINT_TEST smallint NULL,\n"
+                    + "\tSMALLMONEY_TEST smallmoney NULL,\n"
+                    + "\tSQL_VARIANT_TEST sql_variant NULL,\n"
+                    + "\tTEXT_TEST text COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tTIME_TEST time NULL,\n"
+                    + "\tTINYINT_TEST tinyint NULL,\n"
+                    + "\tUNIQUEIDENTIFIER_TEST uniqueidentifier NULL,\n"
+                    + "\tVARBINARY_TEST varbinary(255) NULL,\n"
+                    + "\tVARBINARY_MAX_TEST varbinary(MAX) NULL,\n"
+                    + "\tVARCHAR_TEST varchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tVARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS DEFAULT NULL NULL,\n"
+                    + "\tXML_TEST xml NULL\n"
+                    + ");";
 
     private static final String SINK_CREATE_SQL =
             "CREATE TABLE %s (\n"
@@ -204,7 +240,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
 
             String createSourceWithDot =
                     String.format(
-                            createTemplate,
+                            CREATE_SQL_WITH_DOT,
                             buildTableInfoWithSchema(
                                     jdbcCase.getDatabase(),
                                     jdbcCase.getSchema(),
