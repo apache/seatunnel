@@ -18,7 +18,7 @@
 package org.apache.seatunnel.api.table.factory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.sink.TablePlaceholder;
+import org.apache.seatunnel.api.sink.TablePlaceholderProcessor;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -48,7 +48,7 @@ public class TableSinkFactoryContext extends TableFactoryContext {
             ClassLoader classLoader,
             Collection<String> excludeTablePlaceholderReplaceKeys) {
         ReadonlyConfig rewriteConfig =
-                TablePlaceholder.replaceTablePlaceholder(
+                TablePlaceholderProcessor.replaceTablePlaceholder(
                         options, catalogTable, excludeTablePlaceholderReplaceKeys);
         return new TableSinkFactoryContext(catalogTable, rewriteConfig, classLoader);
     }

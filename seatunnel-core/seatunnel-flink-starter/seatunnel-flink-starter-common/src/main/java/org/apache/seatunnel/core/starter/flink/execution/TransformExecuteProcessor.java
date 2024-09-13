@@ -36,8 +36,11 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.operators.StreamMap;
 
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -85,12 +88,22 @@ public class TransformExecuteProcessor
             return upstreamDataStreams;
         }
         DataStreamTableInfo input = upstreamDataStreams.get(0);
+        Map<String, DataStreamTableInfo> outputTables =
+                upstreamDataStreams.stream()
+                        .collect(
+                                Collectors.toMap(
+                                        DataStreamTableInfo::getTableName,
+                                        e -> e,
+                                        (a, b) -> b,
+                                        LinkedHashMap::new));
+
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         for (int i = 0; i < plugins.size(); i++) {
             try {
                 Config pluginConfig = pluginConfigs.get(i);
                 DataStreamTableInfo stream =
-                        fromSourceTable(pluginConfig, upstreamDataStreams).orElse(input);
+                        fromSourceTable(pluginConfig, new ArrayList<>(outputTables.values()))
+                                .orElse(input);
                 TableTransformFactory factory = plugins.get(i);
                 TableTransformFactoryContext context =
                         new TableTransformFactoryContext(
@@ -103,14 +116,17 @@ public class TransformExecuteProcessor
                 transform.setJobContext(jobContext);
                 DataStream<SeaTunnelRow> inputStream =
                         flinkTransform(transform, stream.getDataStream());
+                String resultTableName =
+                        pluginConfig.hasPath(RESULT_TABLE_NAME.key())
+                                ? pluginConfig.getString(RESULT_TABLE_NAME.key())
+                                : null;
                 // TODO transform support multi tables
-                upstreamDataStreams.add(
+                outputTables.put(
+                        resultTableName,
                         new DataStreamTableInfo(
                                 inputStream,
                                 Collections.singletonList(transform.getProducedCatalogTable()),
-                                pluginConfig.hasPath(RESULT_TABLE_NAME.key())
-                                        ? pluginConfig.getString(RESULT_TABLE_NAME.key())
-                                        : null));
+                                resultTableName));
             } catch (Exception e) {
                 throw new TaskExecuteException(
                         String.format(
@@ -119,7 +135,7 @@ public class TransformExecuteProcessor
                         e);
             }
         }
-        return upstreamDataStreams;
+        return new ArrayList<>(outputTables.values());
     }
 
     protected DataStream<SeaTunnelRow> flinkTransform(

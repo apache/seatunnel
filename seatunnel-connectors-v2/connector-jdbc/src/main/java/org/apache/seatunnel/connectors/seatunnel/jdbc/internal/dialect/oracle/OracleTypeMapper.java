@@ -59,9 +59,6 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
         } else if (Arrays.asList("NVARCHAR2", "NCHAR").contains(nativeType)) {
             long doubleByteLength = TypeDefineUtils.charToDoubleByteLength(precision);
             precision = doubleByteLength;
-        } else if (Arrays.asList("CHAR", "VARCHAR", "VARCHAR2").contains(nativeType)) {
-            long octetByteLength = TypeDefineUtils.charTo4ByteLength(precision);
-            precision = octetByteLength;
         }
 
         BasicTypeDefine typeDefine =

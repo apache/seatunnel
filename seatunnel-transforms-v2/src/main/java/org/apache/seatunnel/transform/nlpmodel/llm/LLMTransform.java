@@ -30,6 +30,7 @@ import org.apache.seatunnel.transform.nlpmodel.ModelProvider;
 import org.apache.seatunnel.transform.nlpmodel.ModelTransformConfig;
 import org.apache.seatunnel.transform.nlpmodel.llm.remote.Model;
 import org.apache.seatunnel.transform.nlpmodel.llm.remote.custom.CustomModel;
+import org.apache.seatunnel.transform.nlpmodel.llm.remote.kimiai.KimiAIModel;
 import org.apache.seatunnel.transform.nlpmodel.llm.remote.openai.OpenAIModel;
 
 import lombok.NonNull;
@@ -79,6 +80,7 @@ public class LLMTransform extends SingleFieldOutputTransform {
                         new CustomModel(
                                 inputCatalogTable.getSeaTunnelRowType(),
                                 outputDataType.getSqlType(),
+                                config.get(LLMTransformConfig.INFERENCE_COLUMNS),
                                 config.get(LLMTransformConfig.PROMPT),
                                 config.get(LLMTransformConfig.MODEL),
                                 provider.usedLLMPath(config.get(LLMTransformConfig.API_PATH)),
@@ -97,6 +99,17 @@ public class LLMTransform extends SingleFieldOutputTransform {
                         new OpenAIModel(
                                 inputCatalogTable.getSeaTunnelRowType(),
                                 outputDataType.getSqlType(),
+                                config.get(LLMTransformConfig.INFERENCE_COLUMNS),
+                                config.get(LLMTransformConfig.PROMPT),
+                                config.get(LLMTransformConfig.MODEL),
+                                config.get(LLMTransformConfig.API_KEY),
+                                provider.usedLLMPath(config.get(LLMTransformConfig.API_PATH)));
+            case KIMIAI:
+                model =
+                        new KimiAIModel(
+                                inputCatalogTable.getSeaTunnelRowType(),
+                                outputDataType.getSqlType(),
+                                config.get(LLMTransformConfig.INFERENCE_COLUMNS),
                                 config.get(LLMTransformConfig.PROMPT),
                                 config.get(LLMTransformConfig.MODEL),
                                 config.get(LLMTransformConfig.API_KEY),

@@ -61,6 +61,12 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                 config.get(EmbeddingTransformConfig.VECTORIZATION_FIELDS));
     }
 
+    private void tryOpen() {
+        if (model == null) {
+            open();
+        }
+    }
+
     @Override
     public void open() {
         // Initialize model
@@ -161,6 +167,7 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
 
     @Override
     protected Object[] getOutputFieldValues(SeaTunnelRowAccessor inputRow) {
+        tryOpen();
         try {
             Object[] fieldArray = new Object[fieldOriginalIndexes.size()];
             for (int i = 0; i < fieldOriginalIndexes.size(); i++) {
