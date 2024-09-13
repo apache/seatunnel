@@ -87,7 +87,7 @@ public class SeaTunnelSourcePluginRemoteDiscoveryTest extends SeaTunnelSourcePlu
 
         final String pluginMappingPath =
                 SeaTunnelSourcePluginRemoteDiscoveryTest.class
-                        .getResource("/plugin-mapping.properties")
+                        .getResource("/duplicate/connectors/plugin-mapping.properties")
                         .getPath();
 
         pluginMappingConfig =
