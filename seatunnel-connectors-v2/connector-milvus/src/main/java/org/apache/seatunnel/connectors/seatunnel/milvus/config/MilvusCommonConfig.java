@@ -20,17 +20,19 @@ package org.apache.seatunnel.connectors.seatunnel.milvus.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class MilvusSourceConfig extends MilvusCommonConfig {
+public abstract class MilvusCommonConfig {
 
-    public static final Option<String> DATABASE =
-            Options.key("database")
-                    .stringType()
-                    .defaultValue("default")
-                    .withDescription("database");
+    public static final String CONNECTOR_IDENTITY = "Milvus";
 
-    public static final Option<String> COLLECTION =
-            Options.key("collection")
+    public static final Option<String> URL =
+            Options.key("url")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Milvus collection to read");
+                    .withDescription("Milvus public endpoint");
+
+    public static final Option<String> TOKEN =
+            Options.key("token")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Milvus token for authentication");
 }
