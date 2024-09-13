@@ -146,7 +146,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     + "\tVARCHAR_TEST varchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
                     + "\tVARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS DEFAULT NULL NULL,\n"
                     + "\tXML_TEST xml NULL,\n"
-                    + "\tCONSTRAINT PK_TEST_INDEX PRIMARY KEY (INT_IDENTITY_TEST_WITH_DOT)\n"
+                    + "\tCONSTRAINT PK_TEST_INDEX_WITH_DOT PRIMARY KEY (INT_IDENTITY_TEST)\n"
                     + ");";
 
     private static final String SINK_CREATE_SQL =
