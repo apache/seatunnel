@@ -469,7 +469,9 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                                         TablePath.of("not_exist", "not_exist", "not_exist"),
                                         false));
         Assertions.assertEquals(
-                "Table not_exist.not_exist.not_exist does not exist in catalog",
+                String.format(
+                        "ErrorCode:[API-05], ErrorDescription:[Table not existed] - Table not_exist.not_exist.not_exist does not exist in Catalog %s.",
+                        catalog.name()),
                 exception.getMessage());
     }
 
