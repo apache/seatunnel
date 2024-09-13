@@ -27,7 +27,7 @@ more.
 ### model_provider
 
 The model provider to use. The available options are:
-OPENAI、DOUBAO、CUSTOM
+OPENAI, DOUBAO, KIMIAI, CUSTOM
 
 ### output_data_type
 
@@ -155,7 +155,11 @@ The `custom_request_body` option supports placeholders:
 
 Transform plugin common parameters, please refer to [Transform Plugin](common-options.md) for details
 
-## Example
+## tips
+The API interface usually has a rate limit, which can be configured with Seatunnel's speed limit to ensure smooth operation of the task.
+For details about Seatunnel speed limit Settings, please refer to [speed-limit](../concept/speed-limit.md) for details.
+
+## Example OPENAI
 
 Determine the user's country through a LLM.
 
@@ -163,6 +167,7 @@ Determine the user's country through a LLM.
 env {
   parallelism = 1
   job.mode = "BATCH"
+  read_limit.rows_per_second = 10
 }
 
 source {
@@ -199,6 +204,51 @@ sink {
 }
 ```
 
+## Example KIMIAI
+
+Determine whether a person is a historical emperor of China.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+  read_limit.rows_per_second = 10
+}
+
+source {
+  FakeSource {
+    row.num = 5
+    schema = {
+      fields {
+        id = "int"
+        name = "string"
+      }
+    }
+    rows = [
+      {fields = [1, "Zhuge Liang"], kind = INSERT}
+      {fields = [2, "Li Shimin"], kind = INSERT}
+      {fields = [3, "Sun Wukong"], kind = INSERT}
+      {fields = [4, "Zhu Yuanzhuang"], kind = INSERT}
+      {fields = [5, "George Washington"], kind = INSERT}
+    ]
+  }
+}
+
+transform {
+  LLM {
+    model_provider = KIMIAI
+    model = moonshot-v1-8k
+    api_key = sk-xxx
+    prompt = "Determine whether a person is a historical emperor of China"
+    output_data_type = boolean
+  }
+}
+
+sink {
+  console {
+  }
+}
+```
 ### Customize the LLM model
 
 ```hocon
@@ -277,4 +327,3 @@ sink {
   }
 }
 ```
-
