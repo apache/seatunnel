@@ -69,7 +69,7 @@ connector-console
 
 ```shell
 cd seatunnel
-sh ./mvnw clean package -DskipTests -Dskip.spotless=true
+sh ./mvnw clean install -DskipTests -Dskip.spotless=true
 # 获取构建好的二进制包
 cp seatunnel-dist/target/apache-seatunnel-2.3.8-bin.tar.gz /The-Path-You-Want-To-Copy
 

@@ -69,7 +69,7 @@ You can download the source code from the [download page](https://seatunnel.apac
 
 ```shell
 cd seatunnel
-sh ./mvnw clean package -DskipTests -Dskip.spotless=true
+sh ./mvnw clean install -DskipTests -Dskip.spotless=true
 # get the binary package
 cp seatunnel-dist/target/apache-seatunnel-2.3.8-bin.tar.gz /The-Path-You-Want-To-Copy
 
