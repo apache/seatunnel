@@ -79,22 +79,25 @@ public class TextReadStrategy extends AbstractReadStrategy {
             Map<String, String> partitionsMap,
             String currentFileName)
             throws IOException {
+        InputStream actualInputStream;
         switch (compressFormat) {
             case LZO:
                 LzopCodec lzo = new LzopCodec();
-                inputStream = lzo.createInputStream(inputStream);
+                actualInputStream = lzo.createInputStream(inputStream);
                 break;
             case NONE:
+                actualInputStream = inputStream;
                 break;
             default:
                 log.warn(
                         "Text file does not support this compress type: {}",
                         compressFormat.getCompressCodec());
+                actualInputStream = inputStream;
                 break;
         }
 
         try (BufferedReader reader =
-                new BufferedReader(new InputStreamReader(inputStream, encoding))) {
+                new BufferedReader(new InputStreamReader(actualInputStream, encoding))) {
             reader.lines()
                     .skip(skipHeaderNumber)
                     .forEach(

@@ -85,28 +85,28 @@ public class JsonReadStrategy extends AbstractReadStrategy {
             String path,
             String tableId,
             Collector<SeaTunnelRow> output,
-            InputStream archiveInputStream,
+            InputStream inputStream,
             Map<String, String> partitionsMap,
             String currentFileName)
             throws IOException {
-        InputStream inputStream;
+        InputStream actualInputStream;
         switch (compressFormat) {
             case LZO:
                 LzopCodec lzo = new LzopCodec();
-                inputStream = lzo.createInputStream(archiveInputStream);
+                actualInputStream = lzo.createInputStream(inputStream);
                 break;
             case NONE:
-                inputStream = archiveInputStream;
+                actualInputStream = inputStream;
                 break;
             default:
                 log.warn(
-                        "Text file does not support this compress type: {}",
+                        "Json file does not support this compress type: {}",
                         compressFormat.getCompressCodec());
-                inputStream = archiveInputStream;
+                actualInputStream = inputStream;
                 break;
         }
         try (BufferedReader reader =
-                new BufferedReader(new InputStreamReader(inputStream, encoding))) {
+                new BufferedReader(new InputStreamReader(actualInputStream, encoding))) {
             reader.lines()
                     .forEach(
                             line -> {

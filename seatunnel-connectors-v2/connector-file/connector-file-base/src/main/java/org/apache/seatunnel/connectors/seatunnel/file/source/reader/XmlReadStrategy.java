@@ -98,14 +98,14 @@ public class XmlReadStrategy extends AbstractReadStrategy {
             String path,
             String tableId,
             Collector<SeaTunnelRow> output,
-            InputStream archiveInputStream,
+            InputStream inputStream,
             Map<String, String> partitionsMap,
             String currentFileName)
             throws IOException {
         SAXReader saxReader = new SAXReader();
         Document document;
         try {
-            document = saxReader.read(new InputStreamReader(archiveInputStream, encoding));
+            document = saxReader.read(new InputStreamReader(inputStream, encoding));
         } catch (DocumentException e) {
             throw new FileConnectorException(
                     FileConnectorErrorCode.FILE_READ_FAILED, "Failed to read xml file: " + path, e);
