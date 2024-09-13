@@ -30,9 +30,9 @@ import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
-import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
@@ -44,6 +44,8 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import lombok.SneakyThrows;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -73,12 +75,23 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output) {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
-        FSDataInputStream file = hadoopFileSystemProxy.getInputStream(path);
+        resolveArchiveCompressedInputStream(path, tableId, output, partitionsMap, FileFormat.EXCEL);
+    }
+
+    @Override
+    protected void readProcess(
+            String path,
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            InputStream inputStream,
+            Map<String, String> partitionsMap,
+            String currentFileName)
+            throws IOException {
         Workbook workbook;
-        if (path.endsWith(".xls")) {
-            workbook = new HSSFWorkbook(file);
-        } else if (path.endsWith(".xlsx")) {
-            workbook = new XSSFWorkbook(file);
+        if (currentFileName.endsWith(".xls")) {
+            workbook = new HSSFWorkbook(inputStream);
+        } else if (currentFileName.endsWith(".xlsx")) {
+            workbook = new XSSFWorkbook(inputStream);
         } else {
             throw new FileConnectorException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,

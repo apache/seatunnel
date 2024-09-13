@@ -34,6 +34,7 @@ public enum ArchiveCompressFormat {
     NONE(""),
     ZIP(".zip"),
     TAR(".tar"),
+    TAR_GZ(".tar.gz"),
     ;
     private final String archiveCompressCodec;
 

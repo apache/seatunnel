@@ -31,9 +31,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErr
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
-
 import io.airlift.compress.lzo.LzopCodec;
 import lombok.extern.slf4j.Slf4j;
 
@@ -43,8 +40,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 @Slf4j
 public class JsonReadStrategy extends AbstractReadStrategy {
@@ -82,52 +77,17 @@ public class JsonReadStrategy extends AbstractReadStrategy {
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
-        InputStream archiveInputStream;
-        switch (archiveCompressFormat) {
-            case ZIP:
-                try (ZipInputStream zis =
-                        new ZipInputStream(hadoopFileSystemProxy.getInputStream(path))) {
-                    ZipEntry entry;
-                    while ((entry = zis.getNextEntry()) != null) {
-                        if (!entry.isDirectory()
-                                && checkFileType(entry.getName(), FileFormat.JSON)) {
-                            jsonRead(tableId, output, copyInputStream(zis), partitionsMap);
-                        }
-                        zis.closeEntry();
-                    }
-                }
-                break;
-            case TAR:
-                try (TarArchiveInputStream tarInput =
-                        new TarArchiveInputStream(hadoopFileSystemProxy.getInputStream(path))) {
-                    TarArchiveEntry entry;
-                    while ((entry = tarInput.getNextTarEntry()) != null) {
-                        if (!entry.isDirectory()
-                                && checkFileType(entry.getName(), FileFormat.JSON)) {
-
-                            jsonRead(tableId, output, copyInputStream(tarInput), partitionsMap);
-                        }
-                    }
-                }
-                break;
-            case NONE:
-                archiveInputStream = hadoopFileSystemProxy.getInputStream(path);
-                jsonRead(tableId, output, archiveInputStream, partitionsMap);
-                break;
-            default:
-                log.warn(
-                        "Json file does not support this archive compress type: {}",
-                        archiveCompressFormat);
-                archiveInputStream = hadoopFileSystemProxy.getInputStream(path);
-                jsonRead(tableId, output, archiveInputStream, partitionsMap);
-        }
+        resolveArchiveCompressedInputStream(path, tableId, output, partitionsMap, FileFormat.JSON);
     }
 
-    private void jsonRead(
+    @Override
+    public void readProcess(
+            String path,
             String tableId,
             Collector<SeaTunnelRow> output,
             InputStream archiveInputStream,
-            Map<String, String> partitionsMap)
+            Map<String, String> partitionsMap,
+            String currentFileName)
             throws IOException {
         InputStream inputStream;
         switch (compressFormat) {

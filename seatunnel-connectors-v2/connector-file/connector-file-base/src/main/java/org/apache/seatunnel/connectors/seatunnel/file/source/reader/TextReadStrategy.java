@@ -39,9 +39,6 @@ import org.apache.seatunnel.format.text.splitor.CsvLineSplitor;
 import org.apache.seatunnel.format.text.splitor.DefaultTextLineSplitor;
 import org.apache.seatunnel.format.text.splitor.TextLineSplitor;
 
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
-
 import io.airlift.compress.lzo.LzopCodec;
 import lombok.extern.slf4j.Slf4j;
 
@@ -52,8 +49,6 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Optional;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 @Slf4j
 public class TextReadStrategy extends AbstractReadStrategy {
@@ -72,51 +67,17 @@ public class TextReadStrategy extends AbstractReadStrategy {
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
-        InputStream archiveInputStream;
-        switch (archiveCompressFormat) {
-            case ZIP:
-                try (ZipInputStream zis =
-                        new ZipInputStream(hadoopFileSystemProxy.getInputStream(path))) {
-                    ZipEntry entry;
-                    while ((entry = zis.getNextEntry()) != null) {
-                        if (!entry.isDirectory()
-                                && checkFileType(entry.getName(), FileFormat.TEXT)) {
-                            textRead(tableId, output, copyInputStream(zis), partitionsMap);
-                        }
-                        zis.closeEntry();
-                    }
-                }
-                break;
-            case TAR:
-                try (TarArchiveInputStream tarInput =
-                        new TarArchiveInputStream(hadoopFileSystemProxy.getInputStream(path))) {
-                    TarArchiveEntry entry;
-                    while ((entry = tarInput.getNextTarEntry()) != null) {
-                        if (!entry.isDirectory()
-                                && checkFileType(entry.getName(), FileFormat.TEXT)) {
-                            textRead(tableId, output, copyInputStream(tarInput), partitionsMap);
-                        }
-                    }
-                }
-                break;
-            case NONE:
-                archiveInputStream = hadoopFileSystemProxy.getInputStream(path);
-                textRead(tableId, output, archiveInputStream, partitionsMap);
-                break;
-            default:
-                log.warn(
-                        "Text file does not support this archive compress type: {}",
-                        archiveCompressFormat);
-                archiveInputStream = hadoopFileSystemProxy.getInputStream(path);
-                textRead(tableId, output, archiveInputStream, partitionsMap);
-        }
+        resolveArchiveCompressedInputStream(path, tableId, output, partitionsMap, FileFormat.TEXT);
     }
 
-    private void textRead(
+    @Override
+    public void readProcess(
+            String path,
             String tableId,
             Collector<SeaTunnelRow> output,
             InputStream inputStream,
-            Map<String, String> partitionsMap)
+            Map<String, String> partitionsMap,
+            String currentFileName)
             throws IOException {
         switch (compressFormat) {
             case LZO:

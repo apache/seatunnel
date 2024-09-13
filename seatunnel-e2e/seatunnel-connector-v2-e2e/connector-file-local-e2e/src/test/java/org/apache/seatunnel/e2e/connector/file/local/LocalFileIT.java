@@ -62,12 +62,13 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 @DisabledOnContainer(
         value = {TestContainerId.SPARK_2_4},
-        type = {EngineType.FLINK, EngineType.SEATUNNEL},
+        type = {},
         disabledReason = "The apache-compress version is not compatible with apache-poi")
 @Slf4j
 public class LocalFileIT extends TestSuiteBase {
@@ -99,14 +100,14 @@ public class LocalFileIT extends TestSuiteBase {
                         container);
 
                 Path txtZip =
-                        covertToZipFile(
+                        convertToZipFile(
                                 Lists.newArrayList(ContainerUtil.getResourcesFile("/text/e2e.txt")),
                                 "e2e-txt");
                 ContainerUtil.copyFileIntoContainers(
                         txtZip, "/seatunnel/read/zip/txt/single/e2e-txt.zip", container);
 
                 Path multiTxtZip =
-                        covertToZipFile(
+                        convertToZipFile(
                                 Lists.newArrayList(
                                         ContainerUtil.getResourcesFile("/text/e2e.txt"),
                                         ContainerUtil.getResourcesFile("/text/e2e.txt")),
@@ -115,14 +116,14 @@ public class LocalFileIT extends TestSuiteBase {
                         multiTxtZip, "/seatunnel/read/zip/txt/multifile/multiZip.zip", container);
 
                 Path txtTar =
-                        covertToTarFile(
+                        convertToTarFile(
                                 Lists.newArrayList(ContainerUtil.getResourcesFile("/text/e2e.txt")),
                                 "e2e-txt");
                 ContainerUtil.copyFileIntoContainers(
                         txtTar, "/seatunnel/read/tar/txt/single/e2e-txt.tar", container);
 
                 Path multiTxtTar =
-                        covertToTarFile(
+                        convertToTarFile(
                                 Lists.newArrayList(
                                         ContainerUtil.getResourcesFile("/text/e2e.txt"),
                                         ContainerUtil.getResourcesFile("/text/e2e.txt")),
@@ -130,8 +131,26 @@ public class LocalFileIT extends TestSuiteBase {
                 ContainerUtil.copyFileIntoContainers(
                         multiTxtTar, "/seatunnel/read/tar/txt/multifile/multiTar.tar", container);
 
+                Path txtTarGz =
+                        convertToTarGzFile(
+                                Lists.newArrayList(ContainerUtil.getResourcesFile("/text/e2e.txt")),
+                                "e2e-txt");
+                ContainerUtil.copyFileIntoContainers(
+                        txtTarGz, "/seatunnel/read/tar_gz/txt/single/e2e-txt.tar.gz", container);
+
+                Path multiTxtTarGz =
+                        convertToTarGzFile(
+                                Lists.newArrayList(
+                                        ContainerUtil.getResourcesFile("/text/e2e.txt"),
+                                        ContainerUtil.getResourcesFile("/text/e2e.txt")),
+                                "multiTarGz");
+                ContainerUtil.copyFileIntoContainers(
+                        multiTxtTarGz,
+                        "/seatunnel/read/tar_gz/txt/multifile/multiTarGz.tar.gz",
+                        container);
+
                 Path jsonZip =
-                        covertToZipFile(
+                        convertToZipFile(
                                 Lists.newArrayList(
                                         ContainerUtil.getResourcesFile("/json/e2e.json")),
                                 "e2e-json");
@@ -139,7 +158,7 @@ public class LocalFileIT extends TestSuiteBase {
                         jsonZip, "/seatunnel/read/zip/json/single/e2e-json.zip", container);
 
                 Path multiJsonZip =
-                        covertToZipFile(
+                        convertToZipFile(
                                 Lists.newArrayList(
                                         ContainerUtil.getResourcesFile("/json/e2e.json"),
                                         ContainerUtil.getResourcesFile("/json/e2e.json")),
@@ -168,7 +187,7 @@ public class LocalFileIT extends TestSuiteBase {
                         "/xml/e2e.xml", "/seatunnel/read/xml/e2e.xml", container);
 
                 Path xmlZip =
-                        covertToZipFile(
+                        convertToZipFile(
                                 Lists.newArrayList(ContainerUtil.getResourcesFile("/xml/e2e.xml")),
                                 "e2e-xml");
                 ContainerUtil.copyFileIntoContainers(
@@ -184,6 +203,25 @@ public class LocalFileIT extends TestSuiteBase {
                 ContainerUtil.copyFileIntoContainers(
                         "/excel/e2e.xls",
                         "/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xls",
+                        container);
+
+                Path xlsxZip =
+                        convertToZipFile(
+                                Lists.newArrayList(
+                                        ContainerUtil.getResourcesFile("/excel/e2e.xlsx")),
+                                "e2e-txt");
+                ContainerUtil.copyFileIntoContainers(
+                        xlsxZip, "/seatunnel/read/zip/excel/single/e2e-xlsx.zip", container);
+
+                Path multiXlsxZip =
+                        convertToZipFile(
+                                Lists.newArrayList(
+                                        ContainerUtil.getResourcesFile("/excel/e2e.xlsx"),
+                                        ContainerUtil.getResourcesFile("/excel/e2e.xlsx")),
+                                "multiXlsxZip");
+                ContainerUtil.copyFileIntoContainers(
+                        multiXlsxZip,
+                        "/seatunnel/read/zip/excel/multifile/multiZip.zip",
                         container);
 
                 ContainerUtil.copyFileIntoContainers(
@@ -277,16 +315,24 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/text/local_file_zip_text_to_assert.conf");
         // test read multi local text file with zip compression
         helper.execute("/text/local_file_multi_zip_text_to_assert.conf");
-        // test read single local text file with rar compression
+        // test read single local text file with tar compression
         helper.execute("/text/local_file_tar_text_to_assert.conf");
-        // test read multi local text file with rar compression
+        // test read multi local text file with tar compression
         helper.execute("/text/local_file_multi_tar_text_to_assert.conf");
+        // test read single local text file with tar.gz compression
+        helper.execute("/text/local_file_tar_gz_text_to_assert.conf");
+        // test read multi local text file with tar.gz compression
+        helper.execute("/text/local_file_multi_tar_gz_text_to_assert.conf");
         // test read single local json file with zip compression
         helper.execute("/json/local_file_json_zip_to_assert.conf");
         // test read multi local json file with zip compression
         helper.execute("/json/local_file_json_multi_zip_to_assert.conf");
         // test read single local xml file with zip compression
         helper.execute("/xml/local_file_zip_xml_to_assert.conf");
+        // test read single local excel file with zip compression
+        helper.execute("/excel/local_excel_zip_to_assert.conf");
+        // test read multi local excel file with zip compression
+        helper.execute("/excel/local_excel_multi_zip_to_assert.conf");
     }
 
     @TestTemplate
@@ -363,7 +409,7 @@ public class LocalFileIT extends TestSuiteBase {
         return path;
     }
 
-    public Path covertToZipFile(List<File> files, String name) throws IOException {
+    public Path convertToZipFile(List<File> files, String name) throws IOException {
         if (files == null || files.isEmpty()) {
             throw new IllegalArgumentException("File list is empty or invalid");
         }
@@ -400,20 +446,22 @@ public class LocalFileIT extends TestSuiteBase {
 
         if (relativePath.toString().contains(".")) {
             String fileName = relativePath.toString().split("\\.")[0];
+            String suffix = relativePath.toString().split("\\.")[1];
             zipEntry =
                     new ZipEntry(
                             new Random().nextInt()
                                     + fileName
                                     + "_"
                                     + System.currentTimeMillis()
-                                    + ".txt");
+                                    + "."
+                                    + suffix);
             zos.putNextEntry(zipEntry);
         }
         Files.copy(file, zos);
         zos.closeEntry();
     }
 
-    public Path covertToTarFile(List<File> files, String name) throws IOException {
+    public Path convertToTarFile(List<File> files, String name) throws IOException {
         if (files == null || files.isEmpty()) {
             throw new IllegalArgumentException("File list is empty or invalid");
         }
@@ -452,8 +500,14 @@ public class LocalFileIT extends TestSuiteBase {
         TarArchiveEntry tarEntry;
         if (relativePath.toString().contains(".")) {
             String fileName = relativePath.toString().split("\\.")[0];
+            String suffix = relativePath.toString().split("\\.")[1];
             String entryName =
-                    new Random().nextInt() + fileName + "_" + System.currentTimeMillis() + ".txt";
+                    new Random().nextInt()
+                            + fileName
+                            + "_"
+                            + System.currentTimeMillis()
+                            + "."
+                            + suffix;
             tarEntry = new TarArchiveEntry(file.toFile(), entryName);
         } else {
             tarEntry = new TarArchiveEntry(file.toFile(), relativePath.toString());
@@ -462,5 +516,39 @@ public class LocalFileIT extends TestSuiteBase {
         tarOut.putArchiveEntry(tarEntry);
         Files.copy(file, tarOut);
         tarOut.closeArchiveEntry();
+    }
+
+    public Path convertToTarGzFile(List<File> files, String name) throws IOException {
+        if (files == null || files.isEmpty()) {
+            throw new IllegalArgumentException("File list is empty or invalid");
+        }
+
+        File firstFile = files.get(0);
+        Path tarGzFilePath = Paths.get(firstFile.getParent(), String.format("%s.tar.gz", name));
+
+        // Create a GZIP output stream wrapping the tar output stream
+        try (GZIPOutputStream gzipOut = new GZIPOutputStream(Files.newOutputStream(tarGzFilePath));
+                TarArchiveOutputStream tarOut = new TarArchiveOutputStream(gzipOut)) {
+
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    Path dirPath = file.toPath();
+                    Files.walkFileTree(
+                            dirPath,
+                            new SimpleFileVisitor<Path>() {
+                                @Override
+                                public FileVisitResult visitFile(
+                                        Path file, BasicFileAttributes attrs) throws IOException {
+                                    addToTarFile(file, dirPath.getParent(), tarOut);
+                                    return FileVisitResult.CONTINUE;
+                                }
+                            });
+                } else {
+                    addToTarFile(file.toPath(), file.getParentFile().toPath(), tarOut);
+                }
+            }
+        }
+
+        return tarGzFilePath;
     }
 }

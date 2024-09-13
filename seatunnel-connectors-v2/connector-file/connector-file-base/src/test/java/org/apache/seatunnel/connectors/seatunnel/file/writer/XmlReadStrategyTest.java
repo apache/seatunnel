@@ -128,7 +128,6 @@ public class XmlReadStrategyTest {
 
         @Override
         public void collect(SeaTunnelRow record) {
-            System.out.println(record);
             rows.add(record);
         }
 
