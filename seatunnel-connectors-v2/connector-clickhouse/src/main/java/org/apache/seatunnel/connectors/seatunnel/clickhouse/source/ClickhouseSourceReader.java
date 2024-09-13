@@ -102,8 +102,10 @@ public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, Clickh
                                             }
                                         }
                                         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(values);
-                                        seaTunnelRow.setTableId(String.valueOf(tablePath));
-                                        output.collect(seaTunnelRow);
+                                        if (seaTunnelRow != null) {
+                                            seaTunnelRow.setTableId(String.valueOf(tablePath));
+                                            output.collect(seaTunnelRow);
+                                        }
                                     });
                 }
             } else if (splits.isEmpty() && noMoreSplit) {
