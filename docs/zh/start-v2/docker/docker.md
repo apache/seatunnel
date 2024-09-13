@@ -149,14 +149,14 @@ docker下的集群模式仅支持Zeta引擎
 有两种方式来启动集群
 
 
-### 1. 直接使用Docker
+### 直接使用Docker
 
-1. 创建一个network
+#### 创建一个network
 ```shell
 docker network create seatunnel-network
 ```
 
-2. 启动节点
+#### 启动节点
 - 启动master节点
 ```shell
 ## start master and export 5801 port 
@@ -214,7 +214,7 @@ docker run -d --name seatunnel_worker_1 \
     ./bin/seatunnel-cluster.sh -r worker
 ```
 
-### 2. 使用docker-compose
+### 使用docker-compose
 `docker-compose.yaml` 配置文件为：
 ```yaml
 version: '3.8'
@@ -360,7 +360,7 @@ networks:
 
 ### 提交作业到集群
 
-1. 使用docker container作为客户端
+#### 使用docker container作为客户端
 - 提交任务
 ```shell
 docker run --name seatunnel_client \
@@ -383,5 +383,5 @@ docker run --name seatunnel_client \
 
 更多其他命令请参考[命令行工具](../../seatunnel-engine/user-command.md)
 
-2. 使用RestAPI
+#### 使用RestAPI
 请参考 [提交作业](../../seatunnel-engine/rest-api.md#提交作业)
