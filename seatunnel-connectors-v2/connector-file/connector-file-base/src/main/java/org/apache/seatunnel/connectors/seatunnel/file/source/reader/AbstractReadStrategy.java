@@ -244,7 +244,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                         output,
                         hadoopFileSystemProxy.getInputStream(path),
                         partitionsMap,
-                        path.substring(path.lastIndexOf("/")));
+                        path);
                 break;
             default:
                 log.warn(
@@ -256,7 +256,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                         output,
                         hadoopFileSystemProxy.getInputStream(path),
                         partitionsMap,
-                        path.substring(path.lastIndexOf("/")));
+                        path);
         }
     }
 
@@ -342,7 +342,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
 
         log.warn(
                 "The {} file format is incorrect. Please check the format in the compressed file.",
-                fileFormat.getSuffix());
+                fileName);
         return false;
     }
 
