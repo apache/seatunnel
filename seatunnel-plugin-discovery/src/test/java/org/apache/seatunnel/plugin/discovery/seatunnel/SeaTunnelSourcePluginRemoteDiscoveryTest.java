@@ -1,19 +1,22 @@
 package org.apache.seatunnel.plugin.discovery.seatunnel;
 
-import com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
+
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+
+import com.google.common.collect.Lists;
 
 import java.io.File;
 import java.io.IOException;
@@ -40,13 +43,17 @@ public class SeaTunnelSourcePluginRemoteDiscoveryTest extends SeaTunnelSourcePlu
                 }
             };
 
-    private static final List<URL> remoteConnectors = pluginJars.stream().map(path -> {
-        try {
-            return path.toUri().toURL();
-        } catch (MalformedURLException e) {
-            throw new SeaTunnelException(e);
-        }
-    }).collect(Collectors.toList());
+    private static final List<URL> remoteConnectors =
+            pluginJars.stream()
+                    .map(
+                            path -> {
+                                try {
+                                    return path.toUri().toURL();
+                                } catch (MalformedURLException e) {
+                                    throw new SeaTunnelException(e);
+                                }
+                            })
+                    .collect(Collectors.toList());
 
     private Config pluginMappingConfig;
 
@@ -59,13 +66,16 @@ public class SeaTunnelSourcePluginRemoteDiscoveryTest extends SeaTunnelSourcePlu
         }
 
         final String pluginMappingPath =
-                SeaTunnelSourcePluginRemoteDiscoveryTest.class.getResource("/plugin-mapping.properties").getPath();
+                SeaTunnelSourcePluginRemoteDiscoveryTest.class
+                        .getResource("/plugin-mapping.properties")
+                        .getPath();
 
-        pluginMappingConfig = ConfigFactory.parseFile(new File(pluginMappingPath))
-                .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-                .resolveWith(
-                        ConfigFactory.systemProperties(),
-                        ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        pluginMappingConfig =
+                ConfigFactory.parseFile(new File(pluginMappingPath))
+                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+                        .resolveWith(
+                                ConfigFactory.systemProperties(),
+                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
     }
 
     @Test
@@ -77,7 +87,8 @@ public class SeaTunnelSourcePluginRemoteDiscoveryTest extends SeaTunnelSourcePlu
                         PluginIdentifier.of("seatunnel", PluginType.SOURCE.getType(), "Kafka"),
                         PluginIdentifier.of("seatunnel", PluginType.SINK.getType(), "Kafka-Blcs"));
         SeaTunnelSourcePluginRemoteDiscovery seaTunnelSourcePluginRemoteDiscovery =
-                new SeaTunnelSourcePluginRemoteDiscovery(remoteConnectors, pluginMappingConfig, DEFAULT_URL_TO_CLASSLOADER);
+                new SeaTunnelSourcePluginRemoteDiscovery(
+                        remoteConnectors, pluginMappingConfig, DEFAULT_URL_TO_CLASSLOADER);
         Assertions.assertIterableEquals(
                 Stream.of(
                                 Paths.get(seatunnelHome, "connectors", "connector-http-jira.jar")
@@ -93,5 +104,4 @@ public class SeaTunnelSourcePluginRemoteDiscoveryTest extends SeaTunnelSourcePlu
                         .map(URL::getPath)
                         .collect(Collectors.toList()));
     }
-
 }

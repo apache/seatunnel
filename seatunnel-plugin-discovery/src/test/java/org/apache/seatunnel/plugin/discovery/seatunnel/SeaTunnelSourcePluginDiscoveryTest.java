@@ -19,5 +19,4 @@ public class SeaTunnelSourcePluginDiscoveryTest {
                     Paths.get(seatunnelHome, "connectors", "connector-kafka.jar"),
                     Paths.get(seatunnelHome, "connectors", "connector-kafka-alcs.jar"),
                     Paths.get(seatunnelHome, "connectors", "connector-kafka-blcs.jar"));
-
 }
