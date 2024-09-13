@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.core.starter.flink.command;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigUtil;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
@@ -29,6 +28,8 @@ import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.starter.flink.execution.FlinkExecution;
 import org.apache.seatunnel.core.starter.flink.utils.ResourceUtils;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
+
+import org.apache.commons.lang3.StringUtils;
 
 import lombok.extern.slf4j.Slf4j;
 

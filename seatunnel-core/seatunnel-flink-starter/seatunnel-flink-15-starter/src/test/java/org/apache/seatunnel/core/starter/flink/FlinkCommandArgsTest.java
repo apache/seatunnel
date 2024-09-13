@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.core.starter.flink;
 
-import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
 
 import org.apache.seatunnel.core.starter.SeaTunnel;
+import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.starter.flink.multitable.MultiTableSinkTest;
 
