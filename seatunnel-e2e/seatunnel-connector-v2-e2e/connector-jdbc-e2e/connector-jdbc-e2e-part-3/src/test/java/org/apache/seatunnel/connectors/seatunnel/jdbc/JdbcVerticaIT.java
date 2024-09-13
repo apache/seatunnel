@@ -91,9 +91,6 @@ public class JdbcVerticaIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult(String executeKey) {}
-
-    @Override
     String driverUrl() {
         return "https://repo1.maven.org/maven2/com/vertica/jdbc/vertica-jdbc/12.0.3-0/vertica-jdbc-12.0.3-0.jar";
     }

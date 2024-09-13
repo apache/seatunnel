@@ -156,9 +156,6 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult(String executeKey) {}
-
-    @Override
     protected void createNeededTables() {
         try (Statement statement = connection.createStatement()) {
             String createTemplate = jdbcCase.getCreateSql();
