@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.core.starter.flink.command;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigUtil;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
@@ -64,6 +65,7 @@ public class FlinkTaskExecuteCommand implements Command<FlinkCommandArgs> {
                 new FlinkExecution(
                         flinkCommandArgs.getDiscoveryType(),
                         Arrays.stream(flinkCommandArgs.getConnectors().split(";"))
+                                .filter(StringUtils::isNoneEmpty)
                                 .map(ResourceUtils::of)
                                 .collect(Collectors.toList()),
                         config);

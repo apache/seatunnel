@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.core.starter.flink;
 
+import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
 
 import org.apache.seatunnel.core.starter.SeaTunnel;
@@ -58,6 +59,7 @@ public class FlinkCommandArgsTest {
 
     private static FlinkCommandArgs buildFlinkCommandArgs(String configFile) {
         FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
+        flinkCommandArgs.setMasterType(MasterType.REMOTE);
         flinkCommandArgs.setConfigFile(configFile);
         flinkCommandArgs.setCheckConfig(false);
         flinkCommandArgs.setVariables(null);
