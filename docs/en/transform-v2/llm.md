@@ -11,10 +11,10 @@ more.
 ## Options
 
 | name                   | type   | required | default value |
-|------------------------| ------ | -------- | ------------- |
+|------------------------| ------ | -------- |---------------|
 | model_provider         | enum   | yes      |               |
 | output_data_type       | enum   | no       | String        |
-| output_column_name     | string | no       | String        |
+| output_column_name     | string | no       | llm_output    |
 | prompt                 | string | yes      |               |
 | inference_columns      | list   | no       |               |
 | model                  | string | yes      |               |

@@ -32,8 +32,6 @@ import org.apache.seatunnel.transform.nlpmodel.llm.remote.Model;
 import org.apache.seatunnel.transform.nlpmodel.llm.remote.custom.CustomModel;
 import org.apache.seatunnel.transform.nlpmodel.llm.remote.openai.OpenAIModel;
 
-import org.apache.commons.lang3.StringUtils;
-
 import lombok.NonNull;
 import lombok.SneakyThrows;
 
@@ -147,10 +145,7 @@ public class LLMTransform extends SingleFieldOutputTransform {
         boolean isExist = Arrays.asList(fieldNames).contains(customFieldName);
         if (isExist) {
             throw new IllegalArgumentException(
-                    String.format("Field name %s already exists", customFieldName));
-        }
-        if (StringUtils.isEmpty(customFieldName)) {
-            customFieldName = "llm_output";
+                    String.format("llm inference field name %s already exists", customFieldName));
         }
         return PhysicalColumn.of(
                 customFieldName, outputDataType, (Long) null, true, null, "Output column of LLM");

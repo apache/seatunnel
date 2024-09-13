@@ -40,7 +40,7 @@ public class LLMTransformConfig extends ModelTransformConfig {
     public static final Option<String> OUTPUT_COLUMN_NAME =
             Options.key("output_column_name")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue("llm_output")
                     .withDescription("custom field name for the llm output data");
 
     public static final Option<Integer> INFERENCE_BATCH_SIZE =

@@ -8,20 +8,20 @@
 
 ## 属性
 
-| 名称                     | 类型   | 是否必须 | 默认值    |
-|------------------------| ------ | -------- |--------|
-| model_provider         | enum   | yes      |        |
-| output_data_type       | enum   | no       | String |
-| output_column_name     | string | no       |        |
-| prompt                 | string | yes      |        |
-| inference_columns      | list   | no       |        |
-| model                  | string | yes      |        |
-| api_key                | string | yes      |        |
-| api_path               | string | no       |        |
-| custom_config          | map    | no       |        |
-| custom_response_parse  | string | no       |        |
-| custom_request_headers | map    | no       |        |
-| custom_request_body    | map    | no       |        |
+| 名称                     | 类型   | 是否必须 | 默认值         |
+|------------------------| ------ | -------- |-------------|
+| model_provider         | enum   | yes      |             |
+| output_data_type       | enum   | no       | String      |
+| output_column_name     | string | no       | llm_output   |
+| prompt                 | string | yes      |             |
+| inference_columns      | list   | no       |             |
+| model                  | string | yes      |             |
+| api_key                | string | yes      |             |
+| api_path               | string | no       |             |
+| custom_config          | map    | no       |             |
+| custom_response_parse  | string | no       |             |
+| custom_request_headers | map    | no       |             |
+| custom_request_body    | map    | no       |             |
 
 ### model_provider
 
