@@ -49,4 +49,8 @@
         <name>fs.s3a.impl.disable.cache</name>
         <value>true</value>
     </property>
+    <property>
+        <name>fs.s3a.threads.keepalivetime</name>
+        <value>10</value>
+    </property>
 </configuration>

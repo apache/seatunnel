@@ -19,19 +19,24 @@ package org.apache.seatunnel.connectors.seatunnel.hudi.catalog;
 
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 
+import org.apache.avro.Schema;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hudi.common.model.HoodieAvroPayload;
+import org.apache.hudi.common.model.HoodieTableType;
 import org.apache.hudi.common.table.HoodieTableConfig;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.exception.HoodieCatalogException;
@@ -42,14 +47,17 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.hbase.thirdparty.com.google.common.base.Preconditions.checkNotNull;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.PARTITION_FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.RECORD_KEY_FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.TABLE_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.AvroSchemaConverter.convertToSchema;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiCatalogUtil.inferTablePath;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.util.SchemaUtil.convertSeaTunnelType;
 
 @Slf4j
 public class HudiCatalog implements Catalog {
@@ -72,10 +80,8 @@ public class HudiCatalog implements Catalog {
         fs = HadoopFSUtils.getFs(tableParentDfsPathStr, hadoopConf);
         try {
             if (!fs.exists(tableParentDfsPath)) {
-                throw new CatalogException(
-                        String.format(
-                                "Catalog %s path %s does not exist.",
-                                catalogName, tableParentDfsPathStr));
+                log.info("Table dfs path not exists, will be created");
+                fs.mkdirs(tableParentDfsPath);
             }
         } catch (IOException e) {
             throw new CatalogException(
@@ -83,23 +89,20 @@ public class HudiCatalog implements Catalog {
                             "Checking catalog path %s exists exception.", tableParentDfsPathStr),
                     e);
         }
-
-        /*if (!databaseExists(getDefaultDatabase())) {
-            log.info(
-                    "Creating database {} automatically because it does not exist.",
-                    getDefaultDatabase());
-            Path dbPath = new Path(tableParentDfsPath, getDefaultDatabase());
-            try {
-                fs.mkdirs(dbPath);
-            } catch (IOException e) {
-                throw new CatalogException(
-                        String.format("Creating database %s exception.", getDefaultDatabase()), e);
-            }
-        }*/
+        if (!databaseExists(getDefaultDatabase())) {
+            TablePath defaultDatabase = TablePath.of(getDefaultDatabase(), "default");
+            createDatabase(defaultDatabase, true);
+        }
     }
 
     @Override
-    public void close() throws CatalogException {}
+    public void close() throws CatalogException {
+        try {
+            fs.close();
+        } catch (Exception e) {
+            log.info("Hudi catalog close error.", e);
+        }
+    }
 
     @Override
     public String name() {
@@ -108,7 +111,7 @@ public class HudiCatalog implements Catalog {
 
     @Override
     public String getDefaultDatabase() throws CatalogException {
-        return null;
+        return "default";
     }
 
     @Override
@@ -169,7 +172,36 @@ public class HudiCatalog implements Catalog {
     @Override
     public CatalogTable getTable(TablePath tablePath)
             throws CatalogException, TableNotExistException {
-        return null;
+        if (!tableExists(tablePath)) {
+            throw new TableNotExistException(name(), tablePath);
+        }
+        HoodieTableMetaClient hoodieTableMetaClient =
+                HoodieTableMetaClient.builder()
+                        .setBasePath(inferTablePath(tableParentDfsPathStr, tablePath))
+                        .setConf(HadoopFSUtils.getStorageConfWithCopy(hadoopConf))
+                        .build();
+        HoodieTableType tableType = hoodieTableMetaClient.getTableType();
+        HoodieTableConfig tableConfig = hoodieTableMetaClient.getTableConfig();
+        TableSchema tableSchema = convertSchema(TableSchema.builder(), tableConfig);
+        List<String> partitionFields = null;
+        if (tableConfig.getPartitionFields().isPresent()) {
+            partitionFields = Arrays.asList(tableConfig.getPartitionFields().get());
+        }
+
+        Map<String, String> options = new HashMap<>();
+        if (tableConfig.getRecordKeyFields().isPresent()) {
+            options.put(
+                    RECORD_KEY_FIELDS.key(),
+                    String.join(",", tableConfig.getRecordKeyFields().get()));
+        }
+        options.put(TABLE_TYPE.key(), tableType.name());
+        return CatalogTable.of(
+                TableIdentifier.of(
+                        catalogName, tablePath.getDatabaseName(), tablePath.getTableName()),
+                tableSchema,
+                options,
+                partitionFields,
+                null);
     }
 
     @Override
@@ -181,17 +213,16 @@ public class HudiCatalog implements Catalog {
         String tablePathStr = inferTablePath(tableParentDfsPathStr, tablePath);
         Path path = new Path(tablePathStr);
         try {
-            fs = FileSystem.get(path.toUri(), hadoopConf);
             if (!fs.exists(path)) {
-                HoodieTableMetaClient.PropertyBuilder hoodieTableMetaClientBuilder =
-                        HoodieTableMetaClient.withPropertyBuilder()
-                                .setTableType(table.getOptions().get(TABLE_TYPE.key()))
-                                .setTableName(tablePath.getTableName())
-                                .setPartitionFields(table.getOptions().get(PARTITION_FIELDS.key()))
-                                .setRecordKeyFields(table.getOptions().get(RECORD_KEY_FIELDS.key()))
-                                .setPayloadClassName(HoodieAvroPayload.class.getName());
-                hoodieTableMetaClientBuilder.initTable(
-                        new HadoopStorageConfiguration(hadoopConf), tablePathStr);
+                HoodieTableMetaClient.withPropertyBuilder()
+                        .setTableType(table.getOptions().get(TABLE_TYPE.key()))
+                        .setRecordKeyFields(table.getOptions().get(RECORD_KEY_FIELDS.key()))
+                        .setTableCreateSchema(
+                                convertToSchema(table.getSeaTunnelRowType()).toString())
+                        .setTableName(tablePath.getTableName())
+                        .setPartitionFields(String.join(",", table.getPartitionKeys()))
+                        .setPayloadClassName(HoodieAvroPayload.class.getName())
+                        .initTable(new HadoopStorageConfiguration(hadoopConf), tablePathStr);
             }
         } catch (IOException e) {
             throw new HoodieCatalogException(
@@ -249,7 +280,7 @@ public class HudiCatalog implements Catalog {
     public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
             throws DatabaseNotExistException, CatalogException {
         // do nothing
-        /*if (!databaseExists(tablePath.getDatabaseName())) {
+        if (!databaseExists(tablePath.getDatabaseName())) {
             if (ignoreIfNotExists) {
                 return;
             } else {
@@ -258,20 +289,38 @@ public class HudiCatalog implements Catalog {
         }
 
         List<String> tables = listTables(tablePath.getDatabaseName());
-        if (!tables.isEmpty() && !cascade) {
-            throw new DatabaseNotEmptyException(catalogName, tablePath.getDatabaseName());
+        if (!tables.isEmpty()) {
+            throw new CatalogException(
+                    String.format(
+                            "Database %s not empty, can't drop it.", tablePath.getDatabaseName()));
         }
 
-        if (tablePath.getDatabaseName().equals(getDefaultDatabase())) {
-            throw new IllegalArgumentException(
-                    "Hudi catalog doesn't support to drop the default database.");
-        }
-
-        Path dbPath = new Path(catalogPath, tablePath.getDatabaseName());
+        Path dbPath = new Path(tableParentDfsPath, tablePath.getDatabaseName());
         try {
             fs.delete(dbPath, true);
         } catch (IOException e) {
-            throw new CatalogException(String.format("Dropping database %s exception.", tablePath.getDatabaseName()), e);
-        }*/
+            throw new CatalogException(
+                    String.format("Dropping database %s exception.", tablePath.getDatabaseName()),
+                    e);
+        }
+    }
+
+    private TableSchema convertSchema(
+            TableSchema.Builder tableSchemaBuilder, HoodieTableConfig tableConfig) {
+        if (tableConfig.getTableCreateSchema().isPresent()) {
+            Schema schema = tableConfig.getTableCreateSchema().get();
+            List<Schema.Field> fields = schema.getFields();
+            for (Schema.Field field : fields) {
+                tableSchemaBuilder.column(
+                        PhysicalColumn.of(
+                                field.name(),
+                                convertSeaTunnelType(field.name(), field.schema()),
+                                (Long) null,
+                                true,
+                                null,
+                                field.doc()));
+            }
+        }
+        return tableSchemaBuilder.build();
     }
 }

@@ -30,7 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 
-import static org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiWriteClientUtil.createHoodieJavaWriteClient;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil.createHoodieJavaWriteClient;
 
 @Slf4j
 public class HudiWriteClientProvider implements WriteClientProvider, Serializable {

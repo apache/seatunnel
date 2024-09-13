@@ -135,7 +135,7 @@ public class HudiSink
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format(
                             "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, "Cannot find Doris catalog factory"));
+                            getPluginName(), PluginType.SINK, "Cannot find Hudi catalog factory"));
         }
         Catalog catalog = catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), config);
         return Optional.of(

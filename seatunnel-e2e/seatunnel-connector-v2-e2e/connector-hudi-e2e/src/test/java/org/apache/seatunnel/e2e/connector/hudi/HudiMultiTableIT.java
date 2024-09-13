@@ -28,6 +28,7 @@ import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileUtil;
+import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.hadoop.ParquetReader;
@@ -103,12 +104,12 @@ public class HudiMultiTableIT extends TestSuiteBase {
     @DisabledOnContainer(
             value = {TestContainerId.SPARK_2_4},
             type = {EngineType.FLINK},
-            disabledReason = "Currently FLINK do not support multiple tables")
-    public void testMultiWriteHudi(TestContainer container)
-            throws IOException, InterruptedException {
+            disabledReason = "FLINK do not support local file catalog in hudi.")
+    public void testMultiWrite(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult textWriteResult = container.executeJob("/multi_fake_to_hudi.conf");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
         Configuration configuration = new Configuration();
+        configuration.set("fs.defaultFS", LocalFileSystem.DEFAULT_FS);
         given().ignoreExceptions()
                 .await()
                 .atMost(60000, TimeUnit.MILLISECONDS)
@@ -118,10 +119,20 @@ public class HudiMultiTableIT extends TestSuiteBase {
                             container.executeExtraCommands(containerExtendedFactory);
                             Path inputPath1 =
                                     getNewestCommitFilePath(
-                                            new File(TABLE_PATH + File.separator + DATABASE_1 + File.separator + TABLE_NAME_1));
+                                            new File(
+                                                    TABLE_PATH
+                                                            + File.separator
+                                                            + DATABASE_1
+                                                            + File.separator
+                                                            + TABLE_NAME_1));
                             Path inputPath2 =
                                     getNewestCommitFilePath(
-                                            new File(TABLE_PATH + File.separator + DATABASE_2 + File.separator +  TABLE_NAME_2));
+                                            new File(
+                                                    TABLE_PATH
+                                                            + File.separator
+                                                            + DATABASE_2
+                                                            + File.separator
+                                                            + TABLE_NAME_2));
                             ParquetReader<Group> reader1 =
                                     ParquetReader.builder(new GroupReadSupport(), inputPath1)
                                             .withConf(configuration)

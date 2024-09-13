@@ -20,12 +20,14 @@ package org.apache.seatunnel.e2e.connector.hudi;
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.hadoop.ParquetReader;
@@ -100,12 +102,18 @@ public class HudiIT extends TestSuiteBase {
             };
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {TestContainerId.SPARK_2_4},
+            type = {EngineType.FLINK},
+            disabledReason = "FLINK do not support local file catalog in hudi.")
     public void testWriteHudi(TestContainer container)
             throws IOException, InterruptedException, URISyntaxException {
         Container.ExecResult textWriteResult = container.executeJob("/fake_to_hudi.conf");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
         Configuration configuration = new Configuration();
-        Path inputPath = new Path(TABLE_PATH + File.separator + DATABASE + File.separator + TABLE_NAME);
+        configuration.set("fs.defaultFS", LocalFileSystem.DEFAULT_FS);
+        Path inputPath =
+                new Path(TABLE_PATH + File.separator + DATABASE + File.separator + TABLE_NAME);
 
         given().ignoreExceptions()
                 .await()

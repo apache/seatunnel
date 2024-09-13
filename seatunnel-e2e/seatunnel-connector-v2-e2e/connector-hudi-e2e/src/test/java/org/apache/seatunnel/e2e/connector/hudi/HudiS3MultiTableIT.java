@@ -17,60 +17,43 @@
 
 package org.apache.seatunnel.e2e.connector.hudi;
 
-import com.google.common.collect.Lists;
+import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.e2e.common.TestResource;
+import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.LocalFileSystem;
+import org.apache.hadoop.fs.Path;
+import org.apache.parquet.example.data.Group;
+import org.apache.parquet.hadoop.ParquetReader;
+import org.apache.parquet.hadoop.example.GroupReadSupport;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.Container;
+import org.testcontainers.containers.MinIOContainer;
+
 import io.minio.BucketExistsArgs;
 import io.minio.DownloadObjectArgs;
 import io.minio.ListObjectsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.Result;
-import io.minio.errors.ErrorResponseException;
-import io.minio.errors.InsufficientDataException;
-import io.minio.errors.InternalException;
-import io.minio.errors.InvalidResponseException;
-import io.minio.errors.ServerException;
-import io.minio.errors.XmlParserException;
 import io.minio.messages.Item;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
-import org.apache.parquet.example.data.Group;
-import org.apache.parquet.hadoop.ParquetReader;
-import org.apache.parquet.hadoop.example.GroupReadSupport;
-import org.apache.seatunnel.common.utils.FileUtils;
-import org.apache.seatunnel.e2e.common.TestResource;
-import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
-import org.apache.seatunnel.e2e.common.container.EngineType;
-import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.container.TestContainerId;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
-import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
-import org.testcontainers.containers.MinIOContainer;
-import org.testcontainers.containers.Network;
-import org.testcontainers.utility.MountableFile;
 
-import java.io.File;
 import java.io.IOException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class HudiS3MultiTableIT extends TestSuiteBase implements TestResource {
-
-    public static final String HADOOP_AWS_DOWNLOAD =
-            "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.1.4/hadoop-aws-3.1.4.jar";
-    public static final String AWS_SDK_DOWNLOAD =
-            "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.271/aws-java-sdk-bundle-1.11.271.jar";
-    public static final String GUAVA_DOWNLOAD =
-            "https://repo1.maven.org/maven2/com/google/guava/guava/27.0-jre/guava-27.0-jre.jar";
 
     private static final String MINIO_DOCKER_IMAGE = "minio/minio:RELEASE.2024-06-13T22-53-53Z";
     private static final String HOST = "minio";
@@ -88,35 +71,6 @@ public class HudiS3MultiTableIT extends TestSuiteBase implements TestResource {
     private static final String TABLE_NAME_2 = "st_test_2";
     private static final String DOWNLOAD_PATH = "/tmp/seatunnel/";
 
-    @TestContainerExtension
-    private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                /*Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Hudi/lib && cd /tmp/seatunnel/plugins/Hudi/lib && curl -O "
-                                        + HADOOP_AWS_DOWNLOAD);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
-
-                extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "cd /tmp/seatunnel/plugins/Hudi/lib && curl -O "
-                                        + AWS_SDK_DOWNLOAD);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
-                extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "cd /tmp/seatunnel/plugins/Hudi/lib && curl -O "
-                                        + GUAVA_DOWNLOAD);
-                Assertions.assertEquals(0, extraCommands.getExitCode());*/
-                        container.copyFileToContainer(MountableFile.forHostPath("F:\\repository\\com\\amazonaws\\aws-java-sdk-bundle\\1.11.271\\aws-java-sdk-bundle-1.11.271.jar"),
-                                "/tmp/seatunnel/plugins/Hudi/lib/");
-            };
-
     @BeforeEach
     @Override
     public void startUp() throws Exception {
@@ -127,7 +81,6 @@ public class HudiS3MultiTableIT extends TestSuiteBase implements TestResource {
                         .withUserName(MINIO_USER_NAME)
                         .withPassword(MINIO_USER_PASSWORD)
                         .withExposedPorts(MINIO_PORT);
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", 9000, 9000), String.format("%s:%s", 9001, 9001)));
         container.start();
 
         String s3URL = container.getS3URL();
@@ -156,15 +109,15 @@ public class HudiS3MultiTableIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     @DisabledOnContainer(
             value = {TestContainerId.SPARK_2_4},
-            type = {EngineType.FLINK, EngineType.SPARK},
-            disabledReason = "Currently FLINK do not support multiple tables")
-    public void testMultiWriteHudi(TestContainer container)
-            throws IOException, InterruptedException, ServerException, InsufficientDataException, InternalException, InvalidResponseException, InvalidKeyException, NoSuchAlgorithmException, XmlParserException, ErrorResponseException {
-        container.copyFileToContainer("/core-site.xml", "/tmp/seatunnel/core-site.xml");
+            type = {EngineType.FLINK},
+            disabledReason =
+                    "The hadoop version in the image is not compatible with the aws version.")
+    public void testS3MultiWrite(TestContainer container) throws IOException, InterruptedException {
+        container.copyFileToContainer("/core-site.xml", "/tmp/seatunnel/config/core-site.xml");
         Container.ExecResult textWriteResult = container.executeJob("/s3_fake_to_hudi.conf");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
         Configuration configuration = new Configuration();
-        minioClient.downloadObject(DownloadObjectArgs.builder().bucket(BUCKET).build());
+        configuration.set("fs.defaultFS", LocalFileSystem.DEFAULT_FS);
         given().ignoreExceptions()
                 .await()
                 .atMost(60000, TimeUnit.MILLISECONDS)
@@ -172,9 +125,9 @@ public class HudiS3MultiTableIT extends TestSuiteBase implements TestResource {
                         () -> {
                             // copy hudi to local
                             Path inputPath1 =
-                                    downloadNewestCommitFile(DATABASE_1 + File.separator + TABLE_NAME_1);
+                                    downloadNewestCommitFile(DATABASE_1 + "/" + TABLE_NAME_1 + "/");
                             Path inputPath2 =
-                                    downloadNewestCommitFile(DATABASE_2 + File.separator +  TABLE_NAME_2);
+                                    downloadNewestCommitFile(DATABASE_2 + "/" + TABLE_NAME_2 + "/");
                             ParquetReader<Group> reader1 =
                                     ParquetReader.builder(new GroupReadSupport(), inputPath1)
                                             .withConf(configuration)
@@ -202,8 +155,10 @@ public class HudiS3MultiTableIT extends TestSuiteBase implements TestResource {
     }
 
     public Path downloadNewestCommitFile(String pathPrefix) throws IOException {
-        Iterable<Result<Item>> listObjects = minioClient.listObjects(ListObjectsArgs.builder().bucket(BUCKET).prefix(pathPrefix).build());
-        String absoluteNewestCommitFileName = "";
+        Iterable<Result<Item>> listObjects =
+                minioClient.listObjects(
+                        ListObjectsArgs.builder().bucket(BUCKET).prefix(pathPrefix).build());
+        String newestCommitFileabsolutePath = "";
         String newestCommitFileName = "";
         long newestCommitTime = 0L;
         for (Result<Item> listObject : listObjects) {
@@ -216,20 +171,29 @@ public class HudiS3MultiTableIT extends TestSuiteBase implements TestResource {
             if (item.isDir() || !item.objectName().endsWith(".parquet")) {
                 continue;
             }
-            long fileCommitTime = Long.parseLong(item.objectName().substring(
-                    item.objectName().lastIndexOf("_") + 1,
-                    item.objectName()
-                            .lastIndexOf(".parquet")));
+            long fileCommitTime =
+                    Long.parseLong(
+                            item.objectName()
+                                    .substring(
+                                            item.objectName().lastIndexOf("_") + 1,
+                                            item.objectName().lastIndexOf(".parquet")));
             if (fileCommitTime > newestCommitTime) {
-                absoluteNewestCommitFileName = item.objectName();
-                newestCommitFileName = absoluteNewestCommitFileName.substring(item.objectName().lastIndexOf("/") + 1);
+                newestCommitFileabsolutePath = item.objectName();
+                newestCommitFileName =
+                        newestCommitFileabsolutePath.substring(
+                                item.objectName().lastIndexOf("/") + 1);
                 newestCommitTime = fileCommitTime;
             }
         }
         try {
-            minioClient.downloadObject(DownloadObjectArgs.builder().bucket(BUCKET).object(absoluteNewestCommitFileName).filename(DOWNLOAD_PATH + newestCommitFileName).build());
+            minioClient.downloadObject(
+                    DownloadObjectArgs.builder()
+                            .bucket(BUCKET)
+                            .object(newestCommitFileabsolutePath)
+                            .filename(DOWNLOAD_PATH + newestCommitFileName)
+                            .build());
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Download file from minio error.");
         }
         return new Path(DOWNLOAD_PATH + newestCommitFileName);
     }

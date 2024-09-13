@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiConnectorException;
 
 import org.apache.hadoop.conf.Configuration;
@@ -29,14 +31,32 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hudi.client.HoodieJavaWriteClient;
+import org.apache.hudi.client.common.HoodieJavaEngineContext;
+import org.apache.hudi.common.config.HoodieStorageConfig;
+import org.apache.hudi.common.engine.EngineType;
+import org.apache.hudi.common.model.HoodieAvroPayload;
+import org.apache.hudi.config.HoodieArchivalConfig;
+import org.apache.hudi.config.HoodieCleanConfig;
+import org.apache.hudi.config.HoodieCompactionConfig;
+import org.apache.hudi.config.HoodieIndexConfig;
+import org.apache.hudi.config.HoodieWriteConfig;
+import org.apache.hudi.storage.hadoop.HadoopStorageConfiguration;
 import org.apache.parquet.hadoop.ParquetFileReader;
+import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.MessageType;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 import static org.apache.parquet.format.converter.ParquetMetadataConverter.NO_FILTER;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiErrorCode.TABLE_CONFIG_NOT_FOUND;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.AvroSchemaConverter.convertToSchema;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiCatalogUtil.inferTablePath;
 
 public class HudiUtil {
 
@@ -115,5 +135,72 @@ public class HudiUtil {
                     "Kerberos Authorized Fail!",
                     e);
         }
+    }
+
+    public static HoodieJavaWriteClient<HoodieAvroPayload> createHoodieJavaWriteClient(
+            HudiSinkConfig hudiSinkConfig, SeaTunnelRowType seaTunnelRowType, String tableName) {
+        List<HudiTableConfig> tableList = hudiSinkConfig.getTableList();
+        Optional<HudiTableConfig> hudiTableConfig =
+                tableList.stream()
+                        .filter(table -> table.getTableName().equals(tableName))
+                        .findFirst();
+        if (!hudiTableConfig.isPresent()) {
+            throw new HudiConnectorException(
+                    TABLE_CONFIG_NOT_FOUND,
+                    "The corresponding table "
+                            + tableName
+                            + " is not found in the table list of hudi sink config.");
+        }
+        Configuration hadoopConf = getConfiguration(hudiSinkConfig.getConfFilesPath());
+
+        HudiTableConfig hudiTable = hudiTableConfig.get();
+        HoodieWriteConfig.Builder writeConfigBuilder = HoodieWriteConfig.newBuilder();
+        // build index config
+        if (Objects.nonNull(hudiTable.getIndexClassName())) {
+            writeConfigBuilder.withIndexConfig(
+                    HoodieIndexConfig.newBuilder()
+                            .withIndexClass(hudiTable.getIndexClassName())
+                            .build());
+        } else {
+            writeConfigBuilder.withIndexConfig(
+                    HoodieIndexConfig.newBuilder().withIndexType(hudiTable.getIndexType()).build());
+        }
+        HoodieWriteConfig cfg =
+                writeConfigBuilder
+                        .withEngineType(EngineType.JAVA)
+                        .withPath(
+                                inferTablePath(
+                                        hudiSinkConfig.getTableDfsPath(),
+                                        hudiTable.getDatabase(),
+                                        hudiTable.getTableName()))
+                        .withSchema(convertToSchema(seaTunnelRowType).toString())
+                        .withParallelism(
+                                hudiSinkConfig.getInsertShuffleParallelism(),
+                                hudiSinkConfig.getUpsertShuffleParallelism())
+                        .forTable(hudiTable.getTableName())
+                        .withArchivalConfig(
+                                HoodieArchivalConfig.newBuilder()
+                                        .archiveCommitsWith(
+                                                hudiSinkConfig.getMinCommitsToKeep(),
+                                                hudiSinkConfig.getMaxCommitsToKeep())
+                                        .build())
+                        .withAutoCommit(hudiSinkConfig.isAutoCommit())
+                        .withCleanConfig(
+                                HoodieCleanConfig.newBuilder()
+                                        .withAutoClean(true)
+                                        .withAsyncClean(false)
+                                        .build())
+                        .withEmbeddedTimelineServerEnabled(false)
+                        .withCompactionConfig(
+                                HoodieCompactionConfig.newBuilder()
+                                        .approxRecordSize(hudiTable.getRecordByteSize())
+                                        .build())
+                        .withStorageConfig(
+                                HoodieStorageConfig.newBuilder()
+                                        .parquetCompressionCodec(CompressionCodecName.SNAPPY.name())
+                                        .build())
+                        .build();
+        return new HoodieJavaWriteClient<>(
+                new HoodieJavaEngineContext(new HadoopStorageConfiguration(hadoopConf)), cfg);
     }
 }

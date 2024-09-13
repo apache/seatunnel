@@ -109,6 +109,12 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                         PROJECT_ROOT_PATH
                                 + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
                 Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
+
+        server.withCopyFileToContainer(
+                MountableFile.forHostPath(
+                        PROJECT_ROOT_PATH
+                                + "/seatunnel-shade/seatunnel-hadoop-aws/target/seatunnel-hadoop-aws.jar"),
+                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop-aws.jar").toString());
         // execute extra commands
         executeExtraCommands(server);
 
@@ -363,7 +369,8 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 // The renewed background thread of the hdfs client
                 || s.startsWith("LeaseRenewer")
                 // The read of hdfs which has the thread that is all in running status
-                || s.startsWith("org.apache.hadoop.hdfs.PeerCache");
+                || s.startsWith("org.apache.hadoop.hdfs.PeerCache")
+                || s.startsWith("java-sdk-progress-listener-callback-thread");
     }
 
     private void classLoaderObjectCheck(Integer maxSize) throws IOException, InterruptedException {
