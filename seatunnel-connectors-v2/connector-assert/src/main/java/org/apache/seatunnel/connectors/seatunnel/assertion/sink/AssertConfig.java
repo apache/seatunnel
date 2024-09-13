@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+import java.util.List;
 import java.util.Map;
 
 public class AssertConfig {
@@ -83,4 +84,12 @@ public class AssertConfig {
                     .noDefaultValue()
                     .withDescription(
                             "Rule definition of user's available data. Each rule represents one field validation or row num validation.");
+
+    public static final Option<List<Map<String, Object>>> MULTI_RULES =
+        Options.key("multi_rules")
+            .type(new TypeReference<List<Map<String, Object>>>() {})
+            .noDefaultValue()
+            .withDescription(
+                "Rule definition of user's available data. Each rule represents one field validation or row num validation. The multi_rules is used for multi-table sink.");
+
 }
