@@ -504,9 +504,11 @@ public class CoordinatorService {
     public synchronized void clearCoordinatorService() {
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);
+        pendingJobMasterMap.values().stream().forEach(System.out::println);
         pendingJobMasterMap.values().stream().map(Tuple2::_2).forEach(JobMaster::interrupt);
         executorService.shutdownNow();
         runningJobMasterMap.clear();
+        pendingJobMasterMap.clear();
 
         try {
             executorService.awaitTermination(20, TimeUnit.SECONDS);
