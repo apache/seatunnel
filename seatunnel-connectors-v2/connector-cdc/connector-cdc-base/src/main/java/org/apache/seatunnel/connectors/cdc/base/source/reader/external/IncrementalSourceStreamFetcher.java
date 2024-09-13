@@ -104,7 +104,7 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
                                 currentIncrementalSplit,
                                 taskContext.isExactlyOnce());
                         streamFetchTask.execute(taskContext);
-                    } catch (Exception e) {
+                    } catch (Throwable e) {
                         log.error(
                                 String.format(
                                         "Execute stream read task for incremental split %s fail",

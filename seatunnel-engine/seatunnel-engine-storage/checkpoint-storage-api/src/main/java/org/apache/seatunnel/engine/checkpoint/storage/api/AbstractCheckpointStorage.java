@@ -195,7 +195,7 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
                 () -> {
                     try {
                         storeCheckPoint(state);
-                    } catch (Exception e) {
+                    } catch (Throwable e) {
                         log.error(
                                 String.format(
                                         "store checkpoint failed, job id : %s, pipeline id : %d",
