@@ -18,9 +18,7 @@ package org.apache.seatunnel.e2e.connector.prometheus;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -80,12 +78,6 @@ public class PrometheusIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK},
-            disabledReason =
-                    "The version(3.25.4) introduced by Prometheus is higher than the version(2.5.0) in spark"
-                            + " hadoop,do not support AbstractMessageLite$Builder.addAll")
     public void testPrometheusSinkAndSource(TestContainer container)
             throws IOException, InterruptedException {
 
