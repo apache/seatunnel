@@ -110,7 +110,13 @@ public class IcebergWriterFactory {
         if (!idCols.isEmpty()) {
             identifierFieldIds =
                     idCols.stream()
-                            .map(colName -> table.schema().findField(colName).fieldId())
+                            .map(
+                                    colName ->
+                                            config.isCaseSensitive()
+                                                    ? table.schema()
+                                                            .caseInsensitiveFindField(colName)
+                                                            .fieldId()
+                                                    : table.schema().findField(colName).fieldId())
                             .collect(toSet());
         }
 
