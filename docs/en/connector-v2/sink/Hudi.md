@@ -57,7 +57,7 @@ Note: When this configuration corresponds to a single table, you can flatten the
 
 ### table_dfs_path [string]
 
-`table_dfs_path` The dfs root path of hudi table, such as 'hdfs://nameserivce/data/hudi/hudi_table/'.
+`table_dfs_path` The dfs root path of hudi table, such as 'hdfs://nameserivce/data/hudi/'.
 
 ### table_type [enum]
 
@@ -77,7 +77,7 @@ Note: When this configuration corresponds to a single table, you can flatten the
 
 ### index_class_name [string]
 
-`index_class_name` The customized index classpath of hudi table.
+`index_class_name` The customized index classpath of hudi table, example `org.apache.seatunnel.connectors.seatunnel.hudi.index.CustomHudiIndex`.
 
 ### record_byte_size [Int]
 
@@ -89,7 +89,7 @@ Note: When this configuration corresponds to a single table, you can flatten the
 
 ### op_type [enum]
 
-`op_type` The operation type of hudi table. The value is 'insert' or 'upsert' or 'bulk_insert'.
+`op_type` The operation type of hudi table. The value is `insert` or `upsert` or `bulk_insert`.
 
 ### batch_interval_ms [Int]
 
@@ -134,6 +134,7 @@ Source plugin common parameters, please refer to [Source Common Options](../sink
 
 ## Examples
 
+### single table
 ```hocon
 sink {
   Hudi {
@@ -151,9 +152,6 @@ sink {
 ```
 
 ### Multiple table
-
-#### example1
-
 ```hocon
 env {
   parallelism = 1
