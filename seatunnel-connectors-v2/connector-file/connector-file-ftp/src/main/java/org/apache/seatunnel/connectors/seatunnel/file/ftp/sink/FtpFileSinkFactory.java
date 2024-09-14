@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.ftp.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -50,6 +51,7 @@ public class FtpFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .required(FtpConfigOptions.FTP_PORT)
                 .required(FtpConfigOptions.FTP_USERNAME)
                 .required(FtpConfigOptions.FTP_PASSWORD)
+                .optional(SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .optional(BaseSinkConfig.TMP_PATH)
                 .optional(BaseSinkConfig.FILE_FORMAT_TYPE)
                 .optional(BaseSinkConfig.SCHEMA_SAVE_MODE)
