@@ -151,12 +151,17 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         helper.execute("/orc/fake_to_ftp_file_orc.conf");
         // test write ftp root path excel file
         helper.execute("/excel/fake_source_to_ftp_root_path_excel.conf");
-        // test mult table and save_mode
-        testMultipleTableAndSaveMode(helper);
     }
 
-    @SneakyThrows
-    private void testMultipleTableAndSaveMode(TestHelper helper) {
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK},
+            disabledReason =
+                    "Fink test is multi-node, FtpFile connector will use different containers for obtaining files")
+    public void testMultipleTableAndSaveMode(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
         // test mult table and save_mode:RECREATE_SCHEMA DROP_DATA
         String homePath = "/home/vsftpd/seatunnel";
         String path1 = "/tmp/seatunnel_mult/text/source_1";
