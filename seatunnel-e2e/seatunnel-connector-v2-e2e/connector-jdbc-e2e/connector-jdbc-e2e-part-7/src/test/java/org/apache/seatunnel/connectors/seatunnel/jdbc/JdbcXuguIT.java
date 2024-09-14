@@ -20,9 +20,11 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.xugu.XuguCatalog;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -157,7 +159,7 @@ public class JdbcXuguIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult(String executeKey) {
+    void checkResult(String executeKey, TestContainer container, Container.ExecResult execResult) {
         defaultCompare(executeKey, fieldNames, "XUGU_INT");
     }
 

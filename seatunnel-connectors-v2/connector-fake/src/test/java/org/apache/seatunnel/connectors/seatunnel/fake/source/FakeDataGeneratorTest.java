@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -41,6 +42,9 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.file.Paths;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -173,13 +177,17 @@ public class FakeDataGeneratorTest {
                             8, ((ByteBuffer) seaTunnelRow.getField(8)).capacity() / 2);
                     // VectorType.VECTOR_SPARSE_FLOAT_TYPE
                     Assertions.assertEquals(8, ((Map) seaTunnelRow.getField(9)).size());
+                    Assertions.assertNotNull(seaTunnelRow.getField(10).toString());
+                    Assertions.assertNotNull(seaTunnelRow.getField(11).toString());
                     Assertions.assertEquals(
-                            268,
+                            436,
                             seaTunnelRow.getBytesSize(
                                     new SeaTunnelRowType(
                                             new String[] {
                                                 "field1", "field2", "field3", "field4", "field5",
-                                                "field6", "field7", "field8", "field9", "field10"
+                                                "field6", "field7", "field8", "field9", "field10",
+                                                "field11", "field12", "field13", "field14",
+                                                "field15", "field16"
                                             },
                                             new SeaTunnelDataType<?>[] {
                                                 BasicType.STRING_TYPE,
@@ -191,8 +199,33 @@ public class FakeDataGeneratorTest {
                                                 VectorType.VECTOR_BINARY_TYPE,
                                                 VectorType.VECTOR_FLOAT16_TYPE,
                                                 VectorType.VECTOR_BFLOAT16_TYPE,
-                                                VectorType.VECTOR_SPARSE_FLOAT_TYPE
+                                                VectorType.VECTOR_SPARSE_FLOAT_TYPE,
+                                                LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                                LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                                LocalTimeType.LOCAL_TIME_TYPE,
+                                                LocalTimeType.LOCAL_TIME_TYPE,
+                                                LocalTimeType.LOCAL_DATE_TYPE,
+                                                LocalTimeType.LOCAL_DATE_TYPE
                                             })));
+                });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"fake-data.schema.default.conf"})
+    public void testDataParse(String conf) throws FileNotFoundException, URISyntaxException {
+        ReadonlyConfig testConfig = getTestConfigFile(conf);
+        FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
+        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig);
+        List<SeaTunnelRow> seaTunnelRows =
+                fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
+        seaTunnelRows.forEach(
+                seaTunnelRow -> {
+                    Assertions.assertInstanceOf(Long.class, seaTunnelRow.getField(0));
+                    Assertions.assertInstanceOf(String.class, seaTunnelRow.getField(1));
+                    Assertions.assertInstanceOf(Integer.class, seaTunnelRow.getField(2));
+                    Assertions.assertInstanceOf(LocalDateTime.class, seaTunnelRow.getField(3));
+                    Assertions.assertInstanceOf(LocalTime.class, seaTunnelRow.getField(4));
+                    Assertions.assertInstanceOf(LocalDate.class, seaTunnelRow.getField(5));
                 });
     }
 
