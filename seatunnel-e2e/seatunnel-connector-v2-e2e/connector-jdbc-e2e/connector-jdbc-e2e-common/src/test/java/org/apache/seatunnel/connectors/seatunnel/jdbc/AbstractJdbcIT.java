@@ -172,7 +172,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     protected void insertTestData() {
         try (PreparedStatement preparedStatement =
-                     connection.prepareStatement(jdbcCase.getInsertSql())) {
+                connection.prepareStatement(jdbcCase.getInsertSql())) {
 
             List<SeaTunnelRow> rows = jdbcCase.getTestData().getValue();
 
