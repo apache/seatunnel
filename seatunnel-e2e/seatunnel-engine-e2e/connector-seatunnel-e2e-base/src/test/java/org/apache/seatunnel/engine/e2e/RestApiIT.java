@@ -390,6 +390,7 @@ public class RestApiIT {
                                     .time(lessThan(5000L))
                                     .body("[0].host", equalTo("localhost"))
                                     .body("[0].port", notNullValue())
+                                    .body("[0].isMaster", notNullValue())
                                     .statusCode(200);
                         });
     }
@@ -450,6 +451,27 @@ public class RestApiIT {
                                     .body(
                                             "source[0].password",
                                             equalTo("c2VhdHVubmVsX3Bhc3N3b3Jk"));
+                        });
+    }
+
+    @Test
+    public void testGetThreadDump() {
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance -> {
+                            given().get(
+                                            HOST
+                                                    + instance.getCluster()
+                                                            .getLocalMember()
+                                                            .getAddress()
+                                                            .getPort()
+                                                    + RestConstant.THREAD_DUMP)
+                                    .then()
+                                    .statusCode(200)
+                                    .body("[0].threadName", notNullValue())
+                                    .body("[0].threadState", notNullValue())
+                                    .body("[0].stackTrace", notNullValue())
+                                    .body("[0].threadId", notNullValue());
                         });
     }
 

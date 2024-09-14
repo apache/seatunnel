@@ -37,6 +37,7 @@
         <module>connector-cdc-postgres</module>
         <module>connector-cdc-oracle</module>
         <module>connector-cdc-opengauss</module>
+        <module>connector-cdc-tidb</module>
     </modules>
 
     <properties>

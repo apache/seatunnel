@@ -8,24 +8,33 @@
 
 ## 属性
 
-|   名称    |  类型   | 是否必须 | 默认值 |
-|---------|-------|------|-----|
-| Columns | Array | Yes  |     |
+| 名称                   | 类型    | 是否必须 | 默认值  |
+|----------------------|-------|------|------|    
+| columns              | Array | Yes  |      | 
+| row_error_handle_way | Enum  | No   | FAIL |
 
 ### common options [string]
 
 转换插件的常见参数, 请参考  [Transform Plugin](common-options.md) 了解详情
 
-### fields[array]
+### row_error_handle_way [Enum]
+
+该选项用于指定当该行发生错误时的处理方式，默认值为 `FAIL`。
+
+- FAIL：选择`FAIL`时，数据格式错误会阻塞并抛出异常。
+- SKIP：选择`SKIP`时，数据格式错误会跳过该行数据。
+
+### columns[array]
 
 #### 属性
 
-|     名称     |   类型   | 是否必须 |  默认值   |
-|------------|--------|------|--------|
-| src_field  | String | Yes  |        |
-| dest_field | String | Yes  |        |
-| path       | String | Yes  |        |
-| dest_type  | String | No   | String |
+| 名称                      | 类型     | 是否必须 | 默认值    |
+|-------------------------|--------|------|--------|
+| src_field               | String | Yes  |        |
+| dest_field              | String | Yes  |        |
+| path                    | String | Yes  |        |
+| dest_type               | String | No   | String |
+| column_error_handle_way | Enum   | No   |        |
 
 #### src_field
 
@@ -50,6 +59,14 @@
 #### path
 
 > Jsonpath
+
+#### column_error_handle_way [Enum]
+
+该选项用于指定当列发生错误时的处理方式。
+
+- FAIL：选择`FAIL`时，数据格式错误会阻塞并抛出异常。
+- SKIP：选择`SKIP`时，数据格式错误会跳过此列数据。
+- SKIP_ROW：选择`SKIP_ROW`时，数据格式错误会跳过此行数据。
 
 ## 读取 JSON 示例
 
@@ -155,23 +172,25 @@ transform {
 
 JsonPath 转换将 seatunnel 的值转换为一个数组。
 
-```json
+```hocon
 transform {
   JsonPath {
     source_table_name = "fake"
     result_table_name = "fake1"
+
+    row_error_handle_way = FAIL
     columns = [
      {
         "src_field" = "col"
         "path" = "$[0]"
         "dest_field" = "name"
-  			"dest_type" = "string"
+        "dest_type" = "string"
      },
-		{
+     {
         "src_field" = "col"
         "path" = "$[1]"
         "dest_field" = "age"
-  			"dest_type" = "int"
+        "dest_type" = "int"
      }
     ]
   }
@@ -183,6 +202,94 @@ transform {
 | name | age |   col    | other |
 |------|-----|----------|-------|
 | a    | 18  | ["a",18] | ...   |
+
+## 配置异常数据处理策略
+
+您可以配置 `row_error_handle_way` 与 `column_error_handle_way` 来处理异常数据，两者都是非必填项。
+
+`row_error_handle_way` 配置对行数据内所有数据异常进行处理，`column_error_handle_way` 配置对某列数据异常进行处理，优先级高于 `row_error_handle_way`。
+
+### 跳过异常数据行
+
+配置跳过任意列有异常的整行数据
+
+```hocon
+transform {
+  JsonPath {
+
+    row_error_handle_way = SKIP
+    
+    columns = [
+     {
+        "src_field" = "json_data"
+        "path" = "$.f1"
+        "dest_field" = "json_data_f1"
+     },
+     {
+        "src_field" = "json_data"
+        "path" = "$.f2"
+        "dest_field" = "json_data_f2"
+     }
+    ]
+  }
+}
+```
+
+### 跳过部分异常数据列
+
+配置仅对 `json_data_f1` 列数据异常跳过，填充空值，其他列数据异常继续抛出异常中断处理程序
+
+```hocon
+transform {
+  JsonPath {
+
+    row_error_handle_way = FAIL
+    
+    columns = [
+     {
+        "src_field" = "json_data"
+        "path" = "$.f1"
+        "dest_field" = "json_data_f1"
+        
+        "column_error_handle_way" = "SKIP"
+     },
+     {
+        "src_field" = "json_data"
+        "path" = "$.f2"
+        "dest_field" = "json_data_f2"
+     }
+    ]
+  }
+}
+```
+
+### 部分列异常跳过整行
+
+配置仅对 `json_data_f1` 列数据异常跳过整行数据，其他列数据异常继续抛出异常中断处理程序
+
+```hocon
+transform {
+  JsonPath {
+
+    row_error_handle_way = FAIL
+    
+    columns = [
+     {
+        "src_field" = "json_data"
+        "path" = "$.f1"
+        "dest_field" = "json_data_f1"
+        
+        "column_error_handle_way" = "SKIP_ROW"
+     },
+     {
+        "src_field" = "json_data"
+        "path" = "$.f2"
+        "dest_field" = "json_data_f2"
+     }
+    ]
+  }
+}
+```
 
 ## 更新日志
 

@@ -211,7 +211,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult(String executeKey) {
+    void checkResult(String executeKey, TestContainer container, Container.ExecResult execResult) {
         defaultCompare(executeKey, fieldNames, "INTEGER_COL");
     }
 

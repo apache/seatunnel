@@ -21,25 +21,59 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.format.json.RowToJsonConverters;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 public abstract class AbstractModel implements Model {
 
     protected static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private final RowToJsonConverters.RowToJsonConverter rowToJsonConverters;
+    private final RowToJsonConverters.RowToJsonConverter rowToJsonConverter;
+    private final SeaTunnelRowType rowType;
     private final String prompt;
     private final SqlType outputType;
+    private final List<String> projectionColumns;
 
-    public AbstractModel(SeaTunnelRowType rowType, SqlType outputType, String prompt) {
+    public AbstractModel(
+            SeaTunnelRowType rowType,
+            SqlType outputType,
+            List<String> projectionColumns,
+            String prompt) {
+        this.rowType = rowType;
         this.prompt = prompt;
         this.outputType = outputType;
-        this.rowToJsonConverters = new RowToJsonConverters().createConverter(rowType, null);
+        this.projectionColumns = projectionColumns;
+        this.rowToJsonConverter = getRowToJsonConverter();
+    }
+
+    public RowToJsonConverters.RowToJsonConverter getRowToJsonConverter() {
+        RowToJsonConverters converters = new RowToJsonConverters();
+        if (projectionColumns != null && !projectionColumns.isEmpty()) {
+            List<SeaTunnelDataType> fieldTypes = new ArrayList<>();
+            for (String fieldName : projectionColumns) {
+                int fieldIndex = rowType.indexOf(fieldName);
+                if (fieldIndex != -1) {
+                    fieldTypes.add(rowType.getFieldType(fieldIndex));
+                } else {
+                    throw new IllegalArgumentException(
+                            "Field name " + fieldName + " does not exist in the row type.");
+                }
+            }
+            SeaTunnelRowType projectionRowType =
+                    new SeaTunnelRowType(
+                            projectionColumns.toArray(new String[0]),
+                            fieldTypes.toArray(new SeaTunnelDataType[0]));
+            return converters.createConverter(projectionRowType, null);
+        }
+        return converters.createConverter(rowType, null);
     }
 
     private String getPromptWithLimit() {
@@ -58,12 +92,35 @@ public abstract class AbstractModel implements Model {
         ArrayNode rowsNode = OBJECT_MAPPER.createArrayNode();
         for (SeaTunnelRow row : rows) {
             ObjectNode rowNode = OBJECT_MAPPER.createObjectNode();
-            rowToJsonConverters.convert(OBJECT_MAPPER, rowNode, row);
+            rowToJsonConverter.convert(OBJECT_MAPPER, rowNode, createProjectionSeaTunnelRow(row));
             rowsNode.add(rowNode);
         }
         return chatWithModel(getPromptWithLimit(), OBJECT_MAPPER.writeValueAsString(rowsNode));
     }
 
+    @VisibleForTesting
+    public SeaTunnelRow createProjectionSeaTunnelRow(SeaTunnelRow row) {
+        if (row == null || projectionColumns == null || projectionColumns.isEmpty()) {
+            return row;
+        }
+        SeaTunnelRow projectionRow = new SeaTunnelRow(projectionColumns.size());
+        for (int i = 0; i < projectionColumns.size(); i++) {
+            String fieldName = projectionColumns.get(i);
+            int fieldIndex = rowType.indexOf(fieldName);
+            if (fieldIndex != -1) {
+                projectionRow.setField(i, row.getField(fieldIndex));
+            } else {
+                throw new IllegalArgumentException(
+                        "Field name " + fieldName + " does not exist in the row type.");
+            }
+        }
+        return projectionRow;
+    }
+
     protected abstract List<String> chatWithModel(String promptWithLimit, String rowsJson)
             throws IOException;
+
+    protected String convertData(String data) {
+        return outputType == SqlType.BOOLEAN ? data.toLowerCase() : data;
+    }
 }

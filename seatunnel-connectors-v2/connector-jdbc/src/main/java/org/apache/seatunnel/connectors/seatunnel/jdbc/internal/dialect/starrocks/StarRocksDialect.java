@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.starrocks;
 
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlDialect;
 
 public class StarRocksDialect extends MysqlDialect {
@@ -29,12 +28,7 @@ public class StarRocksDialect extends MysqlDialect {
     }
 
     @Override
-    public String dialectName() {
-        return DatabaseIdentifier.STARROCKS;
-    }
-
-    @Override
     public String hashModForField(String fieldName, int mod) {
-        return "ABS(md5sum_numeric(" + quoteIdentifier(fieldName) + ") % " + mod + ")";
+        return "ABS(murmur_hash3_32(" + quoteIdentifier(fieldName) + ") % " + mod + ")";
     }
 }
