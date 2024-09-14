@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
@@ -78,7 +79,7 @@ public class FtpFileSource extends BaseFileSource {
                     "Ftp file source connector only support read [text, csv, json] files");
         }
         String path = pluginConfig.getString(FtpConfigOptions.FILE_PATH.key());
-        hadoopConf = FtpConf.buildWithConfig(pluginConfig);
+        hadoopConf = FtpConf.buildWithConfig(ReadonlyConfig.fromConfig(pluginConfig));
         readStrategy =
                 ReadStrategyFactory.of(
                         pluginConfig.getString(FtpConfigOptions.FILE_FORMAT_TYPE.key()));
