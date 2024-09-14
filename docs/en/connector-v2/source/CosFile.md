@@ -20,14 +20,14 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 - [x] file format type
-    - [x] text
-    - [x] csv
-    - [x] parquet
-    - [x] orc
-    - [x] json
-    - [x] excel
-    - [x] xml
-    - [x] binary
+  - [x] text
+  - [x] csv
+  - [x] parquet
+  - [x] orc
+  - [x] json
+  - [x] excel
+  - [x] xml
+  - [x] binary
 
 ## Description
 
@@ -35,21 +35,17 @@ Read data from aliyun Cos file system.
 
 :::tip
 
-If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated
-hadoop. The tested hadoop version is 2.x.
+If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
 
-If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine.
-You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
+If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
 
-To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and cos_api-bundle-{version}.jar in
-${SEATUNNEL_HOME}/lib dir, download: [Hadoop-Cos-release](https://github.com/tencentyun/hadoop-cos/releases). It only
-supports hadoop version 2.6.5+ and version 8.0.2+.
+To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and cos_api-bundle-{version}.jar in ${SEATUNNEL_HOME}/lib dir, download: [Hadoop-Cos-release](https://github.com/tencentyun/hadoop-cos/releases). It only supports hadoop version 2.6.5+ and version 8.0.2+.
 
 :::
 
 ## Options
 
-| name                      | type    | required | default value       |
+|           name            |  type   | required |    default value    |
 |---------------------------|---------|----------|---------------------|
 | path                      | string  | yes      | -                   |
 | file_format_type          | string  | yes      | -                   |
@@ -84,8 +80,7 @@ File type, supported as the following file types:
 
 `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`
 
-If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row
-you want.
+If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
 
 For example:
 
@@ -93,11 +88,7 @@ upstream data is the following:
 
 ```json
 
-{
-  "code": 200,
-  "data": "get success",
-  "success": true
-}
+{"code":  200, "data":  "get success", "success":  true}
 
 ```
 
@@ -105,16 +96,8 @@ You can also save multiple pieces of data in one file and split them by newline:
 
 ```json lines
 
-{
-  "code": 200,
-  "data": "get success",
-  "success": true
-}
-{
-  "code": 300,
-  "data": "get failed",
-  "success": false
-}
+{"code":  200, "data":  "get success", "success":  true}
+{"code":  300, "data":  "get failed", "success":  false}
 
 ```
 
@@ -134,12 +117,11 @@ schema {
 
 connector will generate data as the following:
 
-| code | data        | success |
+| code |    data     | success |
 |------|-------------|---------|
 | 200  | get success | true    |
 
-If you assign file type to `parquet` `orc`, schema option not required, connector can find the schema of upstream data
-automatically.
+If you assign file type to `parquet` `orc`, schema option not required, connector can find the schema of upstream data automatically.
 
 If you assign file type to `text` `csv`, you can choose to specify the schema information or not.
 
@@ -153,7 +135,7 @@ tyrantlucifer#26#male
 
 If you do not assign data schema connector will treat the upstream data as the following:
 
-| content               |
+|        content        |
 |-----------------------|
 | tyrantlucifer#26#male |
 
@@ -176,7 +158,7 @@ schema {
 
 connector will generate data as the following:
 
-| name          | age | gender |
+|     name      | age | gender |
 |---------------|-----|--------|
 | tyrantlucifer | 26  | male   |
 
@@ -223,7 +205,7 @@ For example if you read a file from path `cosn://hadoop-cluster/tmp/seatunnel/pa
 
 Every record data from file will be added these two fields:
 
-| name          | age |
+|     name      | age |
 |---------------|-----|
 | tyrantlucifer | 26  |
 
@@ -265,8 +247,7 @@ default `HH:mm:ss`
 
 ### schema [config]
 
-Only need to be configured when the file_format_type are text, json, excel, xml or csv ( Or other format we can't read
-the schema from metadata).
+Only need to be configured when the file_format_type are text, json, excel, xml or csv ( Or other format we can't read the schema from metadata).
 
 #### fields [Config]
 

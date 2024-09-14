@@ -43,7 +43,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 ## Options
 
-| name                      |  type   | required |            default value             |
+|           name            |  type   | required |            default value             |
 |---------------------------|---------|----------|--------------------------------------|
 | path                      | string  | yes      | -                                    |
 | file_format_type          | string  | yes      | -                                    |

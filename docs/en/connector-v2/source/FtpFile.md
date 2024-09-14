@@ -17,12 +17,12 @@
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 - [x] file format type
-    - [x] text
-    - [x] csv
-    - [x] json
-    - [x] excel
-    - [x] xml
-    - [x] binary
+  - [x] text
+  - [x] csv
+  - [x] json
+  - [x] excel
+  - [x] xml
+  - [x] binary
 
 ## Description
 
@@ -30,17 +30,15 @@ Read data from ftp file server.
 
 :::tip
 
-If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated
-hadoop. The tested hadoop version is 2.x.
+If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
 
-If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine.
-You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
+If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
 
 :::
 
 ## Options
 
-| name                      | type    | required | default value       |
+|           name            |  type   | required |    default value    |
 |---------------------------|---------|----------|---------------------|
 | host                      | string  | yes      | -                   |
 | port                      | int     | yes      | -                   |
@@ -92,8 +90,7 @@ File type, supported as the following file types:
 
 `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`
 
-If you assign file type to `json` , you should also assign schema option to tell connector how to parse data to the row
-you want.
+If you assign file type to `json` , you should also assign schema option to tell connector how to parse data to the row you want.
 
 For example:
 
@@ -101,11 +98,7 @@ upstream data is the following:
 
 ```json
 
-{
-  "code": 200,
-  "data": "get success",
-  "success": true
-}
+{"code":  200, "data":  "get success", "success":  true}
 
 ```
 
@@ -125,7 +118,7 @@ schema {
 
 connector will generate data as the following:
 
-| code | data        | success |
+| code |    data     | success |
 |------|-------------|---------|
 | 200  | get success | true    |
 
@@ -141,7 +134,7 @@ tyrantlucifer#26#male
 
 If you do not assign data schema connector will treat the upstream data as the following:
 
-| content               |
+|        content        |
 |-----------------------|
 | tyrantlucifer#26#male |
 
@@ -164,7 +157,7 @@ schema {
 
 connector will generate data as the following:
 
-| name          | age | gender |
+|     name      | age | gender |
 |---------------|-----|--------|
 | tyrantlucifer | 26  | male   |
 
@@ -197,7 +190,7 @@ For example if you read a file from path `ftp://hadoop-cluster/tmp/seatunnel/par
 
 Every record data from file will be added these two fields:
 
-| name          | age |
+|     name      | age |
 |---------------|-----|
 | tyrantlucifer | 26  |
 
@@ -239,8 +232,7 @@ then SeaTunnel will skip the first 2 lines from source files
 
 ### schema [config]
 
-Only need to be configured when the file_format_type are text, json, excel, xml or csv ( Or other format we can't read
-the schema from metadata).
+Only need to be configured when the file_format_type are text, json, excel, xml or csv ( Or other format we can't read the schema from metadata).
 
 The schema information of upstream data.
 

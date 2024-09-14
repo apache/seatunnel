@@ -20,14 +20,14 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 - [x] file format file
-    - [x] text
-    - [x] csv
-    - [x] parquet
-    - [x] orc
-    - [x] json
-    - [x] excel
-    - [x] xml
-    - [x] binary
+  - [x] text
+  - [x] csv
+  - [x] parquet
+  - [x] orc
+  - [x] json
+  - [x] excel
+  - [x] xml
+  - [x] binary
 
 ## Description
 
@@ -41,7 +41,7 @@ Read data from hdfs file system.
 
 ## Source Options
 
-| Name                      | Type    | Required | Default             | Description                                                                                                                                                                                                                                                                                                                                   |
+|           Name            |  Type   | Required |       Default       |                                                                                                                                                                  Description                                                                                                                                                                  |
 |---------------------------|---------|----------|---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                      | string  | yes      | -                   | The source file path.                                                                                                                                                                                                                                                                                                                         |
 | file_format_type          | string  | yes      | -                   | We supported as the following file types:`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`.Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.                                                                                                                       |
@@ -99,15 +99,13 @@ The encoding of the file to read. This param will be parsed by `Charset.forName(
 
 ### Tips
 
-> If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated
-> hadoop. The tested hadoop version is 2.x. If you use SeaTunnel Engine, It automatically integrated the hadoop jar when
-> you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
+> If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x. If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
 
 ## Task Example
 
 ### Simple:
 
-> This example defines a SeaTunnel synchronization task that read data from Hdfs and sends it to Hdfs.
+> This example defines a SeaTunnel synchronization task that  read data from Hdfs and sends it to Hdfs.
 
 ```
 # Defining the runtime environment

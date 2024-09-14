@@ -17,12 +17,12 @@
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 - [x] file format type
-    - [x] text
-    - [x] csv
-    - [x] json
-    - [x] excel
-    - [x] xml
-    - [x] binary
+  - [x] text
+  - [x] csv
+  - [x] json
+  - [x] excel
+  - [x] xml
+  - [x] binary
 
 ## Description
 
@@ -33,28 +33,24 @@ Read data from sftp file server.
 In order to use the SftpFile connector, the following dependencies are required.
 They can be downloaded via install-plugin.sh or from the Maven central repository.
 
-| Datasource | Supported Versions | Dependency                                                                              |
+| Datasource | Supported Versions |                                       Dependency                                        |
 |------------|--------------------|-----------------------------------------------------------------------------------------|
 | SftpFile   | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-file-sftp) |
 
 :::tip
 
-If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated
-hadoop. The tested hadoop version is 2.x.
+If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
 
-If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine.
-You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
+If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
 
-We made some trade-offs in order to support more file types, so we used the HDFS protocol for internal access to Sftp
-and this connector need some hadoop dependencies.
+We made some trade-offs in order to support more file types, so we used the HDFS protocol for internal access to Sftp and this connector need some hadoop dependencies.
 It only supports hadoop version **2.9.X+**.
 
 :::
 
 ## Data Type Mapping
 
-The File does not have a specific type list, and we can indicate which SeaTunnel data type the corresponding data needs
-to be converted to by specifying the Schema in the config.
+The File does not have a specific type list, and we can indicate which SeaTunnel data type the corresponding data needs to be converted to by specifying the Schema in the config.
 
 | SeaTunnel Data type |
 |---------------------|
@@ -75,7 +71,7 @@ to be converted to by specifying the Schema in the config.
 
 ## Source Options
 
-| Name                      | Type    | Required | default value       | Description                                                                                                                                                                                                                                                                                                                                                                     |
+|           Name            |  Type   | Required |    default value    |                                                                                                                                                                                   Description                                                                                                                                                                                   |
 |---------------------------|---------|----------|---------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | host                      | String  | Yes      | -                   | The target sftp host is required                                                                                                                                                                                                                                                                                                                                                |
 | port                      | Int     | Yes      | -                   | The target sftp port is required                                                                                                                                                                                                                                                                                                                                                |
@@ -104,32 +100,19 @@ to be converted to by specifying the Schema in the config.
 
 File type, supported as the following file types:
 `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`
-If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row
-you want.
+If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
 For example:
 upstream data is the following:
 
 ```json
-{
-  "code": 200,
-  "data": "get success",
-  "success": true
-}
+{"code":  200, "data":  "get success", "success":  true}
 ```
 
 You can also save multiple pieces of data in one file and split them by newline:
 
 ```json lines
-{
-  "code": 200,
-  "data": "get success",
-  "success": true
-}
-{
-  "code": 300,
-  "data": "get failed",
-  "success": false
-}
+{"code":  200, "data":  "get success", "success":  true}
+{"code":  300, "data":  "get failed", "success":  false}
 ```
 
 you should assign schema as the following:
@@ -145,11 +128,10 @@ schema {
 ```
 
 connector will generate data as the following:
-| code | data | success |
+| code |    data     | success |
 |------|-------------|---------|
-| 200 | get success | true |
-If you assign file type to `parquet` `orc`, schema option not required, connector can find the schema of upstream data
-automatically.
+| 200  | get success | true    |
+If you assign file type to `parquet` `orc`, schema option not required, connector can find the schema of upstream data automatically.
 If you assign file type to `text` `csv`, you can choose to specify the schema information or not.
 For example, upstream data is the following:
 
@@ -158,7 +140,7 @@ tyrantlucifer#26#male
 ```
 
 If you do not assign data schema connector will treat the upstream data as the following:
-| content |
+|        content        |
 |-----------------------|
 | tyrantlucifer#26#male |
 If you assign data schema, you should also assign the option `field_delimiter` too except CSV file type
@@ -176,9 +158,9 @@ schema {
 ```
 
 connector will generate data as the following:
-| name | age | gender |
+|     name      | age | gender |
 |---------------|-----|--------|
-| tyrantlucifer | 26 | male |
+| tyrantlucifer | 26  | male   |
 
 If you assign file type to `binary`, SeaTunnel can synchronize files in any format,
 such as compressed packages, pictures, etc. In short, any files can be synchronized to the target place.
@@ -219,8 +201,7 @@ The schema of upstream data.
 
 ## How to Create a Sftp Data Synchronization Jobs
 
-The following example demonstrates how to create a data synchronization job that reads data from sftp and prints it on
-the local client:
+The following example demonstrates how to create a data synchronization job that reads data from sftp and prints it on the local client:
 
 ```bash
 # Set the basic configuration of the task to be performed
