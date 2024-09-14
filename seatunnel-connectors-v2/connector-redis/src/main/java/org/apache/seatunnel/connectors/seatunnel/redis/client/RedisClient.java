@@ -19,11 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.redis.client;
 
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisVersion;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.params.ScanParams;
 import redis.clients.jedis.resps.ScanResult;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,6 +33,8 @@ import java.util.Set;
 public abstract class RedisClient extends Jedis {
 
     protected final RedisParameters redisParameters;
+
+    private final RedisVersion redisVersion;
 
     protected final int batchSize;
 
@@ -40,6 +44,7 @@ public abstract class RedisClient extends Jedis {
         this.redisParameters = redisParameters;
         this.batchSize = redisParameters.getBatchSize();
         this.jedis = jedis;
+        this.redisVersion = redisParameters.getRedisVersion();
     }
 
     public ScanResult<String> scanKeys(
@@ -47,7 +52,34 @@ public abstract class RedisClient extends Jedis {
         ScanParams scanParams = new ScanParams();
         scanParams.match(keysPattern);
         scanParams.count(batchSize);
-        return jedis.scan(cursor, scanParams, type.name());
+        return scanByRedisVersion(cursor, scanParams, type, redisVersion);
+    }
+
+    private ScanResult<String> scanByRedisVersion(
+            String cursor, ScanParams scanParams, RedisDataType type, RedisVersion redisVersion) {
+        if (RedisVersion.Redis3.equals(redisVersion)
+                || RedisVersion.Redis4.equals(redisVersion)
+                || RedisVersion.Redis5.equals(redisVersion)) {
+            return scanOnRedis5(cursor, scanParams, type);
+        } else {
+            return jedis.scan(cursor, scanParams, type.name());
+        }
+    }
+
+    // When the version is earlier than redis5, scan command does not support type
+    private ScanResult<String> scanOnRedis5(
+            String cursor, ScanParams scanParams, RedisDataType type) {
+        ScanResult<String> scanResult = jedis.scan(cursor, scanParams);
+        String resultCursor = scanResult.getCursor();
+        List<String> keys = scanResult.getResult();
+        List<String> typeKeys = new ArrayList<>(keys.size());
+        for (String key : keys) {
+            String keyType = jedis.type(key);
+            if (type.name().equalsIgnoreCase(keyType)) {
+                typeKeys.add(key);
+            }
+        }
+        return new ScanResult<>(resultCursor, typeKeys);
     }
 
     public abstract List<String> batchGetString(List<String> keys);

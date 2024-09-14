@@ -36,6 +36,7 @@ import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 
 @Data
 public class RedisParameters implements Serializable {
@@ -53,7 +54,12 @@ public class RedisParameters implements Serializable {
     private long expire = RedisConfig.EXPIRE.defaultValue();
     private int batchSize = RedisConfig.BATCH_SIZE.defaultValue();
 
+    private RedisVersion redisVersion;
+
     public void buildWithConfig(ReadonlyConfig config) {
+        // redis version
+        Optional<RedisVersion> versionOptional = config.getOptional(RedisConfig.REDIS_VERSION);
+        versionOptional.ifPresent(version -> this.redisVersion = version);
         // set host
         this.host = config.get(RedisConfig.HOST);
         // set port

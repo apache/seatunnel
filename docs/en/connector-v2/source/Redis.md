@@ -17,8 +17,9 @@ Used to read data from Redis.
 
 ## Options
 
-|        name         |  type  |       required        | default value |
-|---------------------|--------|-----------------------|---------------|
+| name                | type   | required              | default value |
+| ------------------- | ------ | --------------------- | ------------- |
+| redis_version       | string | yes                   | -             |
 | host                | string | yes                   | -             |
 | port                | int    | yes                   | -             |
 | keys                | string | yes                   | -             |
@@ -33,6 +34,10 @@ Used to read data from Redis.
 | schema              | config | yes when format=json  | -             |
 | format              | string | no                    | json          |
 | common-options      |        | no                    | -             |
+
+### redis_version
+
+version of redis, support `Redis3`,` Redis4`, `Redis5`,` Redis6`,` Redis7`
 
 ### host [string]
 
@@ -67,7 +72,6 @@ for example, if the value of hash key is the following shown:
 if hash_key_parse_mode is `all` and schema config as the following shown, it will generate the following data:
 
 ```hocon
-
 schema {
   fields {
     001 {
@@ -83,14 +87,13 @@ schema {
 
 ```
 
-|               001               |            002            |
-|---------------------------------|---------------------------|
+| 001                             | 002                       |
+| ------------------------------- | ------------------------- |
 | Row(name=tyrantlucifer, age=26) | Row(name=Zongwen, age=26) |
 
 if hash_key_parse_mode is `kv` and schema config as the following shown, it will generate the following data:
 
 ```hocon
-
 schema {
   fields {
     hash_key = string
@@ -101,10 +104,10 @@ schema {
 
 ```
 
-| hash_key |     name      | age |
-|----------|---------------|-----|
-| 001      | tyrantlucifer | 26  |
-| 002      | Zongwen       | 26  |
+| hash_key | name          | age  |
+| -------- | ------------- | ---- |
+| 001      | tyrantlucifer | 26   |
+| 002      | Zongwen       | 26   |
 
 each kv that in hash key it will be treated as a row and send it to upstream.
 
@@ -180,7 +183,6 @@ when you assign format is `json`, you should also assign schema option, for exam
 upstream data is the following:
 
 ```json
-
 {"code":  200, "data":  "get success", "success":  true}
 
 ```
@@ -188,7 +190,6 @@ upstream data is the following:
 you should assign schema as the following:
 
 ```hocon
-
 schema {
     fields {
         code = int
@@ -201,8 +202,8 @@ schema {
 
 connector will generate data as the following:
 
-| code |    data     | success |
-|------|-------------|---------|
+| code | data        | success |
+| ---- | ----------- | ------- |
 | 200  | get success | true    |
 
 when you assign format is `text`, connector will do nothing for upstream data, for example:
@@ -210,15 +211,14 @@ when you assign format is `text`, connector will do nothing for upstream data, f
 upstream data is the following:
 
 ```json
-
 {"code":  200, "data":  "get success", "success":  true}
 
 ```
 
 connector will generate data as the following:
 
-|                         content                          |
-|----------------------------------------------------------|
+| content                                                  |
+| -------------------------------------------------------- |
 | {"code":  200, "data":  "get success", "success":  true} |
 
 ### schema [config]
@@ -242,6 +242,7 @@ Redis {
   keys = "key_test*"
   data_type = key
   format = text
+  redis_version = Redis5
 }
 ```
 
@@ -252,11 +253,52 @@ Redis {
   keys = "key_test*"
   data_type = key
   format = json
+  redis_version = Redis5
   schema {
     fields {
       name = string
       age = int
     }
+  }
+}
+```
+
+read string type keys write append to list
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+  shade.identifier = "base64"
+
+  #spark config
+  spark.app.name = "SeaTunnel"
+  spark.executor.instances = 2
+  spark.executor.cores = 1
+  spark.executor.memory = "1g"
+  spark.master = local
+}
+
+source {
+  Redis {
+    host = "redis-e2e"
+    port = 6379
+    auth = "U2VhVHVubmVs"
+    keys = "string_test*"
+    data_type = string
+    batch_size = 33
+    redis_version = Redis7
+  }
+}
+
+sink {
+  Redis {
+    host = "redis-e2e"
+    port = 6379
+    auth = "U2VhVHVubmVs"
+    key = "string_test_list"
+    data_type = list
+    batch_size = 33
   }
 }
 ```
@@ -270,4 +312,4 @@ Redis {
 ### next version
 
 - [Improve] Support redis cluster mode connection and user authentication [3188](https://github.com/apache/seatunnel/pull/3188)
-
+-  [Bug] Redis scan command supports versions 3, 4, 5, 6, 7

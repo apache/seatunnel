@@ -64,13 +64,12 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class RedisIT extends TestSuiteBase implements TestResource {
-    private static final String IMAGE = "redis:latest";
-    private static final String HOST = "redis-e2e";
-    private static final int PORT = 6379;
-    private static final String PASSWORD = "SeaTunnel";
 
-    private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET =
-            generateTestDataSet();
+    private final String host = "redis-e2e";
+    private final int port = 6379;
+    private final String password = "SeaTunnel";
+
+    private final Pair<SeaTunnelRowType, List<SeaTunnelRow>> testDateSet = generateTestDataSet();
 
     private GenericContainer<?> redisContainer;
 
@@ -80,12 +79,13 @@ public class RedisIT extends TestSuiteBase implements TestResource {
     @Override
     public void startUp() {
         this.redisContainer =
-                new GenericContainer<>(DockerImageName.parse(IMAGE))
+                new GenericContainer<>(DockerImageName.parse(getImage()))
                         .withNetwork(NETWORK)
-                        .withNetworkAliases(HOST)
-                        .withExposedPorts(PORT)
-                        .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
-                        .withCommand(String.format("redis-server --requirepass %s", PASSWORD))
+                        .withNetworkAliases(host)
+                        .withExposedPorts(port)
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(getImage())))
+                        .withCommand(String.format("redis-server --requirepass %s", password))
                         .waitingFor(
                                 new HostPortWaitStrategy()
                                         .withStartupTimeout(Duration.ofMinutes(2)));
@@ -97,8 +97,8 @@ public class RedisIT extends TestSuiteBase implements TestResource {
 
     private void initSourceData() {
         JsonSerializationSchema jsonSerializationSchema =
-                new JsonSerializationSchema(TEST_DATASET.getKey());
-        List<SeaTunnelRow> rows = TEST_DATASET.getValue();
+                new JsonSerializationSchema(testDateSet.getKey());
+        List<SeaTunnelRow> rows = testDateSet.getValue();
         for (int i = 0; i < rows.size(); i++) {
             jedis.set("key_test" + i, new String(jsonSerializationSchema.serialize(rows.get(i))));
         }
@@ -177,7 +177,7 @@ public class RedisIT extends TestSuiteBase implements TestResource {
 
     private void initJedis() {
         Jedis jedis = new Jedis(redisContainer.getHost(), redisContainer.getFirstMappedPort());
-        jedis.auth(PASSWORD);
+        jedis.auth(password);
         jedis.ping();
         this.jedis = jedis;
     }
@@ -196,7 +196,8 @@ public class RedisIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testRedis(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/redis-to-redis.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/redis-to-redis.conf", getVariable());
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertEquals(100, jedis.llen("key_list"));
         // Clear data to prevent data duplication in the next TestContainer
@@ -207,7 +208,8 @@ public class RedisIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testRedisWithExpire(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/redis-to-redis-expire.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/redis-to-redis-expire.conf", getVariable());
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertEquals(100, jedis.llen("key_list"));
         // Clear data to prevent data duplication in the next TestContainer
@@ -217,7 +219,8 @@ public class RedisIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testRedisDbNum(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/redis-to-redis-by-db-num.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/redis-to-redis-by-db-num.conf", getVariable());
         Assertions.assertEquals(0, execResult.getExitCode());
         jedis.select(2);
         Assertions.assertEquals(100, jedis.llen("db_test"));
@@ -232,7 +235,8 @@ public class RedisIT extends TestSuiteBase implements TestResource {
         for (int i = 0; i < 1000; i++) {
             jedis.set(keyPrefix + i, "val");
         }
-        Container.ExecResult execResult = container.executeJob("/scan-string-to-redis.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/scan-string-to-redis.conf", getVariable());
         Assertions.assertEquals(0, execResult.getExitCode());
         List<String> list = jedis.lrange("string_test_list", 0, -1);
         Assertions.assertEquals(1000, list.size());
@@ -253,7 +257,8 @@ public class RedisIT extends TestSuiteBase implements TestResource {
             }
         }
         Container.ExecResult execResult =
-                container.executeJob("/scan-list-test-read-to-redis-list-test-check.conf");
+                container.executeJob(
+                        "/scan-list-test-read-to-redis-list-test-check.conf", getVariable());
         Assertions.assertEquals(0, execResult.getExitCode());
         List<String> list = jedis.lrange("list-test-check", 0, -1);
         Assertions.assertEquals(1000, list.size());
@@ -275,7 +280,7 @@ public class RedisIT extends TestSuiteBase implements TestResource {
             }
         }
         Container.ExecResult execResult =
-                container.executeJob("/scan-set-to-redis-list-set-check.conf");
+                container.executeJob("/scan-set-to-redis-list-set-check.conf", getVariable());
         Assertions.assertEquals(0, execResult.getExitCode());
         List<String> list = jedis.lrange("list-set-check", 0, -1);
         Assertions.assertEquals(1000, list.size());
@@ -297,7 +302,7 @@ public class RedisIT extends TestSuiteBase implements TestResource {
             jedis.hset(setKey, map);
         }
         Container.ExecResult execResult =
-                container.executeJob("/scan-hash-to-redis-list-hash-check.conf");
+                container.executeJob("/scan-hash-to-redis-list-hash-check.conf", getVariable());
         Assertions.assertEquals(0, execResult.getExitCode());
         List<String> list = jedis.lrange("list-hash-check", 0, -1);
         Assertions.assertEquals(100, list.size());
@@ -325,7 +330,7 @@ public class RedisIT extends TestSuiteBase implements TestResource {
             }
         }
         Container.ExecResult execResult =
-                container.executeJob("/scan-zset-to-redis-list-zset-check.conf");
+                container.executeJob("/scan-zset-to-redis-list-zset-check.conf", getVariable());
         Assertions.assertEquals(0, execResult.getExitCode());
         List<String> list = jedis.lrange("list-zset-check", 0, -1);
         Assertions.assertEquals(1000, list.size());
@@ -344,11 +349,19 @@ public class RedisIT extends TestSuiteBase implements TestResource {
     public void testMultipletableRedisSink(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/fake-to-multipletableredissink.conf");
+                container.executeJob("/fake-to-multipletableredissink.conf", getVariable());
         Assertions.assertEquals(0, execResult.getExitCode());
         jedis.select(3);
         Assertions.assertEquals(2, jedis.llen("key_multi_list"));
         jedis.del("key_multi_list");
         jedis.select(0);
+    }
+
+    public List<String> getVariable() {
+        return Collections.singletonList("redisVersion=Redis7");
+    }
+
+    public String getImage() {
+        return "redis:latest";
     }
 }
