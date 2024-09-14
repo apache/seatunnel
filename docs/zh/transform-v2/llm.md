@@ -8,19 +8,20 @@
 
 ## 属性
 
-| 名称                   | 类型   | 是否必须 | 默认值 |
-| ---------------------- | ------ | -------- | ------ |
-| model_provider         | enum   | yes      |        |
-| output_data_type       | enum   | no       | String |
-| prompt                 | string | yes      |        |
-| inference_columns   | list   | no       |        |
-| model                  | string | yes      |        |
-| api_key                | string | yes      |        |
-| api_path               | string | no       |        |
-| custom_config          | map    | no       |        |
-| custom_response_parse  | string | no       |        |
-| custom_request_headers | map    | no       |        |
-| custom_request_body    | map    | no       |        |
+| 名称                     | 类型   | 是否必须 | 默认值         |
+|------------------------| ------ | -------- |-------------|
+| model_provider         | enum   | yes      |             |
+| output_data_type       | enum   | no       | String      |
+| output_column_name     | string | no       | llm_output   |
+| prompt                 | string | yes      |             |
+| inference_columns      | list   | no       |             |
+| model                  | string | yes      |             |
+| api_key                | string | yes      |             |
+| api_path               | string | no       |             |
+| custom_config          | map    | no       |             |
+| custom_response_parse  | string | no       |             |
+| custom_request_headers | map    | no       |             |
+| custom_request_body    | map    | no       |             |
 
 ### model_provider
 
@@ -32,6 +33,10 @@ OPENAI、DOUBAO、KIMIAI、CUSTOM
 输出数据的数据类型。可用选项为:
 STRING,INT,BIGINT,DOUBLE,BOOLEAN.
 默认值为 STRING。
+
+### output_column_name
+
+自定义输出数据字段名称。自定义字段名称与现有字段名称相同时,将替换为`llm_output`。
 
 ### prompt
 
