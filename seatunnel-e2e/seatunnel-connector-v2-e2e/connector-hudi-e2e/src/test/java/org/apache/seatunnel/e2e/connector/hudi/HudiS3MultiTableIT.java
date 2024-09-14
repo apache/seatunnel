@@ -32,6 +32,7 @@ import org.apache.parquet.example.data.Group;
 import org.apache.parquet.hadoop.ParquetReader;
 import org.apache.parquet.hadoop.example.GroupReadSupport;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestTemplate;
@@ -99,6 +100,7 @@ public class HudiS3MultiTableIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(minioClient.bucketExists(existsArgs));
     }
 
+    @AfterEach
     @Override
     public void tearDown() throws Exception {
         if (container != null) {
