@@ -85,7 +85,7 @@ The target ftp password is required
 
 ### path [string]
 
-The target dir path is required, you can inject the upstream CatalogTable into the path by using: `${database_name}`, `${table_name}` and `${schema_name}`.
+The target dir path is required.
 
 ### connection_mode [string]
 
@@ -288,7 +288,8 @@ FtpFile {
 ```
 
 When our source end is multiple tables, and wants different expressions to different directory, we can configure this way
-```bash
+
+```hocon
 
 FtpFile {
     host = "xxx.xxx.xxx.xxx"

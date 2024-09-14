@@ -157,8 +157,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
     @DisabledOnContainer(
             value = {},
             type = {EngineType.FLINK},
-            disabledReason =
-                    "Fink test is multi-node, FtpFile connector will use different containers for obtaining files")
+            disabledReason = "Flink dosen't support multi-table at now")
     public void testMultipleTableAndSaveMode(TestContainer container)
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
