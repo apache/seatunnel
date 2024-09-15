@@ -24,6 +24,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.saphana.SapHanaTypeMapper;
+import org.apache.seatunnel.e2e.common.container.EngineType;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -44,6 +46,11 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
+@DisabledOnContainer(
+        value = {},
+        type = {EngineType.SPARK, EngineType.FLINK},
+        disabledReason =
+                "1.The apache-compress version is not compatible with apache-poi. 2.Spark Engine is not compatible with commons-net")
 public class JdbcHanaIT extends AbstractJdbcIT {
     private static final String HANA_IMAGE = "saplabs/hanaexpress:2.00.076.00.20240701.1";
     private static final String HANA_NETWORK_ALIASES = "e2e_saphana";
@@ -56,7 +63,9 @@ public class JdbcHanaIT extends AbstractJdbcIT {
     private static final String SOURCE_TABLE = "ALLDATATYPES";
 
     private static final List<String> CONFIG_FILE =
-            Lists.newArrayList("/jdbc_sap_hana_source_and_sink.conf");
+            Lists.newArrayList(
+                    "/jdbc_sap_hana_source_and_sink.conf",
+                    "/jdbc_sap_hana_test_view_and_synonym.conf");
 
     // TODO The current Docker image cannot handle the annotated type normally,
     //  but the corresponding type can be handled normally on the standard HANA service
@@ -206,8 +215,14 @@ public class JdbcHanaIT extends AbstractJdbcIT {
     @Override
     protected void createSchemaIfNeeded() {
         String sql = "CREATE SCHEMA " + DATABASE;
+        // create view and synonym
+        String createViewSql =
+                "CREATE VIEW TEST.ALLDATATYPES_VIEW AS SELECT * FROM TEST.ALLDATATYPES;";
+        String createSynonymSql = "CREATE SYNONYM TEST.ALLDATATYPES_SYNONYM FOR TEST.ALLDATATYPES;";
         try {
             connection.prepareStatement(sql).executeUpdate();
+            connection.prepareStatement(createViewSql).execute();
+            connection.prepareStatement(createSynonymSql).execute();
         } catch (Exception e) {
             throw new SeaTunnelRuntimeException(
                     JdbcITErrorCode.CREATE_TABLE_FAILED, "Fail to execute sql " + sql, e);
