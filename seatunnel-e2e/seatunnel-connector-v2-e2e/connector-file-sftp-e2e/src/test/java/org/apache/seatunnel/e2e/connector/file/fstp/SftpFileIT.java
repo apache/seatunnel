@@ -145,7 +145,7 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     @DisabledOnContainer(
             value = {},
-            type = {EngineType.FLINK},
+            type = {EngineType.FLINK, EngineType.SPARK},
             disabledReason = "Flink dosen't support multi-table at now")
     public void testMultipleTableAndSaveMode(TestContainer container)
             throws IOException, InterruptedException {
