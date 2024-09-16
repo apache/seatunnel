@@ -25,8 +25,6 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.saphana.SapHanaTypeMapper;
-import org.apache.seatunnel.e2e.common.container.EngineType;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -48,11 +46,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
-@DisabledOnContainer(
-        value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason =
-                "1.The apache-compress version is not compatible with apache-poi. 2.Spark Engine is not compatible with commons-net")
 public class JdbcHanaIT extends AbstractJdbcIT {
     private static final String HANA_IMAGE = "saplabs/hanaexpress:2.00.076.00.20240701.1";
     private static final String HANA_NETWORK_ALIASES = "e2e_saphana";
