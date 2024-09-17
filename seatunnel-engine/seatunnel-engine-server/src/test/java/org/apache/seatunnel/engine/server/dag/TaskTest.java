@@ -46,7 +46,6 @@ import org.apache.seatunnel.engine.server.TestUtils;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -182,10 +181,5 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                                 Collections.singletonMap(
                                         "fields", ImmutableMap.of("id", "int", "name", "string"))));
         return new FakeSource(ReadonlyConfig.fromConfig(fakeSourceConfig));
-    }
-
-    @AfterAll
-    public void after() {
-        super.after();
     }
 }
