@@ -48,13 +48,13 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
 
     private final SeaTunnelSink<SeaTunnelRow, WriterStateT, CommT, GlobalCommT> sink;
 
-    private final CatalogTable catalogTable;
+    private final List<CatalogTable> catalogTables;
 
     public FlinkSink(
             SeaTunnelSink<SeaTunnelRow, WriterStateT, CommT, GlobalCommT> sink,
-            CatalogTable catalogTable) {
+            List<CatalogTable> catalogTables) {
         this.sink = sink;
-        this.catalogTable = catalogTable;
+        this.catalogTables = catalogTables;
     }
 
     @Override
@@ -65,15 +65,13 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
                 new FlinkSinkWriterContext(context);
 
         if (states == null || states.isEmpty()) {
-            return new FlinkSinkWriter<>(
-                    sink.createWriter(stContext), 1, catalogTable.getSeaTunnelRowType(), stContext);
+            return new FlinkSinkWriter<>(sink.createWriter(stContext), 1, stContext);
         } else {
             List<WriterStateT> restoredState =
                     states.stream().map(FlinkWriterState::getState).collect(Collectors.toList());
             return new FlinkSinkWriter<>(
                     sink.restoreWriter(stContext, restoredState),
                     states.get(0).getCheckpointId() + 1,
-                    catalogTable.getSeaTunnelRowType(),
                     stContext);
         }
     }
@@ -91,12 +89,30 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
 
     @Override
     public Optional<SimpleVersionedSerializer<CommitWrapper<CommT>>> getCommittableSerializer() {
-        return sink.getCommitInfoSerializer().map(CommitWrapperSerializer::new);
+        try {
+            if (sink.createCommitter().isPresent()
+                    || sink.createAggregatedCommitter().isPresent()) {
+                return sink.getCommitInfoSerializer().map(CommitWrapperSerializer::new);
+            } else {
+                return Optional.empty();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to create Committer or AggregatedCommitter", e);
+        }
     }
 
     @Override
     public Optional<SimpleVersionedSerializer<GlobalCommT>> getGlobalCommittableSerializer() {
-        return sink.getAggregatedCommitInfoSerializer().map(FlinkSimpleVersionedSerializer::new);
+        try {
+            if (sink.createAggregatedCommitter().isPresent()) {
+                return sink.getAggregatedCommitInfoSerializer()
+                        .map(FlinkSimpleVersionedSerializer::new);
+            } else {
+                return Optional.empty();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to create AggregatedCommitter", e);
+        }
     }
 
     @Override
