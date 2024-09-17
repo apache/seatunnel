@@ -70,7 +70,7 @@ cd "apache-seatunnel-${version}"
 ./bin/start-seatunnel-flink-13-connector-v2.sh --config ./config/v2.streaming.conf.template
 ```
 
-Flink version between `1.15.x` and `1.16.x`
+Flink version between `1.15.x` and `1.18.x`
 
 ```shell
 cd "apache-seatunnel-${version}"

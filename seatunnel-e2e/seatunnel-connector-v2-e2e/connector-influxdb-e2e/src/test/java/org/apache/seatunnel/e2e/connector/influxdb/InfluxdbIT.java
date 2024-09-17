@@ -25,7 +25,6 @@ import org.apache.seatunnel.connectors.seatunnel.influxdb.client.InfluxDBClient;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
@@ -249,8 +248,8 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     @DisabledOnContainer(
             value = {},
-            type = {EngineType.FLINK},
-            disabledReason = "Currently FLINK do not support multiple table read")
+            type = {},
+            disabledReason = "")
     public void testInfluxdbMultipleWrite(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =

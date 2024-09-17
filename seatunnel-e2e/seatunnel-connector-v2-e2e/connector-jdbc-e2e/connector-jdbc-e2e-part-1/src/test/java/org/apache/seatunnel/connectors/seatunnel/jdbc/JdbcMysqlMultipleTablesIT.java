@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
@@ -171,8 +170,8 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
 
     @DisabledOnContainer(
             value = {},
-            type = {EngineType.FLINK},
-            disabledReason = "Currently SPARK and FLINK do not support multiple tables")
+            type = {},
+            disabledReason = "")
     @TestTemplate
     public void testMysqlJdbcMultipleTableE2e(TestContainer container)
             throws IOException, InterruptedException, SQLException {

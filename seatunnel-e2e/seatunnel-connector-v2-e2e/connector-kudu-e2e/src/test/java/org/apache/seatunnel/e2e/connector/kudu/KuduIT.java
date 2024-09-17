@@ -387,8 +387,8 @@ public class KuduIT extends TestSuiteBase implements TestResource {
 
     @DisabledOnContainer(
             value = {},
-            type = {EngineType.FLINK},
-            disabledReason = "Currently FLINK do not support multiple table read")
+            type = {},
+            disabledReason = "")
     @TestTemplate
     public void testKuduMultipleRead(TestContainer container)
             throws IOException, InterruptedException {

@@ -19,7 +19,6 @@ package org.apache.seatunnel.e2e.connector.email;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
@@ -86,8 +85,8 @@ public class EmailWithMultiIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     @DisabledOnContainer(
             value = {},
-            type = {EngineType.FLINK},
-            disabledReason = "Currently FLINK do not support multi-table")
+            type = {},
+            disabledReason = "")
     public void testMultipleTableEmailSink(TestContainer container) throws Exception {
         Container.ExecResult textWriteResult = container.executeJob("/fake_to_multiemailsink.conf");
         testEMailSuccess(2, "receiver-3@example.com", "receiver-4@example.com");
