@@ -82,6 +82,8 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -297,9 +299,9 @@ public class CoordinatorService {
     }
 
     public JobMaster getJobMaster(Long jobId) {
-        return pendingJobMasterMap.containsKey(jobId)
-                ? pendingJobMasterMap.get(jobId)._2
-                : runningJobMasterMap.get(jobId);
+        return Optional.ofNullable(pendingJobMasterMap.get(jobId))
+                .map(t -> t._2)
+                .orElse(runningJobMasterMap.get(jobId));
     }
 
     public EventProcessor getEventProcessor() {
@@ -504,8 +506,10 @@ public class CoordinatorService {
     public synchronized void clearCoordinatorService() {
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);
-        pendingJobMasterMap.values().stream().forEach(System.out::println);
-        pendingJobMasterMap.values().stream().map(Tuple2::_2).forEach(JobMaster::interrupt);
+        pendingJobMasterMap.values().stream()
+                .filter(Objects::nonNull)
+                .map(Tuple2::_2)
+                .forEach(JobMaster::interrupt);
         executorService.shutdownNow();
         runningJobMasterMap.clear();
         pendingJobMasterMap.clear();
@@ -657,9 +661,9 @@ public class CoordinatorService {
         // must wait for all job restore complete
         restoreAllJobFromMasterNodeSwitchFuture.join();
         JobMaster runningJobMaster =
-                pendingJobMasterMap.get(jobId) == null
-                        ? runningJobMasterMap.get(jobId)
-                        : pendingJobMasterMap.get(jobId)._2;
+                Optional.ofNullable(pendingJobMasterMap.get(jobId))
+                        .map(t -> t._2)
+                        .orElse(runningJobMasterMap.get(jobId));
         if (runningJobMaster == null) {
             // Because operations on Imap cannot be performed within Operation.
             CompletableFuture<JobHistoryService.JobState> jobStateFuture =
@@ -687,8 +691,11 @@ public class CoordinatorService {
         }
     }
 
-    public PassiveCompletableFuture<Void> cancelJob(long jodId) {
-        JobMaster runningJobMaster = runningJobMasterMap.get(jodId);
+    public PassiveCompletableFuture<Void> cancelJob(long jobId) {
+        JobMaster runningJobMaster =
+                Optional.ofNullable(pendingJobMasterMap.get(jobId))
+                        .map(t -> t._2)
+                        .orElse(runningJobMasterMap.get(jobId));
         if (runningJobMaster == null) {
             CompletableFuture<Void> future = new CompletableFuture<>();
             future.complete(null);
