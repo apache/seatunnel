@@ -33,11 +33,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.utility.DockerImageName;
-import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.google.common.collect.Lists;
 import com.jayway.jsonpath.JsonPath;
@@ -46,62 +43,68 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
 @Slf4j
-public class PrometheusIT extends TestSuiteBase implements TestResource {
+public class VictoriaMetricsIT extends TestSuiteBase implements TestResource {
+    private static final String IMAGE = "victoriametrics/victoria-metrics:v1.103.0";
 
-    private static final String IMAGE = "bitnami/prometheus:2.53.0";
+    private GenericContainer<?> victoriaMetricsContainer;
 
-    private GenericContainer<?> prometheusContainer;
+    private static final String HOST = "victoria-metrics-host";
 
-    private static final String HOST = "prometheus-host";
-
-    private String coordinatorURL;
+    private static final long INDEX_REFRESH_MILL_DELAY = 30000L;
 
     @BeforeAll
     @Override
-    public void startUp() {
-        this.prometheusContainer =
-                new GenericContainer<>(DockerImageName.parse(IMAGE))
+    public void startUp() throws UnknownHostException {
+        String host = InetAddress.getLocalHost().getHostAddress();
+        victoriaMetricsContainer =
+                new GenericContainer<>(IMAGE)
+                        .withExposedPorts(8428)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
                         .withEnv("TZ", "Asia/Shanghai")
-                        .withExposedPorts(9090)
                         .withCommand(
-                                "--config.file=/opt/bitnami/prometheus/conf/prometheus.yml",
-                                "--web.enable-remote-write-receiver")
-                        .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
+                                "--httpListenAddr=0.0.0.0:8428",
+                                "--search.minStalenessInterval=0s",
+                                "--storageDataPath=/victoria-metrics-data")
                         .waitingFor(
                                 new HostPortWaitStrategy()
                                         .withStartupTimeout(Duration.ofMinutes(2)));
-        prometheusContainer.setPortBindings(Lists.newArrayList(String.format("%s:9090", "9090")));
-        Startables.deepStart(Stream.of(prometheusContainer)).join();
-        log.info("Prometheus container started");
+        ;
+
+        victoriaMetricsContainer.setPortBindings(
+                Lists.newArrayList(String.format("%s:8428", "8428")));
+        Startables.deepStart(Stream.of(victoriaMetricsContainer)).join();
+        log.info("victoriaMetrics container started");
     }
 
     @AfterAll
     @Override
     public void tearDown() {
-        if (prometheusContainer != null) {
-            prometheusContainer.stop();
+        if (victoriaMetricsContainer != null) {
+            victoriaMetricsContainer.stop();
         }
     }
 
     @TestTemplate
-    public void testPrometheusSinkAndSource(TestContainer container)
+    public void testVictoriaMetricsSinkAndSource(TestContainer container)
             throws IOException, InterruptedException {
 
-        Container.ExecResult execResult = container.executeJob("/prometheus_remote_write.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/victoriaMetrics_remote_write.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
+        // waiting  refresh
+        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
         CloseableHttpClient httpClient = HttpClients.createDefault();
-
         String host = InetAddress.getLocalHost().getHostAddress();
-        HttpGet httpGet = new HttpGet("http://" + host + ":9090/api/v1/query?query=metric_1");
+        HttpGet httpGet = new HttpGet("http://" + host + ":8428/api/v1/query?query=metric_1");
         CloseableHttpResponse response = httpClient.execute(httpGet);
         String responseContent = EntityUtils.toString(response.getEntity());
         List<Metric> metrics =
@@ -117,7 +120,7 @@ public class PrometheusIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(metric.getValue().get(1), "1.23");
 
         Container.ExecResult execResult1 =
-                container.executeJob("/prometheus_instant_json_to_assert.conf");
+                container.executeJob("/vectoriaMetrics_instant_json_to_assert.conf");
         Assertions.assertEquals(0, execResult1.getExitCode());
     }
 
