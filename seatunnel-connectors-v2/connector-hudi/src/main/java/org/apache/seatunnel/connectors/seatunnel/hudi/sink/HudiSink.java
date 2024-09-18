@@ -44,8 +44,6 @@ import org.apache.seatunnel.connectors.seatunnel.hudi.sink.state.HudiCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.hudi.sink.state.HudiSinkState;
 import org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer.HudiSinkWriter;
 
-import com.google.auto.service.AutoService;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -53,7 +51,6 @@ import java.util.Optional;
 
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 
-@AutoService(SeaTunnelSink.class)
 public class HudiSink
         implements SeaTunnelSink<
                         SeaTunnelRow, HudiSinkState, HudiCommitInfo, HudiAggregatedCommitInfo>,
@@ -84,8 +81,7 @@ public class HudiSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, HudiCommitInfo, HudiSinkState> createWriter(
-            SinkWriter.Context context) throws IOException {
+    public HudiSinkWriter createWriter(SinkWriter.Context context) throws IOException {
         return new HudiSinkWriter(
                 context, seaTunnelRowType, hudiSinkConfig, hudiTableConfig, new ArrayList<>());
     }
