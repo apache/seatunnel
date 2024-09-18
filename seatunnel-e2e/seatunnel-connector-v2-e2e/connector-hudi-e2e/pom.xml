@@ -47,6 +47,15 @@
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-seatunnel-e2e-base</artifactId>
+            <version>${project.version}</version>
+            <classifier>tests</classifier>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-hudi</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>

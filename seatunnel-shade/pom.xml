@@ -34,7 +34,6 @@
         <module>seatunnel-thrift-service</module>
         <module>seatunnel-hazelcast</module>
         <module>seatunnel-janino</module>
-        <module>seatunnel-hadoop-aws</module>
 
     </modules>
 

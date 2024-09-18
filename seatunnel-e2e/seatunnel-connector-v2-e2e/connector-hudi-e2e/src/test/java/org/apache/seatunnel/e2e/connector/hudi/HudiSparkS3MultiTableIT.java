@@ -54,7 +54,7 @@ import java.util.concurrent.TimeUnit;
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
-public class HudiS3MultiTableIT extends TestSuiteBase implements TestResource {
+public class HudiSparkS3MultiTableIT extends TestSuiteBase implements TestResource {
 
     private static final String MINIO_DOCKER_IMAGE = "minio/minio:RELEASE.2024-06-13T22-53-53Z";
     private static final String HOST = "minio";
@@ -104,16 +104,16 @@ public class HudiS3MultiTableIT extends TestSuiteBase implements TestResource {
     @Override
     public void tearDown() throws Exception {
         if (container != null) {
-            container.stop();
+            container.close();
         }
     }
 
     @TestTemplate
     @DisabledOnContainer(
             value = {TestContainerId.SPARK_2_4},
-            type = {EngineType.FLINK},
+            type = {EngineType.FLINK, EngineType.SEATUNNEL},
             disabledReason =
-                    "The hadoop version in the image is not compatible with the aws version.")
+                    "The hadoop version in current flink image is not compatible with the aws version and default container of seatunnel not support s3.")
     public void testS3MultiWrite(TestContainer container) throws IOException, InterruptedException {
         container.copyFileToContainer("/core-site.xml", "/tmp/seatunnel/config/core-site.xml");
         Container.ExecResult textWriteResult = container.executeJob("/s3_fake_to_hudi.conf");
@@ -164,7 +164,7 @@ public class HudiS3MultiTableIT extends TestSuiteBase implements TestResource {
         String newestCommitFileName = "";
         long newestCommitTime = 0L;
         for (Result<Item> listObject : listObjects) {
-            Item item = null;
+            Item item;
             try {
                 item = listObject.get();
             } catch (Exception e) {

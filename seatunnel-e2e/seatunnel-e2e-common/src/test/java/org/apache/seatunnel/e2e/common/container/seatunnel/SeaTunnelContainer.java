@@ -86,9 +86,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 new GenericContainer<>(getDockerImage())
                         .withNetwork(NETWORK)
                         .withEnv("TZ", "UTC")
-                        .withCommand(
-                                ContainerUtil.adaptPathForWin(
-                                        Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString()))
+                        .withCommand(buildStartCommand())
                         .withNetworkAliases("server")
                         .withExposedPorts()
                         .withLogConsumer(
@@ -109,18 +107,18 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                         PROJECT_ROOT_PATH
                                 + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
                 Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
-
-        server.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop-aws/target/seatunnel-hadoop-aws.jar"),
-                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop-aws.jar").toString());
         // execute extra commands
         executeExtraCommands(server);
 
         server.start();
 
         return server;
+    }
+
+    protected String[] buildStartCommand() {
+        return new String[] {
+            ContainerUtil.adaptPathForWin(Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString())
+        };
     }
 
     protected GenericContainer<?> createSeaTunnelContainerWithFakeSourceAndInMemorySink(
