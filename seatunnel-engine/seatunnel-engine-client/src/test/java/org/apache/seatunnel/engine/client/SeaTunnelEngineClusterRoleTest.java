@@ -24,7 +24,8 @@ import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
-import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
 import org.awaitility.Awaitility;
@@ -40,6 +41,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+
+import static org.awaitility.Awaitility.await;
 
 @DisabledOnOs(OS.WINDOWS)
 @Slf4j
@@ -144,8 +147,20 @@ public class SeaTunnelEngineClusterRoleTest {
             ClientJobExecutionEnvironment jobExecutionEnv =
                     seaTunnelClient.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            Thread.sleep(5000);
-            Assertions.assertEquals(clientJobProxy.getJobStatus(), JobStatus.PENDING);
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .until(
+                            () -> {
+                                try {
+                                    PassiveCompletableFuture<JobResult>
+                                            jobResultPassiveCompletableFuture =
+                                                    clientJobProxy.doWaitForJobComplete();
+                                    String mes = jobResultPassiveCompletableFuture.get().getError();
+                                    return mes.contains("NoEnoughResourceException");
+                                } catch (Exception e) {
+                                    return false;
+                                }
+                            });
+
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
         } finally {
