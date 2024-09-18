@@ -164,8 +164,8 @@ public final class ConfigParserUtil {
 
         log.debug("Phase 3: Generate virtual vertices.");
         Map<String, Tuple2<Config, VertexStatus>> vertexStatusMap = new HashMap<>();
-        fillVirtualVertices(sources, vertexStatusMap, true);
-        fillVirtualVertices(transforms, vertexStatusMap, false);
+        fillVirtualVertices(sources, vertexStatusMap, transforms.isEmpty());
+        fillVirtualVertices(transforms, vertexStatusMap, true);
         log.debug("Phase 4: Check if a non-existent vertex is used.");
         checkInputId(transforms, vertexStatusMap);
         checkInputId(sinks, vertexStatusMap);
@@ -176,12 +176,25 @@ public final class ConfigParserUtil {
     private static void fillVirtualVertices(
             List<? extends Config> configs,
             Map<String, Tuple2<Config, VertexStatus>> vertexStatusMap,
-            boolean isSource) {
+            boolean repeatable) {
         Map<String, Tuple2<Config, VertexStatus>> transformVertexStatusMap = new HashMap<>();
         for (Config config : configs) {
             String resultTableName = config.getString(RESULT_TABLE_NAME.key());
 
-            if (isSource) {
+            if (repeatable) {
+                if (vertexStatusMap.containsKey(resultTableName)) {
+                    Tuple2<Config, VertexStatus> existing = vertexStatusMap.get(resultTableName);
+                    throw new JobDefineCheckException(
+                            String.format(
+                                    "The value of the '%s' option of the transform plugin '%s' is '%s', which is already used by source plugin '%s', and they must be different.",
+                                    RESULT_TABLE_NAME.key(),
+                                    config.getString(PLUGIN_NAME.key()),
+                                    resultTableName,
+                                    existing._1().getString(PLUGIN_NAME.key())));
+                }
+                transformVertexStatusMap.put(
+                        resultTableName, new Tuple2<>(config, VertexStatus.CREATED));
+            } else {
                 vertexStatusMap.compute(
                         resultTableName,
                         (id, old) -> {
@@ -196,19 +209,6 @@ public final class ConfigParserUtil {
                             }
                             return new Tuple2<>(config, VertexStatus.CREATED);
                         });
-            } else {
-                if (vertexStatusMap.containsKey(resultTableName)) {
-                    Tuple2<Config, VertexStatus> existing = vertexStatusMap.get(resultTableName);
-                    throw new JobDefineCheckException(
-                            String.format(
-                                    "The value of the '%s' option of the transform plugin '%s' is '%s', which is already used by source plugin '%s', and they must be different.",
-                                    RESULT_TABLE_NAME.key(),
-                                    config.getString(PLUGIN_NAME.key()),
-                                    resultTableName,
-                                    existing._1().getString(PLUGIN_NAME.key())));
-                }
-                transformVertexStatusMap.put(
-                        resultTableName, new Tuple2<>(config, VertexStatus.CREATED));
             }
         }
         if (!transformVertexStatusMap.isEmpty()) {
