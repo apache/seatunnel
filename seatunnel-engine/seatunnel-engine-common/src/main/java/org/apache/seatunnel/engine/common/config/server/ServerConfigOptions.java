@@ -138,6 +138,13 @@ public class ServerConfigOptions {
                     .defaultValue(1440)
                     .withDescription("The expire time of history jobs.time unit minute");
 
+    public static final Option<Boolean> ENABLE_JOB_PENDING =
+            Options.key("job-pending")
+                    .booleanType()
+                    .defaultValue(Boolean.FALSE)
+                    .withDescription(
+                            "When slot resources are insufficient, enter the pending queue. When the dynamic Slot is true, this configuration does not take effect");
+
     public static final Option<Boolean> ENABLE_CONNECTOR_JAR_STORAGE =
             Options.key("enable")
                     .booleanType()

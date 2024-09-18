@@ -206,11 +206,14 @@ public class CoordinatorService {
                         new ThreadPoolStatus.RejectionCountingHandler());
         this.seaTunnelServer = seaTunnelServer;
         this.engineConfig = engineConfig;
+        System.out.println("engineConfig123:" + engineConfig.isJobPending());
         masterActiveListener = Executors.newSingleThreadScheduledExecutor();
         masterActiveListener.scheduleAtFixedRate(
                 this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
-        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-        scheduler.scheduleAtFixedRate(() -> pendingJobSchedule(), 0, 10, TimeUnit.SECONDS);
+        if (engineConfig.isJobPending()) {
+            ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+            scheduler.scheduleAtFixedRate(() -> pendingJobSchedule(), 0, 10, TimeUnit.SECONDS);
+        }
     }
 
     private void pendingJobSchedule() {
@@ -439,20 +442,26 @@ public class CoordinatorService {
         }
 
         String jobFullName = jobMaster.getPhysicalPlan().getJobFullName();
-        pendingJobMasterMap.put(jobId, new Tuple2<>(PendingSourceState.RESTORE, jobMaster));
-
+        if (engineConfig.isJobPending()) {
+            pendingJobMasterMap.put(jobId, new Tuple2<>(PendingSourceState.RESTORE, jobMaster));
+        } else {
+            runningJobMasterMap.put(jobId, jobMaster);
+        }
         logger.info(
                 String.format(
                         "The restore %s is in %s state, restore pipeline and take over this job running",
                         jobFullName, jobStatus));
         // FIFO strategy，If there is a waiting task, the subsequent task will keep waiting
         // TODO More strategies will be supported in the future
-        if (pendingJob.size() == 0 && jobMaster.isResourceEnough()) {
+        if ((!engineConfig.isJobPending())
+                || (pendingJob.size() == 0 && jobMaster.isResourceEnough())) {
             CompletableFuture.runAsync(
                     () -> {
                         try {
-                            pendingJobMasterMap.remove(jobId);
-                            runningJobMasterMap.put(jobId, jobMaster);
+                            if (engineConfig.isJobPending()) {
+                                pendingJobMasterMap.remove(jobId);
+                                runningJobMasterMap.put(jobId, jobMaster);
+                            }
                             jobMaster
                                     .getPhysicalPlan()
                                     .getPipelineList()
@@ -506,13 +515,15 @@ public class CoordinatorService {
     public synchronized void clearCoordinatorService() {
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);
-        pendingJobMasterMap.values().stream()
-                .filter(Objects::nonNull)
-                .map(Tuple2::_2)
-                .forEach(JobMaster::interrupt);
+        if (engineConfig.isJobPending()) {
+            pendingJobMasterMap.values().stream()
+                    .filter(Objects::nonNull)
+                    .map(Tuple2::_2)
+                    .forEach(JobMaster::interrupt);
+            pendingJobMasterMap.clear();
+        }
         executorService.shutdownNow();
         runningJobMasterMap.clear();
-        pendingJobMasterMap.clear();
 
         try {
             executorService.awaitTermination(20, TimeUnit.SECONDS);
@@ -590,8 +601,12 @@ public class CoordinatorService {
                                             "The job id %s has already been submitted and is not starting with a savepoint.",
                                             jobId));
                         }
-                        pendingJobMasterMap.put(
-                                jobId, new Tuple2<>(PendingSourceState.SUBMIT, jobMaster));
+                        if (engineConfig.isJobPending()) {
+                            pendingJobMasterMap.put(
+                                    jobId, new Tuple2<>(PendingSourceState.SUBMIT, jobMaster));
+                        } else {
+                            runningJobMasterMap.put(jobId, jobMaster);
+                        }
                         runningJobInfoIMap.put(
                                 jobId,
                                 new JobInfo(System.currentTimeMillis(), jobImmutableInformation));
@@ -606,13 +621,17 @@ public class CoordinatorService {
                     }
                     if (!jobSubmitFuture.isCompletedExceptionally()) {
                         try {
-                            if (pendingJob.size() == 0 && jobMaster.isResourceEnough()) {
-                                pendingJobMasterMap.remove(jobId);
-                                runningJobMasterMap.put(jobId, jobMaster);
-                                jobMaster.run();
+                            if (engineConfig.isJobPending()) {
+                                if (pendingJob.size() == 0 && jobMaster.isResourceEnough()) {
+                                    pendingJobMasterMap.remove(jobId);
+                                    runningJobMasterMap.put(jobId, jobMaster);
+                                    jobMaster.run();
+                                } else {
+                                    pendingJob.add(new Tuple2<>(jobId, jobMaster));
+                                    logger.info("Resources not enough, enter the pending queue");
+                                }
                             } else {
-                                pendingJob.add(new Tuple2<>(jobId, jobMaster));
-                                logger.info("Resources not enough, enter the pending queue");
+                                jobMaster.run();
                             }
                         } finally {
                             // voidCompletableFuture will be cancelled when zeta master node

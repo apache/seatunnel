@@ -74,9 +74,15 @@ public class EngineConfig {
 
     private TelemetryConfig telemetryConfig = ServerConfigOptions.TELEMETRY.defaultValue();
 
+    private boolean jobPending = ServerConfigOptions.ENABLE_JOB_PENDING.defaultValue();
+
     public void setBackupCount(int newBackupCount) {
         checkBackupCount(newBackupCount, 0);
         this.backupCount = newBackupCount;
+    }
+
+    public void setJobPending(boolean jobPending) {
+        this.jobPending = jobPending;
     }
 
     public void setPrintExecutionInfoInterval(int printExecutionInfoInterval) {
