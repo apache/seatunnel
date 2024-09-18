@@ -274,11 +274,6 @@ public abstract class AbstractResourceManager implements ResourceManager {
                 .collect(Collectors.toList());
     }
 
-    // TODO
-    public boolean isWorkerResourceEnough() {
-        return true;
-    }
-
     @Override
     public int workerCount(Map<String, String> tags) {
         return filterWorkerByTag(tags).size();

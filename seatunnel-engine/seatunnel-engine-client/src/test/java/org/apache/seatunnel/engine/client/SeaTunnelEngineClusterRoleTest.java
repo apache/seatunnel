@@ -175,7 +175,6 @@ public class SeaTunnelEngineClusterRoleTest {
         }
     }
 
-
     @SneakyThrows
     @Test
     public void enterPendingWhenResourcesNotEnough() {
@@ -219,7 +218,8 @@ public class SeaTunnelEngineClusterRoleTest {
                     .atMost(10000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
-                                    Assertions.assertEquals(clientJobProxy.getJobStatus(), JobStatus.PENDING));
+                                    Assertions.assertEquals(
+                                            clientJobProxy.getJobStatus(), JobStatus.PENDING));
 
             // start two worker nodes
             SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
@@ -230,7 +230,8 @@ public class SeaTunnelEngineClusterRoleTest {
                     .atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
-                                    Assertions.assertNotEquals(clientJobProxy.getJobStatus(), JobStatus.PENDING));
+                                    Assertions.assertNotEquals(
+                                            clientJobProxy.getJobStatus(), JobStatus.PENDING));
 
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);

@@ -452,7 +452,7 @@ public class CoordinatorService {
                         jobFullName, jobStatus));
         // FIFO strategy，If there is a waiting task, the subsequent task will keep waiting
         // TODO More strategies will be supported in the future
-        if ((!engineConfig.isJobPending())
+        if (!engineConfig.isJobPending()
                 || (pendingJob.size() == 0 && jobMaster.isResourceEnough())) {
             CompletableFuture.runAsync(
                     () -> {
