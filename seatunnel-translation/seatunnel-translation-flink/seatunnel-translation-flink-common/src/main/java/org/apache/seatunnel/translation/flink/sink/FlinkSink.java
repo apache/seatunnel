@@ -89,30 +89,35 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
 
     @Override
     public Optional<SimpleVersionedSerializer<CommitWrapper<CommT>>> getCommittableSerializer() {
-        if (checkForCommitter())
-            return sink.getCommitInfoSerializer().map(CommitWrapperSerializer::new);
-        else return Optional.empty();
+        try {
+            if (sink.createCommitter().isPresent()
+                    || sink.createAggregatedCommitter().isPresent()) {
+                return sink.getCommitInfoSerializer().map(CommitWrapperSerializer::new);
+            } else {
+                return Optional.empty();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to create Committer or AggregatedCommitter", e);
+        }
     }
 
     @Override
     public Optional<SimpleVersionedSerializer<GlobalCommT>> getGlobalCommittableSerializer() {
-        if (checkForCommitter())
-            return sink.getAggregatedCommitInfoSerializer()
-                    .map(FlinkSimpleVersionedSerializer::new);
-        else return Optional.empty();
+        try {
+            if (sink.createAggregatedCommitter().isPresent()) {
+                return sink.getAggregatedCommitInfoSerializer()
+                        .map(FlinkSimpleVersionedSerializer::new);
+            } else {
+                return Optional.empty();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to create AggregatedCommitter", e);
+        }
     }
 
     @Override
     public Optional<SimpleVersionedSerializer<FlinkWriterState<WriterStateT>>>
             getWriterStateSerializer() {
         return sink.getWriterStateSerializer().map(FlinkWriterStateSerializer::new);
-    }
-
-    private boolean checkForCommitter() {
-        try {
-            return sink.createAggregatedCommitter().isPresent();
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to create AggregatedCommitter", e);
-        }
     }
 }

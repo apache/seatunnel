@@ -29,7 +29,6 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -40,6 +39,7 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.core.starter.execution.PluginUtil;
+import org.apache.seatunnel.core.starter.flink.utils.TableUtil;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
@@ -122,7 +122,7 @@ public class SinkExecuteProcessor
                     SeaTunnelRowType sourceType = catalogTable.getSeaTunnelRowType();
                     fallBackSink.setTypeInfo(sourceType);
                     handleSaveMode(fallBackSink);
-                    String tableIdName = extractTableIdName(catalogTable.getTableId());
+                    String tableIdName = TableUtil.extractTableIdName(catalogTable.getTableId());
                     sinks.put(tableIdName, fallBackSink);
                 }
             } else {
@@ -141,7 +141,7 @@ public class SinkExecuteProcessor
                     seaTunnelSink.setJobContext(jobContext);
                     handleSaveMode(seaTunnelSink);
                     // remove catalog name
-                    String tableIdName = extractTableIdName(catalogTable.getTableId());
+                    String tableIdName = TableUtil.extractTableIdName(catalogTable.getTableId());
                     sinks.put(tableIdName, seaTunnelSink);
                 }
             }
@@ -193,27 +193,6 @@ public class SinkExecuteProcessor
         SeaTunnelSink source = sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
         source.prepare(pluginConfig);
         return source;
-    }
-
-    // catalogName.databaseName.[schemeName].tableName -> databaseName.[schemeName].tableName
-    public String extractTableIdName(TableIdentifier tableIdentifier) {
-        StringBuilder tableId = new StringBuilder();
-        if (tableIdentifier.getDatabaseName() != null) {
-            tableId.append(tableIdentifier.getDatabaseName());
-        }
-        if (tableIdentifier.getSchemaName() != null) {
-            if (tableIdentifier.getDatabaseName() != null) {
-                tableId.append(".");
-            }
-            tableId.append(tableIdentifier.getSchemaName());
-        }
-        if (tableIdentifier.getTableName() != null) {
-            if (tableId.length() != 0) {
-                tableId.append(".");
-            }
-            tableId.append(tableIdentifier.getTableName());
-        }
-        return tableId.toString();
     }
 
     public void handleSaveMode(SeaTunnelSink seaTunnelSink) {

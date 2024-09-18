@@ -34,7 +34,6 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.Scroll
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.apache.commons.io.IOUtils;
@@ -200,10 +199,6 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    @DisabledOnContainer(
-            value = {},
-            type = {},
-            disabledReason = "")
     public void testElasticsSearchWithMultiSourceByFilter(TestContainer container)
             throws InterruptedException, IOException {
         // read read_filter_index1,read_filter_index2
@@ -304,10 +299,6 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, sinkData2.size());
     }
 
-    @DisabledOnContainer(
-            value = {},
-            type = {},
-            disabledReason = "")
     @TestTemplate
     public void testElasticsearchWithMultiSink(TestContainer container)
             throws IOException, InterruptedException {

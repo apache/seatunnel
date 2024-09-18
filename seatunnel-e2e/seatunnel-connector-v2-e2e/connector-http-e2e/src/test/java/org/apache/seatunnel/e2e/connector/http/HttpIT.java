@@ -24,7 +24,6 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -234,10 +233,6 @@ public class HttpIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult19.getExitCode());
     }
 
-    @DisabledOnContainer(
-            value = {},
-            type = {},
-            disabledReason = "")
     @TestTemplate
     public void testMultiTableHttp(TestContainer container)
             throws IOException, InterruptedException {

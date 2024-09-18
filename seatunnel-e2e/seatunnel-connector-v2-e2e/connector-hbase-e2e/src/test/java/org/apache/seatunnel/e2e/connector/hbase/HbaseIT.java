@@ -265,10 +265,6 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(cf2Count, 5);
     }
 
-    @DisabledOnContainer(
-            value = {},
-            type = {},
-            disabledReason = "")
     @TestTemplate
     public void testHbaseMultiTableSink(TestContainer container)
             throws IOException, InterruptedException {

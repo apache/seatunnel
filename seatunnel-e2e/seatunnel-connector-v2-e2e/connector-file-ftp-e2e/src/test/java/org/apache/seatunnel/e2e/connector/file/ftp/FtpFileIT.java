@@ -156,8 +156,8 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     @DisabledOnContainer(
             value = {},
-            type = {},
-            disabledReason = "")
+            type = {EngineType.FLINK},
+            disabledReason = "Currently FLINK do not support multi-table")
     public void testMultipleTableAndSaveMode(TestContainer container)
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
