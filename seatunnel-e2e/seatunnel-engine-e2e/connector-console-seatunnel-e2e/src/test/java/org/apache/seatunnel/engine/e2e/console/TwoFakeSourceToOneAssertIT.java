@@ -25,12 +25,19 @@ import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
-public class TwoFakeSourceToOneConsoleNoTransformIT extends SeaTunnelContainer {
+public class TwoFakeSourceToOneAssertIT extends SeaTunnelContainer {
 
     @Test
-    public void testTwoFakeSourceToOneConsoleSink() throws IOException, InterruptedException {
+    public void testTwoFakeSourceToOneAssertSink() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelJob("/two_fakesource_to_one_assert.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @Test
+    public void testTwoFakeSourceToOneAssertSinkNoTransform()
+            throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                executeSeaTunnelJob("/two_fakesource_to_one_console_no_transform.conf");
+                executeSeaTunnelJob("/two_fakesource_to_one_assert_no_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }
