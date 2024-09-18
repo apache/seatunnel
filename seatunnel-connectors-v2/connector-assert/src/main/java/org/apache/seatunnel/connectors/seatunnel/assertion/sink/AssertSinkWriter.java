@@ -27,8 +27,12 @@ import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertTableRule;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
+import org.apache.commons.lang3.StringUtils;
+
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -38,17 +42,17 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         implements SupportMultiTableSinkWriter<Void> {
 
     private final SeaTunnelRowType seaTunnelRowType;
-    private final List<AssertFieldRule> assertFieldRules;
-    private final List<AssertFieldRule.AssertRule> assertRowRules;
+    private final Map<String, List<AssertFieldRule>> assertFieldRules;
+    private final Map<String, List<AssertFieldRule.AssertRule>> assertRowRules;
     private final AssertTableRule assertTableRule;
     private static final AssertExecutor ASSERT_EXECUTOR = new AssertExecutor();
-    private static final LongAccumulator LONG_ACCUMULATOR = new LongAccumulator(Long::sum, 0);
+    private static final Map<String, LongAccumulator> LONG_ACCUMULATOR = new HashMap<>();
     private static final Set<String> TABLE_NAMES = new CopyOnWriteArraySet<>();
 
     public AssertSinkWriter(
             SeaTunnelRowType seaTunnelRowType,
-            List<AssertFieldRule> assertFieldRules,
-            List<AssertFieldRule.AssertRule> assertRowRules,
+            Map<String, List<AssertFieldRule>> assertFieldRules,
+            Map<String, List<AssertFieldRule.AssertRule>> assertRowRules,
             AssertTableRule assertTableRule) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.assertFieldRules = assertFieldRules;
@@ -58,11 +62,24 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
     @Override
     public void write(SeaTunnelRow element) {
-        LONG_ACCUMULATOR.accumulate(1);
         TABLE_NAMES.add(element.getTableId());
-        if (Objects.nonNull(assertFieldRules)) {
+        List<AssertFieldRule> assertFieldRule = null;
+        String tableName;
+        if (StringUtils.isNotEmpty(element.getTableId()) && assertFieldRules.size() > 1) {
+            assertFieldRule = assertFieldRules.get(element.getTableId());
+            tableName = element.getTableId();
+        } else if (!assertFieldRules.isEmpty()) {
+            assertFieldRule = assertFieldRules.values().iterator().next();
+            tableName = assertFieldRules.keySet().iterator().next();
+        } else {
+            tableName = element.getTableId();
+        }
+        LONG_ACCUMULATOR
+                .computeIfAbsent(tableName, (k) -> new LongAccumulator(Long::sum, 0))
+                .accumulate(1);
+        if (Objects.nonNull(assertFieldRule)) {
             ASSERT_EXECUTOR
-                    .fail(element, seaTunnelRowType, assertFieldRules)
+                    .fail(element, seaTunnelRowType, assertFieldRule)
                     .ifPresent(
                             failRule -> {
                                 throw new AssertConnectorException(
@@ -74,30 +91,45 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
     @Override
     public void close() {
-        if (Objects.nonNull(assertRowRules)) {
-            assertRowRules.stream()
-                    .filter(
-                            assertRule -> {
-                                switch (assertRule.getRuleType()) {
-                                    case MAX_ROW:
-                                        return !(LONG_ACCUMULATOR.longValue()
-                                                <= assertRule.getRuleValue());
-                                    case MIN_ROW:
-                                        return !(LONG_ACCUMULATOR.longValue()
-                                                >= assertRule.getRuleValue());
-                                    default:
-                                        return false;
-                                }
-                            })
-                    .findFirst()
-                    .ifPresent(
-                            failRule -> {
-                                throw new AssertConnectorException(
-                                        AssertConnectorErrorCode.RULE_VALIDATION_FAILED,
-                                        "row num :"
-                                                + LONG_ACCUMULATOR.longValue()
-                                                + " fail rule: "
-                                                + failRule);
+        if (!assertRowRules.isEmpty()) {
+            assertRowRules.entrySet().stream()
+                    .filter(entry -> !entry.getValue().isEmpty())
+                    .forEach(
+                            entry -> {
+                                List<AssertFieldRule.AssertRule> assertRules = entry.getValue();
+                                assertRules.stream()
+                                        .filter(
+                                                assertRule -> {
+                                                    switch (assertRule.getRuleType()) {
+                                                        case MAX_ROW:
+                                                            return !(LONG_ACCUMULATOR
+                                                                            .get(entry.getKey())
+                                                                            .longValue()
+                                                                    <= assertRule.getRuleValue());
+                                                        case MIN_ROW:
+                                                            return !(LONG_ACCUMULATOR
+                                                                            .get(entry.getKey())
+                                                                            .longValue()
+                                                                    >= assertRule.getRuleValue());
+                                                        default:
+                                                            return false;
+                                                    }
+                                                })
+                                        .findFirst()
+                                        .ifPresent(
+                                                failRule -> {
+                                                    throw new AssertConnectorException(
+                                                            AssertConnectorErrorCode
+                                                                    .RULE_VALIDATION_FAILED,
+                                                            "row num :"
+                                                                    + (LONG_ACCUMULATOR
+                                                                                    .get(
+                                                                                            entry
+                                                                                                    .getKey())
+                                                                                    .longValue()
+                                                                            + " fail rule: "
+                                                                            + failRule));
+                                                });
                             });
         }
         if (!assertTableRule.getTableNames().isEmpty()

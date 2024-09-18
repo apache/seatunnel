@@ -85,11 +85,16 @@ public class AssertConfig {
                     .withDescription(
                             "Rule definition of user's available data. Each rule represents one field validation or row num validation.");
 
-    public static final Option<List<Map<String, Object>>> MULTI_RULES =
-        Options.key("multi_rules")
-            .type(new TypeReference<List<Map<String, Object>>>() {})
-            .noDefaultValue()
-            .withDescription(
-                "Rule definition of user's available data. Each rule represents one field validation or row num validation. The multi_rules is used for multi-table sink.");
+    public static final Option<List<Map<String, Object>>> TABLE_CONFIGS =
+            Options.key("tables_configs")
+                    .type(new TypeReference<List<Map<String, Object>>>() {})
+                    .noDefaultValue()
+                    .withDescription(
+                            "Table configuration for the sink. Each table configuration contains the table name and the rules for the table.");
 
+    public static final Option<String> TABLE_PATH =
+            Options.key("table_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("table full path");
 }
