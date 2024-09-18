@@ -19,15 +19,15 @@ package org.apache.seatunnel.e2e.connector.redis;
 import java.util.Collections;
 import java.util.List;
 
-public class Redis7IT extends RedisIT {
+public class Redis7IT extends RedisTestCaseTemplateIT {
 
     @Override
-    public List<String> getVariable() {
-        return Collections.singletonList("redisVersion=Redis7");
+    public RedisContainerInfo getRedisContainerInfo() {
+        return new RedisContainerInfo("redis-e2e", 6379, "SeaTunnel", "redis:7");
     }
 
     @Override
-    public String getImage() {
-        return "redis:7";
+    public List<String> getVariables() {
+        return Collections.singletonList("redisVersion=Redis7");
     }
 }

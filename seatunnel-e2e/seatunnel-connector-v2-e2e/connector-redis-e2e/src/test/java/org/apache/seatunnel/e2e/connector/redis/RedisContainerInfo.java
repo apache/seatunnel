@@ -16,18 +16,32 @@
  */
 package org.apache.seatunnel.e2e.connector.redis;
 
-import java.util.Collections;
-import java.util.List;
+public class RedisContainerInfo {
+    private final String host;
+    private final int port;
+    private final String password;
+    private final String imageName;
 
-public class Redis4IT extends RedisIT {
-
-    @Override
-    public List<String> getVariable() {
-        return Collections.singletonList("redisVersion=Redis4");
+    public RedisContainerInfo(String host, int port, String password, String imageName) {
+        this.host = host;
+        this.port = port;
+        this.password = password;
+        this.imageName = imageName;
     }
 
-    @Override
-    public String getImage() {
-        return "redis:4";
+    public String getHost() {
+        return host;
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public String getImageName() {
+        return imageName;
     }
 }
