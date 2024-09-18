@@ -244,7 +244,6 @@ public class SeaTunnelEngineClusterRoleTest {
         }
     }
 
-
     @SneakyThrows
     @Test
     public void pendingJobCancel() {
