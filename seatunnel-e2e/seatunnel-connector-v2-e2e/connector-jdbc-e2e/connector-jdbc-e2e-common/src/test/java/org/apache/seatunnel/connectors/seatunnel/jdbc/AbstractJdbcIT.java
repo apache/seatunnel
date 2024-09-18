@@ -112,7 +112,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     abstract JdbcCase getJdbcCase();
 
-    abstract void compareResult(String executeKey) throws SQLException, IOException;
+    void checkResult(String executeKey, TestContainer container, Container.ExecResult execResult) {}
 
     abstract String driverUrl();
 
@@ -351,7 +351,10 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             try {
                 Container.ExecResult execResult = container.executeJob(configFile);
                 Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-                compareResult(String.format("%s in [%s]", configFile, container.identifier()));
+                checkResult(
+                        String.format("%s in [%s]", configFile, container.identifier()),
+                        container,
+                        execResult);
             } finally {
                 clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
             }

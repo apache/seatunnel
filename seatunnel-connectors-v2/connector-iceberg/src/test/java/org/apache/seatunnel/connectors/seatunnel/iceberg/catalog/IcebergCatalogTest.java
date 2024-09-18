@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.catalog;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -152,7 +153,8 @@ class IcebergCatalogTest {
     CatalogTable buildAllTypesTable(TableIdentifier tableIdentifier) {
         TableSchema.Builder builder = TableSchema.builder();
         builder.column(
-                PhysicalColumn.of("id", BasicType.INT_TYPE, (Long) null, true, null, "id comment"));
+                PhysicalColumn.of(
+                        "id", BasicType.INT_TYPE, (Long) null, false, null, "id comment"));
         builder.column(
                 PhysicalColumn.of(
                         "boolean_col", BasicType.BOOLEAN_TYPE, (Long) null, true, null, null));
@@ -185,6 +187,9 @@ class IcebergCatalogTest {
                 PhysicalColumn.of(
                         "decimal_col", new DecimalType(38, 18), (Long) null, true, null, null));
         builder.column(PhysicalColumn.of("dt_col", STRING_TYPE, (Long) null, true, null, null));
+        builder.primaryKey(
+                PrimaryKey.of(
+                        tableIdentifier.getTableName() + "_pk", Collections.singletonList("id")));
 
         TableSchema schema = builder.build();
         HashMap<String, String> options = new HashMap<>();

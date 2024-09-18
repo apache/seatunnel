@@ -25,6 +25,7 @@ import com.hazelcast.internal.config.YamlConfigLocator;
 import lombok.NonNull;
 
 import java.io.ByteArrayInputStream;
+import java.util.Arrays;
 import java.util.Properties;
 
 import static com.hazelcast.internal.config.DeclarativeConfigUtil.SYSPROP_CLIENT_CONFIG;
@@ -140,6 +141,15 @@ public final class ConfigProvider {
                     new YamlConfigBuilder(yamlConfigLocator.getIn())
                             .setProperties(properties)
                             .build();
+        }
+        String stDockerMemberList = System.getenv("ST_DOCKER_MEMBER_LIST");
+        if (stDockerMemberList != null) {
+            if (config.getNetworkConfig().getJoin().getTcpIpConfig().isEnabled()) {
+                config.getNetworkConfig()
+                        .getJoin()
+                        .getTcpIpConfig()
+                        .setMembers(Arrays.asList(stDockerMemberList.split(",")));
+            }
         }
         return config;
     }

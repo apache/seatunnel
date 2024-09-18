@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.saphana.SapHanaTypeMapper;
 
@@ -38,6 +39,7 @@ import com.google.common.collect.Lists;
 import lombok.SneakyThrows;
 
 import java.sql.Date;
+import java.sql.Statement;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -56,7 +58,9 @@ public class JdbcHanaIT extends AbstractJdbcIT {
     private static final String SOURCE_TABLE = "ALLDATATYPES";
 
     private static final List<String> CONFIG_FILE =
-            Lists.newArrayList("/jdbc_sap_hana_source_and_sink.conf");
+            Lists.newArrayList(
+                    "/jdbc_sap_hana_source_and_sink.conf",
+                    "/jdbc_sap_hana_test_view_and_synonym.conf");
 
     // TODO The current Docker image cannot handle the annotated type normally,
     //  but the corresponding type can be handled normally on the standard HANA service
@@ -126,9 +130,6 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                 .testData(testDataSet)
                 .build();
     }
-
-    @Override
-    void compareResult(String executeKey) {}
 
     @Override
     String driverUrl() {
@@ -214,6 +215,46 @@ public class JdbcHanaIT extends AbstractJdbcIT {
         } catch (Exception e) {
             throw new SeaTunnelRuntimeException(
                     JdbcITErrorCode.CREATE_TABLE_FAILED, "Fail to execute sql " + sql, e);
+        }
+    }
+
+    protected void createNeededTables() {
+        try (Statement statement = connection.createStatement()) {
+            String createTemplate = jdbcCase.getCreateSql();
+
+            String createSource =
+                    String.format(
+                            createTemplate,
+                            buildTableInfoWithSchema(
+                                    jdbcCase.getDatabase(),
+                                    jdbcCase.getSchema(),
+                                    jdbcCase.getSourceTable()));
+            statement.execute(createSource);
+
+            if (!jdbcCase.isUseSaveModeCreateTable()) {
+                if (jdbcCase.getSinkCreateSql() != null) {
+                    createTemplate = jdbcCase.getSinkCreateSql();
+                }
+                String createSink =
+                        String.format(
+                                createTemplate,
+                                buildTableInfoWithSchema(
+                                        jdbcCase.getDatabase(),
+                                        jdbcCase.getSchema(),
+                                        jdbcCase.getSinkTable()));
+                statement.execute(createSink);
+            }
+            // create view and synonym
+            String createViewSql =
+                    "CREATE VIEW TEST.ALLDATATYPES_VIEW AS SELECT * FROM TEST.ALLDATATYPES;";
+            String createSynonymSql =
+                    "CREATE SYNONYM TEST.ALLDATATYPES_SYNONYM FOR TEST.ALLDATATYPES;";
+            statement.execute(createViewSql);
+            statement.execute(createSynonymSql);
+            connection.commit();
+        } catch (Exception exception) {
+            log.error(ExceptionUtils.getMessage(exception));
+            throw new SeaTunnelRuntimeException(JdbcITErrorCode.CREATE_TABLE_FAILED, exception);
         }
     }
 
