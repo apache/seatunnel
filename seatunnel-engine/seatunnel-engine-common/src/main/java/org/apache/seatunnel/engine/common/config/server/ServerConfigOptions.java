@@ -143,7 +143,7 @@ public class ServerConfigOptions {
                     .booleanType()
                     .defaultValue(Boolean.FALSE)
                     .withDescription(
-                            "When slot resources are insufficient, enter the pending queue. When the dynamic Slot is true, this configuration does not take effect");
+                            "When slot resources are insufficient, enter the pending queue.");
 
     public static final Option<Boolean> ENABLE_CONNECTOR_JAR_STORAGE =
             Options.key("enable")

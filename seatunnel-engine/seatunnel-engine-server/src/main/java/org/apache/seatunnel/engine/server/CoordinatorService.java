@@ -206,7 +206,6 @@ public class CoordinatorService {
                         new ThreadPoolStatus.RejectionCountingHandler());
         this.seaTunnelServer = seaTunnelServer;
         this.engineConfig = engineConfig;
-        System.out.println("engineConfig123:" + engineConfig.isJobPending());
         masterActiveListener = Executors.newSingleThreadScheduledExecutor();
         masterActiveListener.scheduleAtFixedRate(
                 this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
