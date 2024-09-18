@@ -29,6 +29,7 @@ import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
+import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.exception.SavePointFailedException;
@@ -187,6 +188,8 @@ public class CoordinatorService {
 
     private LinkedList<Tuple2<Long, JobMaster>> pendingJob = new LinkedList<>();
 
+    private final boolean isJobPending;
+
     public CoordinatorService(
             @NonNull NodeEngineImpl nodeEngine,
             @NonNull SeaTunnelServer seaTunnelServer,
@@ -209,7 +212,8 @@ public class CoordinatorService {
         masterActiveListener = Executors.newSingleThreadScheduledExecutor();
         masterActiveListener.scheduleAtFixedRate(
                 this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
-        if (engineConfig.isJobPending()) {
+        isJobPending = engineConfig.getScheduleStrategy().equals(ScheduleStrategy.WAIT);
+        if (isJobPending) {
             ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
             scheduler.scheduleAtFixedRate(this::pendingJobSchedule, 0, 10, TimeUnit.SECONDS);
         }
@@ -442,7 +446,7 @@ public class CoordinatorService {
         }
 
         String jobFullName = jobMaster.getPhysicalPlan().getJobFullName();
-        if (engineConfig.isJobPending()) {
+        if (isJobPending) {
             pendingJobMasterMap.put(jobId, new Tuple2<>(PendingSourceState.RESTORE, jobMaster));
         } else {
             runningJobMasterMap.put(jobId, jobMaster);
@@ -453,12 +457,11 @@ public class CoordinatorService {
                         jobFullName, jobStatus));
         // FIFO strategy，If there is a waiting task, the subsequent task will keep waiting
         // TODO More strategies will be supported in the future
-        if (!engineConfig.isJobPending()
-                || (pendingJob.size() == 0 && jobMaster.isResourceEnough())) {
+        if (!isJobPending || (pendingJob.size() == 0 && jobMaster.isResourceEnough())) {
             CompletableFuture.runAsync(
                     () -> {
                         try {
-                            if (engineConfig.isJobPending()) {
+                            if (isJobPending) {
                                 pendingJobMasterMap.remove(jobId);
                                 runningJobMasterMap.put(jobId, jobMaster);
                             }
@@ -515,7 +518,7 @@ public class CoordinatorService {
     public synchronized void clearCoordinatorService() {
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);
-        if (engineConfig.isJobPending()) {
+        if (isJobPending) {
             pendingJobMasterMap.values().stream()
                     .filter(Objects::nonNull)
                     .map(Tuple2::_2)
@@ -601,7 +604,7 @@ public class CoordinatorService {
                                             "The job id %s has already been submitted and is not starting with a savepoint.",
                                             jobId));
                         }
-                        if (engineConfig.isJobPending()) {
+                        if (isJobPending) {
                             pendingJobMasterMap.put(
                                     jobId, new Tuple2<>(PendingSourceState.SUBMIT, jobMaster));
                         } else {
@@ -621,7 +624,7 @@ public class CoordinatorService {
                     }
                     if (!jobSubmitFuture.isCompletedExceptionally()) {
                         try {
-                            if (engineConfig.isJobPending()) {
+                            if (isJobPending) {
                                 if (pendingJob.size() == 0 && jobMaster.isResourceEnough()) {
                                     pendingJobMasterMap.remove(jobId);
                                     runningJobMasterMap.put(jobId, jobMaster);

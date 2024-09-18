@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
@@ -185,7 +186,7 @@ public class SeaTunnelEngineClusterRoleTest {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         // set job pending
         EngineConfig engineConfig = seaTunnelConfig.getEngineConfig();
-        engineConfig.setJobPending(true);
+        engineConfig.setScheduleStrategy(ScheduleStrategy.WAIT);
 
         seaTunnelConfig
                 .getHazelcastConfig()
@@ -254,7 +255,7 @@ public class SeaTunnelEngineClusterRoleTest {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         // set job pending
         EngineConfig engineConfig = seaTunnelConfig.getEngineConfig();
-        engineConfig.setJobPending(true);
+        engineConfig.setScheduleStrategy(ScheduleStrategy.WAIT);
 
         seaTunnelConfig
                 .getHazelcastConfig()

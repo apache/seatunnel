@@ -23,6 +23,7 @@ import org.apache.seatunnel.engine.common.config.server.ConnectorJarHAStorageCon
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageMode;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
+import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.common.config.server.TelemetryConfig;
@@ -169,8 +170,9 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 }
             } else if (ServerConfigOptions.TELEMETRY.key().equals(name)) {
                 engineConfig.setTelemetryConfig(parseTelemetryConfig(node));
-            } else if (ServerConfigOptions.ENABLE_JOB_PENDING.key().equals(name)) {
-                engineConfig.setJobPending(getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.JOB_SCHEDULE_STRATEGY.key().equals(name)) {
+                engineConfig.setScheduleStrategy(
+                        ScheduleStrategy.valueOf(getTextContent(node).toUpperCase(Locale.ROOT)));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }

@@ -136,6 +136,22 @@ seatunnel:
     classloader-cache-mode: true
 ```
 
+### 4.6 Job Scheduling Strategy
+
+When resources are insufficient, the job scheduling strategy can be configured in the following two modes:
+
+1. `WAIT`: Wait for resources to be available.
+
+2. `REJECT`: Reject the job, default value.
+
+Example
+
+```yaml
+seatunnel:
+engine:
+job-schedule-strategy: WAIT
+```
+
 ## 5. Configure The SeaTunnel Engine Network Service
 
 All SeaTunnel Engine network-related configurations are in the `hazelcast.yaml` file.

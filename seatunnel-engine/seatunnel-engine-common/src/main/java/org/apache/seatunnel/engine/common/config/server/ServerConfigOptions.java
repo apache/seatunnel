@@ -138,12 +138,12 @@ public class ServerConfigOptions {
                     .defaultValue(1440)
                     .withDescription("The expire time of history jobs.time unit minute");
 
-    public static final Option<Boolean> ENABLE_JOB_PENDING =
-            Options.key("job-pending")
-                    .booleanType()
-                    .defaultValue(Boolean.FALSE)
+    public static final Option<ScheduleStrategy> JOB_SCHEDULE_STRATEGY =
+            Options.key("job-schedule-strategy")
+                    .type(new TypeReference<ScheduleStrategy>() {})
+                    .defaultValue(ScheduleStrategy.REJECT)
                     .withDescription(
-                            "When slot resources are insufficient, enter the pending queue.");
+                            "When the policy is REJECT, when the task queue is full, the task will be rejected; when the policy is WAIT, when the task queue is full, the task will wait");
 
     public static final Option<Boolean> ENABLE_CONNECTOR_JAR_STORAGE =
             Options.key("enable")
