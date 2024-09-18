@@ -211,7 +211,7 @@ public class CoordinatorService {
                 this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
         if (engineConfig.isJobPending()) {
             ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-            scheduler.scheduleAtFixedRate(() -> pendingJobSchedule(), 0, 10, TimeUnit.SECONDS);
+            scheduler.scheduleAtFixedRate(this::pendingJobSchedule, 0, 10, TimeUnit.SECONDS);
         }
     }
 
@@ -222,14 +222,17 @@ public class CoordinatorService {
                         pendingJobEntry -> {
                             Long jobId = pendingJobEntry._1;
                             JobMaster jobMaster = pendingJobEntry._2;
+
                             logger.info(
-                                    "Start calculating whether pending task resources are enough:"
+                                    "Start calculating whether pending task resources are enough: "
                                             + jobId);
+
                             if (jobMaster.isResourceEnough()) {
-                                logger.info("Resources enough, start running : " + jobId);
+                                logger.info("Resources enough, start running: " + jobId);
                                 pendingJob.pollFirst();
                                 PendingSourceState pendingSourceState =
                                         pendingJobMasterMap.get(jobId)._1;
+
                                 CompletableFuture.runAsync(
                                         () -> {
                                             try {
@@ -244,17 +247,8 @@ public class CoordinatorService {
                                                 runningJobMasterMap.put(jobId, jobMaster);
                                                 jobMaster.run();
                                             } finally {
-                                                if (!jobMaster
-                                                                .getJobMasterCompleteFuture()
-                                                                .isCompletedExceptionally()
-                                                        && pendingSourceState
-                                                                == PendingSourceState.RESTORE) {
-                                                    runningJobMasterMap.remove(jobId);
-                                                } else if (!jobMaster
-                                                                .getJobMasterCompleteFuture()
-                                                                .isCancelled()
-                                                        && pendingSourceState
-                                                                == PendingSourceState.SUBMIT) {
+                                                if (jobMasterCompletedSuccessfully(
+                                                        jobMaster, pendingSourceState)) {
                                                     runningJobMasterMap.remove(jobId);
                                                 }
                                             }
@@ -264,6 +258,13 @@ public class CoordinatorService {
                                 logger.info("Resources not enough, waiting next time");
                             }
                         });
+    }
+
+    private boolean jobMasterCompletedSuccessfully(JobMaster jobMaster, PendingSourceState state) {
+        return (!jobMaster.getJobMasterCompleteFuture().isCompletedExceptionally()
+                        && state == PendingSourceState.RESTORE)
+                || (!jobMaster.getJobMasterCompleteFuture().isCancelled()
+                        && state == PendingSourceState.SUBMIT);
     }
 
     private JobEventProcessor createJobEventProcessor(
