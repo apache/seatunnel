@@ -226,9 +226,9 @@ public class CheckpointEnableIT extends TestSuiteBase {
     @TestTemplate
     @DisabledOnContainer(
             value = {},
-            type = {EngineType.SEATUNNEL, EngineType.SPARK},
+            type = {EngineType.SEATUNNEL, EngineType.SPARK, EngineType.FLINK},
             disabledReason =
-                    "depending on the engine, the logic for determining whether a checkpoint is enabled is different")
+                    "depending on the engine, the logic for determining whether a checkpoint is enabled is different,flink 1.17.x and flink 1.18.x do not support")
     public void testFlinkCheckpointEnable(AbstractTestFlinkContainer container)
             throws IOException, InterruptedException {
         /**
