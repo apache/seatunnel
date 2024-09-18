@@ -11,11 +11,12 @@ more.
 ## Options
 
 | name                   | type   | required | default value |
-| ---------------------- | ------ | -------- | ------------- |
+|------------------------| ------ | -------- |---------------|
 | model_provider         | enum   | yes      |               |
 | output_data_type       | enum   | no       | String        |
+| output_column_name     | string | no       | llm_output    |
 | prompt                 | string | yes      |               |
-| inference_columns   | list   | no       |               |
+| inference_columns      | list   | no       |               |
 | model                  | string | yes      |               |
 | api_key                | string | yes      |               |
 | api_path               | string | no       |               |
@@ -34,6 +35,10 @@ OPENAI, DOUBAO, KIMIAI, CUSTOM
 The data type of the output data. The available options are:
 STRING,INT,BIGINT,DOUBLE,BOOLEAN.
 Default value is STRING.
+
+### output_column_name
+
+Custom output data field name. A custom field name that is the same as an existing field name is replaced with 'llm_output'.
 
 ### prompt
 

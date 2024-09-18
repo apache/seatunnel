@@ -36,6 +36,7 @@ import org.apache.seatunnel.transform.nlpmodel.llm.remote.openai.OpenAIModel;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -150,8 +151,15 @@ public class LLMTransform extends SingleFieldOutputTransform {
 
     @Override
     protected Column getOutputColumn() {
+        String customFieldName = config.get(LLMTransformConfig.OUTPUT_COLUMN_NAME);
+        String[] fieldNames = inputCatalogTable.getTableSchema().getFieldNames();
+        boolean isExist = Arrays.asList(fieldNames).contains(customFieldName);
+        if (isExist) {
+            throw new IllegalArgumentException(
+                    String.format("llm inference field name %s already exists", customFieldName));
+        }
         return PhysicalColumn.of(
-                "llm_output", outputDataType, (Long) null, true, null, "Output column of LLM");
+                customFieldName, outputDataType, (Long) null, true, null, "Output column of LLM");
     }
 
     @SneakyThrows

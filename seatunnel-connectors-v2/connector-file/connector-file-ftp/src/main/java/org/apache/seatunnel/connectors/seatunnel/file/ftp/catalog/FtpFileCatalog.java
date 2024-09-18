@@ -15,21 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.ftp.sink;
+package org.apache.seatunnel.connectors.seatunnel.file.ftp.catalog;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConf;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseMultipleTableFileSink;
+import org.apache.seatunnel.connectors.seatunnel.file.catalog.AbstractFileCatalog;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 
-public class FtpFileSink extends BaseMultipleTableFileSink {
-    @Override
-    public String getPluginName() {
-        return FileSystemType.FTP.getFileSystemPluginName();
-    }
+public class FtpFileCatalog extends AbstractFileCatalog {
 
-    public FtpFileSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
-        super(FtpConf.buildWithConfig(readonlyConfig), readonlyConfig, catalogTable);
+    public FtpFileCatalog(
+            HadoopFileSystemProxy hadoopFileSystemProxy, String filePath, String catalogName) {
+        super(hadoopFileSystemProxy, filePath, catalogName);
     }
 }
