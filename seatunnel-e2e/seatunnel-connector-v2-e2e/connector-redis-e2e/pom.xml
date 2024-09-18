@@ -23,28 +23,8 @@
     </parent>
 
     <artifactId>connector-redis-e2e</artifactId>
-    <packaging>pom</packaging>
     <name>SeaTunnel : E2E : Connector V2 : Redis</name>
-    <modules>
-        <module>connector-redis-e2e-common</module>
-        <module>connector-redis-e2e-redis3</module>
-        <module>connector-redis-e2e-redis4</module>
-        <module>connector-redis-e2e-redis5</module>
-        <module>connector-redis-e2e-redis6</module>
-        <module>connector-redis-e2e-redis7</module>
-    </modules>
 
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>org.apache.seatunnel</groupId>
-                <artifactId>connector-redis</artifactId>
-                <version>${project.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
     <dependencies>
         <!-- SeaTunnel connectors -->
         <dependency>
