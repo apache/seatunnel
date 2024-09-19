@@ -15,6 +15,8 @@ import org.apache.seatunnel.connectors.seatunnel.prometheus.Exception.Prometheus
 import org.apache.seatunnel.connectors.seatunnel.prometheus.pojo.InstantPoint;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.pojo.RangePoint;
 
+import org.apache.commons.collections4.CollectionUtils;
+
 import com.google.common.base.Strings;
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.JsonPath;
@@ -100,6 +102,9 @@ public class PrometheusSourceReader extends AbstractSingleSplitReader<SeaTunnelR
 
     private void convertRangePoints(String data, Collector<SeaTunnelRow> output) {
         List<RangePoint> rangePoints = JsonUtils.toList(data, RangePoint.class);
+        if (CollectionUtils.isEmpty(rangePoints)) {
+            return;
+        }
         rangePoints.forEach(
                 rangePoint -> {
                     Map<String, String> metric = rangePoint.getMetric();
@@ -126,6 +131,9 @@ public class PrometheusSourceReader extends AbstractSingleSplitReader<SeaTunnelR
 
     private void convertInstantPoints(String data, Collector<SeaTunnelRow> output) {
         List<InstantPoint> instantPoints = JsonUtils.toList(data, InstantPoint.class);
+        if (CollectionUtils.isEmpty(instantPoints)) {
+            return;
+        }
         instantPoints.forEach(
                 instantPoint -> {
                     double timestampDouble =
