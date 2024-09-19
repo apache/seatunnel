@@ -79,7 +79,8 @@ http请求失败，最大重试回退时间(毫秒)
     schema = {
         fields {
             metric = "map<string, string>"
-            value = "array<int>"
+            value = double
+            time = long
             }
         }
 
@@ -109,7 +110,8 @@ source {
     schema = {
         fields {
             metric = "map<string, string>"
-            value = "array<int>"
+            value = double
+            time = long
             }
         }
     }
@@ -133,7 +135,8 @@ source {
     schema = {
         fields {
             metric = "map<string, string>"
-            value = "array<int>"
+            value = double
+            time = long
             }
         }
     }

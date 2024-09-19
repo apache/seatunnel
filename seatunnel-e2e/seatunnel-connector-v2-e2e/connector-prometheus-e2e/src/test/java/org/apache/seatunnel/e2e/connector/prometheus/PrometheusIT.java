@@ -60,8 +60,6 @@ public class PrometheusIT extends TestSuiteBase implements TestResource {
 
     private static final String HOST = "prometheus-host";
 
-    private String coordinatorURL;
-
     @BeforeAll
     @Override
     public void startUp() {

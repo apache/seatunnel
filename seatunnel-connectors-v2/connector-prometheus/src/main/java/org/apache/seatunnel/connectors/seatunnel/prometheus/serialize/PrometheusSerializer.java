@@ -55,8 +55,7 @@ public class PrometheusSerializer implements Serializer {
         Long timestamp = timestampExtractor.apply(seaTunnelRow);
         Double value = valueExtractor.apply(seaTunnelRow);
         Map<String, String> label = labelExtractor.apply(seaTunnelRow);
-        Point point =
-                Point.builder().metricLableMap(label).value(value).timestamp(timestamp).build();
+        Point point = Point.builder().metric(label).value(value).timestamp(timestamp).build();
 
         return point;
     }
@@ -136,6 +135,9 @@ public class PrometheusSerializer implements Serializer {
                             .toEpochMilli();
                 case BIGINT:
                     return (Long) timestamp;
+                case DOUBLE:
+                    double timestampDouble = (double) timestamp;
+                    return (long) (timestampDouble * 1000);
                 default:
                     throw new PrometheusConnectorException(
                             CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,

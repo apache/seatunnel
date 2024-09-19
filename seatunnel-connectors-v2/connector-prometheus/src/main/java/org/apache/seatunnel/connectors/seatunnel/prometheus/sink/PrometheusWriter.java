@@ -180,7 +180,7 @@ public class PrometheusWriter extends HttpSinkWriter {
         for (Point point : points) {
             List<Types.Label> labels = new ArrayList<>();
             Types.TimeSeries.Builder timeSeriesBuilder = Types.TimeSeries.newBuilder();
-            for (Map.Entry<String, String> entry : point.getMetricLableMap().entrySet()) {
+            for (Map.Entry<String, String> entry : point.getMetric().entrySet()) {
                 Types.Label label =
                         Types.Label.newBuilder()
                                 .setName(entry.getKey())

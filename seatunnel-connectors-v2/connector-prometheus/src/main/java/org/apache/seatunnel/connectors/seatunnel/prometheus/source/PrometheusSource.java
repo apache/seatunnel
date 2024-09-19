@@ -26,15 +26,17 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSource;
-import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
+import org.apache.seatunnel.connectors.seatunnel.prometheus.Exception.PrometheusConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSourceParameter;
 
 import lombok.extern.slf4j.Slf4j;
 
+import static org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSourceConfig.INSTANT_QUERY;
 import static org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSourceConfig.QUERY_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSourceConfig.RANGE_QUERY;
 
@@ -44,27 +46,16 @@ public class PrometheusSource extends HttpSource {
     private final PrometheusSourceParameter prometheusSourceParameter =
             new PrometheusSourceParameter();
 
+    private final String queryType;
+
     protected PrometheusSource(Config pluginConfig) {
         super(pluginConfig);
-        String queryType =
+        queryType =
                 pluginConfig.hasPath(QUERY_TYPE.key())
                         ? pluginConfig.getString(QUERY_TYPE.key())
                         : QUERY_TYPE.defaultValue();
-        CheckResult result;
-        if (RANGE_QUERY.equals(queryType)) {
-            result =
-                    CheckConfigUtil.checkAllExists(
-                            pluginConfig,
-                            PrometheusSourceConfig.QUERY.key(),
-                            PrometheusSourceConfig.RangeConfig.START.key(),
-                            PrometheusSourceConfig.RangeConfig.END.key(),
-                            PrometheusSourceConfig.RangeConfig.STEP.key());
+        CheckResult result = checkResult(queryType, pluginConfig);
 
-        } else {
-            result =
-                    CheckConfigUtil.checkAllExists(
-                            pluginConfig, PrometheusSourceConfig.QUERY.key());
-        }
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
@@ -88,11 +79,25 @@ public class PrometheusSource extends HttpSource {
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(
             SingleSplitReaderContext readerContext) throws Exception {
-        return new HttpSourceReader(
-                this.prometheusSourceParameter,
-                readerContext,
-                this.deserializationSchema,
-                jsonField,
-                contentField);
+        return new PrometheusSourceReader(
+                this.prometheusSourceParameter, readerContext, contentField, queryType);
+    }
+
+    private CheckResult checkResult(String queryType, Config pluginConfig) {
+        switch (queryType) {
+            case RANGE_QUERY:
+                return CheckConfigUtil.checkAllExists(
+                        pluginConfig,
+                        PrometheusSourceConfig.QUERY.key(),
+                        PrometheusSourceConfig.RangeConfig.START.key(),
+                        PrometheusSourceConfig.RangeConfig.END.key(),
+                        PrometheusSourceConfig.RangeConfig.STEP.key());
+            case INSTANT_QUERY:
+                return CheckConfigUtil.checkAllExists(
+                        pluginConfig, PrometheusSourceConfig.QUERY.key());
+            default:
+                throw new PrometheusConnectorException(
+                        CommonErrorCode.UNSUPPORTED_METHOD, "unsupported query type");
+        }
     }
 }

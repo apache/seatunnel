@@ -25,7 +25,7 @@ import java.util.Map;
 @Builder
 public class Point {
 
-    private Map<String, String> metricLableMap;
+    private Map<String, String> metric;
 
     private Double value;
 

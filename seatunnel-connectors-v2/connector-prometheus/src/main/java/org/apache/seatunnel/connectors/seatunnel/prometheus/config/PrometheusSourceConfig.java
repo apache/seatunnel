@@ -33,6 +33,8 @@ public class PrometheusSourceConfig extends HttpConfig {
 
     public static final String RANGE_QUERY = "Range";
 
+    public static final String INSTANT_QUERY = "Instant";
+
     public static final String RANGE_QUERY_URL = "/api/v1/query_range";
 
     public static final Option<String> QUERY =

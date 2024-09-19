@@ -79,7 +79,8 @@ Fill in a fixed value
     schema = {
         fields {
             metric = "map<string, string>"
-            value = "array<int>"
+            value = double
+            time = long
             }
         }
 
@@ -109,7 +110,8 @@ source {
     schema = {
         fields {
             metric = "map<string, string>"
-            value = "array<int>"
+            value = double
+            time = long
             }
         }
     }
@@ -133,7 +135,8 @@ source {
     schema = {
         fields {
             metric = "map<string, string>"
-            value = "array<int>"
+            value = double
+            time = long
             }
         }
     }
