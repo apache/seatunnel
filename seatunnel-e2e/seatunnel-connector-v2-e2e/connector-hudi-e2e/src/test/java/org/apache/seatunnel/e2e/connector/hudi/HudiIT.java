@@ -81,7 +81,6 @@ public class HudiIT extends TestSuiteBase {
                             "sh", "-c", "cd /tmp" + " && tar -zxvf " + NAMESPACE_TAR);
                     try {
                         Process process = processBuilder.start();
-                        // 等待命令执行完成
                         int exitCode = process.waitFor();
                         if (exitCode == 0) {
                             log.info("Extract files successful.");
