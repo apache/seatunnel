@@ -97,7 +97,6 @@
                                         <include>com.google.common.base.*</include>
                                         <include>com.google.common.cache.*</include>
                                         <include>com.google.common.collect.*</include>
-                                        <include>com.google.common.util.*</include>
                                     </includes>
                                 </relocation>
                                 <relocation>

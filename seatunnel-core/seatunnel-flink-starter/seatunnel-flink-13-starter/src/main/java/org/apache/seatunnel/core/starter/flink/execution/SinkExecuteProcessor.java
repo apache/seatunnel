@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.sink.SaveModeExecuteWrapper;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
@@ -45,6 +46,7 @@ import org.apache.flink.types.Row;
 
 import java.net.URL;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -125,18 +127,7 @@ public class SinkExecuteProcessor
                 sink = ((TableSinkFactory) factory.get()).createSink(context).createSink();
                 sink.setJobContext(jobContext);
             }
-            if (SupportSaveMode.class.isAssignableFrom(sink.getClass())) {
-                SupportSaveMode saveModeSink = (SupportSaveMode) sink;
-                Optional<SaveModeHandler> saveModeHandler = saveModeSink.getSaveModeHandler();
-                if (saveModeHandler.isPresent()) {
-                    try (SaveModeHandler handler = saveModeHandler.get()) {
-                        handler.open();
-                        new SaveModeExecuteWrapper(handler).execute();
-                    } catch (Exception e) {
-                        throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);
-                    }
-                }
-            }
+            handleSaveMode(sink);
             DataStreamSink<Row> dataStreamSink =
                     stream.getDataStream()
                             .sinkTo(new FlinkSink<>(sink, stream.getCatalogTables().get(0)))
@@ -170,5 +161,25 @@ public class SinkExecuteProcessor
         SeaTunnelSink source = sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
         source.prepare(pluginConfig);
         return source;
+    }
+
+    public void handleSaveMode(SeaTunnelSink sink) {
+        if (sink instanceof SupportSaveMode) {
+            Optional<SaveModeHandler> saveModeHandler =
+                    ((SupportSaveMode) sink).getSaveModeHandler();
+            if (saveModeHandler.isPresent()) {
+                try (SaveModeHandler handler = saveModeHandler.get()) {
+                    handler.open();
+                    new SaveModeExecuteWrapper(handler).execute();
+                } catch (Exception e) {
+                    throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);
+                }
+            }
+        } else if (sink instanceof MultiTableSink) {
+            Map<String, SeaTunnelSink> sinks = ((MultiTableSink) sink).getSinks();
+            for (SeaTunnelSink seaTunnelSink : sinks.values()) {
+                handleSaveMode(seaTunnelSink);
+            }
+        }
     }
 }
