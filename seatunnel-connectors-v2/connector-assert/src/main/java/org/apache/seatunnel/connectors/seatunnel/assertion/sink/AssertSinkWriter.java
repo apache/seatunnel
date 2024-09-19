@@ -68,7 +68,7 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         if (StringUtils.isNotEmpty(element.getTableId()) && assertFieldRules.size() > 1) {
             assertFieldRule = assertFieldRules.get(element.getTableId());
             tableName = element.getTableId();
-        } else if (!assertFieldRules.isEmpty()) {
+        } else if (assertFieldRules.size() == 1) {
             assertFieldRule = assertFieldRules.values().iterator().next();
             tableName = assertFieldRules.keySet().iterator().next();
         } else {
@@ -100,16 +100,22 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                                 assertRules.stream()
                                         .filter(
                                                 assertRule -> {
+                                                    long count;
+                                                    if (LONG_ACCUMULATOR.containsKey(
+                                                            entry.getKey())) {
+                                                        count =
+                                                                LONG_ACCUMULATOR
+                                                                        .get(entry.getKey())
+                                                                        .longValue();
+                                                    } else {
+                                                        count = 0;
+                                                    }
                                                     switch (assertRule.getRuleType()) {
                                                         case MAX_ROW:
-                                                            return !(LONG_ACCUMULATOR
-                                                                            .get(entry.getKey())
-                                                                            .longValue()
+                                                            return !(count
                                                                     <= assertRule.getRuleValue());
                                                         case MIN_ROW:
-                                                            return !(LONG_ACCUMULATOR
-                                                                            .get(entry.getKey())
-                                                                            .longValue()
+                                                            return !(count
                                                                     >= assertRule.getRuleValue());
                                                         default:
                                                             return false;
