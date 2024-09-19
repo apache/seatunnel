@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -462,6 +463,19 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             catalog.dropDatabase(targetTablePath, false);
             Assertions.assertFalse(catalog.databaseExists(targetTablePath.getDatabaseName()));
         }
+
+        TableNotExistException exception =
+                Assertions.assertThrows(
+                        TableNotExistException.class,
+                        () ->
+                                catalog.truncateTable(
+                                        TablePath.of("not_exist", "not_exist", "not_exist"),
+                                        false));
+        Assertions.assertEquals(
+                String.format(
+                        "ErrorCode:[API-05], ErrorDescription:[Table not existed] - Table not_exist.not_exist.not_exist does not exist in Catalog %s.",
+                        catalog.name()),
+                exception.getMessage());
     }
 
     @Test
