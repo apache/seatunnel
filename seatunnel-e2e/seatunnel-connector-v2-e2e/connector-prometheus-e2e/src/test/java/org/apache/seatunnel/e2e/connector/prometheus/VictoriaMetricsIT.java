@@ -119,9 +119,9 @@ public class VictoriaMetricsIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(metric.getMetric().get("__name__"), "metric_1");
         Assertions.assertEquals(metric.getValue().get(1), "1.23");
 
-        Container.ExecResult execResult1 =
-                container.executeJob("/vectoriaMetrics_instant_json_to_assert.conf");
-        Assertions.assertEquals(0, execResult1.getExitCode());
+        Container.ExecResult execResultForInstant =
+                container.executeJob("/VictoriaMetrics_instant_json_to_assert.conf");
+        Assertions.assertEquals(0, execResultForInstant.getExitCode());
     }
 
     @Data

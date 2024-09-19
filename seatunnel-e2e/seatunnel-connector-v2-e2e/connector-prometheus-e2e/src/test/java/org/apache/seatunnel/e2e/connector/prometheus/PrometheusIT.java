@@ -114,9 +114,13 @@ public class PrometheusIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(metric.getMetric().get("__name__"), "metric_1");
         Assertions.assertEquals(metric.getValue().get(1), "1.23");
 
-        Container.ExecResult execResult1 =
+        Container.ExecResult execResultForInstant =
                 container.executeJob("/prometheus_instant_json_to_assert.conf");
-        Assertions.assertEquals(0, execResult1.getExitCode());
+        Assertions.assertEquals(0, execResultForInstant.getExitCode());
+
+        Container.ExecResult execResultForRange =
+                container.executeJob("/prometheus_range_json_to_assert.conf");
+        Assertions.assertEquals(0, execResultForRange.getExitCode());
     }
 
     @Data

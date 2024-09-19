@@ -19,9 +19,14 @@ package org.apache.seatunnel.connectors.seatunnel.prometheus.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
+import org.apache.seatunnel.connectors.seatunnel.prometheus.Exception.PrometheusConnectorException;
 
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 
 import static org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSourceConfig.INSTANT_QUERY_URL;
@@ -36,6 +41,8 @@ import static org.apache.seatunnel.connectors.seatunnel.prometheus.config.Promet
 import static org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSourceConfig.TIMEOUT;
 
 public class PrometheusSourceParameter extends HttpParameter {
+    public static final String CURRENT_TIMESTAMP = "CURRENT_TIMESTAMP";
+
     public void buildWithConfig(Config pluginConfig) {
         super.buildWithConfig(pluginConfig);
 
@@ -58,8 +65,8 @@ public class PrometheusSourceParameter extends HttpParameter {
 
         if (RANGE_QUERY.equals(queryType)) {
             this.setUrl(this.getUrl() + RANGE_QUERY_URL);
-            params.put(START.key(), pluginConfig.getString(START.key()));
-            params.put(END.key(), pluginConfig.getString(END.key()));
+            params.put(START.key(), checkTimeParam(pluginConfig.getString(START.key())));
+            params.put(END.key(), checkTimeParam(pluginConfig.getString(END.key())));
             params.put(STEP.key(), pluginConfig.getString(STEP.key()));
 
         } else {
@@ -70,5 +77,27 @@ public class PrometheusSourceParameter extends HttpParameter {
             }
         }
         this.setParams(params);
+    }
+
+    private String checkTimeParam(String time) {
+        if (CURRENT_TIMESTAMP.equals(time)) {
+            ZonedDateTime now = ZonedDateTime.now();
+            return now.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+        }
+        if (isValidISO8601(time)) {
+            return time;
+        }
+        throw new PrometheusConnectorException(
+                CommonErrorCode.UNSUPPORTED_DATA_TYPE, "unsupported time type");
+    }
+
+    private boolean isValidISO8601(String dateTimeString) {
+        try {
+            DateTimeFormatter formatter = DateTimeFormatter.ISO_INSTANT;
+            ZonedDateTime.parse(dateTimeString, formatter);
+            return true;
+        } catch (DateTimeParseException e) {
+            return false;
+        }
     }
 }
