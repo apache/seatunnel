@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonProperty;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import lombok.Builder;
@@ -33,23 +36,32 @@ import java.util.stream.Collectors;
 
 @Data
 @Builder
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class JdbcSourceTableConfig implements Serializable {
     private static final int DEFAULT_PARTITION_NUMBER = 10;
 
+    @JsonProperty("table_path")
     private String tablePath;
 
+    @JsonProperty("query")
     private String query;
 
+    @JsonProperty("partition_column")
     private String partitionColumn;
 
+    @JsonProperty("partition_num")
     private Integer partitionNumber;
 
+    @JsonProperty("partition_lower_bound")
     private BigDecimal partitionStart;
 
+    @JsonProperty("partition_upper_bound")
     private BigDecimal partitionEnd;
 
+    @JsonProperty("use_select_count")
     private Boolean useSelectCount;
 
+    @JsonProperty("skip_analyze")
     private Boolean skipAnalyze;
 
     @Tolerate
