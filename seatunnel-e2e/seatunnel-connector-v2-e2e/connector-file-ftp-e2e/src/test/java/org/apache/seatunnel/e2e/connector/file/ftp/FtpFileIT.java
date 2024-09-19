@@ -105,7 +105,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                 ftpContainer);
 
         ContainerUtil.copyFileIntoContainers(
-                "text/e2e-txt.zip",
+                "/text/e2e-txt.zip",
                 "/home/vsftpd/seatunnel/tmp/seatunnel/read/zip/txt/single/e2e-txt.zip",
                 ftpContainer);
 
