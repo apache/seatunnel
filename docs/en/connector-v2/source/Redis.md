@@ -237,7 +237,6 @@ Redis {
   keys = "key_test*"
   data_type = key
   format = text
-  redis_version = Redis5
 }
 ```
 
@@ -248,7 +247,6 @@ Redis {
   keys = "key_test*"
   data_type = key
   format = json
-  redis_version = Redis5
   schema {
     fields {
       name = string
@@ -282,7 +280,6 @@ source {
     keys = "string_test*"
     data_type = string
     batch_size = 33
-    redis_version = Redis7
   }
 }
 
@@ -307,4 +304,4 @@ sink {
 ### next version
 
 - [Improve] Support redis cluster mode connection and user authentication [3188](https://github.com/apache/seatunnel/pull/3188)
--  [Bug] Redis scan command supports versions 3, 4, 5, 6, 7 [7666](https://github.com/apache/seatunnel/pull/7666)
+-  [Bug] Redis scan command supports versions 5, 6, 7 [7666](https://github.com/apache/seatunnel/pull/7666)
