@@ -207,7 +207,7 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
 
     @TestTemplate
     public void testRedis(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob(testRedisConf(), getVariables());
+        Container.ExecResult execResult = container.executeJob(testRedisConf());
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertEquals(100, jedis.llen("key_list"));
         // Clear data to prevent data duplication in the next TestContainer
@@ -218,8 +218,7 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
     @TestTemplate
     public void testRedisWithExpire(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult =
-                container.executeJob(testRedisWithExpireConf(), getVariables());
+        Container.ExecResult execResult = container.executeJob(testRedisWithExpireConf());
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertEquals(100, jedis.llen("key_list"));
         // Clear data to prevent data duplication in the next TestContainer
@@ -229,8 +228,7 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
 
     @TestTemplate
     public void testRedisDbNum(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult =
-                container.executeJob(testRedisDbNumConf(), getVariables());
+        Container.ExecResult execResult = container.executeJob(testRedisDbNumConf());
         Assertions.assertEquals(0, execResult.getExitCode());
         jedis.select(2);
         Assertions.assertEquals(100, jedis.llen("db_test"));
@@ -245,8 +243,7 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
         for (int i = 0; i < 1000; i++) {
             jedis.set(keyPrefix + i, "val");
         }
-        Container.ExecResult execResult =
-                container.executeJob(testScanStringTypeWriteRedisConf(), getVariables());
+        Container.ExecResult execResult = container.executeJob(testScanStringTypeWriteRedisConf());
         Assertions.assertEquals(0, execResult.getExitCode());
         List<String> list = jedis.lrange("string_test_list", 0, -1);
         Assertions.assertEquals(1000, list.size());
@@ -266,8 +263,7 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
                 jedis.lpush(list, "val" + j);
             }
         }
-        Container.ExecResult execResult =
-                container.executeJob(testScanListTypeWriteRedisConf(), getVariables());
+        Container.ExecResult execResult = container.executeJob(testScanListTypeWriteRedisConf());
         Assertions.assertEquals(0, execResult.getExitCode());
         List<String> list = jedis.lrange("list-test-check", 0, -1);
         Assertions.assertEquals(1000, list.size());
@@ -288,8 +284,7 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
                 jedis.sadd(setKey, j + "");
             }
         }
-        Container.ExecResult execResult =
-                container.executeJob(testScanSetTypeWriteRedisConf(), getVariables());
+        Container.ExecResult execResult = container.executeJob(testScanSetTypeWriteRedisConf());
         Assertions.assertEquals(0, execResult.getExitCode());
         List<String> list = jedis.lrange("list-set-check", 0, -1);
         Assertions.assertEquals(1000, list.size());
@@ -310,8 +305,7 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
             map.put("name", "fuyoujie");
             jedis.hset(setKey, map);
         }
-        Container.ExecResult execResult =
-                container.executeJob(testScanHashTypeWriteRedisConf(), getVariables());
+        Container.ExecResult execResult = container.executeJob(testScanHashTypeWriteRedisConf());
         Assertions.assertEquals(0, execResult.getExitCode());
         List<String> list = jedis.lrange("list-hash-check", 0, -1);
         Assertions.assertEquals(100, list.size());
@@ -338,8 +332,7 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
                 jedis.zadd(key, 1, j + "");
             }
         }
-        Container.ExecResult execResult =
-                container.executeJob(testScanZsetTypeWriteRedisConf(), getVariables());
+        Container.ExecResult execResult = container.executeJob(testScanZsetTypeWriteRedisConf());
         Assertions.assertEquals(0, execResult.getExitCode());
         List<String> list = jedis.lrange("list-zset-check", 0, -1);
         Assertions.assertEquals(1000, list.size());
@@ -357,8 +350,7 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
             disabledReason = "Currently FLINK do not support multiple table read")
     public void testMultipletableRedisSink(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult =
-                container.executeJob(testMultipletableRedisSinkConf(), getVariables());
+        Container.ExecResult execResult = container.executeJob(testMultipletableRedisSinkConf());
         Assertions.assertEquals(0, execResult.getExitCode());
         jedis.select(3);
         Assertions.assertEquals(2, jedis.llen("key_multi_list"));
@@ -405,6 +397,4 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
     }
 
     public abstract RedisContainerInfo getRedisContainerInfo();
-
-    public abstract List<String> getVariables();
 }

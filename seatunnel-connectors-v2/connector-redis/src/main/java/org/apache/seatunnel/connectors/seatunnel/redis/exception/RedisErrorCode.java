@@ -1,3 +1,4 @@
+package org.apache.seatunnel.connectors.seatunnel.redis.exception;
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -14,12 +15,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.connectors.seatunnel.redis.config;
 
-public enum RedisVersion {
-    Redis3,
-    Redis4,
-    Redis5,
-    Redis6,
-    Redis7;
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+
+public enum RedisErrorCode implements SeaTunnelErrorCode {
+    GET_REDIS_VERSION_INFO_FAILED("RedisErrorCode-01", "Failed to get the redis version"),
+    INVALID_CONFIG("RedisErrorCode-02", "Invalid redis Config");
+
+    private final String code;
+    private final String description;
+
+    RedisErrorCode(String code, String description) {
+        this.code = code;
+        this.description = description;
+    }
+
+    @Override
+    public String getCode() {
+        return code;
+    }
+
+    @Override
+    public String getDescription() {
+        return description;
+    }
 }

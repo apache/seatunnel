@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.redis.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClusterClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisSingleClient;
@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorE
 import org.apache.commons.lang3.StringUtils;
 
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import redis.clients.jedis.ConnectionPoolConfig;
 import redis.clients.jedis.HostAndPort;
 import redis.clients.jedis.Jedis;
@@ -36,9 +37,12 @@ import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
+
+import static org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisErrorCode.GET_REDIS_VERSION_INFO_FAILED;
+import static org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisErrorCode.INVALID_CONFIG;
 
 @Data
+@Slf4j
 public class RedisParameters implements Serializable {
     private String host;
     private int port;
@@ -54,12 +58,9 @@ public class RedisParameters implements Serializable {
     private long expire = RedisConfig.EXPIRE.defaultValue();
     private int batchSize = RedisConfig.BATCH_SIZE.defaultValue();
 
-    private RedisVersion redisVersion;
+    private int redisVersion;
 
     public void buildWithConfig(ReadonlyConfig config) {
-        // redis version
-        Optional<RedisVersion> versionOptional = config.getOptional(RedisConfig.REDIS_VERSION);
-        versionOptional.ifPresent(version -> this.redisVersion = version);
         // set host
         this.host = config.get(RedisConfig.HOST);
         // set port
@@ -100,11 +101,40 @@ public class RedisParameters implements Serializable {
 
     public RedisClient buildRedisClient() {
         Jedis jedis = this.buildJedis();
+        this.redisVersion = extractRedisVersion(jedis);
         if (mode.equals(RedisConfig.RedisMode.SINGLE)) {
-            return new RedisSingleClient(this, jedis);
+            return new RedisSingleClient(this, jedis, redisVersion);
         } else {
-            return new RedisClusterClient(this, jedis);
+            return new RedisClusterClient(this, jedis, redisVersion);
         }
+    }
+
+    private int extractRedisVersion(Jedis jedis) {
+        log.info("Try to get redis version information from the jedis.info() method");
+        // # Server
+        // redis_version:5.0.14
+        // redis_git_sha1:00000000
+        // redis_git_dirty:0
+        String info = jedis.info();
+        try {
+            for (String line : info.split("\n")) {
+                if (line.startsWith("redis_version:")) {
+                    // 5.0.14
+                    String versionInfo = line.split(":")[1].trim();
+                    log.info("The version of Redis is :{}", versionInfo);
+                    String[] parts = versionInfo.split("\\.");
+                    return Integer.parseInt(parts[0]);
+                }
+            }
+        } catch (Exception e) {
+            throw new RedisConnectorException(
+                    GET_REDIS_VERSION_INFO_FAILED,
+                    GET_REDIS_VERSION_INFO_FAILED.getErrorMessage(),
+                    e);
+        }
+        throw new RedisConnectorException(
+                GET_REDIS_VERSION_INFO_FAILED,
+                "Did not get the expected redis_version from the jedis.info() method");
     }
 
     public Jedis buildJedis() {
@@ -128,7 +158,7 @@ public class RedisParameters implements Serializable {
                         String[] splits = redisNode.split(":");
                         if (splits.length != 2) {
                             throw new RedisConnectorException(
-                                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                    INVALID_CONFIG,
                                     "Invalid redis node information,"
                                             + "redis node information must like as the following: [host:port]");
                         }
@@ -157,8 +187,7 @@ public class RedisParameters implements Serializable {
             default:
                 // do nothing
                 throw new RedisConnectorException(
-                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                        "Not support this redis mode");
+                        CommonErrorCode.OPERATION_NOT_SUPPORTED, "Not support this redis mode");
         }
     }
 }

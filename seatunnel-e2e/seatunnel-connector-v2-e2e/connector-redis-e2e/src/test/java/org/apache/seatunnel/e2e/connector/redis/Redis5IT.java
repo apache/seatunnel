@@ -16,18 +16,10 @@
  */
 package org.apache.seatunnel.e2e.connector.redis;
 
-import java.util.Collections;
-import java.util.List;
-
 public class Redis5IT extends RedisTestCaseTemplateIT {
 
     @Override
     public RedisContainerInfo getRedisContainerInfo() {
         return new RedisContainerInfo("redis-e2e", 6379, "SeaTunnel", "redis:5");
-    }
-
-    @Override
-    public List<String> getVariables() {
-        return Collections.singletonList("redisVersion=Redis5");
     }
 }

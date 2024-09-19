@@ -36,12 +36,6 @@ public class RedisConfig {
         KV;
     }
 
-    public static final Option<RedisVersion> REDIS_VERSION =
-            Options.key("redis_version")
-                    .enumType(RedisVersion.class)
-                    .noDefaultValue()
-                    .withDescription("the version of redis,minimum supported Redis3");
-
     public static final Option<String> HOST =
             Options.key("host")
                     .stringType()

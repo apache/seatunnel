@@ -19,7 +19,6 @@ Used to read data from Redis.
 
 | name                | type   | required              | default value |
 | ------------------- | ------ | --------------------- | ------------- |
-| redis_version       | string | yes                   | -             |
 | host                | string | yes                   | -             |
 | port                | int    | yes                   | -             |
 | keys                | string | yes                   | -             |
@@ -34,10 +33,6 @@ Used to read data from Redis.
 | schema              | config | yes when format=json  | -             |
 | format              | string | no                    | json          |
 | common-options      |        | no                    | -             |
-
-### redis_version
-
-version of redis, support `Redis3`,` Redis4`, `Redis5`,` Redis6`,` Redis7`
 
 ### host [string]
 

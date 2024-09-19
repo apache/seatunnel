@@ -51,8 +51,7 @@ public class RedisSourceFactory implements TableSourceFactory {
                         RedisConfig.HOST,
                         RedisConfig.PORT,
                         RedisConfig.KEY_PATTERN,
-                        RedisConfig.DATA_TYPE,
-                        RedisConfig.REDIS_VERSION)
+                        RedisConfig.DATA_TYPE)
                 .optional(
                         RedisConfig.MODE,
                         RedisConfig.HASH_KEY_PARSE_MODE,

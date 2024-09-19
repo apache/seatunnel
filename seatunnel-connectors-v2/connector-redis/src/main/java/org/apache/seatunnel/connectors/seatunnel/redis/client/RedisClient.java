@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.redis.client;
 
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
-import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisVersion;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.params.ScanParams;
@@ -34,17 +33,19 @@ public abstract class RedisClient extends Jedis {
 
     protected final RedisParameters redisParameters;
 
-    private final RedisVersion redisVersion;
+    private final Integer redisVersion;
 
     protected final int batchSize;
 
     protected final Jedis jedis;
 
-    protected RedisClient(RedisParameters redisParameters, Jedis jedis) {
+    private static final int REDIS_5 = 5;
+
+    protected RedisClient(RedisParameters redisParameters, Jedis jedis, int redisVersion) {
         this.redisParameters = redisParameters;
         this.batchSize = redisParameters.getBatchSize();
         this.jedis = jedis;
-        this.redisVersion = redisParameters.getRedisVersion();
+        this.redisVersion = redisVersion;
     }
 
     public ScanResult<String> scanKeys(
@@ -56,10 +57,8 @@ public abstract class RedisClient extends Jedis {
     }
 
     private ScanResult<String> scanByRedisVersion(
-            String cursor, ScanParams scanParams, RedisDataType type, RedisVersion redisVersion) {
-        if (RedisVersion.Redis3.equals(redisVersion)
-                || RedisVersion.Redis4.equals(redisVersion)
-                || RedisVersion.Redis5.equals(redisVersion)) {
+            String cursor, ScanParams scanParams, RedisDataType type, Integer redisVersion) {
+        if (redisVersion <= REDIS_5) {
             return scanOnRedis5(cursor, scanParams, type);
         } else {
             return jedis.scan(cursor, scanParams, type.name());
