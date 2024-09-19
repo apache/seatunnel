@@ -230,8 +230,67 @@ public class SeaTunnelEngineClusterRoleTest {
                     .atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
-                                    Assertions.assertNotEquals(
+                                    Assertions.assertEquals(
+                                            clientJobProxy.getJobStatus(), JobStatus.FINISHED));
+        } catch (ExecutionException | InterruptedException e) {
+            throw new RuntimeException(e);
+        } finally {
+            if (seaTunnelClient != null) {
+                seaTunnelClient.close();
+            }
+            if (masterNode != null) {
+                masterNode.shutdown();
+            }
+        }
+    }
+
+
+    @SneakyThrows
+    @Test
+    public void pendingJobCancel() {
+        HazelcastInstanceImpl masterNode = null;
+        String clusterAndJobName = "Test_pendingJobCancel";
+        SeaTunnelClient seaTunnelClient = null;
+
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        // set job pending
+        EngineConfig engineConfig = seaTunnelConfig.getEngineConfig();
+        engineConfig.setJobPending(true);
+
+        seaTunnelConfig
+                .getHazelcastConfig()
+                .setClusterName(TestUtils.getClusterName(clusterAndJobName));
+
+        // submit job
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("/client_test.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName(clusterAndJobName);
+
+        try {
+            // master node must start first in ci
+            masterNode = SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig);
+
+            // new seatunnel client and submit job
+            seaTunnelClient = createSeaTunnelClient(clusterAndJobName);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    seaTunnelClient.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
+            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            Awaitility.await()
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
                                             clientJobProxy.getJobStatus(), JobStatus.PENDING));
+
+            // Cancel the job in the pending state
+            seaTunnelClient.getJobClient().cancelJob(clientJobProxy.getJobId());
+            Awaitility.await()
+                    .atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertNotEquals(
+                                            clientJobProxy.getJobStatus(), JobStatus.CANCELED));
 
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
