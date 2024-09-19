@@ -175,14 +175,14 @@ public class HudiUtil {
                                         hudiTable.getTableName()))
                         .withSchema(convertToSchema(seaTunnelRowType).toString())
                         .withParallelism(
-                                hudiSinkConfig.getInsertShuffleParallelism(),
-                                hudiSinkConfig.getUpsertShuffleParallelism())
+                                hudiTable.getInsertShuffleParallelism(),
+                                hudiTable.getUpsertShuffleParallelism())
                         .forTable(hudiTable.getTableName())
                         .withArchivalConfig(
                                 HoodieArchivalConfig.newBuilder()
                                         .archiveCommitsWith(
-                                                hudiSinkConfig.getMinCommitsToKeep(),
-                                                hudiSinkConfig.getMaxCommitsToKeep())
+                                                hudiTable.getMinCommitsToKeep(),
+                                                hudiTable.getMaxCommitsToKeep())
                                         .build())
                         .withAutoCommit(hudiSinkConfig.isAutoCommit())
                         .withCleanConfig(

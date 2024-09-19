@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableConfig;
 
 import org.apache.avro.Schema;
@@ -56,7 +55,6 @@ public class HudiRecordConverter implements Serializable {
             Schema schema,
             SeaTunnelRowType seaTunnelRowType,
             SeaTunnelRow element,
-            HudiSinkConfig hudiSinkConfig,
             HudiTableConfig hudiTableConfig) {
         GenericRecord rec = new GenericData.Record(schema);
         for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
@@ -68,14 +66,13 @@ public class HudiRecordConverter implements Serializable {
                                     element.getField(i)));
         }
         return new HoodieAvroRecord<>(
-                getHoodieKey(element, seaTunnelRowType, hudiSinkConfig, hudiTableConfig),
+                getHoodieKey(element, seaTunnelRowType, hudiTableConfig),
                 new HoodieAvroPayload(Option.of(rec)));
     }
 
     public HoodieKey getHoodieKey(
             SeaTunnelRow element,
             SeaTunnelRowType seaTunnelRowType,
-            HudiSinkConfig hudiSinkConfig,
             HudiTableConfig hudiTableConfig) {
         String partitionPath =
                 hudiTableConfig.getPartitionFields() == null
@@ -83,7 +80,7 @@ public class HudiRecordConverter implements Serializable {
                         : getRecordPartitionPath(element, seaTunnelRowType, hudiTableConfig);
         String rowKey =
                 hudiTableConfig.getRecordKeyFields() == null
-                                && hudiSinkConfig.getOpType().equals(WriteOperationType.INSERT)
+                                && hudiTableConfig.getOpType().equals(WriteOperationType.INSERT)
                         ? UUID.randomUUID().toString()
                         : getRecordKey(element, seaTunnelRowType, hudiTableConfig);
         return new HoodieKey(rowKey, partitionPath);

@@ -56,8 +56,6 @@ public class HudiRecordWriter implements Serializable {
 
     private static final Logger LOG = LoggerFactory.getLogger(HudiRecordWriter.class);
 
-    private final HudiSinkConfig hudiSinkConfig;
-
     private final HudiTableConfig hudiTableConfig;
 
     private final WriteClientProvider clientProvider;
@@ -89,7 +87,6 @@ public class HudiRecordWriter implements Serializable {
             HudiTableConfig hudiTableConfig,
             WriteClientProvider clientProvider,
             SeaTunnelRowType seaTunnelRowType) {
-        this.hudiSinkConfig = hudiSinkConfig;
         this.hudiTableConfig = hudiTableConfig;
         this.autoCommit = hudiSinkConfig.isAutoCommit();
         this.clientProvider = clientProvider;
@@ -134,7 +131,8 @@ public class HudiRecordWriter implements Serializable {
         try {
             prepareRecords(record);
             batchCount++;
-            if (hudiSinkConfig.getBatchSize() > 0 && batchCount >= hudiSinkConfig.getBatchSize()) {
+            if (hudiTableConfig.getBatchSize() > 0
+                    && batchCount >= hudiTableConfig.getBatchSize()) {
                 flush(true);
             }
         } catch (Exception e) {
@@ -157,7 +155,7 @@ public class HudiRecordWriter implements Serializable {
         }
         List<WriteStatus> currentWriteStatusList;
         // write records
-        switch (hudiSinkConfig.getOpType()) {
+        switch (hudiTableConfig.getOpType()) {
             case INSERT:
                 currentWriteStatusList = writeClient.insert(writeRecords, writeInstantTime);
                 break;
@@ -170,7 +168,7 @@ public class HudiRecordWriter implements Serializable {
             default:
                 throw new HudiConnectorException(
                         HudiErrorCode.UNSUPPORTED_OPERATION,
-                        "Unsupported operation type: " + hudiSinkConfig.getOpType());
+                        "Unsupported operation type: " + hudiTableConfig.getOpType());
         }
         if (!autoCommit) {
             this.writeStatusList.addAll(currentWriteStatusList);
@@ -229,8 +227,7 @@ public class HudiRecordWriter implements Serializable {
 
     protected void prepareRecords(SeaTunnelRow element) {
         HoodieRecord<HoodieAvroPayload> hoodieAvroPayloadHoodieRecord =
-                recordConverter.convertRow(
-                        schema, seaTunnelRowType, element, hudiSinkConfig, hudiTableConfig);
+                recordConverter.convertRow(schema, seaTunnelRowType, element, hudiTableConfig);
         writeRecords.add(hoodieAvroPayloadHoodieRecord);
     }
 

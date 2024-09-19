@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
 import org.apache.hudi.common.model.HoodieTableType;
+import org.apache.hudi.common.model.WriteOperationType;
 import org.apache.hudi.index.HoodieIndex;
 
 public interface HudiTableOptions {
@@ -36,7 +37,7 @@ public interface HudiTableOptions {
     Option<String> DATABASE =
             Options.key("database")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue("default")
                     .withDescription("hudi database name");
 
     Option<HoodieTableType> TABLE_TYPE =
@@ -76,4 +77,46 @@ public interface HudiTableOptions {
                     .intType()
                     .defaultValue(1024)
                     .withDescription("auto commit");
+
+    Option<WriteOperationType> OP_TYPE =
+            Options.key("op_type")
+                    .type(new TypeReference<WriteOperationType>() {})
+                    .defaultValue(WriteOperationType.INSERT)
+                    .withDescription("op_type");
+
+    Option<Integer> BATCH_SIZE =
+            Options.key("batch_size")
+                    .intType()
+                    .defaultValue(1000)
+                    .withDescription("the size of each insert batch");
+
+    Option<Integer> BATCH_INTERVAL_MS =
+            Options.key("batch_interval_ms")
+                    .intType()
+                    .defaultValue(1000)
+                    .withDescription("batch interval milliSecond");
+
+    Option<Integer> INSERT_SHUFFLE_PARALLELISM =
+            Options.key("insert_shuffle_parallelism")
+                    .intType()
+                    .defaultValue(2)
+                    .withDescription("insert_shuffle_parallelism");
+
+    Option<Integer> UPSERT_SHUFFLE_PARALLELISM =
+            Options.key("upsert_shuffle_parallelism")
+                    .intType()
+                    .defaultValue(2)
+                    .withDescription("upsert_shuffle_parallelism");
+
+    Option<Integer> MIN_COMMITS_TO_KEEP =
+            Options.key("min_commits_to_keep")
+                    .intType()
+                    .defaultValue(20)
+                    .withDescription("hoodie.keep.min.commits");
+
+    Option<Integer> MAX_COMMITS_TO_KEEP =
+            Options.key("max_commits_to_keep")
+                    .intType()
+                    .defaultValue(30)
+                    .withDescription("hoodie.keep.max.commits");
 }

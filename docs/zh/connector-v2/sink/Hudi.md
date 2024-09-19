@@ -21,29 +21,29 @@
 | table_dfs_path             | string | 是      | -                            |
 | conf_files_path            | string | 否      | -                            |
 | table_list                 | string | 否      | -                            |
-| op_type                    | enum   | 否      | insert                       |
-| batch_interval_ms          | Int    | 否      | 1000                         |
-| batch_size                 | Int    | no      | 1000                        |
-| insert_shuffle_parallelism | Int    | 否      | 2                            |
-| upsert_shuffle_parallelism | Int    | 否      | 2                            |
-| min_commits_to_keep        | Int    | 否      | 20                           |
-| max_commits_to_keep        | Int    | 否      | 30                           |
 | auto_commit                | boolean| 否      | true                         |
 | schema_save_mode           | enum   | 否      | CREATE_SCHEMA_WHEN_NOT_EXIST |
 | common-options             | config | 否      | -                            |
 
 表清单配置:
 
-|       名称         |  名称  | 是否必需   | 默认值         |
-|-------------------|--------|----------|---------------|
-| table_name        | string | yes      | -             |
-| database          | string | no       | -             |
-| table_type        | enum   | no       | COPY_ON_WRITE |
-| record_key_fields | string | no       | -             |
-| partition_fields  | string | no       | -             |
-| index_type        | enum   | no       | BLOOM         |
-| index_class_name  | string | no       | -             |
-| record_byte_size  | Int    | no       | 1024          |
+|       名称                  |  类型  | 是否必需   | 默认值         |
+|----------------------------|--------|----------|---------------|
+| table_name                 | string | yes      | -             |
+| database                   | string | no       | default       |
+| table_type                 | enum   | no       | COPY_ON_WRITE |
+| op_type                    | enum   | no       | insert        |
+| record_key_fields          | string | no       | -             |
+| partition_fields           | string | no       | -             |
+| batch_interval_ms          | Int    | no       | 1000          |
+| batch_size                 | Int    | no       | 1000          |
+| insert_shuffle_parallelism | Int    | no       | 2             |
+| upsert_shuffle_parallelism | Int    | no       | 2             |
+| min_commits_to_keep        | Int    | no       | 20            |
+| max_commits_to_keep        | Int    | no       | 30            |
+| index_type                 | enum   | no       | BLOOM         |
+| index_class_name           | string | no       | -             |
+| record_byte_size           | Int    | no       | 1024          |
 
 注意: 当此配置对应于单个表时，您可以将table_list中的配置项展平到外层。
 
@@ -65,7 +65,7 @@
 
 ### record_key_fields [string]
 
-`record_key_fields` Hudi 表的记录键字段.
+`record_key_fields` Hudi 表的记录键字段, 当op_type是`UPSERT`类型时, 必须配置该项.
 
 ### partition_fields [string]
 
@@ -174,8 +174,6 @@ transform {
 
 sink {
   Hudi {
-    op_type="UPSERT"
-    batch_size = 10000
     table_dfs_path = "hdfs://nameserivce/data/"
     conf_files_path = "/home/test/hdfs-site.xml;/home/test/core-site.xml;/home/test/yarn-site.xml"
     table_list = [
@@ -183,11 +181,17 @@ sink {
         database = "st1"
         table_name = "role"
         table_type = "COPY_ON_WRITE"
+        op_type="INSERT"
+        batch_size = 10000
       },
       {
         database = "st1"
         table_name = "user"
         table_type = "COPY_ON_WRITE"
+        op_type="UPSERT"
+        # op_type is 'UPSERT', must configured record_key_fields
+        record_key_fields = "user_id"
+        batch_size = 10000
       },
       {
         database = "st1"

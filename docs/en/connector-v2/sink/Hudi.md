@@ -21,29 +21,29 @@ Base configuration:
 | table_dfs_path             | string  | yes      | -                           |
 | conf_files_path            | string  | no       | -                           |
 | table_list                 | Array   | no       | -                           |
-| op_type                    | enum    | no       | insert                      |
-| batch_interval_ms          | Int     | no       | 1000                        |
-| batch_size                 | Int     | no       | 1000                        |
-| insert_shuffle_parallelism | Int     | no       | 2                           |
-| upsert_shuffle_parallelism | Int     | no       | 2                           |
-| min_commits_to_keep        | Int     | no       | 20                          |
-| max_commits_to_keep        | Int     | no       | 30                          |
 | auto_commit                | boolean | no       | true                        |
 | schema_save_mode           | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST|
 | common-options             | Config  | no       | -                           |
 
 Table list configuration:
 
-|       name        |  type  | required | default value |
-|-------------------|--------|----------|---------------|
-| table_name        | string | yes      | -             |
-| database          | string | no       | -             |
-| table_type        | enum   | no       | COPY_ON_WRITE |
-| record_key_fields | string | no       | -             |
-| partition_fields  | string | no       | -             |
-| index_type        | enum   | no       | BLOOM         |
-| index_class_name  | string | no       | -             |
-| record_byte_size  | Int    | no       | 1024          |
+|       name                 |  type  | required | default value |
+|----------------------------|--------|----------|---------------|
+| table_name                 | string | yes      | -             |
+| database                   | string | no       | default       |
+| table_type                 | enum   | no       | COPY_ON_WRITE |
+| op_type                    | enum   | no       | insert        |
+| record_key_fields          | string | no       | -             |
+| partition_fields           | string | no       | -             |
+| batch_interval_ms          | Int    | no       | 1000          |
+| batch_size                 | Int    | no       | 1000          |
+| insert_shuffle_parallelism | Int    | no       | 2             |
+| upsert_shuffle_parallelism | Int    | no       | 2             |
+| min_commits_to_keep        | Int    | no       | 20            |
+| max_commits_to_keep        | Int    | no       | 30            |
+| index_type                 | enum   | no       | BLOOM         |
+| index_class_name           | string | no       | -             |
+| record_byte_size           | Int    | no       | 1024          |
 
 Note: When this configuration corresponds to a single table, you can flatten the configuration items in table_list to the outer layer.
 
@@ -65,7 +65,7 @@ Note: When this configuration corresponds to a single table, you can flatten the
 
 ### record_key_fields [string]
 
-`record_key_fields` The record key fields of hudi table, its are used to generate record key.
+`record_key_fields` The record key fields of hudi table, its are used to generate record key. It must be configured when op_type is `UPSERT`.
 
 ### partition_fields [string]
 
@@ -174,8 +174,6 @@ transform {
 
 sink {
   Hudi {
-    op_type="UPSERT"
-    batch_size = 10000
     table_dfs_path = "hdfs://nameserivce/data/"
     conf_files_path = "/home/test/hdfs-site.xml;/home/test/core-site.xml;/home/test/yarn-site.xml"
     table_list = [
@@ -183,11 +181,17 @@ sink {
         database = "st1"
         table_name = "role"
         table_type = "COPY_ON_WRITE"
+        op_type="INSERT"
+        batch_size = 10000
       },
       {
         database = "st1"
         table_name = "user"
         table_type = "COPY_ON_WRITE"
+        op_type="UPSERT"
+        # op_type is 'UPSERT', must configured record_key_fields
+        record_key_fields = "user_id"
+        batch_size = 10000
       },
       {
         database = "st1"

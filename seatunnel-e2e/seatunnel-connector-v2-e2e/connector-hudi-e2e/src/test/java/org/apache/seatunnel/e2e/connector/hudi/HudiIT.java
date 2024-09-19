@@ -55,6 +55,7 @@ import static org.awaitility.Awaitility.given;
 public class HudiIT extends TestSuiteBase {
 
     private static final String DATABASE = "st";
+    private static final String DEFAULT_DATABASE = "default";
     private static final String TABLE_NAME = "st_test";
     private static final String TABLE_PATH = "/tmp/hudi/";
     private static final String NAMESPACE = "hudi";
@@ -113,6 +114,43 @@ public class HudiIT extends TestSuiteBase {
         configuration.set("fs.defaultFS", LocalFileSystem.DEFAULT_FS);
         Path inputPath =
                 new Path(TABLE_PATH + File.separator + DATABASE + File.separator + TABLE_NAME);
+
+        given().ignoreExceptions()
+                .await()
+                .atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            // copy hudi to local
+                            container.executeExtraCommands(containerExtendedFactory);
+                            ParquetReader<Group> reader =
+                                    ParquetReader.builder(new GroupReadSupport(), inputPath)
+                                            .withConf(configuration)
+                                            .build();
+
+                            long rowCount = 0;
+
+                            // Read data and count rows
+                            while (reader.read() != null) {
+                                rowCount++;
+                            }
+                            Assertions.assertEquals(5, rowCount);
+                        });
+        FileUtils.deleteFile(TABLE_PATH);
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {TestContainerId.SPARK_2_4},
+            type = {EngineType.FLINK},
+            disabledReason = "FLINK do not support local file catalog in hudi.")
+    public void testWriteHudiWithOmitConfigItem(TestContainer container)
+            throws IOException, InterruptedException, URISyntaxException {
+        Container.ExecResult textWriteResult = container.executeJob("/fake_to_hudi_with_omit_config_item.conf");
+        Assertions.assertEquals(0, textWriteResult.getExitCode());
+        Configuration configuration = new Configuration();
+        configuration.set("fs.defaultFS", LocalFileSystem.DEFAULT_FS);
+        Path inputPath =
+                new Path(TABLE_PATH + File.separator + DEFAULT_DATABASE + File.separator + TABLE_NAME);
 
         given().ignoreExceptions()
                 .await()

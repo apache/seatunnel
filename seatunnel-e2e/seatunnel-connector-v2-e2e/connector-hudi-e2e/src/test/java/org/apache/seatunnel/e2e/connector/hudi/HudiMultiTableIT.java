@@ -53,7 +53,7 @@ public class HudiMultiTableIT extends TestSuiteBase {
 
     private static final String DATABASE_1 = "st1";
     private static final String TABLE_NAME_1 = "st_test_1";
-    private static final String DATABASE_2 = "st2";
+    private static final String DATABASE_2 = "default";
     private static final String TABLE_NAME_2 = "st_test_2";
     private static final String TABLE_PATH = "/tmp/hudi/";
     private static final String NAMESPACE = "hudi";

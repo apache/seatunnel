@@ -17,14 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.config;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
-
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
-
-import org.apache.hudi.common.model.WriteOperationType;
 
 import java.util.List;
 
@@ -47,48 +43,6 @@ public interface HudiOptions {
                     .listType(HudiTableConfig.class)
                     .noDefaultValue()
                     .withDescription("table_list");
-
-    Option<WriteOperationType> OP_TYPE =
-            Options.key("op_type")
-                    .type(new TypeReference<WriteOperationType>() {})
-                    .defaultValue(WriteOperationType.INSERT)
-                    .withDescription("op_type");
-
-    Option<Integer> BATCH_SIZE =
-            Options.key("batch_size")
-                    .intType()
-                    .defaultValue(1000)
-                    .withDescription("the size of each insert batch");
-
-    Option<Integer> BATCH_INTERVAL_MS =
-            Options.key("batch_interval_ms")
-                    .intType()
-                    .defaultValue(1000)
-                    .withDescription("batch interval milliSecond");
-
-    Option<Integer> INSERT_SHUFFLE_PARALLELISM =
-            Options.key("insert_shuffle_parallelism")
-                    .intType()
-                    .defaultValue(2)
-                    .withDescription("insert_shuffle_parallelism");
-
-    Option<Integer> UPSERT_SHUFFLE_PARALLELISM =
-            Options.key("upsert_shuffle_parallelism")
-                    .intType()
-                    .defaultValue(2)
-                    .withDescription("upsert_shuffle_parallelism");
-
-    Option<Integer> MIN_COMMITS_TO_KEEP =
-            Options.key("min_commits_to_keep")
-                    .intType()
-                    .defaultValue(20)
-                    .withDescription("hoodie.keep.min.commits");
-
-    Option<Integer> MAX_COMMITS_TO_KEEP =
-            Options.key("max_commits_to_keep")
-                    .intType()
-                    .defaultValue(30)
-                    .withDescription("hoodie.keep.max.commits");
 
     Option<Boolean> AUTO_COMMIT =
             Options.key("auto_commit")
