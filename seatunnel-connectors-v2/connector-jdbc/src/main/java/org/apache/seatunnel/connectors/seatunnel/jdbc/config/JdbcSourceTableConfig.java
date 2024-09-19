@@ -48,10 +48,8 @@ public class JdbcSourceTableConfig implements Serializable {
 
     private BigDecimal partitionEnd;
 
-    @JsonProperty("use_select_count")
     private Boolean useSelectCount;
 
-    @JsonProperty("skip_analyze")
     private Boolean skipAnalyze;
 
     @Tolerate
