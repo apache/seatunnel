@@ -38,9 +38,9 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import com.google.common.base.Throwables;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.CATALOG_TABLE_RULES;
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.FIELD_RULES;
@@ -62,9 +62,9 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         if (!pluginConfig.getOptional(RULES).isPresent()) {
             Throwables.throwIfUnchecked(new ConfigException.Missing(RULES.key()));
         }
-        assertFieldRules = new HashMap<>();
-        assertRowRules = new HashMap<>();
-        assertCatalogTableRule = new HashMap<>();
+        assertFieldRules = new ConcurrentHashMap<>();
+        assertRowRules = new ConcurrentHashMap<>();
+        assertCatalogTableRule = new ConcurrentHashMap<>();
         Config ruleConfig = ConfigFactory.parseMap(pluginConfig.get(RULES));
         if (ruleConfig.hasPath(TABLE_CONFIGS.key())) {
             List<? extends Config> tableConfigs = ruleConfig.getConfigList(TABLE_CONFIGS.key());
