@@ -99,7 +99,8 @@ public class ScpFileTransfer implements FileTransfer {
         command.add(
                 targetPath.substring(0, StringUtils.stripEnd(targetPath, "/").lastIndexOf("/"))
                         + "/");
-        command.add("| tail -n 1 | awk '{print $3}' | xargs -t -i chown -R {}:{} " + targetPath);
+        command.add("| tail -n 1 | awk '{print $3}' | xargs -t -i chown -R {}:{} " + targetPath
+                + sourcePath.substring(StringUtils.stripEnd(sourcePath, "/").lastIndexOf("/") + 1));
         try {
             String finalCommand = String.join(" ", command);
             log.info("execute remote command: " + finalCommand);
