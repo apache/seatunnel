@@ -348,6 +348,9 @@ public class MilvusCatalog implements Catalog {
     @Override
     public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
             throws TableNotExistException, CatalogException {
+        if (!tableExists(tablePath) && !ignoreIfNotExists) {
+            throw new TableNotExistException(catalogName, tablePath);
+        }
         this.client.dropCollection(
                 DropCollectionParam.newBuilder()
                         .withDatabaseName(tablePath.getDatabaseName())
@@ -358,6 +361,9 @@ public class MilvusCatalog implements Catalog {
     @Override
     public void createDatabase(TablePath tablePath, boolean ignoreIfExists)
             throws DatabaseAlreadyExistException, CatalogException {
+        if (databaseExists(tablePath.getDatabaseName()) && !ignoreIfExists) {
+            throw new DatabaseAlreadyExistException(catalogName, tablePath.getDatabaseName());
+        }
         R<RpcStatus> response =
                 this.client.createDatabase(
                         CreateDatabaseParam.newBuilder()
@@ -372,6 +378,9 @@ public class MilvusCatalog implements Catalog {
     @Override
     public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
             throws DatabaseNotExistException, CatalogException {
+        if (!databaseExists(tablePath.getDatabaseName()) && !ignoreIfNotExists) {
+            throw new TableNotExistException(catalogName, tablePath);
+        }
         this.client.dropDatabase(
                 DropDatabaseParam.newBuilder()
                         .withDatabaseName(tablePath.getDatabaseName())
