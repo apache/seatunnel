@@ -101,7 +101,9 @@ public class JdbcSourceTableConfig implements Serializable {
 
         if (tableList.size() > 1) {
             List<String> tableIds =
-                    tableList.stream().map(e -> e.getTablePath()).collect(Collectors.toList());
+                    tableList.stream()
+                            .map(JdbcSourceTableConfig::getTablePath)
+                            .collect(Collectors.toList());
             Set<String> tableIdSet = new HashSet<>(tableIds);
             if (tableIdSet.size() < tableList.size() - 1) {
                 throw new IllegalArgumentException(
