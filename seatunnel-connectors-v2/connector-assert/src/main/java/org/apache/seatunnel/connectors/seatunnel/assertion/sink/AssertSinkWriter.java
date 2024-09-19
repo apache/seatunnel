@@ -124,17 +124,23 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                                         .findFirst()
                                         .ifPresent(
                                                 failRule -> {
+                                                    long count;
+                                                    if (LONG_ACCUMULATOR.containsKey(
+                                                            entry.getKey())) {
+                                                        count =
+                                                                LONG_ACCUMULATOR
+                                                                        .get(entry.getKey())
+                                                                        .longValue();
+                                                    } else {
+                                                        count = 0;
+                                                    }
                                                     throw new AssertConnectorException(
                                                             AssertConnectorErrorCode
                                                                     .RULE_VALIDATION_FAILED,
                                                             "row num :"
-                                                                    + (LONG_ACCUMULATOR
-                                                                                    .get(
-                                                                                            entry
-                                                                                                    .getKey())
-                                                                                    .longValue()
-                                                                            + " fail rule: "
-                                                                            + failRule));
+                                                                    + count
+                                                                    + " fail rule: "
+                                                                    + failRule);
                                                 });
                             });
         }
