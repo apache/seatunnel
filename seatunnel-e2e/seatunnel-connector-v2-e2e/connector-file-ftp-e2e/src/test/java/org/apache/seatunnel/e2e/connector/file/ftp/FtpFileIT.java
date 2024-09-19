@@ -105,6 +105,11 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                 ftpContainer);
 
         ContainerUtil.copyFileIntoContainers(
+                "text/e2e-txt.zip",
+                "/home/vsftpd/seatunnel/tmp/seatunnel/read/zip/txt/single/e2e-txt.zip",
+                ftpContainer);
+
+        ContainerUtil.copyFileIntoContainers(
                 "/excel/e2e.xlsx",
                 "/home/vsftpd/seatunnel/tmp/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xlsx",
                 ftpContainer);
@@ -141,6 +146,8 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         helper.execute("/text/ftp_file_text_to_assert.conf");
         // test read ftp text file with projection
         helper.execute("/text/ftp_file_text_projection_to_assert.conf");
+        // test read ftp zip text file
+        helper.execute("/text/ftp_file_zip_text_to_assert.conf");
         // test write ftp json file
         helper.execute("/json/fake_to_ftp_file_json.conf");
         // test read ftp json file
