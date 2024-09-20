@@ -150,7 +150,7 @@ public class TypesenseCatalog implements Catalog {
     public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         checkNotNull(tablePath, "tablePath cannot be null");
-        if (!tableExists(tablePath)) {
+        if (tableExists(tablePath)) {
             if (!ignoreIfExists) {
                 throw new TableAlreadyExistException(catalogName, tablePath);
             }

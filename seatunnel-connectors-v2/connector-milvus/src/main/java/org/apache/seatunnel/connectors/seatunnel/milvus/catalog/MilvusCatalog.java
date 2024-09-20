@@ -386,7 +386,7 @@ public class MilvusCatalog implements Catalog {
             throws DatabaseNotExistException, CatalogException {
         if (!databaseExists(tablePath.getDatabaseName())) {
             if (!ignoreIfNotExists) {
-                throw new TableNotExistException(catalogName, tablePath);
+                throw new DatabaseNotExistException(catalogName, tablePath.getDatabaseName());
             }
             return;
         }

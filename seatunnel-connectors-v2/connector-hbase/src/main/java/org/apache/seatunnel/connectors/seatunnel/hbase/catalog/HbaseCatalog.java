@@ -117,6 +117,12 @@ public class HbaseCatalog implements Catalog {
     public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         checkNotNull(tablePath, "tablePath cannot be null");
+        if (tableExists(tablePath)) {
+            if (!ignoreIfExists) {
+                throw new TableAlreadyExistException(catalogName, tablePath);
+            }
+            return;
+        }
         hbaseClient.createTable(
                 tablePath.getDatabaseName(),
                 tablePath.getTableName(),
