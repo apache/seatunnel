@@ -24,20 +24,23 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
+import org.apache.seatunnel.translation.spark.utils.CaseInsensitiveStringMap;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.connector.read.InputPartition;
 import org.apache.spark.sql.connector.read.PartitionReaderFactory;
 import org.apache.spark.sql.connector.read.streaming.MicroBatchStream;
 import org.apache.spark.sql.connector.read.streaming.Offset;
-import org.apache.spark.sql.util.CaseInsensitiveStringMap;
+import org.apache.spark.sql.execution.streaming.CheckpointFileManager;
 
 import lombok.Getter;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Getter
 public class SeaTunnelMicroBatch implements MicroBatchStream {
@@ -58,6 +61,7 @@ public class SeaTunnelMicroBatch implements MicroBatchStream {
     private Offset currentOffset = initialOffset;
 
     private final MultiTableManager multiTableManager;
+    private CheckpointDataLogManager logManager;
 
     public SeaTunnelMicroBatch(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
@@ -72,15 +76,26 @@ public class SeaTunnelMicroBatch implements MicroBatchStream {
         this.checkpointLocation = checkpointLocation;
         this.caseInsensitiveStringMap = caseInsensitiveStringMap;
         this.multiTableManager = multiTableManager;
+        SparkSession sparkSession = SparkSession.getActiveSession().get();
+        this.logManager =
+                new CheckpointDataLogManager(
+                        CheckpointFileManager.create(
+                                new Path(this.checkpointLocation).getParent().getParent(),
+                                sparkSession.sessionState().newHadoopConf()));
     }
 
     @Override
     public Offset latestOffset() {
-        return currentOffset;
+        // TODO
+        Path commitsPath =
+                new Path(new Path(checkpointLocation).getParent().getParent(), "commits");
+        int maxBatchId = this.logManager.maxNum(commitsPath, Optional.empty());
+        return new SeaTunnelOffset(maxBatchId + 1);
     }
 
     @Override
     public InputPartition[] planInputPartitions(Offset start, Offset end) {
+        SeaTunnelOffset startOffset = (SeaTunnelOffset) start;
         int checkpointInterval =
                 caseInsensitiveStringMap.getInt(
                         EnvCommonOptions.CHECKPOINT_INTERVAL.key(), CHECKPOINT_INTERVAL_DEFAULT);
@@ -98,7 +113,7 @@ public class SeaTunnelMicroBatch implements MicroBatchStream {
                             source,
                             parallelism,
                             0,
-                            1,
+                            (int) startOffset.getCheckpointId(),
                             checkpointInterval,
                             checkpointLocation,
                             hdfsRoot,
@@ -111,14 +126,14 @@ public class SeaTunnelMicroBatch implements MicroBatchStream {
                                 source,
                                 parallelism,
                                 subtaskId,
-                                1,
+                                (int) startOffset.getCheckpointId(),
                                 checkpointInterval,
                                 checkpointLocation,
                                 hdfsRoot,
                                 hdfsUser));
             }
         }
-        return virtualPartitions.toArray(new InputPartition[0]);
+        return virtualPartitions.toArray(new InputPartition[parallelism]);
     }
 
     @Override
@@ -144,7 +159,7 @@ public class SeaTunnelMicroBatch implements MicroBatchStream {
 
     @Override
     public void commit(Offset end) {
-        this.currentOffset = ((SeaTunnelOffset) end).inc();
+        this.currentOffset = ((SeaTunnelOffset) this.currentOffset).inc();
     }
 
     @Override

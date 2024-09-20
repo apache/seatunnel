@@ -30,7 +30,9 @@ import java.io.Serializable;
 @Setter
 public class SeaTunnelOffset extends Offset implements Serializable {
 
-    private final long checkpointId;
+    private long checkpointId;
+
+    public SeaTunnelOffset() {}
 
     public SeaTunnelOffset(long checkpointId) {
         this.checkpointId = checkpointId;

@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.translation.serialization.RowConverter;
+import org.apache.seatunnel.translation.spark.execution.CheckpointMetadata;
 import org.apache.seatunnel.translation.spark.utils.InstantConverterUtils;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
@@ -145,21 +146,76 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
     }
 
     private InternalRow parcel(SeaTunnelRow seaTunnelRow, SeaTunnelRowType rowType) {
-        // 0 -> row kind, 1 -> table id
+        // 0 -> row kind, 1 -> table id, 3 -> metadata
         int arity = rowType.getTotalFields();
-        MutableValue[] values = new MutableValue[arity + 2];
+        MutableValue[] values = new MutableValue[arity + 3];
         for (int i = 0; i < indexes.length; i++) {
-            values[indexes[i] + 2] = createMutableValue(rowType.getFieldType(indexes[i]));
+            values[indexes[i] + 3] = createMutableValue(rowType.getFieldType(indexes[i]));
             Object fieldValue = convert(seaTunnelRow.getField(i), rowType.getFieldType(indexes[i]));
             if (fieldValue != null) {
-                values[indexes[i] + 2].update(fieldValue);
+                values[indexes[i] + 3].update(fieldValue);
             }
         }
         values[0] = new MutableByte();
         values[0].update(seaTunnelRow.getRowKind().toByteValue());
         values[1] = new MutableAny();
         values[1].update(UTF8String.fromString(seaTunnelRow.getTableId()));
+        values[2] = new MutableAny();
+        Map<String, String> metadata = seaTunnelRow.getMetadata();
+        Object metadataVal =
+                convert(
+                        metadata,
+                        new MapType<String, String>(BasicType.STRING_TYPE, BasicType.STRING_TYPE));
+        values[2].update(metadataVal);
         // Fill any remaining null values with MutableAny
+        for (int i = 0; i < values.length; i++) {
+            if (values[i] == null) {
+                values[i] = new MutableAny();
+            }
+        }
+        return new SpecificInternalRow(values);
+    }
+
+    public static InternalRow attachMetadata(InternalRow engineRow, Map<String, String> metadata) {
+        SpecificInternalRow row = (SpecificInternalRow) engineRow;
+        MutableValue[] values = row.values();
+        Object metadataVal =
+                convert(
+                        metadata,
+                        new MapType<String, String>(BasicType.STRING_TYPE, BasicType.STRING_TYPE));
+        values[2].update(metadataVal);
+        // Fill any remaining null values with MutableAny
+        for (int i = 0; i < values.length; i++) {
+            if (values[i] == null) {
+                values[i] = new MutableAny();
+            }
+        }
+        return new SpecificInternalRow(values);
+    }
+
+    public static InternalRow checkpointEvent(
+            SeaTunnelRowType rowType,
+            RowKind rowKind,
+            String tableId,
+            CheckpointMetadata metadata) {
+        int fieldSize = rowType.getTotalFields();
+        MutableValue[] values = new MutableValue[fieldSize + 3];
+        values[0] = new MutableByte();
+        values[0].update(RowKind.INSERT.toByteValue());
+        values[1] = new MutableAny();
+        values[1].update(UTF8String.fromString(tableId));
+        values[2] = new MutableAny();
+        Map<String, String> data =
+                CheckpointMetadata.create(
+                        metadata.location(),
+                        metadata.batchId(),
+                        metadata.subTaskId(),
+                        metadata.checkpointId());
+        Object metadataVal =
+                convert(
+                        data,
+                        new MapType<String, String>(BasicType.STRING_TYPE, BasicType.STRING_TYPE));
+        values[2].update(metadataVal);
         for (int i = 0; i < values.length; i++) {
             if (values[i] == null) {
                 values[i] = new MutableAny();
@@ -248,19 +304,36 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
     public SeaTunnelRow unpack(InternalRow engineRow, SeaTunnelRowType rowType) throws IOException {
         RowKind rowKind = RowKind.fromByteValue(engineRow.getByte(0));
         String tableId = engineRow.getString(1);
+        Map<String, String> metadata =
+                (Map<String, String>)
+                        reconvert(
+                                engineRow.getMap(2),
+                                new MapType<String, String>(
+                                        BasicType.STRING_TYPE, BasicType.STRING_TYPE));
         Object[] fields = new Object[indexes.length];
         for (int i = 0; i < indexes.length; i++) {
             fields[i] =
                     reconvert(
                             engineRow.get(
-                                    indexes[i] + 2,
+                                    indexes[i] + 3,
                                     TypeConverterUtils.convert(rowType.getFieldType(indexes[i]))),
                             rowType.getFieldType(indexes[i]));
         }
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
         seaTunnelRow.setRowKind(rowKind);
         seaTunnelRow.setTableId(tableId);
+        seaTunnelRow.setMetadata(metadata);
         return seaTunnelRow;
+    }
+
+    public static Map<String, String> unpackMetadata(InternalRow engineRow) {
+        Map<String, String> metadata =
+                (Map<String, String>)
+                        reconvert(
+                                engineRow.getMap(2),
+                                new MapType<String, String>(
+                                        BasicType.STRING_TYPE, BasicType.STRING_TYPE));
+        return metadata;
     }
 
     @Override
@@ -403,7 +476,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 keys[i] = convertToField(keys[i], mapType.keyType());
                 values[i] = convertToField(values[i], mapType.valueType());
                 Tuple2<Object, Object> tuple2 = new Tuple2<>(keys[i], values[i]);
-                newMap = newMap.$plus(tuple2);
+                newMap = newMap.<Object>$plus(tuple2);
             }
             return newMap;
         } else if (dataType instanceof org.apache.spark.sql.types.ArrayType

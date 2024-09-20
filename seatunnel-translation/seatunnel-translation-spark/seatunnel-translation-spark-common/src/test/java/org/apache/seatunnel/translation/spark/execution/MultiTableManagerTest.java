@@ -61,6 +61,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.apache.seatunnel.translation.spark.utils.TypeConverterUtils.METADATA;
 import static org.apache.seatunnel.translation.spark.utils.TypeConverterUtils.ROW_KIND_FIELD;
 import static org.apache.seatunnel.translation.spark.utils.TypeConverterUtils.TABLE_ID;
 import static org.apache.spark.sql.types.DataTypes.BooleanType;
@@ -180,44 +181,31 @@ public class MultiTableManagerTest {
                 internalMultiRowCollector.getRowSerializationMap();
         InternalRow internalRow =
                 rowSerializationMap.get(seaTunnelRow1.getTableId()).convert(seaTunnelRow1);
-        for (int v = 0; v < specificInternalRow2.numFields(); v++) {
-            if (specificInternalRow2.genericGet(v) instanceof ArrayBasedMapData) {
-                Assertions.assertEquals(
-                        specificInternalRow2.getMap(v).keyArray(),
-                        internalRow.getMap(v).keyArray());
-                Assertions.assertEquals(
-                        specificInternalRow2.getMap(v).valueArray(),
-                        internalRow.getMap(v).valueArray());
-            } else if (specificInternalRow2.genericGet(v) instanceof SpecificInternalRow) {
-                SpecificInternalRow expected =
-                        (SpecificInternalRow) specificInternalRow2.genericGet(v);
-                SpecificInternalRow actual =
-                        (SpecificInternalRow) ((SpecificInternalRow) internalRow).genericGet(v);
-                for (int o = 0; v < expected.numFields(); v++) {
-                    if (expected.genericGet(o) instanceof ArrayBasedMapData) {
-                        Assertions.assertEquals(
-                                expected.getMap(o).keyArray(), actual.getMap(o).keyArray());
-                        Assertions.assertEquals(
-                                expected.getMap(o).valueArray(), actual.getMap(o).valueArray());
-                    } else {
-                        Assertions.assertEquals(
-                                expected.genericGet(v),
-                                ((SpecificInternalRow) actual).genericGet(v));
-                    }
-                }
-            } else {
-                Assertions.assertEquals(
-                        specificInternalRow2.genericGet(v),
-                        ((SpecificInternalRow) internalRow).genericGet(v));
-            }
-        }
+        assertRowEquals(specificInternalRow2, internalRow);
         InternalRow internalRow3 =
                 rowSerializationMap.get(seaTunnelRow3.getTableId()).convert(seaTunnelRow3);
-        Assertions.assertEquals(specificInternalRow3, internalRow3);
-        for (int v = 0; v < specificInternalRow3.numFields(); v++) {
-            Assertions.assertEquals(
-                    specificInternalRow3.genericGet(v),
-                    ((SpecificInternalRow) internalRow3).genericGet(v));
+        assertRowEquals(specificInternalRow3, internalRow3);
+    }
+
+    private void assertRowEquals(SpecificInternalRow expectedRow, InternalRow actualRow) {
+        Assertions.assertEquals(expectedRow.numFields(), actualRow.numFields());
+        for (int v = 0; v < expectedRow.numFields(); v++) {
+            if (expectedRow.isNullAt(v)) {
+                Assertions.assertTrue(actualRow.isNullAt(v));
+            } else if (expectedRow.genericGet(v) instanceof ArrayBasedMapData) {
+                Assertions.assertEquals(
+                        expectedRow.getMap(v).keyArray(), actualRow.getMap(v).keyArray());
+                Assertions.assertEquals(
+                        expectedRow.getMap(v).valueArray(), actualRow.getMap(v).valueArray());
+            } else if (expectedRow.genericGet(v) instanceof SpecificInternalRow) {
+                SpecificInternalRow expected = (SpecificInternalRow) expectedRow.genericGet(v);
+                SpecificInternalRow actual =
+                        (SpecificInternalRow) ((SpecificInternalRow) actualRow).genericGet(v);
+                assertRowEquals(expected, actual);
+            } else {
+                Assertions.assertEquals(
+                        expectedRow.genericGet(v), ((SpecificInternalRow) actualRow).genericGet(v));
+            }
         }
     }
 
@@ -231,37 +219,7 @@ public class MultiTableManagerTest {
                 multiTableManager.getInternalRowCollector(null, null, null);
         InternalRowConverter rowSerialization = internalRowCollector.getRowSerialization();
         InternalRow internalRow = rowSerialization.convert(seaTunnelRow1);
-        for (int v = 0; v < specificInternalRow1.numFields(); v++) {
-            if (specificInternalRow1.genericGet(v) instanceof ArrayBasedMapData) {
-                Assertions.assertEquals(
-                        specificInternalRow1.getMap(v).keyArray(),
-                        internalRow.getMap(v).keyArray());
-                Assertions.assertEquals(
-                        specificInternalRow1.getMap(v).valueArray(),
-                        internalRow.getMap(v).valueArray());
-            } else if (specificInternalRow1.genericGet(v) instanceof SpecificInternalRow) {
-                SpecificInternalRow expected =
-                        (SpecificInternalRow) specificInternalRow1.genericGet(v);
-                SpecificInternalRow actual =
-                        (SpecificInternalRow) ((SpecificInternalRow) internalRow).genericGet(v);
-                for (int o = 0; v < expected.numFields(); v++) {
-                    if (expected.genericGet(o) instanceof ArrayBasedMapData) {
-                        Assertions.assertEquals(
-                                expected.getMap(o).keyArray(), actual.getMap(o).keyArray());
-                        Assertions.assertEquals(
-                                expected.getMap(o).valueArray(), actual.getMap(o).valueArray());
-                    } else {
-                        Assertions.assertEquals(
-                                expected.genericGet(v),
-                                ((SpecificInternalRow) actual).genericGet(v));
-                    }
-                }
-            } else {
-                Assertions.assertEquals(
-                        specificInternalRow1.genericGet(v),
-                        ((SpecificInternalRow) internalRow).genericGet(v));
-            }
-        }
+        assertRowEquals(specificInternalRow1, internalRow);
     }
 
     public void initSchema() {
@@ -550,6 +508,7 @@ public class MultiTableManagerTest {
                 new StructType()
                         .add(ROW_KIND_FIELD, DataTypes.ByteType)
                         .add(TABLE_ID, DataTypes.StringType)
+                        .add(METADATA, new MapType(StringType, StringType, true))
                         .add("column0", IntegerType)
                         .add("column1", StringType)
                         .add("column2", BooleanType)
@@ -577,6 +536,7 @@ public class MultiTableManagerTest {
                 new StructType()
                         .add(ROW_KIND_FIELD, DataTypes.ByteType)
                         .add(TABLE_ID, DataTypes.StringType)
+                        .add(METADATA, new MapType(StringType, StringType, true))
                         .add("column0", IntegerType)
                         .add("column1", StringType)
                         .add("column2", BooleanType)
@@ -607,6 +567,7 @@ public class MultiTableManagerTest {
                 new StructType()
                         .add(ROW_KIND_FIELD, DataTypes.ByteType)
                         .add(TABLE_ID, DataTypes.StringType)
+                        .add(METADATA, new MapType(StringType, StringType, true))
                         .add("int", IntegerType)
                         .add("string", StringType)
                         .add("boolean", BooleanType)
@@ -774,39 +735,41 @@ public class MultiTableManagerTest {
 
         SpecificInternalRow specificInternalRow = new SpecificInternalRow(mutableValues);
 
-        MutableValue[] mutableValues1 = new MutableValue[24];
+        MutableValue[] mutableValues1 = new MutableValue[25];
 
         mutableValues1[0] = new MutableByte();
         mutableValues1[0].update(RowKind.INSERT.toByteValue());
         mutableValues1[1] = new MutableAny();
         mutableValues1[1].update(UTF8String.fromString("test.test.test1"));
-        mutableValues1[2] = new MutableInt();
-        mutableValues1[2].update(233);
-        mutableValues1[3] = new MutableAny();
-        mutableValues1[3].update(UTF8String.fromString("string3"));
-        mutableValues1[4] = new MutableBoolean();
-        mutableValues1[4].update(true);
-        mutableValues1[5] = new MutableFloat();
-        mutableValues1[5].update(231.1f);
-        mutableValues1[6] = new MutableDouble();
-        mutableValues1[6].update(3533.33);
-        mutableValues1[7] = new MutableByte();
-        mutableValues1[7].update((byte) 7);
-        mutableValues1[8] = new MutableShort();
-        mutableValues1[8].update((short) 2);
-        mutableValues1[9] = new MutableLong();
-        mutableValues1[9].update(Long.MAX_VALUE - 2);
-        mutableValues1[10] = new MutableAny();
-        mutableValues1[10].update(Decimal.apply(new BigDecimal("65.55")));
-        mutableValues1[11] = new MutableInt();
-        mutableValues1[11].update((int) LocalDate.parse("2001-01-01").toEpochDay());
-        mutableValues1[12] = new MutableAny();
-        mutableValues1[12].update(
+        mutableValues1[2] = new MutableAny();
+        mutableValues1[2].update(ArrayBasedMapData.apply(new Object[] {}, new Object[] {}));
+        mutableValues1[3] = new MutableInt();
+        mutableValues1[3].update(233);
+        mutableValues1[4] = new MutableAny();
+        mutableValues1[4].update(UTF8String.fromString("string3"));
+        mutableValues1[5] = new MutableBoolean();
+        mutableValues1[5].update(true);
+        mutableValues1[6] = new MutableFloat();
+        mutableValues1[6].update(231.1f);
+        mutableValues1[7] = new MutableDouble();
+        mutableValues1[7].update(3533.33);
+        mutableValues1[8] = new MutableByte();
+        mutableValues1[8].update((byte) 7);
+        mutableValues1[9] = new MutableShort();
+        mutableValues1[9].update((short) 2);
+        mutableValues1[10] = new MutableLong();
+        mutableValues1[10].update(Long.MAX_VALUE - 2);
+        mutableValues1[11] = new MutableAny();
+        mutableValues1[11].update(Decimal.apply(new BigDecimal("65.55")));
+        mutableValues1[12] = new MutableInt();
+        mutableValues1[12].update((int) LocalDate.parse("2001-01-01").toEpochDay());
+        mutableValues1[13] = new MutableAny();
+        mutableValues1[13].update(
                 InstantConverterUtils.toEpochMicro(
                         Timestamp.valueOf(LocalDateTime.parse("2031-01-01T00:00:00")).toInstant()));
-        mutableValues1[13] = new MutableAny();
         mutableValues1[14] = new MutableAny();
-        mutableValues1[14].update(
+        mutableValues1[15] = new MutableAny();
+        mutableValues1[15].update(
                 ArrayData.toArrayData(
                         new Object[] {
                             UTF8String.fromString("string1fsa"),
@@ -814,31 +777,31 @@ public class MultiTableManagerTest {
                             UTF8String.fromString("strfdsaing3")
                         }));
 
-        mutableValues1[15] = new MutableAny();
-        mutableValues1[15].update(ArrayData.toArrayData(new Object[] {false, true, true}));
-
         mutableValues1[16] = new MutableAny();
-        mutableValues1[16].update(
-                ArrayData.toArrayData(new Object[] {(byte) 6, (byte) 2, (byte) 1}));
+        mutableValues1[16].update(ArrayData.toArrayData(new Object[] {false, true, true}));
 
         mutableValues1[17] = new MutableAny();
         mutableValues1[17].update(
-                ArrayData.toArrayData(new Object[] {(short) 7, (short) 8, (short) 9}));
+                ArrayData.toArrayData(new Object[] {(byte) 6, (byte) 2, (byte) 1}));
 
         mutableValues1[18] = new MutableAny();
-        mutableValues1[18].update(ArrayData.toArrayData(new Object[] {3, 77, 22}));
+        mutableValues1[18].update(
+                ArrayData.toArrayData(new Object[] {(short) 7, (short) 8, (short) 9}));
 
         mutableValues1[19] = new MutableAny();
-        mutableValues1[19].update(ArrayData.toArrayData(new Object[] {143L, 642L, 533L}));
+        mutableValues1[19].update(ArrayData.toArrayData(new Object[] {3, 77, 22}));
 
         mutableValues1[20] = new MutableAny();
-        mutableValues1[20].update(ArrayData.toArrayData(new Object[] {24.1f, 54.2f, 1.3f}));
+        mutableValues1[20].update(ArrayData.toArrayData(new Object[] {143L, 642L, 533L}));
 
         mutableValues1[21] = new MutableAny();
-        mutableValues1[21].update(ArrayData.toArrayData(new Object[] {431.11, 2422.22, 3243.33}));
+        mutableValues1[21].update(ArrayData.toArrayData(new Object[] {24.1f, 54.2f, 1.3f}));
 
         mutableValues1[22] = new MutableAny();
-        mutableValues1[22].update(
+        mutableValues1[22].update(ArrayData.toArrayData(new Object[] {431.11, 2422.22, 3243.33}));
+
+        mutableValues1[23] = new MutableAny();
+        mutableValues1[23].update(
                 ArrayBasedMapData.apply(
                         new Object[] {
                             UTF8String.fromString("kefdsay3"),
@@ -851,19 +814,19 @@ public class MultiTableManagerTest {
                             UTF8String.fromString("vafdslue2")
                         }));
 
-        mutableValues1[23] = new MutableAny();
-        mutableValues1[23].update(specificInternalRow);
+        mutableValues1[24] = new MutableAny();
+        mutableValues1[24].update(specificInternalRow);
 
         specificInternalRow1 = new SpecificInternalRow(mutableValues1);
 
-        MutableValue[] mutableValues2 = new MutableValue[27];
+        MutableValue[] mutableValues2 = new MutableValue[28];
 
         for (int i = 0; i < mutableValues1.length; i++) {
             mutableValues2[i] = mutableValues1[i].copy();
         }
-        mutableValues2[24] = new MutableAny();
         mutableValues2[25] = new MutableAny();
         mutableValues2[26] = new MutableAny();
+        mutableValues2[27] = new MutableAny();
 
         specificInternalRow2 = new SpecificInternalRow(mutableValues2);
 
@@ -888,57 +851,60 @@ public class MultiTableManagerTest {
                         });
         seaTunnelRow3.setRowKind(RowKind.INSERT);
         seaTunnelRow3.setTableId("test.test.test3");
+        seaTunnelRow3.setMetadata(new HashMap<>());
 
-        // [0, 1, 3, 22, 2, 23, 4, 5, 24, 7, 6, 8, 10, 9, 11]
-        MutableValue[] mutableValues3 = new MutableValue[27];
+        // [0, 1, 2, 4, 23, 3, 24, 5, 6, 25, 8, 7, 9, 11, 10, 12]
+        MutableValue[] mutableValues3 = new MutableValue[28];
         mutableValues3[0] = new MutableByte();
         mutableValues3[0].update(RowKind.INSERT.toByteValue());
         mutableValues3[1] = new MutableAny();
         mutableValues3[1].update(UTF8String.fromString("test.test.test3"));
+        mutableValues3[2] = new MutableAny();
+        mutableValues3[2].update(ArrayBasedMapData.apply(new Object[] {}, new Object[] {}));
 
-        mutableValues3[2] = new MutableInt();
-        mutableValues3[2].update(233);
+        mutableValues3[3] = new MutableInt();
+        mutableValues3[3].update(233);
 
-        mutableValues3[3] = new MutableAny();
-        mutableValues3[3].update(UTF8String.fromString("string3"));
+        mutableValues3[4] = new MutableAny();
+        mutableValues3[4].update(UTF8String.fromString("string3"));
 
-        mutableValues3[5] = new MutableFloat();
-        mutableValues3[5].update(231.1f);
+        mutableValues3[6] = new MutableFloat();
+        mutableValues3[6].update(231.1f);
 
-        mutableValues3[24] = new MutableFloat();
-        mutableValues3[24].update(231.1f);
+        mutableValues3[25] = new MutableFloat();
+        mutableValues3[25].update(231.1f);
 
-        mutableValues3[4] = new MutableBoolean();
-        mutableValues3[4].update(true);
+        mutableValues3[5] = new MutableBoolean();
+        mutableValues3[5].update(true);
 
-        mutableValues3[25] = new MutableBoolean();
-        mutableValues3[25].update(true);
+        mutableValues3[26] = new MutableBoolean();
+        mutableValues3[26].update(true);
 
-        mutableValues3[6] = new MutableDouble();
-        mutableValues3[6].update(3533.33);
+        mutableValues3[7] = new MutableDouble();
+        mutableValues3[7].update(3533.33);
 
-        mutableValues3[7] = new MutableByte();
-        mutableValues3[7].update((byte) 7);
+        mutableValues3[8] = new MutableByte();
+        mutableValues3[8].update((byte) 7);
 
-        mutableValues3[26] = new MutableByte();
-        mutableValues3[26].update((byte) 7);
+        mutableValues3[27] = new MutableByte();
+        mutableValues3[27].update((byte) 7);
 
-        mutableValues3[9] = new MutableLong();
-        mutableValues3[9].update(Long.MAX_VALUE - 2);
+        mutableValues3[10] = new MutableLong();
+        mutableValues3[10].update(Long.MAX_VALUE - 2);
 
-        mutableValues3[8] = new MutableShort();
-        mutableValues3[8].update((short) 2);
+        mutableValues3[9] = new MutableShort();
+        mutableValues3[9].update((short) 2);
 
-        mutableValues3[10] = new MutableAny();
-        mutableValues3[10].update(Decimal.apply(new BigDecimal("65.55")));
+        mutableValues3[11] = new MutableAny();
+        mutableValues3[11].update(Decimal.apply(new BigDecimal("65.55")));
 
-        mutableValues3[12] = new MutableLong();
-        mutableValues3[12].update(
+        mutableValues3[13] = new MutableLong();
+        mutableValues3[13].update(
                 InstantConverterUtils.toEpochMicro(
                         Timestamp.valueOf(LocalDateTime.parse("2031-01-01T00:00:00")).toInstant()));
 
-        mutableValues3[11] = new MutableInt();
-        mutableValues3[11].update((int) LocalDate.parse("2001-01-01").toEpochDay());
+        mutableValues3[12] = new MutableInt();
+        mutableValues3[12].update((int) LocalDate.parse("2001-01-01").toEpochDay());
 
         for (int i = 0; i < mutableValues3.length; i++) {
             if (mutableValues3[i] == null) {

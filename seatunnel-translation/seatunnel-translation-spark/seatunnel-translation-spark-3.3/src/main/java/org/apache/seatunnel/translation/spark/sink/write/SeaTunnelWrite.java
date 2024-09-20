@@ -20,33 +20,44 @@ package org.apache.seatunnel.translation.spark.sink.write;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.spark.sink.SeaTunnelBatchWrite;
 
 import org.apache.spark.sql.connector.write.BatchWrite;
 import org.apache.spark.sql.connector.write.Write;
 import org.apache.spark.sql.connector.write.streaming.StreamingWrite;
+import org.apache.spark.sql.types.StructType;
 
 import java.io.IOException;
+import java.util.Map;
 
 public class SeaTunnelWrite<AggregatedCommitInfoT, CommitInfoT, StateT> implements Write {
 
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
+    private final Map<String, String> properties;
     private final CatalogTable[] catalogTables;
+    private final StructType schema;
+    private final String checkpointLocation;
     private final String jobId;
 
     public SeaTunnelWrite(
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+            Map<String, String> properties,
             CatalogTable[] catalogTables,
+            StructType schema,
+            String checkpointLocation,
             String jobId) {
         this.sink = sink;
+        this.properties = properties;
         this.catalogTables = catalogTables;
+        this.schema = schema;
+        this.checkpointLocation = checkpointLocation;
         this.jobId = jobId;
     }
 
     @Override
     public BatchWrite toBatch() {
         try {
-            return new SeaTunnelBatchWrite<>(sink, catalogTables, jobId);
+            return new SeaTunnelBatchWrite<>(
+                    sink, properties, catalogTables, schema, checkpointLocation, jobId);
         } catch (IOException e) {
             throw new RuntimeException("SeaTunnel Spark sink create batch failed", e);
         }
@@ -55,7 +66,8 @@ public class SeaTunnelWrite<AggregatedCommitInfoT, CommitInfoT, StateT> implemen
     @Override
     public StreamingWrite toStreaming() {
         try {
-            return new SeaTunnelBatchWrite<>(sink, catalogTables, jobId);
+            return new SeaTunnelBatchWrite<>(
+                    sink, properties, catalogTables, schema, checkpointLocation, jobId);
         } catch (IOException e) {
             throw new RuntimeException("SeaTunnel Spark sink create batch failed", e);
         }

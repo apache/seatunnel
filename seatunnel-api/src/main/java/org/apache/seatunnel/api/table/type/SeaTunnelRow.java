@@ -20,6 +20,7 @@ package org.apache.seatunnel.api.table.type;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -30,6 +31,8 @@ public final class SeaTunnelRow implements Serializable {
     private String tableId = "";
     /** The kind of change that a row describes in a changelog. */
     private RowKind rowKind = RowKind.INSERT;
+
+    private Map<String, String> metadata = new HashMap<>();
     /** The array to store the actual internal format values. */
     private final Object[] fields;
 
@@ -67,6 +70,14 @@ public final class SeaTunnelRow implements Serializable {
         return this.rowKind;
     }
 
+    public Map<String, String> getMetadata() {
+        return this.metadata;
+    }
+
+    public void setMetadata(Map<String, String> metadata) {
+        this.metadata = metadata;
+    }
+
     public Object[] getFields() {
         return fields;
     }
@@ -81,6 +92,7 @@ public final class SeaTunnelRow implements Serializable {
         SeaTunnelRow newRow = new SeaTunnelRow(newFields);
         newRow.setRowKind(this.getRowKind());
         newRow.setTableId(this.getTableId());
+        newRow.setMetadata(this.getMetadata());
         return newRow;
     }
 
@@ -92,6 +104,7 @@ public final class SeaTunnelRow implements Serializable {
         SeaTunnelRow newRow = new SeaTunnelRow(newFields);
         newRow.setRowKind(this.getRowKind());
         newRow.setTableId(this.getTableId());
+        newRow.setMetadata(this.getMetadata());
         return newRow;
     }
 

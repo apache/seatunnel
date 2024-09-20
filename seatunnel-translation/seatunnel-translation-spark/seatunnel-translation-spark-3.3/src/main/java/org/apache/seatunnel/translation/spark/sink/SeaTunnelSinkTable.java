@@ -47,10 +47,13 @@ public class SeaTunnelSinkTable implements Table, SupportsWrite {
     private final SeaTunnelSink<SeaTunnelRow, ?, ?, ?> sink;
 
     private final CatalogTable[] catalogTables;
+    private final String checkpointLocation;
     private final String jobId;
 
     public SeaTunnelSinkTable(Map<String, String> properties) {
         this.properties = properties;
+        this.checkpointLocation =
+                properties.getOrDefault(Constants.CHECKPOINT_LOCATION, "/tmp/seatunnel");
         String sinkSerialization = properties.getOrDefault(Constants.SINK_SERIALIZATION, "");
         if (StringUtils.isBlank(sinkSerialization)) {
             throw new IllegalArgumentException(Constants.SINK_SERIALIZATION + " must be specified");
@@ -68,7 +71,8 @@ public class SeaTunnelSinkTable implements Table, SupportsWrite {
 
     @Override
     public WriteBuilder newWriteBuilder(LogicalWriteInfo info) {
-        return new SeaTunnelWriteBuilder<>(sink, catalogTables, jobId);
+        return new SeaTunnelWriteBuilder<>(
+                sink, properties, catalogTables, info.schema(), checkpointLocation, jobId);
     }
 
     @Override

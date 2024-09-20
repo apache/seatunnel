@@ -18,16 +18,19 @@
 package org.apache.seatunnel.translation.spark.source.scan;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 import org.apache.seatunnel.translation.spark.source.partition.batch.SeaTunnelBatch;
+import org.apache.seatunnel.translation.spark.source.partition.continuous.SeaTunnelContinuousStream;
 import org.apache.seatunnel.translation.spark.source.partition.micro.SeaTunnelMicroBatch;
+import org.apache.seatunnel.translation.spark.utils.CaseInsensitiveStringMap;
 
 import org.apache.spark.sql.connector.read.Batch;
 import org.apache.spark.sql.connector.read.Scan;
+import org.apache.spark.sql.connector.read.streaming.ContinuousStream;
 import org.apache.spark.sql.connector.read.streaming.MicroBatchStream;
 import org.apache.spark.sql.types.StructType;
-import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 
 import java.util.Map;
 
@@ -70,6 +73,17 @@ public class SeaTunnelScan implements Scan {
     public MicroBatchStream toMicroBatchStream(String checkpointLocation) {
         return new SeaTunnelMicroBatch(
                 source,
+                parallelism,
+                jobId,
+                checkpointLocation,
+                caseInsensitiveStringMap,
+                multiTableManager);
+    }
+
+    @Override
+    public ContinuousStream toContinuousStream(String checkpointLocation) {
+        return new SeaTunnelContinuousStream(
+                (SeaTunnelSource<SeaTunnelRow, SourceSplit, ?>) source,
                 parallelism,
                 jobId,
                 checkpointLocation,

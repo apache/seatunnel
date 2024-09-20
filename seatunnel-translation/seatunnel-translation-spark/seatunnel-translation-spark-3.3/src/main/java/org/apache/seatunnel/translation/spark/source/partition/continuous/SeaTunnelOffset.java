@@ -15,33 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.source.partition.micro;
+package org.apache.seatunnel.translation.spark.source.partition.continuous;
 
-import org.apache.spark.sql.catalyst.InternalRow;
-import org.apache.spark.sql.connector.read.PartitionReader;
+import org.apache.spark.sql.connector.read.streaming.Offset;
 
-import java.io.IOException;
-
-public class SeaTunnelMicroBatchPartitionReader implements PartitionReader<InternalRow> {
-
-    private final ParallelMicroBatchPartitionReader partitionReader;
-
-    public SeaTunnelMicroBatchPartitionReader(ParallelMicroBatchPartitionReader partitionReader) {
-        this.partitionReader = partitionReader;
-    }
-
+public class SeaTunnelOffset extends Offset {
     @Override
-    public boolean next() throws IOException {
-        return partitionReader.next();
-    }
-
-    @Override
-    public InternalRow get() {
-        return partitionReader.get();
-    }
-
-    @Override
-    public void close() throws IOException {
-        partitionReader.close();
+    public String json() {
+        return "";
     }
 }

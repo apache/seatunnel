@@ -35,6 +35,7 @@ import org.apache.seatunnel.translation.spark.execution.DatasetTableInfo;
 
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
+import org.apache.spark.sql.SparkSession;
 
 import com.google.common.collect.Lists;
 
@@ -86,17 +87,31 @@ public class SourceExecuteProcessor extends SparkAbstractPluginExecuteProcessor<
                                         CommonOptions.PARALLELISM.key(),
                                         CommonOptions.PARALLELISM.defaultValue());
             }
-            Dataset<Row> dataset =
-                    sparkRuntimeEnvironment
-                            .getSparkSession()
-                            .read()
-                            .format(SeaTunnelSource.class.getSimpleName())
-                            .option(CommonOptions.PARALLELISM.key(), parallelism)
-                            .option(
-                                    Constants.SOURCE_SERIALIZATION,
-                                    SerializationUtils.objectToString(source))
-                            .options(envOption)
-                            .load();
+            SparkSession sparkSession = sparkRuntimeEnvironment.getSparkSession();
+            Dataset<Row> dataset = null;
+            if (isStreaming()) {
+                dataset =
+                        sparkSession
+                                .readStream()
+                                .format(SeaTunnelSource.class.getSimpleName())
+                                .option(CommonOptions.PARALLELISM.key(), parallelism)
+                                .option(
+                                        Constants.SOURCE_SERIALIZATION,
+                                        SerializationUtils.objectToString(source))
+                                .options(envOption)
+                                .load();
+            } else {
+                dataset =
+                        sparkSession
+                                .read()
+                                .format(SeaTunnelSource.class.getSimpleName())
+                                .option(CommonOptions.PARALLELISM.key(), parallelism)
+                                .option(
+                                        Constants.SOURCE_SERIALIZATION,
+                                        SerializationUtils.objectToString(source))
+                                .options(envOption)
+                                .load();
+            }
             sources.add(
                     new DatasetTableInfo(
                             dataset,
