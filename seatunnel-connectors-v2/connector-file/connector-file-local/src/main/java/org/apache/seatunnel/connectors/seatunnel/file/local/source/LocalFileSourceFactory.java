@@ -77,6 +77,7 @@ public class LocalFileSourceFactory implements TableSourceFactory {
                 .optional(BaseSourceConfigOptions.DATETIME_FORMAT)
                 .optional(BaseSourceConfigOptions.TIME_FORMAT)
                 .optional(BaseSourceConfigOptions.FILE_FILTER_PATTERN)
+                .optional(BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC)
                 .build();
     }
 
