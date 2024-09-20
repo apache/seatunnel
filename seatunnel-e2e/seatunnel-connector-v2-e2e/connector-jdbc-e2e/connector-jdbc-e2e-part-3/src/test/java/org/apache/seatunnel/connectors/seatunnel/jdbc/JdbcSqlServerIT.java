@@ -139,7 +139,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     + "\tVARBINARY_MAX_TEST varbinary(MAX) NULL,\n"
                     + "\tVARCHAR_TEST varchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
                     + "\tVARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS DEFAULT NULL NULL,\n"
-                    + "\tXML_TEST xml NULL\n"
+                    + "\tXML_TEST xml NULL,\n"
                     + "\tUDT_TEST UDTDECIMAL NULL\n"
                     + ");";
 
