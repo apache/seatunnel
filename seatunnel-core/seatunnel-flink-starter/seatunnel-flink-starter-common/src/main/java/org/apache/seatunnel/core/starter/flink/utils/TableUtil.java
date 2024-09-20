@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.flink.utils;
 
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
@@ -41,5 +43,26 @@ public final class TableUtil {
 
     public static boolean tableExists(TableEnvironment tableEnvironment, String name) {
         return Arrays.asList(tableEnvironment.listTables()).contains(name);
+    }
+
+    // catalogName.databaseName.[schemeName].tableName -> databaseName.[schemeName].tableName
+    public static String extractTableIdName(TableIdentifier tableIdentifier) {
+        StringBuilder tableId = new StringBuilder();
+        if (tableIdentifier.getDatabaseName() != null) {
+            tableId.append(tableIdentifier.getDatabaseName());
+        }
+        if (tableIdentifier.getSchemaName() != null) {
+            if (tableIdentifier.getDatabaseName() != null) {
+                tableId.append(".");
+            }
+            tableId.append(tableIdentifier.getSchemaName());
+        }
+        if (tableIdentifier.getTableName() != null) {
+            if (tableId.length() != 0) {
+                tableId.append(".");
+            }
+            tableId.append(tableIdentifier.getTableName());
+        }
+        return tableId.toString();
     }
 }

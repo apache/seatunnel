@@ -265,10 +265,7 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(cf2Count, 5);
     }
 
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.FLINK},
-            disabledReason = "Currently FLINK does not support multiple table write")
+    @TestTemplate
     public void testHbaseMultiTableSink(TestContainer container)
             throws IOException, InterruptedException {
         TableName multiTable1 = TableName.valueOf(MULTI_TABLE_ONE_NAME);
