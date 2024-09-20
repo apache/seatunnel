@@ -69,11 +69,9 @@ public class PrometheusSource extends HttpSource {
 
     @Override
     public Boundedness getBoundedness() {
-        if (JobMode.BATCH.equals(jobContext.getJobMode())) {
-            return Boundedness.BOUNDED;
-        }
-        throw new UnsupportedOperationException(
-                "Prometheus source connector not support unbounded operation");
+        return JobMode.BATCH.equals(jobContext.getJobMode())
+                ? Boundedness.BOUNDED
+                : Boundedness.UNBOUNDED;
     }
 
     @Override

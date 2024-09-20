@@ -16,6 +16,7 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.prometheus.source;
 
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -94,8 +95,15 @@ public class PrometheusSourceReader extends AbstractSingleSplitReader<SeaTunnelR
         try {
             pollAndCollectData(output);
         } finally {
-            log.info("Closed the bounded prometheus source");
-            context.signalNoMoreElement();
+            if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
+                // signal to the source that we have reached the end of the data.
+                log.info("Closed the bounded http source");
+                context.signalNoMoreElement();
+            } else {
+                if (httpParameter.getPollIntervalMillis() > 0) {
+                    Thread.sleep(httpParameter.getPollIntervalMillis());
+                }
+            }
         }
     }
 
