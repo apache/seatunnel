@@ -17,21 +17,22 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.source;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+import javax.annotation.Nullable;
+
 import java.io.Serializable;
-import java.util.Set;
+import java.util.Deque;
 
 /** Paimon connector source state, saves the splits has assigned to readers. */
+@Getter
+@AllArgsConstructor
 public class PaimonSourceState implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private final Set<PaimonSourceSplit> assignedSplits;
+    private final Deque<PaimonSourceSplit> assignedSplits;
 
-    public PaimonSourceState(Set<PaimonSourceSplit> assignedSplits) {
-        this.assignedSplits = assignedSplits;
-    }
-
-    public Set<PaimonSourceSplit> getAssignedSplits() {
-        return assignedSplits;
-    }
+    private final @Nullable Long currentSnapshotId;
 }
