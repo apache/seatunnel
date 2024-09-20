@@ -180,6 +180,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             } else {
                 if (httpParameter.getPollIntervalMillis() > 0) {
                     Thread.sleep(httpParameter.getPollIntervalMillis());
+                    internalPollNext(output);
                 }
             }
         }
