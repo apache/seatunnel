@@ -128,14 +128,21 @@ public class SinkExecuteProcessor
                 sink.setJobContext(jobContext);
             }
             handleSaveMode(sink);
+            boolean sinkParallelism = sinkConfig.hasPath(CommonOptions.PARALLELISM.key());
+            boolean envParallelism = envConfig.hasPath(CommonOptions.PARALLELISM.key());
+            int parallelism =
+                    sinkParallelism
+                            ? sinkConfig.getInt(CommonOptions.PARALLELISM.key())
+                            : envParallelism
+                                    ? envConfig.getInt(CommonOptions.PARALLELISM.key())
+                                    : 1;
             DataStreamSink<Row> dataStreamSink =
                     stream.getDataStream()
-                            .sinkTo(new FlinkSink<>(sink, stream.getCatalogTables().get(0)))
+                            .sinkTo(
+                                    new FlinkSink<>(
+                                            sink, stream.getCatalogTables().get(0), parallelism))
                             .name(String.format("%s-Sink", sink.getPluginName()));
-            if (sinkConfig.hasPath(CommonOptions.PARALLELISM.key())) {
-                int parallelism = sinkConfig.getInt(CommonOptions.PARALLELISM.key());
-                dataStreamSink.setParallelism(parallelism);
-            }
+            dataStreamSink.setParallelism(parallelism);
         }
         // the sink is the last stream
         return null;

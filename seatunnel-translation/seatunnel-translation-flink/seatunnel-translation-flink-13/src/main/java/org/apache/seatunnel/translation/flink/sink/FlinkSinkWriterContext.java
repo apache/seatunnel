@@ -39,15 +39,22 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
 
     private final InitContext writerContext;
     private final EventListener eventListener;
+    private final int parallelism;
 
-    public FlinkSinkWriterContext(InitContext writerContext) {
+    public FlinkSinkWriterContext(InitContext writerContext, int parallelism) {
         this.writerContext = writerContext;
         this.eventListener = new DefaultEventProcessor(getJobIdForV14(writerContext));
+        this.parallelism = parallelism;
     }
 
     @Override
     public int getIndexOfSubtask() {
         return writerContext.getSubtaskId();
+    }
+
+    @Override
+    public int getNumberOfParallelSubtasks() {
+        return parallelism;
     }
 
     @Override
