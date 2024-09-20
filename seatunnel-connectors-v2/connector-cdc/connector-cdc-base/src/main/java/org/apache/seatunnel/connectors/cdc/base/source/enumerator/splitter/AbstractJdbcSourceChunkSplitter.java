@@ -406,7 +406,7 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                         uniqueKey.getColumnNames();
                 for (ConstraintKey.ConstraintKeyColumn uniqueKeyColumn : uniqueKeyColumns) {
                     Column column = table.columnWithName(uniqueKeyColumn.getColumnName());
-                    if (isEvenlySplitColumn(column)) {
+                    if (column!=null && isEvenlySplitColumn(column)) {
                         splitColumn = columnComparable(splitColumn, column);
                         if (sqlTypePriority(splitColumn) == 1) {
                             return splitColumn;
