@@ -113,8 +113,8 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                     + "  val_smalldatetime,\n"
                     + "  val_xml,\n"
                     + "  val_datetimeoffset,\n"
-                    + "  CONVERT(varchar(100), val_varbinary) as val_varbinary\n"
-                    + "  val_udtdecimal,\n"
+                    + "  CONVERT(varchar(100), val_varbinary) as val_varbinary,\n"
+                    + "  val_udtdecimal\n"
                     + "from %s order by id asc";
     private static final String SELECT_SINK_SQL =
             "select\n"
@@ -143,8 +143,8 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                     + "  val_smalldatetime,\n"
                     + "  val_xml,\n"
                     + "  val_datetimeoffset,\n"
-                    + "  CONVERT(varchar(100), val_varbinary) as val_varbinary\n"
-                    + "  val_udtdecimal,\n"
+                    + "  CONVERT(varchar(100), val_varbinary) as val_varbinary,\n"
+                    + "  val_udtdecimal\n"
                     + "from %s order by id asc";
 
     public static final MSSQLServerContainer MSSQL_SERVER_CONTAINER =
