@@ -26,7 +26,6 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertCatalogTableRule;
@@ -73,7 +72,7 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void>
                 initTableRule(catalogTable, tableConfig, tableName);
             }
         } else {
-            String tableName = TablePath.DEFAULT.getFullName();
+            String tableName = catalogTable.getTablePath().getFullName();
             initTableRule(catalogTable, ruleConfig, tableName);
         }
 
