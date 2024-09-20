@@ -214,9 +214,23 @@ public class CoordinatorService {
                 this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
         isJobPending = engineConfig.getScheduleStrategy().equals(ScheduleStrategy.WAIT);
         if (isJobPending) {
-            ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-            scheduler.scheduleAtFixedRate(this::pendingJobSchedule, 0, 10, TimeUnit.SECONDS);
+            logger.info("Start pending job schedule thread");
+            startPendingJobScheduleThread();
         }
+    }
+
+    private void startPendingJobScheduleThread(){
+        Runnable pendingJobScheduleTask = () -> {
+            while(true) {
+                try {
+                    Thread.sleep(3000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                pendingJobSchedule();
+            }
+        };
+        new Thread(pendingJobScheduleTask).start();
     }
 
     private void pendingJobSchedule() {

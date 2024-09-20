@@ -29,6 +29,9 @@ public enum JobStatus {
     /** Job is newly created, no task has started to run. */
     CREATED(EndState.NOT_END),
 
+    /** The job is waiting for resources. */
+    PENDING(EndState.NOT_END),
+
     /**
      * Job will scheduler every pipeline, each PhysicalVertex in the pipeline will be scheduler and
      * deploying
@@ -37,9 +40,6 @@ public enum JobStatus {
 
     /** The job is already running, and each pipeline is already running. */
     RUNNING(EndState.NOT_END),
-
-    /** The job is waiting for resources. */
-    PENDING(EndState.NOT_END),
 
     /** The job has failed and is currently waiting for the cleanup to complete. */
     FAILING(EndState.NOT_END),
