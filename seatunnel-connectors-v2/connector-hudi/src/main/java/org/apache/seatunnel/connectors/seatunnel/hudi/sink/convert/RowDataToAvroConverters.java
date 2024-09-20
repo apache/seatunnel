@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer;
+package org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -40,10 +40,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer.AvroSchemaConverter.extractValueTypeToAvroMap;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.AvroSchemaConverter.extractValueTypeToAvroMap;
 
 /** Tool class used to convert from {@link SeaTunnelRow} to Avro {@link GenericRecord}. */
-public class RowDataToAvroConverters {
+public class RowDataToAvroConverters implements Serializable {
 
     // --------------------------------------------------------------------------------
     // Runtime Converters
