@@ -17,19 +17,20 @@
 
 package org.apache.seatunnel.engine.server;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.server.telemetry.metrics.ExportsInstanceInitializer;
+
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.servlet.ServletContextHandler;
 
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import com.hazelcast.instance.impl.Node;
 import lombok.NonNull;
-import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.servlet.ServletContextHandler;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class SeaTunnelServerStarter {
@@ -39,15 +40,19 @@ public class SeaTunnelServerStarter {
         createJettyServer();
     }
 
-    public static void  createJettyServer(){
+    public static void createJettyServer() {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         Server server = new Server(seaTunnelConfig.getEngineConfig().getJettyPort());
 
         ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
         context.setContextPath("/");
 
-        context.setResourceBase(SeaTunnelServerStarter.class.getClassLoader().getResource("").toExternalForm());
-        context.addServlet(new org.eclipse.jetty.servlet.ServletHolder("default", new org.eclipse.jetty.servlet.DefaultServlet()), "/");
+        context.setResourceBase(
+                SeaTunnelServerStarter.class.getClassLoader().getResource("").toExternalForm());
+        context.addServlet(
+                new org.eclipse.jetty.servlet.ServletHolder(
+                        "default", new org.eclipse.jetty.servlet.DefaultServlet()),
+                "/");
 
         server.setHandler(context);
 
