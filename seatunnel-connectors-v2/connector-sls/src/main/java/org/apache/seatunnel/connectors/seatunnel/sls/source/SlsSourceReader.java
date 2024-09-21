@@ -127,12 +127,8 @@ public class SlsSourceReader implements SourceReader<SeaTunnelRow, SlsSourceSpli
                                                 sourceSplit.setStartCursor(
                                                         response.getNextCursor());
                                                 completableFuture.complete(true);
-                                            } catch (LogException e) {
-                                                e.printStackTrace();
-                                                completableFuture.completeExceptionally(e);
-                                                throw new RuntimeException(e);
-                                            } catch (IOException e) {
-                                                e.printStackTrace();
+                                            } catch (Throwable e) {
+                                                log.error("pull logs failed", e);
                                                 completableFuture.completeExceptionally(e);
                                                 throw new RuntimeException(e);
                                             }
@@ -141,11 +137,7 @@ public class SlsSourceReader implements SourceReader<SeaTunnelRow, SlsSourceSpli
                         if (completableFuture.get()) {
                             finishedSplits.add(sourceSplit);
                         }
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                        throw new RuntimeException(e);
-                    } catch (ExecutionException e) {
-                        e.printStackTrace();
+                    } catch (InterruptedException | ExecutionException e) {
                         throw new RuntimeException(e);
                     }
                 });
@@ -215,7 +207,6 @@ public class SlsSourceReader implements SourceReader<SeaTunnelRow, SlsSourceSpli
                                                                     slsSourceSplit
                                                                             .getStartCursor());
                                                         } catch (LogException e) {
-                                                            e.printStackTrace();
                                                             log.error(
                                                                     "LogException: commit cursor to sls failed",
                                                                     e);
