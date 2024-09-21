@@ -33,8 +33,10 @@
         <!-- timeplus containers -->
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>clickhouse</artifactId><!-- change to timeplus once 1.20.2 is out -->
-            <version>1.20.1</version> <!-- change to timeplus once 1.20.2 is out -->
+            <artifactId>clickhouse</artifactId>
+            <!-- change to timeplus once 1.20.2 is out -->
+            <version>1.20.1</version>
+            <!-- change to timeplus once 1.20.2 is out -->
             <scope>test</scope>
         </dependency>
         <!-- drivers -->

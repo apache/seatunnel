@@ -38,16 +38,16 @@ import org.junit.jupiter.api.TestTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 import org.testcontainers.shaded.org.apache.commons.lang3.tuple.Pair;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.google.common.collect.Lists;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-
-import com.google.common.collect.Lists;
 
 import java.io.File;
 import java.io.IOException;
@@ -74,7 +74,6 @@ import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.testcontainers.containers.GenericContainer;
 
 public class TimeplusIT extends TestSuiteBase implements TestResource {
 
@@ -114,8 +113,7 @@ public class TimeplusIT extends TestSuiteBase implements TestResource {
                         .withNetworkAliases(HOST)
                         .withPrivilegedMode(true)
                         .withLogConsumer(
-                                new Slf4jLogConsumer(
-                                        DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
+                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
         container.setPortBindings(
                 Lists.newArrayList(
                         String.format("%s:%s", "8123", "8123"),
@@ -150,7 +148,7 @@ public class TimeplusIT extends TestSuiteBase implements TestResource {
         info.put("password", "");
         this.connection =
                 ((Driver) Class.forName(DRIVER_CLASS).newInstance())
-                        .connect("jdbc:proton://"+container.getHost()+":8123", info);
+                        .connect("jdbc:proton://" + container.getHost() + ":8123", info);
     }
 
     private static Config getInitConfig() {
@@ -369,8 +367,9 @@ public class TimeplusIT extends TestSuiteBase implements TestResource {
             while (sourceResultSet.next()) {
                 if (sinkResultSet.next()) {
                     for (String column : columnList) {
-                        if("_tp_time".equals(column)){
-                            continue; //skip the _tp_time column, since source and sink can be different
+                        if ("_tp_time".equals(column)) {
+                            continue; // skip the _tp_time column, since source and sink can be
+                            // different
                         }
                         Object source = sourceResultSet.getObject(column);
                         Object sink = sinkResultSet.getObject(column);
@@ -414,8 +413,8 @@ public class TimeplusIT extends TestSuiteBase implements TestResource {
 
     private void clearSinkTable() {
         try (Statement statement = connection.createStatement()) {
-            //truncate is not supported yet, so will drop and create the stream again
-            //statement.execute(String.format("truncate stream %s.%s", DATABASE, SINK_TABLE));
+            // truncate is not supported yet, so will drop and create the stream again
+            // statement.execute(String.format("truncate stream %s.%s", DATABASE, SINK_TABLE));
             statement.execute(String.format("drop stream %s.%s", DATABASE, SINK_TABLE));
             statement.execute(CONFIG.getString(SINK_TABLE));
         } catch (SQLException e) {
