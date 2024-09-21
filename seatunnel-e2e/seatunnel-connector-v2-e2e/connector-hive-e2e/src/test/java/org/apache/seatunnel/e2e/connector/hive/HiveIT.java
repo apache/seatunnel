@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.connector.hive;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -36,14 +37,31 @@ import org.testcontainers.lifecycle.Startables;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.Duration;
 import java.util.Collections;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
+
+import static org.awaitility.Awaitility.given;
 
 @DisabledOnContainer(
         value = {},
         type = {EngineType.SPARK, EngineType.FLINK})
 @Slf4j
 public class HiveIT extends TestSuiteBase implements TestResource {
-    public static final String HOST = "hive-e2e";
+    private static final String CREATE_SQL =
+            "CREATE TABLE test_hive_sink_on_hdfs"
+                    + "("
+                    + "    pk_id  BIGINT,"
+                    + "    name   STRING,"
+                    + "    score  INT"
+                    + ")";
+
+    private static final String HMS_HOST = "hivee2e";
+    private static final String HIVE_SERVER_HOST = "hiveserver2e2e";
 
     private String hiveExeUrl() {
         return "https://repo1.maven.org/maven2/org/apache/hive/hive-exec/3.1.3/hive-exec-3.1.3.jar";
@@ -73,15 +91,16 @@ public class HiveIT extends TestSuiteBase implements TestResource {
         return "https://repo1.maven.org/maven2/com/qcloud/cos/hadoop-cos/2.6.5-8.0.2/hadoop-cos-2.6.5-8.0.2.jar";
     }
 
-    public static final HiveContainer HIVE_CONTAINER =
-            new HiveContainer().withNetwork(NETWORK).withNetworkAliases(HOST);
+    private HiveContainer hiveServerContainer;
+    private HiveContainer hmsContainer;
+    private Connection hiveConnection;
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
                 container.execInContainer("sh", "-c", "chmod -R 777 /etc/hosts");
                 // To avoid get a canonical host from a docker DNS server
-                container.execInContainer("sh", "-c", "echo `getent hosts hive-e2e` >> /etc/hosts");
+                container.execInContainer("sh", "-c", "echo `getent hosts hivee2e` >> /etc/hosts");
                 // The jar of hive-exec
                 Container.ExecResult downloadHiveExeCommands =
                         container.execInContainer(
@@ -130,15 +149,63 @@ public class HiveIT extends TestSuiteBase implements TestResource {
     @BeforeAll
     @Override
     public void startUp() throws Exception {
-        Startables.deepStart(HIVE_CONTAINER).join();
-        HIVE_CONTAINER.setPortBindings(Collections.singletonList("9083:9083"));
-        log.info("Hive Container is started");
+        hmsContainer =
+                HiveContainer.hmsStandalone().withNetwork(NETWORK).withNetworkAliases(HMS_HOST);
+        hmsContainer.setPortBindings(Collections.singletonList("9083:9083"));
+
+        Startables.deepStart(Stream.of(hmsContainer)).join();
+        log.info("HMS just started");
+
+        hiveServerContainer =
+                HiveContainer.hiveServer()
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(HIVE_SERVER_HOST)
+                        .withEnv(
+                                "SERVICE_OPTS",
+                                "-Dhive.metastore.uris=thrift://hivee2e:9083")
+                        .withEnv("IS_RESUME", "true")
+                        .dependsOn(hmsContainer);
+        hiveServerContainer.setPortBindings(Collections.singletonList("10000:10000"));
+
+        Startables.deepStart(Stream.of(hiveServerContainer)).join();
+        log.info("HiveServer2 just started");
+
+        given().ignoreExceptions()
+                .await()
+                .atMost(360, TimeUnit.SECONDS)
+                .pollDelay(Duration.ofSeconds(10L))
+                .untilAsserted(this::initializeConnection);
+        prepareTable();
     }
 
     @AfterAll
     @Override
     public void tearDown() throws Exception {
-        HIVE_CONTAINER.close();
+        if (hmsContainer != null) {
+            hmsContainer.close();
+        }
+        if (hiveServerContainer != null) {
+            hiveServerContainer.close();
+        }
+    }
+
+    private void initializeConnection()
+            throws ClassNotFoundException, InstantiationException, IllegalAccessException,
+                    SQLException {
+        this.hiveConnection = this.hiveServerContainer.getConnection();
+    }
+
+    private void prepareTable() throws Exception {
+        log.info(
+                String.format(
+                        "Databases are %s",
+                        this.hmsContainer.createMetaStoreClient().getAllDatabases()));
+        try (Statement statement = this.hiveConnection.createStatement()) {
+            statement.execute(CREATE_SQL);
+        } catch (Exception exception) {
+            log.error(ExceptionUtils.getMessage(exception));
+            throw exception;
+        }
     }
 
     private void executeJob(TestContainer container, String job1, String job2)
