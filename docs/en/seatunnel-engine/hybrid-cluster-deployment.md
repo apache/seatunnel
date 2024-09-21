@@ -148,8 +148,8 @@ Example
 
 ```yaml
 seatunnel:
-engine:
-job-schedule-strategy: WAIT
+  engine:
+    job-schedule-strategy: WAIT
 ```
 
 ## 5. Configure The SeaTunnel Engine Network Service
