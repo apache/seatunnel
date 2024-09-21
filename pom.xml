@@ -138,6 +138,8 @@
         <jsqlparser.version>4.5</jsqlparser.version>
         <json-path.version>2.7.0</json-path.version>
         <groovy.version>4.0.16</groovy.version>
+        <jetty.version>9.4.51.v20230217</jetty.version>
+        <jakarta.servlet-api>4.0.4</jakarta.servlet-api>
         <!-- Option args -->
         <skipUT>false</skipUT>
         <skipIT>true</skipIT>

@@ -222,6 +222,9 @@ public class ServerConfigOptions {
                     .defaultValue(new TelemetryConfig())
                     .withDescription("The telemetry configuration.");
 
+    public static final Option<Integer> JETTY_PORT = Options.key("jetty-port").intType()
+            .defaultValue(8080).withDescription("The port of the Jetty server.");
+
     public static final String EVENT_REPORT_HTTP = "event-report-http";
     public static final String EVENT_REPORT_HTTP_URL = "url";
     public static final String EVENT_REPORT_HTTP_HEADERS = "headers";

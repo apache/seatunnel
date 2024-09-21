@@ -74,6 +74,13 @@ public class EngineConfig {
 
     private TelemetryConfig telemetryConfig = ServerConfigOptions.TELEMETRY.defaultValue();
 
+    private int jettyPort = ServerConfigOptions.JETTY_PORT.defaultValue();
+
+    public void setJettyPort(int jettyPort) {
+        checkPositive(jettyPort, "Jetty port must be > 0");
+        this.jettyPort = jettyPort;
+    }
+
     public void setBackupCount(int newBackupCount) {
         checkBackupCount(newBackupCount, 0);
         this.backupCount = newBackupCount;

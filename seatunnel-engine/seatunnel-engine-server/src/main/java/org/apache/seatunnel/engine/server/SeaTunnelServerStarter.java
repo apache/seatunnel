@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -27,11 +28,40 @@ import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import com.hazelcast.instance.impl.Node;
 import lombok.NonNull;
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.servlet.ServletContextHandler;
 
+@Slf4j
 public class SeaTunnelServerStarter {
 
     public static void main(String[] args) {
         createHazelcastInstance();
+        createJettyServer();
+    }
+
+    public static void  createJettyServer(){
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        Server server = new Server(seaTunnelConfig.getEngineConfig().getJettyPort());
+
+        ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
+        context.setContextPath("/");
+
+        context.setResourceBase(SeaTunnelServerStarter.class.getClassLoader().getResource("").toExternalForm());
+        context.addServlet(new org.eclipse.jetty.servlet.ServletHolder("default", new org.eclipse.jetty.servlet.DefaultServlet()), "/");
+
+        server.setHandler(context);
+
+        try {
+            try {
+                server.start();
+                server.join();
+            } catch (Exception e) {
+                log.error("Jetty server start failed", e);
+                throw new RuntimeException(e);
+            }
+        } finally {
+            server.destroy();
+        }
     }
 
     public static HazelcastInstanceImpl createHazelcastInstance(String clusterName) {
