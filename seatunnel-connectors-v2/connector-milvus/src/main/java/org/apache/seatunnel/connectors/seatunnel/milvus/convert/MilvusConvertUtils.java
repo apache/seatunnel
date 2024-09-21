@@ -80,43 +80,52 @@ public class MilvusConvertUtils {
     private static final Gson gson = new Gson();
 
     public static Map<TablePath, CatalogTable> getSourceTables(ReadonlyConfig config) {
-        MilvusServiceClient client =
-                new MilvusServiceClient(
-                        ConnectParam.newBuilder()
-                                .withUri(config.get(MilvusSourceConfig.URL))
-                                .withToken(config.get(MilvusSourceConfig.TOKEN))
-                                .build());
-
-        String database = config.get(MilvusSourceConfig.DATABASE);
-        List<String> collectionList = new ArrayList<>();
-        if (StringUtils.isNotEmpty(config.get(MilvusSourceConfig.COLLECTION))) {
-            collectionList.add(config.get(MilvusSourceConfig.COLLECTION));
-        } else {
-            R<ShowCollectionsResponse> response =
-                    client.showCollections(
-                            ShowCollectionsParam.newBuilder()
-                                    .withDatabaseName(database)
-                                    .withShowType(ShowType.All)
+        MilvusServiceClient client = null;
+        try {
+            client =
+                    new MilvusServiceClient(
+                            ConnectParam.newBuilder()
+                                    .withUri(config.get(MilvusSourceConfig.URL))
+                                    .withToken(config.get(MilvusSourceConfig.TOKEN))
                                     .build());
-            if (response.getStatus() != R.Status.Success.getCode()) {
-                throw new MilvusConnectorException(
-                        MilvusConnectionErrorCode.SHOW_COLLECTIONS_ERROR);
+
+            String database = config.get(MilvusSourceConfig.DATABASE);
+            List<String> collectionList = new ArrayList<>();
+            if (StringUtils.isNotEmpty(config.get(MilvusSourceConfig.COLLECTION))) {
+                collectionList.add(config.get(MilvusSourceConfig.COLLECTION));
+            } else {
+                R<ShowCollectionsResponse> response =
+                        client.showCollections(
+                                ShowCollectionsParam.newBuilder()
+                                        .withDatabaseName(database)
+                                        .withShowType(ShowType.All)
+                                        .build());
+                if (response.getStatus() != R.Status.Success.getCode()) {
+                    throw new MilvusConnectorException(
+                            MilvusConnectionErrorCode.SHOW_COLLECTIONS_ERROR);
+                }
+
+                ProtocolStringList collections = response.getData().getCollectionNamesList();
+                if (CollectionUtils.isEmpty(collections)) {
+                    throw new MilvusConnectorException(
+                            MilvusConnectionErrorCode.DATABASE_NO_COLLECTIONS, database);
+                }
+                collectionList.addAll(collections);
             }
 
-            ProtocolStringList collections = response.getData().getCollectionNamesList();
-            if (CollectionUtils.isEmpty(collections)) {
-                throw new MilvusConnectorException(
-                        MilvusConnectionErrorCode.DATABASE_NO_COLLECTIONS, database);
+            Map<TablePath, CatalogTable> map = new HashMap<>();
+            for (String collection : collectionList) {
+                CatalogTable catalogTable = getCatalogTable(client, database, collection);
+                map.put(TablePath.of(database, collection), catalogTable);
             }
-            collectionList.addAll(collections);
+            return map;
+        } catch (Exception e) {
+            throw new CatalogException(e.getMessage(), e);
+        } finally {
+            if (client != null) {
+                client.close();
+            }
         }
-
-        Map<TablePath, CatalogTable> map = new HashMap<>();
-        for (String collection : collectionList) {
-            CatalogTable catalogTable = getCatalogTable(client, database, collection);
-            map.put(TablePath.of(database, collection), catalogTable);
-        }
-        return map;
     }
 
     public static CatalogTable getCatalogTable(
