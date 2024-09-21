@@ -38,43 +38,67 @@ public class ArrayInjectFunction implements ProtonFieldInjectFunction {
         String type = fieldType.substring(fieldType.indexOf("(") + 1, fieldType.indexOf(")"));
         switch (type) {
             case "string":
-            case "int128":
-            case "uint128":
-            case "int256":
-            case "uint256":
-                sqlType = "TEXT";
+                sqlType = "string";
                 elements = Arrays.copyOf(elements, elements.length, String[].class);
                 break;
+            case "int128":
+                sqlType = "int128";
+                elements = Arrays.copyOf(elements, elements.length, Long[].class);
+                break;
+            case "uint128":
+                sqlType = "uint128";
+                elements = Arrays.copyOf(elements, elements.length, Long[].class);
+                break;
+            case "int256":
+                sqlType = "int256";
+                elements = Arrays.copyOf(elements, elements.length, Long[].class);
+                break;
+            case "uint256":
+                sqlType = "uint256";
+                elements = Arrays.copyOf(elements, elements.length, Long[].class);
+                break;
             case "int8":
-                sqlType = "TINYINT";
+                sqlType = "int8";
                 elements = Arrays.copyOf(elements, elements.length, Byte[].class);
                 break;
             case "uint8":
+                sqlType = "uint8";
+                elements = Arrays.copyOf(elements, elements.length, Byte[].class);
+                break;
             case "int16":
-                sqlType = "SMALLINT";
+                sqlType = "int16";
                 elements = Arrays.copyOf(elements, elements.length, Short[].class);
                 break;
             case "uint16":
+                sqlType = "uint16";
+                elements = Arrays.copyOf(elements, elements.length, Integer[].class);
+                break;
             case "int32":
-                sqlType = "INTEGER";
+                sqlType = "int32";
                 elements = Arrays.copyOf(elements, elements.length, Integer[].class);
                 break;
             case "uint32":
+                sqlType = "uint32";
+                elements = Arrays.copyOf(elements, elements.length, Long[].class);
+                break;
             case "int64":
+                sqlType = "int64";
+                elements = Arrays.copyOf(elements, elements.length, Long[].class);
+                break;
             case "uint64":
-                sqlType = "BIGINT";
+                sqlType = "uint64";
                 elements = Arrays.copyOf(elements, elements.length, Long[].class);
                 break;
             case "float32":
-                sqlType = "REAL";
+                sqlType = "float32";
                 elements = Arrays.copyOf(elements, elements.length, Float[].class);
                 break;
             case "float64":
-                sqlType = "DOUBLE";
+                sqlType = "float64";
                 elements = Arrays.copyOf(elements, elements.length, Double[].class);
                 break;
             case "bool":
-                sqlType = "BOOLEAN";
+                sqlType = "bool";
                 elements = Arrays.copyOf(elements, elements.length, Boolean[].class);
                 break;
             default:

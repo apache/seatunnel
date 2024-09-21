@@ -51,25 +51,25 @@ public abstract class AbstractTimeplusTypeConverter implements TypeConverter<Bas
     public static final String TIMEPLUS_STRING = "string";
 
     public static final String TIMEPLUS_BOOLEAN_ARRAY = "array(bool)";
-    public static final String TIMEPLUS_TINYINT_ARRAY = "array<tiny_int>";
-    public static final String TIMEPLUS_SMALLINT_ARRAY = "array<small_int>";
-    public static final String TIMEPLUS_INT_ARRAY = "array<int32>";
-    public static final String TIMEPLUS_BIGINT_ARRAY = "array<int64>";
-    public static final String TIMEPLUS_FLOAT_ARRAY = "array<float>";
-    public static final String TIMEPLUS_DOUBLE_ARRAY = "array<double>";
-    public static final String TIMEPLUS_DECIMALV3_ARRAY = "array<decimal>";
-    public static final String TIMEPLUS_DECIMALV3_ARRAY_COLUMN_TYPE_TMP = "array<decimal(%s, %s)>";
-    public static final String TIMEPLUS_DATEV2_ARRAY = "array<date32>";
-    public static final String TIMEPLUS_DATETIMEV2_ARRAY = "array<datetime64>";
-    public static final String TIMEPLUS_STRING_ARRAY = "array<string>";
+    public static final String TIMEPLUS_TINYINT_ARRAY = "array(tiny_int)";
+    public static final String TIMEPLUS_SMALLINT_ARRAY = "array(small_int)";
+    public static final String TIMEPLUS_INT_ARRAY = "array(int32)";
+    public static final String TIMEPLUS_BIGINT_ARRAY = "array(int64)";
+    public static final String TIMEPLUS_FLOAT_ARRAY = "array(float)";
+    public static final String TIMEPLUS_DOUBLE_ARRAY = "array(double)";
+    public static final String TIMEPLUS_DECIMALV3_ARRAY = "array(decimal)";
+    public static final String TIMEPLUS_DECIMALV3_ARRAY_COLUMN_TYPE_TMP = "array(decimal(%s, %s))";
+    public static final String TIMEPLUS_DATEV2_ARRAY = "array(date32)";
+    public static final String TIMEPLUS_DATETIMEV2_ARRAY = "array(datetime64)";
+    public static final String TIMEPLUS_STRING_ARRAY = "array(string)";
 
     // Because can not get the column length from array, So the following types of arrays cannot be
     // generated properly.
-    public static final String TIMEPLUS_LARGEINT_ARRAY = "array<large_int>";
-    public static final String TIMEPLUS_CHAR_ARRAY = "array<string>";
-    public static final String TIMEPLUS_CHAR_ARRAY_COLUMN_TYPE_TMP = "array<string(%s)>";
-    public static final String TIMEPLUS_VARCHAR_ARRAY = "array<string>";
-    public static final String TIMEPLUS_VARCHAR_ARRAY_COLUMN_TYPE_TMP = "array<string(%s)>";
+    public static final String TIMEPLUS_LARGEINT_ARRAY = "array(int64)";
+    public static final String TIMEPLUS_CHAR_ARRAY = "array(string)";
+    public static final String TIMEPLUS_CHAR_ARRAY_COLUMN_TYPE_TMP = "array(string(%s))";
+    public static final String TIMEPLUS_VARCHAR_ARRAY = "array(string)";
+    public static final String TIMEPLUS_VARCHAR_ARRAY_COLUMN_TYPE_TMP = "array(string(%s))";
 
     public static final String TIMEPLUS_JSON = "json";
     public static final String TIMEPLUS_JSONB = "json";
