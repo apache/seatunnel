@@ -81,6 +81,7 @@
         <module>connector-typesense-e2e</module>
         <module>connector-email-e2e</module>
         <module>connector-cdc-opengauss-e2e</module>
+        <module>connector-timeplus-e2e</module>
     </modules>
 
     <dependencies>
