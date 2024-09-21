@@ -144,6 +144,8 @@ sql = """ select * from "table" """
 
 ## Json格式支持
 
+在编写配置文件之前，请确保配置文件的名称应以 `.json` 结尾。
+
 ```json
 
 {

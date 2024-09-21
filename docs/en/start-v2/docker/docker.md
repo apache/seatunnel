@@ -2,11 +2,13 @@
 sidebar_position: 3
 ---
 
-# Set Up With Docker In Local Mode
+# Set Up With Docker
 
-## Zeta Engine
+## Set Up With Docker In Local Mode
 
-### Download
+### Zeta Engine
+
+#### Download
 
 ```shell
 docker pull apache/seatunnel:<version_tag>
@@ -29,12 +31,12 @@ docker run --rm -it -v /tmp/job/:/config apache/seatunnel:<version_tag> ./bin/se
 docker run --rm -it -v /tmp/job/:/config apache/seatunnel:<version_tag> ./bin/seatunnel.sh -DJvmOption="-Xms4G -Xmx4G" -m local -c /config/fake_to_console.conf
 ```
 
-### Build Image By Yourself
+#### Build Image By Yourself
 
 Build from source code. The way of downloading the source code is the same as the way of downloading the binary package.
 You can download the source code from the [download page](https://seatunnel.apache.org/download/) or clone the source code from the [GitHub repository](https://github.com/apache/seatunnel/releases)
 
-#### Build With One Command
+##### Build With One Command
 ```shell
 cd seatunnel
 # Use already sett maven profile
@@ -44,7 +46,7 @@ sh ./mvnw -B clean install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Dli
 docker images | grep apache/seatunnel
 ```
 
-#### Build Step By Step
+##### Build Step By Step
 ```shell
 # Build binary package from source code
 sh ./mvnw clean package -DskipTests -Dskip.spotless=true
@@ -75,18 +77,17 @@ COPY ./target/apache-seatunnel-${VERSION}-bin.tar.gz /opt/
 RUN cd /opt && \
     tar -zxvf apache-seatunnel-${VERSION}-bin.tar.gz && \
     mv apache-seatunnel-${VERSION} seatunnel && \
-    rm apache-seatunnel-${VERSION}-bin.tar.gz
+    rm apache-seatunnel-${VERSION}-bin.tar.gz && \
+    cp seatunnel/config/log4j2_client.properties seatunnel/config/log4j2.properties && \
+    cp seatunnel/config/hazelcast-master.yaml seatunnel/config/hazelcast-worker.yaml
 
 WORKDIR /opt/seatunnel
 ```
 
-## Spark or Flink Engine
+### Spark or Flink Engine
 
-### Download And Install the connectors you needed
 
-refer the step as Zeta Engine
-
-### Mount Spark/Flink library
+#### Mount Spark/Flink library
 
 By default, Spark home is `/opt/spark`, Flink home is `/opt/flink`.
 If you need run with spark/flink, you can mount the related library to `/opt/spark` or `/opt/flink`.
@@ -138,4 +139,261 @@ docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluste
 # flink version between `1.15.x` and `1.16.x`
 docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluster.sh && ./bin/start-seatunnel-flink-15-connector-v2.sh -c config/v2.streaming.conf.template'
 ```
+
+
+
+## Set Up With Docker In Cluster Mode
+
+there has 2 ways to create cluster within docker.
+
+### Use Docker Directly
+
+#### create a network
+```shell
+docker network create seatunnel-network
+```
+
+#### start the nodes
+- start master node
+```shell
+## start master and export 5801 port 
+docker run -d --name seatunnel_master \
+    --network seatunnel-network \
+    --rm \
+    -p 5801:5801 \
+    apache/seatunnel \
+    ./bin/seatunnel-cluster.sh -r master
+```
+
+- get created container ip
+```shell
+docker inspect master-1
+```
+run this command to get the pod ip.
+
+- start worker node
+```shell
+docker run -d --name seatunnel_worker_1 \
+    --network seatunnel-network \
+    --rm \
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # set master container ip to here
+    apache/seatunnel \
+    ./bin/seatunnel-cluster.sh -r worker
+
+## start worker2
+docker run -d --name seatunnel_worker_2 \ 
+    --network seatunnel-network \
+    --rm \
+     -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \    # set master container ip to here
+    apache/seatunnel \
+    ./bin/seatunnel-cluster.sh -r worker    
+
+```
+
+#### Scale your Cluster
+
+run this command to start master node.
+```shell
+docker run -d --name seatunnel_master \
+    --network seatunnel-network \
+    --rm \
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # set exist master container ip to here
+    apache/seatunnel \
+    ./bin/seatunnel-cluster.sh -r master
+```
+
+run this command to start worker node.
+```shell
+docker run -d --name seatunnel_worker_1 \
+    --network seatunnel-network \
+    --rm \
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # set master container ip to here
+    apache/seatunnel \
+    ./bin/seatunnel-cluster.sh -r worker
+```
+
+
+### Use Docker-compose
+
+> docker cluster mode is only support zeta engine.
+
+The `docker-compose.yaml` file is :
+```yaml
+version: '3.8'
+
+services:
+  master:
+    image: apache/seatunnel
+    container_name: seatunnel_master
+    environment:
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4    
+    entrypoint: >
+      /bin/sh -c "
+      /opt/seatunnel/bin/seatunnel-cluster.sh -r master
+      "    
+    ports:
+      - "5801:5801"  
+    networks:
+      seatunnel_network:
+        ipv4_address: 172.16.0.2
+
+  worker1:
+    image: apache/seatunnel
+    container_name: seatunnel_worker_1
+    environment:
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4
+    entrypoint: >
+      /bin/sh -c "
+      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
+      " 
+    depends_on:
+      - master
+    networks:
+      seatunnel_network:
+        ipv4_address: 172.16.0.3
+
+  worker2:
+    image: apache/seatunnel
+    container_name: seatunnel_worker_2
+    environment:
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4
+    entrypoint: >
+      /bin/sh -c "
+      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
+      " 
+    depends_on:
+      - master
+    networks:
+      seatunnel_network:
+        ipv4_address: 172.16.0.4
+
+networks:
+  seatunnel_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.16.0.0/24
+
+```
+
+run `docker-compose up -d` command to start the cluster.
+
+
+You can use `docker logs -f seatunne_master`, `docker logs -f seatunnel_worker_1` to check the node log.
+And when you call `http://localhost:5801/hazelcast/rest/maps/system-monitoring-information`, you will see there are 2 nodes as we excepted.
+
+After that, you can use client or restapi to submit job to this cluster.
+
+#### Scale your Cluster
+
+If you want to increase cluster node, like add a new work node.
+
+```yaml
+version: '3.8'
+
+services:
+  master:
+    image: apache/seatunnel
+    container_name: seatunnel_master
+    environment:
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4    
+    entrypoint: >
+      /bin/sh -c "
+      /opt/seatunnel/bin/seatunnel-cluster.sh -r master
+      "    
+    ports:
+      - "5801:5801"  
+    networks:
+      seatunnel_network:
+        ipv4_address: 172.16.0.2
+
+  worker1:
+    image: apache/seatunnel
+    container_name: seatunnel_worker_1
+    environment:
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4
+    entrypoint: >
+      /bin/sh -c "
+      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
+      " 
+    depends_on:
+      - master
+    networks:
+      seatunnel_network:
+        ipv4_address: 172.16.0.3
+
+  worker2:
+    image: apache/seatunnel
+    container_name: seatunnel_worker_2
+    environment:
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4
+    entrypoint: >
+      /bin/sh -c "
+      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
+      " 
+    depends_on:
+      - master
+    networks:
+      seatunnel_network:
+        ipv4_address: 172.16.0.4
+  ####
+  ## add new worker node
+  ####      
+  worker3:
+    image: apache/seatunnel
+    container_name: seatunnel_worker_3
+    environment:
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4,172.16.0.5 # add ip to here
+    entrypoint: >
+      /bin/sh -c "
+      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
+      " 
+    depends_on:
+      - master
+    networks:
+      seatunnel_network:
+        ipv4_address: 172.16.0.5        # use a not used ip
+
+networks:
+  seatunnel_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.16.0.0/24
+
+```
+
+and run `docker-compose up -d` command, the new worker node will start, and the current node won't restart.
+
+
+### Job Operation on cluster
+
+#### use docker as a client
+- submit job :
+```shell
+docker run --name seatunnel_client \
+    --network seatunnel-network \
+    --rm \
+    apache/seatunnel \
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # set it as master node container ip
+    ./bin/seatunnel.sh  -c config/v2.batch.config.template # this is an default config, if you need submit your self config, you can mount config file.
+```
+
+- list job
+```shell
+docker run --name seatunnel_client \
+    --network seatunnel-network \
+    --rm \
+    apache/seatunnel \
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # set it as master node container ip
+    ./bin/seatunnel.sh  -l
+```
+
+more command please refer [user-command](../../seatunnel-engine/user-command.md)
+
+
+
+#### use rest api
+
+please refer [Submit A Job](../../seatunnel-engine/rest-api.md#submit-a-job)
 

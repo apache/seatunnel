@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorExc
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -451,6 +452,7 @@ public class FakeConfig implements Serializable {
     }
 
     @Getter
+    @Setter
     @AllArgsConstructor
     public static class RowData implements Serializable {
         static final String KEY_KIND = "kind";

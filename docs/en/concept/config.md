@@ -159,6 +159,8 @@ sql = """ select * from "table" """
 
 ## Json Format Support
 
+Before writing the config file, please make sure that the name of the config file should end with `.json`.
+
 ```json
 
 {

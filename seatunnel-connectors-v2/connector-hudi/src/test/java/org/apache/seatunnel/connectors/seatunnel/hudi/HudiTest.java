@@ -67,8 +67,8 @@ import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer.AvroSchemaConverter.convertToSchema;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer.RowDataToAvroConverters.createConverter;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.AvroSchemaConverter.convertToSchema;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.RowDataToAvroConverters.createConverter;
 
 public class HudiTest {
 

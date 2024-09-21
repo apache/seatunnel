@@ -56,13 +56,14 @@ public class CustomModel extends AbstractModel {
     public CustomModel(
             SeaTunnelRowType rowType,
             SqlType outputType,
+            List<String> projectionColumns,
             String prompt,
             String model,
             String apiPath,
             Map<String, String> header,
             Map<String, Object> body,
             String parse) {
-        super(rowType, outputType, prompt);
+        super(rowType, outputType, projectionColumns, prompt);
         this.apiPath = apiPath;
         this.model = model;
         this.header = header;

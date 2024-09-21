@@ -71,7 +71,7 @@ public class MultiTableSink
                 int index = context.getIndexOfSubtask() * replicaNum + i;
                 writers.put(
                         SinkIdentifier.of(tableIdentifier, index),
-                        sink.createWriter(new SinkContextProxy(index, context)));
+                        sink.createWriter(new SinkContextProxy(index, replicaNum, context)));
                 sinkWritersContext.put(SinkIdentifier.of(tableIdentifier, index), context);
             }
         }
@@ -100,11 +100,12 @@ public class MultiTableSink
                 if (state.isEmpty()) {
                     writers.put(
                             sinkIdentifier,
-                            sink.createWriter(new SinkContextProxy(index, context)));
+                            sink.createWriter(new SinkContextProxy(index, replicaNum, context)));
                 } else {
                     writers.put(
                             sinkIdentifier,
-                            sink.restoreWriter(new SinkContextProxy(index, context), state));
+                            sink.restoreWriter(
+                                    new SinkContextProxy(index, replicaNum, context), state));
                 }
                 sinkWritersContext.put(SinkIdentifier.of(tableIdentifier, index), context);
             }
