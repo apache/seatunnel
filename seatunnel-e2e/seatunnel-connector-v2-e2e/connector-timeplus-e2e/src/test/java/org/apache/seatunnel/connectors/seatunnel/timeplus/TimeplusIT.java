@@ -369,6 +369,9 @@ public class TimeplusIT extends TestSuiteBase implements TestResource {
             while (sourceResultSet.next()) {
                 if (sinkResultSet.next()) {
                     for (String column : columnList) {
+                        if("_tp_time".equals(column)){
+                            continue; //skip the _tp_time column, since source and sink can be different
+                        }
                         Object source = sourceResultSet.getObject(column);
                         Object sink = sinkResultSet.getObject(column);
                         if (!Objects.deepEquals(source, sink)) {
@@ -378,7 +381,7 @@ public class TimeplusIT extends TestSuiteBase implements TestResource {
                                     IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
                             String sinkValue =
                                     IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
-                            Assertions.assertEquals(sourceValue, sinkValue);
+                            Assertions.assertEquals(sourceValue, sinkValue, column);
                         }
                         Assertions.assertTrue(true);
                     }
@@ -400,7 +403,7 @@ public class TimeplusIT extends TestSuiteBase implements TestResource {
     }
 
     private void assertHasData(String table) {
-        String sql = String.format("select * from %s.%s limit 1", DATABASE, table);
+        String sql = String.format("select * from table(%s.%s) limit 1", DATABASE, table);
         try (Statement statement = connection.createStatement();
                 ResultSet source = statement.executeQuery(sql); ) {
             Assertions.assertTrue(source.next());
