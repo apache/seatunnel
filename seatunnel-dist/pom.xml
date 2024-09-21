@@ -111,6 +111,7 @@
                 <hive.jdbc.version>3.1.3</hive.jdbc.version>
                 <aliyun.sdk.oss.version>3.4.1</aliyun.sdk.oss.version>
                 <jdom.version>1.1</jdom.version>
+                <tidb.version>3.3.5</tidb.version>
             </properties>
             <dependencies>
                 <!-- starters -->
@@ -514,6 +515,12 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-cdc-tidb</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-cdc-postgres</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -710,6 +717,12 @@
                     <groupId>net.snowflake</groupId>
                     <artifactId>snowflake-jdbc</artifactId>
                     <version>${snowflake.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.tikv</groupId>
+                    <artifactId>tikv-client-java</artifactId>
+                    <version>${tidb.version}</version>
                     <scope>provided</scope>
                 </dependency>
                 <!-- jdbc driver end -->

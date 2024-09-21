@@ -164,6 +164,12 @@ public class BaseSourceConfigOptions {
                     .defaultValue(CompressFormat.NONE)
                     .withDescription("Compression codec");
 
+    public static final Option<ArchiveCompressFormat> ARCHIVE_COMPRESS_CODEC =
+            Options.key("archive_compress_codec")
+                    .enumType(ArchiveCompressFormat.class)
+                    .defaultValue(ArchiveCompressFormat.NONE)
+                    .withDescription("Archive compression codec");
+
     public static final Option<List<Map<String, Object>>> TABLE_CONFIGS =
             Options.key("tables_configs")
                     .type(new TypeReference<List<Map<String, Object>>>() {})

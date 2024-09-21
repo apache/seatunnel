@@ -19,6 +19,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
@@ -36,6 +37,7 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
 import com.google.common.collect.Lists;
+import lombok.SneakyThrows;
 
 import java.math.BigDecimal;
 import java.sql.Date;
@@ -137,9 +139,6 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
                 .testData(testDataSet)
                 .build();
     }
-
-    @Override
-    void compareResult(String executeKey) {}
 
     @Override
     String driverUrl() {
@@ -275,6 +274,16 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
         Assertions.assertEquals(
                 table.getTableSchema().getColumns().get(1).getComment(),
                 "\"#¥%……&*（）;;',,..``````//'@特殊注释'\\'\"");
+        testTableOfQuery(oracleCatalog);
         oracleCatalog.close();
+    }
+
+    @SneakyThrows
+    private void testTableOfQuery(OracleCatalog oracleCatalog) {
+        String querySql = "select * from TESTUSER.E2E_TABLE_SOURCE_LOWER";
+        CatalogTable tableOfQuery = oracleCatalog.getTable(querySql);
+        final List<Column> columns = tableOfQuery.getTableSchema().getColumns();
+        Assertions.assertEquals(columns.get(0).getColumnLength(), 40);
+        Assertions.assertEquals(columns.get(1).getColumnLength(), 40);
     }
 }

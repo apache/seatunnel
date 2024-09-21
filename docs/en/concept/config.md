@@ -159,6 +159,8 @@ sql = """ select * from "table" """
 
 ## Json Format Support
 
+Before writing the config file, please make sure that the name of the config file should end with `.json`.
+
 ```json
 
 {
@@ -205,8 +207,26 @@ sql = """ select * from "table" """
 
 ## Config Variable Substitution
 
-In config file we can define some variables and replace it in run time. **This is only support `hocon` format file**.
+In a config file, we can define variables and replace them at runtime. However, note that only HOCON format files are supported.
 
+### Usage of Variables:
+- `${varName}`: If the variable is not provided, an exception will be thrown.
+- `${varName:default}`: If the variable is not provided, the default value will be used. If you set a default value, it should be enclosed in double quotes.
+- `${varName:}`: If the variable is not provided, an empty string will be used.
+
+If you do not set the variable value through `-i`, you can also pass the value by setting the system environment variables. Variable substitution supports obtaining variable values through environment variables.
+For example, you can set the environment variable in the shell script as follows:
+```shell
+export varName="value with space"
+```
+Then you can use the variable in the config file.
+
+If you set a variable without default value in the config file but do not pass it during execution, an exception will be thrown. Example:
+```shell
+Caused by: org.apache.seatunnel.core.starter.exception.CommandExecuteException: Variable substitution error: ${resName}_table
+```
+
+### Example:
 ```hocon
 env {
   job.mode = "BATCH"
@@ -216,14 +236,14 @@ env {
 
 source {
   FakeSource {
-    result_table_name = ${resName}
-    row.num = ${rowNum}
+    result_table_name = "${resName:fake_test}_table"
+    row.num = "${rowNum:50}"
     string.template = ${strTemplate}
     int.template = [20, 21]
     schema = {
       fields {
-        name = ${nameType}
-        age = "int"
+        name = "${nameType:string}"
+        age = ${ageType}
       }
     }
   }
@@ -231,9 +251,9 @@ source {
 
 transform {
     sql {
-      source_table_name = "fake"
+      source_table_name = "${resName:fake_test}_table"
       result_table_name = "sql"
-      query = "select * from "${resName}" where name = '"${nameVal}"' "
+      query = "select * from ${resName:fake_test}_table where name = '${nameVal}' "
     }
 
 }
@@ -245,26 +265,24 @@ sink {
      password = ${password}
   }
 }
-
 ```
 
-In the above config, we define some variables, like `${rowNum}`, `${resName}`.
-We can replace those parameters with this shell command:
+In the configuration above, we have defined several variables like `${rowNum}`, `${resName}`. We can replace these parameters using the following shell command:
 
 ```shell
 ./bin/seatunnel.sh -c <this_config_file> 
 -i jobName='this_is_a_job_name' 
--i resName=fake 
--i rowNum=10 
 -i strTemplate=['abc','d~f','hi'] 
--i nameType=string 
+-i ageType=int
 -i nameVal=abc 
 -i username=seatunnel=2.3.1 
 -i password='$a^b%c.d~e0*9(' 
 -m local
 ```
 
-Then the final submitted config is:
+In this case, `resName`, `rowNum`, and `nameType` are not set, so they will take their default values.
+
+The final submitted configuration would be:
 
 ```hocon
 env {
@@ -275,13 +293,13 @@ env {
 
 source {
   FakeSource {
-    result_table_name = "fake"
-    row.num = 10
-    string.template = ["abc","d~f","h i"]
+    result_table_name = "fake_test_table"
+    row.num = 50
+    string.template = ['abc','d~f','hi']
     int.template = [20, 21]
     schema = {
       fields {
-        name = string
+        name = "string"
         age = "int"
       }
     }
@@ -290,9 +308,9 @@ source {
 
 transform {
     sql {
-      source_table_name = "fake"
+      source_table_name = "fake_test_table"
       result_table_name = "sql"
-      query = "select * from fake where name = 'abc' "
+      query = "select * from fake_test_table where name = 'abc' "
     }
 
 }
@@ -302,15 +320,16 @@ sink {
      source_table_name = "sql"
      username = "seatunnel=2.3.1"
      password = "$a^b%c.d~e0*9("
-  }
+    }
 }
 ```
 
-Some Notes:
-- Quota with `'` if the value has special character such as `(`
-- If the replacement variables is in `"` or `'`, like `resName` and `nameVal`, you need add `"`
-- The value can't have space `' '`, like `-i jobName='this is a job name' `, this will be replaced to `job.name = "this"`
-- If you want to use dynamic parameters, you can use the following format: -i date=$(date +"%Y%m%d").
+### Important Notes:
+- If a value contains special characters like `(`, enclose it in single quotes (`'`).
+- If the substitution variable contains double or single quotes (e.g., `"resName"` or `"nameVal"`), you need to include them with the value.
+- The value cannot contain spaces (`' '`). For example, `-i jobName='this is a job name'` will be replaced with `job.name = "this"`. You can use environment variables to pass values with spaces.
+- For dynamic parameters, you can use the following format: `-i date=$(date +"%Y%m%d")`.
+- Cannot use specified system reserved characters; they will not be replaced by `-i`, such as: `${database_name}`, `${schema_name}`, `${table_name}`, `${schema_full_name}`, `${table_full_name}`, `${primary_key}`, `${unique_key}`, `${field_names}`. For details, please refer to [Sink Parameter Placeholders](sink-options-placeholders.md).
 
 ## What's More
 

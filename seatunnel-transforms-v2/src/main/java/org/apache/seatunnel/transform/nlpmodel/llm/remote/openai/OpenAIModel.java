@@ -54,11 +54,12 @@ public class OpenAIModel extends AbstractModel {
     public OpenAIModel(
             SeaTunnelRowType rowType,
             SqlType outputType,
+            List<String> projectionColumns,
             String prompt,
             String model,
             String apiKey,
             String apiPath) {
-        super(rowType, outputType, prompt);
+        super(rowType, outputType, projectionColumns, prompt);
         this.apiKey = apiKey;
         this.apiPath = apiPath;
         this.model = model;
@@ -82,7 +83,8 @@ public class OpenAIModel extends AbstractModel {
 
         JsonNode result = OBJECT_MAPPER.readTree(responseStr);
         String resultData = result.get("choices").get(0).get("message").get("content").asText();
-        return OBJECT_MAPPER.readValue(resultData, new TypeReference<List<String>>() {});
+        return OBJECT_MAPPER.readValue(
+                convertData(resultData), new TypeReference<List<String>>() {});
     }
 
     @VisibleForTesting

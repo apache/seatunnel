@@ -23,7 +23,7 @@ import org.apache.seatunnel.shade.com.google.common.collect.Maps;
 import org.apache.seatunnel.shade.com.google.common.collect.Sets;
 import org.apache.seatunnel.shade.com.google.common.primitives.Ints;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.SchemaUtils;
@@ -63,7 +63,7 @@ public class IcebergWriterFactory {
         this.config = config;
     }
 
-    public RecordWriter createWriter(SeaTunnelRowType rowType) {
+    public RecordWriter createWriter(TableSchema tableSchema) {
         Table table;
         try {
             table = tableLoader.loadTable();
@@ -76,7 +76,7 @@ public class IcebergWriterFactory {
                                     tableLoader.getCatalog(),
                                     tableLoader.getTableIdentifier(),
                                     config,
-                                    rowType);
+                                    tableSchema);
                     // Create an empty snapshot for the branch
                     if (config.getCommitBranch() != null) {
                         table.manageSnapshots().createBranch(config.getCommitBranch()).commit();

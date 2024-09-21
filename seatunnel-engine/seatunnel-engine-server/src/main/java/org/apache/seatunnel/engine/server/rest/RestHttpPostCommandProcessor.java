@@ -40,6 +40,7 @@ import org.apache.seatunnel.engine.server.utils.RestUtil;
 
 import org.apache.commons.lang3.StringUtils;
 
+import com.hazelcast.cluster.impl.MemberImpl;
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
 import com.hazelcast.internal.ascii.rest.HttpPostCommand;
@@ -47,6 +48,7 @@ import com.hazelcast.internal.json.Json;
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 import scala.Tuple2;
 
 import java.io.IOException;
@@ -62,6 +64,7 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.STOP_JOBS_URL
 import static org.apache.seatunnel.engine.server.rest.RestConstant.STOP_JOB_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.SUBMIT_JOBS_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.SUBMIT_JOB_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.UPDATE_TAGS_URL;
 
 public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostCommand> {
 
@@ -94,6 +97,8 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                 handleStopJob(httpPostCommand);
             } else if (uri.startsWith(ENCRYPT_CONFIG)) {
                 handleEncrypt(httpPostCommand);
+            } else if (uri.startsWith(UPDATE_TAGS_URL)) {
+                handleUpdateTags(httpPostCommand);
             } else {
                 original.handle(httpPostCommand);
             }
@@ -255,6 +260,30 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                 encryptConfig.root().render(ConfigRenderOptions.concise().setJson(true));
         JsonObject jsonObject = Json.parse(encryptString).asObject();
         this.prepareResponse(httpPostCommand, jsonObject);
+    }
+
+    private void handleUpdateTags(HttpPostCommand httpPostCommand) {
+        Map<String, Object> params = JsonUtils.toMap(requestHandle(httpPostCommand));
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer();
+
+        NodeEngineImpl nodeEngine = seaTunnelServer.getNodeEngine();
+        MemberImpl localMember = nodeEngine.getLocalMember();
+
+        Map<String, String> tags =
+                params.entrySet().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Map.Entry::getKey,
+                                        value ->
+                                                value.getValue() != null
+                                                        ? value.getValue().toString()
+                                                        : ""));
+        localMember.updateAttribute(tags);
+        this.prepareResponse(
+                httpPostCommand,
+                new JsonObject()
+                        .add("status", ResponseType.SUCCESS.toString())
+                        .add("message", "update node tags done."));
     }
 
     @Override

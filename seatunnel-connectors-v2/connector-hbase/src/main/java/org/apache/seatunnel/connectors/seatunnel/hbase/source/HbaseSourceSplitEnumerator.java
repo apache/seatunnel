@@ -18,14 +18,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hbase.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.connectors.seatunnel.hbase.client.HbaseClient;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
-import org.apache.seatunnel.connectors.seatunnel.hbase.utils.HbaseConnectionUtil;
 
-import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.RegionLocator;
 
 import lombok.extern.slf4j.Slf4j;
@@ -43,7 +39,6 @@ public class HbaseSourceSplitEnumerator
     /** Source split enumerator context */
     private final Context<HbaseSourceSplit> context;
 
-    private Config pluginConfig;
     /** The splits that has assigned */
     private final Set<HbaseSourceSplit> assignedSplit;
 
@@ -51,24 +46,29 @@ public class HbaseSourceSplitEnumerator
     private Set<HbaseSourceSplit> pendingSplit;
 
     private HbaseParameters hbaseParameters;
-    private Connection connection;
+
+    private HbaseClient hbaseClient;
 
     public HbaseSourceSplitEnumerator(
             Context<HbaseSourceSplit> context, HbaseParameters hbaseParameters) {
-        this.context = context;
-        this.hbaseParameters = hbaseParameters;
-        this.assignedSplit = new HashSet<>();
-        connection = HbaseConnectionUtil.getHbaseConnection(hbaseParameters);
+        this(context, hbaseParameters, new HashSet<>());
     }
 
     public HbaseSourceSplitEnumerator(
             Context<HbaseSourceSplit> context,
             HbaseParameters hbaseParameters,
             HbaseSourceState sourceState) {
+        this(context, hbaseParameters, sourceState.getAssignedSplits());
+    }
+
+    private HbaseSourceSplitEnumerator(
+            Context<HbaseSourceSplit> context,
+            HbaseParameters hbaseParameters,
+            Set<HbaseSourceSplit> assignedSplit) {
         this.context = context;
         this.hbaseParameters = hbaseParameters;
-        this.assignedSplit = sourceState.getAssignedSplits();
-        connection = HbaseConnectionUtil.getHbaseConnection(hbaseParameters);
+        this.assignedSplit = assignedSplit;
+        this.hbaseClient = HbaseClient.createInstance(hbaseParameters);
     }
 
     @Override
@@ -157,8 +157,7 @@ public class HbaseSourceSplitEnumerator
         List<HbaseSourceSplit> splits = new ArrayList<>();
 
         try {
-            RegionLocator regionLocator =
-                    connection.getRegionLocator(TableName.valueOf(hbaseParameters.getTable()));
+            RegionLocator regionLocator = hbaseClient.getRegionLocator(hbaseParameters.getTable());
             byte[][] startKeys = regionLocator.getStartKeys();
             byte[][] endKeys = regionLocator.getEndKeys();
             if (startKeys.length != endKeys.length) {

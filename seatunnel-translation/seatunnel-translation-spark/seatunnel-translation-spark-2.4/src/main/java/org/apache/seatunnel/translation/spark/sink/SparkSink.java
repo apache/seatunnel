@@ -47,6 +47,8 @@ public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT>
 
     private volatile String jobId;
 
+    private volatile Integer parallelism;
+
     private void init(DataSourceOptions options) {
         if (sink == null) {
             this.sink =
@@ -71,6 +73,16 @@ public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT>
         if (jobId == null) {
             this.jobId = options.get(SparkSinkInjector.JOB_ID).orElse(null);
         }
+        if (parallelism == null) {
+            this.parallelism =
+                    options.get(SparkSinkInjector.PARALLELISM)
+                            .map(Integer::parseInt)
+                            .orElseThrow(
+                                    () ->
+                                            new IllegalArgumentException(
+                                                    SparkSinkInjector.PARALLELISM
+                                                            + " must be specified"));
+        }
     }
 
     @Override
@@ -79,7 +91,7 @@ public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT>
         init(options);
 
         try {
-            return new SparkStreamWriter<>(sink, catalogTables, jobId);
+            return new SparkStreamWriter<>(sink, catalogTables, jobId, parallelism);
         } catch (IOException e) {
             throw new RuntimeException("find error when createStreamWriter", e);
         }
@@ -91,7 +103,8 @@ public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT>
         init(options);
 
         try {
-            return Optional.of(new SparkDataSourceWriter<>(sink, catalogTables, jobId));
+            return Optional.of(
+                    new SparkDataSourceWriter<>(sink, catalogTables, jobId, parallelism));
         } catch (IOException e) {
             throw new RuntimeException("find error when createStreamWriter", e);
         }

@@ -26,6 +26,8 @@ import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -112,7 +114,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     abstract JdbcCase getJdbcCase();
 
-    abstract void compareResult(String executeKey) throws SQLException, IOException;
+    void checkResult(String executeKey, TestContainer container, Container.ExecResult execResult) {}
 
     abstract String driverUrl();
 
@@ -351,7 +353,10 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             try {
                 Container.ExecResult execResult = container.executeJob(configFile);
                 Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-                compareResult(String.format("%s in [%s]", configFile, container.identifier()));
+                checkResult(
+                        String.format("%s in [%s]", configFile, container.identifier()),
+                        container,
+                        execResult);
             } finally {
                 clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
             }
@@ -459,6 +464,17 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             catalog.dropDatabase(targetTablePath, false);
             Assertions.assertFalse(catalog.databaseExists(targetTablePath.getDatabaseName()));
         }
+        Exception exception =
+                Assertions.assertThrows(
+                        Exception.class,
+                        () ->
+                                catalog.truncateTable(
+                                        TablePath.of("not_exist", "not_exist", "not_exist"),
+                                        false));
+
+        Assertions.assertTrue(
+                exception instanceof TableNotExistException
+                        || exception instanceof CatalogException);
     }
 
     @Test

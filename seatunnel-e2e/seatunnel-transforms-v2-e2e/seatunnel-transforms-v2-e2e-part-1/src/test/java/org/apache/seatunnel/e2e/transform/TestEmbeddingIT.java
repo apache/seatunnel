@@ -43,8 +43,8 @@ import java.util.stream.Stream;
 
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason = "Currently SPARK and FLINK not support adapt")
+        type = {EngineType.SPARK},
+        disabledReason = "Currently SPARK not support adapt")
 public class TestEmbeddingIT extends TestSuiteBase implements TestResource {
     private static final String TMP_DIR = "/tmp";
     private GenericContainer<?> mockserverContainer;

@@ -85,7 +85,6 @@ public class FlinkExecution implements TaskExecution {
         registerPlugin(envConfig);
         JobContext jobContext = new JobContext();
         jobContext.setJobMode(RuntimeEnvironment.getJobMode(config));
-
         this.sourcePluginExecuteProcessor =
                 new SourceExecuteProcessor(
                         jarPaths, envConfig, config.getConfigList(Constants.SOURCE), jobContext);

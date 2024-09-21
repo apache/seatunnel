@@ -69,6 +69,33 @@ network:
 
 ------------------------------------------------------------------------------------------
 
+###  Returns thread dump information for the current node.
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/thread-dump</b></code> <code>(Returns thread dump information for the current node.)</code></summary>
+
+#### Parameters
+
+
+#### Responses
+
+```json
+[
+  {
+    "threadName": "",
+    "threadId": 0,
+    "threadState": "",
+    "stackTrace": ""
+  }
+]
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+
+
 ### Returns An Overview And State Of All Jobs
 
 <details>
@@ -278,6 +305,9 @@ When we can't get the job info, the response will be:
 ```json
 [
   {
+    "isMaster": "true",
+    "host": "localhost",
+    "port": "5801",
     "processors":"8",
     "physical.memory.total":"16.0G",
     "physical.memory.free":"16.3M",
@@ -635,5 +665,67 @@ For more information about customize encryption, please refer to the documentati
 }
 ```
 
+</details>
+
+
+------------------------------------------------------------------------------------------
+
+### Update the tags of running node
+
+<details><summary><code>POST</code><code><b>/hazelcast/rest/maps/update-tags</b></code><code>Because the update can only target a specific node, the current node's `ip:port` needs to be used for the update</code><code>(If the update is successful, return a success message)</code></summary>
+
+
+#### update node tags
+##### Body
+If the request parameter is a `Map` object, it indicates that the tags of the current node need to be updated
+```json
+{
+  "tag1": "dev_1",
+  "tag2": "dev_2"
+}
+```
+##### Responses
+
+```json
+{
+  "status": "success",
+  "message": "update node tags done."
+}
+```
+#### remove node tags
+##### Body
+If the parameter is an empty `Map` object, it means that the tags of the current node need to be cleared
+```json
+{}
+```
+##### Responses
+
+```json
+{
+  "status": "success",
+  "message": "update node tags done."
+}
+```
+
+#### Request parameter exception
+- If the parameter body is empty
+
+##### Responses
+
+```json
+{
+    "status": "fail",
+    "message": "Request body is empty."
+}
+```
+- If the parameter is not a `Map` object
+##### Responses
+
+```json
+{
+  "status": "fail",
+  "message": "Invalid JSON format in request body."
+}
+```
 </details>
 

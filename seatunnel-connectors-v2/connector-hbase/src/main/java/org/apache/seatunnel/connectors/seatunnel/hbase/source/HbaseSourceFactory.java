@@ -26,18 +26,17 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig;
+import org.apache.seatunnel.connectors.seatunnel.hbase.constant.HbaseIdentifier;
 
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
-import static org.apache.seatunnel.connectors.seatunnel.hbase.sink.HbaseSinkFactory.IDENTIFIER;
-
 @AutoService(Factory.class)
 public class HbaseSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
-        return IDENTIFIER;
+        return HbaseIdentifier.IDENTIFIER_NAME;
     }
 
     @Override

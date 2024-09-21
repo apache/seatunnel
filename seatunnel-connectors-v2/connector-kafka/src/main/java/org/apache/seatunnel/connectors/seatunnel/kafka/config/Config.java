@@ -162,6 +162,12 @@ public class Config {
                     .withDescription(
                             "The interval for dynamically discovering topics and partitions.");
 
+    public static final Option<Long> KEY_POLL_TIMEOUT =
+            Options.key("poll.timeout")
+                    .longType()
+                    .defaultValue(10000L)
+                    .withDescription("The interval for poll message");
+
     public static final Option<MessageFormatErrorHandleWay> MESSAGE_FORMAT_ERROR_HANDLE_WAY_OPTION =
             Options.key("format_error_handle_way")
                     .enumType(MessageFormatErrorHandleWay.class)

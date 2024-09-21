@@ -115,7 +115,7 @@ public class IcebergTypeMapper {
         return toIcebergType(dataType, new AtomicInteger(1));
     }
 
-    private static Type toIcebergType(SeaTunnelDataType dataType, AtomicInteger nextId) {
+    public static Type toIcebergType(SeaTunnelDataType dataType, AtomicInteger nextId) {
         switch (dataType.getSqlType()) {
             case BOOLEAN:
                 return Types.BooleanType.get();

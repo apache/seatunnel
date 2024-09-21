@@ -53,3 +53,10 @@ protoc-jar-3.11.4.jar
 error_prone_annotations-2.18.0.jar
 gson-2.8.9.jar
 j2objc-annotations-2.8.jar
+simpleclient-0.16.0.jar
+simpleclient_common-0.16.0.jar
+simpleclient_hotspot-0.16.0.jar
+simpleclient_httpserver-0.16.0.jar
+simpleclient_tracer_common-0.16.0.jar
+simpleclient_tracer_otel-0.16.0.jar
+simpleclient_tracer_otel_agent-0.16.0.jar

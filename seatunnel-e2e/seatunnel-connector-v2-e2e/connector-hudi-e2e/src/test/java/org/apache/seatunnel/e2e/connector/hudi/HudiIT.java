@@ -20,12 +20,14 @@ package org.apache.seatunnel.e2e.connector.hudi;
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.hadoop.ParquetReader;
@@ -38,6 +40,7 @@ import org.testcontainers.containers.GenericContainer;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.concurrent.TimeUnit;
@@ -51,6 +54,9 @@ import static org.awaitility.Awaitility.given;
 @Slf4j
 public class HudiIT extends TestSuiteBase {
 
+    private static final String DATABASE = "st";
+    private static final String DEFAULT_DATABASE = "default";
+    private static final String TABLE_NAME = "st_test";
     private static final String TABLE_PATH = "/tmp/hudi/";
     private static final String NAMESPACE = "hudi";
     private static final String NAMESPACE_TAR = "hudi.tar.gz";
@@ -76,7 +82,6 @@ public class HudiIT extends TestSuiteBase {
                             "sh", "-c", "cd /tmp" + " && tar -zxvf " + NAMESPACE_TAR);
                     try {
                         Process process = processBuilder.start();
-                        // 等待命令执行完成
                         int exitCode = process.waitFor();
                         if (exitCode == 0) {
                             log.info("Extract files successful.");
@@ -97,12 +102,61 @@ public class HudiIT extends TestSuiteBase {
             };
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {TestContainerId.SPARK_2_4},
+            type = {EngineType.FLINK},
+            disabledReason = "FLINK do not support local file catalog in hudi.")
     public void testWriteHudi(TestContainer container)
             throws IOException, InterruptedException, URISyntaxException {
         Container.ExecResult textWriteResult = container.executeJob("/fake_to_hudi.conf");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
         Configuration configuration = new Configuration();
-        Path inputPath = new Path(TABLE_PATH);
+        configuration.set("fs.defaultFS", LocalFileSystem.DEFAULT_FS);
+        Path inputPath =
+                new Path(TABLE_PATH + File.separator + DATABASE + File.separator + TABLE_NAME);
+
+        given().ignoreExceptions()
+                .await()
+                .atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            // copy hudi to local
+                            container.executeExtraCommands(containerExtendedFactory);
+                            ParquetReader<Group> reader =
+                                    ParquetReader.builder(new GroupReadSupport(), inputPath)
+                                            .withConf(configuration)
+                                            .build();
+
+                            long rowCount = 0;
+
+                            // Read data and count rows
+                            while (reader.read() != null) {
+                                rowCount++;
+                            }
+                            Assertions.assertEquals(5, rowCount);
+                        });
+        FileUtils.deleteFile(TABLE_PATH);
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {TestContainerId.SPARK_2_4},
+            type = {EngineType.FLINK},
+            disabledReason = "FLINK do not support local file catalog in hudi.")
+    public void testWriteHudiWithOmitConfigItem(TestContainer container)
+            throws IOException, InterruptedException, URISyntaxException {
+        Container.ExecResult textWriteResult =
+                container.executeJob("/fake_to_hudi_with_omit_config_item.conf");
+        Assertions.assertEquals(0, textWriteResult.getExitCode());
+        Configuration configuration = new Configuration();
+        configuration.set("fs.defaultFS", LocalFileSystem.DEFAULT_FS);
+        Path inputPath =
+                new Path(
+                        TABLE_PATH
+                                + File.separator
+                                + DEFAULT_DATABASE
+                                + File.separator
+                                + TABLE_NAME);
 
         given().ignoreExceptions()
                 .await()

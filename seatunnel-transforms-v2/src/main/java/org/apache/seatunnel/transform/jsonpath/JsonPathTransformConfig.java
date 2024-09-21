@@ -23,14 +23,19 @@ import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.SeaTunnelDataTypeConvertorUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.transform.common.CommonOptions;
+import org.apache.seatunnel.transform.common.ErrorHandleWay;
 import org.apache.seatunnel.transform.exception.TransformException;
 
 import org.apache.commons.lang3.StringUtils;
+
+import lombok.Getter;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.apache.seatunnel.transform.exception.JsonPathTransformErrorCode.COLUMNS_MUST_NOT_EMPTY;
 import static org.apache.seatunnel.transform.exception.JsonPathTransformErrorCode.DEST_FIELD_MUST_NOT_EMPTY;
@@ -70,13 +75,16 @@ public class JsonPathTransformConfig implements Serializable {
                     .withDescription("columns");
 
     private final List<ColumnConfig> columnConfigs;
+    @Getter private final ErrorHandleWay errorHandleWay;
 
     public List<ColumnConfig> getColumnConfigs() {
         return columnConfigs;
     }
 
-    public JsonPathTransformConfig(List<ColumnConfig> columnConfigs) {
+    public JsonPathTransformConfig(
+            List<ColumnConfig> columnConfigs, ErrorHandleWay errorHandleWay) {
         this.columnConfigs = columnConfigs;
+        this.errorHandleWay = errorHandleWay;
     }
 
     public static JsonPathTransformConfig of(ReadonlyConfig config) {
@@ -84,6 +92,7 @@ public class JsonPathTransformConfig implements Serializable {
             throw new TransformException(
                     COLUMNS_MUST_NOT_EMPTY, COLUMNS_MUST_NOT_EMPTY.getErrorMessage());
         }
+        ErrorHandleWay rowErrorHandleWay = config.get(CommonOptions.ROW_ERROR_HANDLE_WAY_OPTION);
         List<Map<String, String>> columns = config.get(COLUMNS);
         List<ColumnConfig> configs = new ArrayList<>(columns.size());
         for (Map<String, String> map : columns) {
@@ -92,12 +101,18 @@ public class JsonPathTransformConfig implements Serializable {
             String srcField = map.get(SRC_FIELD.key());
             String destField = map.get(DEST_FIELD.key());
             String type = map.getOrDefault(DEST_TYPE.key(), DEST_TYPE.defaultValue());
+            ErrorHandleWay columnErrorHandleWay =
+                    Optional.ofNullable(map.get(CommonOptions.COLUMN_ERROR_HANDLE_WAY_OPTION.key()))
+                            .map(ErrorHandleWay::valueOf)
+                            .orElse(null);
+
             SeaTunnelDataType<?> dataType =
                     SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(srcField, type);
-            ColumnConfig columnConfig = new ColumnConfig(path, srcField, destField, dataType);
+            ColumnConfig columnConfig =
+                    new ColumnConfig(path, srcField, destField, dataType, columnErrorHandleWay);
             configs.add(columnConfig);
         }
-        return new JsonPathTransformConfig(configs);
+        return new JsonPathTransformConfig(configs, rowErrorHandleWay);
     }
 
     private static void checkColumnConfig(Map<String, String> map) {

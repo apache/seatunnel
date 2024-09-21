@@ -82,3 +82,7 @@ sink {
 
 ![img.png](../../images/resource-isolation.png)
 
+3. update running node tags by rest api (optional)
+
+for more information, please refer to [Update the tags of running node](https://seatunnel.apache.org/docs/seatunnel-engine/rest-api/)
+
