@@ -140,7 +140,7 @@ public class ServerConfigOptions {
 
     public static final Option<ScheduleStrategy> JOB_SCHEDULE_STRATEGY =
             Options.key("job-schedule-strategy")
-                    .type(new TypeReference<ScheduleStrategy>() {})
+                    .enumType(ScheduleStrategy.class)
                     .defaultValue(ScheduleStrategy.REJECT)
                     .withDescription(
                             "When the policy is REJECT, when the task queue is full, the task will be rejected; when the policy is WAIT, when the task queue is full, the task will wait");
