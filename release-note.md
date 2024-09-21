@@ -58,7 +58,7 @@
 - [Connector-v2] [Mongodb] Support to convert to double from numeric type that mongodb saved it as numeric internally (#6997)
 - [Connector-v2] [Redis] Using scan replace keys operation command,support batchWrite in single mode(#7030,#7085)
 - [Connector-V2] [Clickhouse] Add a new optional configuration `clickhouse.config` to the source connector of ClickHouse (#7143)
-- [Connector-V2] [ElasticsSource] Source support multiSource (#6730)
+- [Connector-V2] [Redis] Redis scan command supports versions 3, 4, 5, 6, 7 (#7666)
 
 ### Zeta(ST-Engine)
 
@@ -200,6 +200,7 @@
 - [Connector-V2] [Assert] Support field type assert and field value equality assert for full data types (#6275)
 - [Connector-V2] [Iceberg] Support iceberg sink #6198
 - [Connector-V2] [FILE-OBS] Add Huawei Cloud OBS connector #4578
+- [Connector-V2] [ElasticsSource] Source support multiSource (#6730)
 
 ### Zeta(ST-Engine)
 
