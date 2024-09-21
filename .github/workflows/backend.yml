@@ -1180,26 +1180,3 @@ jobs:
       - name: run oracle cdc connector integration test
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-cdc-oracle-e2e -am -Pci
-
-timeplus-connector-it:
-    needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-timeplus-e2e')
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v2
-      - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
-        with:
-          java-version: ${{ matrix.java }}
-          distribution: 'temurin'
-          cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
-      - name: run timeplus connector integration test
-        run: |
-          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-timeplus-e2e -am -Pci
