@@ -259,19 +259,6 @@ Redis {
 read string type keys write append to list
 
 ```hocon
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-  shade.identifier = "base64"
-
-  #spark config
-  spark.app.name = "SeaTunnel"
-  spark.executor.instances = 2
-  spark.executor.cores = 1
-  spark.executor.memory = "1g"
-  spark.master = local
-}
-
 source {
   Redis {
     host = "redis-e2e"

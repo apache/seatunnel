@@ -207,7 +207,7 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
 
     @TestTemplate
     public void testRedis(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob(testRedisConf());
+        Container.ExecResult execResult = container.executeJob("/redis-to-redis.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertEquals(100, jedis.llen("key_list"));
         // Clear data to prevent data duplication in the next TestContainer
@@ -218,7 +218,7 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
     @TestTemplate
     public void testRedisWithExpire(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob(testRedisWithExpireConf());
+        Container.ExecResult execResult = container.executeJob("/redis-to-redis-expire.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertEquals(100, jedis.llen("key_list"));
         // Clear data to prevent data duplication in the next TestContainer
@@ -228,7 +228,7 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
 
     @TestTemplate
     public void testRedisDbNum(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob(testRedisDbNumConf());
+        Container.ExecResult execResult = container.executeJob("/redis-to-redis-by-db-num.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         jedis.select(2);
         Assertions.assertEquals(100, jedis.llen("db_test"));
@@ -243,7 +243,7 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
         for (int i = 0; i < 1000; i++) {
             jedis.set(keyPrefix + i, "val");
         }
-        Container.ExecResult execResult = container.executeJob(testScanStringTypeWriteRedisConf());
+        Container.ExecResult execResult = container.executeJob("/scan-string-to-redis.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         List<String> list = jedis.lrange("string_test_list", 0, -1);
         Assertions.assertEquals(1000, list.size());
@@ -263,7 +263,8 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
                 jedis.lpush(list, "val" + j);
             }
         }
-        Container.ExecResult execResult = container.executeJob(testScanListTypeWriteRedisConf());
+        Container.ExecResult execResult =
+                container.executeJob("/scan-list-test-read-to-redis-list-test-check.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         List<String> list = jedis.lrange("list-test-check", 0, -1);
         Assertions.assertEquals(1000, list.size());
@@ -284,7 +285,8 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
                 jedis.sadd(setKey, j + "");
             }
         }
-        Container.ExecResult execResult = container.executeJob(testScanSetTypeWriteRedisConf());
+        Container.ExecResult execResult =
+                container.executeJob("/scan-set-to-redis-list-set-check.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         List<String> list = jedis.lrange("list-set-check", 0, -1);
         Assertions.assertEquals(1000, list.size());
@@ -305,7 +307,8 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
             map.put("name", "fuyoujie");
             jedis.hset(setKey, map);
         }
-        Container.ExecResult execResult = container.executeJob(testScanHashTypeWriteRedisConf());
+        Container.ExecResult execResult =
+                container.executeJob("/scan-hash-to-redis-list-hash-check.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         List<String> list = jedis.lrange("list-hash-check", 0, -1);
         Assertions.assertEquals(100, list.size());
@@ -332,7 +335,8 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
                 jedis.zadd(key, 1, j + "");
             }
         }
-        Container.ExecResult execResult = container.executeJob(testScanZsetTypeWriteRedisConf());
+        Container.ExecResult execResult =
+                container.executeJob("/scan-zset-to-redis-list-zset-check.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         List<String> list = jedis.lrange("list-zset-check", 0, -1);
         Assertions.assertEquals(1000, list.size());
@@ -350,50 +354,13 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
             disabledReason = "Currently FLINK do not support multiple table read")
     public void testMultipletableRedisSink(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob(testMultipletableRedisSinkConf());
+        Container.ExecResult execResult =
+                container.executeJob("/fake-to-multipletableredissink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         jedis.select(3);
         Assertions.assertEquals(2, jedis.llen("key_multi_list"));
         jedis.del("key_multi_list");
         jedis.select(0);
-    }
-
-    ///// need different redis version test override
-
-    public String testRedisConf() {
-        return "/redis-to-redis.conf";
-    }
-
-    public String testRedisWithExpireConf() {
-        return "/redis-to-redis-expire.conf";
-    }
-
-    public String testRedisDbNumConf() {
-        return "/redis-to-redis-by-db-num.conf";
-    }
-
-    public String testScanStringTypeWriteRedisConf() {
-        return "/scan-string-to-redis.conf";
-    }
-
-    public String testScanListTypeWriteRedisConf() {
-        return "/scan-list-test-read-to-redis-list-test-check.conf";
-    }
-
-    public String testScanHashTypeWriteRedisConf() {
-        return "/scan-hash-to-redis-list-hash-check.conf";
-    }
-
-    public String testScanZsetTypeWriteRedisConf() {
-        return "/scan-zset-to-redis-list-zset-check.conf";
-    }
-
-    public String testScanSetTypeWriteRedisConf() {
-        return "/scan-set-to-redis-list-set-check.conf";
-    }
-
-    public String testMultipletableRedisSinkConf() {
-        return "/fake-to-multipletableredissink.conf";
     }
 
     public abstract RedisContainerInfo getRedisContainerInfo();
