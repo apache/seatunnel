@@ -32,8 +32,6 @@ import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPAggCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TimeplusSinkState;
 
-import org.apache.logging.log4j.util.Strings;
-
 import com.google.auto.service.AutoService;
 
 import java.util.Properties;
@@ -88,6 +86,19 @@ public class TimeplusSinkFactory
                 .build();
     }
 
+    public static boolean isBlank(final String s) {
+        if (s == null || s.isEmpty()) {
+            return true;
+        }
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (!Character.isWhitespace(c)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
@@ -95,7 +106,7 @@ public class TimeplusSinkFactory
 
         String sinkTableName = config.get(TABLE);
 
-        if (Strings.isBlank(sinkTableName)) {
+        if (isBlank(sinkTableName)) {
             sinkTableName = catalogTable.getTableId().getTableName();
         }
 
@@ -156,13 +167,13 @@ public class TimeplusSinkFactory
     }
 
     private String replaceFullTableName(String original, TableIdentifier tableId) {
-        if (!Strings.isBlank(tableId.getDatabaseName())) {
+        if (!isBlank(tableId.getDatabaseName())) {
             original = original.replace(REPLACE_DATABASE_NAME_KEY, tableId.getDatabaseName());
         }
-        if (!Strings.isBlank(tableId.getSchemaName())) {
+        if (!isBlank(tableId.getSchemaName())) {
             original = original.replace(REPLACE_SCHEMA_NAME_KEY, tableId.getSchemaName());
         }
-        if (!Strings.isBlank(tableId.getTableName())) {
+        if (!isBlank(tableId.getTableName())) {
             original = original.replace(REPLACE_TABLE_NAME_KEY, tableId.getTableName());
         }
         return original;
