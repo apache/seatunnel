@@ -348,6 +348,9 @@ public class MilvusCatalog implements Catalog {
     @Override
     public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
             throws TableNotExistException, CatalogException {
+        if (!databaseExists(tablePath.getDatabaseName())) {
+            throw new DatabaseNotExistException(catalogName, tablePath.getDatabaseName());
+        }
         if (!tableExists(tablePath)) {
             if (!ignoreIfNotExists) {
                 throw new TableNotExistException(catalogName, tablePath);
