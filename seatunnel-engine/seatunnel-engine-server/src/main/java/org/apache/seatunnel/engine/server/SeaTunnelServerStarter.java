@@ -20,10 +20,12 @@ package org.apache.seatunnel.engine.server;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.server.rest.servlet.RunningJobsServlet;
 import org.apache.seatunnel.engine.server.telemetry.metrics.ExportsInstanceInitializer;
 
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.eclipse.jetty.servlet.ServletHolder;
 
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
@@ -32,15 +34,16 @@ import com.hazelcast.instance.impl.Node;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
+import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOBS_URL;
+
 @Slf4j
 public class SeaTunnelServerStarter {
 
     public static void main(String[] args) {
         createHazelcastInstance();
-        createJettyServer();
     }
 
-    public static void createJettyServer() {
+    public static void createJettyServer(HazelcastInstanceImpl hazelcastInstance) {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         Server server = new Server(seaTunnelConfig.getEngineConfig().getJettyPort());
 
@@ -53,6 +56,10 @@ public class SeaTunnelServerStarter {
                 new org.eclipse.jetty.servlet.ServletHolder(
                         "default", new org.eclipse.jetty.servlet.DefaultServlet()),
                 "/");
+
+        ServletHolder userServletHolder =
+                new ServletHolder(new RunningJobsServlet(hazelcastInstance));
+        context.addServlet(userServletHolder, RUNNING_JOBS_URL + "/*");
 
         server.setHandler(context);
 
@@ -105,6 +112,10 @@ public class SeaTunnelServerStarter {
         if (condition) {
             initTelemetryInstance(original.node);
         }
+
+        // create jetty server
+        createJettyServer(original);
+
         return original;
     }
 

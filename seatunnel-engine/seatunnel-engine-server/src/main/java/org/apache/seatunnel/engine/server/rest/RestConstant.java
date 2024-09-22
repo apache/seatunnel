@@ -45,6 +45,16 @@ public class RestConstant {
 
     public static final String METRICS = "metrics";
 
+    public static final String TABLE_SOURCE_RECEIVED_COUNT = "TableSourceReceivedCount";
+    public static final String TABLE_SINK_WRITE_COUNT = "TableSinkWriteCount";
+    public static final String TABLE_SOURCE_RECEIVED_QPS = "TableSourceReceivedQPS";
+    public static final String TABLE_SINK_WRITE_QPS = "TableSinkWriteQPS";
+    public static final String TABLE_SOURCE_RECEIVED_BYTES = "TableSourceReceivedBytes";
+    public static final String TABLE_SINK_WRITE_BYTES = "TableSinkWriteBytes";
+    public static final String TABLE_SOURCE_RECEIVED_BYTES_PER_SECONDS =
+            "TableSourceReceivedBytesPerSeconds";
+    public static final String TABLE_SINK_WRITE_BYTES_PER_SECONDS = "TableSinkWriteBytesPerSeconds";
+
     public static final String OVERVIEW = "/hazelcast/rest/maps/overview";
     public static final String RUNNING_JOBS_URL = "/hazelcast/rest/maps/running-jobs";
     @Deprecated public static final String RUNNING_JOB_URL = "/hazelcast/rest/maps/running-job";

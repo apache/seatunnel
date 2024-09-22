@@ -64,7 +64,9 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import io.prometheus.client.exporter.common.TextFormat;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.StringWriter;
+import java.net.URL;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -91,22 +93,19 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOBS_
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOB_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_THREADS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.SYSTEM_MONITORING_INFORMATION;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SINK_WRITE_BYTES;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SINK_WRITE_BYTES_PER_SECONDS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SINK_WRITE_COUNT;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SINK_WRITE_QPS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SOURCE_RECEIVED_BYTES;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SOURCE_RECEIVED_BYTES_PER_SECONDS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SOURCE_RECEIVED_COUNT;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SOURCE_RECEIVED_QPS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.TELEMETRY_METRICS_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.TELEMETRY_OPEN_METRICS_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.THREAD_DUMP;
 
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
-
-    private static final String TABLE_SOURCE_RECEIVED_COUNT = "TableSourceReceivedCount";
-    private static final String TABLE_SINK_WRITE_COUNT = "TableSinkWriteCount";
-    private static final String TABLE_SOURCE_RECEIVED_QPS = "TableSourceReceivedQPS";
-    private static final String TABLE_SINK_WRITE_QPS = "TableSinkWriteQPS";
-    private static final String TABLE_SOURCE_RECEIVED_BYTES = "TableSourceReceivedBytes";
-    private static final String TABLE_SINK_WRITE_BYTES = "TableSinkWriteBytes";
-    private static final String TABLE_SOURCE_RECEIVED_BYTES_PER_SECONDS =
-            "TableSourceReceivedBytesPerSeconds";
-    private static final String TABLE_SINK_WRITE_BYTES_PER_SECONDS =
-            "TableSinkWriteBytesPerSeconds";
 
     private final Log4j2HttpGetCommandProcessor original;
     private NodeEngine nodeEngine;
@@ -224,6 +223,29 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         }
 
         this.prepareResponse(command, threadInfoList);
+    }
+
+    private void handleStaticResource(HttpGetCommand httpGetCommand) {
+        String uri = httpGetCommand.getURI();
+        // Remove leading slash
+        if (uri.startsWith("/")) {
+            uri = uri.substring(1);
+        }
+
+        // Get the resource from the classpath
+        URL resource = getClass().getResource(uri);
+        if (resource != null) {
+            try (InputStream inputStream = resource.openStream()) {
+                byte[] content = new byte[inputStream.available()];
+                inputStream.read(content);
+                httpGetCommand.send200();
+            } catch (IOException e) {
+                logger.warning("Error reading static resource: " + uri, e);
+                httpGetCommand.send404();
+            }
+        } else {
+            httpGetCommand.send404();
+        }
     }
 
     private void getSystemMonitoringInformation(HttpGetCommand command) {
@@ -417,7 +439,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                         .collect(JsonArray::new, JsonArray::add, JsonArray::add));
     }
 
-    private Map<String, Object> getJobMetrics(String jobMetrics) {
+    public static Map<String, Object> getJobMetrics(String jobMetrics) {
         Map<String, Object> metricsMap = new HashMap<>();
         // To add metrics, populate the corresponding array,
         String[] countMetricsNames = {
@@ -501,7 +523,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         return metricsMap;
     }
 
-    private void processMetric(
+    public static void processMetric(
             String metricName,
             String tableName,
             JsonNode metricNode,
@@ -538,7 +560,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         }
     }
 
-    private void aggregateMetrics(
+    public static void aggregateMetrics(
             JsonNode jobMetricsStr,
             Long[] metricsSums,
             Double[] metricsRates,
@@ -558,7 +580,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         }
     }
 
-    private void populateMetricsMap(
+    public static void populateMetricsMap(
             Map<String, Object> metricsMap,
             Object[] metrics,
             String[] metricNames,
