@@ -80,7 +80,7 @@ export default defineComponent({
     return () => (
       <NLayout>
         <NLayoutContent>
-          <div class="w-full bg-white px-12 pt-6 pb-12 border border-gray-100 rounded-xl">
+          <div class="w-full bg-white p-6 border border-gray-100 rounded-xl">
             <h2 class="font-bold text-2xl pb-6">{t('managers.managers')}</h2>
             <NDataTable
               columns={columns}

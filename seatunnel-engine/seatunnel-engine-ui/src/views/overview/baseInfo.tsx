@@ -30,7 +30,7 @@ export default defineComponent({
 
     return () => (
       <NSpace wrap-item={false}>
-        <NCard title="Availiable Task Slots" hoverable style="flex:1">
+        <NCard title="Workers" hoverable style="flex:1">
           <span class="text-2xl font-bold">{data.workers}</span>
           <div class="border border-b-0 mt-3" />
           <NSpace class="mt-3" size={16}>
@@ -44,7 +44,7 @@ export default defineComponent({
           <NSpace class="mt-3" size={16}>
             <span>Cancelled: {data.cancelledJobs}</span>
             <span>Failed: {data.failedJobs}</span>
-            <span>Finished: {data.failedJobs}</span>
+            <span>Finished: {data.finishedJobs}</span>
           </NSpace>
         </NCard>
       </NSpace>

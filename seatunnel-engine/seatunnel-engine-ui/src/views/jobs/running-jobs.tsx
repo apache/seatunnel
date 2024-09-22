@@ -84,7 +84,7 @@ export default defineComponent({
 
     const columns = createColumns()
     return () => (
-      <div class="w-full bg-white px-12 pt-6 pb-12 border border-gray-100 rounded-xl">
+      <div class="w-full bg-white p-6 border border-gray-100 rounded-xl">
         <h2 class="font-bold text-2xl pb-6">{t('jobs.runningJobs')}</h2>
         <NDataTable columns={columns} data={jobs.value} pagination={false} bordered={false} />
       </div>
