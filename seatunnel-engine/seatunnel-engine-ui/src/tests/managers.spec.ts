@@ -21,42 +21,46 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createApp } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import i18n from '@/locales'
-import type { Overview } from '@/service/overview/types'
-import baseInfo from '@/views/overview/baseInfo'
-import { overviewService } from '@/service/overview'
+import type { Monitor } from '@/service/manager/types'
+import { managerService } from '@/service/manager'
+import managers from '@/views/managers'
 
-describe('overview', () => {
+describe('managers', () => {
   const app = createApp({})
   beforeEach(() => {
     const pinia = createPinia()
     app.use(pinia)
     setActivePinia(createPinia())
   })
-  test('BaseInfo component', async () => {
-    const mockData = {
-      cancelledJobs: '222',
-      failedJobs: '0',
-      finishedJobs: '3',
-      gitCommitAbbrev: '4f812e1',
-      projectVersion: '2.3.8-SNAPSHOT',
-      runningJobs: '0',
-      totalSlot: '111',
-      unassignedSlot: '0',
-      workers: '1'
-    } as Overview
+  test('managers component', async () => {
+    const mockData = [
+      {
+        isMaster: 'true',
+        host: 'localhost',
+        port: '5801',
+        'physical.memory.total': '3.6G',
+        'heap.memory.used': '229.6M'
+      },
+      {
+        isMaster: 'false',
+        host: 'localhost',
+        port: '5802',
+        'physical.memory.total': '3.6G',
+        'heap.memory.used': '1002.6M'
+      }
+    ] as Monitor[]
 
-    vi.spyOn(overviewService, 'getOverview').mockResolvedValue(mockData)
+    vi.spyOn(managerService, 'getMonitors').mockResolvedValue(mockData)
 
-    const wrapper = mount(baseInfo, {
+    const wrapper = mount(managers, {
       global: {
         // plugins: [createTestingPinia({ createSpy: vi.fn() }), i18n]
         plugins: [i18n]
       }
     })
-    expect(overviewService.getOverview).toHaveBeenCalledTimes(1)
-    expect(overviewService.getOverview).toHaveBeenCalledWith()
+    expect(managerService.getMonitors).toHaveBeenCalledTimes(1)
+    expect(managerService.getMonitors).toHaveBeenCalledWith()
     await flushPromises()
-    expect(wrapper.text()).toContain('Total Slot: 111')
-    expect(wrapper.text()).toContain('Cancelled: 222')
+    expect(wrapper.text()).toContain('localhost')
   })
 })

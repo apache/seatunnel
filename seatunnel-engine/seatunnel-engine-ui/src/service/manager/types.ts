@@ -18,6 +18,8 @@
 export interface Monitor {
   isMaster: 'true' | 'false'
   processors: string
+  host: string
+  port: string
   'physical.memory.total': string
   'physical.memory.free': string
   'swap.space.total': string
