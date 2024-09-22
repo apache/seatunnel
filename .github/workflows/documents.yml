@@ -51,8 +51,8 @@ jobs:
         run: |
           cd seatunnel-website
           npm set strict-ssl false
-          npm run sync
           npm install
+          npm run sync
           npm run build
 
   code-style:
