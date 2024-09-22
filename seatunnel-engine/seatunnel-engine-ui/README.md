@@ -1,6 +1,21 @@
 # seatunnel-engine-ui
 
-This template should help get you started developing with Vue 3 in Vite.
+## Development Environment Dependencies
+
+- Node 18+/20+ required
+- pnpm (or npm 7+)
+
+```sh
+npm install -g pnpm
+```
+
+- modify `VITE_APP_API_SERVICE` and `VITE_APP_API_BASE` in `.env.development`
+- quick start
+
+```sh
+pnpm install
+pnpm dev
+```
 
 ## Recommended IDE Setup
 
