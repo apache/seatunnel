@@ -38,9 +38,12 @@ import com.hazelcast.internal.json.JsonValue;
 import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 
 import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 import static com.hazelcast.internal.util.JsonUtil.toJsonObject;
@@ -184,5 +187,19 @@ public class BaseServlet extends HttpServlet {
             return null;
         }
         return seaTunnelServer;
+    }
+
+    protected byte[] requestBody(HttpServletRequest req) throws IOException {
+        StringBuilder stringBuilder = new StringBuilder();
+        String line;
+
+        try (BufferedReader reader = req.getReader()) {
+            while ((line = reader.readLine()) != null) {
+                stringBuilder.append(line);
+            }
+        }
+
+        String requestBody = stringBuilder.toString();
+        return requestBody.getBytes(StandardCharsets.UTF_8);
     }
 }

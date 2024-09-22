@@ -64,9 +64,7 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import io.prometheus.client.exporter.common.TextFormat;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.StringWriter;
-import java.net.URL;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -223,29 +221,6 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         }
 
         this.prepareResponse(command, threadInfoList);
-    }
-
-    private void handleStaticResource(HttpGetCommand httpGetCommand) {
-        String uri = httpGetCommand.getURI();
-        // Remove leading slash
-        if (uri.startsWith("/")) {
-            uri = uri.substring(1);
-        }
-
-        // Get the resource from the classpath
-        URL resource = getClass().getResource(uri);
-        if (resource != null) {
-            try (InputStream inputStream = resource.openStream()) {
-                byte[] content = new byte[inputStream.available()];
-                inputStream.read(content);
-                httpGetCommand.send200();
-            } catch (IOException e) {
-                logger.warning("Error reading static resource: " + uri, e);
-                httpGetCommand.send404();
-            }
-        } else {
-            httpGetCommand.send404();
-        }
     }
 
     private void getSystemMonitoringInformation(HttpGetCommand command) {
@@ -745,7 +720,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         return jobInfoJson;
     }
 
-    private JsonObject toJsonObject(Map<String, Object> jobMetrics) {
+    private static JsonObject toJsonObject(Map<String, Object> jobMetrics) {
         JsonObject members = new JsonObject();
         jobMetrics.forEach(
                 (key, value) -> {
@@ -758,7 +733,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         return members;
     }
 
-    private JsonObject getJobInfoJson(JobState jobState, String jobMetrics, JobDAGInfo jobDAGInfo) {
+    public static JsonObject getJobInfoJson(
+            JobState jobState, String jobMetrics, JobDAGInfo jobDAGInfo) {
         return new JsonObject()
                 .add(RestConstant.JOB_ID, String.valueOf(jobState.getJobId()))
                 .add(RestConstant.JOB_NAME, jobState.getJobName())

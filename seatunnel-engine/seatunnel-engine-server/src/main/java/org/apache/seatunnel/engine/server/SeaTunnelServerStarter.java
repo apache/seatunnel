@@ -20,7 +20,18 @@ package org.apache.seatunnel.engine.server;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.server.rest.servlet.EncryptConfigServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.FinishedJobsServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.JobInfoServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.OverviewServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.RunningJobsServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.StopJobServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.StopJobsServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.SubmitJobServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.SubmitJobsServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.SystemMonitoringServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.ThreadDumpServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.UpdateTagsServlet;
 import org.apache.seatunnel.engine.server.telemetry.metrics.ExportsInstanceInitializer;
 
 import org.eclipse.jetty.server.Server;
@@ -34,7 +45,18 @@ import com.hazelcast.instance.impl.Node;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
+import static org.apache.seatunnel.engine.server.rest.RestConstant.ENCRYPT_CONFIG;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.FINISHED_JOBS_INFO;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.JOB_INFO_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.OVERVIEW;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOBS_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.STOP_JOBS_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.STOP_JOB_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.SUBMIT_JOBS_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.SUBMIT_JOB_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.SYSTEM_MONITORING_INFORMATION;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.THREAD_DUMP;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.UPDATE_TAGS_URL;
 
 @Slf4j
 public class SeaTunnelServerStarter {
@@ -57,9 +79,40 @@ public class SeaTunnelServerStarter {
                         "default", new org.eclipse.jetty.servlet.DefaultServlet()),
                 "/");
 
-        ServletHolder userServletHolder =
+        ServletHolder overviewHolder = new ServletHolder(new OverviewServlet(hazelcastInstance));
+        ServletHolder runningJobsHolder =
                 new ServletHolder(new RunningJobsServlet(hazelcastInstance));
-        context.addServlet(userServletHolder, RUNNING_JOBS_URL + "/*");
+        ServletHolder finishedJobsHolder =
+                new ServletHolder(new FinishedJobsServlet(hazelcastInstance));
+        ServletHolder systemMonitoringHolder =
+                new ServletHolder(new SystemMonitoringServlet(hazelcastInstance));
+        ServletHolder jobInfoHolder = new ServletHolder(new JobInfoServlet(hazelcastInstance));
+        ServletHolder threadDumpHolder =
+                new ServletHolder(new ThreadDumpServlet(hazelcastInstance));
+
+        ServletHolder submitJobHolder = new ServletHolder(new SubmitJobServlet(hazelcastInstance));
+        ServletHolder submitJobsHolder =
+                new ServletHolder(new SubmitJobsServlet(hazelcastInstance));
+        ServletHolder stopJobHolder = new ServletHolder(new StopJobServlet(hazelcastInstance));
+        ServletHolder stopJobsHolder = new ServletHolder(new StopJobsServlet(hazelcastInstance));
+        ServletHolder encryptConfigHolder =
+                new ServletHolder(new EncryptConfigServlet(hazelcastInstance));
+        ServletHolder updateTagsHandler =
+                new ServletHolder(new UpdateTagsServlet(hazelcastInstance));
+
+        context.addServlet(overviewHolder, OVERVIEW + "/*");
+        context.addServlet(runningJobsHolder, RUNNING_JOBS_URL + "/*");
+        context.addServlet(finishedJobsHolder, FINISHED_JOBS_INFO + "/*");
+        context.addServlet(systemMonitoringHolder, SYSTEM_MONITORING_INFORMATION + "/*");
+        context.addServlet(jobInfoHolder, JOB_INFO_URL + "/*");
+        context.addServlet(threadDumpHolder, THREAD_DUMP + "/*");
+
+        context.addServlet(submitJobHolder, SUBMIT_JOB_URL + "/*");
+        context.addServlet(submitJobsHolder, SUBMIT_JOBS_URL + "/*");
+        context.addServlet(stopJobHolder, STOP_JOB_URL + "/*");
+        context.addServlet(stopJobsHolder, STOP_JOBS_URL + "/*");
+        context.addServlet(encryptConfigHolder, ENCRYPT_CONFIG + "/*");
+        context.addServlet(updateTagsHandler, UPDATE_TAGS_URL + "/*");
 
         server.setHandler(context);
 
