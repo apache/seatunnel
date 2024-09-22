@@ -17,16 +17,23 @@
 
 package org.apache.seatunnel.engine.client.job;
 
+import org.apache.seatunnel.engine.core.job.JobStatus;
+
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 public class JobStatusRunner implements Runnable {
     private final JobClient jobClient;
     private final Long jobId;
+    private final AtomicReference<String> atomicReference;
 
-    public JobStatusRunner(JobClient jobClient, Long jobId) {
+    public JobStatusRunner(
+            JobClient jobClient, Long jobId, AtomicReference<String> atomicReference) {
         this.jobClient = jobClient;
         this.jobId = jobId;
+        this.atomicReference = atomicReference;
     }
 
     @Override
@@ -34,7 +41,14 @@ public class JobStatusRunner implements Runnable {
         Thread.currentThread().setName("job-status-runner-" + jobId);
         try {
             String jobStatus = jobClient.getJobStatus(jobId);
-            log.info("Job status: {}", jobStatus);
+            String lastJobStatus = atomicReference.get();
+            if (lastJobStatus == null
+                    || lastJobStatus.equals(JobStatus.PENDING.toString())
+                    || !lastJobStatus.equals(jobStatus)) {
+                atomicReference.set(jobStatus);
+                log.info("Job status: {}", jobStatus);
+            }
+
         } catch (Exception e) {
             log.warn("Failed to get job runner status.");
         }

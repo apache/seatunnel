@@ -142,25 +142,6 @@ public abstract class AbstractResourceManager implements ResourceManager {
     }
 
     @Override
-    public List<WorkerProfile> isWorkerResourceEnough(
-            long jobId,
-            List<ResourceProfile> resourceProfile,
-            Map<String, String> tagFilter,
-            List<WorkerProfile> workerProfileList) {
-        waitingWorkerRegister();
-        ConcurrentMap<Address, WorkerProfile> matchedWorker = filterWorkerByTag(tagFilter);
-        if (matchedWorker.isEmpty()) {
-            log.error("No matched worker with tag filter {}.", tagFilter);
-            // TODO Currently, the implemented strategy is FIFO, which may lead to insufficient tag
-            // resources and blocking of other tasks. This problem will be optimized when more
-            // pending strategies are supported in the future.
-            return null;
-        }
-        return new ResourceRequestHandler(jobId, resourceProfile, matchedWorker, this)
-                .isWorkerResourceEnough(workerProfileList);
-    }
-
-    @Override
     public CompletableFuture<List<SlotProfile>> applyResources(
             long jobId, List<ResourceProfile> resourceProfile, Map<String, String> tagFilter)
             throws NoEnoughResourceException {

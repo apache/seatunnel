@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
@@ -33,25 +34,26 @@ import java.util.concurrent.CompletionException;
 public class ResourceUtils {
 
     public static void applyResourceForPipeline(
-            @NonNull ResourceManager resourceManager, @NonNull SubPlan subPlan) {
+            @NonNull JobMaster jobMaster, @NonNull SubPlan subPlan) {
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> futures = new HashMap<>();
         Map<TaskGroupLocation, SlotProfile> slotProfiles = new HashMap<>();
+        Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures =
+                jobMaster.getPhysicalPlan().getPreApplyResourceFutures();
         // TODO If there is no enough resources for tasks, we need add some wait profile
         subPlan.getCoordinatorVertexList()
                 .forEach(
                         coordinator ->
                                 futures.put(
                                         coordinator.getTaskGroupLocation(),
-                                        applyResourceForTask(
-                                                resourceManager, coordinator, subPlan.getTags())));
+                                        preApplyResourceFutures.get(
+                                                coordinator.getTaskGroupLocation())));
 
         subPlan.getPhysicalVertexList()
                 .forEach(
                         task ->
                                 futures.put(
                                         task.getTaskGroupLocation(),
-                                        applyResourceForTask(
-                                                resourceManager, task, subPlan.getTags())));
+                                        preApplyResourceFutures.get(task.getTaskGroupLocation())));
 
         futures.forEach(
                 (key, value) -> {

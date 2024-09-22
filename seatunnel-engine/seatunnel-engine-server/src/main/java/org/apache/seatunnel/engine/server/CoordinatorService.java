@@ -215,21 +215,25 @@ public class CoordinatorService {
         isJobPending = engineConfig.getScheduleStrategy().equals(ScheduleStrategy.WAIT);
         if (isJobPending) {
             logger.info("Start pending job schedule thread");
+            // start pending job schedule thread
             startPendingJobScheduleThread();
         }
     }
 
-    private void startPendingJobScheduleThread(){
-        Runnable pendingJobScheduleTask = () -> {
-            while(true) {
-                try {
-                    Thread.sleep(3000);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-                pendingJobSchedule();
-            }
-        };
+    private void startPendingJobScheduleThread() {
+        Runnable pendingJobScheduleTask =
+                () -> {
+                    Thread.currentThread().setName("pending-job-schedule-runner");
+                    while (true) {
+                        try {
+                            // sleep 5s , not too frequent
+                            Thread.sleep(5000);
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
+                        pendingJobSchedule();
+                    }
+                };
         new Thread(pendingJobScheduleTask).start();
     }
 
@@ -245,7 +249,7 @@ public class CoordinatorService {
                                     "Start calculating whether pending task resources are enough: "
                                             + jobId);
 
-                            if (jobMaster.isResourceEnough()) {
+                            if (jobMaster.preApplyResources()) {
                                 logger.info("Resources enough, start running: " + jobId);
                                 pendingJob.pollFirst();
                                 PendingSourceState pendingSourceState =
@@ -471,7 +475,7 @@ public class CoordinatorService {
                         jobFullName, jobStatus));
         // FIFO strategy，If there is a waiting task, the subsequent task will keep waiting
         // TODO More strategies will be supported in the future
-        if (!isJobPending || (pendingJob.size() == 0 && jobMaster.isResourceEnough())) {
+        if (!isJobPending || (pendingJob.size() == 0 && jobMaster.preApplyResources())) {
             CompletableFuture.runAsync(
                     () -> {
                         try {
@@ -639,7 +643,7 @@ public class CoordinatorService {
                     if (!jobSubmitFuture.isCompletedExceptionally()) {
                         try {
                             if (isJobPending) {
-                                if (pendingJob.size() == 0 && jobMaster.isResourceEnough()) {
+                                if (pendingJob.size() == 0 && jobMaster.preApplyResources()) {
                                     pendingJobMasterMap.remove(jobId);
                                     runningJobMasterMap.put(jobId, jobMaster);
                                     jobMaster.run();

@@ -56,9 +56,9 @@ import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 import org.apache.seatunnel.engine.server.dag.DAGUtils;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
-import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
+import org.apache.seatunnel.engine.server.dag.physical.ResourceUtils;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
@@ -66,9 +66,7 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
-import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
-import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
@@ -95,6 +93,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
@@ -109,6 +108,7 @@ public class JobMaster {
     private static final ILogger LOGGER = Logger.getLogger(JobMaster.class);
 
     private PhysicalPlan physicalPlan;
+
     private final Data jobImmutableInformationData;
 
     private final NodeEngine nodeEngine;
@@ -346,34 +346,73 @@ public class JobMaster {
                         }));
     }
 
-    public boolean isResourceEnough() {
-        boolean enoughResource = true;
-        List<WorkerProfile> workerProfileList = null;
+    /**
+     * Apply for resources
+     *
+     * @return true if apply resources successfully, otherwise false
+     */
+    public boolean preApplyResources() {
+        Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures =
+                new HashMap<>();
         for (SubPlan subPlan : physicalPlan.getPipelineList()) {
-            Map<String, String> tags = subPlan.getTags();
-            for (PhysicalVertex physicalVertex : subPlan.getCoordinatorVertexList()) {
-                List<ResourceProfile> resourceProfiles =
-                        Collections.singletonList(new ResourceProfile());
-                workerProfileList =
-                        resourceManager.isWorkerResourceEnough(
-                                physicalVertex.getTaskGroupLocation().getJobId(),
-                                resourceProfiles,
-                                tags,
-                                workerProfileList);
+            Map<TaskGroupLocation, CompletableFuture<SlotProfile>> coordinatorFutures =
+                    new HashMap<>();
+            subPlan.getCoordinatorVertexList()
+                    .forEach(
+                            coordinator ->
+                                    coordinatorFutures.put(
+                                            coordinator.getTaskGroupLocation(),
+                                            ResourceUtils.applyResourceForTask(
+                                                    resourceManager,
+                                                    coordinator,
+                                                    subPlan.getTags())));
 
-                enoughResource = enoughResource && workerProfileList != null;
-            }
-            for (PhysicalVertex physicalVertex : subPlan.getPhysicalVertexList()) {
-                List<ResourceProfile> resourceProfiles =
-                        Collections.singletonList(new ResourceProfile());
-                workerProfileList =
-                        resourceManager.isWorkerResourceEnough(
-                                physicalVertex.getTaskGroupLocation().getJobId(),
-                                resourceProfiles,
-                                tags,
-                                workerProfileList);
-                enoughResource = enoughResource && workerProfileList != null;
-            }
+            Map<TaskGroupLocation, CompletableFuture<SlotProfile>> taskFutures = new HashMap<>();
+            subPlan.getPhysicalVertexList()
+                    .forEach(
+                            task ->
+                                    taskFutures.put(
+                                            task.getTaskGroupLocation(),
+                                            ResourceUtils.applyResourceForTask(
+                                                    resourceManager, task, subPlan.getTags())));
+
+            preApplyResourceFutures.putAll(coordinatorFutures);
+            preApplyResourceFutures.putAll(taskFutures);
+        }
+
+        boolean enoughResource =
+                preApplyResourceFutures.values().stream()
+                                .filter(
+                                        value -> {
+                                            try {
+                                                return value != null && value.join() != null;
+                                            } catch (CompletionException e) {
+                                                return false;
+                                            }
+                                        })
+                                .count()
+                        == preApplyResourceFutures.size();
+
+        if (enoughResource) {
+            // Adequate resources, pass on resources to the plan
+            physicalPlan.setPreApplyResourceFutures(preApplyResourceFutures);
+        } else {
+            // Release the resource that has been applied
+            resourceManager
+                    .releaseResources(
+                            jobImmutableInformation.getJobId(),
+                            preApplyResourceFutures.values().stream()
+                                    .filter(
+                                            value -> {
+                                                try {
+                                                    return value != null && value.join() != null;
+                                                } catch (CompletionException e) {
+                                                    return false;
+                                                }
+                                            })
+                                    .map(CompletableFuture::join)
+                                    .collect(Collectors.toList()))
+                    .join();
         }
         return enoughResource;
     }
