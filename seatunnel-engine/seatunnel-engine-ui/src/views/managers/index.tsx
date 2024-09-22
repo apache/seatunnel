@@ -32,7 +32,7 @@ export default defineComponent({
 
     const fetch = async () => {
       let res = await managerService.getMonitors()
-      const isMaster = route.path.endsWith('/master')
+      const isMaster = route?.path.endsWith('/master') || false
       res = res.filter((row) => row.isMaster === String(isMaster)) || []
       monitors.value = res
     }
