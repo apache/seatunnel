@@ -20,18 +20,26 @@ import { useI18n } from 'vue-i18n'
 import type { DataTableColumns } from 'naive-ui'
 import { NButton } from 'naive-ui'
 import { NSpace, NLayout, NLayoutContent } from 'naive-ui'
-import { getMonitors } from '@/service/manager'
+import { managerService } from '@/service/manager'
 import type { Monitor } from '@/service/manager/types'
+import { useRoute } from 'vue-router'
 
 export default defineComponent({
   setup() {
     const { t } = useI18n()
-
+    const route = useRoute()
     const monitors = ref([] as Monitor[])
 
-    getMonitors().then((res) => (monitors.value = res))
+    const fetch = async () => {
+      let res = await managerService.getMonitors()
+      const isMaster = route.path.endsWith('/master')
+      res = res.filter((row) => row.isMaster === String(isMaster)) || []
+      monitors.value = res
+    }
+    fetch()
+
     function createColumns(): DataTableColumns<Monitor> {
-      const view = (job: Monitor) => {}
+      const view = (row: Monitor) => {}
       return [
         {
           title: 'Host',

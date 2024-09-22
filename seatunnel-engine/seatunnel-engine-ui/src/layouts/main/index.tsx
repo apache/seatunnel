@@ -34,6 +34,7 @@ const Main = defineComponent({
       () => {
         showSide.value = route?.meta?.showSide as boolean
         menuKey.value = route.meta.activeSide as string
+        routeKey.value = route.fullPath
       },
       {
         immediate: true,

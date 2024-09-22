@@ -18,35 +18,44 @@
 import type { RouteRecordRaw } from 'vue-router'
 
 const routes: RouteRecordRaw[] = [
-    {
-        path: '/', name: 'root', redirect: { name: 'overview' }, component: () => import('@/layouts/main'),
-        children: [
-            {
-                path: 'overview',
-                name: 'overview',
-                meta: { title: 'overview', showSide: true, activeSide: 'overview' },
-                component: () => import('@/views/overview')
-            },
-            {
-                path: 'jobs',
-                name: 'jobs',
-                meta: { title: 'jobs', showSide: true, activeSide: 'jobs' },
-                component: () => import('@/views/jobs')
-            },
-            {
-                path: 'jobs/:jobId',
-                name: 'detail',
-                meta: { title: 'detail', showSide: true, activeSide: 'jobs' },
-                component: () => import('@/views/jobs/detail')
-            },
-            {
-                path: 'managers',
-                name: 'managers',
-                meta: { title: 'managers', showSide: true, activeSide: 'managers' },
-                component: () => import('@/views/managers')
-            }
-        ]
-    }
+  {
+    path: '/',
+    name: 'root',
+    redirect: { name: 'overview' },
+    component: () => import('@/layouts/main'),
+    children: [
+      {
+        path: 'overview',
+        name: 'overview',
+        meta: { title: 'overview', showSide: true, activeSide: 'overview' },
+        component: () => import('@/views/overview')
+      },
+      {
+        path: 'jobs',
+        name: 'jobs',
+        meta: { title: 'jobs', showSide: true, activeSide: 'jobs' },
+        component: () => import('@/views/jobs')
+      },
+      {
+        path: 'jobs/:jobId',
+        name: 'detail',
+        meta: { title: 'detail', showSide: true, activeSide: 'jobs' },
+        component: () => import('@/views/jobs/detail')
+      },
+      {
+        path: 'managers/workers',
+        name: 'managers-workers',
+        meta: { title: 'workers', showSide: true, activeSide: 'workers' },
+        component: () => import('@/views/managers')
+      },
+      {
+        path: 'managers/master',
+        name: 'managers-master',
+        meta: { title: 'master', showSide: true, activeSide: 'master' },
+        component: () => import('@/views/managers')
+      }
+    ]
+  }
 ]
 
 export default routes

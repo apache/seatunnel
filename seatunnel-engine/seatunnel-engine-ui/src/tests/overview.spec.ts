@@ -18,13 +18,12 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 // import { createTestingPinia } from '@pinia/testing'
-import runningJobs from '@/views/jobs/running-jobs'
 import { createApp } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import i18n from '@/locales'
-import finishedJobs from '@/views/jobs/finished-jobs'
-import { JobsService } from '@/service/job'
-import type { Job } from '@/service/job/types'
+import type { Overview } from '@/service/overview/types'
+import baseInfo from '@/views/overview/baseInfo'
+import { overviewService } from '@/service/overview'
 
 describe('jobs', () => {
   const app = createApp({})
@@ -33,42 +32,31 @@ describe('jobs', () => {
     app.use(pinia)
     setActivePinia(createPinia())
   })
-  test('Running Jobs component', async () => {
-    const mockData = [] as Job[]
+  test('BaseInfo component', async () => {
+    const mockData = {
+      cancelledJobs: '222',
+      failedJobs: '0',
+      finishedJobs: '3',
+      gitCommitAbbrev: '4f812e1',
+      projectVersion: '2.3.8-SNAPSHOT',
+      runningJobs: '0',
+      totalSlot: '111',
+      unassignedSlot: '0',
+      workers: '1'
+    } as Overview
 
-    vi.spyOn(JobsService, 'getRunningJobs').mockResolvedValue(mockData)
-    const wrapper = mount(runningJobs, {
+    vi.spyOn(overviewService, 'getOverview').mockResolvedValue(mockData)
+
+    const wrapper = mount(baseInfo, {
       global: {
         // plugins: [createTestingPinia({ createSpy: vi.fn() }), i18n]
         plugins: [i18n]
       }
     })
+    expect(overviewService.getOverview).toHaveBeenCalledTimes(1)
+    expect(overviewService.getOverview).toHaveBeenCalledWith()
     await flushPromises()
-    expect(wrapper.text()).toContain('Running Jobs')
-  })
-  test('Finished Jobs component', async () => {
-    const mockData = [
-      {
-        jobId: '888413907541032961',
-        jobName: 'SeaTunnel_Job',
-        jobStatus: 'FINISHED',
-        errorMsg: '',
-        createTime: '2024-09-17 21:19:41',
-        finishTime: '2024-09-17 21:19:44'
-      }
-    ] as Job[]
-
-    vi.spyOn(JobsService, 'getFinishedJobs').mockResolvedValue(mockData)
-
-    const wrapper = mount(finishedJobs, {
-      global: {
-        // plugins: [createTestingPinia({ createSpy: vi.fn() }), i18n]
-        plugins: [i18n]
-      }
-    })
-    expect(JobsService.getFinishedJobs).toHaveBeenCalledTimes(1)
-    expect(JobsService.getFinishedJobs).toHaveBeenCalledWith()
-    await flushPromises()
-    expect(wrapper.text()).toContain('SeaTunnel_Job')
+    expect(wrapper.text()).toContain('Total Slot: 111')
+    expect(wrapper.text()).toContain('Cancelled: 222')
   })
 })

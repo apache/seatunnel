@@ -19,3 +19,6 @@ import { get } from '@/service/service'
 import type { Overview } from './types'
 
 export const getOverview = () => get<Overview>('/overview')
+export const overviewService = {
+  getOverview
+}

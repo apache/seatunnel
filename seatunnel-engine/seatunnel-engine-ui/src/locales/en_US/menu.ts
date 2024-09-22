@@ -18,6 +18,9 @@
 export default {
   overview: 'Overview',
   jobs: 'Jobs',
-  managers: 'Managers',
-  synchronization_instance: 'Syncing Task Instance',
+  managers: {
+    workers: 'Workers',
+    master: 'Master'
+  },
+  synchronization_instance: 'Syncing Task Instance'
 }

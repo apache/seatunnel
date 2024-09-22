@@ -16,26 +16,38 @@
  */
 
 import { defineComponent, reactive } from 'vue'
-import { NSpace } from 'naive-ui'
+import { NSpace, NCard } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import { overviewService } from '@/service/overview'
 import type { Overview } from '@/service/overview/types'
 
-const Logo = defineComponent({
+export default defineComponent({
   setup() {
+    const { t } = useI18n()
+
     const data = reactive({} as Overview)
     overviewService.getOverview().then((res) => Object.assign(data, res))
-    return { data }
-  },
-  render() {
-    return (
-      <NSpace justify="center" align="center" wrap={false} class="h-16 mr-6">
-        <h2 class="text-base font-bold">Version:</h2>
-        <span class="text-base text-nowrap">{this.data.projectVersion}</span>
-        <h2 class="text-base font-bold ml-4">Commit:</h2>
-        <span class="text-base text-nowrap">{this.data.gitCommitAbbrev}</span>
+
+    return () => (
+      <NSpace wrap-item={false}>
+        <NCard title="Availiable Task Slots" hoverable style="flex:1">
+          <span class="text-2xl font-bold">{data.workers}</span>
+          <div class="border border-b-0 mt-3" />
+          <NSpace class="mt-3" size={16}>
+            <span>Total Slot: {data.totalSlot}</span>
+            <span>Unassigned Slot: {data.unassignedSlot}</span>
+          </NSpace>
+        </NCard>
+        <NCard title="Running Jobs" hoverable style="flex:1">
+          <span class="text-2xl font-bold">{data.runningJobs}</span>
+          <div class="border border-b-0 mt-3" />
+          <NSpace class="mt-3" size={16}>
+            <span>Cancelled: {data.cancelledJobs}</span>
+            <span>Failed: {data.failedJobs}</span>
+            <span>Finished: {data.failedJobs}</span>
+          </NSpace>
+        </NCard>
       </NSpace>
     )
   }
 })
-
-export default Logo

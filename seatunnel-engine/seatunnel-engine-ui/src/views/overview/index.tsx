@@ -15,43 +15,18 @@
  * limitations under the License.
  */
 
-import { defineComponent, getCurrentInstance, reactive } from 'vue'
-import { NSpace, NLayout, NLayoutContent, NCard } from 'naive-ui'
-import { useI18n } from 'vue-i18n'
+import { defineComponent } from 'vue'
+import { NLayout, NLayoutContent } from 'naive-ui'
 import RunningJobs from '@/views/jobs/running-jobs'
 import FinishedJobs from '@/views/jobs/finished-jobs'
-import { getOverview } from '@/service/overview'
-import type { Overview } from '@/service/overview/types'
+import BaseInfo from './baseInfo'
 
 export default defineComponent({
   setup() {
-    const { t } = useI18n()
-
-    const data = reactive({} as Overview)
-    getOverview().then((res) => Object.assign(data, res))
-
     return () => (
       <NLayout>
         <NLayoutContent>
-          <NSpace wrap-item={false} class="mb-6">
-            <NCard title="Availiable Task Slots" hoverable style="flex:1">
-              <span class="text-2xl font-bold">{data.workers}</span>
-              <div class="border border-b-0 mt-3" />
-              <NSpace class="mt-3" size={16}>
-                <span>Total Slot: {data.totalSlot}</span>
-                <span>Unassigned Slot: {data.unassignedSlot}</span>
-              </NSpace>
-            </NCard>
-            <NCard title="Running Jobs" hoverable style="flex:1">
-              <span class="text-2xl font-bold">{data.runningJobs}</span>
-              <div class="border border-b-0 mt-3" />
-              <NSpace class="mt-3" size={16}>
-                <span>Cancelled: {data.cancelledJobs}</span>
-                <span>Failed: {data.failedJobs}</span>
-                <span>Finished: {data.failedJobs}</span>
-              </NSpace>
-            </NCard>
-          </NSpace>
+          <BaseInfo class="mb-6" />
           <RunningJobs class="mb-6" />
           <FinishedJobs />
         </NLayoutContent>

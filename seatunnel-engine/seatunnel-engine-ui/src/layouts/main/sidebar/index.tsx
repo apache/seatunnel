@@ -75,13 +75,27 @@ const Sidebar = defineComponent({
             RouterLink,
             {
               to: {
-                path: '/managers'
+                path: '/managers/workers'
               },
               exact: false
             },
-            { default: () => t('menu.managers') }
+            { default: () => t('menu.managers.workers') }
           ),
-        key: 'managers'
+        key: 'workers'
+      },
+      {
+        label: () =>
+          h(
+            RouterLink,
+            {
+              to: {
+                path: '/managers/master'
+              },
+              exact: false
+            },
+            { default: () => t('menu.managers.master') }
+          ),
+        key: 'master'
       }
     ])
 

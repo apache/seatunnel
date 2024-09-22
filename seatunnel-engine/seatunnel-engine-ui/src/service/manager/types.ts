@@ -16,6 +16,7 @@
  */
 
 export interface Monitor {
+  isMaster: 'true' | 'false'
   processors: string
   'physical.memory.total': string
   'physical.memory.free': string

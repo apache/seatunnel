@@ -19,3 +19,6 @@ import { get } from '@/service/service'
 import type { Monitor } from './types'
 
 export const getMonitors = () => get<Monitor[]>('/system-monitoring-information')
+export const managerService = {
+  getMonitors
+}
