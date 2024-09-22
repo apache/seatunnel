@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils;
+package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.utils;
 
 import io.debezium.config.Configuration;
 import io.debezium.connector.sqlserver.SqlServerConnection;
