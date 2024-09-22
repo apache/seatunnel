@@ -16,56 +16,46 @@
  */
 
 import { defineComponent, getCurrentInstance, reactive } from 'vue'
-import {
-    NSpace,
-    NLayout,
-    NLayoutContent,
-    useMessage,
-    NCard
-} from 'naive-ui'
+import { NSpace, NLayout, NLayoutContent, NCard } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import RunningJobs from '@/views/jobs/running-jobs'
 import FinishedJobs from '@/views/jobs/finished-jobs'
 import { getOverview } from '@/service/overview'
-import { Overview } from '@/service/overview/types'
+import type { Overview } from '@/service/overview/types'
 
 export default defineComponent({
-    setup() {
-        window.$message = useMessage()
-        const { t } = useI18n()
+  setup() {
+    const { t } = useI18n()
 
-        const data = reactive({} as Overview);
-        getOverview().then(res => Object.assign(data, res))
+    const data = reactive({} as Overview)
+    getOverview().then((res) => Object.assign(data, res))
 
-        return { t, data }
-    },
-    render() {
-        return (
-            <NLayout>
-                <NLayoutContent>
-                    <NSpace wrap-item={false} class='mb-6'>
-                        <NCard title='Availiable Task Slots' hoverable style='flex:1'>
-                            <span class='text-2xl font-bold'>{this.data.workers}</span>
-                            <div class='border border-b-0 mt-3' />
-                            <NSpace class='mt-3' size={16}>
-                                <span>Total Slot: {this.data.totalSlot}</span>
-                                <span>Unassigned Slot: {this.data.unassignedSlot}</span>
-                            </NSpace>
-                        </NCard>
-                        <NCard title='Running Jobs' hoverable style='flex:1'>
-                            <span class='text-2xl font-bold'>{this.data.runningJobs}</span>
-                            <div class='border border-b-0 mt-3' />
-                            <NSpace class='mt-3' size={16}>
-                                <span>Cancelled: {this.data.cancelledJobs}</span>
-                                <span>Failed: {this.data.failedJobs}</span>
-                                <span>Finished: {this.data.failedJobs}</span>
-                            </NSpace>
-                        </NCard>
-                    </NSpace>
-                    <RunningJobs class='mb-6' />
-                    <FinishedJobs />
-                </NLayoutContent>
-            </NLayout>
-        )
-    }
+    return () => (
+      <NLayout>
+        <NLayoutContent>
+          <NSpace wrap-item={false} class="mb-6">
+            <NCard title="Availiable Task Slots" hoverable style="flex:1">
+              <span class="text-2xl font-bold">{data.workers}</span>
+              <div class="border border-b-0 mt-3" />
+              <NSpace class="mt-3" size={16}>
+                <span>Total Slot: {data.totalSlot}</span>
+                <span>Unassigned Slot: {data.unassignedSlot}</span>
+              </NSpace>
+            </NCard>
+            <NCard title="Running Jobs" hoverable style="flex:1">
+              <span class="text-2xl font-bold">{data.runningJobs}</span>
+              <div class="border border-b-0 mt-3" />
+              <NSpace class="mt-3" size={16}>
+                <span>Cancelled: {data.cancelledJobs}</span>
+                <span>Failed: {data.failedJobs}</span>
+                <span>Finished: {data.failedJobs}</span>
+              </NSpace>
+            </NCard>
+          </NSpace>
+          <RunningJobs class="mb-6" />
+          <FinishedJobs />
+        </NLayoutContent>
+      </NLayout>
+    )
+  }
 })

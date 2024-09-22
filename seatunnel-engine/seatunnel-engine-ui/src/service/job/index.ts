@@ -16,12 +16,17 @@
  */
 
 import { get } from '@/service/service'
-import { Job, JobFinishedState } from './types'
+import type { Job, JobFinishedState } from './types'
 
-const API_PATH = '/maps'
+export const getRunningJobs = () => get<Job[]>('/running-jobs')
+export const getFinishedJobs = (state: JobFinishedState = 'FINISHED') =>
+  get<Job[]>(`/finished-jobs/${state}`)
+export const getJobInfo = (jobId: string) => get<Job>(`/job-info/${jobId}`)
+export const getRunningJobInfo = (jobId: string) => get<Job>(`/running-job/${jobId}`)
 
-export const getRunningJobs = () => get<Job[]>(API_PATH + '/running-jobs')
-export const getFinishedJobs = (state: JobFinishedState = 'FINISHED') => get<Job[]>(API_PATH + `/finished-jobs/${state}`)
-export const getJobInfo = (jobId: string) => get<Job>(API_PATH + `/job-info/${jobId}`)
-export const getRunningJobInfo = (jobId: string) => get<Job>(API_PATH + `/running-job/${jobId}`)
-
+export const JobsService = {
+  getRunningJobs,
+  getFinishedJobs,
+  getJobInfo,
+  getRunningJobInfo
+}

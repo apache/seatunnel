@@ -16,9 +16,6 @@
  */
 
 import { get } from '@/service/service'
-import { Monitor } from './types'
+import type { Monitor } from './types'
 
-const API_PATH = '/maps'
-
-export const getMonitors = () => get<Monitor[]>(API_PATH + '/system-monitoring-information')
-
+export const getMonitors = () => get<Monitor[]>('/system-monitoring-information')

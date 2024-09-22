@@ -15,21 +15,14 @@
  * limitations under the License.
  */
 
-import { defineComponent, watch, watchEffect, ref, Ref, onMounted } from 'vue'
-import { useRoute, useRouter, RouteLocationMatched } from 'vue-router'
-import {
-  NLayout,
-  NLayoutHeader,
-  NLayoutContent,
-  useMessage,
-  NSpace
-} from 'naive-ui'
+import { defineComponent, watch, ref } from 'vue'
+import { useRoute } from 'vue-router'
+import { NLayout, NLayoutHeader, NLayoutContent, NSpace } from 'naive-ui'
 import Header from './header'
 import Sidebar from './sidebar'
 
 const Main = defineComponent({
   setup() {
-    window.$message = useMessage()
     const route = useRoute()
     const routeKey = ref(route.fullPath)
     let showSide = ref(false)
@@ -59,20 +52,15 @@ const Main = defineComponent({
         <NLayoutHeader bordered>
           <Header />
         </NLayoutHeader>
-        <NLayoutContent style={{ height: 'calc(100vh - 65px)' }}>
-          <NLayout has-sider position='absolute'>
+        <NLayoutContent style={{ height: 'calc(100vh - 69px)' }}>
+          <NLayout has-sider position="absolute">
             {this.showSide && <Sidebar sideKey={this.menuKey} />}
-            <NLayoutContent
-              native-scrollbar={false}
-              style='padding: 16px 22px 0px 22px'
-              class='p-16-22-0-22'
-              contentStyle={'height: 100%'}
-            >
+            <NLayoutContent native-scrollbar={false}>
               <NSpace
                 vertical
-                justify='space-between'
-                style={'height: 100%'}
-                size='small'
+                justify="space-between"
+                style={'height: 100%;padding: 16px 22px'}
+                size="small"
               >
                 <router-view key={this.routeKey} class={!this.showSide && 'px-32 py-12'} />
               </NSpace>

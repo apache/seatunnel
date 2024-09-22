@@ -16,8 +16,6 @@
  */
 
 import { get } from '@/service/service'
-import { Overview } from './types'
+import type { Overview } from './types'
 
-const API_PATH = '/maps'
-
-export const getOverview = () => get<Overview>(API_PATH + '/overview')
+export const getOverview = () => get<Overview>('/overview')

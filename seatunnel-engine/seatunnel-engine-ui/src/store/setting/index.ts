@@ -27,7 +27,6 @@ export const useSettingStore = defineStore({
     requestTime: 6000,
     locales: 'en_US'
   }),
-  persist: true,
   getters: {
     getSequenceColumn(): boolean {
       return this.sequenceColumn

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-interface ResponseBasic<T> {
+export interface ResponseBasic<T> {
   code: number
   failed: boolean
   success: boolean
@@ -23,12 +23,10 @@ interface ResponseBasic<T> {
   data: T
 }
 
-type ResponseTable<T> = ResponseBasic<{
+export type ResponseTable<T> = ResponseBasic<{
   pageNo: number
   pageSize: number
   totalCount: number
   totalPage: number
   data: T
 }>
-
-export { ResponseBasic, ResponseTable }

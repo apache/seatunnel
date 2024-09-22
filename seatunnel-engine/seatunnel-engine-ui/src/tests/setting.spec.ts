@@ -15,9 +15,21 @@
  * limitations under the License.
  */
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-@tailwind screens;
-@tailwind fonts;
-@tailwind colors;
+import { setActivePinia, createPinia } from 'pinia'
+import { useSettingStore } from '../store/setting/index'
+import { beforeEach, describe, expect, it } from 'vitest'
+
+describe('Setting Store', () => {
+    beforeEach(() => {
+        setActivePinia(createPinia())
+    })
+
+    it('getSequenceColumn', () => {
+        const setting = useSettingStore()
+        expect(setting.getSequenceColumn).equal(false)
+    })
+    it('requestTime', () => {
+        const setting = useSettingStore()
+        expect(setting.requestTime).equal(6000)
+    })
+})

@@ -15,67 +15,36 @@
  * limitations under the License.
  */
 
-import { defineComponent, computed, watch, ref } from 'vue'
+import { defineComponent } from 'vue'
 import {
   NConfigProvider,
   NMessageProvider,
   NDialogProvider,
-  darkTheme,
   dateZhCN,
   dateEnUS,
   zhCN,
   enUS
 } from 'naive-ui'
-import { useThemeStore } from '@/store/theme'
 import { useSettingStore } from '@/store/setting'
 import { useI18n } from 'vue-i18n'
-import themeList from '@/themes'
-import type { GlobalThemeOverrides } from 'naive-ui'
-import type { Ref } from 'vue'
-import type { CustomThemeCommonVars, ThemeCommonVars } from 'naive-ui/es/config-provider/src/interface'
 
 const App = defineComponent({
   setup() {
-    const themeStore = useThemeStore()
     const settingStore = useSettingStore()
-    const currentTheme = computed(() =>
-      themeStore.getDarkTheme ? darkTheme : undefined
-    )
-    const themeOverrides = computed(() => themeList[currentTheme.value ? 'dark' : 'light'])
-    const setBorderRadius = (v: number) => {
-      (themeOverrides.value.common as Partial<ThemeCommonVars & CustomThemeCommonVars>).borderRadius =
-        v + 'px'
-    }
-
-    settingStore.getFilletValue && setBorderRadius(settingStore.getFilletValue)
 
     if (settingStore.getLocales) {
       const { locale } = useI18n()
       locale.value = settingStore.getLocales
     }
 
-    watch(
-      () => settingStore.getFilletValue,
-      () => {
-        setBorderRadius(settingStore.getFilletValue)
-      }
-    )
-
     return {
-      settingStore,
-      currentTheme,
-      themeOverrides,
-      themeList
+      settingStore
     }
   },
   render() {
     return (
       <NConfigProvider
-        theme={this.currentTheme}
-        theme-overrides={this.themeOverrides}
-        date-locale={
-          this.settingStore.getLocales === 'zh_CN' ? dateZhCN : dateEnUS
-        }
+        date-locale={this.settingStore.getLocales === 'zh_CN' ? dateZhCN : dateEnUS}
         locale={this.settingStore.getLocales === 'zh_CN' ? zhCN : enUS}
       >
         <NMessageProvider>

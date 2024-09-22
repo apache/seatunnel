@@ -14,34 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import type { GlobalThemeOverrides } from '../type'
 
-const darkBlue = {
-  common: {
-    bodyColor: '#f8f8fc',
+import { getOverview } from '@/service/overview'
+import { describe, test, expect, beforeEach } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
+import { createApp } from 'vue'
 
-    /**************** Brand color */
-    primaryColor: '#1890ff',
-    primaryColorHover: '#40a9ff',
-    primaryColorPressed: '#096dd9',
-    primaryColorSuppl: '#1890ff',
+describe('service', () => {
+    const app = createApp({})
+    beforeEach(() => {
+        const pinia = createPinia()
+        app.use(pinia)
+        setActivePinia(pinia)
+    })
+    test('test', () => {
+        expect(1).toBe(1)
+    })
 
-    /**************** Function of color */
-    infoColor: '#1890ff',
-    successColor: '#52c41a',
-    warningColor: '#faad14',
-    errorColor: '#ff4d4f'
-  },
-  Layout: {
-    headerColor: '#29366c',
-    siderColor: '#29366c'
-  },
-  Menu: {
-    itemTextColorHorizontal: '#dbdbdb',
-    itemTextColor: '#dbdbdb',
-    itemIconColor: '#dbdbdb',
-    itemIconColorCollapsed: '#dbdbdb'
-  }
-} as GlobalThemeOverrides
-
-export default darkBlue
+    // test('getOverview', async () => {
+    //     const res = await getOverview()
+    //     expect(JSON.stringify(res)).contains('runningJobs')
+    // })
+})

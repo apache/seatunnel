@@ -18,24 +18,24 @@
 import { defineComponent, reactive } from 'vue'
 import { NSpace } from 'naive-ui'
 import { getOverview } from '@/service/overview'
-import { Overview } from '@/service/overview/types'
+import type { Overview } from '@/service/overview/types'
 
 const Logo = defineComponent({
-    setup() {
-        const data = reactive({} as Overview);
-        getOverview().then(res => Object.assign(data, res))
-        return { data }
-    },
-    render() {
-        return (
-            <NSpace justify='center' align='center' wrap={false} class='h-16 mr-6'>
-                <h2 class='text-base font-bold'>Version:</h2>
-                <span class='text-base text-nowrap'>{this.data.projectVersion}</span>
-                <h2 class='text-base font-bold ml-4'>Commit:</h2>
-                <span class='text-base text-nowrap'>{this.data.gitCommitAbbrev}</span>
-            </NSpace>
-        )
-    }
+  setup() {
+    const data = reactive({} as Overview)
+    getOverview().then((res) => Object.assign(data, res))
+    return { data }
+  },
+  render() {
+    return (
+      <NSpace justify="center" align="center" wrap={false} class="h-16 mr-6">
+        <h2 class="text-base font-bold">Version:</h2>
+        <span class="text-base text-nowrap">{this.data.projectVersion}</span>
+        <h2 class="text-base font-bold ml-4">Commit:</h2>
+        <span class="text-base text-nowrap">{this.data.gitCommitAbbrev}</span>
+      </NSpace>
+    )
+  }
 })
 
 export default Logo

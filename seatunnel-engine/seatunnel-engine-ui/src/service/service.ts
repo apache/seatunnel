@@ -15,31 +15,25 @@
  * limitations under the License.
  */
 
-import axios, {
+import axios from 'axios'
+import type {
   AxiosRequestConfig,
   AxiosResponse,
   AxiosError,
   InternalAxiosRequestConfig
 } from 'axios'
-import router from '@/router'
-import { useSettingStore } from '@/store/setting'
 import log from '@/utils/log'
-
-const settingStore = useSettingStore()
 
 const handleError = (res: AxiosResponse<any, any>) => {
   if (import.meta.env.MODE === 'development') {
     log.capsule('SeaTunnel', 'UI')
     log.error(res)
   }
-  window.$message.error(res.data.msg)
 }
 
 const baseRequestConfig: AxiosRequestConfig = {
-  timeout: settingStore.getRequestTimeValue
-    ? settingStore.getRequestTimeValue
-    : 6000,
-  baseURL: '/hazelcast/rest'
+  timeout: 6000,
+  baseURL: import.meta.env.VITE_APP_API_BASE || ''
 }
 
 const service = axios.create(baseRequestConfig)
@@ -65,11 +59,11 @@ service.interceptors.response.use((res: AxiosResponse) => {
   }
 }, err)
 
-export const get = async <R>(url: string, params?: Record<string, string>) => {
-  return await <R>service.get<R>(url, { params })
+export const get = <R>(url: string, params?: Record<string, string>) => {
+  return <Promise<R>>service.get<R>(url, { params })
 }
-export const post = async <R>(url: string, data: Record<string, any>) => {
-  return await <R>service.post<R>(url, data)
+export const post = <R>(url: string, data: Record<string, any>) => {
+  return <Promise<R>>service.post<R>(url, data)
 }
 
 export { service as axios }

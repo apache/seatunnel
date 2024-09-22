@@ -15,13 +15,9 @@
  * limitations under the License.
  */
 
-import { defineComponent, ref, PropType, onMounted, watch, h } from 'vue'
-import { NLayoutSider, NMenu, NIcon, NDropdown, NEllipsis } from 'naive-ui'
-import { useThemeStore } from '@/store/theme'
-import styles from './index.module.scss'
-import { PartitionOutlined, ProjectOutlined, RightOutlined } from '@vicons/antd'
-import { useRoute, useRouter, RouterLink } from 'vue-router'
-import { MenuOption } from 'naive-ui'
+import { defineComponent, ref, type PropType, onMounted, h } from 'vue'
+import { NLayoutSider, NMenu } from 'naive-ui'
+import { useRoute, RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 
 const Sidebar = defineComponent({
@@ -37,15 +33,12 @@ const Sidebar = defineComponent({
     }
   },
   setup() {
-    const router = useRouter()
     const collapsedRef = ref(false)
     const defaultExpandedKeys = ['']
     const route = useRoute()
     const { t } = useI18n()
 
     const showDrop = ref(false)
-    const themeStore = useThemeStore()
-    const menuStyle = ref(themeStore.getTheme as 'dark' | 'dark-blue' | 'light')
 
     const sideMenuOptions = ref([
       {
@@ -92,13 +85,11 @@ const Sidebar = defineComponent({
       }
     ])
 
-    onMounted(() => { })
+    onMounted(() => {})
 
     return {
       collapsedRef,
       defaultExpandedKeys,
-      menuStyle,
-      themeStore,
       showDrop,
       sideMenuOptions,
       route
@@ -109,15 +100,15 @@ const Sidebar = defineComponent({
       <NLayoutSider
         bordered
         nativeScrollbar={false}
-        show-trigger='bar'
-        collapse-mode='width'
+        show-trigger="bar"
+        collapse-mode="width"
         collapsed={this.collapsedRef}
         onCollapse={() => (this.collapsedRef = true)}
         onExpand={() => (this.collapsedRef = false)}
         width={196}
       >
         <NMenu
-          class='tab-vertical'
+          class="tab-vertical"
           value={this.$props.sideKey}
           options={this.sideMenuOptions}
           defaultExpandedKeys={this.defaultExpandedKeys}

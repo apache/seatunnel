@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-module.exports = {
+export default {
   plugins: {
     tailwindcss: {},
     autoprefixer: {}

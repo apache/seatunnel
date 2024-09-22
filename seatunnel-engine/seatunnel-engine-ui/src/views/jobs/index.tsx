@@ -21,15 +21,15 @@ import RunningJobs from '@/views/jobs/running-jobs'
 import FinishedJobs from '@/views/jobs/finished-jobs'
 
 export default defineComponent({
-    setup() { },
-    render() {
-        return (
-            <NLayout>
-                <NLayoutContent>
-                    <RunningJobs class='mb-6' />
-                    <FinishedJobs />
-                </NLayoutContent>
-            </NLayout>
-        )
-    }
+  setup() {},
+  render() {
+    return (
+      <NLayout>
+        <NLayoutContent>
+          <RunningJobs class="mb-6" />
+          <FinishedJobs />
+        </NLayoutContent>
+      </NLayout>
+    )
+  }
 })

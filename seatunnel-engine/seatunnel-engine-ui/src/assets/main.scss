@@ -15,11 +15,8 @@
  * limitations under the License.
  */
 
-export type ITheme = 'light' | 'dark' | 'dark-blue'
-
-export interface ThemeState {
-  darkTheme: boolean
-  theme: ITheme
-  isNavLogoBlack: boolean
-  navTextColor: ''
-}
+@import './style.scss';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@tailwind screens;

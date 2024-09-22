@@ -19,61 +19,62 @@ import { NTabs, NTabPane, NDivider, NTag } from 'naive-ui'
 import { defineComponent, getCurrentInstance, h, reactive, ref, watch } from 'vue'
 import { getJobInfo } from '@/service/job'
 import { useRoute } from 'vue-router'
-import { Job } from '@/service/job/types'
+import type { Job } from '@/service/job/types'
 import { useI18n } from 'vue-i18n'
 import { getRemainTime } from '@/utils/time'
 import { format, parse } from 'date-fns'
 
 export default defineComponent({
-    setup() {
-        const { t } = useI18n()
-        const route = useRoute()
+  setup() {
+    const { t } = useI18n()
+    const route = useRoute()
 
-        const jobId = route.params.jobId as string
-        const job = reactive({} as  Job)
-        const duration = ref('')
-        getJobInfo(jobId).then(res => {
-            Object.assign(job, res)
-            const d = parse(res.createTime, 'yyyy-MM-dd HH:mm:ss', new Date())
-            setInterval(() => {
-                duration.value = getRemainTime(Math.abs(Date.now() - d.getTime()))
-            }, 1000);
-        })
+    const jobId = route.params.jobId as string
+    const job = reactive({} as Job)
+    const duration = ref('')
+    getJobInfo(jobId).then((res) => {
+      Object.assign(job, res)
+      const d = parse(res.createTime, 'yyyy-MM-dd HH:mm:ss', new Date())
+      setInterval(() => {
+        duration.value = getRemainTime(Math.abs(Date.now() - d.getTime()))
+      }, 1000)
+    })
 
-
-        const select = ref('oasis')
-        const change = () => {
-            console.log(select.value)
-        }
-        watch(() => select.value, change)
-        return () => (
-            <div class='w-full bg-white px-12 pt-6 pb-12 border border-gray-100 rounded-xl'>
-                <div class='font-bold text-xl'>
-                    {job.jobName}
-                    <NTag bordered={false} type="success" class='ml-3'>{job.jobStatus}</NTag>
-                </div>
-                <div class='mt-3 flex items-center gap-3'>
-                    <span>{t('detail.id')}:</span>
-                    <span class='font-bold'>{job.jobId}</span>
-                    <NDivider vertical/>
-                    <span>{t('detail.createTime')}:</span>
-                    <span class='font-bold'>{job.createTime}</span>
-                    <NDivider vertical/>
-                    <span>{t('detail.duration')}:</span>
-                    <span class='font-bold'>{duration.value}</span>
-                </div>
-                <NTabs v-model:value={select.value} type="line" animated>
-                    <NTabPane name="oasis" tab="Oasis">
-                        Wonderwall
-                    </NTabPane>
-                    <NTabPane name="the beatles" tab="the Beatles">
-                        Hey Jude
-                    </NTabPane>
-                    <NTabPane name="jay chou" tab="周杰伦">
-                        七里香
-                    </NTabPane>
-                </NTabs>
-            </div>
-        )
+    const select = ref('oasis')
+    const change = () => {
+      console.log(select.value)
     }
+    watch(() => select.value, change)
+    return () => (
+      <div class="w-full bg-white px-12 pt-6 pb-12 border border-gray-100 rounded-xl">
+        <div class="font-bold text-xl">
+          {job.jobName}
+          <NTag bordered={false} type="success" class="ml-3">
+            {job.jobStatus}
+          </NTag>
+        </div>
+        <div class="mt-3 flex items-center gap-3">
+          <span>{t('detail.id')}:</span>
+          <span class="font-bold">{job.jobId}</span>
+          <NDivider vertical />
+          <span>{t('detail.createTime')}:</span>
+          <span class="font-bold">{job.createTime}</span>
+          <NDivider vertical />
+          <span>{t('detail.duration')}:</span>
+          <span class="font-bold">{duration.value}</span>
+        </div>
+        <NTabs v-model:value={select.value} type="line" animated>
+          <NTabPane name="oasis" tab="Oasis">
+            Wonderwall
+          </NTabPane>
+          <NTabPane name="the beatles" tab="the Beatles">
+            Hey Jude
+          </NTabPane>
+          <NTabPane name="jay chou" tab="周杰伦">
+            七里香
+          </NTabPane>
+        </NTabs>
+      </div>
+    )
+  }
 })

@@ -19,9 +19,10 @@ export interface Job {
   jobId: string
   jobName: string
   jobStatus: string
-  envOptions: {
-  }
+  errorMsg: string
+  envOptions: {}
   createTime: string
+  finishTime: string
   jobDag: {
     vertices: []
     edges: []
@@ -30,7 +31,7 @@ export interface Job {
   isStartWithSavePoint: boolean
   metrics: {
     sourceReceivedCount: string
-    sinkWriteCount: ""
+    sinkWriteCount: ''
   }
 }
 export type JobFinishedState = 'FINISHED' | 'CANCELED' | 'FAILED' | 'UNKNOWABLE'

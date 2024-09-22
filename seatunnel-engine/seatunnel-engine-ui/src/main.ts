@@ -15,24 +15,17 @@
  * limitations under the License.
  */
 
+import './assets/main.scss'
+
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App'
-import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import i18n from '@/locales'
 import router from './router'
-import './index.css'
-
-const meta = document.createElement('meta')
-meta.name = 'naive-ui-style'
-document.head.appendChild(meta)
 
 const app = createApp(App)
-const pinia = createPinia()
-
-pinia.use(piniaPluginPersistedstate)
 
 app.use(router)
-app.use(pinia)
+app.use(createPinia())
 app.use(i18n)
 app.mount('#app')
