@@ -488,8 +488,14 @@ public class CheckpointCoordinator {
         }
         final long currentTimestamp = Instant.now().toEpochMilli();
         if (checkpointType.notFinalCheckpoint() && checkpointType.notSchemaChangeCheckpoint()) {
-            if (currentTimestamp - latestTriggerTimestamp.get()
-                            < coordinatorConfig.getCheckpointInterval()
+            long diffFromLastTimestamp = currentTimestamp - latestTriggerTimestamp.get();
+            if (diffFromLastTimestamp <= 0) {
+                LOG.error(
+                        "The time on your server may not be incremental which can lead checkpoint to stop. The latestTriggerTimestamp: ({}), but the currentTimestamp: ({})",
+                        latestTriggerTimestamp.get(),
+                        currentTimestamp);
+            }
+            if (diffFromLastTimestamp < coordinatorConfig.getCheckpointInterval()
                     || !isAllTaskReady) {
                 return;
             }
