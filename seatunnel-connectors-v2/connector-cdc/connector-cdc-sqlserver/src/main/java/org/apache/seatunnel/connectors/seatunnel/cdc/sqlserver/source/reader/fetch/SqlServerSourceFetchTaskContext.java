@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.reader.fetch;
+package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.reader.fetch;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
@@ -26,9 +26,10 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
-import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.config.SqlServerSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.offset.LsnOffset;
-import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerUtils;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.config.SqlServerSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.offset.LsnOffset;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.utils.SqlServerConnectionUtils;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.utils.SqlServerUtils;
 
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
@@ -66,8 +67,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerConnectionUtils.createSqlServerConnection;
-
 /** The context for fetch task that fetching data of snapshot split from MySQL data source. */
 @Slf4j
 public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
@@ -92,7 +91,9 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
             SqlServerSourceConfig sourceConfig, JdbcDataSourceDialect dataSourceDialect) {
         super(sourceConfig, dataSourceDialect);
 
-        this.dataConnection = createSqlServerConnection(sourceConfig.getDbzConfiguration());
+        this.dataConnection =
+                SqlServerConnectionUtils.createSqlServerConnection(
+                        sourceConfig.getDbzConfiguration());
         this.metadataProvider = new SqlServerEventMetadataProvider();
     }
 
@@ -175,7 +176,8 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
             synchronized (this) {
                 if (this.metadataConnection == null) {
                     this.metadataConnection =
-                            createSqlServerConnection(sourceConfig.getDbzConfiguration());
+                            SqlServerConnectionUtils.createSqlServerConnection(
+                                    sourceConfig.getDbzConfiguration());
                 }
             }
         }

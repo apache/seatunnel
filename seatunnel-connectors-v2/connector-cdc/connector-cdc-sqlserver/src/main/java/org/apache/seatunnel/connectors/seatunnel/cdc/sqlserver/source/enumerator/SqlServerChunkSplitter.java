@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.enumerator;
+package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.enumerator;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.AbstractJdbcSourceChunkSplitter;
-import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerTypeUtils;
-import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerUtils;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.utils.SqlServerTypeUtils;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.utils.SqlServerUtils;
 
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;

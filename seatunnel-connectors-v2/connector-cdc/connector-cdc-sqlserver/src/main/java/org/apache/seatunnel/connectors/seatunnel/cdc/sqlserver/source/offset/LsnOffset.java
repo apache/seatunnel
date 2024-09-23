@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.offset;
+package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.offset;
 
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 

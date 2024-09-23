@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source;
+package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

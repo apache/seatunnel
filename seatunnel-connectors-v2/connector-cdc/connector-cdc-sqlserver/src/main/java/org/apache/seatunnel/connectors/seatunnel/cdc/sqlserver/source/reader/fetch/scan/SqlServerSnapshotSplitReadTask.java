@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.reader.fetch.scan;
+package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.reader.fetch.scan;
 
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkKind;
-import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.offset.LsnOffset;
-import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerUtils;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.offset.LsnOffset;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.utils.SqlServerUtils;
 
 import org.apache.kafka.connect.errors.ConnectException;
 

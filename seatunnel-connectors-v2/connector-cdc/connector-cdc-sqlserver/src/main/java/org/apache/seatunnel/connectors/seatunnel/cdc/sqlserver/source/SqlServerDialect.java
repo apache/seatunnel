@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source;
+package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -27,14 +27,15 @@ import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.Chunk
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
-import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.config.SqlServerSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.config.SqlServerSourceConfigFactory;
-import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.enumerator.SqlServerChunkSplitter;
-import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.reader.fetch.SqlServerSourceFetchTaskContext;
-import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.reader.fetch.scan.SqlServerSnapshotFetchTask;
-import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.reader.fetch.transactionlog.SqlServerTransactionLogFetchTask;
-import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerSchema;
-import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.TableDiscoveryUtils;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.config.SqlServerSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.config.SqlServerSourceConfigFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.enumerator.SqlServerChunkSplitter;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.reader.fetch.SqlServerSourceFetchTaskContext;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.reader.fetch.scan.SqlServerSnapshotFetchTask;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.reader.fetch.transactionlog.SqlServerTransactionLogFetchTask;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.utils.SqlServerConnectionUtils;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.utils.SqlServerSchema;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.utils.TableDiscoveryUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import io.debezium.jdbc.JdbcConnection;
@@ -45,8 +46,6 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
-import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerConnectionUtils.createSqlServerConnection;
 
 /** The {@link JdbcDataSourceDialect} implementation for MySQL datasource. */
 public class SqlServerDialect implements JdbcDataSourceDialect {
@@ -76,7 +75,8 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
 
     @Override
     public JdbcConnection openJdbcConnection(JdbcSourceConfig sourceConfig) {
-        return createSqlServerConnection(sourceConfig.getDbzConfiguration());
+        return SqlServerConnectionUtils.createSqlServerConnection(
+                sourceConfig.getDbzConfiguration());
     }
 
     @Override

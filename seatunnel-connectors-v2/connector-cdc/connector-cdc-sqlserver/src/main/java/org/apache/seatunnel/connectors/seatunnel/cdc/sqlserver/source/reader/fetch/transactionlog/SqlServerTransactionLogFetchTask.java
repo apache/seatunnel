@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.reader.fetch.transactionlog;
+package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.reader.fetch.transactionlog;
 
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkKind;
-import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.offset.LsnOffset;
-import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.reader.fetch.SqlServerSourceFetchTaskContext;
-import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.reader.fetch.scan.SqlServerSnapshotFetchTask;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.offset.LsnOffset;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.reader.fetch.SqlServerSourceFetchTaskContext;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.reader.fetch.scan.SqlServerSnapshotFetchTask;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,8 +42,8 @@ import io.debezium.util.Clock;
 
 import java.util.Map;
 
-import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.offset.LsnOffset.NO_STOPPING_OFFSET;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerUtils.getLsnPosition;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.offset.LsnOffset.NO_STOPPING_OFFSET;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.utils.SqlServerUtils.getLsnPosition;
 
 public class SqlServerTransactionLogFetchTask implements FetchTask<SourceSplitBase> {
     private final IncrementalSplit split;

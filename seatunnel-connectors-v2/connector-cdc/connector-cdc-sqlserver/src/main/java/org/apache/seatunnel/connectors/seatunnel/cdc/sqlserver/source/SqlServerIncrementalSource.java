@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source;
+package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -36,8 +36,8 @@ import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchem
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
-import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.config.SqlServerSourceConfigFactory;
-import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.offset.LsnOffsetFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.config.SqlServerSourceConfigFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.offset.LsnOffsetFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
 
