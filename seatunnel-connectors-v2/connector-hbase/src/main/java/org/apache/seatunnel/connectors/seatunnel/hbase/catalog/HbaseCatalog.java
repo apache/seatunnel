@@ -117,6 +117,12 @@ public class HbaseCatalog implements Catalog {
     public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         checkNotNull(tablePath, "tablePath cannot be null");
+        if (tableExists(tablePath)) {
+            if (!ignoreIfExists) {
+                throw new TableAlreadyExistException(catalogName, tablePath);
+            }
+            return;
+        }
         hbaseClient.createTable(
                 tablePath.getDatabaseName(),
                 tablePath.getTableName(),
@@ -130,8 +136,11 @@ public class HbaseCatalog implements Catalog {
     public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
             throws TableNotExistException, CatalogException {
         checkNotNull(tablePath);
-        if (!tableExists(tablePath) && !ignoreIfNotExists) {
-            throw new TableNotExistException(catalogName, tablePath);
+        if (!tableExists(tablePath)) {
+            if (!ignoreIfNotExists) {
+                throw new TableNotExistException(catalogName, tablePath);
+            }
+            return;
         }
         hbaseClient.dropTable(tablePath.getDatabaseName(), tablePath.getTableName());
     }
@@ -139,8 +148,11 @@ public class HbaseCatalog implements Catalog {
     @Override
     public void createDatabase(TablePath tablePath, boolean ignoreIfExists)
             throws DatabaseAlreadyExistException, CatalogException {
-        if (databaseExists(tablePath.getDatabaseName()) && !ignoreIfExists) {
-            throw new DatabaseAlreadyExistException(catalogName, tablePath.getDatabaseName());
+        if (databaseExists(tablePath.getDatabaseName())) {
+            if (!ignoreIfExists) {
+                throw new DatabaseAlreadyExistException(catalogName, tablePath.getDatabaseName());
+            }
+            return;
         }
         hbaseClient.createNamespace(tablePath.getDatabaseName());
     }
@@ -148,16 +160,22 @@ public class HbaseCatalog implements Catalog {
     @Override
     public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
             throws DatabaseNotExistException, CatalogException {
-        if (!databaseExists(tablePath.getDatabaseName()) && !ignoreIfNotExists) {
-            throw new DatabaseNotExistException(catalogName, tablePath.getDatabaseName());
+        if (!databaseExists(tablePath.getDatabaseName())) {
+            if (!ignoreIfNotExists) {
+                throw new DatabaseNotExistException(catalogName, tablePath.getDatabaseName());
+            }
+            return;
         }
         hbaseClient.deleteNamespace(tablePath.getDatabaseName());
     }
 
     @Override
     public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists) {
-        if (!tableExists(tablePath) && !ignoreIfNotExists) {
-            throw new TableNotExistException(catalogName, tablePath);
+        if (!tableExists(tablePath)) {
+            if (!ignoreIfNotExists) {
+                throw new TableNotExistException(catalogName, tablePath);
+            }
+            return;
         }
         hbaseClient.truncateTable(tablePath.getDatabaseName(), tablePath.getTableName());
     }
