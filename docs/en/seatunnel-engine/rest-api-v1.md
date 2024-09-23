@@ -2,7 +2,12 @@
 sidebar_position: 11
 ---
 
-# RESTful API
+**Notes:**
+
+It is recommended to use the v2 version of the Rest API. The v1 version is deprecated and will be removed in the future.
+
+
+# RESTful API V1
 
 SeaTunnel has a monitoring API that can be used to query status and statistics of running jobs, as well as recent
 completed jobs. The monitoring API is a RESTful API that accepts HTTP requests and responds with JSON data.

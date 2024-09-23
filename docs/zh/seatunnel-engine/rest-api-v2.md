@@ -1,10 +1,6 @@
 ---
-sidebar_position: 11
+sidebar_position: 12
 ---
-
-**注意:**
-
-推荐使用v2版本的Rest API。 v1 版本已弃用，并将在将来删除。
 
 # RESTful API
 
@@ -12,27 +8,13 @@ SeaTunnel有一个用于监控的API，可用于查询运行作业的状态和�
 
 ## 概述
 
-监控API是由运行的web服务提供的，它是节点运行的一部分，每个节点成员都可以提供rest API功能。
-默认情况下，该服务监听端口为5801，该端口可以在hazelcast.yaml中配置，如下所示：
-
+v2版本的api使用jetty支持，与v1版本的接口规范相同 ,可以通过修改`seatunnel.yaml`中的配置项来指定端口和context-path
 ```yaml
-network:
-    rest-api:
-      enabled: true
-      endpoint-groups:
-        CLUSTER_WRITE:
-          enabled: true
-        DATA:
-          enabled: true
-    join:
-      tcp-ip:
-        enabled: true
-        member-list:
-          - localhost
-    port:
-      auto-increment: true
-      port-count: 100
-      port: 5801
+
+seatunnel:
+  engine:
+    jetty-port: 8080
+    context-path: /hazelcast/rest/maps
 ```
 
 ## API参考
