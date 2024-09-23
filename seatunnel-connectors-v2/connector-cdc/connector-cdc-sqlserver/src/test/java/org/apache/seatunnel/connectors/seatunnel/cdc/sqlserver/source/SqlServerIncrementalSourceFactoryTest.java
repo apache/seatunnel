@@ -15,16 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink.multitablesink;
+package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-import java.io.Serializable;
-import java.util.concurrent.ConcurrentMap;
-
-@Getter
-@AllArgsConstructor
-public class MultiTableCommitInfo implements Serializable {
-    private ConcurrentMap<SinkIdentifier, Object> commitInfo;
+class SqlServerIncrementalSourceFactoryTest {
+    @Test
+    public void testOptionRule() {
+        Assertions.assertNotNull((new SqlServerIncrementalSourceFactory()).optionRule());
+    }
 }
