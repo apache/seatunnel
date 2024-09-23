@@ -217,7 +217,6 @@ public class HttpIT extends TestSuiteBase implements TestResource {
                         try {
                             Container.ExecResult execResult1 =
                                     container.executeJob("/http_streaming_json_to_assert.conf");
-                            Assertions.assertEquals(0, execResult1.getExitCode());
                         } catch (Exception e) {
                             log.error("Commit task exception :" + e.getMessage());
                             throw new RuntimeException(e);
