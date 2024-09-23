@@ -35,6 +35,7 @@ import com.google.auto.service.AutoService;
 
 import java.util.Properties;
 
+import static org.apache.seatunnel.api.sink.SinkCommonOptions.MULTI_TABLE_SINK_REPLICA;
 import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_DATABASE_NAME_KEY;
 import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_SCHEMA_NAME_KEY;
 import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_TABLE_NAME_KEY;
@@ -80,6 +81,7 @@ public class TimeplusSinkFactory
                         SCHEMA_SAVE_MODE,
                         SAVE_MODE_CREATE_TEMPLATE,
                         DATA_SAVE_MODE,
+                        MULTI_TABLE_SINK_REPLICA,
                         ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE)
                 .bundled(USERNAME, PASSWORD)
                 .build();
