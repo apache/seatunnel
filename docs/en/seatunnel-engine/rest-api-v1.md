@@ -74,6 +74,33 @@ network:
 
 ------------------------------------------------------------------------------------------
 
+###  Returns thread dump information for the current node.
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/thread-dump</b></code> <code>(Returns thread dump information for the current node.)</code></summary>
+
+#### Parameters
+
+
+#### Responses
+
+```json
+[
+  {
+    "threadName": "",
+    "threadId": 0,
+    "threadState": "",
+    "stackTrace": ""
+  }
+]
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+
+
 ### Returns An Overview And State Of All Jobs
 
 <details>
@@ -283,6 +310,9 @@ When we can't get the job info, the response will be:
 ```json
 [
   {
+    "isMaster": "true",
+    "host": "localhost",
+    "port": "5801",
     "processors":"8",
     "physical.memory.total":"16.0G",
     "physical.memory.free":"16.3M",

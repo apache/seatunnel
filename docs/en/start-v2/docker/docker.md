@@ -146,14 +146,14 @@ docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluste
 
 there has 2 ways to create cluster within docker.
 
-### 1. Use Docker Directly
+### Use Docker Directly
 
-1. create a network
+#### create a network
 ```shell
 docker network create seatunnel-network
 ```
 
-2. start the nodes
+#### start the nodes
 - start master node
 ```shell
 ## start master and export 5801 port 
@@ -213,7 +213,7 @@ docker run -d --name seatunnel_worker_1 \
 ```
 
 
-### 2. Use Docker-compose
+### Use Docker-compose
 
 > docker cluster mode is only support zeta engine.
 
@@ -368,7 +368,7 @@ and run `docker-compose up -d` command, the new worker node will start, and the 
 
 ### Job Operation on cluster
 
-1. use docker as a client
+#### use docker as a client
 - submit job :
 ```shell
 docker run --name seatunnel_client \
@@ -393,7 +393,7 @@ more command please refer [user-command](../../seatunnel-engine/user-command.md)
 
 
 
-2. use rest api
+#### use rest api
 
 please refer [Submit A Job](../../seatunnel-engine/rest-api-v1#submit-a-job)
 

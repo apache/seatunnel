@@ -72,6 +72,32 @@ network:
 
 ------------------------------------------------------------------------------------------
 
+###  返回当前节点的线程堆栈信息。
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/thread-dump</b></code> <code>(返回当前节点的线程堆栈信息。)</code></summary>
+
+#### Parameters
+
+
+#### Responses
+
+```json
+[
+  {
+    "threadName": "",
+    "threadId": 0,
+    "threadState": "",
+    "stackTrace": ""
+  }
+]
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+
 ### 返回所有作业及其当前状态的概览
 
 <details>
@@ -281,6 +307,9 @@ network:
 ```json
 [
   {
+    "isMaster": "true",
+    "host": "localhost",
+    "port": "5801",
     "processors":"8",
     "physical.memory.total":"16.0G",
     "physical.memory.free":"16.3M",

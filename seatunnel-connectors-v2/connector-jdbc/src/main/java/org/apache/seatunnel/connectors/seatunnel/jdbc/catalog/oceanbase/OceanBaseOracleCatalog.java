@@ -23,8 +23,10 @@ import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
 
+import java.sql.SQLException;
 import java.util.List;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
@@ -52,9 +54,13 @@ public class OceanBaseOracleCatalog extends OracleCatalog {
 
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
-        return querySQLResultExists(
-                this.getUrlFromDatabaseName(tablePath.getDatabaseName()),
-                getTableWithConditionSql(tablePath));
+        try {
+            return querySQLResultExists(
+                    this.getUrlFromDatabaseName(tablePath.getDatabaseName()),
+                    getTableWithConditionSql(tablePath));
+        } catch (SQLException e) {
+            throw new SeaTunnelException("Failed to querySQLResult", e);
+        }
     }
 
     @Override

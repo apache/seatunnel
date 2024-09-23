@@ -25,16 +25,24 @@ public class SinkContextProxy implements SinkWriter.Context {
 
     private final int index;
 
+    private final int replicaNum;
+
     private final SinkWriter.Context context;
 
-    public SinkContextProxy(int index, SinkWriter.Context context) {
+    public SinkContextProxy(int index, int replicaNum, SinkWriter.Context context) {
         this.index = index;
+        this.replicaNum = replicaNum;
         this.context = context;
     }
 
     @Override
     public int getIndexOfSubtask() {
         return index;
+    }
+
+    @Override
+    public int getNumberOfParallelSubtasks() {
+        return context.getNumberOfParallelSubtasks() * replicaNum;
     }
 
     @Override

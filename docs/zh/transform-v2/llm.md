@@ -8,30 +8,35 @@
 
 ## 属性
 
-| 名称                   | 类型   | 是否必须 | 默认值 |
-| ---------------------- | ------ | -------- | ------ |
-| model_provider         | enum   | yes      |        |
-| output_data_type       | enum   | no       | String |
-| prompt                 | string | yes      |        |
-| inference_columns   | list   | no       |        |
-| model                  | string | yes      |        |
-| api_key                | string | yes      |        |
-| api_path               | string | no       |        |
-| custom_config          | map    | no       |        |
-| custom_response_parse  | string | no       |        |
-| custom_request_headers | map    | no       |        |
-| custom_request_body    | map    | no       |        |
+| 名称                     | 类型   | 是否必须 | 默认值         |
+|------------------------| ------ | -------- |-------------|
+| model_provider         | enum   | yes      |             |
+| output_data_type       | enum   | no       | String      |
+| output_column_name     | string | no       | llm_output   |
+| prompt                 | string | yes      |             |
+| inference_columns      | list   | no       |             |
+| model                  | string | yes      |             |
+| api_key                | string | yes      |             |
+| api_path               | string | no       |             |
+| custom_config          | map    | no       |             |
+| custom_response_parse  | string | no       |             |
+| custom_request_headers | map    | no       |             |
+| custom_request_body    | map    | no       |             |
 
 ### model_provider
 
 要使用的模型提供者。可用选项为:
-OPENAI、DOUBAO、CUSTOM
+OPENAI、DOUBAO、KIMIAI、CUSTOM
 
 ### output_data_type
 
 输出数据的数据类型。可用选项为:
 STRING,INT,BIGINT,DOUBLE,BOOLEAN.
 默认值为 STRING。
+
+### output_column_name
+
+自定义输出数据字段名称。自定义字段名称与现有字段名称相同时,将替换为`llm_output`。
 
 ### prompt
 
@@ -81,8 +86,7 @@ transform {
 ### model
 
 要使用的模型。不同的模型提供者有不同的模型。例如，OpenAI 模型可以是 `gpt-4o-mini`。
-如果使用 OpenAI 模型，请参考 https://platform.openai.com/docs/models/model-endpoint-compatibility
-文档的`/v1/chat/completions` 端点。
+如果使用 OpenAI 模型，请参考 https://platform.openai.com/docs/models/model-endpoint-compatibility 文档的`/v1/chat/completions` 端点。
 
 ### api_key
 
@@ -148,7 +152,11 @@ transform {
 
 转换插件的常见参数, 请参考  [Transform Plugin](common-options.md) 了解详情
 
-## 示例
+## tips
+大模型API接口通常会有速率限制，可以配合Seatunnel的限速配置，已确保任务顺利运行。
+Seatunnel限速配置,请参考[speed-limit](../concept/speed-limit.md)了解详情
+
+## 示例 OPENAI
 
 通过 LLM 确定用户所在的国家。
 
@@ -156,6 +164,7 @@ transform {
 env {
   parallelism = 1
   job.mode = "BATCH"
+  read_limit.rows_per_second = 10
 }
 
 source {
@@ -192,6 +201,51 @@ sink {
 }
 ```
 
+## 示例 KIMIAI
+
+通过 LLM 判断人名是否中国历史上的帝王
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+  read_limit.rows_per_second = 10
+}
+
+source {
+  FakeSource {
+    row.num = 5
+    schema = {
+      fields {
+        id = "int"
+        name = "string"
+      }
+    }
+    rows = [
+      {fields = [1, "诸葛亮"], kind = INSERT}
+      {fields = [2, "李世民"], kind = INSERT}
+      {fields = [3, "孙悟空"], kind = INSERT}
+      {fields = [4, "朱元璋"], kind = INSERT}
+      {fields = [5, "乔治·华盛顿"], kind = INSERT}
+    ]
+  }
+}
+
+transform {
+  LLM {
+    model_provider = KIMIAI
+    model = moonshot-v1-8k
+    api_key = sk-xxx
+    prompt = "判断是否是中国历史上的帝王"
+    output_data_type = boolean
+  }
+}
+
+sink {
+  console {
+  }
+}
+```
 ### Customize the LLM model
 
 ```hocon
@@ -270,4 +324,3 @@ sink {
   }
 }
 ```
-

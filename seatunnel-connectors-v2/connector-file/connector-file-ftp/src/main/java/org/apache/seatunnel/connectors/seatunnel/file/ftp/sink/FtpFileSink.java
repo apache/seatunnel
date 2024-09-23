@@ -17,46 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.ftp.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConf;
-import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConfigOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseMultipleTableFileSink;
 
-import com.google.auto.service.AutoService;
-
-@AutoService(SeaTunnelSink.class)
-public class FtpFileSink extends BaseFileSink {
+public class FtpFileSink extends BaseMultipleTableFileSink {
     @Override
     public String getPluginName() {
         return FileSystemType.FTP.getFileSystemPluginName();
     }
 
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        FtpConfigOptions.FTP_HOST.key(),
-                        FtpConfigOptions.FTP_PORT.key(),
-                        FtpConfigOptions.FTP_USERNAME.key(),
-                        FtpConfigOptions.FTP_PASSWORD.key());
-        if (!result.isSuccess()) {
-            throw new FileConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, result.getMsg()));
-        }
-        super.prepare(pluginConfig);
-        hadoopConf = FtpConf.buildWithConfig(pluginConfig);
+    public FtpFileSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
+        super(FtpConf.buildWithConfig(readonlyConfig), readonlyConfig, catalogTable);
     }
 }

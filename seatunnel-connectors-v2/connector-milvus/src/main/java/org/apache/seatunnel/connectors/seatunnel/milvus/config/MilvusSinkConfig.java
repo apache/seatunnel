@@ -28,21 +28,7 @@ import static org.apache.seatunnel.api.sink.DataSaveMode.APPEND_DATA;
 import static org.apache.seatunnel.api.sink.DataSaveMode.DROP_DATA;
 import static org.apache.seatunnel.api.sink.DataSaveMode.ERROR_WHEN_DATA_EXISTS;
 
-public class MilvusSinkConfig {
-
-    public static final String CONNECTOR_IDENTITY = "Milvus";
-
-    public static final Option<String> URL =
-            Options.key("url")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Milvus public endpoint");
-
-    public static final Option<String> TOKEN =
-            Options.key("token")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Milvus token for authentication");
+public class MilvusSinkConfig extends MilvusCommonConfig {
 
     public static final Option<String> DATABASE =
             Options.key("database").stringType().noDefaultValue().withDescription("database");

@@ -37,6 +37,12 @@ public class LLMTransformConfig extends ModelTransformConfig {
                     .noDefaultValue()
                     .withDescription("The row projection field of each inference");
 
+    public static final Option<String> OUTPUT_COLUMN_NAME =
+            Options.key("output_column_name")
+                    .stringType()
+                    .defaultValue("llm_output")
+                    .withDescription("custom field name for the llm output data");
+
     public static final Option<Integer> INFERENCE_BATCH_SIZE =
             Options.key("inference_batch_size")
                     .intType()
