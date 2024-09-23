@@ -17,12 +17,21 @@
 
 package org.apache.seatunnel.e2e.connector.hbase;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
+import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
+import org.apache.seatunnel.connectors.seatunnel.hbase.catalog.HbaseCatalog;
+import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig;
+import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
+import org.apache.groovy.util.Maps;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellUtil;
 import org.apache.hadoop.hbase.TableName;
@@ -48,6 +57,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -77,6 +88,8 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
 
     private HbaseCluster hbaseCluster;
 
+    private Catalog catalog;
+
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -94,6 +107,20 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         // Create table for hbase multi-table sink test
         hbaseCluster.createTable(MULTI_TABLE_ONE_NAME, Arrays.asList(FAMILY_NAME));
         hbaseCluster.createTable(MULTI_TABLE_TWO_NAME, Arrays.asList(FAMILY_NAME));
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(HbaseConfig.ZOOKEEPER_QUORUM.key(), hbaseCluster.getZookeeperQuorum());
+        config.put(HbaseConfig.ROWKEY_COLUMNS.key(), "id");
+        config.put(HbaseConfig.FAMILY_NAME.key(), Maps.of("all_columns", FAMILY_NAME));
+        config.put(HbaseConfig.TABLE.key(), TABLE_NAME);
+        // config.put(HbaseConfig.)
+
+        catalog =
+                new HbaseCatalog(
+                        "hbase",
+                        "default",
+                        HbaseParameters.buildWithConfig(ReadonlyConfig.fromMap(config)));
+        catalog.open();
     }
 
     @AfterAll
@@ -101,6 +128,9 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     public void tearDown() throws Exception {
         if (Objects.nonNull(admin)) {
             admin.close();
+        }
+        if (Objects.nonNull(catalog)) {
+            catalog.close();
         }
         hbaseCluster.stopService();
     }
@@ -291,6 +321,23 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         Container.ExecResult sourceExecResult =
                 container.executeJob("/hbase-source-to-assert-with-batch-query.conf");
         Assertions.assertEquals(0, sourceExecResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testCatalog(TestContainer container) {
+        // create exiting table
+        Assertions.assertThrows(
+                TableAlreadyExistException.class,
+                () -> catalog.createTable(TablePath.of("", "", TABLE_NAME), null, false));
+        Assertions.assertDoesNotThrow(
+                () -> catalog.createTable(TablePath.of("", "", TABLE_NAME), null, true));
+        // drop table
+        Assertions.assertDoesNotThrow(
+                () -> catalog.createTable(TablePath.of("", "", "tmp"), null, false));
+        Assertions.assertDoesNotThrow(() -> catalog.dropTable(TablePath.of("", "", "tmp"), false));
+        Assertions.assertThrows(
+                TableNotExistException.class,
+                () -> catalog.dropTable(TablePath.of("", "", "tmp"), false));
     }
 
     private void fakeToHbase(TestContainer container) throws IOException, InterruptedException {
