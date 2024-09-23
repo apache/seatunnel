@@ -1,4 +1,4 @@
-# SeaTunnel Runs On Flink
+# SeaTunnel Runs On Spark
 
 Spark is a powerful high-performance distributed calculate processing engine. More information about it you can search for `Apache Spark`
 
