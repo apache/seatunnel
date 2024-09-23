@@ -27,7 +27,6 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.config.ReaderOption;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client.TimeplusSink;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPAggCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TimeplusSinkState;

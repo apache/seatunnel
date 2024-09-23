@@ -69,7 +69,7 @@ public class TimeplusSinkWriter
     private final transient TimeplusProxy proxy;
     private final Map<Shard, TimeplusBatchStatement> statementMap;
 
-    TimeplusSinkWriter(ReaderOption option, Context context, ReadonlyConfig config) {
+    public TimeplusSinkWriter(ReaderOption option, Context context, ReadonlyConfig config) {
         this.option = option;
 
         ProtonNode node =

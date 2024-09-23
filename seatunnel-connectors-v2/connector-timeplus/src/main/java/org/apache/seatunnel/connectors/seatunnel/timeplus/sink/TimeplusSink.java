@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client;
+package org.apache.seatunnel.connectors.seatunnel.timeplus.sink;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -36,6 +36,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.config.ReaderOption;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.TimeplusConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client.TimeplusSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPAggCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TimeplusSinkState;
