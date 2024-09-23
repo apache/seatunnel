@@ -47,6 +47,14 @@ public class FakeSourceToAssertIT extends TestSuiteBase {
     }
 
     @TestTemplate
+    public void testFakeSourceToMultiAssertSink(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/assertion/fakesource_to_multi_table_assert.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.FLINK},

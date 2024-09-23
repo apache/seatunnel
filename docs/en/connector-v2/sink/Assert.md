@@ -12,7 +12,7 @@ A sink plugin which can assert illegal data by user defined rules
 
 ## Options
 
-|                                              Name                                              |                      Type                       | Required | Default |
+| Name                                                                                           | Type                                            | Required | Default |
 |------------------------------------------------------------------------------------------------|-------------------------------------------------|----------|---------|
 | rules                                                                                          | ConfigMap                                       | yes      | -       |
 | rules.field_rules                                                                              | string                                          | yes      | -       |
@@ -43,6 +43,8 @@ A sink plugin which can assert illegal data by user defined rules
 | rules.catalog_table_rule.column_rule.default_value                                             | string                                          | no       | -       |
 | rules.catalog_table_rule.column_rule.comment                                                   | comment                                         | no       | -       |
 | rules.table-names                                                                              | ConfigList                                      | no       | -       |
+| rules.tables_configs                                                                           | ConfigList                                      | no       | -       |
+| rules.tables_configs.table_path                                                                | String                                          | no       | -       |
 | common-options                                                                                 |                                                 | no       | -       |
 
 ### rules [ConfigMap]
@@ -97,12 +99,21 @@ Used to assert the catalog table is same with the user defined table.
 
 Used to assert the table should be in the data.
 
+### tables_configs [ConfigList]
+
+Used to assert the multiple tables should be in the data.
+
+### table_path [String]
+
+The path of the table.
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
 
 ## Example
 
+### Simple
 the whole config obey with `hocon` style
 
 ```hocon
@@ -190,6 +201,8 @@ Assert {
 
   }
 ```
+
+### Complex
 
 Here is a more complex example about `equals_to`. The example involves FakeSource. You may want to learn it, please read this [document](../source/FakeSource.md).
 
@@ -479,6 +492,119 @@ sink{
     }
   }
 }
+```
+
+### Assert Multiple Tables 
+
+check multiple tables
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = BATCH
+}
+
+source {
+  FakeSource {
+    tables_configs = [
+      {
+        row.num = 16
+        schema {
+          table = "test.table1"
+          fields {
+            c_int = int
+            c_bigint = bigint
+          }
+        }
+      },
+      {
+        row.num = 17
+        schema {
+          table = "test.table2"
+          fields {
+            c_string = string
+            c_tinyint = tinyint
+          }
+        }
+      }
+    ]
+  }
+}
+
+transform {
+}
+
+sink {
+  Assert {
+    rules =
+      {
+        tables_configs = [
+          {
+            table_path = "test.table1"
+            row_rules = [
+              {
+                rule_type = MAX_ROW
+                rule_value = 16
+              },
+              {
+                rule_type = MIN_ROW
+                rule_value = 16
+              }
+            ],
+            field_rules = [{
+              field_name = c_int
+              field_type = int
+              field_value = [
+                {
+                  rule_type = NOT_NULL
+                }
+              ]
+            }, {
+              field_name = c_bigint
+              field_type = bigint
+              field_value = [
+                {
+                  rule_type = NOT_NULL
+                }
+              ]
+            }]
+          },
+          {
+            table_path = "test.table2"
+            row_rules = [
+              {
+                rule_type = MAX_ROW
+                rule_value = 17
+              },
+              {
+                rule_type = MIN_ROW
+                rule_value = 17
+              }
+            ],
+            field_rules = [{
+              field_name = c_string
+              field_type = string
+              field_value = [
+                {
+                  rule_type = NOT_NULL
+                }
+              ]
+            }, {
+              field_name = c_tinyint
+              field_type = tinyint
+              field_value = [
+                {
+                  rule_type = NOT_NULL
+                }
+              ]
+            }]
+          }
+        ]
+
+      }
+  }
+}
+
 ```
 
 ## Changelog
