@@ -48,29 +48,31 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     private static final AssertExecutor ASSERT_EXECUTOR = new AssertExecutor();
     private static final Map<String, LongAccumulator> LONG_ACCUMULATOR = new ConcurrentHashMap<>();
     private static final Set<String> TABLE_NAMES = new CopyOnWriteArraySet<>();
+    private final String catalogTableName;
 
     public AssertSinkWriter(
             SeaTunnelRowType seaTunnelRowType,
             Map<String, List<AssertFieldRule>> assertFieldRules,
             Map<String, List<AssertFieldRule.AssertRule>> assertRowRules,
-            AssertTableRule assertTableRule) {
+            AssertTableRule assertTableRule,
+            String catalogTableName) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.assertFieldRules = assertFieldRules;
         this.assertRowRules = assertRowRules;
         this.assertTableRule = assertTableRule;
+        this.catalogTableName = catalogTableName;
     }
 
     @Override
     public void write(SeaTunnelRow element) {
         TABLE_NAMES.add(element.getTableId());
         List<AssertFieldRule> assertFieldRule = null;
-        String tableName = null;
+        String tableName;
         if (StringUtils.isNotEmpty(element.getTableId())) {
             assertFieldRule = assertFieldRules.get(element.getTableId());
             tableName = element.getTableId();
         } else {
-            throw new AssertConnectorException(
-                    AssertConnectorErrorCode.RULE_VALIDATION_FAILED, "table id is null");
+            tableName = catalogTableName;
         }
 
         LONG_ACCUMULATOR

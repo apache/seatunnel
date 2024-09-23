@@ -55,6 +55,7 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     private final Map<String, List<AssertFieldRule.AssertRule>> assertRowRules;
     private final AssertTableRule assertTableRule;
     private final Map<String, AssertCatalogTableRule> assertCatalogTableRule;
+    private final String catalogTableName;
 
     public AssertSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
         this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
@@ -75,6 +76,7 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void>
             String tableName = catalogTable.getTablePath().getFullName();
             initTableRule(catalogTable, ruleConfig, tableName);
         }
+        catalogTableName = catalogTable.getTablePath().getFullName();
 
         if (ruleConfig.hasPath(CatalogOptions.TABLE_NAMES.key())) {
             assertTableRule =
@@ -117,7 +119,11 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     @Override
     public AssertSinkWriter createWriter(SinkWriter.Context context) {
         return new AssertSinkWriter(
-                seaTunnelRowType, assertFieldRules, assertRowRules, assertTableRule);
+                seaTunnelRowType,
+                assertFieldRules,
+                assertRowRules,
+                assertTableRule,
+                catalogTableName);
     }
 
     @Override
