@@ -228,6 +228,12 @@ public class ServerConfigOptions {
                     .defaultValue(8080)
                     .withDescription("The port of the Jetty server.");
 
+    public static final Option<String> CONTEXT_PATH =
+            Options.key("context-path")
+                    .stringType()
+                    .defaultValue("")
+                    .withDescription("The context path of the Jetty server.");
+
     public static final String EVENT_REPORT_HTTP = "event-report-http";
     public static final String EVENT_REPORT_HTTP_URL = "url";
     public static final String EVENT_REPORT_HTTP_HEADERS = "headers";

@@ -38,4 +38,5 @@ seatunnel:
       metric:
         enabled: false
     jetty-port: 8080
+    context-path: /hazelcast/rest/maps
 

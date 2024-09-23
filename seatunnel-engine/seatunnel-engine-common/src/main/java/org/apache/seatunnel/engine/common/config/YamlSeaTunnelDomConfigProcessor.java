@@ -173,6 +173,8 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 engineConfig.setJettyPort(
                         getIntegerValue(
                                 ServerConfigOptions.JETTY_PORT.key(), getTextContent(node)));
+            } else if (ServerConfigOptions.CONTEXT_PATH.key().equals(name)) {
+                engineConfig.setContextPath(getTextContent(node));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }

@@ -84,6 +84,7 @@ import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVE
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_BYTES_PER_SECONDS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_QPS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.CONTEXT_PATH;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.FINISHED_JOBS_INFO;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.JOB_INFO_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.OVERVIEW;
@@ -126,23 +127,24 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     public void handle(HttpGetCommand httpGetCommand) {
         String uri = httpGetCommand.getURI();
         try {
-            if (uri.startsWith(RUNNING_JOBS_URL)) {
+            if (uri.startsWith(CONTEXT_PATH + RUNNING_JOBS_URL)) {
                 handleRunningJobsInfo(httpGetCommand);
-            } else if (uri.startsWith(FINISHED_JOBS_INFO)) {
+            } else if (uri.startsWith(CONTEXT_PATH + FINISHED_JOBS_INFO)) {
                 handleFinishedJobsInfo(httpGetCommand, uri);
-            } else if (uri.startsWith(RUNNING_JOB_URL) || uri.startsWith(JOB_INFO_URL)) {
+            } else if (uri.startsWith(CONTEXT_PATH + RUNNING_JOB_URL)
+                    || uri.startsWith(CONTEXT_PATH + JOB_INFO_URL)) {
                 handleJobInfoById(httpGetCommand, uri);
-            } else if (uri.startsWith(SYSTEM_MONITORING_INFORMATION)) {
+            } else if (uri.startsWith(CONTEXT_PATH + SYSTEM_MONITORING_INFORMATION)) {
                 getSystemMonitoringInformation(httpGetCommand);
-            } else if (uri.startsWith(RUNNING_THREADS)) {
+            } else if (uri.startsWith(CONTEXT_PATH + RUNNING_THREADS)) {
                 getRunningThread(httpGetCommand);
-            } else if (uri.startsWith(OVERVIEW)) {
+            } else if (uri.startsWith(CONTEXT_PATH + OVERVIEW)) {
                 overView(httpGetCommand, uri);
             } else if (uri.equals(TELEMETRY_METRICS_URL)) {
                 handleMetrics(httpGetCommand, TextFormat.CONTENT_TYPE_004);
             } else if (uri.equals(TELEMETRY_OPEN_METRICS_URL)) {
                 handleMetrics(httpGetCommand, TextFormat.CONTENT_TYPE_OPENMETRICS_100);
-            } else if (uri.startsWith(THREAD_DUMP)) {
+            } else if (uri.startsWith(CONTEXT_PATH + THREAD_DUMP)) {
                 getThreadDump(httpGetCommand);
             } else {
                 original.handle(httpGetCommand);

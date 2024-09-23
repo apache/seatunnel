@@ -76,6 +76,13 @@ public class EngineConfig {
 
     private int jettyPort = ServerConfigOptions.JETTY_PORT.defaultValue();
 
+    private String contextPath = ServerConfigOptions.CONTEXT_PATH.defaultValue();
+
+    public void setContextPath(String contextPath) {
+        checkNotNull(contextPath, "Context path must not be null");
+        this.contextPath = contextPath;
+    }
+
     public void setJettyPort(int jettyPort) {
         checkPositive(jettyPort, "Jetty port must be > 0");
         this.jettyPort = jettyPort;

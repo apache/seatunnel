@@ -100,19 +100,22 @@ public class SeaTunnelServerStarter {
         ServletHolder updateTagsHandler =
                 new ServletHolder(new UpdateTagsServlet(hazelcastInstance));
 
-        context.addServlet(overviewHolder, OVERVIEW + "/*");
-        context.addServlet(runningJobsHolder, RUNNING_JOBS_URL + "/*");
-        context.addServlet(finishedJobsHolder, FINISHED_JOBS_INFO + "/*");
-        context.addServlet(systemMonitoringHolder, SYSTEM_MONITORING_INFORMATION + "/*");
-        context.addServlet(jobInfoHolder, JOB_INFO_URL + "/*");
-        context.addServlet(threadDumpHolder, THREAD_DUMP + "/*");
+        context.addServlet(overviewHolder, convertUrlToPath(seaTunnelConfig, OVERVIEW));
+        context.addServlet(runningJobsHolder, convertUrlToPath(seaTunnelConfig, RUNNING_JOBS_URL));
+        context.addServlet(
+                finishedJobsHolder, convertUrlToPath(seaTunnelConfig, FINISHED_JOBS_INFO));
+        context.addServlet(
+                systemMonitoringHolder,
+                convertUrlToPath(seaTunnelConfig, SYSTEM_MONITORING_INFORMATION));
+        context.addServlet(jobInfoHolder, convertUrlToPath(seaTunnelConfig, JOB_INFO_URL));
+        context.addServlet(threadDumpHolder, convertUrlToPath(seaTunnelConfig, THREAD_DUMP));
 
-        context.addServlet(submitJobHolder, SUBMIT_JOB_URL + "/*");
-        context.addServlet(submitJobsHolder, SUBMIT_JOBS_URL + "/*");
-        context.addServlet(stopJobHolder, STOP_JOB_URL + "/*");
-        context.addServlet(stopJobsHolder, STOP_JOBS_URL + "/*");
-        context.addServlet(encryptConfigHolder, ENCRYPT_CONFIG + "/*");
-        context.addServlet(updateTagsHandler, UPDATE_TAGS_URL + "/*");
+        context.addServlet(submitJobHolder, convertUrlToPath(seaTunnelConfig, SUBMIT_JOB_URL));
+        context.addServlet(submitJobsHolder, convertUrlToPath(seaTunnelConfig, SUBMIT_JOBS_URL));
+        context.addServlet(stopJobHolder, convertUrlToPath(seaTunnelConfig, STOP_JOB_URL));
+        context.addServlet(stopJobsHolder, convertUrlToPath(seaTunnelConfig, STOP_JOBS_URL));
+        context.addServlet(encryptConfigHolder, convertUrlToPath(seaTunnelConfig, ENCRYPT_CONFIG));
+        context.addServlet(updateTagsHandler, convertUrlToPath(seaTunnelConfig, UPDATE_TAGS_URL));
 
         server.setHandler(context);
 
@@ -231,5 +234,9 @@ public class SeaTunnelServerStarter {
             return true;
         }
         return false;
+    }
+
+    private static String convertUrlToPath(SeaTunnelConfig seaTunnelConfig, String url) {
+        return seaTunnelConfig.getEngineConfig().getContextPath() + url + "/*";
     }
 }
