@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.e2e.connector.redis;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -63,14 +62,15 @@ import java.util.Objects;
 import java.util.stream.Stream;
 
 @Slf4j
-public class RedisIT extends TestSuiteBase implements TestResource {
-    private static final String IMAGE = "redis:latest";
-    private static final String HOST = "redis-e2e";
-    private static final int PORT = 6379;
-    private static final String PASSWORD = "SeaTunnel";
+public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements TestResource {
 
-    private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET =
-            generateTestDataSet();
+    private String host;
+    private int port;
+    private String password;
+
+    private String imageName;
+
+    private Pair<SeaTunnelRowType, List<SeaTunnelRow>> testDateSet;
 
     private GenericContainer<?> redisContainer;
 
@@ -79,13 +79,15 @@ public class RedisIT extends TestSuiteBase implements TestResource {
     @BeforeAll
     @Override
     public void startUp() {
+        initContainerInfo();
         this.redisContainer =
-                new GenericContainer<>(DockerImageName.parse(IMAGE))
+                new GenericContainer<>(DockerImageName.parse(imageName))
                         .withNetwork(NETWORK)
-                        .withNetworkAliases(HOST)
-                        .withExposedPorts(PORT)
-                        .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
-                        .withCommand(String.format("redis-server --requirepass %s", PASSWORD))
+                        .withNetworkAliases(host)
+                        .withExposedPorts(port)
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(imageName)))
+                        .withCommand(String.format("redis-server --requirepass %s", password))
                         .waitingFor(
                                 new HostPortWaitStrategy()
                                         .withStartupTimeout(Duration.ofMinutes(2)));
@@ -95,10 +97,19 @@ public class RedisIT extends TestSuiteBase implements TestResource {
         this.initSourceData();
     }
 
+    private void initContainerInfo() {
+        RedisContainerInfo redisContainerInfo = getRedisContainerInfo();
+        this.host = redisContainerInfo.getHost();
+        this.port = redisContainerInfo.getPort();
+        this.password = redisContainerInfo.getPassword();
+        this.imageName = redisContainerInfo.getImageName();
+        this.testDateSet = generateTestDataSet();
+    }
+
     private void initSourceData() {
         JsonSerializationSchema jsonSerializationSchema =
-                new JsonSerializationSchema(TEST_DATASET.getKey());
-        List<SeaTunnelRow> rows = TEST_DATASET.getValue();
+                new JsonSerializationSchema(testDateSet.getKey());
+        List<SeaTunnelRow> rows = testDateSet.getValue();
         for (int i = 0; i < rows.size(); i++) {
             jedis.set("key_test" + i, new String(jsonSerializationSchema.serialize(rows.get(i))));
         }
@@ -111,7 +122,7 @@ public class RedisIT extends TestSuiteBase implements TestResource {
         jedis.select(0);
     }
 
-    private static Pair<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
+    protected Pair<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {
@@ -177,7 +188,7 @@ public class RedisIT extends TestSuiteBase implements TestResource {
 
     private void initJedis() {
         Jedis jedis = new Jedis(redisContainer.getHost(), redisContainer.getFirstMappedPort());
-        jedis.auth(PASSWORD);
+        jedis.auth(password);
         jedis.ping();
         this.jedis = jedis;
     }
@@ -351,4 +362,6 @@ public class RedisIT extends TestSuiteBase implements TestResource {
         jedis.del("key_multi_list");
         jedis.select(0);
     }
+
+    public abstract RedisContainerInfo getRedisContainerInfo();
 }
