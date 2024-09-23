@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.connector.paimon;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalogLoader;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 import org.apache.seatunnel.core.starter.utils.CompressionUtils;
@@ -35,6 +36,8 @@ import org.apache.paimon.catalog.CatalogContext;
 import org.apache.paimon.catalog.CatalogFactory;
 import org.apache.paimon.catalog.Identifier;
 import org.apache.paimon.crosspartition.IndexBootstrap;
+import org.apache.paimon.data.InternalArray;
+import org.apache.paimon.data.InternalMap;
 import org.apache.paimon.data.InternalRow;
 import org.apache.paimon.options.Options;
 import org.apache.paimon.reader.RecordReader;
@@ -343,6 +346,34 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
                         });
     }
 
+    @TestTemplate
+    public void primaryFullTypeAndLoadData(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult writeResult =
+                container.executeJob("/fake_to_dynamic_bucket_paimon_case6.conf");
+        Assertions.assertEquals(0, writeResult.getExitCode());
+
+        given().ignoreExceptions()
+                .await()
+                .atLeast(100L, TimeUnit.MILLISECONDS)
+                .atMost(60L, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            container.executeExtraCommands(containerExtendedFactory);
+                            FileStoreTable table =
+                                    (FileStoreTable) getTable("full_type", "st_test");
+                            List<String> primaryKeys = table.schema().primaryKeys();
+                            Assertions.assertEquals(12, primaryKeys.size());
+                            List<PaimonRecordWithFullType> paimonSourceRecords =
+                                    loadPaimonDataWithFullType(table);
+                            Assertions.assertEquals(6, paimonSourceRecords.size());
+                        });
+        // load full_type.st_test table data and initialize the PaimonBucketAssigner class
+        Container.ExecResult writeResult1 =
+                container.executeJob("/fake_to_dynamic_bucket_paimon_case7.conf");
+        Assertions.assertEquals(0, writeResult1.getExitCode());
+    }
+
     protected final ContainerExtendedFactory containerExtendedFactory =
             container -> {
                 if (isWindows) {
@@ -416,5 +447,46 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
             // do something
             throw new RuntimeException("table not exist");
         }
+    }
+
+    private List<PaimonRecordWithFullType> loadPaimonDataWithFullType(FileStoreTable table) {
+        ReadBuilder readBuilder = table.newReadBuilder();
+        TableScan.Plan plan = readBuilder.newScan().plan();
+        TableRead tableRead = readBuilder.newRead();
+        List<PaimonRecordWithFullType> result = new ArrayList<>();
+        try (RecordReader<InternalRow> reader = tableRead.createReader(plan)) {
+            reader.forEachRemaining(
+                    row -> {
+                        InternalMap internalMap = row.getMap(0);
+                        InternalArray keyArray = internalMap.keyArray();
+                        InternalArray valueArray = internalMap.valueArray();
+                        HashMap<Object, Object> map = new HashMap<>(internalMap.size());
+                        for (int i = 0; i < internalMap.size(); i++) {
+                            map.put(keyArray.getString(i), valueArray.getString(i));
+                        }
+                        InternalArray internalArray = row.getArray(1);
+                        int[] intArray = internalArray.toIntArray();
+                        PaimonRecordWithFullType paimonRecordWithFullType =
+                                new PaimonRecordWithFullType(
+                                        map,
+                                        intArray,
+                                        row.getString(2),
+                                        row.getBoolean(3),
+                                        row.getShort(4),
+                                        row.getShort(5),
+                                        row.getInt(6),
+                                        row.getLong(7),
+                                        row.getFloat(8),
+                                        row.getDouble(9),
+                                        row.getDecimal(10, 30, 8),
+                                        row.getString(11),
+                                        row.getInt(12),
+                                        row.getTimestamp(13, 6));
+                        result.add(paimonRecordWithFullType);
+                    });
+        } catch (IOException e) {
+            throw new SeaTunnelException(e);
+        }
+        return result;
     }
 }

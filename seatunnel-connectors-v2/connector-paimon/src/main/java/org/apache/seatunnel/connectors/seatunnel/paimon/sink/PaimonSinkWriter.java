@@ -106,6 +106,10 @@ public class PaimonSinkWriter
         BucketMode bucketMode = ((FileStoreTable) table).bucketMode();
         this.dynamicBucket =
                 BucketMode.DYNAMIC == bucketMode || BucketMode.GLOBAL_DYNAMIC == bucketMode;
+        int bucket = ((FileStoreTable) table).coreOptions().bucket();
+        if (bucket == -1 && BucketMode.UNAWARE == bucketMode) {
+            log.warn("Append only table currently do not support dynamic bucket");
+        }
         if (dynamicBucket) {
             this.bucketAssigner =
                     new PaimonBucketAssigner(
