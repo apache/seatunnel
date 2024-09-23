@@ -417,7 +417,8 @@ public class SparkSinkTest {
                             CatalogTableUtil.getCatalogTable(
                                     "test", "test", "test", "test", rowType)
                         },
-                        spark.sparkContext().applicationId())
+                        spark.sparkContext().applicationId(),
+                        spark.sparkContext().defaultParallelism())
                 .option("checkpointLocation", "/tmp")
                 .mode(SaveMode.Append)
                 .save();

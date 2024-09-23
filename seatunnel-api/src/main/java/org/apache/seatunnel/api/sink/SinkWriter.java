@@ -92,6 +92,11 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
         /** @return The index of this subtask. */
         int getIndexOfSubtask();
 
+        /** @return parallelism of this writer. */
+        default int getNumberOfParallelSubtasks() {
+            return 1;
+        }
+
         /** @return metricsContext of this reader. */
         MetricsContext getMetricsContext();
 

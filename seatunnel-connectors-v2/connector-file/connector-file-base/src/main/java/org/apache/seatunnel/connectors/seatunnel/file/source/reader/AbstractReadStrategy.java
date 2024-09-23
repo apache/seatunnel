@@ -19,18 +19,28 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.file.config.ArchiveCompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.hadoop.fs.FileStatus;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -42,6 +52,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 @Slf4j
 public abstract class AbstractReadStrategy implements ReadStrategy {
@@ -68,6 +80,8 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected long skipHeaderNumber = BaseSourceConfigOptions.SKIP_HEADER_ROW_NUMBER.defaultValue();
     protected transient boolean isKerberosAuthorization = false;
     protected HadoopFileSystemProxy hadoopFileSystemProxy;
+    protected ArchiveCompressFormat archiveCompressFormat =
+            BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC.defaultValue();
 
     protected Pattern pattern;
 
@@ -124,6 +138,13 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     @Override
     public void setPluginConfig(Config pluginConfig) {
         this.pluginConfig = pluginConfig;
+        // Determine whether it is a compressed file
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC.key())) {
+            String archiveCompressCodec =
+                    pluginConfig.getString(BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC.key());
+            archiveCompressFormat =
+                    ArchiveCompressFormat.valueOf(archiveCompressCodec.toUpperCase());
+        }
         if (pluginConfig.hasPath(BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH.key())) {
             isMergePartition =
                     pluginConfig.getBoolean(
@@ -151,6 +172,104 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     @Override
     public SeaTunnelRowType getActualSeaTunnelRowTypeInfo() {
         return isMergePartition ? seaTunnelRowTypeWithPartition : seaTunnelRowType;
+    }
+
+    protected void resolveArchiveCompressedInputStream(
+            String path,
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            Map<String, String> partitionsMap,
+            FileFormat fileFormat)
+            throws IOException {
+        switch (archiveCompressFormat) {
+            case ZIP:
+                try (ZipInputStream zis =
+                        new ZipInputStream(hadoopFileSystemProxy.getInputStream(path))) {
+                    ZipEntry entry;
+                    while ((entry = zis.getNextEntry()) != null) {
+                        if (!entry.isDirectory() && checkFileType(entry.getName(), fileFormat)) {
+                            readProcess(
+                                    path,
+                                    tableId,
+                                    output,
+                                    copyInputStream(zis),
+                                    partitionsMap,
+                                    entry.getName());
+                        }
+                        zis.closeEntry();
+                    }
+                }
+                break;
+            case TAR:
+                try (TarArchiveInputStream tarInput =
+                        new TarArchiveInputStream(hadoopFileSystemProxy.getInputStream(path))) {
+                    TarArchiveEntry entry;
+                    while ((entry = tarInput.getNextTarEntry()) != null) {
+                        if (!entry.isDirectory() && checkFileType(entry.getName(), fileFormat)) {
+                            readProcess(
+                                    path,
+                                    tableId,
+                                    output,
+                                    copyInputStream(tarInput),
+                                    partitionsMap,
+                                    entry.getName());
+                        }
+                    }
+                }
+                break;
+            case TAR_GZ:
+                try (GzipCompressorInputStream gzipIn =
+                                new GzipCompressorInputStream(
+                                        hadoopFileSystemProxy.getInputStream(path));
+                        TarArchiveInputStream tarIn = new TarArchiveInputStream(gzipIn)) {
+
+                    TarArchiveEntry entry;
+                    while ((entry = tarIn.getNextTarEntry()) != null) {
+                        if (!entry.isDirectory() && checkFileType(entry.getName(), fileFormat)) {
+                            readProcess(
+                                    path,
+                                    tableId,
+                                    output,
+                                    copyInputStream(tarIn),
+                                    partitionsMap,
+                                    entry.getName());
+                        }
+                    }
+                }
+                break;
+            case NONE:
+                readProcess(
+                        path,
+                        tableId,
+                        output,
+                        hadoopFileSystemProxy.getInputStream(path),
+                        partitionsMap,
+                        path);
+                break;
+            default:
+                log.warn(
+                        "The file does not support this archive compress type: {}",
+                        archiveCompressFormat);
+                readProcess(
+                        path,
+                        tableId,
+                        output,
+                        hadoopFileSystemProxy.getInputStream(path),
+                        partitionsMap,
+                        path);
+        }
+    }
+
+    protected void readProcess(
+            String path,
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            InputStream inputStream,
+            Map<String, String> partitionsMap,
+            String currentFileName)
+            throws IOException {
+        throw new UnsupportedOperationException(
+                "The file does not support the compressed file reading");
     }
 
     protected Map<String, String> parsePartitionsByPath(String path) {
@@ -200,6 +319,31 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             return pattern.matcher(fileStatus.getPath().getName()).matches();
         }
         return true;
+    }
+
+    protected static InputStream copyInputStream(InputStream inputStream) throws IOException {
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        byte[] buffer = new byte[1024];
+        int bytesRead;
+
+        while ((bytesRead = inputStream.read(buffer)) != -1) {
+            byteArrayOutputStream.write(buffer, 0, bytesRead);
+        }
+
+        return new ByteArrayInputStream(byteArrayOutputStream.toByteArray());
+    }
+
+    protected boolean checkFileType(String fileName, FileFormat fileFormat) {
+        for (String suffix : fileFormat.getAllSuffix()) {
+            if (fileName.endsWith(suffix)) {
+                return true;
+            }
+        }
+
+        log.warn(
+                "The {} file format is incorrect. Please check the format in the compressed file.",
+                fileName);
+        return false;
     }
 
     @Override

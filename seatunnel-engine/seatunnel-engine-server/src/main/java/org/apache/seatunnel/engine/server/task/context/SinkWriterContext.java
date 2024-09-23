@@ -21,23 +21,38 @@ import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.SinkWriter;
 
+import com.google.common.base.Preconditions;
+
 public class SinkWriterContext implements SinkWriter.Context {
 
     private static final long serialVersionUID = -3082515319043725121L;
-    private final int indexID;
+    private final int indexOfSubtask;
+    private final int numberOfParallelSubtasks;
     private final MetricsContext metricsContext;
     private final EventListener eventListener;
 
     public SinkWriterContext(
-            int indexID, MetricsContext metricsContext, EventListener eventListener) {
-        this.indexID = indexID;
+            int numberOfParallelSubtasks,
+            int indexOfSubtask,
+            MetricsContext metricsContext,
+            EventListener eventListener) {
+        Preconditions.checkArgument(
+                numberOfParallelSubtasks >= 1, "Parallelism must be a positive number.");
+        Preconditions.checkArgument(
+                indexOfSubtask >= 0, "Task index must be a non-negative number.");
+        this.numberOfParallelSubtasks = numberOfParallelSubtasks;
+        this.indexOfSubtask = indexOfSubtask;
         this.metricsContext = metricsContext;
         this.eventListener = eventListener;
     }
 
     @Override
     public int getIndexOfSubtask() {
-        return indexID;
+        return indexOfSubtask;
+    }
+
+    public int getNumberOfParallelSubtasks() {
+        return numberOfParallelSubtasks;
     }
 
     @Override
