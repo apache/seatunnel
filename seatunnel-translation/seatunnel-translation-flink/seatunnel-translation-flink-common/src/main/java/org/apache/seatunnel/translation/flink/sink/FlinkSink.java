@@ -50,11 +50,15 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
 
     private final CatalogTable catalogTable;
 
+    private final int parallelism;
+
     public FlinkSink(
             SeaTunnelSink<SeaTunnelRow, WriterStateT, CommT, GlobalCommT> sink,
-            CatalogTable catalogTable) {
+            CatalogTable catalogTable,
+            int parallelism) {
         this.sink = sink;
         this.catalogTable = catalogTable;
+        this.parallelism = parallelism;
     }
 
     @Override
@@ -62,8 +66,7 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
             Sink.InitContext context, List<FlinkWriterState<WriterStateT>> states)
             throws IOException {
         org.apache.seatunnel.api.sink.SinkWriter.Context stContext =
-                new FlinkSinkWriterContext(context);
-
+                new FlinkSinkWriterContext(context, parallelism);
         if (states == null || states.isEmpty()) {
             return new FlinkSinkWriter<>(
                     sink.createWriter(stContext), 1, catalogTable.getSeaTunnelRowType(), stContext);

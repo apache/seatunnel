@@ -60,6 +60,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | xml_use_attr_format       | boolean | no       | -                                    |
 | file_filter_pattern       | string  | no       | -                                    |
 | compress_codec            | string  | no       | none                                 |
+| archive_compress_codec    | string  | no       | none                                 |
 | encoding                  | string  | no       | UTF-8                                |
 | common-options            |         | no       | -                                    |
 | tables_configs            | list    | no       | used to define a multiple table task |
@@ -262,6 +263,17 @@ The compress codec of files and the details that supported as the following show
 - csv: `lzo` `none`
 - orc/parquet:  
   automatically recognizes the compression type, no additional settings required.
+
+### archive_compress_codec [string]
+
+The compress codec of archive files and the details that supported as the following shown:
+
+| archive_compress_codec | file_format        | archive_compress_suffix |
+|------------------------|--------------------|-------------------------|
+| ZIP                    | txt,json,excel,xml | .zip                    |
+| TAR                    | txt,json,excel,xml | .tar                    |
+| TAR_GZ                 | txt,json,excel,xml | .tar.gz                 |
+| NONE                   | all                | .*                      |
 
 ### encoding [string]
 

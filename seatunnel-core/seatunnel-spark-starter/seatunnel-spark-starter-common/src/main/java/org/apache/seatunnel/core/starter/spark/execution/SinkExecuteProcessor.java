@@ -124,7 +124,8 @@ public class SinkExecuteProcessor
                     sparkRuntimeEnvironment.getStreamingContext().sparkContext().applicationId();
             CatalogTable[] catalogTables =
                     datasetTableInfo.getCatalogTables().toArray(new CatalogTable[0]);
-            SparkSinkInjector.inject(dataset.write(), sink, catalogTables, applicationId)
+            SparkSinkInjector.inject(
+                            dataset.write(), sink, catalogTables, applicationId, parallelism)
                     .option("checkpointLocation", "/tmp")
                     .mode(SaveMode.Append)
                     .save();
