@@ -53,14 +53,18 @@ public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT>
 
     private final String jobId;
 
+    private final int parallelism;
+
     public SeaTunnelBatchWrite(
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
             CatalogTable[] catalogTables,
-            String jobId)
+            String jobId,
+            int parallelism)
             throws IOException {
         this.sink = sink;
         this.catalogTables = catalogTables;
         this.jobId = jobId;
+        this.parallelism = parallelism;
         this.aggregatedCommitter = sink.createAggregatedCommitter().orElse(null);
         if (aggregatedCommitter != null) {
             if (this.aggregatedCommitter instanceof SupportResourceShare) {
@@ -78,7 +82,7 @@ public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT>
 
     @Override
     public DataWriterFactory createBatchWriterFactory(PhysicalWriteInfo info) {
-        return new SeaTunnelSparkDataWriterFactory<>(sink, catalogTables, jobId);
+        return new SeaTunnelSparkDataWriterFactory<>(sink, catalogTables, jobId, parallelism);
     }
 
     @Override

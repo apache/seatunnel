@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonHadoopConfi
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.security.PaimonSecurityContext;
+import org.apache.seatunnel.connectors.seatunnel.paimon.sink.bucket.PaimonBucketAssigner;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.state.PaimonSinkState;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.JobContextUtil;
@@ -34,6 +35,7 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowConverter;
 
 import org.apache.paimon.data.InternalRow;
 import org.apache.paimon.schema.TableSchema;
+import org.apache.paimon.table.BucketMode;
 import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.table.sink.BatchTableCommit;
@@ -79,7 +81,11 @@ public class PaimonSinkWriter
 
     private final JobContext jobContext;
 
-    private TableSchema tableSchema;
+    private final TableSchema tableSchema;
+
+    private final PaimonBucketAssigner bucketAssigner;
+
+    private final boolean dynamicBucket;
 
     public PaimonSinkWriter(
             Context context,
@@ -97,6 +103,14 @@ public class PaimonSinkWriter
         this.context = context;
         this.jobContext = jobContext;
         this.tableSchema = ((FileStoreTable) table).schema();
+        this.bucketAssigner =
+                new PaimonBucketAssigner(
+                        table,
+                        this.context.getNumberOfParallelSubtasks(),
+                        this.context.getIndexOfSubtask());
+        BucketMode bucketMode = ((FileStoreTable) table).bucketMode();
+        this.dynamicBucket =
+                BucketMode.DYNAMIC == bucketMode || BucketMode.GLOBAL_DYNAMIC == bucketMode;
         PaimonSecurityContext.shouldEnableKerberos(paimonHadoopConfiguration);
     }
 
@@ -139,7 +153,12 @@ public class PaimonSinkWriter
         try {
             PaimonSecurityContext.runSecured(
                     () -> {
-                        tableWrite.write(rowData);
+                        if (dynamicBucket) {
+                            int bucket = bucketAssigner.assign(rowData);
+                            tableWrite.write(rowData, bucket);
+                        } else {
+                            tableWrite.write(rowData);
+                        }
                         return null;
                     });
         } catch (Exception e) {

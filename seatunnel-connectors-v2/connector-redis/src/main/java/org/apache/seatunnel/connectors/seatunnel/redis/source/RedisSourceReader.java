@@ -80,9 +80,6 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                     redisClient.scanKeys(cursor, batchSize, keysPattern, redisDataType);
             cursor = scanResult.getCursor();
             List<String> keys = scanResult.getResult();
-            if (CollectionUtils.isEmpty(keys)) {
-                break;
-            }
             pollNext(keys, redisDataType, output);
             // when cursor return "0", scan end
             if (ScanParams.SCAN_POINTER_START.equals(cursor)) {
@@ -94,6 +91,9 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private void pollNext(List<String> keys, RedisDataType dataType, Collector<SeaTunnelRow> output)
             throws IOException {
+        if (CollectionUtils.isEmpty(keys)) {
+            return;
+        }
         if (RedisDataType.HASH.equals(dataType)) {
             pollHashMapToNext(keys, output);
             return;
