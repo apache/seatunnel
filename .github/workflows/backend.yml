@@ -1177,7 +1177,7 @@ jobs:
           cache: 'maven'
       - name: free disk space
         run: tools/github/free_disk_space.sh
-      - name: run doris connector integration test
+      - name: run paimon connector integration test
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-paimon-e2e -am -Pci
         env:
