@@ -91,6 +91,8 @@ public class IcebergRecordWriter implements RecordWriter {
     public void applySchemaChange(SeaTunnelRowType afterRowType, SchemaChangeEvent event) {
         log.info("Apply schema change start.");
         SchemaChangeWrapper updates = new SchemaChangeWrapper();
+        // get the latest schema in case another process updated it
+        table.refresh();
         Schema schema = table.schema();
         if (event instanceof AlterTableDropColumnEvent) {
             AlterTableDropColumnEvent dropColumnEvent = (AlterTableDropColumnEvent) event;
