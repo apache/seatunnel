@@ -98,7 +98,9 @@ public class HiveJDBCCatalog implements Catalog, Serializable {
     @Override
     public void close() throws CatalogException {
         try {
-            connection.close();
+            if (connection != null) {
+                connection.close();
+            }
         } catch (SQLException e) {
             throw new CatalogException(e);
         }

@@ -240,7 +240,6 @@ public class HiveSink
             return Optional.empty();
         }
         HiveJDBCCatalog catalog = new HiveJDBCCatalog(readonlyConfig);
-        catalog.open();
         return Optional.of(
                 new DefaultSaveModeHandler(
                         readonlyConfig.get(HiveSinkOptions.SCHEMA_SAVE_MODE),

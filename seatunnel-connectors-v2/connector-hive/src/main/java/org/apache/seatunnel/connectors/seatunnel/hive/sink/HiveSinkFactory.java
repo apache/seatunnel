@@ -36,6 +36,8 @@ import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
 import com.google.auto.service.AutoService;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 @AutoService(Factory.class)
 public class HiveSinkFactory
@@ -84,6 +86,12 @@ public class HiveSinkFactory
         String databaseName = fullTableName.split("\\.")[0];
         String tableName = fullTableName.split("\\.")[1];
         TableIdentifier newTableId = TableIdentifier.of("Hive", databaseName, null, tableName);
+
         return CatalogTable.of(newTableId, catalogTable);
+    }
+
+    @Override
+    public List<String> excludeTablePlaceholderReplaceKeys() {
+        return Collections.singletonList("save_mode_create_template");
     }
 }
