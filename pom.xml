@@ -930,8 +930,6 @@
                     <java>
                         <excludes>
                             <exclude>src/main/java/org/apache/seatunnel/antlr4/generated/*.*</exclude>
-                            <exclude>**/TimeplusSinkFactory.java</exclude>
-                            <exclude>**/TimeplusSinkWriter.java</exclude>
                         </excludes>
                         <googleJavaFormat>
                             <version>1.7</version>
