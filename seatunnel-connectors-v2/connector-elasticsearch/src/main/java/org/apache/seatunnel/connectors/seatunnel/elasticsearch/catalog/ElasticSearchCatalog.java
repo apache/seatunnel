@@ -181,6 +181,12 @@ public class ElasticSearchCatalog implements Catalog {
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         // Create the index
         checkNotNull(tablePath, "tablePath cannot be null");
+        if (tableExists(tablePath)) {
+            if (!ignoreIfExists) {
+                throw new TableAlreadyExistException(catalogName, tablePath);
+            }
+            return;
+        }
         esRestClient.createIndex(tablePath.getTableName());
     }
 
@@ -188,8 +194,11 @@ public class ElasticSearchCatalog implements Catalog {
     public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
             throws TableNotExistException, CatalogException {
         checkNotNull(tablePath);
-        if (!tableExists(tablePath) && !ignoreIfNotExists) {
-            throw new TableNotExistException(catalogName, tablePath);
+        if (!tableExists(tablePath)) {
+            if (!ignoreIfNotExists) {
+                throw new TableNotExistException(catalogName, tablePath);
+            }
+            return;
         }
         try {
             esRestClient.dropIndex(tablePath.getTableName());
@@ -205,13 +214,21 @@ public class ElasticSearchCatalog implements Catalog {
     @Override
     public void createDatabase(TablePath tablePath, boolean ignoreIfExists)
             throws DatabaseAlreadyExistException, CatalogException {
-        createTable(tablePath, null, ignoreIfExists);
+        try {
+            createTable(tablePath, null, ignoreIfExists);
+        } catch (TableAlreadyExistException ex) {
+            throw new DatabaseAlreadyExistException(catalogName, tablePath.getDatabaseName());
+        }
     }
 
     @Override
     public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
             throws DatabaseNotExistException, CatalogException {
-        dropTable(tablePath, ignoreIfNotExists);
+        try {
+            dropTable(tablePath, ignoreIfNotExists);
+        } catch (TableNotExistException ex) {
+            throw new DatabaseNotExistException(catalogName, tablePath.getDatabaseName());
+        }
     }
 
     @Override
