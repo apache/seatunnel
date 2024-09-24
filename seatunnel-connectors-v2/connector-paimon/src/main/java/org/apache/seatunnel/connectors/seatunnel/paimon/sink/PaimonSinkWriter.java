@@ -205,13 +205,17 @@ public class PaimonSinkWriter
 
     @Override
     public void close() throws IOException {
-        if (Objects.nonNull(tableWrite)) {
-            try {
-                tableWrite.close();
-            } catch (Exception e) {
-                log.error("Failed to close table writer in paimon sink writer.", e);
-                throw new SeaTunnelException(e);
+        try {
+            if (Objects.nonNull(tableWrite)) {
+                try {
+                    tableWrite.close();
+                } catch (Exception e) {
+                    log.error("Failed to close table writer in paimon sink writer.", e);
+                    throw new SeaTunnelException(e);
+                }
             }
+        } finally {
+            committables.clear();
         }
     }
 }
