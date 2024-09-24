@@ -50,13 +50,6 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 | custom_sql                     | String  | no       | -                            | 当data_save_mode选择CUSTOM_PROCESSING时，需要填写CUSTOM_SQL参数。 该参数通常填写一条可以执行的SQL。 SQL将在同步任务之前执行。                                                                |
 | doris.config                   | map     | yes      | -                            | 该选项用于支持自动生成sql时的insert、delete、update等操作，以及支持的格式。                                                                                                       |
 
-### 注意
-适当增加`sink.buffer-size`和`doris.batch.size`的值可以提高写性能。< br >
-在流模式下，如果`doris.batch.size`和`checkpoint interval`都配置为较大的值，最后到达的数据可能会有较大的延迟(延迟的时间就是检查点间隔的时间)。< br >
-这是因为最后到达的数据总量可能不会超过doris.batch.size指定的阈值。因此，在接收到数据的数据量没有超过该阈值之前只有检查点才会触发写操作。因此，需要选择一个合适的检查点间隔。
-此外，如果你通过`sink.enable-2pc=true`属性启用2pc。`sink.buffer-size`将会失去作用，只有检查点才能触发写操作。
-
-
 ### schema_save_mode[Enum]
 
 在开启同步任务之前，针对现有的表结构选择不同的处理方案。
@@ -153,6 +146,13 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 #### 支持的导入数据格式
 
 支持的格式包括 CSV 和 JSON。
+
+## 调优指南
+
+适当增加`sink.buffer-size`和`doris.batch.size`的值可以提高写性能。<br>
+在流模式下，如果`doris.batch.size`和`checkpoint.interval`都配置为较大的值，最后到达的数据可能会有较大的延迟(延迟的时间就是检查点间隔的时间)。<br>
+这是因为最后到达的数据总量可能不会超过doris.batch.size指定的阈值。因此，在接收到数据的数据量没有超过该阈值之前只有检查点才会触发提交操作。因此，需要选择一个合适的检查点间隔。<br>
+此外，如果你通过`sink.enable-2pc=true`属性启用2pc。`sink.buffer-size`将会失去作用，只有检查点才能触发提交。
 
 ## 任务示例
 
