@@ -17,13 +17,19 @@
 
 package org.apache.seatunnel.api.sink.multitablesink;
 
+import org.apache.seatunnel.api.common.metrics.CycleMetricsContext;
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.common.metrics.TaskMetricsCalcContext;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
+import org.apache.seatunnel.api.sink.SinkMetricsCalc;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.tracing.MDCTracer;
+import org.apache.seatunnel.common.constants.PluginType;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -43,10 +49,12 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class MultiTableSinkWriter
-        implements SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState> {
+        implements SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState>,
+                SinkMetricsCalc {
 
     private final Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters;
     private final Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext;
@@ -57,13 +65,16 @@ public class MultiTableSinkWriter
     private final Random random = new Random();
     private final List<BlockingQueue<SeaTunnelRow>> blockingQueues = new ArrayList<>();
     private final ExecutorService executorService;
-    private MultiTableResourceManager resourceManager;
+    private final TaskMetricsCalcContext taskMetricsCalcContext;
+    private TaskMetricsCalcContext temporaryTaskMetricsCalcContext;
     private volatile boolean submitted = false;
+    private MultiTableResourceManager resourceManager;
 
     public MultiTableSinkWriter(
             Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters,
             int queueSize,
-            Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext) {
+            Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext,
+            TaskMetricsCalcContext taskMetricsCalcContext) {
         this.sinkWriters = sinkWriters;
         this.sinkWritersContext = sinkWritersContext;
         AtomicInteger cnt = new AtomicInteger(0);
@@ -83,6 +94,15 @@ public class MultiTableSinkWriter
                                                     + cnt.incrementAndGet());
                                     return thread;
                                 }));
+        this.taskMetricsCalcContext = taskMetricsCalcContext;
+        temporaryTaskMetricsCalcContext =
+                new TaskMetricsCalcContext(
+                        new CycleMetricsContext(),
+                        PluginType.SINK,
+                        true,
+                        sinkWriters.keySet().stream()
+                                .map(x -> TablePath.of(x.getTableIdentifier()))
+                                .collect(Collectors.toList()));
         sinkWritersWithIndex = new ArrayList<>();
         for (int i = 0; i < queueSize; i++) {
             BlockingQueue<SeaTunnelRow> queue = new LinkedBlockingQueue<>(1024);
@@ -101,7 +121,9 @@ public class MultiTableSinkWriter
 
             sinkWritersWithIndex.add(sinkIdentifierMap);
             blockingQueues.add(queue);
-            MultiTableWriterRunnable r = new MultiTableWriterRunnable(tableIdWriterMap, queue);
+            MultiTableWriterRunnable r =
+                    new MultiTableWriterRunnable(
+                            tableIdWriterMap, queue, temporaryTaskMetricsCalcContext);
             runnable.add(r);
         }
         log.info("init multi table sink writer, queue size: {}", queueSize);
@@ -239,6 +261,7 @@ public class MultiTableSinkWriter
                                         Optional<?> commit;
                                         try {
                                             commit = sinkWriterEntry.getValue().prepareCommit();
+                                            flushMetrics(sinkWriterEntry.getValue());
                                         } catch (IOException e) {
                                             throw new RuntimeException(e);
                                         }
@@ -262,6 +285,17 @@ public class MultiTableSinkWriter
             return Optional.empty();
         }
         return Optional.of(multiTableCommitInfo);
+    }
+
+    private void flushMetrics(SinkWriter<SeaTunnelRow, ?, ?> writer) {
+        if (writer instanceof SinkMetricsCalc) {
+            taskMetricsCalcContext.collectMetrics(
+                    ((SinkMetricsCalc) writer).collectMetricsContext());
+            ((CycleMetricsContext) temporaryTaskMetricsCalcContext.getMetricsContext()).clear();
+        } else {
+            taskMetricsCalcContext.collectMetrics(collectMetricsContext());
+            ((CycleMetricsContext) collectMetricsContext()).clear();
+        }
     }
 
     @Override
@@ -296,6 +330,15 @@ public class MultiTableSinkWriter
     public void close() throws IOException {
         // The variables used in lambda expressions should be final or valid final, so they are
         // modified to arrays
+
+        sinkWritersWithIndex.forEach(
+                sinkWriterMap -> {
+                    sinkWriterMap.forEach(
+                            (key, value) -> {
+                                flushMetrics(value);
+                            });
+                });
+
         final Throwable[] firstE = {null};
         try {
             checkQueueRemain();
@@ -347,5 +390,10 @@ public class MultiTableSinkWriter
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public MetricsContext collectMetricsContext() {
+        return temporaryTaskMetricsCalcContext.getMetricsContext();
     }
 }

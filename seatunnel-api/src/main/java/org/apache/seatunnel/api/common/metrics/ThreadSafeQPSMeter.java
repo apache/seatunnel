@@ -70,6 +70,11 @@ public class ThreadSafeQPSMeter implements Meter, Serializable {
     }
 
     @Override
+    public void clear() {
+        VOLATILE_VALUE_UPDATER.set(this, 0);
+    }
+
+    @Override
     public String toString() {
         return "ThreadSafeQPSMeter{"
                 + "name='"

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.common.metrics;
 
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
@@ -28,7 +29,7 @@ public abstract class AbstractMetricsContext implements MetricsContext, Serializ
 
     private static final long serialVersionUID = 1L;
 
-    protected final Map<String, Metric> metrics = new ConcurrentHashMap<>();
+    @Getter protected final Map<String, Metric> metrics = new ConcurrentHashMap<>();
 
     @Override
     public Counter counter(String name) {

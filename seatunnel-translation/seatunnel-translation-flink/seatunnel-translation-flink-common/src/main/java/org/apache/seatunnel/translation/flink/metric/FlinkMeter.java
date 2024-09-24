@@ -52,6 +52,11 @@ public class FlinkMeter implements Meter {
     }
 
     @Override
+    public void clear() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public String name() {
         return name;
     }

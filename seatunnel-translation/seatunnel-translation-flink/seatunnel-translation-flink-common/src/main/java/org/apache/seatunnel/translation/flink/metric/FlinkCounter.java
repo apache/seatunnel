@@ -64,6 +64,11 @@ public class FlinkCounter implements Counter {
     }
 
     @Override
+    public void clear() {
+        throw new UnsupportedOperationException("Flink metrics does not support clear operation");
+    }
+
+    @Override
     public String name() {
         return name;
     }

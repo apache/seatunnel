@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.common.metrics.TaskMetricsCalcContext;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
@@ -32,7 +33,6 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlGate;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
-import org.apache.seatunnel.engine.server.metrics.TaskMetricsCalcContext;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -96,18 +96,8 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     public void collect(T row) {
         try {
             if (row instanceof SeaTunnelRow) {
-                String tableId = ((SeaTunnelRow) row).getTableId();
-                int size;
-                if (rowType instanceof SeaTunnelRowType) {
-                    size = ((SeaTunnelRow) row).getBytesSize((SeaTunnelRowType) rowType);
-                } else if (rowType instanceof MultipleRowType) {
-                    size = ((SeaTunnelRow) row).getBytesSize(rowTypeMap.get(tableId));
-                } else {
-                    throw new SeaTunnelEngineException(
-                            "Unsupported row type: " + rowType.getClass().getName());
-                }
                 flowControlGate.audit((SeaTunnelRow) row);
-                taskMetricsCalcContext.updateMetrics(row);
+                taskMetricsCalcContext.collectMetrics(row);
             }
             sendRecordToNext(new Record<>(row));
             emptyThisPollNext = false;

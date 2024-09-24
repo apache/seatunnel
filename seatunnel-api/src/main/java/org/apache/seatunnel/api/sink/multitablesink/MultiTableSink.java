@@ -18,6 +18,7 @@
 package org.apache.seatunnel.api.sink.multitablesink;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.common.metrics.TaskMetricsCalcContext;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -28,6 +29,7 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.constants.PluginType;
 
 import lombok.Getter;
 
@@ -49,6 +51,7 @@ public class MultiTableSink
 
     @Getter private final Map<String, SeaTunnelSink> sinks;
     private final int replicaNum;
+    private TaskMetricsCalcContext taskMetricsCalcContext;
 
     public MultiTableSink(MultiTableFactoryContext context) {
         this.sinks = context.getSinks();
@@ -63,6 +66,10 @@ public class MultiTableSink
     @Override
     public SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState> createWriter(
             SinkWriter.Context context) throws IOException {
+        taskMetricsCalcContext =
+                new TaskMetricsCalcContext(
+                        context.getMetricsContext(), PluginType.SINK, true, null);
+
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
         for (int i = 0; i < replicaNum; i++) {
@@ -75,12 +82,17 @@ public class MultiTableSink
                 sinkWritersContext.put(SinkIdentifier.of(tableIdentifier, index), context);
             }
         }
-        return new MultiTableSinkWriter(writers, replicaNum, sinkWritersContext);
+        return new MultiTableSinkWriter(
+                writers, replicaNum, sinkWritersContext, taskMetricsCalcContext);
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState> restoreWriter(
             SinkWriter.Context context, List<MultiTableState> states) throws IOException {
+        taskMetricsCalcContext =
+                new TaskMetricsCalcContext(
+                        context.getMetricsContext(), PluginType.SINK, true, getSinkTables());
+
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
 
@@ -110,7 +122,8 @@ public class MultiTableSink
                 sinkWritersContext.put(SinkIdentifier.of(tableIdentifier, index), context);
             }
         }
-        return new MultiTableSinkWriter(writers, replicaNum, sinkWritersContext);
+        return new MultiTableSinkWriter(
+                writers, replicaNum, sinkWritersContext, taskMetricsCalcContext);
     }
 
     @Override
