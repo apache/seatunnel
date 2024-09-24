@@ -123,13 +123,6 @@
             <version>5.14.0</version>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-common</artifactId>
-            <version>3.3.6</version>
-            <scope>test</scope>
-        </dependency>
-
     </dependencies>
 
 </project>

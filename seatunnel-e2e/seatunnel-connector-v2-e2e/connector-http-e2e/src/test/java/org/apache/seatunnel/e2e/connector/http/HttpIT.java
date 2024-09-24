@@ -209,8 +209,7 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testStreamingSourceToAssertSink(TestContainer container)
-            throws InterruptedException, IOException {
+    public void testStreamingSourceToAssertSink(TestContainer container) {
         try {
             CompletableFuture.supplyAsync(
                     () -> {
