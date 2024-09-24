@@ -67,12 +67,22 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     public void write(SeaTunnelRow element) {
         TABLE_NAMES.add(element.getTableId());
         List<AssertFieldRule> assertFieldRule = null;
-        String tableName;
-        if (StringUtils.isNotEmpty(element.getTableId())) {
-            assertFieldRule = assertFieldRules.get(element.getTableId());
+        String tableName = null;
+        if (assertFieldRules.size() == 1) {
+            assertFieldRule = assertFieldRules.values().iterator().next();
+        }
+        if (assertRowRules.size() == 1) {
+            tableName = assertRowRules.keySet().iterator().next();
+        }
+
+        if (StringUtils.isEmpty(tableName) && StringUtils.isNotEmpty(element.getTableId())) {
             tableName = element.getTableId();
         } else {
             tableName = catalogTableName;
+        }
+
+        if (Objects.isNull(assertFieldRule)) {
+            assertFieldRule = assertFieldRules.get(tableName);
         }
 
         LONG_ACCUMULATOR

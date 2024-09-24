@@ -47,6 +47,10 @@ public class FakeSourceToAssertIT extends TestSuiteBase {
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK},
+            disabledReason = "Currently FLINK unsupported multi table")
     public void testFakeSourceToMultiAssertSink(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
