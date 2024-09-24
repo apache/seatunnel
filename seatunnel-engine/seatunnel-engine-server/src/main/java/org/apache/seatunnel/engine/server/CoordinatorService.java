@@ -54,6 +54,7 @@ import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
@@ -474,8 +475,10 @@ public class CoordinatorService {
                         "The restore %s is in %s state, restore pipeline and take over this job running",
                         jobFullName, jobStatus));
         // FIFO strategy，If there is a waiting task, the subsequent task will keep waiting
-        // TODO More strategies will be supported in the future
-        if (!isJobPending || (pendingJob.size() == 0 && jobMaster.preApplyResources())) {
+        boolean preApplyResources = jobMaster.preApplyResources();
+        boolean canRunJob = !isJobPending || (pendingJob.size() == 0 && preApplyResources);
+
+        if (canRunJob) {
             CompletableFuture.runAsync(
                     () -> {
                         try {
@@ -487,6 +490,9 @@ public class CoordinatorService {
                                     .getPhysicalPlan()
                                     .getPipelineList()
                                     .forEach(SubPlan::restorePipelineState);
+                            if (!preApplyResources) {
+                                throw new NoEnoughResourceException();
+                            }
                             jobMaster.run();
                         } finally {
                             // voidCompletableFuture will be cancelled when zeta master node
@@ -651,8 +657,10 @@ public class CoordinatorService {
                                     pendingJob.add(new Tuple2<>(jobId, jobMaster));
                                     logger.info("Resources not enough, enter the pending queue");
                                 }
-                            } else {
+                            } else if (jobMaster.preApplyResources()) {
                                 jobMaster.run();
+                            } else {
+                                throw new NoEnoughResourceException();
                             }
                         } finally {
                             // voidCompletableFuture will be cancelled when zeta master node
