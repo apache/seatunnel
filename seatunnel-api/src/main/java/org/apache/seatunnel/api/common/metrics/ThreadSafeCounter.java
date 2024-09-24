@@ -65,6 +65,11 @@ public class ThreadSafeCounter implements Counter, Serializable {
     }
 
     @Override
+    public void clear() {
+        VOLATILE_VALUE_UPDATER.set(this, 0);
+    }
+
+    @Override
     public String name() {
         return name;
     }
