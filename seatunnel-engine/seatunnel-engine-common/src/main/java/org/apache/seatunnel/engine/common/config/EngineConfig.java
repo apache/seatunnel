@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.common.config;
 
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
+import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
@@ -74,19 +75,7 @@ public class EngineConfig {
 
     private TelemetryConfig telemetryConfig = ServerConfigOptions.TELEMETRY.defaultValue();
 
-    private int jettyPort = ServerConfigOptions.JETTY_PORT.defaultValue();
-
-    private String contextPath = ServerConfigOptions.CONTEXT_PATH.defaultValue();
-
-    public void setContextPath(String contextPath) {
-        checkNotNull(contextPath, "Context path must not be null");
-        this.contextPath = contextPath;
-    }
-
-    public void setJettyPort(int jettyPort) {
-        checkPositive(jettyPort, "Jetty port must be > 0");
-        this.jettyPort = jettyPort;
-    }
+    private HttpConfig httpConfig = ServerConfigOptions.HTTP.defaultValue();
 
     public void setBackupCount(int newBackupCount) {
         checkBackupCount(newBackupCount, 0);

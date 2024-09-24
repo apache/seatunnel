@@ -41,4 +41,6 @@ seatunnel:
         telemetry:
             metric:
                 enabled: false
-        jetty-port: 8081
+        http:
+            port: 8080
+            context-path:

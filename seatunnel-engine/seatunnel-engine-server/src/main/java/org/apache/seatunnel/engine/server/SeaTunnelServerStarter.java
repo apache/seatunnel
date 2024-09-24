@@ -67,7 +67,7 @@ public class SeaTunnelServerStarter {
 
     public static void createJettyServer(HazelcastInstanceImpl hazelcastInstance) {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
-        Server server = new Server(seaTunnelConfig.getEngineConfig().getJettyPort());
+        Server server = new Server(seaTunnelConfig.getEngineConfig().getHttpConfig().getPort());
 
         ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
         context.setContextPath("/");
@@ -237,6 +237,6 @@ public class SeaTunnelServerStarter {
     }
 
     private static String convertUrlToPath(SeaTunnelConfig seaTunnelConfig, String url) {
-        return seaTunnelConfig.getEngineConfig().getContextPath() + url + "/*";
+        return seaTunnelConfig.getEngineConfig().getHttpConfig().getContextPath() + url + "/*";
     }
 }

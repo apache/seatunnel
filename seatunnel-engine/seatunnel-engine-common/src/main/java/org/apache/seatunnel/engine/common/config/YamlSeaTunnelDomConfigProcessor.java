@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarHAStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageMode;
+import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
@@ -169,12 +170,8 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 }
             } else if (ServerConfigOptions.TELEMETRY.key().equals(name)) {
                 engineConfig.setTelemetryConfig(parseTelemetryConfig(node));
-            } else if (ServerConfigOptions.JETTY_PORT.key().equals(name)) {
-                engineConfig.setJettyPort(
-                        getIntegerValue(
-                                ServerConfigOptions.JETTY_PORT.key(), getTextContent(node)));
-            } else if (ServerConfigOptions.CONTEXT_PATH.key().equals(name)) {
-                engineConfig.setContextPath(getTextContent(node));
+            } else if (ServerConfigOptions.HTTP.key().equals(name)) {
+                engineConfig.setHttpConfig(parseHttpConfig(node));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }
@@ -348,5 +345,21 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         }
 
         return metricConfig;
+    }
+
+    private HttpConfig parseHttpConfig(Node httpNode) {
+        HttpConfig httpConfig = new HttpConfig();
+        for (Node node : childElements(httpNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.HTTP.key().equals(name)) {
+                httpConfig.setPort(
+                        getIntegerValue(ServerConfigOptions.HTTP.key(), getTextContent(node)));
+            } else if (ServerConfigOptions.CONTEXT_PATH.key().equals(name)) {
+                httpConfig.setContextPath(getTextContent(node));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+        return httpConfig;
     }
 }

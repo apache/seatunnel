@@ -222,17 +222,16 @@ public class ServerConfigOptions {
                     .defaultValue(new TelemetryConfig())
                     .withDescription("The telemetry configuration.");
 
-    public static final Option<Integer> JETTY_PORT =
-            Options.key("jetty-port")
-                    .intType()
-                    .defaultValue(8080)
-                    .withDescription("The port of the Jetty server.");
+    public static final Option<HttpConfig> HTTP =
+            Options.key("http")
+                    .type(new TypeReference<HttpConfig>() {})
+                    .defaultValue(new HttpConfig())
+                    .withDescription("The http configuration.");
+
+    public static final Option<Integer> PORT = Options.key("port").intType().defaultValue(8080);
 
     public static final Option<String> CONTEXT_PATH =
-            Options.key("context-path")
-                    .stringType()
-                    .defaultValue("")
-                    .withDescription("The context path of the Jetty server.");
+            Options.key("context-path").stringType().defaultValue("");
 
     public static final String EVENT_REPORT_HTTP = "event-report-http";
     public static final String EVENT_REPORT_HTTP_URL = "url";
