@@ -17,7 +17,22 @@
 
 package org.apache.seatunnel.e2e.connector.v2.milvus;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistException;
+import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
+import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.common.utils.BufferUtils;
+import org.apache.seatunnel.connectors.seatunnel.milvus.catalog.MilvusCatalog;
+import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -59,8 +74,10 @@ import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -88,6 +105,8 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
 
     private static final String TITLE_FIELD = "book_title";
     private static final Integer VECTOR_DIM = 4;
+
+    private Catalog catalog;
     private static final Gson gson = new Gson();
 
     @BeforeAll
@@ -106,6 +125,12 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
     private void initMilvus()
             throws SQLException, ClassNotFoundException, InstantiationException,
                     IllegalAccessException {
+        Map<String, Object> config = new HashMap<>();
+        config.put(MilvusSinkConfig.URL.key(), this.container.getEndpoint());
+        config.put(MilvusSinkConfig.TOKEN.key(), TOKEN);
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(config);
+        catalog = new MilvusCatalog(COLLECTION_NAME, readonlyConfig);
+        catalog.open();
         milvusClient =
                 new MilvusServiceClient(
                         ConnectParam.newBuilder()
@@ -257,6 +282,9 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
     public void tearDown() throws Exception {
         this.milvusClient.close();
         this.container.close();
+        if (catalog != null) {
+            catalog.close();
+        }
     }
 
     @TestTemplate
@@ -361,5 +389,66 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(fileds.contains("book_intro_2"));
         Assertions.assertTrue(fileds.contains("book_intro_3"));
         Assertions.assertTrue(fileds.contains("book_intro_4"));
+    }
+
+    @TestTemplate
+    public void testCatalog(TestContainer container) {
+        // simple_example always exist
+        Assertions.assertThrows(
+                TableAlreadyExistException.class,
+                () -> catalog.createTable(TablePath.of("default", "simple_example"), null, false));
+        Assertions.assertDoesNotThrow(
+                () -> catalog.createTable(TablePath.of("default", "simple_example"), null, true));
+
+        // create tmp
+        Assertions.assertDoesNotThrow(
+                () ->
+                        catalog.createTable(
+                                TablePath.of("default", "tmp"),
+                                CatalogTable.of(
+                                        TableIdentifier.of(
+                                                COLLECTION_NAME, TablePath.of("default", "tmp")),
+                                        TableSchema.builder()
+                                                .column(
+                                                        new PhysicalColumn(
+                                                                "id",
+                                                                BasicType.LONG_TYPE,
+                                                                null,
+                                                                null,
+                                                                false,
+                                                                null,
+                                                                null))
+                                                .column(
+                                                        new PhysicalColumn(
+                                                                "vector",
+                                                                VectorType.VECTOR_FLOAT_TYPE,
+                                                                128L,
+                                                                8,
+                                                                false,
+                                                                null,
+                                                                null))
+                                                .primaryKey(
+                                                        new PrimaryKey(
+                                                                "",
+                                                                Collections.singletonList("id")))
+                                                .build(),
+                                        Collections.emptyMap(),
+                                        Collections.emptyList(),
+                                        ""),
+                                false));
+        Assertions.assertDoesNotThrow(
+                () -> catalog.dropTable(TablePath.of("default", "tmp"), false));
+        Assertions.assertThrows(
+                TableNotExistException.class,
+                () -> catalog.dropTable(TablePath.of("default", "tmp"), false));
+
+        // create new database
+        Assertions.assertDoesNotThrow(
+                () -> catalog.createDatabase(TablePath.of("new_db.table"), true));
+        Assertions.assertThrows(
+                DatabaseAlreadyExistException.class,
+                () -> catalog.createDatabase(TablePath.of("new_db.table"), false));
+        Assertions.assertDoesNotThrow(
+                () -> catalog.dropDatabase(TablePath.of("new_db.table"), false));
     }
 }
