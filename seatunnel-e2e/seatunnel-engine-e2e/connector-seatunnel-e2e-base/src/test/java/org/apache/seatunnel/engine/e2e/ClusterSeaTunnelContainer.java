@@ -47,7 +47,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Stream;
 
 import static io.restassured.RestAssured.given;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
@@ -120,24 +119,6 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                         i,
                                         paramJobName + "&jobId=" + CUSTOM_JOB_ID,
                                         true));
-
-        String serverLogs = server.getLogs();
-        String secondServerLogs = secondServer.getLogs();
-        Stream.of(
-                        // [862969647010611201] 2024-08-24 16:01:21,155 INFO
-                        // org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSourceSplitEnumerator - Starting to calculate splits.
-                        "\\[862969647010611201\\].* INFO org\\.apache\\.seatunnel\\.connectors\\.seatunnel\\.fake\\.source\\.FakeSourceSplitEnumerator",
-                        // [862969647010611201] 2024-08-24 16:01:21,278 INFO
-                        // org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter
-                        // - subtaskIndex=0  rowIndex=63:  SeaTunnelRow#tableId=fake
-                        // SeaTunnelRow#kind=INSERT : qOWCd, 1033892054, 671516661
-                        "\\[862969647010611201\\].* INFO org\\.apache\\.seatunnel\\.connectors\\.seatunnel\\.console\\.sink\\.ConsoleSinkWriter")
-                .map(
-                        regex -> {
-                            Assertions.assertTrue(
-                                    serverLogs.matches(regex) || secondServerLogs.matches(regex));
-                            return regex;
-                        });
     }
 
     @Test

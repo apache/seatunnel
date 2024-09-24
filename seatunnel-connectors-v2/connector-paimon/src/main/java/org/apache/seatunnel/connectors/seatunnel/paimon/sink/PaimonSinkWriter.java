@@ -83,7 +83,7 @@ public class PaimonSinkWriter
 
     private final TableSchema tableSchema;
 
-    private final PaimonBucketAssigner bucketAssigner;
+    private PaimonBucketAssigner bucketAssigner;
 
     private final boolean dynamicBucket;
 
@@ -103,14 +103,16 @@ public class PaimonSinkWriter
         this.context = context;
         this.jobContext = jobContext;
         this.tableSchema = ((FileStoreTable) table).schema();
-        this.bucketAssigner =
-                new PaimonBucketAssigner(
-                        table,
-                        this.context.getNumberOfParallelSubtasks(),
-                        this.context.getIndexOfSubtask());
         BucketMode bucketMode = ((FileStoreTable) table).bucketMode();
         this.dynamicBucket =
                 BucketMode.DYNAMIC == bucketMode || BucketMode.GLOBAL_DYNAMIC == bucketMode;
+        if (dynamicBucket) {
+            this.bucketAssigner =
+                    new PaimonBucketAssigner(
+                            table,
+                            this.context.getNumberOfParallelSubtasks(),
+                            this.context.getIndexOfSubtask());
+        }
         PaimonSecurityContext.shouldEnableKerberos(paimonHadoopConfiguration);
     }
 
@@ -203,13 +205,17 @@ public class PaimonSinkWriter
 
     @Override
     public void close() throws IOException {
-        if (Objects.nonNull(tableWrite)) {
-            try {
-                tableWrite.close();
-            } catch (Exception e) {
-                log.error("Failed to close table writer in paimon sink writer.", e);
-                throw new SeaTunnelException(e);
+        try {
+            if (Objects.nonNull(tableWrite)) {
+                try {
+                    tableWrite.close();
+                } catch (Exception e) {
+                    log.error("Failed to close table writer in paimon sink writer.", e);
+                    throw new SeaTunnelException(e);
+                }
             }
+        } finally {
+            committables.clear();
         }
     }
 }
