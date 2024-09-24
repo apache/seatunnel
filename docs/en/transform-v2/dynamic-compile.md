@@ -46,7 +46,7 @@ The absolute path of Java or Groovy files on the server
 
 The source code.
 
-### Detail about the Source Code
+#### Details about the source code
 
 In the source code, you must implement two method:
 - `Column[] getInlineOutputColumns(CatalogTable inputCatalogTable)`  
