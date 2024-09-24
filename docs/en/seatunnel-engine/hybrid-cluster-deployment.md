@@ -321,10 +321,18 @@ mkdir -p $SEATUNNEL_HOME/logs
 
 The logs will be written to `$SEATUNNEL_HOME/logs/seatunnel-engine-server.log`
 
-## 8. Install The SeaTunnel Engine Client
+## 8. Submit And Manage Jobs
+
+### 8.1 Submit Jobs With The SeaTunnel Engine Client 
+
+#### Install The SeaTunnel Engine Client
 
 You only need to copy the `$SEATUNNEL_HOME` directory on the SeaTunnel Engine node to the client node and configure `SEATUNNEL_HOME` in the same way as the SeaTunnel Engine server node.
 
-## 9. Submit And Manage Jobs
+#### Submitting And Managing Jobs
 
 Now that the cluster is deployed, you can complete the submission and management of jobs through the following tutorials: [Submit And Manage Jobs](user-command.md)
+
+### 8.2 Submit Jobs With The REST API
+
+The SeaTunnel Engine provides a REST API for submitting and managing jobs. For more information, please refer to [REST API](rest-api.md)

@@ -403,9 +403,13 @@ mkdir -p $SEATUNNEL_HOME/logs
 
 The logs will be written to `$SEATUNNEL_HOME/logs/seatunnel-engine-worker.log`.
 
-## 8. Installing The SeaTunnel Engine Client
+## 8. Submit And Manage Jobs
 
-### 8.1 Setting the `SEATUNNEL_HOME` the same as the server
+### 8.1 Submit Jobs With The SeaTunnel Engine Client
+
+#### Installing The SeaTunnel Engine Client
+
+##### Setting the `SEATUNNEL_HOME` the same as the server
 
 You can configure the `SEATUNNEL_HOME` by adding the `/etc/profile.d/seatunnel.sh` file. The content of `/etc/profile.d/seatunnel.sh` is as follows:
 
@@ -414,7 +418,7 @@ export SEATUNNEL_HOME=${seatunnel install path}
 export PATH=$PATH:$SEATUNNEL_HOME/bin
 ```
 
-### 8.2 Configuring The SeaTunnel Engine Client
+##### Configuring The SeaTunnel Engine Client
 
 All configurations of the SeaTunnel Engine client are in the `hazelcast-client.yaml`.
 
@@ -437,6 +441,10 @@ hazelcast-client:
       - master-node-2:5801
 ```
 
-# 9 Submitting And Managing Jobs
+#### Submitting And Managing Jobs
 
 Now that the cluster has been deployed, you can complete the job submission and management through the following tutorial: [Submitting And Managing Jobs](user-command.md).
+
+### 8.2 Submit Jobs With The REST API
+
+The SeaTunnel Engine provides a REST API for submitting and managing jobs. For more information, please refer to [REST API](rest-api.md)
