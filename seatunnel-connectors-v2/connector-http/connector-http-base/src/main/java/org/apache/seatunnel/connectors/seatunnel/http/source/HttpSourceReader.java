@@ -154,6 +154,14 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     @Override
+    public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+        super.pollNext(output);
+        if (Boundedness.UNBOUNDED.equals(context.getBoundedness())) {
+            pollNext(output);
+        }
+    }
+
+    @Override
     public void internalPollNext(Collector<SeaTunnelRow> output) throws Exception {
         try {
             if (pageInfoOptional.isPresent()) {
@@ -180,7 +188,6 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             } else {
                 if (httpParameter.getPollIntervalMillis() > 0) {
                     Thread.sleep(httpParameter.getPollIntervalMillis());
-                    internalPollNext(output);
                 }
             }
         }

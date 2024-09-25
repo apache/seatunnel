@@ -209,13 +209,13 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testStreamingSourceToAssertSink(TestContainer container) {
+    public void testStreamingSourceToPostgresqlSink(TestContainer container) {
         try {
             CompletableFuture.supplyAsync(
                     () -> {
                         try {
                             Container.ExecResult execResult1 =
-                                    container.executeJob("/http_streaming_json_to_assert.conf");
+                                    container.executeJob("/http_streaming_json_to_postgresql.conf");
                         } catch (Exception e) {
                             log.error("Commit task exception :" + e.getMessage());
                             throw new RuntimeException(e);
