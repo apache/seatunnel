@@ -17,13 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.source;
 
-import com.google.common.base.Strings;
-import com.jayway.jsonpath.Configuration;
-import com.jayway.jsonpath.JsonPath;
-import com.jayway.jsonpath.Option;
-import com.jayway.jsonpath.ReadContext;
-import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
@@ -38,6 +31,14 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.JsonField;
 import org.apache.seatunnel.connectors.seatunnel.http.config.PageInfo;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
+
+import com.google.common.base.Strings;
+import com.jayway.jsonpath.Configuration;
+import com.jayway.jsonpath.JsonPath;
+import com.jayway.jsonpath.Option;
+import com.jayway.jsonpath.ReadContext;
+import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -57,7 +58,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     protected HttpClientProvider httpClient;
     private final DeserializationCollector deserializationCollector;
     private static final Option[] DEFAULT_OPTIONS = {
-            Option.SUPPRESS_EXCEPTIONS, Option.ALWAYS_RETURN_LIST, Option.DEFAULT_PATH_LEAF_TO_NULL
+        Option.SUPPRESS_EXCEPTIONS, Option.ALWAYS_RETURN_LIST, Option.DEFAULT_PATH_LEAF_TO_NULL
     };
     private JsonPath[] jsonPaths;
     private final JsonField jsonField;
@@ -164,9 +165,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 log.info("Closed the unbounded http source due to pollIntervalMillis<=0");
                 context.signalNoMoreElement();
             }
-
         }
-
     }
 
     @Override
@@ -225,7 +224,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private List<Map<String, String>> parseToMap(List<List<String>> datas, JsonField jsonField) {
         List<Map<String, String>> decodeDatas = new ArrayList<>(datas.size());
-        String[] keys = jsonField.getFields().keySet().toArray(new String[]{});
+        String[] keys = jsonField.getFields().keySet().toArray(new String[] {});
 
         for (List<String> data : datas) {
             Map<String, String> decodeData = new HashMap<>(jsonField.getFields().size());
@@ -300,7 +299,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         for (int index = 0; index < jsonField.getFields().keySet().size(); index++) {
             jsonPaths[index] =
                     JsonPath.compile(
-                            jsonField.getFields().values().toArray(new String[]{})[index]);
+                            jsonField.getFields().values().toArray(new String[] {})[index]);
         }
     }
 }
