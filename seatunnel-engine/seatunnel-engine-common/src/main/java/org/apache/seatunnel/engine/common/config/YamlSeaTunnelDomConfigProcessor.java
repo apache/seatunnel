@@ -351,9 +351,9 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         HttpConfig httpConfig = new HttpConfig();
         for (Node node : childElements(httpNode)) {
             String name = cleanNodeName(node);
-            if (ServerConfigOptions.HTTP.key().equals(name)) {
+            if (ServerConfigOptions.PORT.key().equals(name)) {
                 httpConfig.setPort(
-                        getIntegerValue(ServerConfigOptions.HTTP.key(), getTextContent(node)));
+                        getIntegerValue(ServerConfigOptions.PORT.key(), getTextContent(node)));
             } else if (ServerConfigOptions.CONTEXT_PATH.key().equals(name)) {
                 httpConfig.setContextPath(getTextContent(node));
             } else {
