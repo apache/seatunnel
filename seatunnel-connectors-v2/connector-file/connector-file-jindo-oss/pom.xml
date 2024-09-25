@@ -30,7 +30,7 @@
     <name>SeaTunnel : Connectors V2 : File : Jindo Oss</name>
 
     <properties>
-        <hadoop-common.version>2.9.2</hadoop-common.version>
+        <hadoop-common.version>3.4.0</hadoop-common.version>
     </properties>
 
     <dependencies>
