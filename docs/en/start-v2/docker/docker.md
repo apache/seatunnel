@@ -395,5 +395,5 @@ more command please refer [user-command](../../seatunnel-engine/user-command.md)
 
 #### use rest api
 
-please refer [Submit A Job](../../seatunnel-engine/rest-api-v1#submit-a-job)
+please refer [Submit A Job](../../seatunnel-engine/rest-api-v1.md#submit-a-job)
 
