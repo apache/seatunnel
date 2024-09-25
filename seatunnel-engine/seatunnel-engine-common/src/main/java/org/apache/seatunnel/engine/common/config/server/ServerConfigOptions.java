@@ -240,7 +240,6 @@ public class ServerConfigOptions {
                     .defaultValue(new HttpConfig())
                     .withDescription("The http configuration.");
 
-
     public static final String EVENT_REPORT_HTTP = "event-report-http";
     public static final String EVENT_REPORT_HTTP_URL = "url";
     public static final String EVENT_REPORT_HTTP_HEADERS = "headers";
