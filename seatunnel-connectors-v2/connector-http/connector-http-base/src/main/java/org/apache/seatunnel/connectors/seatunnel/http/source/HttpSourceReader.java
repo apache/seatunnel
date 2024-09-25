@@ -158,7 +158,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         super.pollNext(output);
         if (Boundedness.UNBOUNDED.equals(context.getBoundedness())) {
             this.noMoreSplits = false;
-            pollNext(output);
+Thread.sleep() ???
         }
     }
 
