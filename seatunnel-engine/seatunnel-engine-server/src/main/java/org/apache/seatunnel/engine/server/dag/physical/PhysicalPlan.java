@@ -341,6 +341,10 @@ public class PhysicalPlan {
         }
     }
 
+    public void completeJobEndFuture(JobResult jobResult) {
+        jobEndFuture.complete(jobResult);
+    }
+
     public Map<TaskGroupLocation, CompletableFuture<SlotProfile>> getPreApplyResourceFutures() {
         return preApplyResourceFutures;
     }

@@ -491,6 +491,7 @@ public class CoordinatorService {
                                     .getPipelineList()
                                     .forEach(SubPlan::restorePipelineState);
                             if (!preApplyResources) {
+                                completeFailJob(jobMaster);
                                 throw new NoEnoughResourceException();
                             }
                             jobMaster.run();
@@ -660,7 +661,7 @@ public class CoordinatorService {
                             } else if (jobMaster.preApplyResources()) {
                                 jobMaster.run();
                             } else {
-                                throw new NoEnoughResourceException();
+                                completeFailJob(jobMaster);
                             }
                         } finally {
                             // voidCompletableFuture will be cancelled when zeta master node
@@ -676,6 +677,16 @@ public class CoordinatorService {
                     }
                 });
         return new PassiveCompletableFuture<>(jobSubmitFuture);
+    }
+
+    private static void completeFailJob(JobMaster jobMaster) {
+        // If the pending queue is not enabled and resources are insufficient, stop the task from
+        // running
+        JobResult jobResult =
+                new JobResult(
+                        JobStatus.FAILING,
+                        ExceptionUtils.getMessage(new NoEnoughResourceException()));
+        jobMaster.getPhysicalPlan().completeJobEndFuture(jobResult);
     }
 
     public PassiveCompletableFuture<Void> savePoint(long jobId) {

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException;
@@ -24,6 +25,8 @@ import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
 import lombok.NonNull;
 
 import java.util.HashMap;
@@ -32,6 +35,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
 public class ResourceUtils {
+
+    private static final ILogger LOGGER = Logger.getLogger(ResourceUtils.class);
 
     public static void applyResourceForPipeline(
             @NonNull JobMaster jobMaster, @NonNull SubPlan subPlan) {
@@ -74,7 +79,15 @@ public class ResourceUtils {
     public static CompletableFuture<SlotProfile> applyResourceForTask(
             ResourceManager resourceManager, PhysicalVertex task, Map<String, String> tags) {
         // TODO custom resource size
-        return resourceManager.applyResource(
-                task.getTaskGroupLocation().getJobId(), new ResourceProfile(), tags);
+        try {
+            return resourceManager.applyResource(
+                    task.getTaskGroupLocation().getJobId(), new ResourceProfile(), tags);
+        } catch (NoEnoughResourceException e) {
+            LOGGER.severe(
+                    String.format(
+                            "Job Resource not enough, jobId: %s, message: %s",
+                            task.getTaskGroupLocation().getJobId(), ExceptionUtils.getMessage(e)));
+            return null;
+        }
     }
 }
