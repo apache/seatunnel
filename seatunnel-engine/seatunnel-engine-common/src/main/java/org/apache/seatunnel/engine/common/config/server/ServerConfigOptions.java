@@ -228,10 +228,17 @@ public class ServerConfigOptions {
                     .defaultValue(new HttpConfig())
                     .withDescription("The http configuration.");
 
-    public static final Option<Integer> PORT = Options.key("port").intType().defaultValue(8080);
+    public static final Option<Integer> PORT =
+            Options.key("port")
+                    .intType()
+                    .defaultValue(8080)
+                    .withDescription("The port of the http server.");
 
     public static final Option<String> CONTEXT_PATH =
-            Options.key("context-path").stringType().defaultValue("");
+            Options.key("context-path")
+                    .stringType()
+                    .defaultValue("")
+                    .withDescription("The context path of the http server.");
 
     public static final String EVENT_REPORT_HTTP = "event-report-http";
     public static final String EVENT_REPORT_HTTP_URL = "url";
