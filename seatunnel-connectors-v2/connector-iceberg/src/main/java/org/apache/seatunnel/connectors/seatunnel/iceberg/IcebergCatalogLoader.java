@@ -33,7 +33,6 @@ import org.apache.iceberg.common.DynClasses;
 import org.apache.iceberg.common.DynMethods;
 
 import lombok.extern.slf4j.Slf4j;
-import sun.security.krb5.KrbException;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -170,11 +169,10 @@ public class IcebergCatalogLoader implements Serializable {
                         "Start Kerberos authentication using principal {} and keytab {}",
                         principal,
                         keytabPath);
-                sun.security.krb5.Config.refresh();
                 UserGroupInformation.loginUserFromKeytab(principal, keytabPath);
                 UserGroupInformation loginUser = UserGroupInformation.getLoginUser();
                 log.info("Kerberos authentication successful,UGI {}", loginUser);
-            } catch (IOException | KrbException e) {
+            } catch (IOException e) {
                 throw new SeaTunnelException("check connectivity failed, " + e.getMessage(), e);
             }
         }
