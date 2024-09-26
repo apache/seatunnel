@@ -18,7 +18,6 @@
 package org.apache.seatunnel.core.starter.flink.multitable;
 
 import org.apache.seatunnel.core.starter.SeaTunnel;
-import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.e2e.sink.inmemory.InMemoryAggregatedCommitter;
@@ -45,7 +44,6 @@ public class MultiTableSinkTest {
         String configurePath = "/config/fake_to_inmemory_multi_table.conf";
         String configFile = getTestConfigFile(configurePath);
         FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
-        flinkCommandArgs.setMasterType(MasterType.REMOTE);
         flinkCommandArgs.setConfigFile(configFile);
         flinkCommandArgs.setCheckConfig(false);
         flinkCommandArgs.setVariables(null);

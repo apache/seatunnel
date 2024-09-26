@@ -229,7 +229,6 @@ public class SinkExecuteProcessor
         return source;
     }
 
-
     public void handleSaveMode(SeaTunnelSink seaTunnelSink) {
         if (seaTunnelSink instanceof SupportSaveMode) {
             SupportSaveMode saveModeSink = (SupportSaveMode) seaTunnelSink;
@@ -268,7 +267,6 @@ public class SinkExecuteProcessor
                         jarPaths, cfg, ADD_URL_TO_CLASSLOADER);
             default:
                 throw new IllegalArgumentException("unsupported discovery type: " + discoveryType);
-
         }
     }
 }
