@@ -69,8 +69,6 @@ public class PaimonSinkWriter
 
     private final TableWrite tableWrite;
 
-    private long checkpointId = 0;
-
     private List<CommitMessage> committables = new ArrayList<>();
 
     private final Table table;
@@ -128,7 +126,6 @@ public class PaimonSinkWriter
             return;
         }
         this.commitUser = states.get(0).getCommitUser();
-        this.checkpointId = states.get(0).getCheckpointId();
         try (TableCommit tableCommit = tableWriteBuilder.newCommit()) {
             List<CommitMessage> commitables =
                     states.stream()
@@ -193,7 +190,6 @@ public class PaimonSinkWriter
 
     @Override
     public List<PaimonSinkState> snapshotState(long checkpointId) throws IOException {
-        this.checkpointId = checkpointId;
         PaimonSinkState paimonSinkState =
                 new PaimonSinkState(new ArrayList<>(committables), commitUser, checkpointId);
         committables.clear();

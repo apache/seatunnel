@@ -151,7 +151,6 @@ You can use the following placeholders
 The supported formats include CSV and JSON
 
 ## Tuning Guide
-
 Appropriately increasing the value of `sink.buffer-size` and `doris.batch.size` can increase the write performance.
 
 In stream mode, if the `doris.batch.size` and `checkpoint.interval` are both configured with a large value, The last data to arrive may have a large delay(The delay time is the checkpoint interval).
