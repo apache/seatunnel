@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.core.starter.spark.execution;
 
-import com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
+
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -29,16 +31,20 @@ import org.apache.seatunnel.core.starter.execution.SourceTableInfo;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryLocalDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginLocalDiscovery;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import org.apache.seatunnel.translation.spark.execution.DatasetTableInfo;
-import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
+
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
-import org.apache.spark.sql.types.StructType;
+
+import com.google.common.collect.Lists;
 
 import java.net.URL;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
 import static org.apache.seatunnel.api.common.CommonOptions.RESULT_TABLE_NAME;
@@ -80,7 +86,6 @@ public class SourceExecuteProcessor extends SparkAbstractPluginExecuteProcessor<
                                         CommonOptions.PARALLELISM.key(),
                                         CommonOptions.PARALLELISM.defaultValue());
             }
-            StructType schema = (StructType) TypeConverterUtils.convert(source.getProducedType());
             Dataset<Row> dataset =
                     sparkRuntimeEnvironment
                             .getSparkSession()
@@ -91,12 +96,11 @@ public class SourceExecuteProcessor extends SparkAbstractPluginExecuteProcessor<
                                     Constants.SOURCE_SERIALIZATION,
                                     SerializationUtils.objectToString(source))
                             .options(envOption)
-                            .schema(schema)
                             .load();
             sources.add(
                     new DatasetTableInfo(
                             dataset,
-                            sourceTableInfo.getCatalogTables().get(0),
+                            sourceTableInfo.getCatalogTables(),
                             pluginConfig.hasPath(RESULT_TABLE_NAME.key())
                                     ? pluginConfig.getString(RESULT_TABLE_NAME.key())
                                     : null));

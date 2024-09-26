@@ -17,10 +17,11 @@
 
 package org.apache.seatunnel.plugin.discovery.seatunnel;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.plugin.discovery.AbstractPluginLocalDiscovery;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
+
+import org.apache.commons.lang3.StringUtils;
 
 import java.net.URL;
 import java.util.ServiceLoader;

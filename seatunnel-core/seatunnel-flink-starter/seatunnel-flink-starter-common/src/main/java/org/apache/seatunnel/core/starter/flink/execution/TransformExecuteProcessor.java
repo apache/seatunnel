@@ -17,9 +17,8 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
-import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.operators.StreamMap;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
@@ -36,7 +35,10 @@ import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryLocalDisc
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryRemoteDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginLocalDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginRemoteDiscovery;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.operators.StreamMap;
 
 import java.net.URL;
 import java.util.ArrayList;

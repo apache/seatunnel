@@ -1,6 +1,7 @@
 package org.apache.seatunnel.plugin.discovery.seatunnel;
 
-import org.apache.commons.lang3.tuple.ImmutableTriple;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -9,7 +10,8 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.plugin.discovery.AbstractPluginRemoteDiscovery;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 import java.net.URL;
 import java.util.Collection;

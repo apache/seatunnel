@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
-import org.apache.flink.streaming.api.datastream.DataStreamSink;
-import org.apache.flink.types.Row;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -47,7 +47,6 @@ import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryLocalDisc
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryRemoteDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginLocalDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginRemoteDiscovery;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.translation.flink.sink.FlinkSink;
 
 import org.apache.flink.streaming.api.datastream.DataStreamSink;

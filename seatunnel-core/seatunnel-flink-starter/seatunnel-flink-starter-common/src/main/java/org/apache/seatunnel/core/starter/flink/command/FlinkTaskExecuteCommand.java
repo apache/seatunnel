@@ -26,12 +26,14 @@ import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.starter.flink.execution.FlinkExecution;
+import org.apache.seatunnel.core.starter.flink.utils.ResourceUtils;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
-import org.apache.seatunnel.core.starter.utils.FileUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.core.starter.utils.FileUtils.checkConfigExist;
 
@@ -46,7 +48,9 @@ public class FlinkTaskExecuteCommand implements Command<FlinkCommandArgs> {
 
     @Override
     public void execute() throws CommandExecuteException {
-        Path configFile = FileUtils.getConfigPath(flinkCommandArgs);
+        Path configFile =
+                ResourceUtils.getConfigFile(
+                        flinkCommandArgs.getMasterType(), flinkCommandArgs.getConfigFile());
         checkConfigExist(configFile);
         Config config = ConfigBuilder.of(configFile, flinkCommandArgs.getVariables());
         // if user specified job name using command line arguments, override config option
@@ -56,7 +60,13 @@ public class FlinkTaskExecuteCommand implements Command<FlinkCommandArgs> {
                             ConfigUtil.joinPath("env", "job.name"),
                             ConfigValueFactory.fromAnyRef(flinkCommandArgs.getJobName()));
         }
-        FlinkExecution seaTunnelTaskExecution = new FlinkExecution(config);
+        FlinkExecution seaTunnelTaskExecution =
+                new FlinkExecution(
+                        flinkCommandArgs.getDiscoveryType(),
+                        Arrays.stream(flinkCommandArgs.getConnectors().split(";"))
+                                .map(ResourceUtils::of)
+                                .collect(Collectors.toList()),
+                        config);
         try {
             seaTunnelTaskExecution.execute();
         } catch (Exception e) {

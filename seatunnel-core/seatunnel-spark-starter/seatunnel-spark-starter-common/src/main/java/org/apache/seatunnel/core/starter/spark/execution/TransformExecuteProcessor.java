@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.core.starter.spark.execution;
 
-import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
@@ -30,10 +31,10 @@ import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.core.starter.execution.PluginUtil;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryLocalDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginLocalDiscovery;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.translation.spark.execution.DatasetTableInfo;
 import org.apache.seatunnel.translation.spark.serialization.SeaTunnelRowConverter;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
+
 import org.apache.spark.api.java.function.MapPartitionsFunction;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -41,6 +42,8 @@ import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder;
 import org.apache.spark.sql.catalyst.encoders.RowEncoder;
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
 import org.apache.spark.sql.types.StructType;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.net.URL;
@@ -122,7 +125,7 @@ public class TransformExecuteProcessor
                 TableTransformFactory factory = plugins.get(i);
                 TableTransformFactoryContext context =
                         new TableTransformFactoryContext(
-                                Collections.singletonList(dataset.getCatalogTable()),
+                                dataset.getCatalogTables(),
                                 ReadonlyConfig.fromConfig(pluginConfig),
                                 classLoader);
                 ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
@@ -153,10 +156,11 @@ public class TransformExecuteProcessor
 
     private Dataset<Row> sparkTransform(SeaTunnelTransform transform, DatasetTableInfo tableInfo) {
         Dataset<Row> stream = tableInfo.getDataset();
-        SeaTunnelDataType<?> inputDataType = tableInfo.getCatalogTable().getSeaTunnelRowType();
+        SeaTunnelDataType<?> inputDataType =
+                tableInfo.getCatalogTables().get(0).getSeaTunnelRowType();
         SeaTunnelDataType<?> outputDataTYpe =
                 transform.getProducedCatalogTable().getSeaTunnelRowType();
-        StructType outputSchema = (StructType) TypeConverterUtils.convert(outputDataTYpe);
+        StructType outputSchema = (StructType) TypeConverterUtils.parcel(outputDataTYpe);
         SeaTunnelRowConverter inputRowConverter = new SeaTunnelRowConverter(inputDataType);
         SeaTunnelRowConverter outputRowConverter = new SeaTunnelRowConverter(outputDataTYpe);
         ExpressionEncoder<Row> encoder = RowEncoder.apply(outputSchema);
@@ -202,15 +206,12 @@ public class TransformExecuteProcessor
         public Row next() {
             try {
                 Row row = sourceIterator.next();
-                SeaTunnelRow seaTunnelRow =
-                        inputRowConverter.reconvert(
-                                new SeaTunnelRow(((GenericRowWithSchema) row).values()));
+                SeaTunnelRow seaTunnelRow = inputRowConverter.unpack((GenericRowWithSchema) row);
                 seaTunnelRow = (SeaTunnelRow) transform.map(seaTunnelRow);
                 if (seaTunnelRow == null) {
                     return null;
                 }
-                seaTunnelRow = outputRowConverter.convert(seaTunnelRow);
-                return new GenericRowWithSchema(seaTunnelRow.getFields(), structType);
+                return outputRowConverter.parcel(seaTunnelRow);
             } catch (Exception e) {
                 throw new TaskExecuteException("Row convert failed, caused: " + e.getMessage(), e);
             }

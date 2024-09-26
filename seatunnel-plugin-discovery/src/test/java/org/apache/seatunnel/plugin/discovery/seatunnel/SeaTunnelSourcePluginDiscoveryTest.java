@@ -76,8 +76,8 @@ class SeaTunnelSourcePluginDiscoveryTest {
                         PluginIdentifier.of("seatunnel", PluginType.SOURCE.getType(), "HttpBase"),
                         PluginIdentifier.of("seatunnel", PluginType.SOURCE.getType(), "Kafka"),
                         PluginIdentifier.of("seatunnel", PluginType.SINK.getType(), "Kafka-Blcs"));
-        SeaTunnelSourcePluginDiscovery seaTunnelSourcePluginDiscovery =
-                new SeaTunnelSourcePluginDiscovery();
+        SeaTunnelSourcePluginLocalDiscovery seaTunnelSourcePluginDiscovery =
+                new SeaTunnelSourcePluginLocalDiscovery();
         Assertions.assertIterableEquals(
                 Stream.of(
                                 Paths.get(seatunnelHome, "connectors", "connector-http-jira.jar")

@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.engine.core.parse;
 
-import com.google.common.collect.Lists;
-import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -29,7 +29,10 @@ import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginLocalDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginLocalDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginLocalDiscovery;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.commons.lang3.tuple.ImmutablePair;
+
+import com.google.common.collect.Lists;
 import scala.Serializable;
 
 import java.net.URL;

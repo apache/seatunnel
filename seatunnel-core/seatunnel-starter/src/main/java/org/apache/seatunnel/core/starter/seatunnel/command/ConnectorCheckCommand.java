@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.core.starter.seatunnel.command;
 
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -32,7 +30,14 @@ import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginLocalD
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginLocalDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginLocalDiscovery;
 
-import java.util.*;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
+
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class ConnectorCheckCommand implements Command<ConnectorCheckCommandArgs> {
