@@ -67,8 +67,6 @@ public abstract class AbstractSplitEnumerator
 
     @Nullable protected Long nextSnapshotId;
 
-    protected boolean finished = false;
-
     private ExecutorService executorService;
 
     public AbstractSplitEnumerator(
@@ -212,7 +210,6 @@ public abstract class AbstractSplitEnumerator
         if (error != null) {
             if (error instanceof EndOfScanException) {
                 log.debug("Catching EndOfStreamException, the stream is finished.");
-                finished = true;
                 assignSplits();
             } else {
                 log.error("Failed to enumerate files", error);
