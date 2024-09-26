@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
+import org.apache.seatunnel.api.sink.SinkMetricsCalc;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
@@ -46,6 +47,7 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     private final AtomicLong rowCounter = new AtomicLong(0);
     private final SinkWriter.Context context;
     private final DataTypeChangeEventHandler dataTypeChangeEventHandler;
+    private final SinkMetricsCalc sinkMetricsCalc;
 
     boolean isPrintData = true;
     int delayMs = 0;
@@ -60,6 +62,7 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         this.isPrintData = isPrintData;
         this.delayMs = delayMs;
         this.dataTypeChangeEventHandler = new DataTypeChangeEventDispatcher();
+        this.sinkMetricsCalc = new SinkMetricsCalc(context.getMetricsContext());
         log.info("output rowType: {}", fieldsInfo(seaTunnelRowType));
     }
 
@@ -79,6 +82,7 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             arr[i] = fieldToString(fieldTypes[i], fields[i]);
         }
         if (isPrintData) {
+            sinkMetricsCalc.collectMetrics(element);
             log.info(
                     "subtaskIndex={}  rowIndex={}:  SeaTunnelRow#tableId={} SeaTunnelRow#kind={} : {}",
                     context.getIndexOfSubtask(),
@@ -86,6 +90,7 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                     element.getTableId(),
                     element.getRowKind(),
                     StringUtils.join(arr, ", "));
+            sinkMetricsCalc.confirmMetrics();
         }
         if (delayMs > 0) {
             try {

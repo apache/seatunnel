@@ -23,8 +23,6 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
-import lombok.Getter;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -41,7 +39,7 @@ import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVE
 
 public class TaskMetricsCalcContext {
 
-    @Getter private final MetricsContext metricsContext;
+    private final MetricsContext metricsContext;
 
     private final PluginType type;
 
@@ -69,6 +67,12 @@ public class TaskMetricsCalcContext {
         this.metricsContext = metricsContext;
         this.type = type;
         initializeMetrics(isMulti, tables);
+    }
+
+    public TaskMetricsCalcContext(MetricsContext metricsContext, PluginType type) {
+        this.metricsContext = metricsContext;
+        this.type = type;
+        initializeMetrics(true, null);
     }
 
     private void initializeMetrics(boolean isMulti, List<TablePath> tables) {

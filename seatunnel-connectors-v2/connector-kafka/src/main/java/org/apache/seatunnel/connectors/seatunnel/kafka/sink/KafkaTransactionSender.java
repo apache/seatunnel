@@ -60,6 +60,7 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     public void beginTransaction(String transactionId) {
         this.transactionId = transactionId;
         this.kafkaProducer = getTransactionProducer(kafkaProperties, transactionId);
+        log.info("Begin {} kafka transaction: {}", Thread.currentThread().getName(), transactionId);
         kafkaProducer.beginTransaction();
     }
 

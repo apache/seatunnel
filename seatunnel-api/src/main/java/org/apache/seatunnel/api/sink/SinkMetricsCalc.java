@@ -17,9 +17,51 @@
 
 package org.apache.seatunnel.api.sink;
 
+import org.apache.seatunnel.api.common.metrics.CycleMetricsContext;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.common.metrics.TaskMetricsCalcContext;
+import org.apache.seatunnel.common.constants.PluginType;
 
-public interface SinkMetricsCalc {
+public class SinkMetricsCalc {
 
-    MetricsContext collectMetricsContext();
+    private final MetricsContext metricsContext;
+    private final MetricsContext incrementMetricsContext;
+    private final MetricsContext checkPointMetricsContext;
+    private final TaskMetricsCalcContext taskMetricsCalcContext;
+    private final TaskMetricsCalcContext incrementMetricsCalcContext;
+    private final TaskMetricsCalcContext checkPointSnapshotMetricsCalcContext;
+
+    public SinkMetricsCalc(MetricsContext metricsContext) {
+        this.metricsContext = metricsContext;
+        this.taskMetricsCalcContext = new TaskMetricsCalcContext(metricsContext, PluginType.SINK);
+        this.incrementMetricsContext = new CycleMetricsContext();
+        this.incrementMetricsCalcContext =
+                new TaskMetricsCalcContext(incrementMetricsContext, PluginType.SINK);
+        this.checkPointMetricsContext = new CycleMetricsContext(metricsContext);
+        this.checkPointSnapshotMetricsCalcContext =
+                new TaskMetricsCalcContext(checkPointMetricsContext, PluginType.SINK);
+    }
+
+    public void collectMetrics(Object element) {
+        incrementMetricsCalcContext.collectMetrics(element);
+    }
+
+    public void confirmMetrics() {
+        taskMetricsCalcContext.collectMetrics(incrementMetricsContext);
+        ((CycleMetricsContext) incrementMetricsContext).clear();
+    }
+
+    public void cancelMetrics() {
+        ((CycleMetricsContext) incrementMetricsContext).clear();
+    }
+
+    public void createCheckPointMetricsSnapshot() {
+        checkPointSnapshotMetricsCalcContext.collectMetrics(checkPointMetricsContext);
+    }
+
+    public void rollbackCheckPointMetricsSnapshot() {}
+
+    public void destroyMetricsSnapshot() {
+        ((CycleMetricsContext) checkPointMetricsContext).clear();
+    }
 }

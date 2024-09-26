@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 
+import org.apache.seatunnel.api.sink.SinkMetricsCalc;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -53,6 +54,7 @@ public class JdbcOutputFormatBuilder {
     @NonNull private final JdbcConnectionProvider connectionProvider;
     @NonNull private final JdbcSinkConfig jdbcSinkConfig;
     @NonNull private final TableSchema tableSchema;
+    @NonNull private final SinkMetricsCalc sinkMetricsCalc;
 
     public JdbcOutputFormat build() {
         JdbcOutputFormat.StatementExecutorFactory statementExecutorFactory;
@@ -97,7 +99,8 @@ public class JdbcOutputFormatBuilder {
         return new JdbcOutputFormat(
                 connectionProvider,
                 jdbcSinkConfig.getJdbcConnectionConfig(),
-                statementExecutorFactory);
+                statementExecutorFactory,
+                sinkMetricsCalc);
     }
 
     private static JdbcBatchStatementExecutor<SeaTunnelRow> createSimpleBufferedExecutor(

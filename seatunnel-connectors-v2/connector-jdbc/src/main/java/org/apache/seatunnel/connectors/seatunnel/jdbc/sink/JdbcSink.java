@@ -119,11 +119,12 @@ public class JdbcSink
                 int index = tableSchema.toPhysicalRowDataType().indexOf(keyName);
                 if (index > -1) {
                     return new JdbcSinkWriter(
-                            sinkTablePath, dialect, jdbcSinkConfig, tableSchema, index);
+                            sinkTablePath, context, dialect, jdbcSinkConfig, tableSchema, index);
                 }
             }
             sinkWriter =
-                    new JdbcSinkWriter(sinkTablePath, dialect, jdbcSinkConfig, tableSchema, null);
+                    new JdbcSinkWriter(
+                            sinkTablePath, context, dialect, jdbcSinkConfig, tableSchema, null);
         }
         return sinkWriter;
     }

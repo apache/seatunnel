@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.api.sink.multitablesink;
 
-import org.apache.seatunnel.api.common.metrics.TaskMetricsCalcContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
@@ -33,15 +32,12 @@ public class MultiTableWriterRunnable implements Runnable {
     private final Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap;
     private final BlockingQueue<SeaTunnelRow> queue;
     private volatile Throwable throwable;
-    private final TaskMetricsCalcContext temporaryTaskMetricsCalcContext;
 
     public MultiTableWriterRunnable(
             Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap,
-            BlockingQueue<SeaTunnelRow> queue,
-            TaskMetricsCalcContext temporaryTaskMetricsCalcContext) {
+            BlockingQueue<SeaTunnelRow> queue) {
         this.tableIdWriterMap = tableIdWriterMap;
         this.queue = queue;
-        this.temporaryTaskMetricsCalcContext = temporaryTaskMetricsCalcContext;
     }
 
     @Override
@@ -64,7 +60,6 @@ public class MultiTableWriterRunnable implements Runnable {
                 }
                 synchronized (this) {
                     writer.write(row);
-                    temporaryTaskMetricsCalcContext.collectMetrics(row);
                 }
             } catch (InterruptedException e) {
                 // When the job finished, the thread will be interrupted, so we ignore this
