@@ -117,8 +117,8 @@ function prepare_docs() {
     echo "===>>>: Rsync images to ${WEBSITE_IMG_DIR}"
     rsync -av "${PR_IMG_DIR}"/ "${WEBSITE_IMG_DIR}"
 
-    echo "===>>>: Rsync documents exclude images to ${WEBSITE_DOC_DIR}"
-    rsync -av --exclude images "${PR_DOC_DIR}"/ "${WEBSITE_DOC_DIR}"
+    echo "===>>>: Rsync documents to ${WEBSITE_DOC_DIR}"
+    rsync -av "${PR_DOC_DIR}"/ "${WEBSITE_DOC_DIR}"
 
     echo "===>>>: Replace images path in ${WEBSITE_DOC_DIR}"
     replace_images_path "${WEBSITE_DOC_DIR}"
