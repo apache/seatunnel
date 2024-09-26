@@ -47,6 +47,15 @@ libfb303-xxx.jar
 | paimon.hadoop.conf          | Map    | No       | -                            | Properties in hadoop conf                                                                                                                                        |
 | paimon.hadoop.conf-path     | String | No       | -                            | The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files                                                                       |
 
+## Changelog
+You must configure the `changelog-producer=input` option to enable the changelog producer mode of the paimon table. If you use the auto-create table function of paimon sink, you can configure this property in `paimon.table.write-props`.
+
+The changelog producer mode of the paimon table has [four mode](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/) which is `none`、`input`、`lookup` and `full-compaction`.
+
+Currently, we only support the `none` and `input` mode. The default is `none` which will not output the changelog file. The `input` mode will output the changelog file in paimon table.
+
+When you use a streaming mode to read paimon table, these two mode will produce [different results](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/source/Paimon.md#changelog).
+
 ## Examples
 
 ### Single table

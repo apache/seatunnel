@@ -46,6 +46,15 @@ libfb303-xxx.jar
 | paimon.hadoop.conf          | Map    | 否       | -                            | Hadoop配置文件属性信息                                                                                    |
 | paimon.hadoop.conf-path     | 字符串 | 否       | -                            | Hadoop配置文件目录，用于加载'core-site.xml', 'hdfs-site.xml', 'hive-site.xml'文件配置                            |
 
+## 更新日志
+你必须配置`changelog-producer=input`来启用paimon表的changelog产生模式。如果你使用了paimon sink的自动建表功能，你可以在`paimon.table.write-props`中指定这个属性。
+
+Paimon表的changelog产生模式有[四种](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/)，分别是`none`、`input`、`lookup` 和 `full-compaction`。
+
+目前，我们只支持`none`和`input`模式。默认是`none`,这种模式将不会产生changelog文件。`input`模式将会在Paimon表下产生changelog文件。
+
+当你使用流模式去读paimon表的数据时，这两种模式将会产生[不同的结果](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/source/Paimon.md#changelog)。
+
 ## 示例
 
 ### 单表
