@@ -40,9 +40,12 @@ import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static io.restassured.RestAssured.given;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.CONTEXT_PATH;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.notNullValue;
@@ -62,10 +65,15 @@ public class RestApiIT {
 
     private static SeaTunnelClient engineClient;
 
+    private static SeaTunnelConfig node1Config;
+
+    private static SeaTunnelConfig node2Config;
+
     @BeforeEach
     void beforeClass() throws Exception {
         String testClusterName = TestUtils.getClusterName("RestApiIT");
-        SeaTunnelConfig node1Config = ConfigProvider.locateAndGetSeaTunnelConfig();
+        node1Config = ConfigProvider.locateAndGetSeaTunnelConfig();
+        node1Config.getEngineConfig().getHttpConfig().setPort(8080);
         node1Config.getHazelcastConfig().setClusterName(testClusterName);
         node1Config.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
         node1Config.getEngineConfig().getSlotServiceConfig().setSlotNum(20);
@@ -77,7 +85,8 @@ public class RestApiIT {
         MemberAttributeConfig node2Tags = new MemberAttributeConfig();
         node2Tags.setAttribute("node", "node2");
         Config node2hzconfig = node1Config.getHazelcastConfig().setMemberAttributeConfig(node2Tags);
-        SeaTunnelConfig node2Config = ConfigProvider.locateAndGetSeaTunnelConfig();
+        node2Config = ConfigProvider.locateAndGetSeaTunnelConfig();
+        node2Config.getEngineConfig().getHttpConfig().setPort(8081);
         node2Config.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
         node2Config.getEngineConfig().getSlotServiceConfig().setSlotNum(20);
         node2Config.setHazelcastConfig(node2hzconfig);
@@ -118,22 +127,46 @@ public class RestApiIT {
 
     @Test
     public void testGetRunningJobById() {
+
+        Map<Integer, Integer> ports = new HashMap<>();
+        ports.put(
+                node1.getCluster().getLocalMember().getAddress().getPort(),
+                node1Config.getEngineConfig().getHttpConfig().getPort());
+        ports.put(
+                node2.getCluster().getLocalMember().getAddress().getPort(),
+                node2Config.getEngineConfig().getHttpConfig().getPort());
         Arrays.asList(node2, node1)
                 .forEach(
                         instance -> {
-                            given().get(
-                                            HOST
-                                                    + instance.getCluster()
-                                                            .getLocalMember()
-                                                            .getAddress()
-                                                            .getPort()
-                                                    + RestConstant.RUNNING_JOB_URL
-                                                    + "/"
-                                                    + clientJobProxy.getJobId())
-                                    .then()
-                                    .statusCode(200)
-                                    .body("jobName", equalTo("fake_to_file"))
-                                    .body("jobStatus", equalTo("RUNNING"));
+                            ports.forEach(
+                                    (key, value) -> {
+                                        given().get(
+                                                        HOST
+                                                                + key
+                                                                + CONTEXT_PATH
+                                                                + RestConstant.RUNNING_JOB_URL
+                                                                + "/"
+                                                                + clientJobProxy.getJobId())
+                                                .then()
+                                                .statusCode(200)
+                                                .body("jobName", equalTo("fake_to_file"))
+                                                .body("jobStatus", equalTo("RUNNING"));
+
+                                        given().get(
+                                                        HOST
+                                                                + value
+                                                                + node1Config
+                                                                        .getEngineConfig()
+                                                                        .getHttpConfig()
+                                                                        .getContextPath()
+                                                                + RestConstant.RUNNING_JOB_URL
+                                                                + "/"
+                                                                + clientJobProxy.getJobId())
+                                                .then()
+                                                .statusCode(200)
+                                                .body("jobName", equalTo("fake_to_file"))
+                                                .body("jobStatus", equalTo("RUNNING"));
+                                    });
                         });
     }
 
