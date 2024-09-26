@@ -49,7 +49,6 @@ public class MultiTableSink
 
     @Getter private final Map<String, SeaTunnelSink> sinks;
     private final int replicaNum;
-    // private TaskMetricsCalcContext taskMetricsCalcContext;
 
     public MultiTableSink(MultiTableFactoryContext context) {
         this.sinks = context.getSinks();
@@ -64,7 +63,6 @@ public class MultiTableSink
     @Override
     public SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState> createWriter(
             SinkWriter.Context context) throws IOException {
-
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
         for (int i = 0; i < replicaNum; i++) {
