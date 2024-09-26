@@ -69,6 +69,8 @@ public class RestApiIT {
 
     private static SeaTunnelConfig node2Config;
 
+    private static Map<Integer, Integer> ports;
+
     @BeforeEach
     void beforeClass() throws Exception {
         String testClusterName = TestUtils.getClusterName("RestApiIT");
@@ -123,18 +125,18 @@ public class RestApiIT {
                         () ->
                                 Assertions.assertEquals(
                                         JobStatus.FINISHED, batchJobProxy.getJobStatus()));
-    }
-
-    @Test
-    public void testGetRunningJobById() {
-
-        Map<Integer, Integer> ports = new HashMap<>();
+        ports = new HashMap<>();
         ports.put(
                 node1.getCluster().getLocalMember().getAddress().getPort(),
                 node1Config.getEngineConfig().getHttpConfig().getPort());
         ports.put(
                 node2.getCluster().getLocalMember().getAddress().getPort(),
                 node2Config.getEngineConfig().getHttpConfig().getPort());
+    }
+
+    @Test
+    public void testGetRunningJobById() {
+
         Arrays.asList(node2, node1)
                 .forEach(
                         instance -> {
