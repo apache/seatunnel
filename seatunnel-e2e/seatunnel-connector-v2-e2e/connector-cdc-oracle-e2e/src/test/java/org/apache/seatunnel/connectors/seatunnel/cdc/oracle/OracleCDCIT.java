@@ -61,7 +61,7 @@ import static org.junit.Assert.assertNotNull;
 @Slf4j
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
+        type = {EngineType.SPARK},
         disabledReason =
                 "Currently SPARK do not support cdc,Flink is prone to time out, temporarily disable")
 public class OracleCDCIT extends TestSuiteBase implements TestResource {
@@ -301,8 +301,8 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     @DisabledOnContainer(
             value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "Currently SPARK and FLINK do not support multi table")
+            type = {EngineType.SPARK},
+            disabledReason = "Currently SPARK do not support cdc")
     public void testOracleCdcMultiTableE2e(TestContainer container)
             throws IOException, InterruptedException {
 
@@ -378,7 +378,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "Currently SPARK and FLINK do not support multi table")
+            disabledReason = "Currently SPARK and FLINK do not support restore")
     public void testMultiTableWithRestore(TestContainer container)
             throws IOException, InterruptedException {
 

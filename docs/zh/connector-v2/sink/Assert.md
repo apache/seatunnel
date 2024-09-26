@@ -1,16 +1,16 @@
 # Assert
 
-> Assert sink connector
+> Assert 数据接收器
 
-## Description
+## 描述
 
-A sink plugin which can assert illegal data by user defined rules
+Assert 数据接收器是一个用于断言数据是否符合用户定义规则的数据接收器。用户可以通过配置规则来断言数据是否符合预期，如果数据不符合规则，将会抛出异常。
 
-## Key Features
+## 核心特性
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [精准一次](../../concept/connector-v2-features.md)
 
-## Options
+## 配置
 
 | Name                                                                                           | Type                                            | Required | Default |
 |------------------------------------------------------------------------------------------------|-------------------------------------------------|----------|---------|
@@ -49,72 +49,73 @@ A sink plugin which can assert illegal data by user defined rules
 
 ### rules [ConfigMap]
 
-Rule definition of user's available data.  Each rule represents one field validation or row num validation.
+规则定义用户可用数据的规则。每个规则代表一个字段验证或行数量验证。
 
 ### field_rules [ConfigList]
 
-field rules for field validation
+字段规则用于字段验证
 
 ### field_name [string]
 
-field name（string）
+字段名
 
 ### field_type [string | ConfigMap]
 
-Field type declarations should adhere to this [guide](../../concept/schema-feature.md#how-to-declare-type-supported).
+字段类型。字段类型应符合此[指南](../../concept/schema-feature.md#如何声明支持的类型)。
 
 ### field_value [ConfigList]
 
-A list value rule define the data value validation
+字段值规则定义数据值验证
 
 ### rule_type [string]
 
-The following rules are supported for now
-- NOT_NULL `value can't be null`
-- NULL `value can be null`
-- MIN `define the minimum value of data`
-- MAX `define the maximum value of data`
-- MIN_LENGTH `define the minimum string length of a string data`
-- MAX_LENGTH `define the maximum string length of a string data`
-- MIN_ROW `define the minimun number of rows`
-- MAX_ROW `define the maximum number of rows`
+规则类型。目前支持以下规则
+- NOT_NULL `值不能为空`
+- NULL `值可以为空`
+- MIN `定义数据的最小值`
+- MAX `定义数据的最大值`
+- MIN_LENGTH `定义字符串数据的最小长度`
+- MAX_LENGTH `定义字符串数据的最大长度`
+- MIN_ROW `定义最小行数`
+- MAX_ROW `定义最大行数`
 
 ### rule_value [numeric]
 
-The value related to rule type. When the `rule_type` is `MIN`, `MAX`, `MIN_LENGTH`, `MAX_LENGTH`, `MIN_ROW` or `MAX_ROW`, users need to assign a value to the `rule_value`.
+与规则类型相关的值。当`rule_type`为`MIN`、`MAX`、`MIN_LENGTH`、`MAX_LENGTH`、`MIN_ROW`或`MAX_ROW`时，用户需要为`rule_value`分配一个值。
 
 ### equals_to [boolean | numeric | string | ConfigList | ConfigMap]
 
-`equals_to` is used to compare whether the field value is equal to the configured expected value. You can assign values of all types to `equals_to`. These types are detailed [here](../../concept/schema-feature.md#what-type-supported-at-now). For instance, if one field is a row with three fields, and the declaration of row type is `{a = array<string>, b = map<string, decimal(30, 2)>, c={c_0 = int, b = string}}`, users can assign the value `[["a", "b"], { k0 = 9999.99, k1 = 111.11 }, [123, "abcd"]]` to `equals_to`.
+`equals_to`用于比较字段值是否等于配置的预期值。用户可以将所有类型的值分配给`equals_to`。这些类型在[这里](../../concept/schema-feature.md#目前支持哪些类型)有详细说明。
+例如，如果一个字段是一个包含三个字段的行，行类型的声明是`{a = array<string>, b = map<string, decimal(30, 2)>, c={c_0 = int, b = string}}`，用户可以将值`[["a", "b"], { k0 = 9999.99, k1 = 111.11 }, [123, "abcd"]]`分配给`equals_to`。
 
-> The way of defining field values is consistent with [FakeSource](../source/FakeSource.md#customize-the-data-content-simple).
->
-> `equals_to` cannot be applied to `null` type fields. However, users can use the rule type `NULL` for verification, such as `{rule_type = NULL}`.
+> 定义字段值的方式与[FakeSource](../../../en/connector-v2/source/FakeSource.md#customize-the-data-content-simple)一致。
+> 
+> `equals_to`不能应用于`null`类型字段。但是，用户可以使用规则类型`NULL`进行验证，例如`{rule_type = NULL}`。
 
 ### catalog_table_rule [ConfigMap]
 
-Used to assert the catalog table is same with the user defined table.
+catalog_table_rule用于断言Catalog表是否与用户定义的表相同。
 
 ### table-names [ConfigList]
 
-Used to assert the table should be in the data.
+用于断言表是否在数据中。
 
 ### tables_configs [ConfigList]
 
-Used to assert the multiple tables should be in the data.
+用于断言多个表是否在数据中。
 
 ### table_path [String]
 
-The path of the table.
+表的路径。
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
+Sink 插件的通用参数，请参考 [Sink Common Options](../sink-common-options.md) 了解详情
 
-## Example
+## 示例
 
-### Simple
-the whole config obey with `hocon` style
+### 简单
+整个Config遵循`hocon`风格
 
 ```hocon
 Assert {
@@ -202,9 +203,9 @@ Assert {
   }
 ```
 
-### Complex
+### 复杂
 
-Here is a more complex example about `equals_to`. The example involves FakeSource. You may want to learn it, please read this [document](../source/FakeSource.md).
+这里有一个更复杂的例子，涉及到`equals_to`。
 
 ```hocon
 source {
@@ -494,9 +495,9 @@ sink{
 }
 ```
 
-### Assert Multiple Tables 
+### 验证多表
 
-check multiple tables
+验证多个表
 
 ```hocon
 env {

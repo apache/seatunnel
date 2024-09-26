@@ -221,10 +221,8 @@ export varName="value with space"
 ```
 Then you can use the variable in the config file.
 
-If you set a variable without default value in the config file but do not pass it during execution, an exception will be thrown. Example:
-```shell
-Caused by: org.apache.seatunnel.core.starter.exception.CommandExecuteException: Variable substitution error: ${resName}_table
-```
+If you set a variable without a default value in the configuration file but do not pass it during execution, the value of the variable will be retained and the system will not throw an exception. But please ensure that other processes can correctly parse the variable value. For example, ElasticSearch's index needs to support a format like '${xxx}' to dynamically specify the index. If other processes are not supported, the program may not run properly.
+
 
 ### Example:
 ```hocon
