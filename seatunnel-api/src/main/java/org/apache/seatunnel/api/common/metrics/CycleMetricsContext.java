@@ -17,7 +17,16 @@
 
 package org.apache.seatunnel.api.common.metrics;
 
+/** Plan to restore snapshot indicators */
 public class CycleMetricsContext extends AbstractMetricsContext {
+
+    public CycleMetricsContext() {}
+
+    public CycleMetricsContext(MetricsContext metricsMap) {
+        if (metricsMap instanceof AbstractMetricsContext) {
+            this.metrics.putAll(((AbstractMetricsContext) metricsMap).getMetrics());
+        }
+    }
 
     /**
      * Clears the contents of this metricsContext.

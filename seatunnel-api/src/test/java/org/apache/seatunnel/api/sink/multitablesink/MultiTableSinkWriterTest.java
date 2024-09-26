@@ -17,9 +17,7 @@
 
 package org.apache.seatunnel.api.sink.multitablesink;
 
-import org.apache.seatunnel.api.common.metrics.CycleMetricsContext;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
-import org.apache.seatunnel.api.common.metrics.TaskMetricsCalcContext;
 import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
@@ -27,7 +25,6 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.constants.PluginType;
 
 import org.junit.jupiter.api.Test;
 
@@ -40,7 +37,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 public class MultiTableSinkWriterTest {
 
@@ -57,17 +53,7 @@ public class MultiTableSinkWriterTest {
                     new TestSinkWriterContext());
         }
         MultiTableSinkWriter multiTableSinkWriter =
-                new MultiTableSinkWriter(
-                        sinkWriters,
-                        threads,
-                        sinkWritersContext,
-                        new TaskMetricsCalcContext(
-                                new CycleMetricsContext(),
-                                PluginType.SINK,
-                                true,
-                                sinkWriters.keySet().stream()
-                                        .map(x -> TablePath.of(x.getTableIdentifier()))
-                                        .collect(Collectors.toList())));
+                new MultiTableSinkWriter(sinkWriters, threads, sinkWritersContext);
         DefaultSerializer<Serializable> defaultSerializer = new DefaultSerializer<>();
 
         for (int i = 0; i < 100; i++) {

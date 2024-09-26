@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 
+import org.apache.seatunnel.api.sink.SinkMetricsCalc;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
@@ -46,6 +47,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
 
     private final JdbcConnectionConfig jdbcConnectionConfig;
     private final StatementExecutorFactory<E> statementExecutorFactory;
+    private final SinkMetricsCalc sinkMetricsCalc;
 
     private transient E jdbcStatementExecutor;
     private transient int batchCount = 0;
@@ -55,10 +57,12 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     public JdbcOutputFormat(
             JdbcConnectionProvider connectionProvider,
             JdbcConnectionConfig jdbcConnectionConfig,
-            StatementExecutorFactory<E> statementExecutorFactory) {
+            StatementExecutorFactory<E> statementExecutorFactory,
+            SinkMetricsCalc sinkMetricsCalc) {
         this.connectionProvider = checkNotNull(connectionProvider);
         this.jdbcConnectionConfig = checkNotNull(jdbcConnectionConfig);
         this.statementExecutorFactory = checkNotNull(statementExecutorFactory);
+        this.sinkMetricsCalc = sinkMetricsCalc;
     }
 
     /** Connects to the target database and initializes the prepared statement. */
@@ -101,6 +105,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         try {
             addToBatch(record);
             batchCount++;
+            sinkMetricsCalc.collectMetrics(record);
             if (jdbcConnectionConfig.getBatchSize() > 0
                     && batchCount >= jdbcConnectionConfig.getBatchSize()) {
                 flush();
@@ -134,9 +139,11 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         for (int i = 0; i <= jdbcConnectionConfig.getMaxRetries(); i++) {
             try {
                 attemptFlush();
+                sinkMetricsCalc.confirmMetrics();
                 batchCount = 0;
                 break;
             } catch (SQLException e) {
+                sinkMetricsCalc.cancelMetrics();
                 LOG.error("JDBC executeBatch error, retry times = {}", i, e);
                 if (i >= jdbcConnectionConfig.getMaxRetries()) {
                     throw new JdbcConnectorException(
@@ -180,7 +187,9 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
             if (batchCount > 0) {
                 try {
                     flush();
+                    sinkMetricsCalc.confirmMetrics();
                 } catch (Exception e) {
+                    sinkMetricsCalc.cancelMetrics();
                     LOG.warn("Writing records to JDBC failed.", e);
                     flushException =
                             new JdbcConnectorException(
