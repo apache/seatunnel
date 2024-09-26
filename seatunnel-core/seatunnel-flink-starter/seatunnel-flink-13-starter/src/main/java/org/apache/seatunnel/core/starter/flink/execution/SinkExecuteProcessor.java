@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.flink.streaming.api.datastream.DataStreamSink;
+import org.apache.flink.types.Row;
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -37,12 +37,17 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.core.starter.enums.DiscoveryType;
 import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.core.starter.execution.PluginUtil;
+import org.apache.seatunnel.plugin.discovery.PluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryLocalDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryRemoteDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginLocalDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginRemoteDiscovery;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.translation.flink.sink.FlinkSink;
 
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
@@ -58,6 +63,7 @@ import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
 import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_MODE_FAILED;
+import static org.apache.seatunnel.core.starter.flink.utils.ResourceUtils.getPluginMappingConfigFromClasspath;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
 @Slf4j
@@ -67,20 +73,34 @@ public class SinkExecuteProcessor
     private static final String PLUGIN_TYPE = PluginType.SINK.getType();
 
     protected SinkExecuteProcessor(
-            List<URL> jarPaths,
+            DiscoveryType discoveryType,
+            List<URL> provideJarPaths,
+            List<URL> actualUseJarPaths,
             Config envConfig,
             List<? extends Config> pluginConfigs,
             JobContext jobContext) {
-        super(jarPaths, envConfig, pluginConfigs, jobContext);
+        super(
+                discoveryType,
+                provideJarPaths,
+                actualUseJarPaths,
+                envConfig,
+                pluginConfigs,
+                jobContext);
     }
 
     @Override
     protected List<Optional<? extends Factory>> initializePlugins(
-            List<URL> jarPaths, List<? extends Config> pluginConfigs) {
-        SeaTunnelFactoryDiscovery factoryDiscovery =
-                new SeaTunnelFactoryDiscovery(TableSinkFactory.class, ADD_URL_TO_CLASSLOADER);
-        SeaTunnelSinkPluginDiscovery sinkPluginDiscovery =
-                new SeaTunnelSinkPluginDiscovery(ADD_URL_TO_CLASSLOADER);
+            List<URL> actualUseJarPaths, List<? extends Config> pluginConfigs) {
+        Config pluginMappingConfig =
+                discoveryType == DiscoveryType.REMOTE
+                        ? getPluginMappingConfigFromClasspath()
+                        : null;
+
+        PluginDiscovery<Factory> factoryDiscovery =
+                getSeaTunnelFactoryDiscovery(connectors, pluginMappingConfig);
+
+        PluginDiscovery<SeaTunnelSink> sinkPluginDiscovery =
+                getSeaTunnelSinkPluginDiscovery(connectors, pluginMappingConfig);
         return pluginConfigs.stream()
                 .map(
                         sinkConfig ->
@@ -88,7 +108,7 @@ public class SinkExecuteProcessor
                                         factoryDiscovery,
                                         sinkPluginDiscovery,
                                         sinkConfig,
-                                        jarPaths))
+                                        actualUseJarPaths))
                 .distinct()
                 .collect(Collectors.toList());
     }
@@ -96,8 +116,12 @@ public class SinkExecuteProcessor
     @Override
     public List<DataStreamTableInfo> execute(List<DataStreamTableInfo> upstreamDataStreams)
             throws TaskExecuteException {
-        SeaTunnelSinkPluginDiscovery sinkPluginDiscovery =
-                new SeaTunnelSinkPluginDiscovery(ADD_URL_TO_CLASSLOADER);
+        Config pluginMappingConfig =
+                discoveryType == DiscoveryType.REMOTE
+                        ? getPluginMappingConfigFromClasspath()
+                        : null;
+        PluginDiscovery<SeaTunnelSink> sinkPluginDiscovery =
+                getSeaTunnelSinkPluginDiscovery(connectors, pluginMappingConfig);
         DataStreamTableInfo input = upstreamDataStreams.get(0);
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         for (int i = 0; i < plugins.size(); i++) {
@@ -191,7 +215,7 @@ public class SinkExecuteProcessor
     }
 
     public SeaTunnelSink fallbackCreateSink(
-            SeaTunnelSinkPluginDiscovery sinkPluginDiscovery,
+            PluginDiscovery<SeaTunnelSink> sinkPluginDiscovery,
             PluginIdentifier pluginIdentifier,
             Config pluginConfig) {
         SeaTunnelSink source = sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
@@ -211,6 +235,32 @@ public class SinkExecuteProcessor
                     throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);
                 }
             }
+        }
+    }
+
+    private PluginDiscovery<Factory> getSeaTunnelFactoryDiscovery(List<URL> jarPaths, Config cfg) {
+        switch (discoveryType) {
+            case LOCAL:
+                return new SeaTunnelFactoryLocalDiscovery(
+                        TableSinkFactory.class, ADD_URL_TO_CLASSLOADER);
+            case REMOTE:
+                return new SeaTunnelFactoryRemoteDiscovery(
+                        jarPaths, cfg, ADD_URL_TO_CLASSLOADER, TableSinkFactory.class);
+            default:
+                throw new IllegalArgumentException("unsupported discovery type: " + discoveryType);
+        }
+    }
+
+    private PluginDiscovery<SeaTunnelSink> getSeaTunnelSinkPluginDiscovery(
+            List<URL> jarPaths, Config cfg) {
+        switch (discoveryType) {
+            case LOCAL:
+                return new SeaTunnelSinkPluginLocalDiscovery(ADD_URL_TO_CLASSLOADER);
+            case REMOTE:
+                return new SeaTunnelSinkPluginRemoteDiscovery(
+                        jarPaths, cfg, ADD_URL_TO_CLASSLOADER);
+            default:
+                throw new IllegalArgumentException("unsupported discovery type: " + discoveryType);
         }
     }
 }

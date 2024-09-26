@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.seatunnel.command;
 
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -26,18 +28,11 @@ import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ConnectorCheckCommandArgs;
 import org.apache.seatunnel.plugin.discovery.PluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginLocalDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginLocalDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginLocalDiscovery;
 
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.ImmutableTriple;
-
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class ConnectorCheckCommand implements Command<ConnectorCheckCommandArgs> {
@@ -52,9 +47,9 @@ public class ConnectorCheckCommand implements Command<ConnectorCheckCommandArgs>
 
     public ConnectorCheckCommand(ConnectorCheckCommandArgs connectorCheckCommandArgs) {
         this.connectorCheckCommandArgs = connectorCheckCommandArgs;
-        this.DISCOVERY_MAP.put(PluginType.SOURCE, new SeaTunnelSourcePluginDiscovery());
-        this.DISCOVERY_MAP.put(PluginType.SINK, new SeaTunnelSinkPluginDiscovery());
-        this.DISCOVERY_MAP.put(PluginType.TRANSFORM, new SeaTunnelTransformPluginDiscovery());
+        this.DISCOVERY_MAP.put(PluginType.SOURCE, new SeaTunnelSourcePluginLocalDiscovery());
+        this.DISCOVERY_MAP.put(PluginType.SINK, new SeaTunnelSinkPluginLocalDiscovery());
+        this.DISCOVERY_MAP.put(PluginType.TRANSFORM, new SeaTunnelTransformPluginLocalDiscovery());
     }
 
     @Override

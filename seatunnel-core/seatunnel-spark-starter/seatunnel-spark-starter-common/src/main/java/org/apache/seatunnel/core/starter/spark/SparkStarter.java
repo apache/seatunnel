@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.core.starter.spark;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
@@ -30,10 +29,9 @@ import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 import org.apache.seatunnel.core.starter.utils.CompressionUtils;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
-
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginLocalDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginLocalDiscovery;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -42,15 +40,7 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -147,10 +137,10 @@ public class SparkStarter implements Starter {
         }
         Config config = ConfigBuilder.of(commandArgs.getConfigFile(), commandArgs.getVariables());
         Set<URL> pluginJars = new HashSet<>();
-        SeaTunnelSourcePluginDiscovery seaTunnelSourcePluginDiscovery =
-                new SeaTunnelSourcePluginDiscovery();
-        SeaTunnelSinkPluginDiscovery seaTunnelSinkPluginDiscovery =
-                new SeaTunnelSinkPluginDiscovery();
+        SeaTunnelSourcePluginLocalDiscovery seaTunnelSourcePluginDiscovery =
+                new SeaTunnelSourcePluginLocalDiscovery();
+        SeaTunnelSinkPluginLocalDiscovery seaTunnelSinkPluginDiscovery =
+                new SeaTunnelSinkPluginLocalDiscovery();
         pluginJars.addAll(
                 seaTunnelSourcePluginDiscovery.getPluginJarPaths(
                         getPluginIdentifiers(config, PluginType.SOURCE)));

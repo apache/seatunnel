@@ -17,9 +17,7 @@
 
 package org.apache.seatunnel.core.starter.spark.execution;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
-
+import com.google.common.collect.Lists;
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -29,22 +27,18 @@ import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.core.starter.execution.PluginUtil;
 import org.apache.seatunnel.core.starter.execution.SourceTableInfo;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryLocalDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginLocalDiscovery;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import org.apache.seatunnel.translation.spark.execution.DatasetTableInfo;
-
+import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
-
-import com.google.common.collect.Lists;
+import org.apache.spark.sql.types.StructType;
 
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
 import static org.apache.seatunnel.api.common.CommonOptions.RESULT_TABLE_NAME;
@@ -86,6 +80,7 @@ public class SourceExecuteProcessor extends SparkAbstractPluginExecuteProcessor<
                                         CommonOptions.PARALLELISM.key(),
                                         CommonOptions.PARALLELISM.defaultValue());
             }
+            StructType schema = (StructType) TypeConverterUtils.convert(source.getProducedType());
             Dataset<Row> dataset =
                     sparkRuntimeEnvironment
                             .getSparkSession()
@@ -96,11 +91,12 @@ public class SourceExecuteProcessor extends SparkAbstractPluginExecuteProcessor<
                                     Constants.SOURCE_SERIALIZATION,
                                     SerializationUtils.objectToString(source))
                             .options(envOption)
+                            .schema(schema)
                             .load();
             sources.add(
                     new DatasetTableInfo(
                             dataset,
-                            sourceTableInfo.getCatalogTables(),
+                            sourceTableInfo.getCatalogTables().get(0),
                             pluginConfig.hasPath(RESULT_TABLE_NAME.key())
                                     ? pluginConfig.getString(RESULT_TABLE_NAME.key())
                                     : null));
@@ -111,9 +107,10 @@ public class SourceExecuteProcessor extends SparkAbstractPluginExecuteProcessor<
 
     @Override
     protected List<SourceTableInfo> initializePlugins(List<? extends Config> pluginConfigs) {
-        SeaTunnelSourcePluginDiscovery sourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery();
-        SeaTunnelFactoryDiscovery factoryDiscovery =
-                new SeaTunnelFactoryDiscovery(TableSourceFactory.class);
+        SeaTunnelSourcePluginLocalDiscovery sourcePluginDiscovery =
+                new SeaTunnelSourcePluginLocalDiscovery();
+        SeaTunnelFactoryLocalDiscovery factoryDiscovery =
+                new SeaTunnelFactoryLocalDiscovery(TableSourceFactory.class);
 
         List<SourceTableInfo> sources = new ArrayList<>();
         Set<URL> jars = new HashSet<>();

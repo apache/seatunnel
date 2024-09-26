@@ -17,27 +17,29 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.CommonOptions;
-import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.core.starter.enums.PluginType;
-import org.apache.seatunnel.core.starter.execution.PluginUtil;
-import org.apache.seatunnel.core.starter.execution.SourceTableInfo;
-import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
-import org.apache.seatunnel.translation.flink.source.FlinkSource;
-
+import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-
-import com.google.common.collect.Lists;
-import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.api.common.CommonOptions;
+import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.core.starter.enums.DiscoveryType;
+import org.apache.seatunnel.core.starter.enums.PluginType;
+import org.apache.seatunnel.core.starter.execution.PluginUtil;
+import org.apache.seatunnel.core.starter.execution.SourceTableInfo;
+import org.apache.seatunnel.plugin.discovery.PluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryLocalDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryRemoteDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginLocalDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginRemoteDiscovery;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.translation.flink.source.FlinkSource;
 
 import java.net.URL;
 import java.util.ArrayList;
@@ -47,6 +49,7 @@ import java.util.Set;
 
 import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
 import static org.apache.seatunnel.api.common.CommonOptions.RESULT_TABLE_NAME;
+import static org.apache.seatunnel.core.starter.flink.utils.ResourceUtils.getPluginMappingConfigFromClasspath;
 
 @Slf4j
 @SuppressWarnings("unchecked,rawtypes")
@@ -54,11 +57,19 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
     private static final String PLUGIN_TYPE = PluginType.SOURCE.getType();
 
     public SourceExecuteProcessor(
-            List<URL> jarPaths,
+            DiscoveryType discoveryType,
+            List<URL> provideJarPaths,
+            List<URL> actualUseJarPaths,
             Config envConfig,
             List<? extends Config> pluginConfigs,
             JobContext jobContext) {
-        super(jarPaths, envConfig, pluginConfigs, jobContext);
+        super(
+                discoveryType,
+                provideJarPaths,
+                actualUseJarPaths,
+                envConfig,
+                pluginConfigs,
+                jobContext);
     }
 
     @Override
@@ -95,12 +106,18 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
 
     @Override
     protected List<SourceTableInfo> initializePlugins(
-            List<URL> jarPaths, List<? extends Config> pluginConfigs) {
-        SeaTunnelSourcePluginDiscovery sourcePluginDiscovery =
-                new SeaTunnelSourcePluginDiscovery(ADD_URL_TO_CLASSLOADER);
+            List<URL> actualUseJarPaths, List<? extends Config> pluginConfigs) {
 
-        SeaTunnelFactoryDiscovery factoryDiscovery =
-                new SeaTunnelFactoryDiscovery(TableSourceFactory.class, ADD_URL_TO_CLASSLOADER);
+        Config pluginMappingConfig =
+                discoveryType == DiscoveryType.REMOTE
+                        ? getPluginMappingConfigFromClasspath()
+                        : null;
+
+        PluginDiscovery<SeaTunnelSource> sourcePluginDiscovery =
+                getSeaTunnelSourceDiscovery(connectors, pluginMappingConfig);
+
+        PluginDiscovery<Factory> factoryDiscovery =
+                getSeaTunnelFactoryDiscovery(connectors, pluginMappingConfig);
 
         List<SourceTableInfo> sources = new ArrayList<>();
         Set<URL> jars = new HashSet<>();
@@ -119,7 +136,33 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
                             jobContext);
             sources.add(source);
         }
-        jarPaths.addAll(jars);
+        actualUseJarPaths.addAll(jars);
         return sources;
+    }
+
+    private PluginDiscovery<SeaTunnelSource> getSeaTunnelSourceDiscovery(
+            List<URL> jarPaths, Config cfg) {
+        switch (discoveryType) {
+            case LOCAL:
+                return new SeaTunnelSourcePluginLocalDiscovery(ADD_URL_TO_CLASSLOADER);
+            case REMOTE:
+                return new SeaTunnelSourcePluginRemoteDiscovery(
+                        jarPaths, cfg, ADD_URL_TO_CLASSLOADER);
+            default:
+                throw new IllegalArgumentException("unsupported discovery type: " + discoveryType);
+        }
+    }
+
+    private PluginDiscovery<Factory> getSeaTunnelFactoryDiscovery(List<URL> jarPaths, Config cfg) {
+        switch (discoveryType) {
+            case LOCAL:
+                return new SeaTunnelFactoryLocalDiscovery(
+                        TableSourceFactory.class, ADD_URL_TO_CLASSLOADER);
+            case REMOTE:
+                return new SeaTunnelFactoryRemoteDiscovery(
+                        jarPaths, cfg, ADD_URL_TO_CLASSLOADER, TableSourceFactory.class);
+            default:
+                throw new IllegalArgumentException("unsupported discovery type: " + discoveryType);
+        }
     }
 }

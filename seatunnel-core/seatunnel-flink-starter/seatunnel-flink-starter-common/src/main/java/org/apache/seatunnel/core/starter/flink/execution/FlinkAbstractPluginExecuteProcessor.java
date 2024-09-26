@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.core.starter.enums.DiscoveryType;
 import org.apache.seatunnel.core.starter.execution.PluginExecuteProcessor;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -53,18 +53,26 @@ public abstract class FlinkAbstractPluginExecuteProcessor<T>
 
     protected FlinkRuntimeEnvironment flinkRuntimeEnvironment;
     protected final List<? extends Config> pluginConfigs;
+    protected final DiscoveryType discoveryType;
+    protected final List<URL> actualUseJarPaths;
+    protected final List<URL> connectors;
     protected JobContext jobContext;
     protected final List<T> plugins;
     protected final Config envConfig;
 
     protected FlinkAbstractPluginExecuteProcessor(
-            List<URL> jarPaths,
+            DiscoveryType discoveryType,
+            List<URL> connectors,
+            List<URL> actualUseJarPaths,
             Config envConfig,
             List<? extends Config> pluginConfigs,
             JobContext jobContext) {
+        this.discoveryType = discoveryType;
+        this.connectors = connectors;
+        this.actualUseJarPaths = actualUseJarPaths;
         this.pluginConfigs = pluginConfigs;
         this.jobContext = jobContext;
-        this.plugins = initializePlugins(jarPaths, pluginConfigs);
+        this.plugins = initializePlugins(actualUseJarPaths, pluginConfigs);
         this.envConfig = envConfig;
     }
 
@@ -96,5 +104,5 @@ public abstract class FlinkAbstractPluginExecuteProcessor<T>
     }
 
     protected abstract List<T> initializePlugins(
-            List<URL> jarPaths, List<? extends Config> pluginConfigs);
+            List<URL> actualUseJarPaths, List<? extends Config> pluginConfigs);
 }
