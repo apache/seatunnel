@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.common.metrics.TaskMetricsCalcContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
@@ -26,8 +27,11 @@ import org.apache.seatunnel.api.sink.SinkMetricsCalc;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
 import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
+import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
@@ -86,6 +90,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private MetricsContext metricsContext;
 
+    private TaskMetricsCalcContext taskMetricsCalcContext;
+
     private SinkMetricsCalc sinkMetricsCalc;
 
     private final boolean containAggCommitter;
@@ -111,6 +117,15 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         this.containAggCommitter = containAggCommitter;
         this.metricsContext = metricsContext;
         this.eventListener = new JobEventListener(taskLocation, runningTask.getExecutionContext());
+        // need to start collecting statistics for each table and set the start time when sink
+        // arrives
+        List<TablePath> sinkTables = new ArrayList<>();
+        boolean isMulti = sinkAction.getSink() instanceof MultiTableSink;
+        if (isMulti) {
+            sinkTables = ((MultiTableSink) sinkAction.getSink()).getSinkTables();
+        }
+        this.taskMetricsCalcContext =
+                new TaskMetricsCalcContext(metricsContext, PluginType.SINK, isMulti, sinkTables);
         this.sinkMetricsCalc = new SinkMetricsCalc(metricsContext);
     }
 
