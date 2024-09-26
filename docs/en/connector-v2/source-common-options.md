@@ -23,7 +23,7 @@ When the job configuration `result_table_name` you must set the `source_table_na
 
 ```bash
 source {
-    FakeSourceStream {
+    FakeSource {
         result_table_name = "fake_table"
     }
 }

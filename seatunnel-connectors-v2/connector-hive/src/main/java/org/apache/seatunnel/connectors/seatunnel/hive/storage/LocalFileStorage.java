@@ -17,18 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.storage;
 
-public class StorageFactory {
-    public static Storage getStorageType(String hiveSdLocation) {
-        if (hiveSdLocation.startsWith(StorageType.S3.name().toLowerCase())) {
-            return new S3Storage();
-        } else if (hiveSdLocation.startsWith(StorageType.OSS.name().toLowerCase())) {
-            return new OSSStorage();
-        } else if (hiveSdLocation.startsWith(StorageType.COS.name().toLowerCase())) {
-            return new COSStorage();
-        } else if (hiveSdLocation.startsWith(StorageType.FILE.name().toLowerCase())) {
-            return new LocalFileStorage();
-        } else {
-            return new HDFSStorage(hiveSdLocation);
-        }
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.local.config.LocalFileHadoopConf;
+
+public class LocalFileStorage extends AbstractStorage {
+    @Override
+    public HadoopConf buildHadoopConfWithReadOnlyConfig(ReadonlyConfig readonlyConfig) {
+        return new LocalFileHadoopConf();
     }
 }

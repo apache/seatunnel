@@ -6,14 +6,23 @@
 
 Read data from Hive.
 
-:::tip
+## Support Versions
 
-In order to use this connector, You must ensure your spark/flink cluster already integrated hive. The tested hive version is 2.3.9.
+tested hive version :
+- 2.3.9
+- 3.1.1
 
-If you use SeaTunnel Engine, You need put seatunnel-hadoop3-3.1.4-uber.jar and hive-exec-3.1.3.jar and libfb303-0.9.3.jar in $SEATUNNEL_HOME/lib/ dir.
-:::
+## Using Dependency
 
-## Key features
+In order to use this connector, You must ensure your spark/flink cluster already integrated hive.
+
+If you use SeaTunnel Engine, You need put those jar in $SEATUNNEL_HOME/lib/ dir.
+- `seatunnel-hadoop3-3.1.4-uber.jar`
+- `hive-exec-<hive_version>.jar`
+- `libfb303-0.9.3.jar`
+- `hive-jdbc-<hive_version>.jar` (if you need `savemode` feature, pass the `hive_jdbc_url` parameter)
+
+## Key Features
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
@@ -31,70 +40,56 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
   - [x] orc
   - [x] json
 
-## Options
+## Data Type Mapping
 
-|         name          |  type  | required | default value  |
-|-----------------------|--------|----------|----------------|
-| table_name            | string | yes      | -              |
-| metastore_uri         | string | yes      | -              |
-| krb5_path             | string | no       | /etc/krb5.conf |
-| kerberos_principal    | string | no       | -              |
-| kerberos_keytab_path  | string | no       | -              |
-| hdfs_site_path        | string | no       | -              |
-| hive_site_path        | string | no       | -              |
-| hive.hadoop.conf      | Map    | no       | -              |
-| hive.hadoop.conf-path | string | no       | -              |
-| read_partitions       | list   | no       | -              |
-| read_columns          | list   | no       | -              |
-| compress_codec        | string | no       | none           |
-| common-options        |        | no       | -              |
+| Hive Data Type | SeaTunnel Data Type |
+|----------------|---------------------|
+| tinyint        | byte                |
+| smallint       | short               |
+| int            | int                 |
+| bigint         | long                |
+| float          | float               |
+| double         | double              |
+| decimal        | decimal             |
+| timestamp      | local_date_time     |
+| date           | local_date          |
+| interval       | not supported       |
+| string         | string              |
+| varchar        | string              |
+| char           | not supported       |
+| boolean        | boolean             |
+| binary         | byte array          |
+| arrays         | array               |
+| maps           | map                 |
+| structs        | seatunnel row       |
+| union          | not supported       |
 
-### table_name [string]
+## Source Options
 
-Target Hive table name eg: db1.table1
+|         Name          |  Type  | Required | Default value  |                                                                 Description                                                                  |
+|-----------------------|--------|----------|----------------|----------------------------------------------------------------------------------------------------------------------------------------------|
+| table_name            | string | yes      | -              | source Hive table name eg: `db1.table1`                                                                                                      |
+| metastore_uri         | string | yes      | -              | Hive metastore uri                                                                                                                           |
+| krb5_path             | string | no       | /etc/krb5.conf | The path of `krb5.conf`, used to authentication kerberos                                                                                     |
+| kerberos_principal    | string | no       | -              | The principal of kerberos authentication                                                                                                     |
+| kerberos_keytab_path  | string | no       | -              | The keytab file path of kerberos authentication                                                                                              |
+| hdfs_site_path        | string | no       | -              | The path of `hdfs-site.xml`, used to load ha configuration of namenodes                                                                      |
+| hive_site_path        | string | no       | -              | The path of `hive-site.xml`, used to authentication hive metastore                                                                           |
+| hive.hadoop.conf      | Map    | no       | -              | Properties in hadoop conf('core-site.xml', 'hdfs-site.xml', 'hive-site.xml')                                                                 |
+| hive.hadoop.conf-path | string | no       | -              | The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files                                                   |
+| read_partitions       | list   | no       | -              | The target partitions that user want to read from hive table, if user does not set this parameter, it will read all the data from hive table |
+| read_columns          | list   | no       | -              | The read column list of the data source, user can use it to implement field projection.                                                      |
+| compress_codec        | string | no       | none           | The compress codec of files                                                                                                                  |
+| common-options        |        | no       | -              | Source plugin common parameters, please refer to Source Common Options for details                                                           |
 
-### metastore_uri [string]
-
-Hive metastore uri
-
-### hdfs_site_path [string]
-
-The path of `hdfs-site.xml`, used to load ha configuration of namenodes
-
-### hive.hadoop.conf [map]
-
-Properties in hadoop conf('core-site.xml', 'hdfs-site.xml', 'hive-site.xml')
-
-### hive.hadoop.conf-path [string]
-
-The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files
-
-### read_partitions [list]
-
-The target partitions that user want to read from hive table, if user does not set this parameter, it will read all the data from hive table.
+### read_partitions
 
 **Tips: Every partition in partitions list should have the same directory depth. For example, a hive table has two partitions: par1 and par2, if user sets it like as the following:**
 **read_partitions = [par1=xxx, par1=yyy/par2=zzz], it is illegal**
 
-### krb5_path [string]
+### compress_codec
 
-The path of `krb5.conf`, used to authentication kerberos
-
-### kerberos_principal [string]
-
-The principal of kerberos authentication
-
-### kerberos_keytab_path [string]
-
-The keytab file path of kerberos authentication
-
-### read_columns [list]
-
-The read column list of the data source, user can use it to implement field projection.
-
-### compress_codec [string]
-
-The compress codec of files and the details that supported as the following shown:
+The details that supported as the following shown:
 
 - txt: `lzo` `none`
 - json: `lzo` `none`
@@ -102,11 +97,7 @@ The compress codec of files and the details that supported as the following show
 - orc/parquet:  
   automatically recognizes the compression type, no additional settings required.
 
-### common options
-
-Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details
-
-## Example
+## Config Example
 
 ### Example 1: Single table
 

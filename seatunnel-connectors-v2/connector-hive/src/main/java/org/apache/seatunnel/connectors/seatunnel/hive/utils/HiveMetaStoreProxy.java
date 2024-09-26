@@ -20,18 +20,24 @@ package org.apache.seatunnel.connectors.seatunnel.hive.utils;
 import org.apache.seatunnel.shade.com.google.common.collect.ImmutableList;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopLoginFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.hive.catalog.HiveTable;
+import org.apache.seatunnel.connectors.seatunnel.hive.catalog.HiveTypeConvertor;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.hive.source.config.HiveSourceOptions;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
 import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
+import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
@@ -44,6 +50,8 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -54,7 +62,7 @@ public class HiveMetaStoreProxy {
     private static final List<String> HADOOP_CONF_FILES = ImmutableList.of("hive-site.xml");
 
     private HiveMetaStoreProxy(ReadonlyConfig readonlyConfig) {
-        String metastoreUri = readonlyConfig.get(HiveSourceOptions.METASTORE_URI);
+        String metastoreUri = readonlyConfig.get(HiveConfig.METASTORE_URI);
         String hiveHadoopConfigPath = readonlyConfig.get(HiveConfig.HADOOP_CONF_PATH);
         String hiveSitePath = readonlyConfig.get(HiveConfig.HIVE_SITE_PATH);
         HiveConf hiveConf = new HiveConf();
@@ -121,7 +129,7 @@ public class HiveMetaStoreProxy {
                     String.format(
                             "Using this hive uris [%s], hive conf [%s] to initialize "
                                     + "hive metastore client instance failed",
-                            metastoreUri, readonlyConfig.get(HiveSourceOptions.HIVE_SITE_PATH));
+                            metastoreUri, readonlyConfig.get(HiveConfig.HIVE_SITE_PATH));
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.INITIALIZE_HIVE_METASTORE_CLIENT_FAILED, errorMsg, e);
         } catch (Exception e) {
@@ -152,6 +160,51 @@ public class HiveMetaStoreProxy {
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.GET_HIVE_TABLE_INFORMATION_FAILED, errorMsg, e);
         }
+    }
+
+    public HiveTable getTableInfo(@NonNull String dbName, @NonNull String tableName) {
+        Table table = getTable(dbName, tableName);
+        TableSchema.Builder builder = new TableSchema.Builder();
+        List<FieldSchema> cols = table.getSd().getCols();
+        cols.forEach(
+                col -> {
+                    builder.column(
+                            PhysicalColumn.of(
+                                    col.getName(),
+                                    HiveTypeConvertor.covertHiveTypeToSeaTunnelType(
+                                            col.getName(), col.getType()),
+                                    (Long) null,
+                                    true,
+                                    null,
+                                    col.getComment()));
+                });
+        List<String> partitionKeys = new ArrayList<>();
+        table.getPartitionKeys()
+                .forEach(
+                        p -> {
+                            builder.column(
+                                    PhysicalColumn.of(
+                                            p.getName(),
+                                            HiveTypeConvertor.covertHiveTypeToSeaTunnelType(
+                                                    p.getName(), p.getType()),
+                                            (Long) null,
+                                            true,
+                                            null,
+                                            p.getComment()));
+                            partitionKeys.add(p.getName());
+                        });
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("Hive", dbName, tableName),
+                        builder.build(),
+                        Collections.emptyMap(),
+                        partitionKeys,
+                        null);
+        return HiveTable.of(
+                catalogTable,
+                table.getParameters(),
+                table.getSd().getInputFormat(),
+                table.getSd().getLocation());
     }
 
     public void addPartitions(

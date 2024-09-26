@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.hive.source.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 
 import com.google.common.collect.Lists;
 import lombok.Getter;
@@ -33,7 +34,7 @@ public class MultipleTableHiveSourceConfig implements Serializable {
     @Getter private List<HiveSourceConfig> hiveSourceConfigs;
 
     public MultipleTableHiveSourceConfig(ReadonlyConfig readonlyConfig) {
-        if (readonlyConfig.getOptional(HiveSourceOptions.TABLE_CONFIGS).isPresent()) {
+        if (readonlyConfig.getOptional(HiveConfig.TABLE_CONFIGS).isPresent()) {
             parseFromLocalFileSourceConfigs(readonlyConfig);
         } else {
             parseFromLocalFileSourceConfig(readonlyConfig);
@@ -42,7 +43,7 @@ public class MultipleTableHiveSourceConfig implements Serializable {
 
     private void parseFromLocalFileSourceConfigs(ReadonlyConfig readonlyConfig) {
         this.hiveSourceConfigs =
-                readonlyConfig.get(HiveSourceOptions.TABLE_CONFIGS).stream()
+                readonlyConfig.get(HiveConfig.TABLE_CONFIGS).stream()
                         .map(ReadonlyConfig::fromMap)
                         .map(HiveSourceConfig::new)
                         .collect(Collectors.toList());

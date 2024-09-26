@@ -22,7 +22,7 @@ When the job configuration `source_table_name` you must set the `result_table_na
 
 ```bash
 source {
-    FakeSourceStream {
+    FakeSource {
       parallelism = 2
       result_table_name = "fake"
       field_name = "name,age"

@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
+import org.apache.seatunnel.connectors.seatunnel.hive.catalog.HiveJDBCCatalog;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.sink.HiveSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
 
@@ -68,6 +70,7 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
                                     .collect(Collectors.toList());
                     try {
                         hiveMetaStore.addPartitions(dbName, tableName, partitions);
+                        msckRepairTable();
                         log.info("Add these partitions {}", partitions);
                     } catch (TException e) {
                         log.error("Failed to add these partitions {}", partitions, e);
@@ -86,21 +89,36 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
         super.abort(aggregatedCommitInfos);
         if (abortDropPartitionMetadata) {
             HiveMetaStoreProxy hiveMetaStore = HiveMetaStoreProxy.getInstance(readonlyConfig);
-            for (FileAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
-                Map<String, List<String>> partitionDirAndValuesMap =
-                        aggregatedCommitInfo.getPartitionDirAndValuesMap();
-                List<String> partitions =
-                        partitionDirAndValuesMap.keySet().stream()
-                                .map(partition -> partition.replaceAll("\\\\", "/"))
-                                .collect(Collectors.toList());
-                try {
-                    hiveMetaStore.dropPartitions(dbName, tableName, partitions);
-                    log.info("Remove these partitions {}", partitions);
-                } catch (TException e) {
-                    log.error("Failed to remove these partitions {}", partitions, e);
+            try {
+                for (FileAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
+                    Map<String, List<String>> partitionDirAndValuesMap =
+                            aggregatedCommitInfo.getPartitionDirAndValuesMap();
+                    List<String> partitions =
+                            partitionDirAndValuesMap.keySet().stream()
+                                    .map(partition -> partition.replaceAll("\\\\", "/"))
+                                    .collect(Collectors.toList());
+                    try {
+                        hiveMetaStore.dropPartitions(dbName, tableName, partitions);
+                        msckRepairTable();
+                        log.info("Remove these partitions {}", partitions);
+                    } catch (TException e) {
+                        log.error("Failed to remove these partitions {}", partitions, e);
+                    }
                 }
+            } finally {
+                hiveMetaStore.close();
             }
-            hiveMetaStore.close();
         }
+    }
+
+    private void msckRepairTable() {
+        if (!readonlyConfig.getOptional(HiveConfig.HIVE_JDBC_URL).isPresent()) {
+            return;
+        }
+        // run msck repair table command via jdbc in case add partition not successful.
+        HiveJDBCCatalog hiveJDBCCatalog = new HiveJDBCCatalog(readonlyConfig);
+        hiveJDBCCatalog.open();
+        hiveJDBCCatalog.msckRepairTable(dbName, tableName);
+        hiveJDBCCatalog.close();
     }
 }

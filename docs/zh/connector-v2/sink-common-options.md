@@ -27,7 +27,7 @@ sidebar_position: 4
 
 ```bash
 source {
-    FakeSourceStream {
+    FakeSource {
       parallelism = 2
       result_table_name = "fake"
       field_name = "name,age"
