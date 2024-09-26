@@ -26,10 +26,8 @@ public class SinkMetricsCalc {
 
     private final MetricsContext metricsContext;
     private final MetricsContext incrementMetricsContext;
-    private final MetricsContext checkPointMetricsContext;
     private final TaskMetricsCalcContext taskMetricsCalcContext;
     private final TaskMetricsCalcContext incrementMetricsCalcContext;
-    private final TaskMetricsCalcContext checkPointSnapshotMetricsCalcContext;
 
     public SinkMetricsCalc(MetricsContext metricsContext) {
         this.metricsContext = metricsContext;
@@ -37,9 +35,6 @@ public class SinkMetricsCalc {
         this.incrementMetricsContext = new CycleMetricsContext();
         this.incrementMetricsCalcContext =
                 new TaskMetricsCalcContext(incrementMetricsContext, PluginType.SINK);
-        this.checkPointMetricsContext = new CycleMetricsContext(metricsContext);
-        this.checkPointSnapshotMetricsCalcContext =
-                new TaskMetricsCalcContext(checkPointMetricsContext, PluginType.SINK);
     }
 
     public void collectMetrics(Object element) {
@@ -53,15 +48,5 @@ public class SinkMetricsCalc {
 
     public void cancelMetrics() {
         ((CycleMetricsContext) incrementMetricsContext).clear();
-    }
-
-    public void createCheckPointMetricsSnapshot() {
-        checkPointSnapshotMetricsCalcContext.collectMetrics(checkPointMetricsContext);
-    }
-
-    public void rollbackCheckPointMetricsSnapshot() {}
-
-    public void destroyMetricsSnapshot() {
-        ((CycleMetricsContext) checkPointMetricsContext).clear();
     }
 }
