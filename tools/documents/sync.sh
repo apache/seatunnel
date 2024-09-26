@@ -119,6 +119,7 @@ function prepare_docs() {
     echo "===>>>: Rsync images to ${WEBSITE_IMG_DIR}"
     rsync -av --exclude='/icons' "${PR_IMG_DIR}"/ "${WEBSITE_IMG_DIR}"
 
+    mkdir ${WEBSITE_ICON_DIR}
     echo "===>>>: Rsync icons to ${WEBSITE_ICON_DIR}"
     rsync -av "${PR_IMG_ICON_DIR}"/ "${WEBSITE_ICON_DIR}"
 
