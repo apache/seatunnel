@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 
+import com.clickhouse.client.ClickHouseException;
+import com.clickhouse.client.ClickHouseRequest;
+import com.clickhouse.client.ClickHouseResponse;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.Common;
@@ -183,6 +186,8 @@ public class ClickhouseFileSinkWriter
                         // move file to server
                         moveClickhouseLocalFileToServer(shard, clickhouseLocalFiles);
                         detachedFiles.put(shard, clickhouseLocalFiles);
+                        //attach file in executor
+                        attachFileToClickhouse(shard,clickhouseLocalFiles);
                     } catch (Exception e) {
                         throw new ClickhouseConnectorException(
                                 CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
@@ -432,5 +437,21 @@ public class ClickhouseFileSinkWriter
                     createTableDDL.substring(0, p) + CLICKHOUSE_SETTINGS_KEY + filteredSetting;
         }
         return createTableDDL;
+    }
+
+    private void attachFileToClickhouse(Shard shard, List<String> clickhouseLocalFiles)
+            throws ClickHouseException {
+        ClickHouseRequest<?> request = proxy.getClickhouseConnection(shard);
+        for (String clickhouseLocalFile : clickhouseLocalFiles) {
+            ClickHouseResponse response =
+                    request.query(
+                                    String.format(
+                                            "ALTER TABLE %s ATTACH PART '%s'",
+                                            clickhouseTable.getLocalTableName(),
+                                            clickhouseLocalFile.substring(
+                                                    clickhouseLocalFile.lastIndexOf("/") + 1)))
+                            .executeAndWait();
+            response.close();
+        }
     }
 }
