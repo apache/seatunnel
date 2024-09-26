@@ -45,20 +45,31 @@ public class ResourceUtils {
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures =
                 jobMaster.getPhysicalPlan().getPreApplyResourceFutures();
         // TODO If there is no enough resources for tasks, we need add some wait profile
+        boolean dynamicSlot = jobMaster.getEngineConfig().getSlotServiceConfig().isDynamicSlot();
+        ResourceManager resourceManager = jobMaster.getResourceManager();
         subPlan.getCoordinatorVertexList()
                 .forEach(
                         coordinator ->
                                 futures.put(
                                         coordinator.getTaskGroupLocation(),
-                                        preApplyResourceFutures.get(
-                                                coordinator.getTaskGroupLocation())));
+                                        dynamicSlot
+                                                ? applyResourceForTask(
+                                                        resourceManager,
+                                                        coordinator,
+                                                        subPlan.getTags())
+                                                : preApplyResourceFutures.get(
+                                                        coordinator.getTaskGroupLocation())));
 
         subPlan.getPhysicalVertexList()
                 .forEach(
                         task ->
                                 futures.put(
                                         task.getTaskGroupLocation(),
-                                        preApplyResourceFutures.get(task.getTaskGroupLocation())));
+                                        dynamicSlot
+                                                ? applyResourceForTask(
+                                                        resourceManager, task, subPlan.getTags())
+                                                : preApplyResourceFutures.get(
+                                                        task.getTaskGroupLocation())));
 
         futures.forEach(
                 (key, value) -> {

@@ -189,12 +189,15 @@ public class CoordinatorService {
 
     private LinkedList<Tuple2<Long, JobMaster>> pendingJob = new LinkedList<>();
 
+    private final boolean dynamicSlot;
+
     private final boolean isJobPending;
 
     public CoordinatorService(
             @NonNull NodeEngineImpl nodeEngine,
             @NonNull SeaTunnelServer seaTunnelServer,
             EngineConfig engineConfig) {
+        this.dynamicSlot = engineConfig.getSlotServiceConfig().isDynamicSlot();
         this.nodeEngine = nodeEngine;
         this.logger = nodeEngine.getLogger(getClass());
         this.executorService =
@@ -214,7 +217,7 @@ public class CoordinatorService {
         masterActiveListener.scheduleAtFixedRate(
                 this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
         isJobPending = engineConfig.getScheduleStrategy().equals(ScheduleStrategy.WAIT);
-        if (isJobPending) {
+        if (!dynamicSlot && isJobPending) {
             logger.info("Start pending job schedule thread");
             // start pending job schedule thread
             startPendingJobScheduleThread();
@@ -475,9 +478,14 @@ public class CoordinatorService {
                         "The restore %s is in %s state, restore pipeline and take over this job running",
                         jobFullName, jobStatus));
         // FIFO strategy，If there is a waiting task, the subsequent task will keep waiting
-        boolean preApplyResources = jobMaster.preApplyResources();
-        boolean canRunJob = !isJobPending || (pendingJob.size() == 0 && preApplyResources);
-
+        boolean canRunJob, preApplyResources;
+        if (dynamicSlot) {
+            canRunJob = true;
+            preApplyResources = true;
+        } else {
+            preApplyResources = jobMaster.preApplyResources();
+            canRunJob = !isJobPending || (pendingJob.size() == 0 && preApplyResources);
+        }
         if (canRunJob) {
             CompletableFuture.runAsync(
                     () -> {
@@ -490,7 +498,7 @@ public class CoordinatorService {
                                     .getPhysicalPlan()
                                     .getPipelineList()
                                     .forEach(SubPlan::restorePipelineState);
-                            if (!preApplyResources) {
+                            if (!dynamicSlot && !preApplyResources) {
                                 completeFailJob(jobMaster);
                                 throw new NoEnoughResourceException();
                             }
@@ -649,7 +657,7 @@ public class CoordinatorService {
                     }
                     if (!jobSubmitFuture.isCompletedExceptionally()) {
                         try {
-                            if (isJobPending) {
+                            if (!dynamicSlot && isJobPending) {
                                 if (pendingJob.size() == 0 && jobMaster.preApplyResources()) {
                                     pendingJobMasterMap.remove(jobId);
                                     runningJobMasterMap.put(jobId, jobMaster);
@@ -658,7 +666,7 @@ public class CoordinatorService {
                                     pendingJob.add(new Tuple2<>(jobId, jobMaster));
                                     logger.info("Resources not enough, enter the pending queue");
                                 }
-                            } else if (jobMaster.preApplyResources()) {
+                            } else if (dynamicSlot || jobMaster.preApplyResources()) {
                                 jobMaster.run();
                             } else {
                                 completeFailJob(jobMaster);
