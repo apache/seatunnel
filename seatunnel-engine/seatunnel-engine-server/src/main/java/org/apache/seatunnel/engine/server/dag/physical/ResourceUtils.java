@@ -53,10 +53,8 @@ public class ResourceUtils {
                                 futures.put(
                                         coordinator.getTaskGroupLocation(),
                                         dynamicSlot
-                                                ? applyResourceForTask(
-                                                        resourceManager,
-                                                        coordinator,
-                                                        subPlan.getTags())
+                                                ? resourceManager.applyResource(
+                                                coordinator.getTaskGroupLocation().getJobId(), new ResourceProfile(), subPlan.getTags())
                                                 : preApplyResourceFutures.get(
                                                         coordinator.getTaskGroupLocation())));
 
@@ -66,8 +64,9 @@ public class ResourceUtils {
                                 futures.put(
                                         task.getTaskGroupLocation(),
                                         dynamicSlot
-                                                ? applyResourceForTask(
-                                                        resourceManager, task, subPlan.getTags())
+                                                ? resourceManager.applyResource(
+                                                task.getTaskGroupLocation().getJobId(), new ResourceProfile(), subPlan.getTags())
+
                                                 : preApplyResourceFutures.get(
                                                         task.getTaskGroupLocation())));
 
