@@ -91,6 +91,11 @@ public class PrometheusSourceReader extends AbstractSingleSplitReader<SeaTunnelR
     }
 
     @Override
+    public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+        internalPollNext(output);
+    }
+
+    @Override
     public void internalPollNext(Collector<SeaTunnelRow> output) throws Exception {
         try {
             pollAndCollectData(output);
