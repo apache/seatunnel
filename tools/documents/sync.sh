@@ -21,12 +21,14 @@ set -euo pipefail
 
 PR_DIR=$1
 PR_IMG_DIR="${PR_DIR}/docs/images"
+PR_IMG_ICON_DIR="${PR_DIR}/docs/images/icons"
 PR_DOC_DIR="${PR_DIR}/docs/en"
 PR_SIDEBAR_PATH="${PR_DIR}/docs/sidebars.js"
 
 WEBSITE_DIR=$2
 WEBSITE_IMG_DIR="${WEBSITE_DIR}/static/image_en"
 WEBSITE_DOC_DIR="${WEBSITE_DIR}/docs"
+WEBSITE_ICON_DIR="${WEBSITE_DIR}/docs/images/icons"
 
 DOCUSAURUS_DOC_SIDEBARS_FILE="${WEBSITE_DIR}/sidebars.js"
 
@@ -116,6 +118,9 @@ function prepare_docs() {
 
     echo "===>>>: Rsync images to ${WEBSITE_IMG_DIR}"
     rsync -av "${PR_IMG_DIR}"/ "${WEBSITE_IMG_DIR}"
+
+    echo "===>>>: Rsync icons to ${WEBSITE_ICON_DIR}"
+    rsync -av "${PR_IMG_ICON_DIR}"/ "${WEBSITE_ICON_DIR}"
 
     echo "===>>>: Rsync documents to ${WEBSITE_DOC_DIR}"
     rsync -av "${PR_DOC_DIR}"/ "${WEBSITE_DOC_DIR}"
