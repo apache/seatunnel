@@ -17,11 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
-import org.apache.seatunnel.api.common.metrics.CycleMetricsContext;
-import org.apache.seatunnel.api.common.metrics.MetricsContext;
-import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
-import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
@@ -53,7 +49,12 @@ public class ConsoleSinkWriterIT {
         String[] fieldNames = {};
         SeaTunnelDataType<?>[] fieldTypes = {};
         SeaTunnelRowType seaTunnelRowType = new SeaTunnelRowType(fieldNames, fieldTypes);
-        consoleSinkWriter = new ConsoleSinkWriter(seaTunnelRowType, new DefaultSinkWriterContext(Integer.MAX_VALUE, 1), true, 0);
+        consoleSinkWriter =
+                new ConsoleSinkWriter(
+                        seaTunnelRowType,
+                        new DefaultSinkWriterContext(Integer.MAX_VALUE, 1),
+                        true,
+                        0);
     }
 
     private Object fieldToStringTest(SeaTunnelDataType<?> dataType, Object value) {
@@ -118,9 +119,9 @@ public class ConsoleSinkWriterIT {
                 () -> {
                     String[] fieldNames = {"c_byte", "c_array", "bytes"};
                     SeaTunnelDataType<?>[] fieldTypes = {
-                            BasicType.BYTE_TYPE,
-                            ArrayType.BYTE_ARRAY_TYPE,
-                            PrimitiveByteArrayType.INSTANCE
+                        BasicType.BYTE_TYPE,
+                        ArrayType.BYTE_ARRAY_TYPE,
+                        PrimitiveByteArrayType.INSTANCE
                     };
                     SeaTunnelRowType seaTunnelRowType =
                             new SeaTunnelRowType(fieldNames, fieldTypes);
