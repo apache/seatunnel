@@ -117,7 +117,7 @@ function prepare_docs() {
     rsync -av "${PR_SIDEBAR_PATH}" "${DOCUSAURUS_DOC_SIDEBARS_FILE}"
 
     echo "===>>>: Rsync images to ${WEBSITE_IMG_DIR}"
-    rsync -av "${PR_IMG_DIR}"/ "${WEBSITE_IMG_DIR}"
+    rsync -av --exclude='images/icons' "${PR_IMG_DIR}"/ "${WEBSITE_IMG_DIR}"
 
     echo "===>>>: Rsync icons to ${WEBSITE_ICON_DIR}"
     rsync -av "${PR_IMG_ICON_DIR}"/ "${WEBSITE_ICON_DIR}"
