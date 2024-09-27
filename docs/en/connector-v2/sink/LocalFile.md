@@ -169,7 +169,7 @@ Tips: excel type does not support any compression format
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.
 
 ### max_rows_in_memory [int]
 
@@ -214,6 +214,7 @@ Existing dir processing method.
 - RECREATE_SCHEMA: will create when the dir does not exist, delete and recreate when the dir is exist
 - CREATE_SCHEMA_WHEN_NOT_EXIST: will create when the dir does not exist, skipped when the dir is exist
 - ERROR_WHEN_SCHEMA_NOT_EXIST: error will be reported when the dir does not exist
+- IGNORE ：Ignore the treatment of the table
 
 ### data_save_mode [string]
 

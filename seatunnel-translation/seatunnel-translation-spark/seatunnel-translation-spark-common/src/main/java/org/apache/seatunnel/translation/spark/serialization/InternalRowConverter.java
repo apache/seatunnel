@@ -20,6 +20,7 @@ package org.apache.seatunnel.translation.spark.serialization;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -63,17 +64,24 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.stream.IntStream;
 
 public final class InternalRowConverter extends RowConverter<InternalRow> {
+    private final int[] indexes;
 
     public InternalRowConverter(SeaTunnelDataType<?> dataType) {
         super(dataType);
+        indexes = IntStream.range(0, ((SeaTunnelRowType) dataType).getTotalFields()).toArray();
+    }
+
+    public InternalRowConverter(SeaTunnelDataType<?> dataType, int[] indexes) {
+        super(dataType);
+        this.indexes = indexes;
     }
 
     @Override
     public InternalRow convert(SeaTunnelRow seaTunnelRow) throws IOException {
-        validate(seaTunnelRow);
-        return (InternalRow) convert(seaTunnelRow, dataType);
+        return parcel(seaTunnelRow, (SeaTunnelRowType) dataType);
     }
 
     private static Object convert(Object field, SeaTunnelDataType<?> dataType) {
@@ -131,6 +139,30 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 if (fieldValue != null) {
                     values[i].update(fieldValue);
                 }
+            }
+        }
+        return new SpecificInternalRow(values);
+    }
+
+    private InternalRow parcel(SeaTunnelRow seaTunnelRow, SeaTunnelRowType rowType) {
+        // 0 -> row kind, 1 -> table id
+        int arity = rowType.getTotalFields();
+        MutableValue[] values = new MutableValue[arity + 2];
+        for (int i = 0; i < indexes.length; i++) {
+            values[indexes[i] + 2] = createMutableValue(rowType.getFieldType(indexes[i]));
+            Object fieldValue = convert(seaTunnelRow.getField(i), rowType.getFieldType(indexes[i]));
+            if (fieldValue != null) {
+                values[indexes[i] + 2].update(fieldValue);
+            }
+        }
+        values[0] = new MutableByte();
+        values[0].update(seaTunnelRow.getRowKind().toByteValue());
+        values[1] = new MutableAny();
+        values[1].update(UTF8String.fromString(seaTunnelRow.getTableId()));
+        // Fill any remaining null values with MutableAny
+        for (int i = 0; i < values.length; i++) {
+            if (values[i] == null) {
+                values[i] = new MutableAny();
             }
         }
         return new SpecificInternalRow(values);
@@ -213,9 +245,27 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         }
     }
 
+    public SeaTunnelRow unpack(InternalRow engineRow, SeaTunnelRowType rowType) throws IOException {
+        RowKind rowKind = RowKind.fromByteValue(engineRow.getByte(0));
+        String tableId = engineRow.getString(1);
+        Object[] fields = new Object[indexes.length];
+        for (int i = 0; i < indexes.length; i++) {
+            fields[i] =
+                    reconvert(
+                            engineRow.get(
+                                    indexes[i] + 2,
+                                    TypeConverterUtils.convert(rowType.getFieldType(indexes[i]))),
+                            rowType.getFieldType(indexes[i]));
+        }
+        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
+        seaTunnelRow.setRowKind(rowKind);
+        seaTunnelRow.setTableId(tableId);
+        return seaTunnelRow;
+    }
+
     @Override
     public SeaTunnelRow reconvert(InternalRow engineRow) throws IOException {
-        return (SeaTunnelRow) reconvert(engineRow, dataType);
+        return unpack(engineRow, (SeaTunnelRowType) dataType);
     }
 
     private static Object reconvert(Object field, SeaTunnelDataType<?> dataType) {

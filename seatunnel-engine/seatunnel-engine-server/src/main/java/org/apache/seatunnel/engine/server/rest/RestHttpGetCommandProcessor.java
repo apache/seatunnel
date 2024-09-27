@@ -44,6 +44,8 @@ import org.apache.seatunnel.engine.server.resourcemanager.opeartion.GetOverviewO
 import org.apache.seatunnel.engine.server.resourcemanager.resource.OverviewInfo;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
+import org.apache.commons.lang3.ArrayUtils;
+
 import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Cluster;
 import com.hazelcast.cluster.Member;
@@ -59,18 +61,29 @@ import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.NodeEngineImpl;
+import io.prometheus.client.exporter.common.TextFormat;
 
+import java.io.IOException;
+import java.io.StringWriter;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.Spliterators;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES_PER_SECONDS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_QPS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_BYTES;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_BYTES_PER_SECONDS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_QPS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.FINISHED_JOBS_INFO;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.JOB_INFO_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.OVERVIEW;
@@ -78,17 +91,28 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOBS_
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOB_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_THREADS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.SYSTEM_MONITORING_INFORMATION;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TELEMETRY_METRICS_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TELEMETRY_OPEN_METRICS_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.THREAD_DUMP;
 
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
 
-    private static final String SOURCE_RECEIVED_COUNT = "SourceReceivedCount";
     private static final String TABLE_SOURCE_RECEIVED_COUNT = "TableSourceReceivedCount";
-    private static final String SINK_WRITE_COUNT = "SinkWriteCount";
     private static final String TABLE_SINK_WRITE_COUNT = "TableSinkWriteCount";
+    private static final String TABLE_SOURCE_RECEIVED_QPS = "TableSourceReceivedQPS";
+    private static final String TABLE_SINK_WRITE_QPS = "TableSinkWriteQPS";
+    private static final String TABLE_SOURCE_RECEIVED_BYTES = "TableSourceReceivedBytes";
+    private static final String TABLE_SINK_WRITE_BYTES = "TableSinkWriteBytes";
+    private static final String TABLE_SOURCE_RECEIVED_BYTES_PER_SECONDS =
+            "TableSourceReceivedBytesPerSeconds";
+    private static final String TABLE_SINK_WRITE_BYTES_PER_SECONDS =
+            "TableSinkWriteBytesPerSeconds";
+
     private final Log4j2HttpGetCommandProcessor original;
     private NodeEngine nodeEngine;
 
     public RestHttpGetCommandProcessor(TextCommandService textCommandService) {
+
         this(textCommandService, new Log4j2HttpGetCommandProcessor(textCommandService));
     }
 
@@ -117,6 +141,12 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 getRunningThread(httpGetCommand);
             } else if (uri.startsWith(OVERVIEW)) {
                 overView(httpGetCommand, uri);
+            } else if (uri.equals(TELEMETRY_METRICS_URL)) {
+                handleMetrics(httpGetCommand, TextFormat.CONTENT_TYPE_004);
+            } else if (uri.equals(TELEMETRY_OPEN_METRICS_URL)) {
+                handleMetrics(httpGetCommand, TextFormat.CONTENT_TYPE_OPENMETRICS_100);
+            } else if (uri.startsWith(THREAD_DUMP)) {
+                getThreadDump(httpGetCommand);
             } else {
                 original.handle(httpGetCommand);
             }
@@ -174,6 +204,26 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         this.prepareResponse(
                 command,
                 JsonUtil.toJsonObject(JsonUtils.toMap(JsonUtils.toJsonString(overviewInfo))));
+    }
+
+    public void getThreadDump(HttpGetCommand command) {
+        Map<Thread, StackTraceElement[]> threadStacks = Thread.getAllStackTraces();
+        JsonArray threadInfoList = new JsonArray();
+        for (Map.Entry<Thread, StackTraceElement[]> entry : threadStacks.entrySet()) {
+            StringBuilder stackTraceBuilder = new StringBuilder();
+            for (StackTraceElement element : entry.getValue()) {
+                stackTraceBuilder.append(element.toString()).append("\n");
+            }
+            String stackTrace = stackTraceBuilder.toString().trim();
+            JsonObject threadInfo = new JsonObject();
+            threadInfo.add("threadName", entry.getKey().getName());
+            threadInfo.add("threadId", entry.getKey().getId());
+            threadInfo.add("threadState", entry.getKey().getState().name());
+            threadInfo.add("stackTrace", stackTrace);
+            threadInfoList.add(threadInfo);
+        }
+
+        this.prepareResponse(command, threadInfoList);
     }
 
     private void getSystemMonitoringInformation(HttpGetCommand command) {
@@ -369,71 +419,213 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
 
     private Map<String, Object> getJobMetrics(String jobMetrics) {
         Map<String, Object> metricsMap = new HashMap<>();
-        long sourceReadCount = 0L;
-        long sinkWriteCount = 0L;
-        Map<String, JsonNode> tableSourceReceivedCountMap = new HashMap<>();
-        Map<String, JsonNode> tableSinkWriteCountMap = new HashMap<>();
+        // To add metrics, populate the corresponding array,
+        String[] countMetricsNames = {
+            SOURCE_RECEIVED_COUNT, SINK_WRITE_COUNT, SOURCE_RECEIVED_BYTES, SINK_WRITE_BYTES
+        };
+        String[] rateMetricsNames = {
+            SOURCE_RECEIVED_QPS,
+            SINK_WRITE_QPS,
+            SOURCE_RECEIVED_BYTES_PER_SECONDS,
+            SINK_WRITE_BYTES_PER_SECONDS
+        };
+        String[] tableCountMetricsNames = {
+            TABLE_SOURCE_RECEIVED_COUNT,
+            TABLE_SINK_WRITE_COUNT,
+            TABLE_SOURCE_RECEIVED_BYTES,
+            TABLE_SINK_WRITE_BYTES
+        };
+        String[] tableRateMetricsNames = {
+            TABLE_SOURCE_RECEIVED_QPS,
+            TABLE_SINK_WRITE_QPS,
+            TABLE_SOURCE_RECEIVED_BYTES_PER_SECONDS,
+            TABLE_SINK_WRITE_BYTES_PER_SECONDS
+        };
+        Long[] metricsSums =
+                Stream.generate(() -> 0L).limit(countMetricsNames.length).toArray(Long[]::new);
+        Double[] metricsRates =
+                Stream.generate(() -> 0D).limit(rateMetricsNames.length).toArray(Double[]::new);
+
+        // Used to store various indicators at the table
+        Map<String, JsonNode>[] tableMetricsMaps =
+                new Map[] {
+                    new HashMap<>(), // Source Received Count
+                    new HashMap<>(), // Sink Write Count
+                    new HashMap<>(), // Source Received Bytes
+                    new HashMap<>(), // Sink Write Bytes
+                    new HashMap<>(), // Source Received QPS
+                    new HashMap<>(), // Sink Write QPS
+                    new HashMap<>(), // Source Received Bytes Per Second
+                    new HashMap<>() // Sink Write Bytes Per Second
+                };
+
         try {
             JsonNode jobMetricsStr = new ObjectMapper().readTree(jobMetrics);
-            StreamSupport.stream(
-                            Spliterators.spliteratorUnknownSize(jobMetricsStr.fieldNames(), 0),
-                            false)
-                    .filter(metricName -> metricName.contains("#"))
-                    .forEach(
+
+            jobMetricsStr
+                    .fieldNames()
+                    .forEachRemaining(
                             metricName -> {
-                                String tableName =
-                                        TablePath.of(metricName.split("#")[1]).getFullName();
-                                if (metricName.startsWith(SOURCE_RECEIVED_COUNT)) {
-                                    tableSourceReceivedCountMap.put(
-                                            tableName, jobMetricsStr.get(metricName));
-                                }
-                                if (metricName.startsWith(SOURCE_RECEIVED_COUNT)) {
-                                    tableSinkWriteCountMap.put(
-                                            tableName, jobMetricsStr.get(metricName));
+                                if (metricName.contains("#")) {
+                                    String tableName =
+                                            TablePath.of(metricName.split("#")[1]).getFullName();
+                                    JsonNode metricNode = jobMetricsStr.get(metricName);
+                                    processMetric(
+                                            metricName, tableName, metricNode, tableMetricsMaps);
                                 }
                             });
-            JsonNode sourceReceivedCountJson = jobMetricsStr.get(SOURCE_RECEIVED_COUNT);
-            JsonNode sinkWriteCountJson = jobMetricsStr.get(SINK_WRITE_COUNT);
-            for (int i = 0; i < jobMetricsStr.get(SOURCE_RECEIVED_COUNT).size(); i++) {
-                JsonNode sourceReader = sourceReceivedCountJson.get(i);
-                JsonNode sinkWriter = sinkWriteCountJson.get(i);
-                sourceReadCount += sourceReader.get("value").asLong();
-                sinkWriteCount += sinkWriter.get("value").asLong();
-            }
-        } catch (JsonProcessingException | NullPointerException e) {
+
+            // Aggregation summary and rate metrics
+            aggregateMetrics(
+                    jobMetricsStr,
+                    metricsSums,
+                    metricsRates,
+                    ArrayUtils.addAll(countMetricsNames, rateMetricsNames));
+
+        } catch (JsonProcessingException e) {
             return metricsMap;
         }
 
-        Map<String, Long> tableSourceReceivedCount =
-                tableSourceReceivedCountMap.entrySet().stream()
-                        .collect(
-                                Collectors.toMap(
-                                        Map.Entry::getKey,
-                                        entry ->
-                                                StreamSupport.stream(
-                                                                entry.getValue().spliterator(),
-                                                                false)
-                                                        .mapToLong(
-                                                                node -> node.get("value").asLong())
-                                                        .sum()));
-        Map<String, Long> tableSinkWriteCount =
-                tableSinkWriteCountMap.entrySet().stream()
-                        .collect(
-                                Collectors.toMap(
-                                        Map.Entry::getKey,
-                                        entry ->
-                                                StreamSupport.stream(
-                                                                entry.getValue().spliterator(),
-                                                                false)
-                                                        .mapToLong(
-                                                                node -> node.get("value").asLong())
-                                                        .sum()));
+        populateMetricsMap(
+                metricsMap,
+                tableMetricsMaps,
+                ArrayUtils.addAll(tableCountMetricsNames, tableRateMetricsNames),
+                countMetricsNames.length);
+        populateMetricsMap(
+                metricsMap,
+                Stream.concat(Arrays.stream(metricsSums), Arrays.stream(metricsRates))
+                        .toArray(Number[]::new),
+                ArrayUtils.addAll(countMetricsNames, rateMetricsNames),
+                metricsSums.length);
 
-        metricsMap.put(SOURCE_RECEIVED_COUNT, sourceReadCount);
-        metricsMap.put(SINK_WRITE_COUNT, sinkWriteCount);
-        metricsMap.put(TABLE_SOURCE_RECEIVED_COUNT, tableSourceReceivedCount);
-        metricsMap.put(TABLE_SINK_WRITE_COUNT, tableSinkWriteCount);
         return metricsMap;
+    }
+
+    private void processMetric(
+            String metricName,
+            String tableName,
+            JsonNode metricNode,
+            Map<String, JsonNode>[] tableMetricsMaps) {
+        if (metricNode == null) {
+            return;
+        }
+
+        // Define index constant
+        final int SOURCE_COUNT_IDX = 0,
+                SINK_COUNT_IDX = 1,
+                SOURCE_BYTES_IDX = 2,
+                SINK_BYTES_IDX = 3,
+                SOURCE_QPS_IDX = 4,
+                SINK_QPS_IDX = 5,
+                SOURCE_BYTES_SEC_IDX = 6,
+                SINK_BYTES_SEC_IDX = 7;
+        if (metricName.startsWith(SOURCE_RECEIVED_COUNT + "#")) {
+            tableMetricsMaps[SOURCE_COUNT_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SINK_WRITE_COUNT + "#")) {
+            tableMetricsMaps[SINK_COUNT_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SOURCE_RECEIVED_BYTES + "#")) {
+            tableMetricsMaps[SOURCE_BYTES_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SINK_WRITE_BYTES + "#")) {
+            tableMetricsMaps[SINK_BYTES_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SOURCE_RECEIVED_QPS + "#")) {
+            tableMetricsMaps[SOURCE_QPS_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SINK_WRITE_QPS + "#")) {
+            tableMetricsMaps[SINK_QPS_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SOURCE_RECEIVED_BYTES_PER_SECONDS + "#")) {
+            tableMetricsMaps[SOURCE_BYTES_SEC_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SINK_WRITE_BYTES_PER_SECONDS + "#")) {
+            tableMetricsMaps[SINK_BYTES_SEC_IDX].put(tableName, metricNode);
+        }
+    }
+
+    private void aggregateMetrics(
+            JsonNode jobMetricsStr,
+            Long[] metricsSums,
+            Double[] metricsRates,
+            String[] metricsNames) {
+        for (int i = 0; i < metricsNames.length; i++) {
+            JsonNode metricNode = jobMetricsStr.get(metricsNames[i]);
+            if (metricNode != null && metricNode.isArray()) {
+                for (JsonNode node : metricNode) {
+                    // Match Rate Metrics vs. Value Metrics
+                    if (i < metricsSums.length) {
+                        metricsSums[i] += node.path("value").asLong();
+                    } else {
+                        metricsRates[i - metricsSums.length] += node.path("value").asDouble();
+                    }
+                }
+            }
+        }
+    }
+
+    private void populateMetricsMap(
+            Map<String, Object> metricsMap,
+            Object[] metrics,
+            String[] metricNames,
+            int countMetricNames) {
+        for (int i = 0; i < metrics.length; i++) {
+            if (metrics[i] != null) {
+                if (metrics[i] instanceof Map) {
+                    metricsMap.put(
+                            metricNames[i],
+                            aggregateMap(
+                                    (Map<String, JsonNode>) metrics[i], i >= countMetricNames));
+                } else {
+                    metricsMap.put(metricNames[i], metrics[i]);
+                }
+            }
+        }
+    }
+
+    public static Map<String, Object> aggregateMap(Map<String, JsonNode> inputMap, boolean isRate) {
+        return isRate
+                ? inputMap.entrySet().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Map.Entry::getKey,
+                                        entry ->
+                                                StreamSupport.stream(
+                                                                entry.getValue().spliterator(),
+                                                                false)
+                                                        .mapToDouble(
+                                                                node ->
+                                                                        node.path("value")
+                                                                                .asDouble())
+                                                        .sum()))
+                : inputMap.entrySet().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Map.Entry::getKey,
+                                        entry ->
+                                                StreamSupport.stream(
+                                                                entry.getValue().spliterator(),
+                                                                false)
+                                                        .mapToLong(
+                                                                node -> node.path("value").asLong())
+                                                        .sum()));
+    }
+
+    private void handleMetrics(HttpGetCommand httpGetCommand, String contentType) {
+        StringWriter stringWriter = new StringWriter();
+        org.apache.seatunnel.engine.server.NodeExtension nodeExtension =
+                (org.apache.seatunnel.engine.server.NodeExtension)
+                        textCommandService.getNode().getNodeExtension();
+        try {
+            TextFormat.writeFormat(
+                    contentType,
+                    stringWriter,
+                    nodeExtension.getCollectorRegistry().metricFamilySamples());
+            this.prepareResponse(httpGetCommand, stringWriter.toString());
+        } catch (IOException e) {
+            httpGetCommand.send400();
+        } finally {
+            try {
+                stringWriter.close();
+            } catch (IOException e) {
+                logger.warning("An error occurred while handling request " + httpGetCommand, e);
+                prepareResponse(SC_500, httpGetCommand, exceptionResponse(e));
+            }
+        }
     }
 
     private SeaTunnelServer getSeaTunnelServer(boolean shouldBeMaster) {

@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.write.DataWriter;
@@ -35,21 +36,24 @@ public class SeaTunnelSparkDataWriterFactory<CommitInfoT, StateT>
         implements DataWriterFactory, StreamingDataWriterFactory {
 
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink;
-    private final CatalogTable catalogTable;
+    private final CatalogTable[] catalogTables;
     private final String jobId;
+    private final int parallelism;
 
     public SeaTunnelSparkDataWriterFactory(
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink,
-            CatalogTable catalogTable,
-            String jobId) {
+            CatalogTable[] catalogTables,
+            String jobId,
+            int parallelism) {
         this.sink = sink;
-        this.catalogTable = catalogTable;
+        this.catalogTables = catalogTables;
         this.jobId = jobId;
+        this.parallelism = parallelism;
     }
 
     @Override
     public DataWriter<InternalRow> createWriter(int partitionId, long taskId) {
-        SinkWriter.Context context = new DefaultSinkWriterContext(jobId, (int) taskId);
+        SinkWriter.Context context = new DefaultSinkWriterContext(jobId, (int) taskId, parallelism);
         SinkWriter<SeaTunnelRow, CommitInfoT, StateT> writer;
         SinkCommitter<CommitInfoT> committer;
         try {
@@ -63,7 +67,7 @@ public class SeaTunnelSparkDataWriterFactory<CommitInfoT, StateT>
             throw new RuntimeException("Failed to create SinkCommitter.", e);
         }
         return new SeaTunnelSparkDataWriter<>(
-                writer, committer, catalogTable.getSeaTunnelRowType(), 0);
+                writer, committer, new MultiTableManager(catalogTables), 0, context);
     }
 
     @Override

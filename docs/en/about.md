@@ -23,7 +23,7 @@ SeaTunnel focuses on data integration and data synchronization, and is mainly de
 ## Features Of SeaTunnel
 
 - Rich and extensible Connector: SeaTunnel provides a Connector API that does not depend on a specific execution engine. Connectors (Source, Transform, Sink) developed based on this API can run on many different engines, such as SeaTunnel Engine(Zeta), Flink, and Spark.
-- Connector plugin: The plugin design allows users to easily develop their own Connector and integrate it into the SeaTunnel project. Currently, SeaTunnel supports more than 100 Connectors, and the number is surging. Here is the list of [Currently Supported Connectors](Connector-v2-release-state.md)
+- Connector plugin: The plugin design allows users to easily develop their own Connector and integrate it into the SeaTunnel project. Currently, SeaTunnel supports more than 100 Connectors, and the number is surging.
 - Batch-stream integration: Connectors developed based on the SeaTunnel Connector API are perfectly compatible with offline synchronization, real-time synchronization, full-synchronization, incremental synchronization and other scenarios. They greatly reduce the difficulty of managing data integration tasks.
 - Supports a distributed snapshot algorithm to ensure data consistency.
 - Multi-engine support: SeaTunnel uses the SeaTunnel Engine(Zeta) for data synchronization by default. SeaTunnel also supports the use of Flink or Spark as the execution engine of the Connector to adapt to the enterprise's existing technical components. SeaTunnel supports multiple versions of Spark and Flink.

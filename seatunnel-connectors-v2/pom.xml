@@ -79,6 +79,9 @@
         <module>connector-web3j</module>
         <module>connector-milvus</module>
         <module>connector-activemq</module>
+        <module>connector-qdrant</module>
+        <module>connector-sls</module>
+        <module>connector-typesense</module>
     </modules>
 
     <dependencyManagement>

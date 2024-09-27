@@ -62,5 +62,6 @@ public interface Task
         return null;
     }
 
+    @Override
     default void provideDynamicMetrics(MetricDescriptor tagger, MetricsCollectionContext context) {}
 }

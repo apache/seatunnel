@@ -30,8 +30,8 @@ import java.util.Map;
 import java.util.Set;
 
 public class RedisClusterClient extends RedisClient {
-    public RedisClusterClient(RedisParameters redisParameters, Jedis jedis) {
-        super(redisParameters, jedis);
+    public RedisClusterClient(RedisParameters redisParameters, Jedis jedis, int redisVersion) {
+        super(redisParameters, jedis, redisVersion);
     }
 
     @Override

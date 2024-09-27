@@ -17,10 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.junit.jupiter.api.Assertions;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -37,7 +42,7 @@ import java.util.List;
 
 public class JdbcStarRocksdbIT extends AbstractJdbcIT {
 
-    private static final String DOCKER_IMAGE = "d87904488/starrocks-starter:2.2.1";
+    private static final String DOCKER_IMAGE = "starrocks/allin1-ubuntu:2.5.12";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String NETWORK_ALIASES = "e2e_starRocksdb";
     private static final int SR_PORT = 9030;
@@ -51,7 +56,8 @@ public class JdbcStarRocksdbIT extends AbstractJdbcIT {
     private static final String SINK_TABLE = "e2e_table_sink";
 
     private static final List<String> CONFIG_FILE =
-            Lists.newArrayList("/jdbc_starrocks_source_to_sink.conf");
+            Lists.newArrayList(
+                    "/jdbc_starrocks_source_to_sink.conf", "/jdbc_starrocks_dialect.conf");
 
     private static final String CREATE_SQL =
             "create table %s (\n"
@@ -104,11 +110,17 @@ public class JdbcStarRocksdbIT extends AbstractJdbcIT {
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
+                .tablePathFullName(TablePath.DEFAULT.getFullName())
                 .build();
     }
 
     @Override
-    void compareResult(String executeKey) {}
+    void checkResult(String executeKey, TestContainer container, Container.ExecResult execResult) {
+        if (container.identifier().equals(TestContainerId.SEATUNNEL)) {
+            Assertions.assertTrue(
+                    execResult.getStdout().contains("Loading catalog tables for catalog"));
+        }
+    }
 
     @Override
     String driverUrl() {

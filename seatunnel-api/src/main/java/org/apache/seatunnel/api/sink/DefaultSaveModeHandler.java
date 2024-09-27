@@ -60,6 +60,11 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
     }
 
     @Override
+    public void open() {
+        catalog.open();
+    }
+
+    @Override
     public void handleSchemaSaveMode() {
         switch (schemaSaveMode) {
             case RECREATE_SCHEMA:
@@ -70,6 +75,8 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
                 break;
             case ERROR_WHEN_SCHEMA_NOT_EXIST:
                 errorWhenSchemaNotExist();
+                break;
+            case IGNORE:
                 break;
             default:
                 throw new UnsupportedOperationException("Unsupported save mode: " + schemaSaveMode);
@@ -151,7 +158,7 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
         catalog.dropTable(tablePath, true);
     }
 
-    protected void createTable() {
+    protected void createTablePreCheck() {
         if (!catalog.databaseExists(tablePath.getDatabaseName())) {
             try {
                 log.info(
@@ -175,6 +182,10 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
         } catch (UnsupportedOperationException ignore) {
             log.info("Creating table {}", tablePath);
         }
+    }
+
+    protected void createTable() {
+        createTablePreCheck();
         catalog.createTable(tablePath, catalogTable, true);
     }
 

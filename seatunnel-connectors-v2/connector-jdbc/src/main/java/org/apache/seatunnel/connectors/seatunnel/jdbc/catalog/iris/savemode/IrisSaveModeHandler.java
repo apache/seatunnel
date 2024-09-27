@@ -33,14 +33,18 @@ import java.util.Optional;
 
 @Slf4j
 public class IrisSaveModeHandler extends DefaultSaveModeHandler {
+    public boolean createIndex;
+
     public IrisSaveModeHandler(
             @Nonnull SchemaSaveMode schemaSaveMode,
             @Nonnull DataSaveMode dataSaveMode,
             @Nonnull Catalog catalog,
             @Nonnull TablePath tablePath,
             @Nullable CatalogTable catalogTable,
-            @Nullable String customSql) {
+            @Nullable String customSql,
+            boolean createIndex) {
         super(schemaSaveMode, dataSaveMode, catalog, tablePath, catalogTable, customSql);
+        this.createIndex = createIndex;
     }
 
     @Override
@@ -53,7 +57,7 @@ public class IrisSaveModeHandler extends DefaultSaveModeHandler {
                             Catalog.ActionType.CREATE_TABLE,
                             tablePath,
                             Optional.ofNullable(catalogTable)));
-            catalog.createTable(tablePath, catalogTable, true);
+            catalog.createTable(tablePath, catalogTable, true, createIndex);
         } catch (UnsupportedOperationException ignore) {
             log.info("Creating table {}", tablePath);
         }

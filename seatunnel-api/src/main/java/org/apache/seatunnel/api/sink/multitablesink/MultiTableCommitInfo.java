@@ -21,10 +21,10 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 import java.io.Serializable;
-import java.util.Map;
+import java.util.concurrent.ConcurrentMap;
 
 @Getter
 @AllArgsConstructor
 public class MultiTableCommitInfo implements Serializable {
-    private Map<SinkIdentifier, Object> commitInfo;
+    private ConcurrentMap<SinkIdentifier, Object> commitInfo;
 }

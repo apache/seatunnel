@@ -81,18 +81,6 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
                     + "ORDER BY \n"
                     + "    a.attnum;";
 
-    static {
-        SYS_DATABASES.add("information_schema");
-        SYS_DATABASES.add("pg_catalog");
-        SYS_DATABASES.add("root");
-        SYS_DATABASES.add("pg_toast");
-        SYS_DATABASES.add("pg_temp_1");
-        SYS_DATABASES.add("pg_toast_temp_1");
-        SYS_DATABASES.add("postgres");
-        SYS_DATABASES.add("template0");
-        SYS_DATABASES.add("template1");
-    }
-
     public PostgresCatalog(
             String catalogName,
             String username,
@@ -169,10 +157,10 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected void createTableInternal(TablePath tablePath, CatalogTable table)
+    protected void createTableInternal(TablePath tablePath, CatalogTable table, boolean createIndex)
             throws CatalogException {
         PostgresCreateTableSqlBuilder postgresCreateTableSqlBuilder =
-                new PostgresCreateTableSqlBuilder(table);
+                new PostgresCreateTableSqlBuilder(table, createIndex);
         String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
         try {
             String createTableSql = postgresCreateTableSqlBuilder.build(tablePath);
@@ -199,9 +187,10 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
+    protected String getCreateTableSql(
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
         PostgresCreateTableSqlBuilder postgresCreateTableSqlBuilder =
-                new PostgresCreateTableSqlBuilder(table);
+                new PostgresCreateTableSqlBuilder(table, createIndex);
         return postgresCreateTableSqlBuilder.build(tablePath);
     }
 

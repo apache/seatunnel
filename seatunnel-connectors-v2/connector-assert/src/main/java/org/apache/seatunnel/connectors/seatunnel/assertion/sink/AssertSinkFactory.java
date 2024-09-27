@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -37,7 +38,10 @@ public class AssertSinkFactory implements TableSinkFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(RULES).build();
+        return OptionRule.builder()
+                .required(RULES)
+                .optional(SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                .build();
     }
 
     @Override

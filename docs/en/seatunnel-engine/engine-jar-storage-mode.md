@@ -1,7 +1,6 @@
 ---
-
 sidebar_position: 9
--------------------
+---
 
 # Config Engine Jar Storage Mode
 

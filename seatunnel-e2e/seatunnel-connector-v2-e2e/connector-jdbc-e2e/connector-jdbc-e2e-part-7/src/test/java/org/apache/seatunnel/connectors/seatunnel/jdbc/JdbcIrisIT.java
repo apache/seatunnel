@@ -326,10 +326,10 @@ public class JdbcIrisIT extends AbstractJdbcIT {
     public void testUpsert(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/jdbc_iris_upsert.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-        try (Statement statement = connection.createStatement()) {
-            ResultSet sink =
-                    statement.executeQuery(
-                            "SELECT * FROM test.e2e_upsert_table_sink ORDER BY pk_id");
+        try (Statement statement = connection.createStatement();
+                ResultSet sink =
+                        statement.executeQuery(
+                                "SELECT * FROM test.e2e_upsert_table_sink ORDER BY pk_id")) {
             String[] fieldNames = new String[] {"pk_id", "name", "score"};
             Object[] sinkResult = toArrayResult(sink, fieldNames);
             Assertions.assertEquals(2, sinkResult.length);
@@ -424,7 +424,7 @@ public class JdbcIrisIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult(String executeKey) throws SQLException, IOException {
+    void checkResult(String executeKey, TestContainer container, Container.ExecResult execResult) {
         defaultCompare(executeKey, fieldNames, "BIGINT_COL");
     }
 

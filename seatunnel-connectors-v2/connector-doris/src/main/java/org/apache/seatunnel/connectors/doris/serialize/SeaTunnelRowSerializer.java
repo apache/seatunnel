@@ -70,7 +70,7 @@ public class SeaTunnelRowSerializer implements DorisSerializer {
 
         if (JSON.equals(type)) {
             JsonSerializationSchema jsonSerializationSchema =
-                    new JsonSerializationSchema(this.seaTunnelRowType, NULL_VALUE);
+                    new JsonSerializationSchema(this.seaTunnelRowType);
             ObjectMapper mapper = jsonSerializationSchema.getMapper();
             mapper.configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
             this.serialize = jsonSerializationSchema;

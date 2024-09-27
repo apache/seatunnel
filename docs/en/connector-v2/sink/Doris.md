@@ -57,7 +57,8 @@ Before the synchronous task is turned on, different treatment schemes are select
 Option introduction：  
 `RECREATE_SCHEMA` ：Will create when the table does not exist, delete and rebuild when the table is saved        
 `CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the table does not exist, skipped when the table is saved        
-`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist
+`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist  
+`IGNORE` ：Ignore the treatment of the table
 
 ### data_save_mode[Enum]
 
@@ -148,6 +149,15 @@ You can use the following placeholders
 #### Supported import data formats
 
 The supported formats include CSV and JSON
+
+## Tuning Guide
+Appropriately increasing the value of `sink.buffer-size` and `doris.batch.size` can increase the write performance.
+
+In stream mode, if the `doris.batch.size` and `checkpoint.interval` are both configured with a large value, The last data to arrive may have a large delay(The delay time is the checkpoint interval).
+
+This is because the total amount of data arriving at the end may not exceed the threshold specified by `doris.batch.size`. Therefore, commit can only be triggered by checkpoint before the volume of received data does not exceed this threshold. Therefore, you should select an appropriate `checkpoint.interval`.
+
+Otherwise, if you enable the 2pc by the property `sink.enable-2pc=true`.The `sink.buffer-size` will have no effect. So only the checkpoint can trigger the commit.
 
 ## Task Example
 

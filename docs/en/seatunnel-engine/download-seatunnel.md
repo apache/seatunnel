@@ -1,7 +1,6 @@
 ---
-
 sidebar_position: 2
--------------------
+---
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
@@ -21,7 +20,7 @@ Go to the [Seatunnel Download Page](https://seatunnel.apache.org/download) to do
 Or you can also download it through the terminal.
 
 ```shell
-export version="2.3.7"
+export version="2.3.8"
 wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${version}-bin.tar.gz"
 tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 ```
@@ -34,10 +33,10 @@ Starting from the 2.2.0-beta version, the binary package no longer provides the 
 sh bin/install-plugin.sh
 ```
 
-If you need a specific connector version, taking 2.3.7 as an example, you need to execute the following command.
+If you need a specific connector version, taking 2.3.8 as an example, you need to execute the following command.
 
 ```bash
-sh bin/install-plugin.sh 2.3.7
+sh bin/install-plugin.sh 2.3.8
 ```
 
 Usually you don't need all the connector plugins, so you can specify the plugins you need through configuring `config/plugin_config`, for example, if you only need the `connector-console` plugin, then you can modify the plugin.properties configuration file as follows.

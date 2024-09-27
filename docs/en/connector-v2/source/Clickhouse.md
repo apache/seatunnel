@@ -28,9 +28,9 @@ Used to read data from Clickhouse.
 In order to use the Clickhouse connector, the following dependencies are required.
 They can be downloaded via install-plugin.sh or from the Maven central repository.
 
-| Datasource | Supported Versions |                                                    Dependency                                                    |
-|------------|--------------------|------------------------------------------------------------------------------------------------------------------|
-| Clickhouse | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-clickhouse) |
+| Datasource | Supported Versions | Dependency                                                                               |
+|------------|--------------------|------------------------------------------------------------------------------------------|
+| Clickhouse | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-clickhouse) |
 
 ## Data Type Mapping
 
@@ -58,7 +58,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | password          | String | Yes      | -                      | `ClickHouse` user password.                                                                                                                                                                                                                                                                                 |
 | clickhouse.config | Map    | No       | -                      | In addition to the above mandatory parameters that must be specified by `clickhouse-jdbc` , users can also specify multiple optional parameters, which cover all the [parameters](https://github.com/ClickHouse/clickhouse-jdbc/tree/master/clickhouse-client#configuration) provided by `clickhouse-jdbc`. |
 | server_time_zone  | String | No       | ZoneId.systemDefault() | The session time zone in database server. If not set, then ZoneId.systemDefault() is used to determine the server time zone.                                                                                                                                                                                |
-| common-options    |        | No       | -                      | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.                                                                                                                                                                                                    |
+| common-options    |        | No       | -                      | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                                                          |
 
 ## How to Create a Clickhouse Data Synchronization Jobs
 

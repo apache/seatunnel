@@ -62,7 +62,7 @@ Output data to hdfs file
 | kerberos_principal                    | string  | no       | -                                          | The principal of kerberos                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | kerberos_keytab_path                  | string  | no       | -                                          | The keytab path of kerberos                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | compress_codec                        | string  | no       | none                                       | compress codec                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| common-options                        | object  | no       | -                                          | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                      |
+| common-options                        | object  | no       | -                                          | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                              |
 | max_rows_in_memory                    | int     | no       | -                                          | Only used when file_format is excel.When File Format is Excel,The maximum number of data items that can be cached in the memory.                                                                                                                                                                                                                                                                                                                                                         |
 | sheet_name                            | string  | no       | Sheet${Random number}                      | Only used when file_format is excel.Writer the sheet of the workbook                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | xml_root_tag                          | string  | no       | RECORDS                                    | Only used when file_format is xml, specifies the tag name of the root element within the XML file.                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -115,7 +115,7 @@ source {
     }
   }
   # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-  # please go to https://seatunnel.apache.org/docs/category/source-v2
+  # please go to https://seatunnel.apache.org/docs/connector-v2/source
 }
 
 transform {
@@ -130,7 +130,7 @@ sink {
       file_format_type = "orc"
     }
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/category/sink-v2
+  # please go to https://seatunnel.apache.org/docs/connector-v2/sink
 }
 ```
 

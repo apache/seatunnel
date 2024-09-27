@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.server.task;
 
-import org.apache.seatunnel.api.common.metrics.Counter;
-import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -30,13 +28,14 @@ import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlGate;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.server.metrics.TaskMetricsCalcContext;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
 
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.StringUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -44,14 +43,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_BYTES;
-import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_BYTES_PER_SECONDS;
-import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
-import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_QPS;
 
 @Slf4j
 public class SeaTunnelSourceCollector<T> implements Collector<T> {
@@ -62,18 +54,11 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
 
     private final MetricsContext metricsContext;
 
+    private final TaskMetricsCalcContext taskMetricsCalcContext;
+
     private final AtomicBoolean schemaChangeBeforeCheckpointSignal = new AtomicBoolean(false);
 
     private final AtomicBoolean schemaChangeAfterCheckpointSignal = new AtomicBoolean(false);
-
-    private final Counter sourceReceivedCount;
-
-    private final Map<String, Counter> sourceReceivedCountPerTable = new ConcurrentHashMap<>();
-
-    private final Meter sourceReceivedQPS;
-    private final Counter sourceReceivedBytes;
-
-    private final Meter sourceReceivedBytesPerSeconds;
 
     private volatile boolean emptyThisPollNext;
     private final DataTypeChangeEventHandler dataTypeChangeEventHandler =
@@ -98,20 +83,12 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                     .iterator()
                     .forEachRemaining(type -> this.rowTypeMap.put(type.getKey(), type.getValue()));
         }
-        if (CollectionUtils.isNotEmpty(tablePaths)) {
-            tablePaths.forEach(
-                    tablePath ->
-                            sourceReceivedCountPerTable.put(
-                                    tablePath.getFullName(),
-                                    metricsContext.counter(
-                                            SOURCE_RECEIVED_COUNT
-                                                    + "#"
-                                                    + tablePath.getFullName())));
-        }
-        sourceReceivedCount = metricsContext.counter(SOURCE_RECEIVED_COUNT);
-        sourceReceivedQPS = metricsContext.meter(SOURCE_RECEIVED_QPS);
-        sourceReceivedBytes = metricsContext.counter(SOURCE_RECEIVED_BYTES);
-        sourceReceivedBytesPerSeconds = metricsContext.meter(SOURCE_RECEIVED_BYTES_PER_SECONDS);
+        this.taskMetricsCalcContext =
+                new TaskMetricsCalcContext(
+                        metricsContext,
+                        PluginType.SOURCE,
+                        CollectionUtils.isNotEmpty(tablePaths),
+                        tablePaths);
         flowControlGate = FlowControlGate.create(flowControlStrategy);
     }
 
@@ -129,26 +106,11 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                     throw new SeaTunnelEngineException(
                             "Unsupported row type: " + rowType.getClass().getName());
                 }
-                sourceReceivedBytes.inc(size);
-                sourceReceivedBytesPerSeconds.markEvent(size);
                 flowControlGate.audit((SeaTunnelRow) row);
-                if (StringUtils.isNotEmpty(tableId)) {
-                    String tableName = TablePath.of(tableId).getFullName();
-                    Counter sourceTableCounter = sourceReceivedCountPerTable.get(tableName);
-                    if (Objects.nonNull(sourceTableCounter)) {
-                        sourceTableCounter.inc();
-                    } else {
-                        Counter counter =
-                                metricsContext.counter(SOURCE_RECEIVED_COUNT + "#" + tableName);
-                        counter.inc();
-                        sourceReceivedCountPerTable.put(tableName, counter);
-                    }
-                }
+                taskMetricsCalcContext.updateMetrics(row);
             }
             sendRecordToNext(new Record<>(row));
             emptyThisPollNext = false;
-            sourceReceivedCount.inc();
-            sourceReceivedQPS.markEvent();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

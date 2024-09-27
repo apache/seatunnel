@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeMapper;
 
@@ -35,36 +36,10 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 @Slf4j
 public class OracleCatalog extends AbstractJdbcCatalog {
-
-    protected static List<String> EXCLUDED_SCHEMAS_ALL =
-            Collections.unmodifiableList(
-                    Arrays.asList(
-                            "APPQOSSYS",
-                            "AUDSYS",
-                            "CTXSYS",
-                            "DVSYS",
-                            "DBSFWUSER",
-                            "DBSNMP",
-                            "GSMADMIN_INTERNAL",
-                            "LBACSYS",
-                            "MDSYS",
-                            "OJVMSYS",
-                            "OLAPSYS",
-                            "ORDDATA",
-                            "ORDSYS",
-                            "OUTLN",
-                            "SYS",
-                            "SYSTEM",
-                            "WMSYS",
-                            "XDB",
-                            "EXFSYS",
-                            "SYSMAN"));
 
     private static final String SELECT_COLUMNS_SQL_TEMPLATE =
             "SELECT\n"
@@ -97,9 +72,7 @@ public class OracleCatalog extends AbstractJdbcCatalog {
                     + "ORDER BY \n"
                     + "    cols.column_id \n";
 
-    static {
-        EXCLUDED_SCHEMAS.addAll(EXCLUDED_SCHEMAS_ALL);
-    }
+    private boolean decimalTypeNarrowing;
 
     public OracleCatalog(
             String catalogName,
@@ -107,7 +80,24 @@ public class OracleCatalog extends AbstractJdbcCatalog {
             String pwd,
             JdbcUrlUtil.UrlInfo urlInfo,
             String defaultSchema) {
+        this(
+                catalogName,
+                username,
+                pwd,
+                urlInfo,
+                defaultSchema,
+                JdbcOptions.DECIMAL_TYPE_NARROWING.defaultValue());
+    }
+
+    public OracleCatalog(
+            String catalogName,
+            String username,
+            String pwd,
+            JdbcUrlUtil.UrlInfo urlInfo,
+            String defaultSchema,
+            boolean decimalTypeNarrowing) {
         super(catalogName, username, pwd, urlInfo, defaultSchema);
+        this.decimalTypeNarrowing = decimalTypeNarrowing;
     }
 
     @Override
@@ -131,12 +121,14 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
-        return new OracleCreateTableSqlBuilder(table).build(tablePath).get(0);
+    protected String getCreateTableSql(
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
+        return new OracleCreateTableSqlBuilder(table, createIndex).build(tablePath).get(0);
     }
 
-    protected List<String> getCreateTableSqls(TablePath tablePath, CatalogTable table) {
-        return new OracleCreateTableSqlBuilder(table).build(tablePath);
+    protected List<String> getCreateTableSqls(
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
+        return new OracleCreateTableSqlBuilder(table, createIndex).build(tablePath);
     }
 
     @Override
@@ -155,9 +147,6 @@ public class OracleCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getTableName(ResultSet rs) throws SQLException {
-        if (EXCLUDED_SCHEMAS.contains(rs.getString(1))) {
-            return null;
-        }
         return rs.getString(1) + "." + rs.getString(2);
     }
 
@@ -193,7 +182,7 @@ public class OracleCatalog extends AbstractJdbcCatalog {
                         .defaultValue(defaultValue)
                         .comment(columnComment)
                         .build();
-        return OracleTypeConverter.INSTANCE.convert(typeDefine);
+        return new OracleTypeConverter(decimalTypeNarrowing).convert(typeDefine);
     }
 
     @Override
@@ -214,7 +203,8 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     @Override
     public CatalogTable getTable(String sqlQuery) throws SQLException {
         Connection defaultConnection = getConnection(defaultUrl);
-        return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery, new OracleTypeMapper());
+        return CatalogUtils.getCatalogTable(
+                defaultConnection, sqlQuery, new OracleTypeMapper(decimalTypeNarrowing));
     }
 
     @Override

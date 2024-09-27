@@ -21,6 +21,7 @@ import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
 import org.awaitility.Awaitility;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,13 +33,18 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
+import com.hazelcast.jet.json.JsonUtil;
 import io.restassured.response.Response;
 
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -267,6 +273,167 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
     private Response submitJob(
             GenericContainer<?> container, String jobMode, String jobName, String paramJobName) {
         return submitJob(jobMode, container, false, jobName, paramJobName);
+    }
+
+    @Test
+    public void testStopJobs() {
+        Arrays.asList(server)
+                .forEach(
+                        container -> {
+                            try {
+                                submitJobs("STREAMING", container, false, CUSTOM_JOB_ID);
+
+                                String parameters =
+                                        "[{\"jobId\":"
+                                                + CUSTOM_JOB_ID
+                                                + ",\"isStopWithSavePoint\":false},{\"jobId\":"
+                                                + (CUSTOM_JOB_ID - 1)
+                                                + ",\"isStopWithSavePoint\":false}]";
+
+                                given().body(parameters)
+                                        .post(
+                                                http
+                                                        + container.getHost()
+                                                        + colon
+                                                        + container.getFirstMappedPort()
+                                                        + RestConstant.STOP_JOBS_URL)
+                                        .then()
+                                        .statusCode(200)
+                                        .body("[0].jobId", equalTo(CUSTOM_JOB_ID))
+                                        .body("[1].jobId", equalTo(CUSTOM_JOB_ID - 1));
+
+                                Awaitility.await()
+                                        .atMost(2, TimeUnit.MINUTES)
+                                        .untilAsserted(
+                                                () ->
+                                                        given().get(
+                                                                        http
+                                                                                + container
+                                                                                        .getHost()
+                                                                                + colon
+                                                                                + container
+                                                                                        .getFirstMappedPort()
+                                                                                + RestConstant
+                                                                                        .FINISHED_JOBS_INFO
+                                                                                + "/CANCELED")
+                                                                .then()
+                                                                .statusCode(200)
+                                                                .body(
+                                                                        "[0].jobId",
+                                                                        equalTo(
+                                                                                String.valueOf(
+                                                                                        CUSTOM_JOB_ID)))
+                                                                .body(
+                                                                        "[0].jobId",
+                                                                        equalTo(
+                                                                                String.valueOf(
+                                                                                        CUSTOM_JOB_ID
+                                                                                                - 1))));
+
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+    }
+
+    @Test
+    public void testSubmitJobs() {
+        AtomicInteger i = new AtomicInteger();
+        Arrays.asList(server, secondServer)
+                .forEach(
+                        container -> {
+                            try {
+                                submitJobs("BATCH", container, false, CUSTOM_JOB_ID);
+                                submitJobs("BATCH", container, true, CUSTOM_JOB_ID);
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+    }
+
+    private void submitJobs(
+            String jobMode, GenericContainer<?> container, boolean isStartWithSavePoint, Long jobId)
+            throws IOException {
+
+        String requestBody = getJobJson(jobMode, isStartWithSavePoint, jobId);
+
+        Response response =
+                given().body(requestBody)
+                        .header("Content-Type", "application/json; charset=utf-8")
+                        .post(
+                                http
+                                        + container.getHost()
+                                        + colon
+                                        + container.getFirstMappedPort()
+                                        + RestConstant.SUBMIT_JOBS_URL);
+
+        response.then()
+                .statusCode(200)
+                .body("[0].jobId", equalTo(String.valueOf(jobId)))
+                .body("[1].jobId", equalTo(String.valueOf(jobId - 1)));
+
+        Response jobInfoResponse =
+                given().header("Content-Type", "application/json; charset=utf-8")
+                        .get(
+                                http
+                                        + container.getHost()
+                                        + colon
+                                        + container.getFirstMappedPort()
+                                        + RestConstant.JOB_INFO_URL
+                                        + "/"
+                                        + jobId);
+        jobInfoResponse.then().statusCode(200).body("jobStatus", equalTo("RUNNING"));
+    }
+
+    private static @NotNull String getJobJson(
+            String jobMode, boolean isStartWithSavePoint, Long jobId) throws IOException {
+        List<Map<String, Object>> jobList = new ArrayList<>();
+        for (int i = 0; i < 2; i++) {
+            Map<String, Object> job = new HashMap<>();
+            Map<String, String> params = new HashMap<>();
+            params.put("jobId", String.valueOf(jobId - i));
+            if (isStartWithSavePoint) {
+                params.put("isStartWithSavePoint", "true");
+            }
+            job.put("params", params);
+
+            Map<String, String> env = new HashMap<>();
+            env.put("job.mode", jobMode);
+            job.put("env", env);
+
+            List<Map<String, Object>> sourceList = new ArrayList<>();
+            Map<String, Object> source = new HashMap<>();
+            source.put("plugin_name", "FakeSource");
+            source.put("result_table_name", "fake");
+            source.put("row.num", 1000);
+
+            Map<String, Object> schema = new HashMap<>();
+            Map<String, String> fields = new HashMap<>();
+            fields.put("name", "string");
+            fields.put("age", "int");
+            fields.put("card", "int");
+            schema.put("fields", fields);
+            source.put("schema", schema);
+
+            sourceList.add(source);
+            job.put("source", sourceList);
+
+            List<Map<String, Object>> transformList = new ArrayList<>();
+            job.put("transform", transformList);
+
+            List<Map<String, Object>> sinkList = new ArrayList<>();
+            Map<String, Object> sink = new HashMap<>();
+            sink.put("plugin_name", "Console");
+            List<String> sourceTableName = new ArrayList<>();
+            sourceTableName.add("fake");
+            sink.put("source_table_name", sourceTableName);
+
+            sinkList.add(sink);
+            job.put("sink", sinkList);
+
+            jobList.add(job);
+        }
+        return JsonUtil.toJson(jobList);
     }
 
     private Response submitJob(

@@ -17,120 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.s3.catalog;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.Catalog;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
-import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistException;
-import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
-import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
-import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
+import org.apache.seatunnel.connectors.seatunnel.file.catalog.AbstractFileCatalog;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
-import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3ConfigOptions;
 
-import org.apache.commons.collections4.CollectionUtils;
-import org.apache.hadoop.fs.LocatedFileStatus;
+public class S3FileCatalog extends AbstractFileCatalog {
+    // TODO: this catalog name conflict with a factory identifier
+    public static final String CATALOG_NAME = "S3File";
 
-import lombok.AllArgsConstructor;
-import lombok.SneakyThrows;
-
-import java.io.IOException;
-import java.util.List;
-
-@AllArgsConstructor
-public class S3FileCatalog implements Catalog {
-
-    private final HadoopFileSystemProxy hadoopFileSystemProxy;
-    private final ReadonlyConfig readonlyConfig;
-
-    @Override
-    public void open() throws CatalogException {}
-
-    @Override
-    public void close() throws CatalogException {
-        if (hadoopFileSystemProxy != null) {
-            try {
-                hadoopFileSystemProxy.close();
-            } catch (IOException e) {
-                throw new CatalogException(e);
-            }
-        }
-    }
-
-    @Override
-    public String name() {
-        return "S3File";
-    }
-
-    @Override
-    public String getDefaultDatabase() throws CatalogException {
-        return null;
-    }
-
-    @Override
-    public boolean databaseExists(String databaseName) throws CatalogException {
-        return false;
-    }
-
-    @Override
-    public List<String> listDatabases() throws CatalogException {
-        return null;
-    }
-
-    @Override
-    public List<String> listTables(String databaseName)
-            throws CatalogException, DatabaseNotExistException {
-        return null;
-    }
-
-    @SneakyThrows
-    @Override
-    public boolean tableExists(TablePath tablePath) throws CatalogException {
-        return hadoopFileSystemProxy.fileExist(readonlyConfig.get(S3ConfigOptions.FILE_PATH));
-    }
-
-    @Override
-    public CatalogTable getTable(TablePath tablePath)
-            throws CatalogException, TableNotExistException {
-        return null;
-    }
-
-    @SneakyThrows
-    @Override
-    public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
-            throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
-        hadoopFileSystemProxy.createDir(readonlyConfig.get(S3ConfigOptions.FILE_PATH));
-    }
-
-    @SneakyThrows
-    @Override
-    public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
-            throws TableNotExistException, CatalogException {
-        hadoopFileSystemProxy.deleteFile(readonlyConfig.get(S3ConfigOptions.FILE_PATH));
-    }
-
-    @Override
-    public void createDatabase(TablePath tablePath, boolean ignoreIfExists)
-            throws DatabaseAlreadyExistException, CatalogException {}
-
-    @Override
-    public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
-            throws DatabaseNotExistException, CatalogException {}
-
-    @SneakyThrows
-    @Override
-    public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists)
-            throws TableNotExistException, CatalogException {
-        hadoopFileSystemProxy.deleteFile(readonlyConfig.get(S3ConfigOptions.FILE_PATH));
-        hadoopFileSystemProxy.createDir(readonlyConfig.get(S3ConfigOptions.FILE_PATH));
-    }
-
-    @SneakyThrows
-    @Override
-    public boolean isExistsData(TablePath tablePath) {
-        final List<LocatedFileStatus> locatedFileStatuses =
-                hadoopFileSystemProxy.listFile(readonlyConfig.get(S3ConfigOptions.FILE_PATH));
-        return CollectionUtils.isNotEmpty(locatedFileStatuses);
+    public S3FileCatalog(HadoopFileSystemProxy hadoopFileSystemProxy, String filePath) {
+        super(hadoopFileSystemProxy, filePath, CATALOG_NAME);
     }
 }

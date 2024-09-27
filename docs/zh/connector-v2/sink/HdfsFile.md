@@ -60,7 +60,7 @@
 | kerberos_principal               | string  | 否    | -                                          | kerberos 的主体                                                                                                                                                                                                                                                                                     |
 | kerberos_keytab_path             | string  | 否    | -                                          | kerberos 的 keytab 路径                                                                                                                                                                                                                                                                             |
 | compress_codec                   | string  | 否    | none                                       | 压缩编解码器                                                                                                                                                                                                                                                                                           |
-| common-options                   | object  | 否    | -                                          | 接收器插件通用参数，请参阅 [接收器通用选项](common-options.md) 了解详情                                                                                                                                                                                                                                                  |
+| common-options                   | object  | 否    | -                                          | 接收器插件通用参数，请参阅 [接收器通用选项](../sink-common-options.md) 了解详情                                                                                                                                                                                                                                          |
 | max_rows_in_memory               | int     | 否    | -                                          | 仅当 file_format 为 excel 时使用。当文件格式为 Excel 时，可以缓存在内存中的最大数据项数。                                                                                                                                                                                                                                       |
 | sheet_name                       | string  | 否    | Sheet${Random number}                      | 仅当 file_format 为 excel 时使用。将工作簿的表写入指定的表名                                                                                                                                                                                                                                                         |
 
@@ -109,7 +109,7 @@ source {
     }
   }
   # 如果您想获取有关如何配置 seatunnel 的更多信息和查看完整的源端插件列表，
-  # 请访问 https://seatunnel.apache.org/docs/category/source-v2
+  # 请访问 https://seatunnel.apache.org/docs/connector-v2/source
 }
 
 transform {
@@ -124,7 +124,7 @@ sink {
       file_format_type = "orc"
     }
   # 如果您想获取有关如何配置 seatunnel 的更多信息和查看完整的接收器插件列表，
-  # 请访问 https://seatunnel.apache.org/docs/category/sink-v2
+  # 请访问 https://seatunnel.apache.org/docs/connector-v2/sink
 }
 ```
 

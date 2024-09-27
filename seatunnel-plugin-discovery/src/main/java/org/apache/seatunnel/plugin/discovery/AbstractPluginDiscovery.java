@@ -66,6 +66,7 @@ import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 @Slf4j
+@SuppressWarnings("unchecked")
 public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
 
     private static final String PLUGIN_MAPPING_FILE = "plugin-mapping.properties";

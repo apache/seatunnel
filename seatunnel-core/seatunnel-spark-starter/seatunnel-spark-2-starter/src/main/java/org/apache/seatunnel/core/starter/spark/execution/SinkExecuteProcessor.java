@@ -21,17 +21,14 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.sink.SaveModeExecuteWrapper;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
-import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
@@ -39,6 +36,7 @@ import org.apache.seatunnel.core.starter.execution.PluginUtil;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
+import org.apache.seatunnel.translation.spark.execution.DatasetTableInfo;
 import org.apache.seatunnel.translation.spark.sink.SparkSinkInjector;
 
 import org.apache.spark.sql.Dataset;
@@ -47,10 +45,10 @@ import org.apache.spark.sql.Row;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
 import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_MODE_FAILED;
 
 public class SinkExecuteProcessor
@@ -97,8 +95,6 @@ public class SinkExecuteProcessor
             DatasetTableInfo datasetTableInfo =
                     fromSourceTable(sinkConfig, sparkRuntimeEnvironment, upstreamDataStreams)
                             .orElse(input);
-            SeaTunnelDataType<?> inputType =
-                    datasetTableInfo.getCatalogTable().getSeaTunnelRowType();
             Dataset<Row> dataset = datasetTableInfo.getDataset();
 
             int parallelism;
@@ -114,50 +110,22 @@ public class SinkExecuteProcessor
             }
             dataset.sparkSession().read().option(CommonOptions.PARALLELISM.key(), parallelism);
             Optional<? extends Factory> factory = plugins.get(i);
-            boolean fallBack = !factory.isPresent() || isFallback(factory.get());
-            SeaTunnelSink sink;
-            if (fallBack) {
-                sink =
-                        fallbackCreateSink(
-                                sinkPluginDiscovery,
-                                PluginIdentifier.of(
-                                        ENGINE_TYPE,
-                                        PLUGIN_TYPE,
-                                        sinkConfig.getString(PLUGIN_NAME.key())),
-                                sinkConfig);
-                sink.setJobContext(jobContext);
-                sink.setTypeInfo((SeaTunnelRowType) inputType);
-            } else {
-                TableSinkFactoryContext context =
-                        TableSinkFactoryContext.replacePlaceholderAndCreate(
-                                datasetTableInfo.getCatalogTable(),
-                                ReadonlyConfig.fromConfig(sinkConfig),
-                                classLoader,
-                                ((TableSinkFactory) factory.get())
-                                        .excludeTablePlaceholderReplaceKeys());
-                ConfigValidator.of(context.getOptions()).validate(factory.get().optionRule());
-                sink = ((TableSinkFactory) factory.get()).createSink(context).createSink();
-                sink.setJobContext(jobContext);
-            }
+            SeaTunnelSink sink =
+                    PluginUtil.createSink(
+                            factory,
+                            sinkConfig,
+                            sinkPluginDiscovery,
+                            jobContext,
+                            datasetTableInfo.getCatalogTables(),
+                            classLoader);
             // TODO modify checkpoint location
-            if (SupportSaveMode.class.isAssignableFrom(sink.getClass())) {
-                SupportSaveMode saveModeSink = (SupportSaveMode) sink;
-                Optional<SaveModeHandler> saveModeHandler = saveModeSink.getSaveModeHandler();
-                if (saveModeHandler.isPresent()) {
-                    try (SaveModeHandler handler = saveModeHandler.get()) {
-                        new SaveModeExecuteWrapper(handler).execute();
-                    } catch (Exception e) {
-                        throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);
-                    }
-                }
-            }
+            handleSaveMode(sink);
             String applicationId =
                     sparkRuntimeEnvironment.getSparkSession().sparkContext().applicationId();
+            CatalogTable[] catalogTables =
+                    datasetTableInfo.getCatalogTables().toArray(new CatalogTable[0]);
             SparkSinkInjector.inject(
-                            dataset.write(),
-                            sink,
-                            datasetTableInfo.getCatalogTable(),
-                            applicationId)
+                            dataset.write(), sink, catalogTables, applicationId, parallelism)
                     .option("checkpointLocation", "/tmp")
                     .save();
         }
@@ -185,5 +153,25 @@ public class SinkExecuteProcessor
         SeaTunnelSink source = sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
         source.prepare(pluginConfig);
         return source;
+    }
+
+    public void handleSaveMode(SeaTunnelSink sink) {
+        if (sink instanceof SupportSaveMode) {
+            Optional<SaveModeHandler> saveModeHandler =
+                    ((SupportSaveMode) sink).getSaveModeHandler();
+            if (saveModeHandler.isPresent()) {
+                try (SaveModeHandler handler = saveModeHandler.get()) {
+                    handler.open();
+                    new SaveModeExecuteWrapper(handler).execute();
+                } catch (Exception e) {
+                    throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);
+                }
+            }
+        } else if (sink instanceof MultiTableSink) {
+            Map<String, SeaTunnelSink> sinks = ((MultiTableSink) sink).getSinks();
+            for (SeaTunnelSink seaTunnelSink : sinks.values()) {
+                handleSaveMode(seaTunnelSink);
+            }
+        }
     }
 }

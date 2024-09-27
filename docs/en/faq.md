@@ -203,23 +203,6 @@ spark {
 }
 ```
 
-## How do I specify a different JDK version for SeaTunnel on YARN?
-
-For example, if you want to set the JDK version to JDK8, there are two cases:
-
-- The YARN cluster has deployed JDK8, but the default JDK is not JDK8. Add two configurations to the SeaTunnel config file:
-
-  ```
-    env {
-   ...
-   spark.executorEnv.JAVA_HOME="/your/java_8_home/directory"
-   spark.yarn.appMasterEnv.JAVA_HOME="/your/java_8_home/directory"
-   ...
-  }
-  ```
-- YARN cluster does not deploy JDK8. At this time, start SeaTunnel attached with JDK8. For detailed operations, see:
-  https://www.cnblogs.com/jasondan/p/spark-specific-jdk-version.html
-
 ## What should I do if OOM always appears when running SeaTunnel in Spark local[*] mode?
 
 If you run in local mode, you need to modify the `start-seatunnel.sh` startup script. After `spark-submit`, add a parameter `--driver-memory 4g` . Under normal circumstances, local mode is not used in the production environment. Therefore, this parameter generally does not need to be set during On YARN. See: [Application Properties](https://spark.apache.org/docs/latest/configuration.html#application-properties) for details.
@@ -333,10 +316,6 @@ spark-submit --verbose
    --conf 'spark.executor.extraJavaOptions=-verbose:class'
     ...
 ```
-
-## How do I use SeaTunnel to synchronize data across HDFS clusters?
-
-Just configure hdfs-site.xml properly. Refer to: https://www.cnblogs.com/suanec/p/7828139.html.
 
 ## I want to learn the source code of SeaTunnel. Where should I start?
 

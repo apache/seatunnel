@@ -110,11 +110,8 @@ public class JdbcGBase8aIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult(String executeKey) {}
-
-    @Override
     String driverUrl() {
-        return "https://www.gbase8.cn/wp-content/uploads/2020/10/gbase-connector-java-8.3.81.53-build55.5.7-bin_min_mix.jar";
+        return "https://cdn.gbase.cn/products/30/p5CiVwXBKQYIUGN8ecHvk/gbase-connector-java-9.5.0.7-build1-bin.jar";
     }
 
     @Override

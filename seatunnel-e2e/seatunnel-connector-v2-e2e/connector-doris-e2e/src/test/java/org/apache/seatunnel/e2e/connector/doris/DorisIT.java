@@ -174,6 +174,16 @@ public class DorisIT extends AbstractDorisIT {
             };
 
     @TestTemplate
+    public void testCustomSql(TestContainer container) throws IOException, InterruptedException {
+        initializeJdbcTable();
+        Container.ExecResult execResult =
+                container.executeJob("/doris_source_and_sink_with_custom_sql.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(101, tableCount(sinkDB, UNIQUE_TABLE));
+        clearUniqueTable();
+    }
+
+    @TestTemplate
     public void testDoris(TestContainer container) throws IOException, InterruptedException {
         initializeJdbcTable();
         batchInsertUniqueTableData();
@@ -203,13 +213,14 @@ public class DorisIT extends AbstractDorisIT {
                     conn.prepareStatement(DorisCatalogUtil.TABLE_SCHEMA_QUERY)) {
                 ps.setString(1, sinkDB);
                 ps.setString(2, DUPLICATE_TABLE);
-                ResultSet resultSet = ps.executeQuery();
-                while (resultSet.next()) {
-                    String columnName = resultSet.getString("COLUMN_NAME");
-                    String columnType = resultSet.getString("COLUMN_TYPE");
-                    Assertions.assertEquals(
-                            checkColumnTypeMap.get(columnName).toUpperCase(Locale.ROOT),
-                            columnType.toUpperCase(Locale.ROOT));
+                try (ResultSet resultSet = ps.executeQuery()) {
+                    while (resultSet.next()) {
+                        String columnName = resultSet.getString("COLUMN_NAME");
+                        String columnType = resultSet.getString("COLUMN_TYPE");
+                        Assertions.assertEquals(
+                                checkColumnTypeMap.get(columnName).toUpperCase(Locale.ROOT),
+                                columnType.toUpperCase(Locale.ROOT));
+                    }
                 }
             }
 
@@ -341,6 +352,20 @@ public class DorisIT extends AbstractDorisIT {
         sourceResultSet.last();
         sinkResultSet.last();
         Assertions.assertEquals(sourceResultSet.getRow(), sinkResultSet.getRow());
+    }
+
+    private Integer tableCount(String db, String table) {
+        try (Statement statement = conn.createStatement()) {
+            String sql = String.format("select count(*) from %s.%s", db, table);
+            ResultSet source = statement.executeQuery(sql);
+            if (source.next()) {
+                int rowCount = source.getInt(1);
+                return rowCount;
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to check data in Doris server", e);
+        }
+        return -1;
     }
 
     private void assertHasData(String db, String table) {
@@ -535,8 +560,14 @@ public class DorisIT extends AbstractDorisIT {
             try (PreparedStatement preparedStatement =
                     conn.prepareStatement(INIT_UNIQUE_TABLE_DATA_SQL)) {
                 for (int i = 0; i < rows.size(); i++) {
-                    for (int index = 0; index < rows.get(i).getFields().length; index++) {
-                        preparedStatement.setObject(index + 1, rows.get(i).getFields()[index]);
+                    if (i % 10 == 0) {
+                        for (int index = 0; index < rows.get(i).getFields().length; index++) {
+                            preparedStatement.setObject(index + 1, null);
+                        }
+                    } else {
+                        for (int index = 0; index < rows.get(i).getFields().length; index++) {
+                            preparedStatement.setObject(index + 1, rows.get(i).getFields()[index]);
+                        }
                     }
                     preparedStatement.addBatch();
                 }

@@ -18,20 +18,22 @@
 package org.apache.seatunnel.core.starter.flink.execution;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.types.Row;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
+
+import java.util.List;
 
 @Data
 @AllArgsConstructor
 public class DataStreamTableInfo {
 
-    private DataStream<Row> dataStream;
+    private DataStream<SeaTunnelRow> dataStream;
 
-    private CatalogTable catalogTable;
+    private List<CatalogTable> catalogTables;
 
     private String tableName;
 }

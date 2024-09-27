@@ -155,8 +155,8 @@ public class DorisCDCSinkIT extends AbstractDorisIT {
                 .untilAsserted(
                         () -> {
                             Set<List<Object>> actual = new HashSet<>();
-                            try (Statement sinkStatement = jdbcConnection.createStatement()) {
-                                ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql);
+                            try (Statement sinkStatement = jdbcConnection.createStatement();
+                                    ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql)) {
                                 while (sinkResultSet.next()) {
                                     List<Object> row =
                                             Arrays.asList(
@@ -178,8 +178,8 @@ public class DorisCDCSinkIT extends AbstractDorisIT {
                 .untilAsserted(
                         () -> {
                             Set<List<Object>> actual = new HashSet<>();
-                            try (Statement sinkStatement = jdbcConnection.createStatement()) {
-                                ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql);
+                            try (Statement sinkStatement = jdbcConnection.createStatement();
+                                    ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql)) {
                                 while (sinkResultSet.next()) {
                                     List<Object> row =
                                             Arrays.asList(

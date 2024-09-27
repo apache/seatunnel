@@ -1,9 +1,8 @@
 ---
-
 sidebar_position: 4
--------------------
+---
 
-# Spark引擎快速开始
+# Spark 引擎快速开始
 
 ## 步骤 1: 部署SeaTunnel及连接器
 
@@ -112,7 +111,7 @@ row=16 : SGZCr, 94186144
 
 ## 此外
 
-现在，您已经快速浏览了SeaTunnel使用Spark引擎的方式，可以通过在[连接器](/docs/category/connector-v2)中找到SeaTunnel所支持的所有source和sink。
-如果您想要了解更多关于SeaTunnel运行在Spark上的信息，请参阅[基于Spark的SeaTunnel](../../../en/other-engine/spark.md)。
+- 开始编写您自己的配置文件，选择您想要使用的[连接器](../../connector-v2/source)，并根据连接器的文档配置参数。
+- 如果您想要了解更多关于SeaTunnel运行在Spark上的信息，请参阅[基于Spark的SeaTunnel](../../../en/other-engine/spark.md)。
+- SeaTunnel有内置的`Zeta`引擎，它是作为SeaTunnel的默认引擎。您可以参考[快速开始](quick-start-seatunnel-engine.md)配置和运行数据同步作业。
 
-SeaTunnel有内置的`Zeta`引擎，它是作为SeaTunnel的默认引擎。您可以参考[快速开始](quick-start-seatunnel-engine.md)配置和运行数据同步作业。

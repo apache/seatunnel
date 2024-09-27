@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSink;
@@ -54,7 +55,8 @@ public class PaimonSinkFactory implements TableSinkFactory {
                         PaimonSinkConfig.DATA_SAVE_MODE,
                         PaimonSinkConfig.PRIMARY_KEYS,
                         PaimonSinkConfig.PARTITION_KEYS,
-                        PaimonSinkConfig.WRITE_PROPS)
+                        PaimonSinkConfig.WRITE_PROPS,
+                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .conditional(
                         PaimonConfig.CATALOG_TYPE, PaimonCatalogEnum.HIVE, PaimonConfig.CATALOG_URI)
                 .build();

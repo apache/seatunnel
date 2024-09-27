@@ -26,7 +26,6 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnecto
 import org.apache.seatunnel.connectors.seatunnel.paimon.security.PaimonSecurityContext;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.JobContextUtil;
 
-import org.apache.paimon.operation.Lock;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.table.sink.BatchTableCommit;
 import org.apache.paimon.table.sink.CommitMessage;
@@ -50,8 +49,6 @@ public class PaimonAggregatedCommitter
                 SupportMultiTableSinkAggregatedCommitter {
 
     private static final long serialVersionUID = 1L;
-
-    private final Lock.Factory localFactory = Lock.emptyFactory();
 
     private final WriteBuilder tableWriteBuilder;
 

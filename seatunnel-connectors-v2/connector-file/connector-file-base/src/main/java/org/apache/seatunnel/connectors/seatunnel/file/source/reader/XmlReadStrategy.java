@@ -32,6 +32,7 @@ import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
@@ -50,6 +51,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -88,13 +90,22 @@ public class XmlReadStrategy extends AbstractReadStrategy {
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
+        resolveArchiveCompressedInputStream(path, tableId, output, partitionsMap, FileFormat.XML);
+    }
+
+    @Override
+    public void readProcess(
+            String path,
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            InputStream inputStream,
+            Map<String, String> partitionsMap,
+            String currentFileName)
+            throws IOException {
         SAXReader saxReader = new SAXReader();
         Document document;
         try {
-            document =
-                    saxReader.read(
-                            new InputStreamReader(
-                                    hadoopFileSystemProxy.getInputStream(path), encoding));
+            document = saxReader.read(new InputStreamReader(inputStream, encoding));
         } catch (DocumentException e) {
             throw new FileConnectorException(
                     FileConnectorErrorCode.FILE_READ_FAILED, "Failed to read xml file: " + path, e);

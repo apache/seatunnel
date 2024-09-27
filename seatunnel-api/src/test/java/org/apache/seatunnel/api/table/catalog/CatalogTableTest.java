@@ -18,7 +18,11 @@
 package org.apache.seatunnel.api.table.catalog;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -88,5 +92,63 @@ public class CatalogTableTest {
                     }
                 });
         Assertions.assertEquals(result, exception.getParamsValueAs("tableUnsupportedTypes"));
+    }
+
+    @Test
+    public void testCatalogTableWithIllegalFieldNames() {
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("catalog", "database", "table"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "  ", BasicType.STRING_TYPE, 1L, true, null, ""))
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "comment");
+        SeaTunnelException exception =
+                Assertions.assertThrows(
+                        SeaTunnelException.class,
+                        () ->
+                                new TableTransformFactoryContext(
+                                        Collections.singletonList(catalogTable), null, null));
+        SeaTunnelException exception2 =
+                Assertions.assertThrows(
+                        SeaTunnelException.class,
+                        () -> new TableSinkFactoryContext(catalogTable, null, null));
+        Assertions.assertEquals(
+                "Table database.table field name cannot be empty", exception.getMessage());
+        Assertions.assertEquals(
+                "Table database.table field name cannot be empty", exception2.getMessage());
+
+        CatalogTable catalogTable2 =
+                CatalogTable.of(
+                        TableIdentifier.of("catalog", "database", "table"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "name1", BasicType.STRING_TYPE, 1L, true, null, ""))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "name1", BasicType.STRING_TYPE, 1L, true, null, ""))
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "comment");
+        SeaTunnelException exception3 =
+                Assertions.assertThrows(
+                        SeaTunnelException.class,
+                        () ->
+                                new TableTransformFactoryContext(
+                                        Collections.singletonList(catalogTable2), null, null));
+        SeaTunnelException exception4 =
+                Assertions.assertThrows(
+                        SeaTunnelException.class,
+                        () -> new TableSinkFactoryContext(catalogTable2, null, null));
+        Assertions.assertEquals(
+                "Table database.table field name1 duplicate", exception3.getMessage());
+        Assertions.assertEquals(
+                "Table database.table field name1 duplicate", exception4.getMessage());
     }
 }

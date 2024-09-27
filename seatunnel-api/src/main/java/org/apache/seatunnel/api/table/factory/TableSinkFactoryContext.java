@@ -18,21 +18,27 @@
 package org.apache.seatunnel.api.table.factory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.sink.TablePlaceholder;
+import org.apache.seatunnel.api.sink.TablePlaceholderProcessor;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.Getter;
 
 import java.util.Collection;
+import java.util.Collections;
 
 @Getter
 public class TableSinkFactoryContext extends TableFactoryContext {
 
     private final CatalogTable catalogTable;
 
-    protected TableSinkFactoryContext(
+    @VisibleForTesting
+    public TableSinkFactoryContext(
             CatalogTable catalogTable, ReadonlyConfig options, ClassLoader classLoader) {
         super(options, classLoader);
+        if (catalogTable != null) {
+            checkCatalogTableIllegal(Collections.singletonList(catalogTable));
+        }
         this.catalogTable = catalogTable;
     }
 
@@ -42,7 +48,7 @@ public class TableSinkFactoryContext extends TableFactoryContext {
             ClassLoader classLoader,
             Collection<String> excludeTablePlaceholderReplaceKeys) {
         ReadonlyConfig rewriteConfig =
-                TablePlaceholder.replaceTablePlaceholder(
+                TablePlaceholderProcessor.replaceTablePlaceholder(
                         options, catalogTable, excludeTablePlaceholderReplaceKeys);
         return new TableSinkFactoryContext(catalogTable, rewriteConfig, classLoader);
     }

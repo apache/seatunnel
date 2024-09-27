@@ -239,6 +239,30 @@ public class FakeOption {
                     .defaultValue(Double.MAX_VALUE)
                     .withDescription("The max value of double type data");
 
+    public static final Option<Float> VECTOR_FLOAT_MIN =
+            Options.key("vector.float.min")
+                    .floatType()
+                    .defaultValue(0F)
+                    .withDescription("The min value of vector float type data");
+
+    public static final Option<Float> VECTOR_FLOAT_MAX =
+            Options.key("vector.float.max")
+                    .floatType()
+                    .defaultValue(Float.MAX_VALUE)
+                    .withDescription("The max value of vector float type data");
+
+    public static final Option<Integer> VECTOR_DIMENSION =
+            Options.key("vector.dimension")
+                    .intType()
+                    .defaultValue(4)
+                    .withDescription("The vector dimension");
+
+    public static final Option<Integer> BINARY_VECTOR_DIMENSION =
+            Options.key("binary.vector.dimension")
+                    .intType()
+                    .defaultValue(8)
+                    .withDescription("The binary vector dimension , must be multiple of 8");
+
     public static final Option<FakeMode> STRING_FAKE_MODE =
             Options.key("string.fake.mode")
                     .enumType(FakeMode.class)

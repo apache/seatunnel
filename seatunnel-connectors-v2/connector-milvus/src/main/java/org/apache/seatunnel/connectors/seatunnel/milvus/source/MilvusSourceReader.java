@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.utils.BufferUtils;
 import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectionErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
@@ -47,6 +48,7 @@ import io.milvus.response.QueryResultsWrapper;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
@@ -219,7 +221,27 @@ public class MilvusSourceReader implements SourceReader<SeaTunnelRow, MilvusSour
                         for (int i = 0; i < list.size(); i++) {
                             arrays[i] = Float.parseFloat(list.get(i).toString());
                         }
-                        fields[fieldIndex] = arrays;
+                        fields[fieldIndex] = BufferUtils.toByteBuffer(arrays);
+                        break;
+                    } else {
+                        throw new MilvusConnectorException(
+                                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                                "Unexpected vector value: " + filedValues);
+                    }
+                case BINARY_VECTOR:
+                case FLOAT16_VECTOR:
+                case BFLOAT16_VECTOR:
+                    if (filedValues instanceof ByteBuffer) {
+                        fields[fieldIndex] = filedValues;
+                        break;
+                    } else {
+                        throw new MilvusConnectorException(
+                                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                                "Unexpected vector value: " + filedValues);
+                    }
+                case SPARSE_FLOAT_VECTOR:
+                    if (filedValues instanceof Map) {
+                        fields[fieldIndex] = filedValues;
                         break;
                     } else {
                         throw new MilvusConnectorException(

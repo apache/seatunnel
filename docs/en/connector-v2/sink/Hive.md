@@ -84,13 +84,13 @@ The principal of kerberos
 
 The keytab path of kerberos
 
-### abort_drop_partition_metadata [list]
+### abort_drop_partition_metadata [boolean]
 
 Flag to decide whether to drop partition metadata from Hive Metastore during an abort operation. Note: this only affects the metadata in the metastore, the data in the partition will always be deleted(data generated during the synchronization process).
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
 
 ## Example
 

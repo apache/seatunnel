@@ -25,6 +25,8 @@ import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageMode;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
+import org.apache.seatunnel.engine.common.config.server.TelemetryConfig;
+import org.apache.seatunnel.engine.common.config.server.TelemetryMetricConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 
 import org.apache.commons.lang3.StringUtils;
@@ -165,6 +167,8 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                         engineConfig.setEventReportHttpHeaders(headers);
                     }
                 }
+            } else if (ServerConfigOptions.TELEMETRY.key().equals(name)) {
+                engineConfig.setTelemetryConfig(parseTelemetryConfig(node));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }
@@ -310,5 +314,33 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             connectorJarHAStoragePluginConfig.put(name, getTextContent(node));
         }
         return connectorJarHAStoragePluginConfig;
+    }
+
+    private TelemetryConfig parseTelemetryConfig(Node telemetryNode) {
+        TelemetryConfig metricConfig = new TelemetryConfig();
+        for (Node node : childElements(telemetryNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.TELEMETRY_METRIC.key().equals(name)) {
+                metricConfig.setMetric(parseTelemetryMetricConfig(node));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+
+        return metricConfig;
+    }
+
+    private TelemetryMetricConfig parseTelemetryMetricConfig(Node metricNode) {
+        TelemetryMetricConfig metricConfig = new TelemetryMetricConfig();
+        for (Node node : childElements(metricNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.TELEMETRY_METRIC_ENABLED.key().equals(name)) {
+                metricConfig.setEnabled(getBooleanValue(getTextContent(node)));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+
+        return metricConfig;
     }
 }

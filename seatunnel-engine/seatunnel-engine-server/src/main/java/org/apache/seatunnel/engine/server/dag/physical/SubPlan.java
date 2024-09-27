@@ -308,7 +308,14 @@ public class SubPlan {
             RetryUtils.retryWithException(
                     () -> {
                         jobMaster.savePipelineMetricsToHistory(getPipelineLocation());
-                        jobMaster.removeMetricsContext(getPipelineLocation(), pipelineStatus);
+                        try {
+                            jobMaster.removeMetricsContext(getPipelineLocation(), pipelineStatus);
+                        } catch (Throwable e) {
+                            log.error(
+                                    "Remove metrics context for pipeline {} failed, with exception: {}",
+                                    pipelineFullName,
+                                    ExceptionUtils.getMessage(e));
+                        }
                         notifyCheckpointManagerPipelineEnd(pipelineStatus);
                         jobMaster.releasePipelineResource(this);
                         return null;

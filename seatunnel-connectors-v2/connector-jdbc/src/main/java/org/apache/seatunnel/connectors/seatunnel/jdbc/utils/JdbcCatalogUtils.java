@@ -34,6 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalo
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -139,6 +140,8 @@ public class JdbcCatalogUtils {
                                 .partitionNumber(tableConfig.getPartitionNumber())
                                 .partitionStart(tableConfig.getPartitionStart())
                                 .partitionEnd(tableConfig.getPartitionEnd())
+                                .useSelectCount(tableConfig.getUseSelectCount())
+                                .skipAnalyze(tableConfig.getSkipAnalyze())
                                 .catalogTable(catalogTable)
                                 .build();
 
@@ -393,6 +396,10 @@ public class JdbcCatalogUtils {
                 .ifPresent(val -> catalogConfig.put(JdbcCatalogOptions.USERNAME.key(), val));
         config.getPassword()
                 .ifPresent(val -> catalogConfig.put(JdbcCatalogOptions.PASSWORD.key(), val));
+        Optional.ofNullable(config.getCompatibleMode())
+                .ifPresent(val -> catalogConfig.put(JdbcCatalogOptions.COMPATIBLE_MODE.key(), val));
+        catalogConfig.put(
+                JdbcOptions.DECIMAL_TYPE_NARROWING.key(), config.isDecimalTypeNarrowing());
         return ReadonlyConfig.fromMap(catalogConfig);
     }
 }

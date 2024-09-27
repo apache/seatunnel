@@ -86,9 +86,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 new GenericContainer<>(getDockerImage())
                         .withNetwork(NETWORK)
                         .withEnv("TZ", "UTC")
-                        .withCommand(
-                                ContainerUtil.adaptPathForWin(
-                                        Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString()))
+                        .withCommand(buildStartCommand())
                         .withNetworkAliases("server")
                         .withExposedPorts()
                         .withLogConsumer(
@@ -115,6 +113,12 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         server.start();
 
         return server;
+    }
+
+    protected String[] buildStartCommand() {
+        return new String[] {
+            ContainerUtil.adaptPathForWin(Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString())
+        };
     }
 
     protected GenericContainer<?> createSeaTunnelContainerWithFakeSourceAndInMemorySink(
@@ -265,6 +269,15 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         return executeCommand(server, command);
     }
 
+    public Container.ExecResult executeBaseCommand(String[] args)
+            throws IOException, InterruptedException {
+        final List<String> command = new ArrayList<>();
+        String binPath = Paths.get(SEATUNNEL_HOME, "bin", getStartShellName()).toString();
+        command.add(adaptPathForWin(binPath));
+        Arrays.stream(args).forEach(arg -> command.add(arg));
+        return executeCommand(server, command);
+    }
+
     @Override
     public Container.ExecResult executeJob(String confFile)
             throws IOException, InterruptedException {
@@ -363,7 +376,8 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 // The renewed background thread of the hdfs client
                 || s.startsWith("LeaseRenewer")
                 // The read of hdfs which has the thread that is all in running status
-                || s.startsWith("org.apache.hadoop.hdfs.PeerCache");
+                || s.startsWith("org.apache.hadoop.hdfs.PeerCache")
+                || s.startsWith("java-sdk-progress-listener-callback-thread");
     }
 
     private void classLoaderObjectCheck(Integer maxSize) throws IOException, InterruptedException {
@@ -433,7 +447,9 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || threadName.contains("Timer for 's3a-file-system' metrics system")
                 || threadName.startsWith("MutableQuantiles-")
                 // JDBC Hana driver
-                || threadName.startsWith("Thread-");
+                || threadName.startsWith("Thread-")
+                // JNA Cleaner
+                || threadName.startsWith("JNA Cleaner");
     }
 
     @Override

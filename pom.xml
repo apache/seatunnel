@@ -56,7 +56,7 @@
 
     <properties>
         <!--todo The classification is too confusing, reclassify by type-->
-        <revision>2.3.7-SNAPSHOT</revision>
+        <revision>2.3.8-SNAPSHOT</revision>
         <seatunnel.config.shade.version>2.1.1</seatunnel.config.shade.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>1.8</java.version>
@@ -113,7 +113,11 @@
         <codec.version>1.13</codec.version>
         <exec-maven-plugin.version>3.0.0</exec-maven-plugin.version>
         <docker.hub>apache</docker.hub>
+        <docker.repo>seatunnel</docker.repo>
         <docker.tag>${project.version}</docker.tag>
+        <docker.build.skip>true</docker.build.skip>
+        <docker.verify.skip>true</docker.verify.skip>
+        <docker.push.skip>true</docker.push.skip>
         <jcommander.version>1.81</jcommander.version>
         <junit4.version>4.13.2</junit4.version>
         <junit5.version>5.9.0</junit5.version>
@@ -147,6 +151,9 @@
         <awaitility.version>4.2.0</awaitility.version>
         <e2e.dependency.skip>true</e2e.dependency.skip>
         <skip.spotless>false</skip.spotless>
+
+        <!-- prometheus simpleclient -->
+        <prometheus.simpleclient.version>0.16.0</prometheus.simpleclient.version>
 
     </properties>
 
@@ -537,6 +544,25 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- The prometheus simpleclient -->
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>simpleclient</artifactId>
+            <version>${prometheus.simpleclient.version}</version>
+        </dependency>
+        <!-- Hotspot JVM metrics-->
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>simpleclient_hotspot</artifactId>
+            <version>${prometheus.simpleclient.version}</version>
+        </dependency>
+        <!-- Exposition HTTPServer-->
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>simpleclient_httpserver</artifactId>
+            <version>${prometheus.simpleclient.version}</version>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -760,6 +786,97 @@
                     <artifactId>maven-dependency-plugin</artifactId>
                     <version>${maven-dependency-plugin.version}</version>
                 </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>exec-maven-plugin</artifactId>
+                    <version>${exec-maven-plugin.version}</version>
+                    <executions>
+                        <execution>
+                            <id>docker-build</id>
+                            <goals>
+                                <goal>exec</goal>
+                            </goals>
+                            <phase>package</phase>
+                            <configuration>
+                                <skip>${docker.build.skip}</skip>
+                                <environmentVariables>
+                                    <DOCKER_BUILDKIT>1</DOCKER_BUILDKIT>
+                                </environmentVariables>
+                                <executable>docker</executable>
+                                <workingDirectory>${project.basedir}</workingDirectory>
+                                <arguments>
+                                    <argument>buildx</argument>
+                                    <argument>build</argument>
+                                    <argument>--load</argument>
+                                    <argument>--no-cache</argument>
+                                    <argument>-t</argument>
+                                    <argument>${docker.hub}/${docker.repo}:${docker.tag}</argument>
+                                    <argument>-t</argument>
+                                    <argument>${docker.hub}/${docker.repo}:latest</argument>
+                                    <argument>${project.basedir}</argument>
+                                    <argument>--build-arg</argument>
+                                    <argument>VERSION=${project.version}</argument>
+                                    <argument>--file=src/main/docker/Dockerfile</argument>
+                                </arguments>
+                            </configuration>
+                        </execution>
+                        <execution>
+                            <id>docker-verify</id>
+                            <goals>
+                                <goal>exec</goal>
+                            </goals>
+                            <phase>verify</phase>
+                            <configuration>
+                                <skip>${docker.verify.skip}</skip>
+                                <environmentVariables>
+                                    <DOCKER_BUILDKIT>1</DOCKER_BUILDKIT>
+                                </environmentVariables>
+                                <executable>docker</executable>
+                                <workingDirectory>${project.basedir}</workingDirectory>
+                                <arguments>
+                                    <argument>run</argument>
+                                    <argument>--rm</argument>
+                                    <argument>${docker.hub}/${docker.repo}:${docker.tag}</argument>
+                                    <argument>bash</argument>
+                                    <argument>./bin/seatunnel.sh</argument>
+                                    <argument>-e</argument>
+                                    <argument>local</argument>
+                                    <argument>-c</argument>
+                                    <argument>config/v2.batch.config.template</argument>
+                                </arguments>
+                            </configuration>
+                        </execution>
+                        <execution>
+                            <id>docker-push</id>
+                            <goals>
+                                <goal>exec</goal>
+                            </goals>
+                            <phase>install</phase>
+                            <configuration>
+                                <skip>${docker.push.skip}</skip>
+                                <environmentVariables>
+                                    <DOCKER_BUILDKIT>1</DOCKER_BUILDKIT>
+                                </environmentVariables>
+                                <executable>docker</executable>
+                                <workingDirectory>${project.basedir}</workingDirectory>
+                                <arguments>
+                                    <argument>buildx</argument>
+                                    <argument>build</argument>
+                                    <argument>--platform</argument>
+                                    <argument>linux/amd64,linux/arm64</argument>
+                                    <argument>--no-cache</argument>
+                                    <argument>--push</argument>
+                                    <argument>--all-tags</argument>
+                                    <argument>${docker.hub}/${docker.repo}</argument>
+                                    <argument>${project.basedir}</argument>
+                                    <argument>--build-arg</argument>
+                                    <argument>VERSION=${revision}</argument>
+                                    <argument>--file=src/main/docker/Dockerfile</argument>
+                                </arguments>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
             </plugins>
         </pluginManagement>
 
@@ -859,15 +976,16 @@
                             <replacement>project</replacement>
                         </replace>
                     </pom>
-                    <markdown>
-                        <includes>
-                            <include>docs/**/*.md</include>
-                        </includes>
-                        <excludes>
-                            <exclude>**/.github/**/*.md</exclude>
-                        </excludes>
-                        <flexmark />
-                    </markdown>
+                    <!-- disable markdown for now, it will change sidebar config in file-->
+                    <!--                    <markdown>-->
+                    <!--                        <includes>-->
+                    <!--                            <include>docs/**/*.md</include>-->
+                    <!--                        </includes>-->
+                    <!--                        <excludes>-->
+                    <!--                            <exclude>**/.github/**/*.md</exclude>-->
+                    <!--                        </excludes>-->
+                    <!--                        <flexmark />-->
+                    <!--                    </markdown>-->
                     <upToDateChecking>
                         <enabled>true</enabled>
                     </upToDateChecking>

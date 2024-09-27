@@ -59,6 +59,7 @@ public class MilvusSinkWriter
                 ConnectConfig.builder()
                         .uri(config.get(MilvusSinkConfig.URL))
                         .token(config.get(MilvusSinkConfig.TOKEN))
+                        .dbName(config.get(MilvusSinkConfig.DATABASE))
                         .build();
         this.batchWriter =
                 new MilvusBufferBatchWriter(

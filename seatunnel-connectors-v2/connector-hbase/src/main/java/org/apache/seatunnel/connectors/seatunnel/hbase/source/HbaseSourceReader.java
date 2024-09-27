@@ -22,16 +22,12 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.hbase.client.HbaseClient;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
 import org.apache.seatunnel.connectors.seatunnel.hbase.format.HBaseDeserializationFormat;
-import org.apache.seatunnel.connectors.seatunnel.hbase.utils.HbaseConnectionUtil;
 
-import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
-import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
@@ -55,13 +51,13 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
 
     private final transient Map<String, byte[][]> namesMap;
 
-    private final SourceReader.Context context;
+    private final Context context;
     private final SeaTunnelRowType seaTunnelRowType;
     private volatile boolean noMoreSplit = false;
+    private final HbaseClient hbaseClient;
 
     private HbaseParameters hbaseParameters;
     private final List<String> columnNames;
-    private final transient Connection connection;
 
     private HBaseDeserializationFormat hbaseDeserializationFormat =
             new HBaseDeserializationFormat();
@@ -85,8 +81,7 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
                                 Preconditions.checkArgument(
                                         column.contains(":") && column.split(":").length == 2,
                                         "Invalid column names, it should be [ColumnFamily:Column] format"));
-
-        connection = HbaseConnectionUtil.getHbaseConnection(hbaseParameters);
+        hbaseClient = HbaseClient.createInstance(hbaseParameters);
     }
 
     @Override
@@ -103,9 +98,9 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
                 throw new IOException("Failed to close HBase Scanner.", e);
             }
         }
-        if (this.connection != null) {
+        if (this.hbaseClient != null) {
             try {
-                this.connection.close();
+                this.hbaseClient.close();
             } catch (Exception e) {
                 throw new IOException("Failed to close HBase connection.", e);
             }
@@ -119,23 +114,8 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
             final HbaseSourceSplit split = sourceSplits.poll();
             if (Objects.nonNull(split)) {
                 // read logic
-                if (this.currentScanner == null) {
-                    Scan scan = new Scan();
-                    scan.withStartRow(split.getStartRow(), true);
-                    scan.withStopRow(split.getEndRow(), true);
-                    scan.setCacheBlocks(hbaseParameters.isCacheBlocks());
-                    scan.setCaching(hbaseParameters.getCaching());
-                    scan.setBatch(hbaseParameters.getBatch());
-                    for (String columnName : this.columnNames) {
-                        String[] columnNameSplit = columnName.split(":");
-                        scan.addColumn(
-                                Bytes.toBytes(columnNameSplit[0]),
-                                Bytes.toBytes(columnNameSplit[1]));
-                    }
-                    this.currentScanner =
-                            this.connection
-                                    .getTable(TableName.valueOf(hbaseParameters.getTable()))
-                                    .getScanner(scan);
+                if (currentScanner == null) {
+                    currentScanner = hbaseClient.scan(split, hbaseParameters, this.columnNames);
                 }
                 for (Result result : currentScanner) {
                     SeaTunnelRow seaTunnelRow =

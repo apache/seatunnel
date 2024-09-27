@@ -84,7 +84,8 @@ public class SapHanaCreateTableSqlBuilderTest {
                         new ArrayList<>(),
                         "User table");
 
-        String createTableSql = new SapHanaCreateTableSqlBuilder(catalogTable).build(tablePath);
+        String createTableSql =
+                new SapHanaCreateTableSqlBuilder(catalogTable, true).build(tablePath);
         String expect =
                 "CREATE TABLE \"test_database\".\"test_table\" (\n"
                         + "\"id\" BIGINT NOT NULL COMMENT 'id',\n"
@@ -96,5 +97,18 @@ public class SapHanaCreateTableSqlBuilderTest {
                         + "UNIQUE (\"name\")\n"
                         + ") COMMENT 'User table'";
         Assertions.assertEquals(expect, createTableSql);
+
+        // skip index
+        String createTableSqlSkipIndex =
+                new SapHanaCreateTableSqlBuilder(catalogTable, false).build(tablePath);
+        String expectSkipIndex =
+                "CREATE TABLE \"test_database\".\"test_table\" (\n"
+                        + "\"id\" BIGINT NOT NULL COMMENT 'id',\n"
+                        + "\"name\" NVARCHAR(128) NOT NULL COMMENT 'name',\n"
+                        + "\"age\" INTEGER NULL COMMENT 'age',\n"
+                        + "\"createTime\" SECONDDATE NULL COMMENT 'createTime',\n"
+                        + "\"lastUpdateTime\" SECONDDATE NULL COMMENT 'lastUpdateTime'\n"
+                        + ") COMMENT 'User table'";
+        Assertions.assertEquals(expectSkipIndex, createTableSqlSkipIndex);
     }
 }

@@ -37,9 +37,9 @@ class OracleCatalogTest {
         catalog =
                 new OracleCatalog(
                         "oracle",
-                        "c##gguser",
-                        "testdb",
-                        OracleURLParser.parse("jdbc:oracle:thin:@127.0.0.1:1521/CDC_PDB"),
+                        "test",
+                        "oracle",
+                        OracleURLParser.parse("jdbc:oracle:thin:@127.0.0.1:1521:xe"),
                         null);
 
         catalog.open();

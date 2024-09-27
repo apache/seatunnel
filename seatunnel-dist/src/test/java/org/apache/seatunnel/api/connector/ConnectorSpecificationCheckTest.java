@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.api.connector;
 
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
@@ -152,15 +154,25 @@ public class ConnectorSpecificationCheckTest {
                 log.info(
                         "Check sink connector {} successfully", factory.getClass().getSimpleName());
 
-                checkSupportMultiTableSink(sinkClass);
+                checkSupportMultiTableSink(factory, sinkClass);
             }
         }
     }
 
-    private void checkSupportMultiTableSink(Class<? extends SeaTunnelSink> sinkClass) {
+    private void checkSupportMultiTableSink(
+            TableSinkFactory sinkFactory, Class<? extends SeaTunnelSink> sinkClass) {
         if (!SupportMultiTableSink.class.isAssignableFrom(sinkClass)) {
             return;
         }
+
+        OptionRule sinkOptionRule = sinkFactory.optionRule();
+        Assertions.assertTrue(
+                sinkOptionRule
+                        .getOptionalOptions()
+                        .contains(SinkCommonOptions.MULTI_TABLE_SINK_REPLICA),
+                "Please add `SinkCommonOptions.MULTI_TABLE_SINK_REPLICA` optional into the `optionRule` method optional of `"
+                        + sinkFactory.getClass().getSimpleName()
+                        + "`");
 
         // Validate the `createWriter` method return type
         Optional<Method> createWriter =

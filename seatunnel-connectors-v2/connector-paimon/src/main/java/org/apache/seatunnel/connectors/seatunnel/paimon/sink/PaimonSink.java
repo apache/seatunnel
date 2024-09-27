@@ -144,7 +144,6 @@ public class PaimonSink
         }
         org.apache.seatunnel.api.table.catalog.Catalog catalog =
                 catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), readonlyConfig);
-        catalog.open();
         return Optional.of(
                 new PaimonSaveModeHandler(
                         this,

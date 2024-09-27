@@ -385,10 +385,6 @@ public class KuduIT extends TestSuiteBase implements TestResource {
         kuduClient.deleteTable("kudu_cdc_sink_table");
     }
 
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "Currently SPARK/FLINK do not support multiple table read")
     @TestTemplate
     public void testKuduMultipleRead(TestContainer container)
             throws IOException, InterruptedException {
@@ -405,8 +401,8 @@ public class KuduIT extends TestSuiteBase implements TestResource {
 
     @DisabledOnContainer(
             value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "Currently SPARK/FLINK do not support multiple table read")
+            type = {EngineType.FLINK},
+            disabledReason = "Currently FLINK do not support multiple table read")
     @TestTemplate
     public void testKuduMultipleWrite(TestContainer container)
             throws IOException, InterruptedException {

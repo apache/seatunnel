@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.core.starter.execution.PluginExecuteProcessor;
+import org.apache.seatunnel.translation.spark.execution.DatasetTableInfo;
 
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -84,7 +85,7 @@ public abstract class SparkAbstractPluginExecuteProcessor<T>
         return Optional.of(
                 new DatasetTableInfo(
                         sparkRuntimeEnvironment.getSparkSession().read().table(sourceTableName),
-                        datasetTableInfo.getCatalogTable(),
+                        datasetTableInfo.getCatalogTables(),
                         sourceTableName));
     }
 

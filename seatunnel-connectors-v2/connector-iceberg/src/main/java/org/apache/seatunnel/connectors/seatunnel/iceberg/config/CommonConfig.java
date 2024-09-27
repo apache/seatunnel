@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.kerberos.KerberosConfig;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
 
 import lombok.Getter;
@@ -33,7 +34,7 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 
 @Getter
 @ToString
-public class CommonConfig implements Serializable {
+public class CommonConfig extends KerberosConfig implements Serializable {
     private static final long serialVersionUID = 239821141534421580L;
 
     public static final Option<String> KEY_CATALOG_NAME =
@@ -89,6 +90,12 @@ public class CommonConfig implements Serializable {
     private Map<String, String> hadoopProps;
     private String hadoopConfPath;
 
+    // kerberos
+
+    private String kerberosPrincipal;
+    private String kerberosKeytabPath;
+    private String kerberosKrb5ConfPath;
+
     public CommonConfig(ReadonlyConfig pluginConfig) {
         this.catalogName = checkArgumentNotNull(pluginConfig.get(KEY_CATALOG_NAME));
         this.namespace = pluginConfig.get(KEY_NAMESPACE);
@@ -98,6 +105,15 @@ public class CommonConfig implements Serializable {
         this.hadoopConfPath = pluginConfig.get(HADOOP_CONF_PATH_PROP);
         if (pluginConfig.toConfig().hasPath(KEY_CASE_SENSITIVE.key())) {
             this.caseSensitive = pluginConfig.get(KEY_CASE_SENSITIVE);
+        }
+        if (pluginConfig.getOptional(KERBEROS_PRINCIPAL).isPresent()) {
+            this.kerberosPrincipal = pluginConfig.getOptional(KERBEROS_PRINCIPAL).get();
+        }
+        if (pluginConfig.getOptional(KRB5_PATH).isPresent()) {
+            this.kerberosKrb5ConfPath = pluginConfig.getOptional(KRB5_PATH).get();
+        }
+        if (pluginConfig.getOptional(KERBEROS_KEYTAB_PATH).isPresent()) {
+            this.kerberosKeytabPath = pluginConfig.getOptional(KERBEROS_KEYTAB_PATH).get();
         }
         validate();
     }

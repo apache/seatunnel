@@ -161,13 +161,12 @@
             <scope>provided</scope>
         </dependencySet>
 
-        <!-- ============ SeaTunnel Transforms V2 Jars And SeaTunnel Hadoop3 Uber Jar============  -->
+        <!-- ============ SeaTunnel Hadoop3 Uber Jar============  -->
         <dependencySet>
             <useProjectArtifact>false</useProjectArtifact>
             <useTransitiveDependencies>true</useTransitiveDependencies>
             <unpack>false</unpack>
             <includes>
-                <include>org.apache.seatunnel:seatunnel-transforms-v2:jar</include>
                 <include>org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber:jar:*:optional</include>
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
@@ -175,7 +174,7 @@
             <scope>provided</scope>
         </dependencySet>
 
-        <!-- ============ Connectors Jars ============  -->
+        <!-- ============ Connectors Jars And Transforms V2 Jar ============  -->
         <!-- SeaTunnel connectors for Demo -->
         <dependencySet>
             <useProjectArtifact>false</useProjectArtifact>
@@ -184,6 +183,7 @@
             <includes>
                 <include>org.apache.seatunnel:connector-fake:jar</include>
                 <include>org.apache.seatunnel:connector-console:jar</include>
+                <include>org.apache.seatunnel:seatunnel-transforms-v2:jar</include>
             </includes>
             <outputDirectory>/connectors</outputDirectory>
             <scope>provided</scope>

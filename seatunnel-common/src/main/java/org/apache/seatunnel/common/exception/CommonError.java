@@ -266,8 +266,8 @@ public class CommonError {
             String connector, int sourceFieldsNum, int sinkFieldsNum) {
         Map<String, String> params = new HashMap<>();
         params.put("connector", connector);
-        params.put("sourceFiledName", String.valueOf(sourceFieldsNum));
-        params.put("sourceFiledType", String.valueOf(sinkFieldsNum));
+        params.put("sourceFieldsNum", String.valueOf(sourceFieldsNum));
+        params.put("sinkFieldsNum", String.valueOf(sinkFieldsNum));
         return new SeaTunnelRuntimeException(
                 WRITE_SEATUNNEL_ROW_ERROR_WITH_FILEDS_NOT_MATCH, params);
     }

@@ -24,21 +24,21 @@ Apache Pulsar 的接收连接器。
 
 ## 输出选项
 
-|          名称          |   类型   | 是否必须 |         默认值         |                   描述                    |
-|----------------------|--------|------|---------------------|-----------------------------------------|
-| topic                | String | Yes  | -                   | 输出到Pulsar主题名称.                          |
-| client.service-url   | String | Yes  | -                   | Pulsar 服务的服务 URL 提供者.                   |
-| admin.service-url    | String | Yes  | -                   | 管理端点的 Pulsar 服务 HTTP URL.               |
-| auth.plugin-class    | String | No   | -                   | 身份验证插件的名称.                              |
-| auth.params          | String | No   | -                   | 身份验证插件的参数.                              |
-| format               | String | No   | json                | 数据格式。默认格式为 json。可选的文本格式.                |
-| field_delimiter      | String | No   | ,                   | 自定义数据格式的字段分隔符.                          |
-| semantics            | Enum   | No   | AT_LEAST_ONCE       | 写入 pulsar 的一致性语义.                       |
-| transaction_timeout  | Int    | No   | 600                 | 默认情况下，事务超时指定为 10 分钟.                    |
-| pulsar.config        | Map    | No   | -                   | 除了上述必须由 Pulsar 生产者客户端指定的参数外.            |
-| message.routing.mode | Enum   | No   | RoundRobinPartition | 要分区的消息的默认路由模式.                          |
-| partition_key_fields | array  | No   | -                   | 配置哪些字段用作 pulsar 消息的键.                   |
-| common-options       | config | no   | -                   | 源插件常用参数，详见源码 [常用选项](common-options.md). |
+|          名称          |   类型   | 是否必须 |         默认值         |                       描述                        |
+|----------------------|--------|------|---------------------|-------------------------------------------------|
+| topic                | String | Yes  | -                   | 输出到Pulsar主题名称.                                  |
+| client.service-url   | String | Yes  | -                   | Pulsar 服务的服务 URL 提供者.                           |
+| admin.service-url    | String | Yes  | -                   | 管理端点的 Pulsar 服务 HTTP URL.                       |
+| auth.plugin-class    | String | No   | -                   | 身份验证插件的名称.                                      |
+| auth.params          | String | No   | -                   | 身份验证插件的参数.                                      |
+| format               | String | No   | json                | 数据格式。默认格式为 json。可选的文本格式.                        |
+| field_delimiter      | String | No   | ,                   | 自定义数据格式的字段分隔符.                                  |
+| semantics            | Enum   | No   | AT_LEAST_ONCE       | 写入 pulsar 的一致性语义.                               |
+| transaction_timeout  | Int    | No   | 600                 | 默认情况下，事务超时指定为 10 分钟.                            |
+| pulsar.config        | Map    | No   | -                   | 除了上述必须由 Pulsar 生产者客户端指定的参数外.                    |
+| message.routing.mode | Enum   | No   | RoundRobinPartition | 要分区的消息的默认路由模式.                                  |
+| partition_key_fields | array  | No   | -                   | 配置哪些字段用作 pulsar 消息的键.                           |
+| common-options       | config | no   | -                   | 源插件常用参数，详见源码 [常用选项](../sink-common-options.md). |
 
 ## 参数解释
 
@@ -117,7 +117,7 @@ Pulsar 服务的 Service URL 提供程序。要使用客户端库连接到 Pulsa
 
 ### 常见选项
 
-源插件常用参数，详见源码[常用选项](common-options.md) .
+源插件常用参数，详见源码[常用选项](../sink-common-options.md) .
 
 ## 任务示例
 

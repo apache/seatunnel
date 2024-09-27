@@ -35,7 +35,7 @@ if you use phoenix (thick) driver the value is `jdbc:phoenix:localhost:2182/hbas
 
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
+Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details
 
 ## Example
 

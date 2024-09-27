@@ -27,7 +27,6 @@ import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.core.starter.execution.RuntimeEnvironment;
 import org.apache.seatunnel.core.starter.flink.utils.ConfigKeyName;
 import org.apache.seatunnel.core.starter.flink.utils.EnvironmentUtil;
-import org.apache.seatunnel.core.starter.flink.utils.TableUtil;
 
 import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.configuration.Configuration;
@@ -37,11 +36,8 @@ import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.TimeCharacteristic;
-import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
-import org.apache.flink.types.Row;
 import org.apache.flink.util.TernaryBoolean;
 
 import lombok.extern.slf4j.Slf4j;
@@ -55,10 +51,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public abstract class AbstractFlinkRuntimeEnvironment implements RuntimeEnvironment {
 
-    protected static final String RESULT_TABLE_NAME = "result_table_name";
     protected Config config;
     protected StreamExecutionEnvironment environment;
-    protected StreamTableEnvironment tableEnvironment;
     protected JobMode jobMode;
     protected String jobName = Constants.LOGO;
 
@@ -76,10 +70,6 @@ public abstract class AbstractFlinkRuntimeEnvironment implements RuntimeEnvironm
     @Override
     public CheckResult checkConfig() {
         return EnvironmentUtil.checkRestartStrategy(config);
-    }
-
-    public StreamTableEnvironment getStreamTableEnvironment() {
-        return tableEnvironment;
     }
 
     public StreamExecutionEnvironment getStreamExecutionEnvironment() {
@@ -225,14 +215,6 @@ public abstract class AbstractFlinkRuntimeEnvironment implements RuntimeEnvironm
                             timeType);
                     break;
             }
-        }
-    }
-
-    public void registerResultTable(Config config, DataStream<Row> dataStream, String name) {
-        StreamTableEnvironment tableEnvironment = this.getStreamTableEnvironment();
-        if (!TableUtil.tableExists(tableEnvironment, name)) {
-            tableEnvironment.createTemporaryView(
-                    name, tableEnvironment.fromChangelogStream(dataStream));
         }
     }
 

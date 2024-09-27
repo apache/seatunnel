@@ -23,9 +23,9 @@
 
 为了使用 Clickhouse 连接器，需要以下依赖项。它们可以通过 install-plugin.sh 或从 Maven 中央存储库下载。
 
-|    数据源     |   支持的版本   |                                                     依赖                                                     |
-|------------|-----------|------------------------------------------------------------------------------------------------------------|
-| Clickhouse | universal | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-clickhouse) |
+| 数据源        | 支持的版本     | 依赖                                                                                 |
+|------------|-----------|------------------------------------------------------------------------------------|
+| Clickhouse | universal | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-clickhouse) |
 
 ## 数据类型映射
 
@@ -58,7 +58,7 @@
 | primary_key                           | String  | No   | -     | 标记`clickhouse`表中的主键列，并根据主键执行INSERT/UPDATE/DELETE到`clickhouse`表.                                                                                                                  |
 | support_upsert                        | Boolean | No   | false | 支持按查询主键更新插入行.                                                                                                                                                                    |
 | allow_experimental_lightweight_delete | Boolean | No   | false | 允许基于`MergeTree`表引擎实验性轻量级删除.                                                                                                                                                      |
-| common-options                        |         | No   | -     | Sink插件查用参数,详见[Sink常用选项](common-options.md).                                                                                                                                      |
+| common-options                        |         | No   | -     | Sink插件查用参数,详见[Sink常用选项](../sink-common-options.md).                                                                                                                              |
 
 ## 如何创建一个clickhouse 同步任务
 

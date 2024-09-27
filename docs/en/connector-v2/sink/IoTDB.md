@@ -74,7 +74,7 @@ There is a conflict of thrift version between IoTDB and Spark.Therefore, you nee
 | zone_id                     | string  | No       | -                              | java.time.ZoneId in `IoTDB` client                                                                                                                                |
 | enable_rpc_compression      | Boolean | No       | -                              | Enable rpc compression in `IoTDB` client                                                                                                                          |
 | connection_timeout_in_ms    | Integer | No       | -                              | The maximum time (in ms) to wait when connecting to `IoTDB`                                                                                                       |
-| common-options              |         | no       | -                              | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details                                                               |
+| common-options              |         | no       | -                              | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details                                                       |
 
 ## Examples
 

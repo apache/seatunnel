@@ -40,9 +40,6 @@ public class OssFileCheckpointTest extends AbstractFileCheckPointTest {
         config.put("fs.oss.accessKeySecret", "your access key secret");
         config.put("fs.oss.endpoint", "oss-cn-hangzhou.aliyuncs.com");
         config.put("oss.bucket", "oss://seatunnel-test/");
-        config.put(
-                "fs.oss.credentials.provider",
-                "org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider");
         STORAGE = new HdfsStorage(config);
         initStorageData();
     }

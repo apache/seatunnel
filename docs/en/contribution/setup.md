@@ -80,16 +80,21 @@ After all the above things are done, you just finish the environment setup and c
 of box. All examples are in module `seatunnel-examples`, you could pick one you are interested in, [Running Or Debugging
 It In IDEA](https://www.jetbrains.com/help/idea/run-debug-configuration.html) as you wish.
 
-Here we use `seatunnel-examples/seatunnel-flink-connector-v2-example/src/main/java/org/apache/seatunnel/example/flink/v2/SeaTunnelApiExample.java`
+Here we use `seatunnel-examples/seatunnel-engine-examples/src/main/java/org/apache/seatunnel/example/engine/SeaTunnelEngineExample.java`
 as an example, when you run it successfully you can see the output as below:
 
 ```log
-+I[Ricky Huo, 71]
-+I[Gary, 12]
-+I[Ricky Huo, 93]
-...
-...
-+I[Ricky Huo, 83]
+2024-08-10 11:45:32,839 INFO  org.apache.seatunnel.core.starter.seatunnel.command.ClientExecuteCommand - 
+***********************************************
+           Job Statistic Information
+***********************************************
+Start Time                : 2024-08-10 11:45:30
+End Time                  : 2024-08-10 11:45:32
+Total Time(s)             :                   2
+Total Read Count          :                   5
+Total Write Count         :                   5
+Total Failed Count        :                   0
+***********************************************
 ```
 
 ## What's More
@@ -97,23 +102,26 @@ as an example, when you run it successfully you can see the output as below:
 All our examples use simple source and sink to make it less dependent and easy to run. You can change the example configuration
 in `resources/examples`. You can change your configuration as below, if you want to use PostgreSQL as the source and
 sink to console.
+Please note that when using connectors other than FakeSource and Console, you need to modify the dependencies in the `pom.xml` file of the corresponding submodule of seatunnel-example.
 
 ```conf
 env {
   parallelism = 1
+  job.mode = "BATCH"
 }
-
 source {
-  JdbcSource {
-    driver = org.postgresql.Driver
-    url = "jdbc:postgresql://host:port/database"
-    username = postgres
-    query = "select * from test"
-  }
+    Jdbc {
+        driver = org.postgresql.Driver
+        url = "jdbc:postgresql://host:port/database"
+        username = postgres
+        password = "123456"
+        query = "select * from test"
+        table_path = "database.test"
+    }
 }
 
 sink {
-  ConsoleSink {}
+  Console {}
 }
 ```
 

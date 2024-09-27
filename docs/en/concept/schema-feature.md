@@ -1,4 +1,4 @@
-# Intro to schema feature
+# Intro To Schema Feature
 
 ## Why We Need Schema
 

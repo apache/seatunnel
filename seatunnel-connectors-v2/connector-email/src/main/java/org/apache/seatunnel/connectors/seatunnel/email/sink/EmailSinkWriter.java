@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.email.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
@@ -33,6 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 import javax.activation.DataHandler;
 import javax.activation.DataSource;
 import javax.activation.FileDataSource;
+import javax.mail.Address;
 import javax.mail.Authenticator;
 import javax.mail.BodyPart;
 import javax.mail.Message;
@@ -51,15 +51,16 @@ import java.io.IOException;
 import java.util.Properties;
 
 @Slf4j
-public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
+        implements SupportMultiTableSinkWriter<Void> {
 
     private final SeaTunnelRowType seaTunnelRowType;
-    private EmailSinkConfig config;
+    private final EmailSinkConfig config;
     private StringBuffer stringBuffer;
 
-    public EmailSinkWriter(SeaTunnelRowType seaTunnelRowType, Config pluginConfig) {
+    public EmailSinkWriter(SeaTunnelRowType seaTunnelRowType, EmailSinkConfig pluginConfig) {
         this.seaTunnelRowType = seaTunnelRowType;
-        this.config = new EmailSinkConfig(pluginConfig);
+        this.config = pluginConfig;
         this.stringBuffer = new StringBuffer();
     }
 
@@ -78,29 +79,32 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     public void close() {
         createFile();
         Properties properties = new Properties();
-
         properties.setProperty("mail.host", config.getEmailHost());
-
         properties.setProperty("mail.transport.protocol", config.getEmailTransportProtocol());
-
-        properties.setProperty("mail.smtp.auth", config.getEmailSmtpAuth());
+        properties.setProperty("mail.smtp.auth", config.getEmailSmtpAuth().toString());
+        properties.setProperty("mail.smtp.port", config.getEmailSmtpPort().toString());
 
         try {
             MailSSLSocketFactory sf = new MailSSLSocketFactory();
             sf.setTrustAllHosts(true);
-            properties.put("mail.smtp.ssl.enable", "true");
             properties.put("mail.smtp.ssl.socketFactory", sf);
-            Session session =
-                    Session.getDefaultInstance(
-                            properties,
-                            new Authenticator() {
-                                @Override
-                                protected PasswordAuthentication getPasswordAuthentication() {
-                                    return new PasswordAuthentication(
-                                            config.getEmailFromAddress(),
-                                            config.getEmailAuthorizationCode());
-                                }
-                            });
+            Session session;
+            if (config.getEmailSmtpAuth()) {
+                properties.put("mail.smtp.ssl.enable", "true");
+                session =
+                        Session.getDefaultInstance(
+                                properties,
+                                new Authenticator() {
+                                    @Override
+                                    protected PasswordAuthentication getPasswordAuthentication() {
+                                        return new PasswordAuthentication(
+                                                config.getEmailFromAddress(),
+                                                config.getEmailAuthorizationCode());
+                                    }
+                                });
+            } else {
+                session = Session.getDefaultInstance(properties);
+            }
             // Create the default MimeMessage object
             MimeMessage message = new MimeMessage(session);
 
@@ -108,8 +112,14 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             message.setFrom(new InternetAddress(config.getEmailFromAddress()));
 
             // Set the recipient email address
-            message.addRecipient(
-                    Message.RecipientType.TO, new InternetAddress(config.getEmailToAddress()));
+            String[] emailAddresses = config.getEmailToAddress().split(",");
+            Address[] addresses = new Address[emailAddresses.length];
+            for (int i = 0; i < emailAddresses.length; i++) {
+                addresses[i] = new InternetAddress(emailAddresses[i]);
+            }
+            if (addresses.length > 0) {
+                message.setRecipients(Message.RecipientType.TO, addresses);
+            }
 
             // Setting the Email subject
             message.setSubject(config.getEmailMessageHeadline());

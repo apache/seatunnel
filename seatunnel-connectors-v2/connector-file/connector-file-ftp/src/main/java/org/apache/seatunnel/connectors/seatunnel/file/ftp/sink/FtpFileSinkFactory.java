@@ -17,18 +17,27 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.ftp.sink;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.SinkCommonOptions;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
+import org.apache.seatunnel.connectors.seatunnel.file.factory.BaseMultipleTableFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class FtpFileSinkFactory implements TableSinkFactory {
+public class FtpFileSinkFactory extends BaseMultipleTableFileSinkFactory {
     @Override
     public String factoryIdentifier() {
         return FileSystemType.FTP.getFileSystemPluginName();
@@ -42,7 +51,11 @@ public class FtpFileSinkFactory implements TableSinkFactory {
                 .required(FtpConfigOptions.FTP_PORT)
                 .required(FtpConfigOptions.FTP_USERNAME)
                 .required(FtpConfigOptions.FTP_PASSWORD)
+                .optional(SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                .optional(BaseSinkConfig.TMP_PATH)
                 .optional(BaseSinkConfig.FILE_FORMAT_TYPE)
+                .optional(BaseSinkConfig.SCHEMA_SAVE_MODE)
+                .optional(BaseSinkConfig.DATA_SAVE_MODE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
@@ -93,5 +106,13 @@ public class FtpFileSinkFactory implements TableSinkFactory {
                 .optional(BaseSinkConfig.TIME_FORMAT)
                 .optional(FtpConfigOptions.FTP_CONNECTION_MODE)
                 .build();
+    }
+
+    @Override
+    public TableSink<SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo>
+            createSink(TableSinkFactoryContext context) {
+        ReadonlyConfig readonlyConfig = context.getOptions();
+        CatalogTable catalogTable = context.getCatalogTable();
+        return () -> new FtpFileSink(readonlyConfig, catalogTable);
     }
 }

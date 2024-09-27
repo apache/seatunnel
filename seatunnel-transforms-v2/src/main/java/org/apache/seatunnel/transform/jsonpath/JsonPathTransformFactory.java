@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.transform.common.CommonOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -36,7 +37,10 @@ public class JsonPathTransformFactory implements TableTransformFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(JsonPathTransformConfig.COLUMNS).build();
+        return OptionRule.builder()
+                .required(JsonPathTransformConfig.COLUMNS)
+                .optional(CommonOptions.ROW_ERROR_HANDLE_WAY_OPTION)
+                .build();
     }
 
     @Override

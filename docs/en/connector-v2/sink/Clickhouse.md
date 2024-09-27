@@ -24,9 +24,9 @@ Used to write data to Clickhouse.
 In order to use the Clickhouse connector, the following dependencies are required.
 They can be downloaded via install-plugin.sh or from the Maven central repository.
 
-| Datasource | Supported Versions |                                                    Dependency                                                    |
-|------------|--------------------|------------------------------------------------------------------------------------------------------------------|
-| Clickhouse | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-clickhouse) |
+| Datasource | Supported Versions | Dependency                                                                               |
+|------------|--------------------|------------------------------------------------------------------------------------------|
+| Clickhouse | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-clickhouse) |
 
 ## Data Type Mapping
 
@@ -59,7 +59,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | primary_key                           | String  | No       | -       | Mark the primary key column from clickhouse table, and based on primary key execute INSERT/UPDATE/DELETE to clickhouse table.                                                                                                                                                                               |
 | support_upsert                        | Boolean | No       | false   | Support upsert row by query primary key.                                                                                                                                                                                                                                                                    |
 | allow_experimental_lightweight_delete | Boolean | No       | false   | Allow experimental lightweight delete based on `*MergeTree` table engine.                                                                                                                                                                                                                                   |
-| common-options                        |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.                                                                                                                                                                                                        |
+| common-options                        |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.                                                                                                                                                                                                |
 
 ## How to Create a Clickhouse Data Synchronization Jobs
 
