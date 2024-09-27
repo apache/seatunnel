@@ -664,6 +664,7 @@ public class CoordinatorService {
                                     jobMaster.run();
                                 } else {
                                     pendingJob.add(new Tuple2<>(jobId, jobMaster));
+                                    jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
                                     logger.info("Resources not enough, enter the pending queue");
                                 }
                             } else if (dynamicSlot || jobMaster.preApplyResources()) {

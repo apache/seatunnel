@@ -310,6 +310,7 @@ public class PhysicalPlan {
             case CREATED:
                 updateJobState(JobStatus.SCHEDULED);
                 break;
+            case PENDING:
             case SCHEDULED:
                 getPipelineList()
                         .forEach(

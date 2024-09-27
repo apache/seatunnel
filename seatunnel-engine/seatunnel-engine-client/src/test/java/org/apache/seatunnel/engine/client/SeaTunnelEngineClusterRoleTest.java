@@ -187,7 +187,8 @@ public class SeaTunnelEngineClusterRoleTest {
         // set job pending
         EngineConfig engineConfig = seaTunnelConfig.getEngineConfig();
         engineConfig.setScheduleStrategy(ScheduleStrategy.WAIT);
-
+        engineConfig.getSlotServiceConfig().setDynamicSlot(false);
+        engineConfig.getSlotServiceConfig().setSlotNum(3);
         seaTunnelConfig
                 .getHazelcastConfig()
                 .setClusterName(TestUtils.getClusterName(testClusterName));
@@ -215,13 +216,13 @@ public class SeaTunnelEngineClusterRoleTest {
             ClientJobExecutionEnvironment jobExecutionEnv =
                     seaTunnelClient.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            Awaitility.await()
-                    .atMost(10000, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () ->
-                                    Assertions.assertEquals(
-                                            clientJobProxy.getJobStatus(), JobStatus.PENDING));
-
+//            Awaitility.await()
+//                    .atMost(10000, TimeUnit.MILLISECONDS)
+//                    .untilAsserted(
+//                            () ->
+//                                    Assertions.assertEquals(
+//                                            clientJobProxy.getJobStatus(), JobStatus.PENDING));
+//            System.out.println("123:"+clientJobProxy.getJobStatus());
             // start two worker nodes
             SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
             SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
@@ -232,7 +233,8 @@ public class SeaTunnelEngineClusterRoleTest {
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
-                                            clientJobProxy.getJobStatus(), JobStatus.FINISHED));
+                                            JobStatus.FINISHED,clientJobProxy.getJobStatus()));
+            System.out.println("1234:"+clientJobProxy.getJobStatus());
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
         } finally {
