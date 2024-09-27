@@ -62,6 +62,7 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-jetty9-9.4.56</artifactId>
             <version>${project.version}</version>
+            <classifier>optional</classifier>
         </dependency>
         <dependency>
             <groupId>jakarta.servlet</groupId>
