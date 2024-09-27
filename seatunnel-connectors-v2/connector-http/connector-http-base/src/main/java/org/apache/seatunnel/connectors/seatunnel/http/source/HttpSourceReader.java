@@ -155,7 +155,9 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        internalPollNext(output);
+        synchronized (lock) {
+            internalPollNext(output);
+        }
     }
 
     @Override
