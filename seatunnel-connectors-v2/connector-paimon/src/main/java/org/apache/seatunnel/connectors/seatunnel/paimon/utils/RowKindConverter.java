@@ -19,12 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.utils;
 
 import org.apache.seatunnel.api.table.type.RowKind;
 
-import org.apache.paimon.data.InternalRow;
-
 public class RowKindConverter {
 
     /**
-     * Convert SeaTunnel RowKind {@link RowKind} to Paimon RowKind {@link InternalRow}
+     * Convert SeaTunnel RowKind {@link RowKind} to Paimon RowKind {@link
+     * org.apache.paimon.types.RowKind}
      *
      * @param seaTunnelRowKind The kind of change that a row describes in a changelog.
      * @return
@@ -40,6 +39,29 @@ public class RowKindConverter {
                 return org.apache.paimon.types.RowKind.UPDATE_BEFORE;
             case INSERT:
                 return org.apache.paimon.types.RowKind.INSERT;
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Convert Paimon RowKind {@link org.apache.paimon.types.RowKind} to SeaTunnel RowKind {@link
+     * RowKind}
+     *
+     * @param paimonRowKind
+     * @return
+     */
+    public static RowKind convertPaimonRowKind2SeatunnelRowkind(
+            org.apache.paimon.types.RowKind paimonRowKind) {
+        switch (paimonRowKind) {
+            case DELETE:
+                return RowKind.DELETE;
+            case UPDATE_AFTER:
+                return RowKind.UPDATE_AFTER;
+            case UPDATE_BEFORE:
+                return RowKind.UPDATE_BEFORE;
+            case INSERT:
+                return RowKind.INSERT;
             default:
                 return null;
         }

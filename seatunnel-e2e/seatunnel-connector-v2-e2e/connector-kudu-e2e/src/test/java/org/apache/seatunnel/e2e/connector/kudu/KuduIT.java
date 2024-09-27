@@ -385,10 +385,6 @@ public class KuduIT extends TestSuiteBase implements TestResource {
         kuduClient.deleteTable("kudu_cdc_sink_table");
     }
 
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.FLINK},
-            disabledReason = "Currently FLINK do not support multiple table read")
     @TestTemplate
     public void testKuduMultipleRead(TestContainer container)
             throws IOException, InterruptedException {

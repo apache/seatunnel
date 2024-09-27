@@ -17,18 +17,21 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.source;
 
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowConverter;
+import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowKindConverter;
 
 import org.apache.paimon.data.InternalRow;
-import org.apache.paimon.predicate.Predicate;
 import org.apache.paimon.reader.RecordReader;
 import org.apache.paimon.reader.RecordReaderIterator;
 import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
+import org.apache.paimon.table.source.TableRead;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -48,20 +51,14 @@ public class PaimonSourceReader implements SourceReader<SeaTunnelRow, PaimonSour
     private final Table table;
     private final SeaTunnelRowType seaTunnelRowType;
     private volatile boolean noMoreSplit;
-    private final Predicate predicate;
-    private int[] projection;
+    private final TableRead tableRead;
 
     public PaimonSourceReader(
-            Context context,
-            Table table,
-            SeaTunnelRowType seaTunnelRowType,
-            Predicate predicate,
-            int[] projection) {
+            Context context, Table table, SeaTunnelRowType seaTunnelRowType, TableRead tableRead) {
         this.context = context;
         this.table = table;
         this.seaTunnelRowType = seaTunnelRowType;
-        this.predicate = predicate;
-        this.projection = projection;
+        this.tableRead = tableRead;
     }
 
     @Override
@@ -81,12 +78,7 @@ public class PaimonSourceReader implements SourceReader<SeaTunnelRow, PaimonSour
             if (Objects.nonNull(split)) {
                 // read logic
                 try (final RecordReader<InternalRow> reader =
-                        table.newReadBuilder()
-                                .withProjection(projection)
-                                .withFilter(predicate)
-                                .newRead()
-                                .executeFilter()
-                                .createReader(split.getSplit())) {
+                        tableRead.executeFilter().createReader(split.getSplit())) {
                     final RecordReaderIterator<InternalRow> rowIterator =
                             new RecordReaderIterator<>(reader);
                     while (rowIterator.hasNext()) {
@@ -94,16 +86,31 @@ public class PaimonSourceReader implements SourceReader<SeaTunnelRow, PaimonSour
                         final SeaTunnelRow seaTunnelRow =
                                 RowConverter.convert(
                                         row, seaTunnelRowType, ((FileStoreTable) table).schema());
+                        if (Boundedness.UNBOUNDED.equals(context.getBoundedness())) {
+                            RowKind rowKind =
+                                    RowKindConverter.convertPaimonRowKind2SeatunnelRowkind(
+                                            row.getRowKind());
+                            if (rowKind != null) {
+                                seaTunnelRow.setRowKind(rowKind);
+                            }
+                        }
                         output.collect(seaTunnelRow);
                     }
                 }
-            } else if (noMoreSplit && sourceSplits.isEmpty()) {
+            }
+
+            if (noMoreSplit
+                    && sourceSplits.isEmpty()
+                    && Boundedness.BOUNDED.equals(context.getBoundedness())) {
                 // signal to the source that we have reached the end of the data.
-                log.info("Closed the bounded flink table store source");
+                log.info("Closed the bounded table store source");
                 context.signalNoMoreElement();
             } else {
-                log.warn("Waiting for flink table source split, sleeping 1s");
-                Thread.sleep(1000L);
+                context.sendSplitRequest();
+                if (sourceSplits.isEmpty()) {
+                    log.debug("Waiting for table source split, sleeping 1s");
+                    Thread.sleep(1000L);
+                }
             }
         }
     }

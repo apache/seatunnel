@@ -84,6 +84,11 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
                 sftpContainer);
 
         ContainerUtil.copyFileIntoContainers(
+                "/text/e2e-text.zip",
+                "/home/seatunnel/tmp/seatunnel/read/zip/text/e2e-text.zip",
+                sftpContainer);
+
+        ContainerUtil.copyFileIntoContainers(
                 "/excel/e2e.xlsx",
                 "/home/seatunnel/tmp/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xlsx",
                 sftpContainer);
@@ -121,6 +126,8 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
         helper.execute("/text/sftp_file_text_to_assert.conf");
         // test read sftp text file with projection
         helper.execute("/text/sftp_file_text_projection_to_assert.conf");
+        // test read sftp zip text file
+        helper.execute("/text/sftp_file_zip_text_to_assert.conf");
         // test write sftp json file
         helper.execute("/json/fake_to_sftp_file_json.conf");
         // test read sftp json file

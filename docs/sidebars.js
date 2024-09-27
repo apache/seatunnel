@@ -93,7 +93,8 @@ const sidebars = {
                 'concept/sink-options-placeholders',
                 'concept/sql-config',
                 'concept/speed-limit',
-                'concept/event-listener'
+                'concept/event-listener',
+                'concept/schema-evolution'
             ]
         },
         {
@@ -203,6 +204,7 @@ const sidebars = {
                 "seatunnel-engine/resource-isolation",
                 "seatunnel-engine/rest-api",
                 "seatunnel-engine/user-command",
+                "seatunnel-engine/logging",
                 "seatunnel-engine/telemetry"
             ]
         },

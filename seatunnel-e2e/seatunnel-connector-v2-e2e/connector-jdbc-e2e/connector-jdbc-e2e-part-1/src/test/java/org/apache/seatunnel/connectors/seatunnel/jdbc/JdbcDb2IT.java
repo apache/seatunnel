@@ -118,9 +118,6 @@ public class JdbcDb2IT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult(String executeKey) {}
-
-    @Override
     String driverUrl() {
         return "https://repo1.maven.org/maven2/com/ibm/db2/jcc/db2jcc/db2jcc4/db2jcc-db2jcc4.jar";
     }
