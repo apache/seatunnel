@@ -172,6 +172,7 @@ public class ClickhouseFileSinkWriter
     @Override
     public Optional<CKFileCommitInfo> prepareCommit() throws IOException {
         for (FileChannel channel : rowCache.values()) {
+            channel.truncate(channel.position());
             channel.close();
         }
         Map<Shard, List<String>> detachedFiles = new HashMap<>();
@@ -245,10 +246,11 @@ public class ClickhouseFileSinkWriter
         byte[] byteData = data.getBytes(StandardCharsets.UTF_8);
         if (buffer.position() + byteData.length > buffer.capacity()) {
             buffer =
-                    fileChannel.map(FileChannel.MapMode.READ_WRITE, fileChannel.size(), bufferSize);
+                    fileChannel.map(FileChannel.MapMode.READ_WRITE, fileChannel.position(), bufferSize);
             bufferCache.put(shard, buffer);
         }
         buffer.put(byteData);
+        fileChannel.position(fileChannel.size() - bufferSize + buffer.position());
     }
 
     private List<String> generateClickhouseLocalFiles(String clickhouseLocalFileTmpFile)
