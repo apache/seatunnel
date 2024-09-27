@@ -54,14 +54,14 @@ public class SeaTunnelNodeContext extends DefaultNodeContext {
         join.verify();
 
         if (node.shouldUseMulticastJoiner(join) && node.multicastService != null) {
-            super.createJoiner(node);
+            return super.createJoiner(node);
         } else if (join.getTcpIpConfig().isEnabled()) {
             log.info("Using LiteNodeDropOutTcpIpJoiner TCP/IP discovery");
             return new LiteNodeDropOutTcpIpJoiner(node);
         } else if (node.getProperties().getBoolean(DISCOVERY_SPI_ENABLED)
                 || isAnyAliasedConfigEnabled(join)
                 || join.isAutoDetectionEnabled()) {
-            super.createJoiner(node);
+            return super.createJoiner(node);
         }
         return null;
     }
