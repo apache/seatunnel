@@ -216,13 +216,12 @@ public class SeaTunnelEngineClusterRoleTest {
             ClientJobExecutionEnvironment jobExecutionEnv =
                     seaTunnelClient.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-//            Awaitility.await()
-//                    .atMost(10000, TimeUnit.MILLISECONDS)
-//                    .untilAsserted(
-//                            () ->
-//                                    Assertions.assertEquals(
-//                                            clientJobProxy.getJobStatus(), JobStatus.PENDING));
-//            System.out.println("123:"+clientJobProxy.getJobStatus());
+            Awaitility.await()
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            clientJobProxy.getJobStatus(), JobStatus.PENDING));
             // start two worker nodes
             SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
             SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
@@ -233,8 +232,8 @@ public class SeaTunnelEngineClusterRoleTest {
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
-                                            JobStatus.FINISHED,clientJobProxy.getJobStatus()));
-            System.out.println("1234:"+clientJobProxy.getJobStatus());
+                                            JobStatus.FINISHED, clientJobProxy.getJobStatus()));
+            System.out.println("1234:" + clientJobProxy.getJobStatus());
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
         } finally {
