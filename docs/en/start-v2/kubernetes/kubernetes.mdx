@@ -729,39 +729,66 @@ To stop your job and delete your FlinkDeployment you can simply:
 kubectl delete -f seatunnel.yaml
 ```
 </TabItem>
-
-<TabItem value="Zeta (cluster-mode)">
-
-You may follow the logs of your job, after a successful startup (which can take on the order of a minute in a fresh environment, seconds afterwards) you can:
-
-```bash
-kubectl exec -it  seatunnel-1  -- tail -f /opt/seatunnel/logs/seatunnel-engine-server.log | grep ConsoleSinkWriter
-```
-
-looks like the below (your content may be different since we use `FakeSource` to automatically generate random stream data):
-
-```shell
-...
-2023-10-10 08:05:07,283 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=1  rowIndex=7:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : IibHk, 820962465
-2023-10-10 08:05:07,283 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=1  rowIndex=8:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : lmKdb, 1072498088
-2023-10-10 08:05:07,283 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=1  rowIndex=9:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : iqGva, 918730371
-2023-10-10 08:05:07,284 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=1  rowIndex=10:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : JMHmq, 1130771733
-2023-10-10 08:05:07,284 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=1  rowIndex=11:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : rxoHF, 189596686
-2023-10-10 08:05:07,284 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=1  rowIndex=12:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : OSblw, 559472064
-2023-10-10 08:05:07,284 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=1  rowIndex=13:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : yTZjG, 1842482272
-2023-10-10 08:05:07,284 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=1  rowIndex=14:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : RRiMg, 1713777214
-2023-10-10 08:05:07,284 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=1  rowIndex=15:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : lRcsd, 1626041649
-2023-10-10 08:05:07,284 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=1  rowIndex=16:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : QrNNW, 41355294
-
-```
-
-To stop your job and delete your FlinkDeployment you can simply:
-
-```bash
-kubectl delete -f  seatunnel-cluster.yaml
-```
-</TabItem>
 </Tabs>
+
+
+## Zeta Cluster Mode
+When we say Zeta cluster mode, it means it will has multiple node as the server(worker) node. They are in same hazelcast cluster, they can connect, send message with each other.
+
+Refer Document: https://docs.hazelcast.com/hazelcast/5.0/deploy/configuring-kubernetes
+
+If we create the zeta cluster on k8s, there has 2 things you need notice:
+1. create a headless service
+2. update the hazelcast.yaml
+the hazelcast config file change to :
+`hazelcast.yaml`
+```yaml
+hazelcast:
+  network:
+    join:
+      multicast:
+        enabled: false
+      kubernetes:
+        enabled: true
+        service-dns: <you created headless service name>
+        # this service port must has (hazelcast default port is 5701) and must be consistent with your setup
+        service-port: 5801
+    port:
+      auto-increment: false
+      port: 5801
+  ... <other configurations>
+```
+
+`hazelcast-client.yaml`
+```yaml
+hazelcast-client:
+  network:
+    cluster-members:
+      - <you created headless service name>
+  ... <other configurations>
+```
+
+The pod start command is : `sh bin/seatunnel-cluster.sh`
+Then you can create the deployment or statefulset. All the pod will join the same hazelcast cluster.
+You can check the `logs/seatunnel-engine-server.log` (or update the `config/log4j2.properties` file let's the log info print to console).
+When you see the log like this, it means the network connector between each pod is success.
+```shell
+Members {size:<Your total pod number>, ver:<Your total pod number>} [
+        Member [Your Pod IP 1]:5801 - 2e2bd0dc-940f-4d97-85a5-8c2f909b1fe4
+        Member [Your Pod IP 2]:5801 - 4df94399-56e7-4715-8417-62b619405cfe this
+        ...
+]
+```
+
+After those step, you has success setup an seatunnel cluster. Then you can submit the job via [RestAPI](https://seatunnel.apache.org/docs/2.3.4/seatunnel-engine/rest-api) or shell command.
+An example of shell command submit job:
+```
+kubectl exec -it <your pod name> -- bash
+
+cd <SEATUNNEL_HOME>
+
+sh bin/seatunnel.sh -c <the config file path>
+```
 
 
 Happy SeaTunneling!

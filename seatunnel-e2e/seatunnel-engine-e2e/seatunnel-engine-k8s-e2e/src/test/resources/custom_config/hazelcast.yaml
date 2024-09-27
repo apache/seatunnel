@@ -26,16 +26,16 @@ hazelcast:
         DATA:
           enabled: true
     join:
-      tcp-ip:
+      multicast:
+        enabled: false
+      kubernetes:
         enabled: true
-        member-list:
-          - seatunnel-0.seatunnel.default.svc.cluster.local
-          - seatunnel-1.seatunnel.default.svc.cluster.local
-
+        service-dns: seatunnel.default.svc.cluster.local
+        service-port: 5801
     port:
-      auto-increment: true
-      port-count: 100
+      auto-increment: false
       port: 5801
+
   properties:
     hazelcast.invocation.max.retry.count: 100
     hazelcast.invocation.retry.pause.millis: 1000
