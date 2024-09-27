@@ -58,8 +58,6 @@ public class PaimonSource
 
     public static final String PLUGIN_NAME = "Paimon";
 
-    private ReadonlyConfig readonlyConfig;
-
     private SeaTunnelRowType seaTunnelRowType;
 
     private Table paimonTable;
@@ -71,7 +69,6 @@ public class PaimonSource
     protected final ReadBuilder readBuilder;
 
     public PaimonSource(ReadonlyConfig readonlyConfig, PaimonCatalog paimonCatalog) {
-        this.readonlyConfig = readonlyConfig;
         PaimonSourceConfig paimonSourceConfig = new PaimonSourceConfig(readonlyConfig);
         TablePath tablePath =
                 TablePath.of(paimonSourceConfig.getNamespace(), paimonSourceConfig.getTable());
