@@ -133,6 +133,9 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                     throw CommonError.unsupportedDataType(
                             converterName(), seaTunnelDataType.getSqlType().toString(), fieldName);
             }
+            if (rs.wasNull()) {
+                fields[fieldIndex] = null;
+            }
         }
         return new SeaTunnelRow(fields);
     }
