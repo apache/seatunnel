@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.task.group;
 
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskGroupType;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.group.queue.AbstractIntermediateQueue;
 import org.apache.seatunnel.engine.server.task.group.queue.IntermediateDisruptor;
@@ -68,5 +69,10 @@ public class TaskGroupWithIntermediateDisruptor extends AbstractTaskGroupWithInt
 
         this.disruptor.putIfAbsent(id, disruptor);
         return new IntermediateDisruptor(this.disruptor.get(id));
+    }
+
+    @Override
+    public TaskGroupType getTaskGroupType() {
+        return TaskGroupType.INTERMEDIATE_DISRUPTOR_QUEUE;
     }
 }

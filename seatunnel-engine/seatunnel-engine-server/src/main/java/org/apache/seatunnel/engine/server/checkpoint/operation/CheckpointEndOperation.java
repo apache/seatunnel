@@ -86,7 +86,9 @@ public class CheckpointEndOperation extends TaskOperation {
                                         .getExecutionContext(taskLocation.getTaskGroupLocation());
                         Task task = groupContext.getTaskGroup().getTask(taskLocation.getTaskID());
                         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-                        Thread.currentThread().setContextClassLoader(groupContext.getClassLoader());
+                        Thread.currentThread()
+                                .setContextClassLoader(
+                                        groupContext.getClassLoader(taskLocation.getTaskID()));
 
                         task.notifyCheckpointEnd(checkpointId);
 

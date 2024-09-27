@@ -27,9 +27,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import org.junit.jupiter.api.AfterAll;
@@ -348,10 +346,6 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
     }
 
     @TestTemplate
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.FLINK},
-            disabledReason = "Currently FLINK do not support multiple table read")
     public void testMultipletableRedisSink(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
