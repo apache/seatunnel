@@ -26,7 +26,6 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.OverviewInfo;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.internal.util.JsonUtil;
-import com.hazelcast.internal.util.StringUtil;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import javax.servlet.ServletException;
@@ -34,9 +33,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public class OverviewServlet extends BaseServlet {
 
@@ -47,19 +45,20 @@ public class OverviewServlet extends BaseServlet {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
-        String uri = StringUtil.stripTrailingSlash(req.getRequestURI());
-        String tagStr;
-        if (uri.contains("?")) {
-            int index = uri.indexOf("?");
-            tagStr = uri.substring(index + 1);
-        } else {
-            tagStr = "";
+
+        Map<String, String> tags = new HashMap<>();
+
+        Map<String, String[]> parameterMap = req.getParameterMap();
+
+        for (Map.Entry<String, String[]> entry : parameterMap.entrySet()) {
+            String paramName = entry.getKey();
+            String[] paramValues = entry.getValue();
+
+            for (String value : paramValues) {
+                tags.put(paramName, value);
+            }
         }
-        Map<String, String> tags =
-                Arrays.stream(tagStr.split("&"))
-                        .map(variable -> variable.split("=", 2))
-                        .filter(pair -> pair.length == 2)
-                        .collect(Collectors.toMap(pair -> pair[0], pair -> pair[1]));
+
         Version version = EnvironmentUtil.getVersion();
 
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
