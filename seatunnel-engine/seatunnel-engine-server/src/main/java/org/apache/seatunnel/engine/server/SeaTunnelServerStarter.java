@@ -46,6 +46,20 @@ import com.hazelcast.instance.impl.Node;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
+import static org.apache.seatunnel.engine.server.rest.RestConstant.ENCRYPT_CONFIG;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.FINISHED_JOBS_INFO;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.JOB_INFO_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.OVERVIEW;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOBS_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOB_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.STOP_JOBS_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.STOP_JOB_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.SUBMIT_JOBS_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.SUBMIT_JOB_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.SYSTEM_MONITORING_INFORMATION;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.THREAD_DUMP;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.UPDATE_TAGS_URL;
+
 @Slf4j
 public class SeaTunnelServerStarter {
 
