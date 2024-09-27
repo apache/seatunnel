@@ -21,8 +21,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.engine.server.utils.RestUtil;
 
-import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.json.JsonArray;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 import scala.Tuple2;
 
 import javax.servlet.ServletException;
@@ -39,8 +39,8 @@ import static org.apache.seatunnel.engine.server.rest.RestHttpPostCommandProcess
 import static org.apache.seatunnel.engine.server.rest.RestHttpPostCommandProcessor.submitJobInternal;
 
 public class SubmitJobServlet extends BaseServlet {
-    public SubmitJobServlet(HazelcastInstanceImpl hazelcastInstance) {
-        super(hazelcastInstance);
+    public SubmitJobServlet(NodeEngineImpl nodeEngine) {
+        super(nodeEngine);
     }
 
     @Override
@@ -61,7 +61,7 @@ public class SubmitJobServlet extends BaseServlet {
                                             tuple._2,
                                             requestParams,
                                             getSeaTunnelServer(false),
-                                            hazelcastInstance.node);
+                                            nodeEngine.getNode());
                                 })
                         .collect(JsonArray::new, JsonArray::add, JsonArray::add);
 

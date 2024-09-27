@@ -21,7 +21,6 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 
 import com.hazelcast.cluster.impl.MemberImpl;
-import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
@@ -37,8 +36,8 @@ import static org.apache.seatunnel.engine.server.rest.RestHttpPostCommandProcess
 
 public class UpdateTagsServlet extends BaseServlet {
 
-    public UpdateTagsServlet(HazelcastInstanceImpl hazelcastInstance) {
-        super(hazelcastInstance);
+    public UpdateTagsServlet(NodeEngineImpl nodeEngine) {
+        super(nodeEngine);
     }
 
     @Override

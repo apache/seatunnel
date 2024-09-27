@@ -25,7 +25,6 @@ import org.apache.seatunnel.engine.server.resourcemanager.opeartion.GetOverviewO
 import org.apache.seatunnel.engine.server.resourcemanager.resource.OverviewInfo;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
-import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.util.JsonUtil;
 import com.hazelcast.internal.util.StringUtil;
 import com.hazelcast.spi.impl.NodeEngineImpl;
@@ -41,8 +40,8 @@ import java.util.stream.Collectors;
 
 public class OverviewServlet extends BaseServlet {
 
-    public OverviewServlet(HazelcastInstanceImpl hazelcastInstance) {
-        super(hazelcastInstance);
+    public OverviewServlet(NodeEngineImpl nodeEngine) {
+        super(nodeEngine);
     }
 
     @Override
@@ -71,12 +70,10 @@ public class OverviewServlet extends BaseServlet {
             overviewInfo =
                     (OverviewInfo)
                             NodeEngineUtil.sendOperationToMasterNode(
-                                            hazelcastInstance.node.nodeEngine,
-                                            new GetOverviewOperation(tags))
+                                            nodeEngine, new GetOverviewOperation(tags))
                                     .join();
         } else {
 
-            NodeEngineImpl nodeEngine = hazelcastInstance.node.getNodeEngine();
             overviewInfo = GetOverviewOperation.getOverviewInfo(seaTunnelServer, nodeEngine, tags);
         }
         overviewInfo.setProjectVersion(version.getProjectVersion());

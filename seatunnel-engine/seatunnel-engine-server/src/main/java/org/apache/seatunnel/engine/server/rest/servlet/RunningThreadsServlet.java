@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.engine.server.rest.servlet;
 
-import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.engine.server.rest.RestConstant;
-
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.spi.impl.NodeEngineImpl;
@@ -29,31 +26,33 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
+import java.util.Comparator;
 
-import static org.apache.seatunnel.engine.server.rest.RestHttpPostCommandProcessor.handleStopJob;
-import static org.apache.seatunnel.engine.server.rest.RestHttpPostCommandProcessor.requestHandle;
+public class RunningThreadsServlet extends BaseServlet {
 
-public class StopJobsServlet extends BaseServlet {
-    public StopJobsServlet(NodeEngineImpl nodeEngine) {
+    public RunningThreadsServlet(NodeEngineImpl nodeEngine) {
         super(nodeEngine);
     }
 
     @Override
-    public void doPost(HttpServletRequest req, HttpServletResponse resp)
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
-        List<Map> jobList = JsonUtils.toList(requestHandle(requestBody(req)).toString(), Map.class);
-        JsonArray jsonResponse = new JsonArray();
 
-        jobList.forEach(
-                job -> {
-                    handleStopJob(job, getSeaTunnelServer(false), nodeEngine.getNode());
-                    jsonResponse.add(
-                            new JsonObject()
-                                    .add(RestConstant.JOB_ID, (Long) job.get(RestConstant.JOB_ID)));
-                });
+        JsonArray runningThreads =
+                Thread.getAllStackTraces().keySet().stream()
+                        .sorted(Comparator.comparing(Thread::getName))
+                        .map(
+                                stackTraceElements -> {
+                                    JsonObject jobInfoJson = new JsonObject();
+                                    jobInfoJson.add("threadName", stackTraceElements.getName());
+                                    jobInfoJson.add(
+                                            "classLoader",
+                                            String.valueOf(
+                                                    stackTraceElements.getContextClassLoader()));
+                                    return jobInfoJson;
+                                })
+                        .collect(JsonArray::new, JsonArray::add, JsonArray::add);
 
-        writeJson(resp, jsonResponse);
+        writeJson(resp, runningThreads);
     }
 }

@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.engine.server.rest.servlet;
 
-import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -30,8 +30,8 @@ import java.util.Map;
 
 public class ThreadDumpServlet extends BaseServlet {
 
-    public ThreadDumpServlet(HazelcastInstanceImpl hazelcastInstance) {
-        super(hazelcastInstance);
+    public ThreadDumpServlet(NodeEngineImpl nodeEngine) {
+        super(nodeEngine);
     }
 
     @Override

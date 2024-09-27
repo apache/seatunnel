@@ -46,8 +46,12 @@ import java.util.concurrent.TimeUnit;
 
 import static io.restassured.RestAssured.given;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.CONTEXT_PATH;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.notNullValue;
 
-static @Slf4j public class RestApiIT {
+@Slf4j
+public class RestApiIT {
 
     private static final String HOST = "http://localhost:";
 
@@ -223,6 +227,15 @@ static @Slf4j public class RestApiIT {
 
                                             given().get(
                                                             HOST
+                                                                    + key
+                                                                    + CONTEXT_PATH
+                                                                    + RestConstant.RUNNING_JOB_URL
+                                                                    + "/")
+                                                    .then()
+                                                    .statusCode(500);
+
+                                            given().get(
+                                                            HOST
                                                                     + value
                                                                     + node1Config
                                                                             .getEngineConfig()
@@ -234,21 +247,19 @@ static @Slf4j public class RestApiIT {
                                                     .then()
                                                     .statusCode(200)
                                                     .body("jobId", equalTo("123"));
+
+                                            given().get(
+                                                            HOST
+                                                                    + value
+                                                                    + node1Config
+                                                                            .getEngineConfig()
+                                                                            .getHttpConfig()
+                                                                            .getContextPath()
+                                                                    + RestConstant.RUNNING_JOB_URL
+                                                                    + "/")
+                                                    .then()
+                                                    .statusCode(500);
                                         }));
-        Arrays.asList(node2, node1)
-                .forEach(
-                        instance -> {
-                            given().get(
-                                            HOST
-                                                    + instance.getCluster()
-                                                            .getLocalMember()
-                                                            .getAddress()
-                                                            .getPort()
-                                                    + RestConstant.RUNNING_JOB_URL
-                                                    + "/")
-                                    .then()
-                                    .statusCode(500);
-                        });
     }
 
     @Test
@@ -397,6 +408,7 @@ static @Slf4j public class RestApiIT {
         given().get(
                         HOST
                                 + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + CONTEXT_PATH
                                 + RestConstant.OVERVIEW
                                 + "?tag1=dev_1")
                 .then()
@@ -408,6 +420,7 @@ static @Slf4j public class RestApiIT {
                 .put(
                         HOST
                                 + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + CONTEXT_PATH
                                 + RestConstant.UPDATE_TAGS_URL)
                 .then()
                 .statusCode(200)
@@ -416,6 +429,7 @@ static @Slf4j public class RestApiIT {
         given().get(
                         HOST
                                 + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + CONTEXT_PATH
                                 + RestConstant.OVERVIEW
                                 + "?tag1=dev_1")
                 .then()
@@ -431,6 +445,7 @@ static @Slf4j public class RestApiIT {
         given().put(
                         HOST
                                 + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + CONTEXT_PATH
                                 + RestConstant.UPDATE_TAGS_URL)
                 .then()
                 .statusCode(400)
@@ -444,6 +459,7 @@ static @Slf4j public class RestApiIT {
         given().get(
                         HOST
                                 + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + CONTEXT_PATH
                                 + RestConstant.OVERVIEW
                                 + "?node=node1")
                 .then()
@@ -455,6 +471,7 @@ static @Slf4j public class RestApiIT {
                 .put(
                         HOST
                                 + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + CONTEXT_PATH
                                 + RestConstant.UPDATE_TAGS_URL)
                 .then()
                 .statusCode(200)
@@ -463,6 +480,7 @@ static @Slf4j public class RestApiIT {
         given().get(
                         HOST
                                 + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + CONTEXT_PATH
                                 + RestConstant.OVERVIEW
                                 + "?node=node1")
                 .then()

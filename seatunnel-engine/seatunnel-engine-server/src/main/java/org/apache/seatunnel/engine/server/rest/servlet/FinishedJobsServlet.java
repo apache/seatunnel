@@ -25,9 +25,9 @@ import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
-import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.map.IMap;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -42,8 +42,8 @@ public class FinishedJobsServlet extends BaseServlet {
 
     private static final long serialVersionUID = 1L;
 
-    public FinishedJobsServlet(HazelcastInstanceImpl hazelcastInstance) {
-        super(hazelcastInstance);
+    public FinishedJobsServlet(NodeEngineImpl nodeEngine) {
+        super(nodeEngine);
     }
 
     @Override
@@ -51,13 +51,13 @@ public class FinishedJobsServlet extends BaseServlet {
             throws ServletException, IOException {
         String state = req.getPathInfo().substring(1);
         IMap<Long, JobState> finishedJob =
-                hazelcastInstance.getMap(Constant.IMAP_FINISHED_JOB_STATE);
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE);
 
         IMap<Long, JobMetrics> finishedJobMetrics =
-                hazelcastInstance.getMap(Constant.IMAP_FINISHED_JOB_METRICS);
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_METRICS);
 
         IMap<Long, JobDAGInfo> finishedJobDAGInfo =
-                hazelcastInstance.getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO);
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO);
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
         JsonArray jobs =
                 finishedJob.values().stream()
@@ -79,9 +79,7 @@ public class FinishedJobsServlet extends BaseServlet {
                                         jobMetrics =
                                                 (String)
                                                         NodeEngineUtil.sendOperationToMasterNode(
-                                                                        hazelcastInstance
-                                                                                .node
-                                                                                .nodeEngine,
+                                                                        nodeEngine,
                                                                         new GetJobMetricsOperation(
                                                                                 jobId))
                                                                 .join();

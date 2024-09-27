@@ -23,9 +23,9 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.apache.seatunnel.core.starter.utils.ConfigShadeUtils;
 import org.apache.seatunnel.engine.server.utils.RestUtil;
 
-import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.json.Json;
 import com.hazelcast.internal.json.JsonObject;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -37,8 +37,8 @@ import static org.apache.seatunnel.engine.server.rest.RestHttpPostCommandProcess
 
 public class EncryptConfigServlet extends BaseServlet {
 
-    public EncryptConfigServlet(HazelcastInstanceImpl hazelcastInstance) {
-        super(hazelcastInstance);
+    public EncryptConfigServlet(NodeEngineImpl nodeEngine) {
+        super(nodeEngine);
     }
 
     @Override

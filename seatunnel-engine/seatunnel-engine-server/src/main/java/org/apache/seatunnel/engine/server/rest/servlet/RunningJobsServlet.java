@@ -20,9 +20,9 @@ package org.apache.seatunnel.engine.server.rest.servlet;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 
-import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.map.IMap;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.servlet.ServletException;
@@ -34,14 +34,16 @@ import java.io.IOException;
 @Slf4j
 public class RunningJobsServlet extends BaseServlet {
 
-    public RunningJobsServlet(HazelcastInstanceImpl hazelcastInstance) {
-        super(hazelcastInstance);
+    public RunningJobsServlet(NodeEngineImpl nodeEngine) {
+        super(nodeEngine);
     }
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
-        IMap<Long, JobInfo> values = hazelcastInstance.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+
+        IMap<Long, JobInfo> values =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
         JsonArray jobs =
                 values.entrySet().stream()
                         .map(

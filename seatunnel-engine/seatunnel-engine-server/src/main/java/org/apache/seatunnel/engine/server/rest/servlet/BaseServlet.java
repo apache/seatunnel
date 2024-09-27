@@ -31,11 +31,11 @@ import org.apache.seatunnel.engine.server.rest.RestConstant;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.google.gson.Gson;
-import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.json.JsonValue;
 import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -51,10 +51,10 @@ import static org.apache.seatunnel.engine.server.rest.RestHttpGetCommandProcesso
 
 public class BaseServlet extends HttpServlet {
 
-    protected final HazelcastInstanceImpl hazelcastInstance;
+    protected final NodeEngineImpl nodeEngine;
 
-    public BaseServlet(HazelcastInstanceImpl hazelcastInstance) {
-        this.hazelcastInstance = hazelcastInstance;
+    public BaseServlet(NodeEngineImpl nodeEngine) {
+        this.nodeEngine = nodeEngine;
     }
 
     protected void writeJson(HttpServletResponse resp, Object obj) throws IOException {
@@ -97,14 +97,10 @@ public class BaseServlet extends HttpServlet {
 
         JsonObject jobInfoJson = new JsonObject();
         JobImmutableInformation jobImmutableInformation =
-                hazelcastInstance
-                        .node
-                        .getNodeEngine()
+                nodeEngine
                         .getSerializationService()
                         .toObject(
-                                hazelcastInstance
-                                        .node
-                                        .getNodeEngine()
+                                nodeEngine
                                         .getSerializationService()
                                         .toObject(jobInfo.getJobImmutableInformation()));
 
@@ -118,7 +114,7 @@ public class BaseServlet extends HttpServlet {
                         jobId, jobImmutableInformation.getPluginJarsUrls());
         LogicalDag logicalDag =
                 CustomClassLoadedObject.deserializeWithCustomClassLoader(
-                        hazelcastInstance.node.getNodeEngine().getSerializationService(),
+                        nodeEngine.getSerializationService(),
                         classLoader,
                         jobImmutableInformation.getLogicalDag());
         classLoaderService.releaseClassLoader(jobId, jobImmutableInformation.getPluginJarsUrls());
@@ -129,15 +125,13 @@ public class BaseServlet extends HttpServlet {
             jobMetrics =
                     (String)
                             NodeEngineUtil.sendOperationToMasterNode(
-                                            hazelcastInstance.node.getNodeEngine(),
-                                            new GetJobMetricsOperation(jobId))
+                                            nodeEngine, new GetJobMetricsOperation(jobId))
                                     .join();
             jobStatus =
                     JobStatus.values()[
                             (int)
                                     NodeEngineUtil.sendOperationToMasterNode(
-                                                    hazelcastInstance.node.getNodeEngine(),
-                                                    new GetJobStatusOperation(jobId))
+                                                    nodeEngine, new GetJobStatusOperation(jobId))
                                             .join()];
         } else {
             jobMetrics =
@@ -180,7 +174,7 @@ public class BaseServlet extends HttpServlet {
 
     protected SeaTunnelServer getSeaTunnelServer(boolean shouldBeMaster) {
         Map<String, Object> extensionServices =
-                hazelcastInstance.node.getNodeExtension().createExtensionServices();
+                nodeEngine.getNode().getNodeExtension().createExtensionServices();
         SeaTunnelServer seaTunnelServer =
                 (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
         if (shouldBeMaster && !seaTunnelServer.isMasterNode()) {

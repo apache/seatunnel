@@ -24,9 +24,9 @@ import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
-import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.map.IMap;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -37,8 +37,8 @@ import java.io.IOException;
 import static org.apache.seatunnel.engine.server.rest.RestHttpGetCommandProcessor.getJobInfoJson;
 
 public class JobInfoServlet extends BaseServlet {
-    public JobInfoServlet(HazelcastInstanceImpl hazelcastInstance) {
-        super(hazelcastInstance);
+    public JobInfoServlet(NodeEngineImpl nodeEngine) {
+        super(nodeEngine);
     }
 
     @Override
@@ -49,22 +49,25 @@ public class JobInfoServlet extends BaseServlet {
 
         String jobId = uri.substring(uri.lastIndexOf("/") + 1);
 
-        IMap<Object, Object> jobInfoMap = hazelcastInstance.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Object, Object> jobInfoMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
         JobInfo jobInfo = (JobInfo) jobInfoMap.get(Long.valueOf(jobId));
         IMap<Object, Object> finishedJobStateMap =
-                hazelcastInstance.getMap(Constant.IMAP_FINISHED_JOB_STATE);
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE);
         JobState finishedJobState = (JobState) finishedJobStateMap.get(Long.valueOf(jobId));
         if (!jobId.isEmpty() && jobInfo != null) {
             writeJson(resp, convertToJson(jobInfo, Long.parseLong(jobId)));
         } else if (!jobId.isEmpty() && finishedJobState != null) {
             JobMetrics finishedJobMetrics =
                     (JobMetrics)
-                            hazelcastInstance
+                            nodeEngine
+                                    .getHazelcastInstance()
                                     .getMap(Constant.IMAP_FINISHED_JOB_METRICS)
                                     .get(Long.valueOf(jobId));
             JobDAGInfo finishedJobDAGInfo =
                     (JobDAGInfo)
-                            hazelcastInstance
+                            nodeEngine
+                                    .getHazelcastInstance()
                                     .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO)
                                     .get(Long.valueOf(jobId));
             writeJson(

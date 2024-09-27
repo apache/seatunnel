@@ -23,9 +23,9 @@ import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Cluster;
 import com.hazelcast.cluster.Member;
-import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.servlet.ServletException;
@@ -39,15 +39,15 @@ import java.util.concurrent.ExecutionException;
 
 @Slf4j
 public class SystemMonitoringServlet extends BaseServlet {
-    public SystemMonitoringServlet(HazelcastInstanceImpl hazelcastInstance) {
-        super(hazelcastInstance);
+    public SystemMonitoringServlet(NodeEngineImpl nodeEngine) {
+        super(nodeEngine);
     }
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        Cluster cluster = hazelcastInstance.getCluster();
+        Cluster cluster = nodeEngine.getHazelcastInstance().getCluster();
 
         Set<Member> members = cluster.getMembers();
         JsonArray jsonValues =
@@ -60,8 +60,7 @@ public class SystemMonitoringServlet extends BaseServlet {
                                         input =
                                                 (String)
                                                         NodeEngineUtil.sendOperationToMemberNode(
-                                                                        hazelcastInstance.node
-                                                                                .getNodeEngine(),
+                                                                        nodeEngine,
                                                                         new GetClusterHealthMetricsOperation(),
                                                                         address)
                                                                 .get();

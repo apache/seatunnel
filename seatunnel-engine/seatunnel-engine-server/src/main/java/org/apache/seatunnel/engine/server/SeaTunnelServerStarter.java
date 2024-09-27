@@ -17,26 +17,9 @@
 
 package org.apache.seatunnel.engine.server;
 
-import org.apache.seatunnel.shade.org.eclipse.jetty.server.Server;
-import org.apache.seatunnel.shade.org.eclipse.jetty.servlet.DefaultServlet;
-import org.apache.seatunnel.shade.org.eclipse.jetty.servlet.ServletContextHandler;
-import org.apache.seatunnel.shade.org.eclipse.jetty.servlet.ServletHolder;
-
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
-import org.apache.seatunnel.engine.server.rest.servlet.EncryptConfigServlet;
-import org.apache.seatunnel.engine.server.rest.servlet.FinishedJobsServlet;
-import org.apache.seatunnel.engine.server.rest.servlet.JobInfoServlet;
-import org.apache.seatunnel.engine.server.rest.servlet.OverviewServlet;
-import org.apache.seatunnel.engine.server.rest.servlet.RunningJobsServlet;
-import org.apache.seatunnel.engine.server.rest.servlet.StopJobServlet;
-import org.apache.seatunnel.engine.server.rest.servlet.StopJobsServlet;
-import org.apache.seatunnel.engine.server.rest.servlet.SubmitJobServlet;
-import org.apache.seatunnel.engine.server.rest.servlet.SubmitJobsServlet;
-import org.apache.seatunnel.engine.server.rest.servlet.SystemMonitoringServlet;
-import org.apache.seatunnel.engine.server.rest.servlet.ThreadDumpServlet;
-import org.apache.seatunnel.engine.server.rest.servlet.UpdateTagsServlet;
 import org.apache.seatunnel.engine.server.telemetry.metrics.ExportsInstanceInitializer;
 
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
@@ -46,95 +29,11 @@ import com.hazelcast.instance.impl.Node;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
-import static org.apache.seatunnel.engine.server.rest.RestConstant.ENCRYPT_CONFIG;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.FINISHED_JOBS_INFO;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.JOB_INFO_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.OVERVIEW;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOBS_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOB_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.STOP_JOBS_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.STOP_JOB_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.SUBMIT_JOBS_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.SUBMIT_JOB_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.SYSTEM_MONITORING_INFORMATION;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.THREAD_DUMP;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.UPDATE_TAGS_URL;
-
 @Slf4j
 public class SeaTunnelServerStarter {
 
     public static void main(String[] args) {
         createHazelcastInstance();
-    }
-
-    public static void createJettyServer(
-            HazelcastInstanceImpl hazelcastInstance, SeaTunnelConfig seaTunnelConfig) {
-        Server server = new Server(seaTunnelConfig.getEngineConfig().getHttpConfig().getPort());
-
-        ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
-        context.setContextPath(seaTunnelConfig.getEngineConfig().getHttpConfig().getContextPath());
-
-        context.setResourceBase(
-                SeaTunnelServerStarter.class.getClassLoader().getResource("").toExternalForm());
-        context.addServlet(new ServletHolder("default", new DefaultServlet()), "/");
-
-        ServletHolder overviewHolder = new ServletHolder(new OverviewServlet(hazelcastInstance));
-        ServletHolder runningJobsHolder =
-                new ServletHolder(new RunningJobsServlet(hazelcastInstance));
-        ServletHolder finishedJobsHolder =
-                new ServletHolder(new FinishedJobsServlet(hazelcastInstance));
-        ServletHolder systemMonitoringHolder =
-                new ServletHolder(new SystemMonitoringServlet(hazelcastInstance));
-        ServletHolder jobInfoHolder = new ServletHolder(new JobInfoServlet(hazelcastInstance));
-        ServletHolder threadDumpHolder =
-                new ServletHolder(new ThreadDumpServlet(hazelcastInstance));
-
-        ServletHolder submitJobHolder = new ServletHolder(new SubmitJobServlet(hazelcastInstance));
-        ServletHolder submitJobsHolder =
-                new ServletHolder(new SubmitJobsServlet(hazelcastInstance));
-        ServletHolder stopJobHolder = new ServletHolder(new StopJobServlet(hazelcastInstance));
-        ServletHolder stopJobsHolder = new ServletHolder(new StopJobsServlet(hazelcastInstance));
-        ServletHolder encryptConfigHolder =
-                new ServletHolder(new EncryptConfigServlet(hazelcastInstance));
-        ServletHolder updateTagsHandler =
-                new ServletHolder(new UpdateTagsServlet(hazelcastInstance));
-
-        context.addServlet(overviewHolder, convertUrlToPath(OVERVIEW));
-        context.addServlet(runningJobsHolder, convertUrlToPath(RUNNING_JOBS_URL));
-        context.addServlet(finishedJobsHolder, convertUrlToPath(FINISHED_JOBS_INFO));
-        context.addServlet(systemMonitoringHolder, convertUrlToPath(SYSTEM_MONITORING_INFORMATION));
-        context.addServlet(jobInfoHolder, convertUrlToPath(JOB_INFO_URL));
-        context.addServlet(jobInfoHolder, convertUrlToPath(RUNNING_JOB_URL));
-        context.addServlet(threadDumpHolder, convertUrlToPath(THREAD_DUMP));
-
-        context.addServlet(submitJobHolder, convertUrlToPath(SUBMIT_JOB_URL));
-        context.addServlet(submitJobsHolder, convertUrlToPath(SUBMIT_JOBS_URL));
-        context.addServlet(stopJobHolder, convertUrlToPath(STOP_JOB_URL));
-        context.addServlet(stopJobsHolder, convertUrlToPath(STOP_JOBS_URL));
-        context.addServlet(encryptConfigHolder, convertUrlToPath(ENCRYPT_CONFIG));
-        context.addServlet(updateTagsHandler, convertUrlToPath(UPDATE_TAGS_URL));
-
-        server.setHandler(context);
-
-        try {
-            try {
-                server.start();
-            } catch (Exception e) {
-                log.error("Jetty server start failed", e);
-                throw new RuntimeException(e);
-            }
-        } finally {
-            Runtime.getRuntime()
-                    .addShutdownHook(
-                            new Thread(
-                                    () -> {
-                                        try {
-                                            server.stop();
-                                        } catch (Exception e) {
-                                            log.error("Jetty server stop failed", e);
-                                        }
-                                    }));
-        }
     }
 
     public static HazelcastInstanceImpl createHazelcastInstance(String clusterName) {
@@ -173,9 +72,6 @@ public class SeaTunnelServerStarter {
         if (condition) {
             initTelemetryInstance(original.node);
         }
-
-        // create jetty server
-        createJettyServer(original, seaTunnelConfig);
 
         return original;
     }
@@ -239,9 +135,5 @@ public class SeaTunnelServerStarter {
             return true;
         }
         return false;
-    }
-
-    private static String convertUrlToPath(String url) {
-        return url + "/*";
     }
 }
