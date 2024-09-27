@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.shade.org.eclipse.jetty.server.Server;
+import org.apache.seatunnel.shade.org.eclipse.jetty.servlet.DefaultServlet;
+import org.apache.seatunnel.shade.org.eclipse.jetty.servlet.ServletContextHandler;
+import org.apache.seatunnel.shade.org.eclipse.jetty.servlet.ServletHolder;
+
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -33,10 +38,6 @@ import org.apache.seatunnel.engine.server.rest.servlet.SystemMonitoringServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.ThreadDumpServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.UpdateTagsServlet;
 import org.apache.seatunnel.engine.server.telemetry.metrics.ExportsInstanceInitializer;
-
-import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.servlet.ServletContextHandler;
-import org.eclipse.jetty.servlet.ServletHolder;
 
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
@@ -65,19 +66,16 @@ public class SeaTunnelServerStarter {
         createHazelcastInstance();
     }
 
-    public static void createJettyServer(HazelcastInstanceImpl hazelcastInstance) {
-        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+    public static void createJettyServer(
+            HazelcastInstanceImpl hazelcastInstance, SeaTunnelConfig seaTunnelConfig) {
         Server server = new Server(seaTunnelConfig.getEngineConfig().getHttpConfig().getPort());
 
         ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
-        context.setContextPath("/");
+        context.setContextPath(seaTunnelConfig.getEngineConfig().getHttpConfig().getContextPath());
 
         context.setResourceBase(
                 SeaTunnelServerStarter.class.getClassLoader().getResource("").toExternalForm());
-        context.addServlet(
-                new org.eclipse.jetty.servlet.ServletHolder(
-                        "default", new org.eclipse.jetty.servlet.DefaultServlet()),
-                "/");
+        context.addServlet(new ServletHolder("default", new DefaultServlet()), "/");
 
         ServletHolder overviewHolder = new ServletHolder(new OverviewServlet(hazelcastInstance));
         ServletHolder runningJobsHolder =
@@ -100,35 +98,40 @@ public class SeaTunnelServerStarter {
         ServletHolder updateTagsHandler =
                 new ServletHolder(new UpdateTagsServlet(hazelcastInstance));
 
-        context.addServlet(overviewHolder, convertUrlToPath(seaTunnelConfig, OVERVIEW));
-        context.addServlet(runningJobsHolder, convertUrlToPath(seaTunnelConfig, RUNNING_JOBS_URL));
-        context.addServlet(
-                finishedJobsHolder, convertUrlToPath(seaTunnelConfig, FINISHED_JOBS_INFO));
-        context.addServlet(
-                systemMonitoringHolder,
-                convertUrlToPath(seaTunnelConfig, SYSTEM_MONITORING_INFORMATION));
-        context.addServlet(jobInfoHolder, convertUrlToPath(seaTunnelConfig, JOB_INFO_URL));
-        context.addServlet(threadDumpHolder, convertUrlToPath(seaTunnelConfig, THREAD_DUMP));
+        context.addServlet(overviewHolder, convertUrlToPath(OVERVIEW));
+        context.addServlet(runningJobsHolder, convertUrlToPath(RUNNING_JOBS_URL));
+        context.addServlet(finishedJobsHolder, convertUrlToPath(FINISHED_JOBS_INFO));
+        context.addServlet(systemMonitoringHolder, convertUrlToPath(SYSTEM_MONITORING_INFORMATION));
+        context.addServlet(jobInfoHolder, convertUrlToPath(JOB_INFO_URL));
+        context.addServlet(threadDumpHolder, convertUrlToPath(THREAD_DUMP));
 
-        context.addServlet(submitJobHolder, convertUrlToPath(seaTunnelConfig, SUBMIT_JOB_URL));
-        context.addServlet(submitJobsHolder, convertUrlToPath(seaTunnelConfig, SUBMIT_JOBS_URL));
-        context.addServlet(stopJobHolder, convertUrlToPath(seaTunnelConfig, STOP_JOB_URL));
-        context.addServlet(stopJobsHolder, convertUrlToPath(seaTunnelConfig, STOP_JOBS_URL));
-        context.addServlet(encryptConfigHolder, convertUrlToPath(seaTunnelConfig, ENCRYPT_CONFIG));
-        context.addServlet(updateTagsHandler, convertUrlToPath(seaTunnelConfig, UPDATE_TAGS_URL));
+        context.addServlet(submitJobHolder, convertUrlToPath(SUBMIT_JOB_URL));
+        context.addServlet(submitJobsHolder, convertUrlToPath(SUBMIT_JOBS_URL));
+        context.addServlet(stopJobHolder, convertUrlToPath(STOP_JOB_URL));
+        context.addServlet(stopJobsHolder, convertUrlToPath(STOP_JOBS_URL));
+        context.addServlet(encryptConfigHolder, convertUrlToPath(ENCRYPT_CONFIG));
+        context.addServlet(updateTagsHandler, convertUrlToPath(UPDATE_TAGS_URL));
 
         server.setHandler(context);
 
         try {
             try {
                 server.start();
-                server.join();
             } catch (Exception e) {
                 log.error("Jetty server start failed", e);
                 throw new RuntimeException(e);
             }
         } finally {
-            server.destroy();
+            Runtime.getRuntime()
+                    .addShutdownHook(
+                            new Thread(
+                                    () -> {
+                                        try {
+                                            server.stop();
+                                        } catch (Exception e) {
+                                            log.error("Jetty server stop failed", e);
+                                        }
+                                    }));
         }
     }
 
@@ -170,7 +173,7 @@ public class SeaTunnelServerStarter {
         }
 
         // create jetty server
-        createJettyServer(original);
+        createJettyServer(original, seaTunnelConfig);
 
         return original;
     }
@@ -236,7 +239,7 @@ public class SeaTunnelServerStarter {
         return false;
     }
 
-    private static String convertUrlToPath(SeaTunnelConfig seaTunnelConfig, String url) {
-        return seaTunnelConfig.getEngineConfig().getHttpConfig().getContextPath() + url + "/*";
+    private static String convertUrlToPath(String url) {
+        return url + "/*";
     }
 }
