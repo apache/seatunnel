@@ -58,7 +58,7 @@ public class AssignSplitOperation<SplitT extends SourceSplit> extends TracingOpe
                     ClassLoader taskClassLoader =
                             server.getTaskExecutionService()
                                     .getExecutionContext(taskID.getTaskGroupLocation())
-                                    .getClassLoader();
+                                    .getClassLoader(task.getTaskID());
                     ClassLoader mainClassLoader = Thread.currentThread().getContextClassLoader();
                     List<SplitT> deserializeSplits = new ArrayList<>();
                     try {
