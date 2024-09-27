@@ -5,7 +5,7 @@ Spark is a powerful high-performance distributed calculate processing engine. Mo
 ### Set Spark Configuration Information In The Job
 
 Example:
-I set a conf for this job
+I set some spark conf for this job
 
 ```
 env {
