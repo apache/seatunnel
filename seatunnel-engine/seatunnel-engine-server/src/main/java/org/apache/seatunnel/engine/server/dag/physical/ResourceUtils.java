@@ -54,7 +54,11 @@ public class ResourceUtils {
                                         coordinator.getTaskGroupLocation(),
                                         dynamicSlot
                                                 ? resourceManager.applyResource(
-                                                coordinator.getTaskGroupLocation().getJobId(), new ResourceProfile(), subPlan.getTags())
+                                                        coordinator
+                                                                .getTaskGroupLocation()
+                                                                .getJobId(),
+                                                        new ResourceProfile(),
+                                                        subPlan.getTags())
                                                 : preApplyResourceFutures.get(
                                                         coordinator.getTaskGroupLocation())));
 
@@ -65,8 +69,9 @@ public class ResourceUtils {
                                         task.getTaskGroupLocation(),
                                         dynamicSlot
                                                 ? resourceManager.applyResource(
-                                                task.getTaskGroupLocation().getJobId(), new ResourceProfile(), subPlan.getTags())
-
+                                                        task.getTaskGroupLocation().getJobId(),
+                                                        new ResourceProfile(),
+                                                        subPlan.getTags())
                                                 : preApplyResourceFutures.get(
                                                         task.getTaskGroupLocation())));
 
