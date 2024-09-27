@@ -21,6 +21,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -633,7 +634,9 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
 
     private Properties getSinkProperties(JdbcSink jdbcSink)
             throws IOException, SQLException, ClassNotFoundException {
-        JdbcSinkWriter jdbcSinkWriter = (JdbcSinkWriter) jdbcSink.createWriter(null);
+        JdbcSinkWriter jdbcSinkWriter =
+                (JdbcSinkWriter)
+                        jdbcSink.createWriter(new DefaultSinkWriterContext(Integer.MAX_VALUE, 1));
         JdbcConnectionProvider connectionProvider =
                 (JdbcConnectionProvider)
                         ReflectionUtils.getField(jdbcSinkWriter, "connectionProvider").get();
