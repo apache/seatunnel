@@ -123,9 +123,9 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
         AtomicInteger i = new AtomicInteger();
         Arrays.asList(server, secondServer)
                 .forEach(
-                        container ->
-                                tasks.forEach(
-                                        task -> {
+                        container -> {
+                            tasks.forEach(
+                                    task ->
                                             submitJobAndAssertResponse(
                                                     container,
                                                     task._1(),
@@ -133,8 +133,9 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                     i,
                                                     paramJobName + "&jobId=" + task._3(),
                                                     true,
-                                                    task._3().toString());
-                                        }));
+                                                    task._3().toString()));
+                            i.getAndIncrement();
+                        });
     }
 
     @Test
@@ -142,9 +143,9 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
         AtomicInteger i = new AtomicInteger();
         Arrays.asList(server, secondServer)
                 .forEach(
-                        container ->
-                                tasks.forEach(
-                                        task -> {
+                        container -> {
+                            tasks.forEach(
+                                    task ->
                                             submitJobAndAssertResponse(
                                                     container,
                                                     task._1(),
@@ -152,8 +153,9 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                     i,
                                                     paramJobName,
                                                     false,
-                                                    task._3().toString());
-                                        }));
+                                                    task._3().toString()));
+                            i.getAndIncrement();
+                        });
     }
 
     @Test
@@ -633,7 +635,6 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
         Response response = submitJobAndResponse(container, port, contextPath, i, customParam);
         String jobId = response.getBody().jsonPath().getString("jobId");
         assertResponse(container, port, contextPath, i, jobId, customJobId, isCustomJobId);
-        i.getAndIncrement();
     }
 
     private Response submitJobAndResponse(
