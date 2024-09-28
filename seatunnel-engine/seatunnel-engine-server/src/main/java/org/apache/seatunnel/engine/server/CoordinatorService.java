@@ -479,12 +479,12 @@ public class CoordinatorService {
                         jobFullName, jobStatus));
         // FIFO strategy，If there is a waiting task, the subsequent task will keep waiting
         boolean canRunJob, preApplyResources;
-        if (dynamicSlot) {
+        if (dynamicSlot || !isJobPending) {
             canRunJob = true;
             preApplyResources = true;
         } else {
             preApplyResources = jobMaster.preApplyResources();
-            canRunJob = !isJobPending || (pendingJob.size() == 0 && preApplyResources);
+            canRunJob = (pendingJob.size() == 0 && preApplyResources);
         }
         if (canRunJob) {
             CompletableFuture.runAsync(
@@ -667,7 +667,9 @@ public class CoordinatorService {
                                     jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
                                     logger.info("Resources not enough, enter the pending queue");
                                 }
-                            } else if (dynamicSlot || jobMaster.preApplyResources()) {
+                            } else if (dynamicSlot
+                                    || !isJobPending
+                                    || jobMaster.preApplyResources()) {
                                 jobMaster.run();
                             } else {
                                 completeFailJob(jobMaster);

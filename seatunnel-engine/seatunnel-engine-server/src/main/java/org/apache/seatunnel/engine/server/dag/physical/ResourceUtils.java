@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException;
@@ -46,13 +47,15 @@ public class ResourceUtils {
                 jobMaster.getPhysicalPlan().getPreApplyResourceFutures();
         // TODO If there is no enough resources for tasks, we need add some wait profile
         boolean dynamicSlot = jobMaster.getEngineConfig().getSlotServiceConfig().isDynamicSlot();
+        boolean isJobPending =
+                jobMaster.getEngineConfig().getScheduleStrategy().equals(ScheduleStrategy.WAIT);
         ResourceManager resourceManager = jobMaster.getResourceManager();
         subPlan.getCoordinatorVertexList()
                 .forEach(
                         coordinator ->
                                 futures.put(
                                         coordinator.getTaskGroupLocation(),
-                                        dynamicSlot
+                                        (dynamicSlot || !isJobPending)
                                                 ? resourceManager.applyResource(
                                                         coordinator
                                                                 .getTaskGroupLocation()
@@ -67,7 +70,7 @@ public class ResourceUtils {
                         task ->
                                 futures.put(
                                         task.getTaskGroupLocation(),
-                                        dynamicSlot
+                                        (dynamicSlot || !isJobPending)
                                                 ? resourceManager.applyResource(
                                                         task.getTaskGroupLocation().getJobId(),
                                                         new ResourceProfile(),
