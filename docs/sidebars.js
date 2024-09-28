@@ -203,6 +203,7 @@ const sidebars = {
                 "seatunnel-engine/tcp",
                 "seatunnel-engine/resource-isolation",
                 "seatunnel-engine/rest-api",
+                "seatunnel-engine/rest-api-v2",
                 "seatunnel-engine/user-command",
                 "seatunnel-engine/logging",
                 "seatunnel-engine/telemetry"
