@@ -384,4 +384,4 @@ docker run --name seatunnel_client \
 更多其他命令请参考[命令行工具](../../seatunnel-engine/user-command.md)
 
 #### 使用RestAPI
-请参考 [提交作业](../../seatunnel-engine/rest-api.md#提交作业)
+请参考 [提交作业](../../seatunnel-engine/rest-api-v2.md#提交作业)
