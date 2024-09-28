@@ -73,8 +73,6 @@ public class JettyService {
         ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
         context.setContextPath(seaTunnelConfig.getEngineConfig().getHttpConfig().getContextPath());
 
-        context.setResourceBase(
-                SeaTunnelServerStarter.class.getClassLoader().getResource("").toExternalForm());
         context.addServlet(new ServletHolder("default", new DefaultServlet()), "/");
 
         ServletHolder overviewHolder = new ServletHolder(new OverviewServlet(nodeEngine));

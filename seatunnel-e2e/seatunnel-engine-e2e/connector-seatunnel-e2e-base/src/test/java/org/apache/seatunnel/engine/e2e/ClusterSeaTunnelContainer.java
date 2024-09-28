@@ -132,7 +132,8 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                     task._2(),
                                                     i,
                                                     paramJobName + "&jobId=" + task._3(),
-                                                    true);
+                                                    true,
+                                                    task._3().toString());
                                         }));
     }
 
@@ -150,7 +151,8 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                     task._2(),
                                                     i,
                                                     paramJobName,
-                                                    false);
+                                                    false,
+                                                    task._3().toString());
                                         }));
     }
 
@@ -626,10 +628,11 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
             String contextPath,
             AtomicInteger i,
             String customParam,
-            boolean isCustomJobId) {
+            boolean isCustomJobId,
+            String customJobId) {
         Response response = submitJobAndResponse(container, port, contextPath, i, customParam);
         String jobId = response.getBody().jsonPath().getString("jobId");
-        assertResponse(container, i, jobId, isCustomJobId);
+        assertResponse(container, port, contextPath, i, jobId, customJobId, isCustomJobId);
         i.getAndIncrement();
     }
 
@@ -653,29 +656,49 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
 
     private void assertResponse(
             GenericContainer<? extends GenericContainer<?>> container,
+            int port,
+            String contextPath,
             AtomicInteger i,
             String jobId,
+            String customJobId,
             boolean isCustomJobId) {
         Awaitility.await()
                 .atMost(2, TimeUnit.MINUTES)
                 .untilAsserted(
                         () -> {
                             assertWithStatusParameterOrNot(
-                                    container, i, jobId, isCustomJobId, true);
+                                    container,
+                                    port,
+                                    contextPath,
+                                    i,
+                                    jobId,
+                                    customJobId,
+                                    isCustomJobId,
+                                    true);
 
                             // test for without status parameter.
                             assertWithStatusParameterOrNot(
-                                    container, i, jobId, isCustomJobId, false);
+                                    container,
+                                    port,
+                                    contextPath,
+                                    i,
+                                    jobId,
+                                    customJobId,
+                                    isCustomJobId,
+                                    false);
                         });
     }
 
     private void assertWithStatusParameterOrNot(
             GenericContainer<? extends GenericContainer<?>> container,
+            int port,
+            String contextPath,
             AtomicInteger i,
             String jobId,
+            String customJobId,
             boolean isCustomJobId,
             boolean isStatusWithSubmitJob) {
-        String baseRestUrl = getBaseRestUrl(container);
+        String baseRestUrl = getBaseRestUrl(container, port, contextPath);
         String restUrl = isStatusWithSubmitJob ? baseRestUrl + "/FINISHED" : baseRestUrl;
         given().get(restUrl)
                 .then()
@@ -693,11 +716,15 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                 .body("[" + i.get() + "].jobStatus", equalTo("FINISHED"));
     }
 
-    private String getBaseRestUrl(GenericContainer<? extends GenericContainer<?>> container) {
+    private String getBaseRestUrl(
+            GenericContainer<? extends GenericContainer<?>> container,
+            int port,
+            String contextPath) {
         return http
                 + container.getHost()
                 + colon
-                + container.getFirstMappedPort()
+                + port
+                + contextPath
                 + RestConstant.FINISHED_JOBS_INFO;
     }
 }
