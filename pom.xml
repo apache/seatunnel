@@ -873,7 +873,7 @@
                                     <argument>${docker.hub}/${docker.repo}</argument>
                                     <argument>${project.basedir}</argument>
                                     <argument>--build-arg</argument>
-                                    <argument>VERSION=${revision}</argument>
+                                    <argument>VERSION=${project.version}</argument>
                                     <argument>--file=src/main/docker/Dockerfile</argument>
                                 </arguments>
                             </configuration>
