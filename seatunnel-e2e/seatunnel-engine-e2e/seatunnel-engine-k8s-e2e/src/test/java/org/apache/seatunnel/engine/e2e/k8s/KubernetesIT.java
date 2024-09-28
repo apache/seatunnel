@@ -61,7 +61,18 @@ public class KubernetesIT {
     private static final String podName = "seatunnel-0";
 
     @Test
-    public void test()
+    public void testTcpDiscovery()
+            throws IOException, XmlPullParserException, ApiException, InterruptedException {
+        runDiscoveryTest("hazelcast-tcp-discovery.yaml");
+    }
+
+    @Test
+    public void testKubernetesDiscovery()
+            throws IOException, XmlPullParserException, ApiException, InterruptedException {
+        runDiscoveryTest("hazelcast-kubernetes-discovery.yaml");
+    }
+
+    private void runDiscoveryTest(String hazelCastConfigFile)
             throws IOException, XmlPullParserException, ApiException, InterruptedException {
         ApiClient client = Config.defaultClient();
         AppsV1Api appsV1Api = new AppsV1Api(client);
@@ -82,7 +93,7 @@ public class KubernetesIT {
         log.info("Docker's environmental information");
         log.info(info.toString());
         if (dockerClient.listImagesCmd().withImageNameFilter(tag).exec().isEmpty()) {
-            copyFileToCurrentResources(targetPath);
+            copyFileToCurrentResources(hazelCastConfigFile, targetPath);
             File file =
                     new File(
                             PROJECT_ROOT_PATH
@@ -153,7 +164,8 @@ public class KubernetesIT {
         }
     }
 
-    private void copyFileToCurrentResources(String targetPath) throws IOException {
+    private void copyFileToCurrentResources(String hazelCastConfigFile, String targetPath)
+            throws IOException {
         File jarsPath = new File(targetPath + "/jars");
         jarsPath.mkdirs();
         File binPath = new File(targetPath + "/bin");
@@ -164,7 +176,7 @@ public class KubernetesIT {
                 new File(PROJECT_ROOT_PATH + "/config"), new File(targetPath + "/config"));
         // replace hazelcast.yaml and hazelcast-client.yaml
         Files.copy(
-                Paths.get(targetPath + "/custom_config/hazelcast.yaml"),
+                Paths.get(targetPath + "/custom_config/" + hazelCastConfigFile),
                 Paths.get(targetPath + "/config/hazelcast.yaml"),
                 StandardCopyOption.REPLACE_EXISTING);
         Files.copy(
