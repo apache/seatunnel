@@ -19,22 +19,19 @@ package org.apache.seatunnel.engine.server.rest.servlet;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.utils.RestUtil;
 
-import com.hazelcast.internal.json.JsonArray;
+import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.spi.impl.NodeEngineImpl;
-import scala.Tuple2;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-import static org.apache.seatunnel.engine.server.rest.RestHttpPostCommandProcessor.mapToUrlParams;
 import static org.apache.seatunnel.engine.server.rest.RestHttpPostCommandProcessor.requestHandle;
 import static org.apache.seatunnel.engine.server.rest.RestHttpPostCommandProcessor.submitJobInternal;
 
@@ -47,24 +44,13 @@ public class SubmitJobServlet extends BaseServlet {
     public void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        List<Tuple2<Map<String, String>, Config>> configTuples =
-                RestUtil.buildConfigList(requestHandle(requestBody(req)), false);
+        Map<String, String> requestParams = getParameterMap(req);
 
-        JsonArray jsonArray =
-                configTuples.stream()
-                        .map(
-                                tuple -> {
-                                    String urlParams = mapToUrlParams(tuple._1);
-                                    Map<String, String> requestParams = new HashMap<>();
-                                    RestUtil.buildRequestParams(requestParams, urlParams);
-                                    return submitJobInternal(
-                                            tuple._2,
-                                            requestParams,
-                                            getSeaTunnelServer(false),
-                                            nodeEngine.getNode());
-                                })
-                        .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+        Config config = RestUtil.buildConfig(requestHandle(requestBody(req)), false);
 
-        writeJson(resp, jsonArray);
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
+        JsonObject jsonObject =
+                submitJobInternal(config, requestParams, seaTunnelServer, nodeEngine.getNode());
+        writeJson(resp, jsonObject);
     }
 }

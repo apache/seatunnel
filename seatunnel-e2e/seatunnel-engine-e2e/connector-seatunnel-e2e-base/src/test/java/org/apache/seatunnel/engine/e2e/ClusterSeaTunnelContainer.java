@@ -124,17 +124,33 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
         Arrays.asList(server, secondServer)
                 .forEach(
                         container -> {
-                            tasks.forEach(
-                                    task ->
-                                            submitJobAndAssertResponse(
-                                                    container,
-                                                    task._1(),
-                                                    task._2(),
-                                                    i,
-                                                    paramJobName + "&jobId=" + task._3(),
-                                                    true,
-                                                    task._3().toString()));
-                            i.getAndIncrement();
+                            Tuple3<Integer, String, Long> task = tasks.get(0);
+                            submitJobAndAssertResponse(
+                                    container,
+                                    task._1(),
+                                    task._2(),
+                                    i,
+                                    paramJobName + "&jobId=" + task._3(),
+                                    true,
+                                    task._3().toString());
+                        });
+    }
+
+    @Test
+    public void testSubmitJobWithCustomJobIdV2() {
+        AtomicInteger i = new AtomicInteger();
+        Arrays.asList(server, secondServer)
+                .forEach(
+                        container -> {
+                            Tuple3<Integer, String, Long> task = tasks.get(1);
+                            submitJobAndAssertResponse(
+                                    container,
+                                    task._1(),
+                                    task._2(),
+                                    i,
+                                    paramJobName + "&jobId=" + task._3(),
+                                    true,
+                                    task._3().toString());
                         });
     }
 
@@ -144,17 +160,33 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
         Arrays.asList(server, secondServer)
                 .forEach(
                         container -> {
-                            tasks.forEach(
-                                    task ->
-                                            submitJobAndAssertResponse(
-                                                    container,
-                                                    task._1(),
-                                                    task._2(),
-                                                    i,
-                                                    paramJobName,
-                                                    false,
-                                                    task._3().toString()));
-                            i.getAndIncrement();
+                            Tuple3<Integer, String, Long> task = tasks.get(0);
+                            submitJobAndAssertResponse(
+                                    container,
+                                    task._1(),
+                                    task._2(),
+                                    i,
+                                    paramJobName,
+                                    false,
+                                    task._3().toString());
+                        });
+    }
+
+    @Test
+    public void testSubmitJobWithoutCustomJobIdV2() {
+        AtomicInteger i = new AtomicInteger();
+        Arrays.asList(server, secondServer)
+                .forEach(
+                        container -> {
+                            Tuple3<Integer, String, Long> task = tasks.get(1);
+                            submitJobAndAssertResponse(
+                                    container,
+                                    task._1(),
+                                    task._2(),
+                                    i,
+                                    paramJobName,
+                                    false,
+                                    task._3().toString());
                         });
     }
 
@@ -163,24 +195,46 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
         Arrays.asList(server, secondServer)
                 .forEach(
                         container -> {
-                            tasks.forEach(
-                                    task -> {
-                                        Response response =
-                                                submitJob(
-                                                        "BATCH",
-                                                        container,
-                                                        task._1(),
-                                                        task._2(),
-                                                        true,
-                                                        jobName,
-                                                        paramJobName);
-                                        response.then()
-                                                .statusCode(400)
-                                                .body(
-                                                        "message",
-                                                        equalTo(
-                                                                "Please provide jobId when start with save point."));
-                                    });
+                            Tuple3<Integer, String, Long> task = tasks.get(0);
+                            Response response =
+                                    submitJob(
+                                            "BATCH",
+                                            container,
+                                            task._1(),
+                                            task._2(),
+                                            true,
+                                            jobName,
+                                            paramJobName);
+                            response.then()
+                                    .statusCode(400)
+                                    .body(
+                                            "message",
+                                            equalTo(
+                                                    "Please provide jobId when start with save point."));
+                        });
+    }
+
+    @Test
+    public void testStartWithSavePointWithoutJobIdV2() {
+        Arrays.asList(server, secondServer)
+                .forEach(
+                        container -> {
+                            Tuple3<Integer, String, Long> task = tasks.get(1);
+                            Response response =
+                                    submitJob(
+                                            "BATCH",
+                                            container,
+                                            task._1(),
+                                            task._2(),
+                                            true,
+                                            jobName,
+                                            paramJobName);
+                            response.then()
+                                    .statusCode(400)
+                                    .body(
+                                            "message",
+                                            equalTo(
+                                                    "Please provide jobId when start with save point."));
                         });
     }
 
@@ -190,151 +244,276 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
         Arrays.asList(server, secondServer)
                 .forEach(
                         container -> {
-                            tasks.forEach(
-                                    task -> {
-                                        String jobId =
-                                                submitJob(
-                                                                container,
-                                                                task._1(),
-                                                                task._2(),
-                                                                "STREAMING",
-                                                                jobName,
-                                                                paramJobName)
-                                                        .getBody()
-                                                        .jsonPath()
-                                                        .getString("jobId");
+                            Tuple3<Integer, String, Long> task = tasks.get(0);
+                            String jobId =
+                                    submitJob(
+                                                    container,
+                                                    task._1(),
+                                                    task._2(),
+                                                    "STREAMING",
+                                                    jobName,
+                                                    paramJobName)
+                                            .getBody()
+                                            .jsonPath()
+                                            .getString("jobId");
 
-                                        Awaitility.await()
-                                                .atMost(2, TimeUnit.MINUTES)
-                                                .untilAsserted(
-                                                        () ->
-                                                                given().get(
-                                                                                http
-                                                                                        + container
-                                                                                                .getHost()
-                                                                                        + colon
-                                                                                        + container
-                                                                                                .getFirstMappedPort()
-                                                                                        + RestConstant
-                                                                                                .RUNNING_JOB_URL
-                                                                                        + "/"
-                                                                                        + jobId)
-                                                                        .then()
-                                                                        .statusCode(200)
-                                                                        .body(
-                                                                                "jobStatus",
-                                                                                equalTo(
-                                                                                        "RUNNING")));
+                            Awaitility.await()
+                                    .atMost(2, TimeUnit.MINUTES)
+                                    .untilAsserted(
+                                            () ->
+                                                    given().get(
+                                                                    http
+                                                                            + container.getHost()
+                                                                            + colon
+                                                                            + task._1()
+                                                                            + RestConstant
+                                                                                    .RUNNING_JOB_URL
+                                                                            + "/"
+                                                                            + jobId)
+                                                            .then()
+                                                            .statusCode(200)
+                                                            .body("jobStatus", equalTo("RUNNING")));
 
-                                        String parameters =
-                                                "{"
-                                                        + "\"jobId\":"
-                                                        + jobId
-                                                        + ","
-                                                        + "\"isStopWithSavePoint\":true}";
+                            String parameters =
+                                    "{"
+                                            + "\"jobId\":"
+                                            + jobId
+                                            + ","
+                                            + "\"isStopWithSavePoint\":true}";
 
-                                        given().body(parameters)
-                                                .post(
-                                                        http
-                                                                + container.getHost()
-                                                                + colon
-                                                                + container.getFirstMappedPort()
-                                                                + RestConstant.STOP_JOB_URL)
-                                                .then()
-                                                .statusCode(200)
-                                                .body("jobId", equalTo(jobId));
+                            given().body(parameters)
+                                    .post(
+                                            http
+                                                    + container.getHost()
+                                                    + colon
+                                                    + task._1()
+                                                    + task._2()
+                                                    + RestConstant.STOP_JOB_URL)
+                                    .then()
+                                    .statusCode(200)
+                                    .body("jobId", equalTo(jobId));
 
-                                        Awaitility.await()
-                                                .atMost(6, TimeUnit.MINUTES)
-                                                .untilAsserted(
-                                                        () ->
-                                                                given().get(
-                                                                                http
-                                                                                        + container
-                                                                                                .getHost()
-                                                                                        + colon
-                                                                                        + container
-                                                                                                .getFirstMappedPort()
-                                                                                        + RestConstant
-                                                                                                .FINISHED_JOBS_INFO
-                                                                                        + "/SAVEPOINT_DONE")
-                                                                        .then()
-                                                                        .statusCode(200)
-                                                                        .body(
-                                                                                "[0].jobId",
-                                                                                equalTo(jobId)));
+                            Awaitility.await()
+                                    .atMost(6, TimeUnit.MINUTES)
+                                    .untilAsserted(
+                                            () ->
+                                                    given().get(
+                                                                    http
+                                                                            + container.getHost()
+                                                                            + colon
+                                                                            + task._1()
+                                                                            + task._2()
+                                                                            + RestConstant
+                                                                                    .FINISHED_JOBS_INFO
+                                                                            + "/SAVEPOINT_DONE")
+                                                            .then()
+                                                            .statusCode(200)
+                                                            .body("[0].jobId", equalTo(jobId)));
 
-                                        String jobId2 =
-                                                submitJob(
-                                                                container,
-                                                                task._1(),
-                                                                task._2(),
-                                                                "STREAMING",
-                                                                jobName,
-                                                                paramJobName)
-                                                        .getBody()
-                                                        .jsonPath()
-                                                        .getString("jobId");
+                            String jobId2 =
+                                    submitJob(
+                                                    container,
+                                                    task._1(),
+                                                    task._2(),
+                                                    "STREAMING",
+                                                    jobName,
+                                                    paramJobName)
+                                            .getBody()
+                                            .jsonPath()
+                                            .getString("jobId");
 
-                                        Awaitility.await()
-                                                .atMost(2, TimeUnit.MINUTES)
-                                                .untilAsserted(
-                                                        () ->
-                                                                given().get(
-                                                                                http
-                                                                                        + container
-                                                                                                .getHost()
-                                                                                        + colon
-                                                                                        + container
-                                                                                                .getFirstMappedPort()
-                                                                                        + RestConstant
-                                                                                                .RUNNING_JOB_URL
-                                                                                        + "/"
-                                                                                        + jobId2)
-                                                                        .then()
-                                                                        .statusCode(200)
-                                                                        .body(
-                                                                                "jobStatus",
-                                                                                equalTo(
-                                                                                        "RUNNING")));
-                                        parameters =
-                                                "{"
-                                                        + "\"jobId\":"
-                                                        + jobId2
-                                                        + ","
-                                                        + "\"isStopWithSavePoint\":false}";
+                            Awaitility.await()
+                                    .atMost(2, TimeUnit.MINUTES)
+                                    .untilAsserted(
+                                            () ->
+                                                    given().get(
+                                                                    http
+                                                                            + container.getHost()
+                                                                            + colon
+                                                                            + task._1()
+                                                                            + task._2()
+                                                                            + RestConstant
+                                                                                    .RUNNING_JOB_URL
+                                                                            + "/"
+                                                                            + jobId2)
+                                                            .then()
+                                                            .statusCode(200)
+                                                            .body("jobStatus", equalTo("RUNNING")));
+                            parameters =
+                                    "{"
+                                            + "\"jobId\":"
+                                            + jobId2
+                                            + ","
+                                            + "\"isStopWithSavePoint\":false}";
 
-                                        given().body(parameters)
-                                                .post(
-                                                        http
-                                                                + container.getHost()
-                                                                + colon
-                                                                + container.getFirstMappedPort()
-                                                                + RestConstant.STOP_JOB_URL)
-                                                .then()
-                                                .statusCode(200)
-                                                .body("jobId", equalTo(jobId2));
+                            given().body(parameters)
+                                    .post(
+                                            http
+                                                    + container.getHost()
+                                                    + colon
+                                                    + task._1()
+                                                    + task._2()
+                                                    + RestConstant.STOP_JOB_URL)
+                                    .then()
+                                    .statusCode(200)
+                                    .body("jobId", equalTo(jobId2));
 
-                                        Awaitility.await()
-                                                .atMost(2, TimeUnit.MINUTES)
-                                                .untilAsserted(
-                                                        () ->
-                                                                given().get(
-                                                                                http
-                                                                                        + container
-                                                                                                .getHost()
-                                                                                        + colon
-                                                                                        + container
-                                                                                                .getFirstMappedPort()
-                                                                                        + RestConstant
-                                                                                                .FINISHED_JOBS_INFO
-                                                                                        + "/CANCELED")
-                                                                        .then()
-                                                                        .statusCode(200)
-                                                                        .body(
-                                                                                "[0].jobId",
-                                                                                equalTo(jobId2)));
-                                    });
+                            Awaitility.await()
+                                    .atMost(2, TimeUnit.MINUTES)
+                                    .untilAsserted(
+                                            () ->
+                                                    given().get(
+                                                                    http
+                                                                            + container.getHost()
+                                                                            + colon
+                                                                            + task._1()
+                                                                            + task._2()
+                                                                            + RestConstant
+                                                                                    .FINISHED_JOBS_INFO
+                                                                            + "/CANCELED")
+                                                            .then()
+                                                            .statusCode(200)
+                                                            .body("[0].jobId", equalTo(jobId2)));
+                        });
+    }
+
+    @Test
+    public void testStopJobV2() {
+
+        Arrays.asList(server, secondServer)
+                .forEach(
+                        container -> {
+                            Tuple3<Integer, String, Long> task = tasks.get(1);
+                            String jobId =
+                                    submitJob(
+                                                    container,
+                                                    task._1(),
+                                                    task._2(),
+                                                    "STREAMING",
+                                                    jobName,
+                                                    paramJobName)
+                                            .getBody()
+                                            .jsonPath()
+                                            .getString("jobId");
+
+                            Awaitility.await()
+                                    .atMost(2, TimeUnit.MINUTES)
+                                    .untilAsserted(
+                                            () ->
+                                                    given().get(
+                                                                    http
+                                                                            + container.getHost()
+                                                                            + colon
+                                                                            + task._1()
+                                                                            + task._2()
+                                                                            + RestConstant
+                                                                                    .RUNNING_JOB_URL
+                                                                            + "/"
+                                                                            + jobId)
+                                                            .then()
+                                                            .statusCode(200)
+                                                            .body("jobStatus", equalTo("RUNNING")));
+
+                            String parameters =
+                                    "{"
+                                            + "\"jobId\":"
+                                            + jobId
+                                            + ","
+                                            + "\"isStopWithSavePoint\":true}";
+
+                            given().body(parameters)
+                                    .post(
+                                            http
+                                                    + container.getHost()
+                                                    + colon
+                                                    + task._1()
+                                                    + task._2()
+                                                    + RestConstant.STOP_JOB_URL)
+                                    .then()
+                                    .statusCode(200)
+                                    .body("jobId", equalTo(jobId));
+
+                            Awaitility.await()
+                                    .atMost(6, TimeUnit.MINUTES)
+                                    .untilAsserted(
+                                            () ->
+                                                    given().get(
+                                                                    http
+                                                                            + container.getHost()
+                                                                            + colon
+                                                                            + task._1()
+                                                                            + task._2()
+                                                                            + RestConstant
+                                                                                    .FINISHED_JOBS_INFO
+                                                                            + "/SAVEPOINT_DONE")
+                                                            .then()
+                                                            .statusCode(200)
+                                                            .body("[0].jobId", equalTo(jobId)));
+
+                            String jobId2 =
+                                    submitJob(
+                                                    container,
+                                                    task._1(),
+                                                    task._2(),
+                                                    "STREAMING",
+                                                    jobName,
+                                                    paramJobName)
+                                            .getBody()
+                                            .jsonPath()
+                                            .getString("jobId");
+
+                            Awaitility.await()
+                                    .atMost(2, TimeUnit.MINUTES)
+                                    .untilAsserted(
+                                            () ->
+                                                    given().get(
+                                                                    http
+                                                                            + container.getHost()
+                                                                            + colon
+                                                                            + task._1()
+                                                                            + task._2()
+                                                                            + RestConstant
+                                                                                    .RUNNING_JOB_URL
+                                                                            + "/"
+                                                                            + jobId2)
+                                                            .then()
+                                                            .statusCode(200)
+                                                            .body("jobStatus", equalTo("RUNNING")));
+                            parameters =
+                                    "{"
+                                            + "\"jobId\":"
+                                            + jobId2
+                                            + ","
+                                            + "\"isStopWithSavePoint\":false}";
+
+                            given().body(parameters)
+                                    .post(
+                                            http
+                                                    + container.getHost()
+                                                    + colon
+                                                    + task._1()
+                                                    + task._2()
+                                                    + RestConstant.STOP_JOB_URL)
+                                    .then()
+                                    .statusCode(200)
+                                    .body("jobId", equalTo(jobId2));
+
+                            Awaitility.await()
+                                    .atMost(2, TimeUnit.MINUTES)
+                                    .untilAsserted(
+                                            () ->
+                                                    given().get(
+                                                                    http
+                                                                            + container.getHost()
+                                                                            + colon
+                                                                            + task._1()
+                                                                            + task._2()
+                                                                            + RestConstant
+                                                                                    .FINISHED_JOBS_INFO
+                                                                            + "/CANCELED")
+                                                            .then()
+                                                            .statusCode(200)
+                                                            .body("[0].jobId", equalTo(jobId2)));
                         });
     }
 
@@ -353,14 +532,21 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
         Arrays.asList(server)
                 .forEach(
                         container -> {
+                            Tuple3<Integer, String, Long> task = tasks.get(0);
                             try {
-                                submitJobs("STREAMING", container, false, CUSTOM_JOB_ID_1);
+                                submitJobs(
+                                        "STREAMING",
+                                        container,
+                                        task._1(),
+                                        task._2(),
+                                        false,
+                                        task._3());
 
                                 String parameters =
                                         "[{\"jobId\":"
-                                                + CUSTOM_JOB_ID_1
+                                                + task._3()
                                                 + ",\"isStopWithSavePoint\":false},{\"jobId\":"
-                                                + (CUSTOM_JOB_ID_1 - 1)
+                                                + (task._3() - 1)
                                                 + ",\"isStopWithSavePoint\":false}]";
 
                                 given().body(parameters)
@@ -368,12 +554,13 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                 http
                                                         + container.getHost()
                                                         + colon
-                                                        + container.getFirstMappedPort()
+                                                        + task._1()
+                                                        + task._2()
                                                         + RestConstant.STOP_JOBS_URL)
                                         .then()
                                         .statusCode(200)
-                                        .body("[0].jobId", equalTo(CUSTOM_JOB_ID_1))
-                                        .body("[1].jobId", equalTo(CUSTOM_JOB_ID_1 - 1));
+                                        .body("[0].jobId", equalTo(task._3()))
+                                        .body("[1].jobId", equalTo(task._3() - 1));
 
                                 Awaitility.await()
                                         .atMost(2, TimeUnit.MINUTES)
@@ -384,8 +571,8 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                                                 + container
                                                                                         .getHost()
                                                                                 + colon
-                                                                                + container
-                                                                                        .getFirstMappedPort()
+                                                                                + task._1()
+                                                                                + task._2()
                                                                                 + RestConstant
                                                                                         .FINISHED_JOBS_INFO
                                                                                 + "/CANCELED")
@@ -395,13 +582,84 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                                         "[0].jobId",
                                                                         equalTo(
                                                                                 String.valueOf(
-                                                                                        CUSTOM_JOB_ID_1)))
+                                                                                        task._3()
+                                                                                                - 1)))
+                                                                .body(
+                                                                        "[1].jobId",
+                                                                        equalTo(
+                                                                                String.valueOf(
+                                                                                        task
+                                                                                                ._3()))));
+
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+    }
+
+    @Test
+    public void testStopJobsV2() {
+        Arrays.asList(server)
+                .forEach(
+                        container -> {
+                            Tuple3<Integer, String, Long> task = tasks.get(1);
+                            try {
+                                submitJobs(
+                                        "STREAMING",
+                                        container,
+                                        task._1(),
+                                        task._2(),
+                                        false,
+                                        task._3());
+
+                                String parameters =
+                                        "[{\"jobId\":"
+                                                + task._3()
+                                                + ",\"isStopWithSavePoint\":false},{\"jobId\":"
+                                                + (task._3() - 1)
+                                                + ",\"isStopWithSavePoint\":false}]";
+
+                                given().body(parameters)
+                                        .post(
+                                                http
+                                                        + container.getHost()
+                                                        + colon
+                                                        + task._1()
+                                                        + task._2()
+                                                        + RestConstant.STOP_JOBS_URL)
+                                        .then()
+                                        .statusCode(200)
+                                        .body("[0].jobId", equalTo(task._3()))
+                                        .body("[1].jobId", equalTo(task._3() - 1));
+
+                                Awaitility.await()
+                                        .atMost(2, TimeUnit.MINUTES)
+                                        .untilAsserted(
+                                                () ->
+                                                        given().get(
+                                                                        http
+                                                                                + container
+                                                                                        .getHost()
+                                                                                + colon
+                                                                                + task._1()
+                                                                                + task._2()
+                                                                                + RestConstant
+                                                                                        .FINISHED_JOBS_INFO
+                                                                                + "/CANCELED")
+                                                                .then()
+                                                                .statusCode(200)
                                                                 .body(
                                                                         "[0].jobId",
                                                                         equalTo(
                                                                                 String.valueOf(
-                                                                                        CUSTOM_JOB_ID_1
-                                                                                                - 1))));
+                                                                                        task._3()
+                                                                                                - 1)))
+                                                                .body(
+                                                                        "[1].jobId",
+                                                                        equalTo(
+                                                                                String.valueOf(
+                                                                                        task
+                                                                                                ._3()))));
 
                             } catch (IOException e) {
                                 throw new RuntimeException(e);
@@ -416,8 +674,29 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                 .forEach(
                         container -> {
                             try {
-                                submitJobs("BATCH", container, false, CUSTOM_JOB_ID_1);
-                                submitJobs("BATCH", container, true, CUSTOM_JOB_ID_1);
+                                Tuple3<Integer, String, Long> task = tasks.get(0);
+                                submitJobs(
+                                        "BATCH", container, task._1(), task._2(), false, task._3());
+                                submitJobs(
+                                        "BATCH", container, task._1(), task._2(), true, task._3());
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+    }
+
+    @Test
+    public void testSubmitJobsV2() {
+        AtomicInteger i = new AtomicInteger();
+        Arrays.asList(server, secondServer)
+                .forEach(
+                        container -> {
+                            try {
+                                Tuple3<Integer, String, Long> task = tasks.get(1);
+                                submitJobs(
+                                        "BATCH", container, task._1(), task._2(), false, task._3());
+                                submitJobs(
+                                        "BATCH", container, task._1(), task._2(), true, task._3());
                             } catch (IOException e) {
                                 throw new RuntimeException(e);
                             }
@@ -425,7 +704,12 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
     }
 
     private void submitJobs(
-            String jobMode, GenericContainer<?> container, boolean isStartWithSavePoint, Long jobId)
+            String jobMode,
+            GenericContainer<?> container,
+            int port,
+            String contextPath,
+            boolean isStartWithSavePoint,
+            Long jobId)
             throws IOException {
 
         String requestBody = getJobJson(jobMode, isStartWithSavePoint, jobId);
@@ -437,7 +721,8 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                 http
                                         + container.getHost()
                                         + colon
-                                        + container.getFirstMappedPort()
+                                        + port
+                                        + contextPath
                                         + RestConstant.SUBMIT_JOBS_URL);
 
         response.then()
@@ -451,7 +736,8 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                 http
                                         + container.getHost()
                                         + colon
-                                        + container.getFirstMappedPort()
+                                        + port
+                                        + contextPath
                                         + RestConstant.JOB_INFO_URL
                                         + "/"
                                         + jobId);
@@ -635,6 +921,7 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
         Response response = submitJobAndResponse(container, port, contextPath, i, customParam);
         String jobId = response.getBody().jsonPath().getString("jobId");
         assertResponse(container, port, contextPath, i, jobId, customJobId, isCustomJobId);
+        i.getAndIncrement();
     }
 
     private Response submitJobAndResponse(
@@ -708,10 +995,7 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                 .body("[" + i.get() + "].errorMsg", equalTo(null))
                 .body(
                         "[" + i.get() + "].jobId",
-                        equalTo(
-                                i.get() == 0 && isCustomJobId
-                                        ? Long.toString(CUSTOM_JOB_ID_1)
-                                        : jobId))
+                        equalTo(i.get() == 0 && isCustomJobId ? customJobId : jobId))
                 .body("[" + i.get() + "].metrics.SourceReceivedCount", equalTo("100"))
                 .body("[" + i.get() + "].metrics.SinkWriteCount", equalTo("100"))
                 .body("[" + i.get() + "].jobStatus", equalTo("FINISHED"));

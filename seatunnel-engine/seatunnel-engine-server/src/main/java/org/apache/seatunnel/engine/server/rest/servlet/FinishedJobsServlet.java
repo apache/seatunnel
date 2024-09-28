@@ -35,6 +35,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.util.Comparator;
+import java.util.Map;
 
 import static org.apache.seatunnel.engine.server.rest.RestHttpGetCommandProcessor.getJobInfoJson;
 
@@ -49,7 +50,9 @@ public class FinishedJobsServlet extends BaseServlet {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
-        String state = req.getPathInfo().substring(1);
+
+        Map<String, String> state = getParameterMap(req);
+
         IMap<Long, JobState> finishedJob =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE);
 
@@ -68,7 +71,7 @@ public class FinishedJobsServlet extends BaseServlet {
                                     }
                                     return jobState.getJobStatus()
                                             .name()
-                                            .equals(state.toUpperCase());
+                                            .equals(state.get("state").toUpperCase());
                                 })
                         .sorted(Comparator.comparing(JobState::getFinishTime))
                         .map(

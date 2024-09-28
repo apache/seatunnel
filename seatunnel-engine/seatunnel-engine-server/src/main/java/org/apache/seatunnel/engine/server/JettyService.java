@@ -19,10 +19,12 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.shade.org.eclipse.jetty.server.Server;
 import org.apache.seatunnel.shade.org.eclipse.jetty.servlet.DefaultServlet;
+import org.apache.seatunnel.shade.org.eclipse.jetty.servlet.FilterHolder;
 import org.apache.seatunnel.shade.org.eclipse.jetty.servlet.ServletContextHandler;
 import org.apache.seatunnel.shade.org.eclipse.jetty.servlet.ServletHolder;
 
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.server.rest.filter.ExceptionHandlingFilter;
 import org.apache.seatunnel.engine.server.rest.servlet.EncryptConfigServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.FinishedJobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.JobInfoServlet;
@@ -39,6 +41,10 @@ import org.apache.seatunnel.engine.server.rest.servlet.UpdateTagsServlet;
 
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
+
+import javax.servlet.DispatcherType;
+
+import java.util.EnumSet;
 
 import static org.apache.seatunnel.engine.server.rest.RestConstant.ENCRYPT_CONFIG;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.FINISHED_JOBS_INFO;
@@ -72,6 +78,9 @@ public class JettyService {
 
         ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
         context.setContextPath(seaTunnelConfig.getEngineConfig().getHttpConfig().getContextPath());
+
+        FilterHolder filterHolder = new FilterHolder(new ExceptionHandlingFilter());
+        context.addFilter(filterHolder, "/*", EnumSet.of(DispatcherType.REQUEST));
 
         context.addServlet(new ServletHolder("default", new DefaultServlet()), "/");
 

@@ -44,6 +44,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
 
 import static com.hazelcast.internal.util.JsonUtil.toJsonObject;
@@ -195,5 +196,21 @@ public class BaseServlet extends HttpServlet {
 
         String requestBody = stringBuilder.toString();
         return requestBody.getBytes(StandardCharsets.UTF_8);
+    }
+
+    protected Map<String, String> getParameterMap(HttpServletRequest req) {
+        Map<String, String> reqParameterMap = new HashMap<>();
+
+        Map<String, String[]> parameterMap = req.getParameterMap();
+
+        for (Map.Entry<String, String[]> entry : parameterMap.entrySet()) {
+            String paramName = entry.getKey();
+            String[] paramValues = entry.getValue();
+
+            for (String value : paramValues) {
+                reqParameterMap.put(paramName, value);
+            }
+        }
+        return reqParameterMap;
     }
 }

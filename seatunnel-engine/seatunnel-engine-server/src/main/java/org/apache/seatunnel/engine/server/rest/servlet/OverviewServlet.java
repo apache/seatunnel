@@ -33,7 +33,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
 
 public class OverviewServlet extends BaseServlet {
@@ -46,18 +45,7 @@ public class OverviewServlet extends BaseServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        Map<String, String> tags = new HashMap<>();
-
-        Map<String, String[]> parameterMap = req.getParameterMap();
-
-        for (Map.Entry<String, String[]> entry : parameterMap.entrySet()) {
-            String paramName = entry.getKey();
-            String[] paramValues = entry.getValue();
-
-            for (String value : paramValues) {
-                tags.put(paramName, value);
-            }
-        }
+        Map<String, String> tags = getParameterMap(req);
 
         Version version = EnvironmentUtil.getVersion();
 
