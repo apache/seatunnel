@@ -103,8 +103,10 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                         });
 
         tasks = new ArrayList<>();
-        tasks.add(new Tuple3<>(5801, RestConstant.CONTEXT_PATH, CUSTOM_JOB_ID_1));
-        tasks.add(new Tuple3<>(8080, "/seatunnel", CUSTOM_JOB_ID_2));
+        tasks.add(
+                new Tuple3<>(
+                        server.getMappedPort(5801), RestConstant.CONTEXT_PATH, CUSTOM_JOB_ID_1));
+        tasks.add(new Tuple3<>(server.getMappedPort(8080), "/seatunnel", CUSTOM_JOB_ID_2));
     }
 
     @Override
@@ -581,14 +583,14 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                         .withEnv("TZ", "UTC")
                         .withCommand(ContainerUtil.adaptPathForWin(binPath.toString()))
                         .withNetworkAliases(networkAlias)
-                        .withExposedPorts(5801, 8080)
+                        .withExposedPorts()
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(
                                                 "seatunnel-engine:" + JDK_DOCKER_IMAGE)))
                         .waitingFor(Wait.forListeningPort());
         copySeaTunnelStarterToContainer(server);
-        server.setPortBindings(Arrays.asList("5801:5801", "8080:8080"));
+        server.setExposedPorts(Arrays.asList(5801, 8080));
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
