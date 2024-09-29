@@ -17,9 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rocketmq.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.config.Config;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.config.ProducerConfig;
 
@@ -44,5 +48,17 @@ public class RocketMqSinkFactory implements TableSinkFactory {
                         ProducerConfig.MAX_MESSAGE_SIZE,
                         ProducerConfig.SEND_MESSAGE_TIMEOUT_MILLIS)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        return () -> {
+            RocketMqSink rocketMqSink = new RocketMqSink();
+            if (context != null) {
+                rocketMqSink.prepare(ConfigFactory.parseMap(context.getOptions().getSourceMap()));
+                rocketMqSink.setTypeInfo(context.getCatalogTable().getSeaTunnelRowType());
+            }
+            return rocketMqSink;
+        };
     }
 }
