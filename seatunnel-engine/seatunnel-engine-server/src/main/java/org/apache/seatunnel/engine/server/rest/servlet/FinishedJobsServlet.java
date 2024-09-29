@@ -79,7 +79,7 @@ public class FinishedJobsServlet extends BaseServlet {
                                             .name()
                                             .equals(finalState.toUpperCase());
                                 })
-                        .sorted(Comparator.comparing(JobState::getFinishTime).reversed())
+                        .sorted(Comparator.comparing(JobState::getFinishTime))
                         .map(
                                 jobState -> {
                                     Long jobId = jobState.getJobId();

@@ -240,6 +240,7 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
 
     @Test
     public void testStopJob() {
+        AtomicInteger i = new AtomicInteger();
 
         Arrays.asList(server, secondServer)
                 .forEach(
@@ -309,7 +310,9 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                                             + "/SAVEPOINT_DONE")
                                                             .then()
                                                             .statusCode(200)
-                                                            .body("[0].jobId", equalTo(jobId)));
+                                                            .body(
+                                                                    "[" + i.get() + "].jobId",
+                                                                    equalTo(jobId)));
 
                             String jobId2 =
                                     submitJob(
@@ -374,12 +377,16 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                                             + "/CANCELED")
                                                             .then()
                                                             .statusCode(200)
-                                                            .body("[0].jobId", equalTo(jobId2)));
+                                                            .body(
+                                                                    "[" + i.get() + "].jobId",
+                                                                    equalTo(jobId2)));
+                            i.getAndIncrement();
                         });
     }
 
     @Test
     public void testStopJobV2() {
+        AtomicInteger i = new AtomicInteger();
 
         Arrays.asList(server, secondServer)
                 .forEach(
@@ -449,7 +456,9 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                                             + "/SAVEPOINT_DONE")
                                                             .then()
                                                             .statusCode(200)
-                                                            .body("[0].jobId", equalTo(jobId)));
+                                                            .body(
+                                                                    "[" + i.get() + "].jobId",
+                                                                    equalTo(jobId)));
 
                             String jobId2 =
                                     submitJob(
@@ -514,7 +523,11 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                                             + "/CANCELED")
                                                             .then()
                                                             .statusCode(200)
-                                                            .body("[0].jobId", equalTo(jobId2)));
+                                                            .body(
+                                                                    "[" + i.get() + "].jobId",
+                                                                    equalTo(jobId2)));
+
+                            i.getAndIncrement();
                         });
     }
 
