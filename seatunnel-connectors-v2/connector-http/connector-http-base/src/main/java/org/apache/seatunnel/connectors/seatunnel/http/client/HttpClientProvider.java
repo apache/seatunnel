@@ -421,7 +421,6 @@ public class HttpClientProvider implements AutoCloseable {
         }
 
         StringEntity entity = new StringEntity(body, ContentType.APPLICATION_JSON);
-        entity.setContentEncoding(new BasicHeader(HTTP.CONTENT_TYPE, APPLICATION_JSON));
         request.setEntity(entity);
     }
 
