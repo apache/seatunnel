@@ -35,7 +35,6 @@ import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.util.Comparator;
-import java.util.Map;
 
 import static org.apache.seatunnel.engine.server.rest.RestHttpGetCommandProcessor.getJobInfoJson;
 
@@ -51,7 +50,13 @@ public class FinishedJobsServlet extends BaseServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        Map<String, String> state = getParameterMap(req);
+        String state = req.getPathInfo();
+
+        if (state != null && state.length() > 1) {
+            state = state.substring(1);
+        } else {
+            state = "";
+        }
 
         IMap<Long, JobState> finishedJob =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE);
@@ -62,16 +67,17 @@ public class FinishedJobsServlet extends BaseServlet {
         IMap<Long, JobDAGInfo> finishedJobDAGInfo =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO);
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
+        String finalState = state;
         JsonArray jobs =
                 finishedJob.values().stream()
                         .filter(
                                 jobState -> {
-                                    if (state.isEmpty()) {
+                                    if (finalState.isEmpty()) {
                                         return true;
                                     }
                                     return jobState.getJobStatus()
                                             .name()
-                                            .equals(state.get("state").toUpperCase());
+                                            .equals(finalState.toUpperCase());
                                 })
                         .sorted(Comparator.comparing(JobState::getFinishTime))
                         .map(
