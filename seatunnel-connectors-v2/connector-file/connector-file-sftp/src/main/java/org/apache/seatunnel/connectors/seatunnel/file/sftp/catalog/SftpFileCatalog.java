@@ -15,23 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.connectors.seatunnel.file.sftp.catalog;
 
-import java.io.Serializable;
-import java.util.Collection;
-import java.util.Map;
+import org.apache.seatunnel.connectors.seatunnel.file.catalog.AbstractFileCatalog;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 
-public interface TaskGroup extends Serializable {
+public class SftpFileCatalog extends AbstractFileCatalog {
 
-    TaskGroupLocation getTaskGroupLocation();
-
-    void init();
-
-    Collection<Task> getTasks();
-
-    <T extends Task> T getTask(long taskID);
-
-    void setTasksContext(Map<Long, TaskExecutionContext> taskExecutionContextMap);
-
-    TaskGroupType getTaskGroupType();
+    public SftpFileCatalog(
+            HadoopFileSystemProxy hadoopFileSystemProxy, String filePath, String catalogName) {
+        super(hadoopFileSystemProxy, filePath, catalogName);
+    }
 }

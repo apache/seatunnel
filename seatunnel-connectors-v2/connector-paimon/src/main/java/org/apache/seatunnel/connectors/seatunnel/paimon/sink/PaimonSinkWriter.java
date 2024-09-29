@@ -69,8 +69,6 @@ public class PaimonSinkWriter
 
     private final TableWrite tableWrite;
 
-    private long checkpointId = 0;
-
     private List<CommitMessage> committables = new ArrayList<>();
 
     private final Table table;
@@ -106,6 +104,10 @@ public class PaimonSinkWriter
         BucketMode bucketMode = ((FileStoreTable) table).bucketMode();
         this.dynamicBucket =
                 BucketMode.DYNAMIC == bucketMode || BucketMode.GLOBAL_DYNAMIC == bucketMode;
+        int bucket = ((FileStoreTable) table).coreOptions().bucket();
+        if (bucket == -1 && BucketMode.UNAWARE == bucketMode) {
+            log.warn("Append only table currently do not support dynamic bucket");
+        }
         if (dynamicBucket) {
             this.bucketAssigner =
                     new PaimonBucketAssigner(
@@ -128,7 +130,6 @@ public class PaimonSinkWriter
             return;
         }
         this.commitUser = states.get(0).getCommitUser();
-        this.checkpointId = states.get(0).getCheckpointId();
         try (TableCommit tableCommit = tableWriteBuilder.newCommit()) {
             List<CommitMessage> commitables =
                     states.stream()
@@ -193,7 +194,6 @@ public class PaimonSinkWriter
 
     @Override
     public List<PaimonSinkState> snapshotState(long checkpointId) throws IOException {
-        this.checkpointId = checkpointId;
         PaimonSinkState paimonSinkState =
                 new PaimonSinkState(new ArrayList<>(committables), commitUser, checkpointId);
         committables.clear();

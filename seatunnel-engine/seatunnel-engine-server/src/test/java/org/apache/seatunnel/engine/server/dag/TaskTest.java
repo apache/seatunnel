@@ -171,6 +171,36 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                 physicalPlan.getPipelineList().get(0).getCoordinatorVertexList().size(), 1);
         Assertions.assertEquals(
                 physicalPlan.getPipelineList().get(0).getPhysicalVertexList().size(), 2);
+        Assertions.assertEquals(
+                physicalPlan
+                        .getPipelineList()
+                        .get(0)
+                        .getPhysicalVertexList()
+                        .get(0)
+                        .getTaskGroupImmutableInformation()
+                        .getTasksData()
+                        .size(),
+                2);
+        Assertions.assertEquals(
+                physicalPlan
+                        .getPipelineList()
+                        .get(0)
+                        .getPhysicalVertexList()
+                        .get(0)
+                        .getTaskGroupImmutableInformation()
+                        .getJars()
+                        .get(0),
+                Sets.newHashSet(new URL("file:///fake.jar")));
+        Assertions.assertEquals(
+                physicalPlan
+                        .getPipelineList()
+                        .get(0)
+                        .getPhysicalVertexList()
+                        .get(0)
+                        .getTaskGroupImmutableInformation()
+                        .getJars()
+                        .get(1),
+                Sets.newHashSet(new URL("file:///console.jar")));
     }
 
     private static FakeSource createFakeSource() {

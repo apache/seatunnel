@@ -17,21 +17,8 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
-import java.io.Serializable;
-import java.util.Collection;
-import java.util.Map;
-
-public interface TaskGroup extends Serializable {
-
-    TaskGroupLocation getTaskGroupLocation();
-
-    void init();
-
-    Collection<Task> getTasks();
-
-    <T extends Task> T getTask(long taskID);
-
-    void setTasksContext(Map<Long, TaskExecutionContext> taskExecutionContextMap);
-
-    TaskGroupType getTaskGroupType();
+public enum TaskGroupType {
+    DEFAULT,
+    INTERMEDIATE_BLOCKING_QUEUE,
+    INTERMEDIATE_DISRUPTOR_QUEUE,
 }
