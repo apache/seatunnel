@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -123,6 +124,11 @@ public class SeaTunnelRowTest {
         map.put("key", "value");
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {map});
         Assertions.assertEquals(8, row.getBytesSize());
+
+        Map<String, Object> objMap = new LinkedHashMap<>();
+        objMap.put("ts", new Timestamp(System.currentTimeMillis()));
+        SeaTunnelRow tsRow = new SeaTunnelRow(new Object[] {objMap});
+        Assertions.assertEquals(2 + 48, tsRow.getBytesSize());
     }
 
     @Test
