@@ -73,7 +73,7 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
 
     @BeforeAll
     @Override
-    public void startUp() throws InterruptedException {
+    public void startUp() {
         container =
                 new GenericContainer<>(DOCKER_IMAGE)
                         .withNetwork(NETWORK)
