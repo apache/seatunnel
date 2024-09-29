@@ -866,11 +866,14 @@
                                     <argument>linux/amd64,linux/arm64</argument>
                                     <argument>--no-cache</argument>
                                     <argument>--push</argument>
-                                    <argument>--all-tags</argument>
+                                    <argument>-t</argument>
+                                    <argument>${docker.hub}/${docker.repo}:${docker.tag}</argument>
+                                    <argument>-t</argument>
+                                    <argument>${docker.hub}/${docker.repo}:latest</argument>
                                     <argument>${docker.hub}/${docker.repo}</argument>
                                     <argument>${project.basedir}</argument>
                                     <argument>--build-arg</argument>
-                                    <argument>VERSION=${revision}</argument>
+                                    <argument>VERSION=${project.version}</argument>
                                     <argument>--file=src/main/docker/Dockerfile</argument>
                                 </arguments>
                             </configuration>
