@@ -64,6 +64,7 @@ public class MySqlSchemaChangeResolver extends AbstractSchemaChangeResolver {
         customMySqlAntlrDdlParser.parse(ddl, tables);
         List<AlterTableColumnEvent> parsedEvents =
                 customMySqlAntlrDdlParser.getAndClearParsedEvents();
+        parsedEvents.forEach(e -> e.setSourceDialectName(DatabaseIdentifier.MYSQL));
         AlterTableColumnsEvent alterTableColumnsEvent =
                 new AlterTableColumnsEvent(
                         TableIdentifier.of(

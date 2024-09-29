@@ -34,8 +34,8 @@ import java.util.Set;
 // In standalone mode, pipeline can be used to improve batch read performance
 public class RedisSingleClient extends RedisClient {
 
-    public RedisSingleClient(RedisParameters redisParameters, Jedis jedis) {
-        super(redisParameters, jedis);
+    public RedisSingleClient(RedisParameters redisParameters, Jedis jedis, int redisVersion) {
+        super(redisParameters, jedis, redisVersion);
     }
 
     @Override

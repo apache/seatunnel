@@ -67,25 +67,37 @@ public class TextReadStrategy extends AbstractReadStrategy {
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
-        InputStream inputStream;
+        resolveArchiveCompressedInputStream(path, tableId, output, partitionsMap, FileFormat.TEXT);
+    }
+
+    @Override
+    public void readProcess(
+            String path,
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            InputStream inputStream,
+            Map<String, String> partitionsMap,
+            String currentFileName)
+            throws IOException {
+        InputStream actualInputStream;
         switch (compressFormat) {
             case LZO:
                 LzopCodec lzo = new LzopCodec();
-                inputStream = lzo.createInputStream(hadoopFileSystemProxy.getInputStream(path));
+                actualInputStream = lzo.createInputStream(inputStream);
                 break;
             case NONE:
-                inputStream = hadoopFileSystemProxy.getInputStream(path);
+                actualInputStream = inputStream;
                 break;
             default:
                 log.warn(
                         "Text file does not support this compress type: {}",
                         compressFormat.getCompressCodec());
-                inputStream = hadoopFileSystemProxy.getInputStream(path);
+                actualInputStream = inputStream;
                 break;
         }
 
         try (BufferedReader reader =
-                new BufferedReader(new InputStreamReader(inputStream, encoding))) {
+                new BufferedReader(new InputStreamReader(actualInputStream, encoding))) {
             reader.lines()
                     .skip(skipHeaderNumber)
                     .forEach(

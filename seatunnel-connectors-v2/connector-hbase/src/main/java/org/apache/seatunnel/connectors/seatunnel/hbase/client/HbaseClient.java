@@ -22,6 +22,7 @@ import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorE
 import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hbase.source.HbaseSourceSplit;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.NamespaceDescriptor;
@@ -202,7 +203,7 @@ public class HbaseClient {
             List<String> columnFamilies,
             boolean ignoreIfExists) {
         try {
-            if (!databaseExists(databaseName)) {
+            if (!databaseExists(databaseName) && !StringUtils.isBlank(databaseName)) {
                 admin.createNamespace(NamespaceDescriptor.create(databaseName).build());
             }
             TableName table = TableName.valueOf(databaseName, tableName);

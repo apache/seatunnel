@@ -69,7 +69,6 @@ public class HiveSourceConfig implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private final Table table;
     private final CatalogTable catalogTable;
     private final FileFormat fileFormat;
     private final ReadStrategy readStrategy;
@@ -81,7 +80,7 @@ public class HiveSourceConfig implements Serializable {
         readonlyConfig
                 .getOptional(HdfsSourceConfigOptions.READ_PARTITIONS)
                 .ifPresent(this::validatePartitions);
-        this.table = HiveTableUtils.getTableInfo(readonlyConfig);
+        Table table = HiveTableUtils.getTableInfo(readonlyConfig);
         this.hadoopConf = parseHiveHadoopConfig(readonlyConfig, table);
         this.fileFormat = HiveTableUtils.parseFileFormat(table);
         this.readStrategy = parseReadStrategy(table, readonlyConfig, fileFormat, hadoopConf);

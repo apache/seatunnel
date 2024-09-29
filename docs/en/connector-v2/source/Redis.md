@@ -17,8 +17,8 @@ Used to read data from Redis.
 
 ## Options
 
-|        name         |  type  |       required        | default value |
-|---------------------|--------|-----------------------|---------------|
+| name                | type   | required              | default value |
+| ------------------- | ------ | --------------------- | ------------- |
 | host                | string | yes                   | -             |
 | port                | int    | yes                   | -             |
 | keys                | string | yes                   | -             |
@@ -67,7 +67,6 @@ for example, if the value of hash key is the following shown:
 if hash_key_parse_mode is `all` and schema config as the following shown, it will generate the following data:
 
 ```hocon
-
 schema {
   fields {
     001 {
@@ -83,14 +82,13 @@ schema {
 
 ```
 
-|               001               |            002            |
-|---------------------------------|---------------------------|
+| 001                             | 002                       |
+| ------------------------------- | ------------------------- |
 | Row(name=tyrantlucifer, age=26) | Row(name=Zongwen, age=26) |
 
 if hash_key_parse_mode is `kv` and schema config as the following shown, it will generate the following data:
 
 ```hocon
-
 schema {
   fields {
     hash_key = string
@@ -101,10 +99,10 @@ schema {
 
 ```
 
-| hash_key |     name      | age |
-|----------|---------------|-----|
-| 001      | tyrantlucifer | 26  |
-| 002      | Zongwen       | 26  |
+| hash_key | name          | age  |
+| -------- | ------------- | ---- |
+| 001      | tyrantlucifer | 26   |
+| 002      | Zongwen       | 26   |
 
 each kv that in hash key it will be treated as a row and send it to upstream.
 
@@ -180,7 +178,6 @@ when you assign format is `json`, you should also assign schema option, for exam
 upstream data is the following:
 
 ```json
-
 {"code":  200, "data":  "get success", "success":  true}
 
 ```
@@ -188,7 +185,6 @@ upstream data is the following:
 you should assign schema as the following:
 
 ```hocon
-
 schema {
     fields {
         code = int
@@ -201,8 +197,8 @@ schema {
 
 connector will generate data as the following:
 
-| code |    data     | success |
-|------|-------------|---------|
+| code | data        | success |
+| ---- | ----------- | ------- |
 | 200  | get success | true    |
 
 when you assign format is `text`, connector will do nothing for upstream data, for example:
@@ -210,15 +206,14 @@ when you assign format is `text`, connector will do nothing for upstream data, f
 upstream data is the following:
 
 ```json
-
 {"code":  200, "data":  "get success", "success":  true}
 
 ```
 
 connector will generate data as the following:
 
-|                         content                          |
-|----------------------------------------------------------|
+| content                                                  |
+| -------------------------------------------------------- |
 | {"code":  200, "data":  "get success", "success":  true} |
 
 ### schema [config]
@@ -261,6 +256,32 @@ Redis {
 }
 ```
 
+read string type keys write append to list
+
+```hocon
+source {
+  Redis {
+    host = "redis-e2e"
+    port = 6379
+    auth = "U2VhVHVubmVs"
+    keys = "string_test*"
+    data_type = string
+    batch_size = 33
+  }
+}
+
+sink {
+  Redis {
+    host = "redis-e2e"
+    port = 6379
+    auth = "U2VhVHVubmVs"
+    key = "string_test_list"
+    data_type = list
+    batch_size = 33
+  }
+}
+```
+
 ## Changelog
 
 ### 2.2.0-beta 2022-09-26
@@ -270,4 +291,4 @@ Redis {
 ### next version
 
 - [Improve] Support redis cluster mode connection and user authentication [3188](https://github.com/apache/seatunnel/pull/3188)
-
+-  [Bug] Redis scan command supports versions 5, 6, 7 [7666](https://github.com/apache/seatunnel/pull/7666)
