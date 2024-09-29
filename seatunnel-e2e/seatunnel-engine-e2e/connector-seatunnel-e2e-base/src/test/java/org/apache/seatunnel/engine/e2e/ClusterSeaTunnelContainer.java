@@ -266,6 +266,7 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                                             + container.getHost()
                                                                             + colon
                                                                             + task._1()
+                                                                            + task._2()
                                                                             + RestConstant
                                                                                     .RUNNING_JOB_URL
                                                                             + "/"
@@ -582,14 +583,13 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                                         "[0].jobId",
                                                                         equalTo(
                                                                                 String.valueOf(
-                                                                                        task._3()
-                                                                                                - 1)))
+                                                                                        task._3())))
                                                                 .body(
                                                                         "[1].jobId",
                                                                         equalTo(
                                                                                 String.valueOf(
-                                                                                        task
-                                                                                                ._3()))));
+                                                                                        task._3()
+                                                                                                - 1))));
 
                             } catch (IOException e) {
                                 throw new RuntimeException(e);

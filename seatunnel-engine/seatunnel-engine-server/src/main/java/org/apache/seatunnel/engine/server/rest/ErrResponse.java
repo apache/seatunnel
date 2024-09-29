@@ -21,7 +21,6 @@ import lombok.Data;
 
 @Data
 public class ErrResponse {
-    private int status;
-    private String error;
+    private String status;
     private String message;
 }

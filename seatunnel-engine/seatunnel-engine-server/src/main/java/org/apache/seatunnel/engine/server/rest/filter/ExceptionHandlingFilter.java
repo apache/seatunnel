@@ -21,6 +21,8 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.engine.server.rest.ErrResponse;
 
+import lombok.extern.slf4j.Slf4j;
+
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.FilterConfig;
@@ -31,6 +33,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 
+@Slf4j
 public class ExceptionHandlingFilter implements Filter {
 
     private ObjectMapper objectMapper;
@@ -45,19 +48,24 @@ public class ExceptionHandlingFilter implements Filter {
             throws IOException, ServletException {
         try {
             chain.doFilter(request, response);
+        } catch (IllegalArgumentException e) {
+            handleException(HttpServletResponse.SC_BAD_REQUEST, (HttpServletResponse) response, e);
         } catch (Exception e) {
-            handleException((HttpServletResponse) response, e);
+            handleException(
+                    HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    (HttpServletResponse) response,
+                    e);
         }
     }
 
-    private void handleException(HttpServletResponse response, Exception e) throws IOException {
-        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+    private void handleException(int status, HttpServletResponse response, Exception e)
+            throws IOException {
+        response.setStatus(status);
         response.setContentType("application/json;charset=UTF-8");
 
         ErrResponse errorResponse = new ErrResponse();
-        errorResponse.setError("Internal Server Error");
         errorResponse.setMessage(e.getMessage());
-        errorResponse.setStatus(response.getStatus());
+        errorResponse.setStatus("fail");
 
         String jsonResponse = objectMapper.writeValueAsString(errorResponse);
         response.getWriter().write(jsonResponse);

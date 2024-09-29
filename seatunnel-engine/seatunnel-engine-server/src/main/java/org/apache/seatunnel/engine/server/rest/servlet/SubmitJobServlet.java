@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.rest.servlet;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.rest.RestConstant;
 import org.apache.seatunnel.engine.server.utils.RestUtil;
 
 import com.hazelcast.internal.json.JsonObject;
@@ -45,6 +46,11 @@ public class SubmitJobServlet extends BaseServlet {
             throws ServletException, IOException {
 
         Map<String, String> requestParams = getParameterMap(req);
+
+        if (Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT))
+                && requestParams.get(RestConstant.JOB_ID) == null) {
+            throw new IllegalArgumentException("Please provide jobId when start with save point.");
+        }
 
         Config config = RestUtil.buildConfig(requestHandle(requestBody(req)), false);
 

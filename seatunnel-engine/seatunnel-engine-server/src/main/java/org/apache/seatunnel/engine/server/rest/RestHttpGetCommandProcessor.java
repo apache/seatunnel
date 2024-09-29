@@ -322,7 +322,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                                             .name()
                                             .equals(state.toUpperCase());
                                 })
-                        .sorted(Comparator.comparing(JobState::getFinishTime))
+                        .sorted(Comparator.comparing(JobState::getFinishTime).reversed())
                         .map(
                                 jobState -> {
                                     Long jobId = jobState.getJobId();
