@@ -50,7 +50,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.restassured.RestAssured.given;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
-import static org.hamcrest.Matchers.*;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.in;
 
 public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
 
@@ -575,7 +576,10 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                         .statusCode(200)
                                         .body("[0].jobId", equalTo(task._3()))
                                         .body("[1].jobId", equalTo(task._3() - 1));
-                                String[] jobIds = new String[] {String.valueOf(task._3() - 1),String.valueOf(task._3())};
+                                String[] jobIds =
+                                        new String[] {
+                                            String.valueOf(task._3() - 1), String.valueOf(task._3())
+                                        };
 
                                 Awaitility.await()
                                         .atMost(2, TimeUnit.MINUTES)
@@ -593,12 +597,8 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                                                 + "/CANCELED")
                                                                 .then()
                                                                 .statusCode(200)
-                                                                .body(
-                                                                        "[0].jobId",
-                                                                        in(jobIds))
-                                                                .body(
-                                                                        "[1].jobId",
-                                                                        in(jobIds)));
+                                                                .body("[0].jobId", in(jobIds))
+                                                                .body("[1].jobId", in(jobIds)));
 
                             } catch (IOException e) {
                                 throw new RuntimeException(e);
@@ -641,7 +641,10 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                         .body("[0].jobId", equalTo(task._3()))
                                         .body("[1].jobId", equalTo(task._3() - 1));
 
-                                String[] jobIds = new String[] {String.valueOf(task._3() - 1),String.valueOf(task._3())};
+                                String[] jobIds =
+                                        new String[] {
+                                            String.valueOf(task._3() - 1), String.valueOf(task._3())
+                                        };
                                 Awaitility.await()
                                         .atMost(2, TimeUnit.MINUTES)
                                         .untilAsserted(
@@ -658,12 +661,8 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                                                 + "/CANCELED")
                                                                 .then()
                                                                 .statusCode(200)
-                                                                .body(
-                                                                        "[0].jobId",
-                                                                        in(jobIds))
-                                                                .body(
-                                                                        "[1].jobId",
-                                                                        in(jobIds)));
+                                                                .body("[0].jobId", in(jobIds))
+                                                                .body("[1].jobId", in(jobIds)));
 
                             } catch (IOException e) {
                                 throw new RuntimeException(e);
