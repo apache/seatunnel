@@ -60,8 +60,8 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                     + "    score  INT"
                     + ")";
 
-    private static final String HMS_HOST = "hivee2e";
-    private static final String HIVE_SERVER_HOST = "hiveserver2e2e";
+    private static final String HMS_HOST = "metastore";
+    private static final String HIVE_SERVER_HOST = "hiveserver2";
 
     private String hiveExeUrl() {
         return "https://repo1.maven.org/maven2/org/apache/hive/hive-exec/3.1.3/hive-exec-3.1.3.jar";
@@ -98,9 +98,10 @@ public class HiveIT extends TestSuiteBase implements TestResource {
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                container.execInContainer("sh", "-c", "chmod -R 777 /etc/hosts");
-                // To avoid get a canonical host from a docker DNS server
-                container.execInContainer("sh", "-c", "echo `getent hosts hivee2e` >> /etc/hosts");
+                //                container.execInContainer("sh", "-c", "chmod -R 777 /etc/hosts");
+                //                // To avoid get a canonical host from a docker DNS server
+                //                container.execInContainer("sh", "-c", "echo `getent hosts hivee2e`
+                // >> /etc/hosts");
                 // The jar of hive-exec
                 Container.ExecResult downloadHiveExeCommands =
                         container.execInContainer(
@@ -150,7 +151,10 @@ public class HiveIT extends TestSuiteBase implements TestResource {
     @Override
     public void startUp() throws Exception {
         hmsContainer =
-                HiveContainer.hmsStandalone().withNetwork(NETWORK).withNetworkAliases(HMS_HOST);
+                HiveContainer.hmsStandalone()
+                        .withCreateContainerCmdModifier(cmd -> cmd.withName(HMS_HOST))
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(HMS_HOST);
         hmsContainer.setPortBindings(Collections.singletonList("9083:9083"));
 
         Startables.deepStart(Stream.of(hmsContainer)).join();
@@ -160,8 +164,9 @@ public class HiveIT extends TestSuiteBase implements TestResource {
         hiveServerContainer =
                 HiveContainer.hiveServer()
                         .withNetwork(NETWORK)
+                        .withCreateContainerCmdModifier(cmd -> cmd.withName(HIVE_SERVER_HOST))
                         .withNetworkAliases(HIVE_SERVER_HOST)
-                        .withEnv("SERVICE_OPTS", "-Dhive.metastore.uris=thrift://hivee2e:9083")
+                        .withEnv("SERVICE_OPTS", "-Dhive.metastore.uris=thrift://metastore:9083")
                         .withEnv("IS_RESUME", "true")
                         .dependsOn(hmsContainer);
         hiveServerContainer.setPortBindings(Collections.singletonList("10000:10000"));
