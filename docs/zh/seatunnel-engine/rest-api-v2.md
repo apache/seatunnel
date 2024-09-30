@@ -14,7 +14,7 @@ v2版本的api使用jetty支持，与v1版本的接口规范相同 ,可以通过
 seatunnel:
   engine:
     jetty-port: 8080
-    context-path: /hazelcast/rest/maps
+    context-path: /seatunnel
 ```
 
 ## API参考
@@ -22,7 +22,7 @@ seatunnel:
 ### 返回Zeta集群的概览
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/overview?tag1=value1&tag2=value2</b></code> <code>(Returns an overview over the Zeta engine cluster.)</code></summary>
+ <summary><code>GET</code> <code><b>/seatunnel/overview?tag1=value1&tag2=value2</b></code> <code>(Returns an overview over the Zeta engine cluster.)</code></summary>
 
 #### 参数
 
@@ -57,7 +57,7 @@ seatunnel:
 ### 返回所有作业及其当前状态的概览
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-jobs</b></code> <code>(返回所有作业及其当前状态的概览。)</code></summary>
+ <summary><code>GET</code> <code><b>/seatunnel/running-jobs</b></code> <code>(返回所有作业及其当前状态的概览。)</code></summary>
 
 #### 参数
 
@@ -96,7 +96,7 @@ seatunnel:
 ### 返回作业的详细信息
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/job-info/:jobId</b></code> <code>(返回作业的详细信息。)</code></summary>
+ <summary><code>GET</code> <code><b>/seatunnel/job-info/:jobId</b></code> <code>(返回作业的详细信息。)</code></summary>
 
 #### 参数
 
@@ -164,10 +164,10 @@ seatunnel:
 
 ### 返回作业的详细信息
 
-此API已经弃用，请使用/hazelcast/rest/maps/job-info/:jobId替代。
+此API已经弃用，请使用/seatunnel/job-info/:jobId替代。
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-job/:jobId</b></code> <code>(返回作业的详细信息。)</code></summary>
+ <summary><code>GET</code> <code><b>/seatunnel/running-job/:jobId</b></code> <code>(返回作业的详细信息。)</code></summary>
 
 #### 参数
 
@@ -222,7 +222,7 @@ seatunnel:
 ### 返回所有已完成的作业信息
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/finished-jobs/:state</b></code> <code>(返回所有已完成的作业信息。)</code></summary>
+ <summary><code>GET</code> <code><b>/seatunnel/finished-jobs/:state</b></code> <code>(返回所有已完成的作业信息。)</code></summary>
 
 #### 参数
 
@@ -254,7 +254,7 @@ seatunnel:
 ### 返回系统监控信息
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/system-monitoring-information</b></code> <code>(返回系统监控信息。)</code></summary>
+ <summary><code>GET</code> <code><b>/seatunnel/system-monitoring-information</b></code> <code>(返回系统监控信息。)</code></summary>
 
 #### 参数
 
@@ -319,7 +319,7 @@ seatunnel:
 ### 提交作业
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/submit-job</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
+<summary><code>POST</code> <code><b>/seatunnel/submit-job</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
 
 #### 参数
 
@@ -378,7 +378,7 @@ seatunnel:
 ### 批量提交作业
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/submit-jobs</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
+<summary><code>POST</code> <code><b>/seatunnel/submit-jobs</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
 
 #### 参数(在请求体中params字段中添加)
 
@@ -480,7 +480,7 @@ seatunnel:
 ### 停止作业
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/stop-job</b></code> <code>(如果作业成功停止，返回jobId。)</code></summary>
+<summary><code>POST</code> <code><b>/seatunnel/stop-job</b></code> <code>(如果作业成功停止，返回jobId。)</code></summary>
 
 #### 请求体
 
@@ -507,7 +507,7 @@ seatunnel:
 ### 批量停止作业
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/stop-jobs</b></code> <code>(如果作业成功停止，返回jobId。)</code></summary>
+<summary><code>POST</code> <code><b>/seatunnel/stop-jobs</b></code> <code>(如果作业成功停止，返回jobId。)</code></summary>
 
 #### 请求体
 
@@ -544,7 +544,7 @@ seatunnel:
 ### 加密配置
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/encrypt-config</b></code> <code>(如果配置加密成功，则返回加密后的配置。)</code></summary>
+<summary><code>POST</code> <code><b>/seatunnel/encrypt-config</b></code> <code>(如果配置加密成功，则返回加密后的配置。)</code></summary>
 有关自定义加密的更多信息，请参阅文档[配置-加密-解密](../connector-v2/Config-Encryption-Decryption.md).
 
 #### 请求体
@@ -633,7 +633,7 @@ seatunnel:
 ### 更新运行节点的tags
 
 <details>
-<summary><code>POST</code><code><b>/hazelcast/rest/maps/update-tags</b></code><code>因为更新只能针对于某个节点，因此需要用当前节点ip:port用于更新</code><code>(如果更新成功，则返回"success"信息)</code></summary>
+<summary><code>POST</code><code><b>/seatunnel/update-tags</b></code><code>因为更新只能针对于某个节点，因此需要用当前节点ip:port用于更新</code><code>(如果更新成功，则返回"success"信息)</code></summary>
 
 
 #### 更新节点tags

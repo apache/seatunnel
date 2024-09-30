@@ -18,7 +18,7 @@ The v2 version of the api uses jetty support.It is the same as the interface spe
 seatunnel:
   engine:
     jetty-port: 8080
-    context-path: /hazelcast/rest/maps
+    context-path: /seatunnel
 ```
 
 ## API reference
@@ -26,7 +26,7 @@ seatunnel:
 ### Returns an overview over the Zeta engine cluster.
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/overview?tag1=value1&tag2=value2</b></code> <code>(Returns an overview over the Zeta engine cluster.)</code></summary>
+ <summary><code>GET</code> <code><b>/seatunnel/overview?tag1=value1&tag2=value2</b></code> <code>(Returns an overview over the Zeta engine cluster.)</code></summary>
 
 #### Parameters
 
@@ -61,7 +61,7 @@ seatunnel:
 ### Returns An Overview And State Of All Jobs
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-jobs</b></code> <code>(Returns an overview over all jobs and their current state.)</code></summary>
+ <summary><code>GET</code> <code><b>/seatunnel/running-jobs</b></code> <code>(Returns an overview over all jobs and their current state.)</code></summary>
 
 #### Parameters
 
@@ -100,7 +100,7 @@ seatunnel:
 ### Return Details Of A Job
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/job-info/:jobId</b></code> <code>(Return details of a job. )</code></summary>
+ <summary><code>GET</code> <code><b>/seatunnel/job-info/:jobId</b></code> <code>(Return details of a job. )</code></summary>
 
 #### Parameters
 
@@ -154,10 +154,10 @@ When we can't get the job info, the response will be:
 
 ### Return Details Of A Job
 
-This API has been deprecated, please use /hazelcast/rest/maps/job-info/:jobId instead
+This API has been deprecated, please use /seatunnel/job-info/:jobId instead
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-job/:jobId</b></code> <code>(Return details of a job. )</code></summary>
+ <summary><code>GET</code> <code><b>/seatunnel/running-job/:jobId</b></code> <code>(Return details of a job. )</code></summary>
 
 #### Parameters
 
@@ -226,7 +226,7 @@ When we can't get the job info, the response will be:
 ### Return All Finished Jobs Info
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/finished-jobs/:state</b></code> <code>(Return all finished Jobs Info.)</code></summary>
+ <summary><code>GET</code> <code><b>/seatunnel/finished-jobs/:state</b></code> <code>(Return all finished Jobs Info.)</code></summary>
 
 #### Parameters
 
@@ -258,7 +258,7 @@ When we can't get the job info, the response will be:
 ### Returns System Monitoring Information
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/system-monitoring-information</b></code> <code>(Returns system monitoring information.)</code></summary>
+ <summary><code>GET</code> <code><b>/seatunnel/system-monitoring-information</b></code> <code>(Returns system monitoring information.)</code></summary>
 
 #### Parameters
 
@@ -323,7 +323,7 @@ When we can't get the job info, the response will be:
 ### Submit A Job
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/submit-job</b></code> <code>(Returns jobId and jobName if job submitted successfully.)</code></summary>
+<summary><code>POST</code> <code><b>/seatunnel/submit-job</b></code> <code>(Returns jobId and jobName if job submitted successfully.)</code></summary>
 
 #### Parameters
 
@@ -381,7 +381,7 @@ When we can't get the job info, the response will be:
 ### Batch Submit Jobs
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/submit-jobs</b></code> <code>(Returns jobId and jobName if the job is successfully submitted.)</code></summary>
+<summary><code>POST</code> <code><b>/seatunnel/submit-jobs</b></code> <code>(Returns jobId and jobName if the job is successfully submitted.)</code></summary>
 
 #### Parameters (add in the `params` field in the request body)
 
@@ -481,7 +481,7 @@ When we can't get the job info, the response will be:
 ### Stop A Job
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/stop-job</b></code> <code>(Returns jobId if job stoped successfully.)</code></summary>
+<summary><code>POST</code> <code><b>/seatunnel/stop-job</b></code> <code>(Returns jobId if job stoped successfully.)</code></summary>
 
 #### Body
 
@@ -506,7 +506,7 @@ When we can't get the job info, the response will be:
 ### Batch Stop Jobs
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/stop-jobs</b></code> <code>(Returns jobId if the job is successfully stopped.)</code></summary>
+<summary><code>POST</code> <code><b>/seatunnel/stop-jobs</b></code> <code>(Returns jobId if the job is successfully stopped.)</code></summary>
 
 #### Request Body
 
@@ -542,7 +542,7 @@ When we can't get the job info, the response will be:
 ### Encrypt Config
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/encrypt-config</b></code> <code>(Returns the encrypted config if config is encrypted successfully.)</code></summary>
+<summary><code>POST</code> <code><b>/seatunnel/encrypt-config</b></code> <code>(Returns the encrypted config if config is encrypted successfully.)</code></summary>
 For more information about customize encryption, please refer to the documentation [config-encryption-decryption](../connector-v2/Config-Encryption-Decryption.md).
 
 #### Body
@@ -631,7 +631,7 @@ For more information about customize encryption, please refer to the documentati
 
 ### Update the tags of running node
 
-<details><summary><code>POST</code><code><b>/hazelcast/rest/maps/update-tags</b></code><code>Because the update can only target a specific node, the current node's `ip:port` needs to be used for the update</code><code>(If the update is successful, return a success message)</code></summary>
+<details><summary><code>POST</code><code><b>/seatunnel/update-tags</b></code><code>Because the update can only target a specific node, the current node's `ip:port` needs to be used for the update</code><code>(If the update is successful, return a success message)</code></summary>
 
 
 #### update node tags
