@@ -148,6 +148,7 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
                                                             + server.getHost()
                                                             + colon
                                                             + server.getFirstMappedPort()
+                                                            + RestConstant.CONTEXT_PATH
                                                             + RestConstant.FINISHED_JOBS_INFO
                                                             + "/FINISHED")
                                             .then()

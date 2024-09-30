@@ -95,7 +95,7 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
     @BeforeEach
     public void startUp() throws Exception {
 
-        modifyEnableHttp();
+        modifyEnableHttp(true);
 
         server = createServer("server");
         secondServer = createServer("secondServer");
@@ -131,6 +131,7 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
         if (secondServer != null) {
             secondServer.close();
         }
+        modifyEnableHttp(false);
     }
 
     @Test
@@ -1047,7 +1048,7 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
      *
      * @throws IOException If an error occurs during file reading or writing.
      */
-    protected void modifyEnableHttp() throws IOException {
+    protected void modifyEnableHttp(boolean httpEnable) throws IOException {
         // Load the seatunnel.yaml file from the resources folder
         ClassLoader classLoader = getClass().getClassLoader();
         URL resource = classLoader.getResource("seatunnel.yaml");
@@ -1085,20 +1086,7 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                 Object httpObj = engineMap.get("http");
                 if (httpObj instanceof Map) {
                     Map<String, Object> httpMap = (Map<String, Object>) httpObj;
-                    if (httpMap.containsKey("enable-http")) {
-                        Object currentValue = httpMap.get("enable-http");
-                        if (currentValue instanceof Boolean) {
-                            httpMap.put("enable-http", true);
-                        } else if (currentValue instanceof String) {
-                            httpMap.put("enable-http", "true");
-                        } else {
-                            // Handle other types as needed
-                            httpMap.put("enable-http", true);
-                        }
-                    } else {
-                        // Add the enable-http field if it does not exist
-                        httpMap.put("enable-http", true);
-                    }
+                    httpMap.put("enable-http", httpEnable);
                 } else {
                     throw new IllegalStateException(
                             "'http' node does not exist or is of incorrect type in the YAML file.");
@@ -1123,7 +1111,5 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                 new OutputStreamWriter(new FileOutputStream(yamlFile), StandardCharsets.UTF_8)) {
             yamlWriter.dump(data, writer);
         }
-
-        System.out.println("Successfully set enable-http to true.");
     }
 }
