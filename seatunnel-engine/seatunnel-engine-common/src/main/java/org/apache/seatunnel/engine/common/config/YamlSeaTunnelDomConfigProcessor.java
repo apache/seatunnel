@@ -356,6 +356,8 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                         getIntegerValue(ServerConfigOptions.PORT.key(), getTextContent(node)));
             } else if (ServerConfigOptions.CONTEXT_PATH.key().equals(name)) {
                 httpConfig.setContextPath(getTextContent(node));
+            } else if (ServerConfigOptions.ENABLE_HTTP.key().equals(name)) {
+                httpConfig.setEnabled(getBooleanValue(getTextContent(node)));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }

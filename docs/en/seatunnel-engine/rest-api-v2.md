@@ -17,6 +17,7 @@ The v2 version of the api uses jetty support.It is the same as the interface spe
 
 seatunnel:
   engine:
+    enable-http: true
     jetty-port: 8080
     context-path: /seatunnel
 ```

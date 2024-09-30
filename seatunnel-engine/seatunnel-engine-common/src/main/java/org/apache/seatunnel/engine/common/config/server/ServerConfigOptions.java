@@ -228,6 +228,12 @@ public class ServerConfigOptions {
                     .defaultValue(8080)
                     .withDescription("The port of the http server.");
 
+    public static final Option<Boolean> ENABLE_HTTP =
+            Options.key("enable-http")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Whether to enable the http server.");
+
     public static final Option<String> CONTEXT_PATH =
             Options.key("context-path")
                     .stringType()

@@ -32,5 +32,6 @@ seatunnel:
         plugin-config:
           namespace: /tmp/seatunnel/checkpoint_snapshot/
     http:
+        enable-http: false
         port: 8080
         context-path: /seatunnel

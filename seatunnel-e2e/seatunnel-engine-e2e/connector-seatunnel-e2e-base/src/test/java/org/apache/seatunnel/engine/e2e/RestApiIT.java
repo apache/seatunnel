@@ -76,6 +76,7 @@ public class RestApiIT {
         String testClusterName = TestUtils.getClusterName("RestApiIT");
         node1Config = ConfigProvider.locateAndGetSeaTunnelConfig();
         node1Config.getEngineConfig().getHttpConfig().setPort(8080);
+        node1Config.getEngineConfig().getHttpConfig().setEnabled(true);
         node1Config.getHazelcastConfig().setClusterName(testClusterName);
         node1Config.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
         node1Config.getEngineConfig().getSlotServiceConfig().setSlotNum(20);
@@ -89,6 +90,7 @@ public class RestApiIT {
         Config node2hzconfig = node1Config.getHazelcastConfig().setMemberAttributeConfig(node2Tags);
         node2Config = ConfigProvider.locateAndGetSeaTunnelConfig();
         node2Config.getEngineConfig().getHttpConfig().setPort(8081);
+        node2Config.getEngineConfig().getHttpConfig().setEnabled(true);
         node2Config.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
         node2Config.getEngineConfig().getSlotServiceConfig().setSlotNum(20);
         node2Config.setHazelcastConfig(node2hzconfig);

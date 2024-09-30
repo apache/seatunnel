@@ -26,6 +26,8 @@ import static com.hazelcast.internal.util.Preconditions.checkPositive;
 @Data
 public class HttpConfig implements Serializable {
 
+    private boolean enabled = ServerConfigOptions.ENABLE_HTTP.defaultValue();
+
     private int port = ServerConfigOptions.PORT.defaultValue();
 
     private String contextPath = ServerConfigOptions.CONTEXT_PATH.defaultValue();

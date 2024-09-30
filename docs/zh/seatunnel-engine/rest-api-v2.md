@@ -13,6 +13,7 @@ v2版本的api使用jetty支持，与v1版本的接口规范相同 ,可以通过
 
 seatunnel:
   engine:
+    enable-http: true
     jetty-port: 8080
     context-path: /seatunnel
 ```
