@@ -30,10 +30,6 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.shaded.org.yaml.snakeyaml.DumperOptions;
-import org.testcontainers.shaded.org.yaml.snakeyaml.Yaml;
-import org.testcontainers.shaded.org.yaml.snakeyaml.constructor.SafeConstructor;
-import org.testcontainers.shaded.org.yaml.snakeyaml.representer.Representer;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
@@ -41,16 +37,7 @@ import com.hazelcast.jet.json.JsonUtil;
 import io.restassured.response.Response;
 import scala.Tuple3;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -95,8 +82,6 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
     @BeforeEach
     public void startUp() throws Exception {
 
-        modifyEnableHttp(true);
-
         server = createServer("server");
         secondServer = createServer("secondServer");
 
@@ -131,7 +116,6 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
         if (secondServer != null) {
             secondServer.close();
         }
-        modifyEnableHttp(false);
     }
 
     @Test
@@ -1040,76 +1024,5 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                 + port
                 + contextPath
                 + RestConstant.FINISHED_JOBS_INFO;
-    }
-
-    /**
-     * Modifies the enable-http configuration in the seatunnel.yaml file located in the resources
-     * folder. Changes enable-http: false to enable-http: true.
-     *
-     * @throws IOException If an error occurs during file reading or writing.
-     */
-    protected void modifyEnableHttp(boolean httpEnable) throws IOException {
-        // Load the seatunnel.yaml file from the resources folder
-        ClassLoader classLoader = getClass().getClassLoader();
-        URL resource = classLoader.getResource("seatunnel.yaml");
-        if (resource == null) {
-            throw new FileNotFoundException(
-                    "seatunnel.yaml file not found in the resources folder.");
-        }
-
-        // Convert URL to File
-        File yamlFile = new File(resource.getFile());
-        if (!yamlFile.exists()) {
-            throw new FileNotFoundException(
-                    "seatunnel.yaml file does not exist: " + yamlFile.getAbsolutePath());
-        }
-
-        // Read the YAML file
-        Yaml yaml = new Yaml(new SafeConstructor());
-        Map<String, Object> data;
-        try (InputStream inputStream = new FileInputStream(yamlFile)) {
-            data = yaml.load(inputStream);
-        }
-
-        if (data == null) {
-            throw new IllegalStateException(
-                    "seatunnel.yaml file is empty or has an incorrect format.");
-        }
-
-        // Navigate to seatunnel.engine.http and modify the enable-http field
-        Object seatunnelObj = data.get("seatunnel");
-        if (seatunnelObj instanceof Map) {
-            Map<String, Object> seatunnelMap = (Map<String, Object>) seatunnelObj;
-            Object engineObj = seatunnelMap.get("engine");
-            if (engineObj instanceof Map) {
-                Map<String, Object> engineMap = (Map<String, Object>) engineObj;
-                Object httpObj = engineMap.get("http");
-                if (httpObj instanceof Map) {
-                    Map<String, Object> httpMap = (Map<String, Object>) httpObj;
-                    httpMap.put("enable-http", httpEnable);
-                } else {
-                    throw new IllegalStateException(
-                            "'http' node does not exist or is of incorrect type in the YAML file.");
-                }
-            } else {
-                throw new IllegalStateException(
-                        "'engine' node does not exist or is of incorrect type in the YAML file.");
-            }
-        } else {
-            throw new IllegalStateException(
-                    "'seatunnel' node does not exist or is of incorrect type in the YAML file.");
-        }
-
-        // Configure YAML output options
-        DumperOptions options = new DumperOptions();
-        options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
-        options.setPrettyFlow(true);
-        Yaml yamlWriter = new Yaml(new Representer(), options);
-
-        // Write the modified data back to the YAML file
-        try (Writer writer =
-                new OutputStreamWriter(new FileOutputStream(yamlFile), StandardCharsets.UTF_8)) {
-            yamlWriter.dump(data, writer);
-        }
     }
 }
