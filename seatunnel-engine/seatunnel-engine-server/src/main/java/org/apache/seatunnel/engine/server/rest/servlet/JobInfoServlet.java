@@ -45,9 +45,13 @@ public class JobInfoServlet extends BaseServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        String uri = req.getRequestURI();
+        String jobId = req.getPathInfo();
 
-        String jobId = uri.substring(uri.lastIndexOf("/") + 1);
+        if (jobId != null && jobId.length() > 1) {
+            jobId = jobId.substring(1);
+        } else {
+            jobId = "";
+        }
 
         IMap<Object, Object> jobInfoMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);

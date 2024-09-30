@@ -232,7 +232,7 @@ public class RestApiIT {
                                                                     + RestConstant.RUNNING_JOB_URL
                                                                     + "/")
                                                     .then()
-                                                    .statusCode(500);
+                                                    .statusCode(400);
 
                                             given().get(
                                                             HOST
@@ -258,7 +258,7 @@ public class RestApiIT {
                                                                     + RestConstant.RUNNING_JOB_URL
                                                                     + "/")
                                                     .then()
-                                                    .statusCode(500);
+                                                    .statusCode(400);
                                         }));
     }
 

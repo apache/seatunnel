@@ -75,6 +75,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_400;
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES_PER_SECONDS;
@@ -151,6 +152,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
             }
         } catch (IndexOutOfBoundsException e) {
             httpGetCommand.send400();
+        } catch (IllegalArgumentException e) {
+            prepareResponse(SC_400, httpGetCommand, exceptionResponse(e));
         } catch (Throwable e) {
             logger.warning("An error occurred while handling request " + httpGetCommand, e);
             prepareResponse(SC_500, httpGetCommand, exceptionResponse(e));
