@@ -99,8 +99,9 @@ public class HiveIT extends TestSuiteBase implements TestResource {
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
                 container.execInContainer("sh", "-c", "chmod -R 777 /etc/hosts");
-                // To avoid get a canonical host from a docker DNS server
-                container.execInContainer("sh", "-c", "echo `getent hosts hivee2e` >> /etc/hosts");
+                //                // To avoid get a canonical host from a docker DNS server
+                //                container.execInContainer("sh", "-c", "echo `getent hosts hivee2e`
+                // >> /etc/hosts");
                 // The jar of hive-exec
                 Container.ExecResult downloadHiveExeCommands =
                         container.execInContainer(
@@ -191,8 +192,13 @@ public class HiveIT extends TestSuiteBase implements TestResource {
 
     private void initializeConnection()
             throws ClassNotFoundException, InstantiationException, IllegalAccessException,
-                    SQLException {
-        this.hiveConnection = this.hiveServerContainer.getConnection();
+                    SQLException, IOException, InterruptedException {
+        try {
+            this.hiveConnection = this.hiveServerContainer.getConnection();
+        } catch (Exception e) {
+            log.info(hiveServerContainer.execInContainer("cat", "/tmp/hive/hive.log").getStdout());
+            throw e;
+        }
     }
 
     private void prepareTable() throws Exception {
@@ -204,7 +210,6 @@ public class HiveIT extends TestSuiteBase implements TestResource {
             statement.execute(CREATE_SQL);
         } catch (Exception exception) {
             log.error(ExceptionUtils.getMessage(exception));
-            log.info(hiveServerContainer.execInContainer("cat", "/tmp/hive/hive.log").getStdout());
             throw exception;
         }
     }
