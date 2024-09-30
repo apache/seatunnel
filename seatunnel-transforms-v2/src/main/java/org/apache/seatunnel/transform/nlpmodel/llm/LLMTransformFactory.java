@@ -50,7 +50,10 @@ public class LLMTransformFactory implements TableTransformFactory {
                         LLMTransformConfig.PROCESS_BATCH_SIZE)
                 .conditional(
                         LLMTransformConfig.MODEL_PROVIDER,
-                        Lists.newArrayList(ModelProvider.OPENAI, ModelProvider.DOUBAO),
+                        Lists.newArrayList(
+                                ModelProvider.OPENAI,
+                                ModelProvider.DOUBAO,
+                                ModelProvider.MICROSOFT),
                         LLMTransformConfig.API_KEY)
                 .conditional(
                         LLMTransformConfig.MODEL_PROVIDER,

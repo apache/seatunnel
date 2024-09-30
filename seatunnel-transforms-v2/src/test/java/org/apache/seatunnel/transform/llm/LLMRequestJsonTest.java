@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.format.json.RowToJsonConverters;
 import org.apache.seatunnel.transform.nlpmodel.llm.remote.custom.CustomModel;
 import org.apache.seatunnel.transform.nlpmodel.llm.remote.kimiai.KimiAIModel;
+import org.apache.seatunnel.transform.nlpmodel.llm.remote.microsoft.MicrosoftModel;
 import org.apache.seatunnel.transform.nlpmodel.llm.remote.openai.OpenAIModel;
 
 import org.junit.jupiter.api.Assertions;
@@ -36,6 +37,7 @@ import org.junit.jupiter.api.Test;
 import com.google.common.collect.Lists;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -126,6 +128,38 @@ public class LLMRequestJsonTest {
                         "{\"id\":1, \"name\":\"John\"}");
         Assertions.assertEquals(
                 "{\"model\":\"moonshot-v1-8k\",\"messages\":[{\"role\":\"system\",\"content\":\"Determine whether someone is Chinese or American by their name\"},{\"role\":\"user\",\"content\":\"{\\\"id\\\":1, \\\"name\\\":\\\"John\\\"}\"}]}",
+                OBJECT_MAPPER.writeValueAsString(node));
+        model.close();
+    }
+
+    @Test
+    void testMicrosoftRequestJson() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
+        MicrosoftModel model =
+                new MicrosoftModel(
+                        rowType,
+                        SqlType.STRING,
+                        null,
+                        "Determine whether someone is Chinese or American by their name",
+                        "gpt-35-turbo",
+                        "sk-xxx",
+                        "https://api.moonshot.cn/openai/deployments/${model}/chat/completions?api-version=2024-02-01");
+        Field apiPathField = model.getClass().getDeclaredField("apiPath");
+        apiPathField.setAccessible(true);
+        String apiPath = (String) apiPathField.get(model);
+        Assertions.assertEquals(
+                "https://api.moonshot.cn/openai/deployments/gpt-35-turbo/chat/completions?api-version=2024-02-01",
+                apiPath);
+
+        ObjectNode node =
+                model.createJsonNodeFromData(
+                        "Determine whether someone is Chinese or American by their name",
+                        "{\"id\":1, \"name\":\"John\"}");
+        Assertions.assertEquals(
+                "{\"messages\":[{\"role\":\"system\",\"content\":\"Determine whether someone is Chinese or American by their name\"},{\"role\":\"user\",\"content\":\"{\\\"id\\\":1, \\\"name\\\":\\\"John\\\"}\"}]}",
                 OBJECT_MAPPER.writeValueAsString(node));
         model.close();
     }

@@ -26,7 +26,7 @@
 ### model_provider
 
 要使用的模型提供者。可用选项为:
-OPENAI、DOUBAO、KIMIAI、CUSTOM
+OPENAI、DOUBAO、KIMIAI、MICROSOFT, CUSTOM
 
 ### output_data_type
 
