@@ -99,9 +99,8 @@ public class HiveIT extends TestSuiteBase implements TestResource {
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
                 container.execInContainer("sh", "-c", "chmod -R 777 /etc/hosts");
-                //                // To avoid get a canonical host from a docker DNS server
-                //                container.execInContainer("sh", "-c", "echo `getent hosts hivee2e`
-                // >> /etc/hosts");
+                // To avoid get a canonical host from a docker DNS server
+                container.execInContainer("sh", "-c", "echo `getent hosts hivee2e` >> /etc/hosts");
                 // The jar of hive-exec
                 Container.ExecResult downloadHiveExeCommands =
                         container.execInContainer(
@@ -170,7 +169,7 @@ public class HiveIT extends TestSuiteBase implements TestResource {
         Startables.deepStart(Stream.of(hiveServerContainer)).join();
         log.info(hiveServerContainer.getLogs());
         log.info("HiveServer2 just started");
-
+        log.info(hiveServerContainer.execInContainer("cat", "/tmp/hive/hive.log").getStdout());
         given().ignoreExceptions()
                 .await()
                 .atMost(360, TimeUnit.SECONDS)
@@ -183,22 +182,19 @@ public class HiveIT extends TestSuiteBase implements TestResource {
     @Override
     public void tearDown() throws Exception {
         if (hmsContainer != null) {
+            log.info(hmsContainer.execInContainer("cat", "/tmp/hive/hive.log").getStdout());
             hmsContainer.close();
         }
         if (hiveServerContainer != null) {
+            log.info(hiveServerContainer.execInContainer("cat", "/tmp/hive/hive.log").getStdout());
             hiveServerContainer.close();
         }
     }
 
     private void initializeConnection()
             throws ClassNotFoundException, InstantiationException, IllegalAccessException,
-                    SQLException, IOException, InterruptedException {
-        try {
-            this.hiveConnection = this.hiveServerContainer.getConnection();
-        } catch (Exception e) {
-            log.info(hiveServerContainer.execInContainer("cat", "/tmp/hive/hive.log").getStdout());
-            throw e;
-        }
+                    SQLException {
+        this.hiveConnection = this.hiveServerContainer.getConnection();
     }
 
     private void prepareTable() throws Exception {
