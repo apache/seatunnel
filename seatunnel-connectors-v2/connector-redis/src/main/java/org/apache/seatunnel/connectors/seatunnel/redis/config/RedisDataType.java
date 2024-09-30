@@ -56,7 +56,7 @@ public enum RedisDataType {
         @Override
         public void set(Jedis jedis, String key, String value, long expire) {
             Map<String, String> fieldsMap = JsonUtils.toMap(value);
-            jedis.hset(key, fieldsMap);
+            jedis.hmset(key, fieldsMap);
             expire(jedis, key, expire);
         }
 
