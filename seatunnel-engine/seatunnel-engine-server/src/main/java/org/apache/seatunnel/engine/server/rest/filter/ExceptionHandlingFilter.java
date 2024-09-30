@@ -70,7 +70,7 @@ public class ExceptionHandlingFilter implements Filter {
         String jsonResponse = objectMapper.writeValueAsString(errorResponse);
         response.getWriter().write(jsonResponse);
 
-        e.printStackTrace();
+        log.error("Error occurred while processing request", e);
     }
 
     @Override

@@ -35,10 +35,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.apache.seatunnel.engine.server.rest.RestHttpPostCommandProcessor.mapToUrlParams;
-import static org.apache.seatunnel.engine.server.rest.RestHttpPostCommandProcessor.requestHandle;
-import static org.apache.seatunnel.engine.server.rest.RestHttpPostCommandProcessor.submitJobInternal;
-
 public class SubmitJobsServlet extends BaseServlet {
     public SubmitJobsServlet(NodeEngineImpl nodeEngine) {
         super(nodeEngine);

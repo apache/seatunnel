@@ -34,8 +34,6 @@ import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 
-import static org.apache.seatunnel.engine.server.rest.RestHttpGetCommandProcessor.getJobInfoJson;
-
 public class JobInfoServlet extends BaseServlet {
     public JobInfoServlet(NodeEngineImpl nodeEngine) {
         super(nodeEngine);

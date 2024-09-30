@@ -142,7 +142,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         prepareResponse(httpPostCommand, jsonArray);
     }
 
-    public static String mapToUrlParams(Map<String, String> params) {
+    private String mapToUrlParams(Map<String, String> params) {
         return params.entrySet().stream()
                 .map(entry -> entry.getKey() + "=" + entry.getValue())
                 .collect(Collectors.joining("&", "?", ""));
@@ -159,7 +159,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         this.prepareResponse(httpPostCommand, jsonObject);
     }
 
-    public static JsonObject submitJobInternal(
+    private JsonObject submitJobInternal(
             Config config,
             Map<String, String> requestParams,
             SeaTunnelServer seaTunnelServer,
@@ -228,7 +228,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                 new JsonObject().add(RestConstant.JOB_ID, map.get(RestConstant.JOB_ID).toString()));
     }
 
-    public static void handleStopJob(
+    private void handleStopJob(
             Map<String, Object> map, SeaTunnelServer seaTunnelServer, Node node) {
         boolean isStopWithSavePoint = false;
         if (map.get(RestConstant.JOB_ID) == null) {
@@ -301,7 +301,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         handle(httpPostCommand);
     }
 
-    public static JsonNode requestHandle(byte[] requestBody) {
+    private JsonNode requestHandle(byte[] requestBody) {
         if (requestBody.length == 0) {
             throw new IllegalArgumentException("Request body is empty.");
         }
@@ -314,7 +314,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         return requestBodyJsonNode;
     }
 
-    private static void submitJob(
+    private void submitJob(
             Node node,
             SeaTunnelServer seaTunnelServer,
             JobImmutableInformation jobImmutableInformation,

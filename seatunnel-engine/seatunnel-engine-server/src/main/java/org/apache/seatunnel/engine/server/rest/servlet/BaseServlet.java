@@ -17,23 +17,47 @@
 
 package org.apache.seatunnel.engine.server.rest.servlet;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.env.EnvCommonOptions;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.master.JobHistoryService;
+import org.apache.seatunnel.engine.server.operation.CancelJobOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
+import org.apache.seatunnel.engine.server.operation.SavePointJobOperation;
+import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
+import org.apache.seatunnel.engine.server.rest.RestJobExecutionEnvironment;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
+import org.apache.seatunnel.engine.server.utils.RestUtil;
+
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import com.google.gson.Gson;
+import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.json.JsonValue;
+import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
@@ -44,11 +68,30 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import static com.hazelcast.internal.util.JsonUtil.toJsonObject;
-import static org.apache.seatunnel.engine.server.rest.RestHttpGetCommandProcessor.getJobMetrics;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES_PER_SECONDS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_QPS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_BYTES;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_BYTES_PER_SECONDS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_QPS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SINK_WRITE_BYTES;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SINK_WRITE_BYTES_PER_SECONDS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SINK_WRITE_COUNT;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SINK_WRITE_QPS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SOURCE_RECEIVED_BYTES;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SOURCE_RECEIVED_BYTES_PER_SECONDS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SOURCE_RECEIVED_COUNT;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SOURCE_RECEIVED_QPS;
 
 public class BaseServlet extends HttpServlet {
 
@@ -212,5 +255,325 @@ public class BaseServlet extends HttpServlet {
             }
         }
         return reqParameterMap;
+    }
+
+    protected JsonNode requestHandle(byte[] requestBody) {
+        if (requestBody.length == 0) {
+            throw new IllegalArgumentException("Request body is empty.");
+        }
+        JsonNode requestBodyJsonNode;
+        try {
+            requestBodyJsonNode = RestUtil.convertByteToJsonNode(requestBody);
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Invalid JSON format in request body.");
+        }
+        return requestBodyJsonNode;
+    }
+
+    protected JsonObject getJobInfoJson(
+            JobHistoryService.JobState jobState, String jobMetrics, JobDAGInfo jobDAGInfo) {
+        return new JsonObject()
+                .add(RestConstant.JOB_ID, String.valueOf(jobState.getJobId()))
+                .add(RestConstant.JOB_NAME, jobState.getJobName())
+                .add(RestConstant.JOB_STATUS, jobState.getJobStatus().toString())
+                .add(RestConstant.ERROR_MSG, jobState.getErrorMessage())
+                .add(
+                        RestConstant.CREATE_TIME,
+                        DateTimeUtils.toString(
+                                jobState.getSubmitTime(),
+                                DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
+                .add(
+                        RestConstant.FINISH_TIME,
+                        DateTimeUtils.toString(
+                                jobState.getFinishTime(),
+                                DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
+                .add(RestConstant.JOB_DAG, JsonUtils.toJsonString(jobDAGInfo))
+                .add(RestConstant.PLUGIN_JARS_URLS, new JsonArray())
+                .add(RestConstant.METRICS, toJsonObject(getJobMetrics(jobMetrics)));
+    }
+
+    private Map<String, Object> getJobMetrics(String jobMetrics) {
+        Map<String, Object> metricsMap = new HashMap<>();
+        // To add metrics, populate the corresponding array,
+        String[] countMetricsNames = {
+            SOURCE_RECEIVED_COUNT, SINK_WRITE_COUNT, SOURCE_RECEIVED_BYTES, SINK_WRITE_BYTES
+        };
+        String[] rateMetricsNames = {
+            SOURCE_RECEIVED_QPS,
+            SINK_WRITE_QPS,
+            SOURCE_RECEIVED_BYTES_PER_SECONDS,
+            SINK_WRITE_BYTES_PER_SECONDS
+        };
+        String[] tableCountMetricsNames = {
+            TABLE_SOURCE_RECEIVED_COUNT,
+            TABLE_SINK_WRITE_COUNT,
+            TABLE_SOURCE_RECEIVED_BYTES,
+            TABLE_SINK_WRITE_BYTES
+        };
+        String[] tableRateMetricsNames = {
+            TABLE_SOURCE_RECEIVED_QPS,
+            TABLE_SINK_WRITE_QPS,
+            TABLE_SOURCE_RECEIVED_BYTES_PER_SECONDS,
+            TABLE_SINK_WRITE_BYTES_PER_SECONDS
+        };
+        Long[] metricsSums =
+                Stream.generate(() -> 0L).limit(countMetricsNames.length).toArray(Long[]::new);
+        Double[] metricsRates =
+                Stream.generate(() -> 0D).limit(rateMetricsNames.length).toArray(Double[]::new);
+
+        // Used to store various indicators at the table
+        Map<String, JsonNode>[] tableMetricsMaps =
+                new Map[] {
+                    new HashMap<>(), // Source Received Count
+                    new HashMap<>(), // Sink Write Count
+                    new HashMap<>(), // Source Received Bytes
+                    new HashMap<>(), // Sink Write Bytes
+                    new HashMap<>(), // Source Received QPS
+                    new HashMap<>(), // Sink Write QPS
+                    new HashMap<>(), // Source Received Bytes Per Second
+                    new HashMap<>() // Sink Write Bytes Per Second
+                };
+
+        try {
+            JsonNode jobMetricsStr = new ObjectMapper().readTree(jobMetrics);
+
+            jobMetricsStr
+                    .fieldNames()
+                    .forEachRemaining(
+                            metricName -> {
+                                if (metricName.contains("#")) {
+                                    String tableName =
+                                            TablePath.of(metricName.split("#")[1]).getFullName();
+                                    JsonNode metricNode = jobMetricsStr.get(metricName);
+                                    processMetric(
+                                            metricName, tableName, metricNode, tableMetricsMaps);
+                                }
+                            });
+
+            // Aggregation summary and rate metrics
+            aggregateMetrics(
+                    jobMetricsStr,
+                    metricsSums,
+                    metricsRates,
+                    ArrayUtils.addAll(countMetricsNames, rateMetricsNames));
+
+        } catch (JsonProcessingException e) {
+            return metricsMap;
+        }
+
+        populateMetricsMap(
+                metricsMap,
+                tableMetricsMaps,
+                ArrayUtils.addAll(tableCountMetricsNames, tableRateMetricsNames),
+                countMetricsNames.length);
+        populateMetricsMap(
+                metricsMap,
+                Stream.concat(Arrays.stream(metricsSums), Arrays.stream(metricsRates))
+                        .toArray(Number[]::new),
+                ArrayUtils.addAll(countMetricsNames, rateMetricsNames),
+                metricsSums.length);
+
+        return metricsMap;
+    }
+
+    private void processMetric(
+            String metricName,
+            String tableName,
+            JsonNode metricNode,
+            Map<String, JsonNode>[] tableMetricsMaps) {
+        if (metricNode == null) {
+            return;
+        }
+
+        // Define index constant
+        final int SOURCE_COUNT_IDX = 0,
+                SINK_COUNT_IDX = 1,
+                SOURCE_BYTES_IDX = 2,
+                SINK_BYTES_IDX = 3,
+                SOURCE_QPS_IDX = 4,
+                SINK_QPS_IDX = 5,
+                SOURCE_BYTES_SEC_IDX = 6,
+                SINK_BYTES_SEC_IDX = 7;
+        if (metricName.startsWith(SOURCE_RECEIVED_COUNT + "#")) {
+            tableMetricsMaps[SOURCE_COUNT_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SINK_WRITE_COUNT + "#")) {
+            tableMetricsMaps[SINK_COUNT_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SOURCE_RECEIVED_BYTES + "#")) {
+            tableMetricsMaps[SOURCE_BYTES_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SINK_WRITE_BYTES + "#")) {
+            tableMetricsMaps[SINK_BYTES_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SOURCE_RECEIVED_QPS + "#")) {
+            tableMetricsMaps[SOURCE_QPS_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SINK_WRITE_QPS + "#")) {
+            tableMetricsMaps[SINK_QPS_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SOURCE_RECEIVED_BYTES_PER_SECONDS + "#")) {
+            tableMetricsMaps[SOURCE_BYTES_SEC_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SINK_WRITE_BYTES_PER_SECONDS + "#")) {
+            tableMetricsMaps[SINK_BYTES_SEC_IDX].put(tableName, metricNode);
+        }
+    }
+
+    private void aggregateMetrics(
+            JsonNode jobMetricsStr,
+            Long[] metricsSums,
+            Double[] metricsRates,
+            String[] metricsNames) {
+        for (int i = 0; i < metricsNames.length; i++) {
+            JsonNode metricNode = jobMetricsStr.get(metricsNames[i]);
+            if (metricNode != null && metricNode.isArray()) {
+                for (JsonNode node : metricNode) {
+                    // Match Rate Metrics vs. Value Metrics
+                    if (i < metricsSums.length) {
+                        metricsSums[i] += node.path("value").asLong();
+                    } else {
+                        metricsRates[i - metricsSums.length] += node.path("value").asDouble();
+                    }
+                }
+            }
+        }
+    }
+
+    private void populateMetricsMap(
+            Map<String, Object> metricsMap,
+            Object[] metrics,
+            String[] metricNames,
+            int countMetricNames) {
+        for (int i = 0; i < metrics.length; i++) {
+            if (metrics[i] != null) {
+                if (metrics[i] instanceof Map) {
+                    metricsMap.put(
+                            metricNames[i],
+                            aggregateMap(
+                                    (Map<String, JsonNode>) metrics[i], i >= countMetricNames));
+                } else {
+                    metricsMap.put(metricNames[i], metrics[i]);
+                }
+            }
+        }
+    }
+
+    private Map<String, Object> aggregateMap(Map<String, JsonNode> inputMap, boolean isRate) {
+        return isRate
+                ? inputMap.entrySet().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Map.Entry::getKey,
+                                        entry ->
+                                                StreamSupport.stream(
+                                                                entry.getValue().spliterator(),
+                                                                false)
+                                                        .mapToDouble(
+                                                                node ->
+                                                                        node.path("value")
+                                                                                .asDouble())
+                                                        .sum()))
+                : inputMap.entrySet().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Map.Entry::getKey,
+                                        entry ->
+                                                StreamSupport.stream(
+                                                                entry.getValue().spliterator(),
+                                                                false)
+                                                        .mapToLong(
+                                                                node -> node.path("value").asLong())
+                                                        .sum()));
+    }
+
+    protected void handleStopJob(
+            Map<String, Object> map, SeaTunnelServer seaTunnelServer, Node node) {
+        boolean isStopWithSavePoint = false;
+        if (map.get(RestConstant.JOB_ID) == null) {
+            throw new IllegalArgumentException("jobId cannot be empty.");
+        }
+        long jobId = Long.parseLong(map.get(RestConstant.JOB_ID).toString());
+        if (map.get(RestConstant.IS_STOP_WITH_SAVE_POINT) != null) {
+            isStopWithSavePoint =
+                    Boolean.parseBoolean(map.get(RestConstant.IS_STOP_WITH_SAVE_POINT).toString());
+        }
+
+        if (!seaTunnelServer.isMasterNode()) {
+            if (isStopWithSavePoint) {
+                NodeEngineUtil.sendOperationToMasterNode(
+                                node.nodeEngine, new SavePointJobOperation(jobId))
+                        .join();
+            } else {
+                NodeEngineUtil.sendOperationToMasterNode(
+                                node.nodeEngine, new CancelJobOperation(jobId))
+                        .join();
+            }
+
+        } else {
+            CoordinatorService coordinatorService = seaTunnelServer.getCoordinatorService();
+
+            if (isStopWithSavePoint) {
+                coordinatorService.savePoint(jobId);
+            } else {
+                coordinatorService.cancelJob(jobId);
+            }
+        }
+    }
+
+    protected String mapToUrlParams(Map<String, String> params) {
+        return params.entrySet().stream()
+                .map(entry -> entry.getKey() + "=" + entry.getValue())
+                .collect(Collectors.joining("&", "?", ""));
+    }
+
+    protected JsonObject submitJobInternal(
+            Config config,
+            Map<String, String> requestParams,
+            SeaTunnelServer seaTunnelServer,
+            Node node) {
+        ReadonlyConfig envOptions = ReadonlyConfig.fromConfig(config.getConfig("env"));
+        String jobName = envOptions.get(EnvCommonOptions.JOB_NAME);
+
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName(
+                StringUtils.isEmpty(requestParams.get(RestConstant.JOB_NAME))
+                        ? jobName
+                        : requestParams.get(RestConstant.JOB_NAME));
+
+        boolean startWithSavePoint =
+                Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT));
+        String jobIdStr = requestParams.get(RestConstant.JOB_ID);
+        Long finalJobId = StringUtils.isNotBlank(jobIdStr) ? Long.parseLong(jobIdStr) : null;
+        RestJobExecutionEnvironment restJobExecutionEnvironment =
+                new RestJobExecutionEnvironment(
+                        seaTunnelServer, jobConfig, config, node, startWithSavePoint, finalJobId);
+        JobImmutableInformation jobImmutableInformation = restJobExecutionEnvironment.build();
+        long jobId = jobImmutableInformation.getJobId();
+        if (!seaTunnelServer.isMasterNode()) {
+
+            NodeEngineUtil.sendOperationToMasterNode(
+                            node.nodeEngine,
+                            new SubmitJobOperation(
+                                    jobId,
+                                    node.nodeEngine.toData(jobImmutableInformation),
+                                    jobImmutableInformation.isStartWithSavePoint()))
+                    .join();
+
+        } else {
+            submitJob(node, seaTunnelServer, jobImmutableInformation, jobConfig);
+        }
+
+        return new JsonObject()
+                .add(RestConstant.JOB_ID, String.valueOf(jobId))
+                .add(RestConstant.JOB_NAME, jobConfig.getName());
+    }
+
+    private void submitJob(
+            Node node,
+            SeaTunnelServer seaTunnelServer,
+            JobImmutableInformation jobImmutableInformation,
+            JobConfig jobConfig) {
+        CoordinatorService coordinatorService = seaTunnelServer.getCoordinatorService();
+        Data data = node.nodeEngine.getSerializationService().toData(jobImmutableInformation);
+        PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
+                coordinatorService.submitJob(
+                        Long.parseLong(jobConfig.getJobContext().getJobId()),
+                        data,
+                        jobImmutableInformation.isStartWithSavePoint());
+        voidPassiveCompletableFuture.join();
     }
 }

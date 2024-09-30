@@ -27,9 +27,7 @@ import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import com.hazelcast.instance.impl.Node;
 import lombok.NonNull;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
 public class SeaTunnelServerStarter {
 
     public static void main(String[] args) {

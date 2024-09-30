@@ -32,9 +32,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-import static org.apache.seatunnel.engine.server.rest.RestHttpPostCommandProcessor.handleStopJob;
-import static org.apache.seatunnel.engine.server.rest.RestHttpPostCommandProcessor.requestHandle;
-
 public class StopJobsServlet extends BaseServlet {
     public StopJobsServlet(NodeEngineImpl nodeEngine) {
         super(nodeEngine);

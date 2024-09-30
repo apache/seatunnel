@@ -33,9 +33,6 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Map;
 
-import static org.apache.seatunnel.engine.server.rest.RestHttpPostCommandProcessor.requestHandle;
-import static org.apache.seatunnel.engine.server.rest.RestHttpPostCommandProcessor.submitJobInternal;
-
 public class SubmitJobServlet extends BaseServlet {
     public SubmitJobServlet(NodeEngineImpl nodeEngine) {
         super(nodeEngine);

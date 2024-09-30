@@ -33,8 +33,6 @@ import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 
-import static org.apache.seatunnel.engine.server.rest.RestHttpPostCommandProcessor.requestHandle;
-
 public class EncryptConfigServlet extends BaseServlet {
 
     public EncryptConfigServlet(NodeEngineImpl nodeEngine) {

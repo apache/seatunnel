@@ -36,8 +36,6 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Comparator;
 
-import static org.apache.seatunnel.engine.server.rest.RestHttpGetCommandProcessor.getJobInfoJson;
-
 public class FinishedJobsServlet extends BaseServlet {
 
     private static final long serialVersionUID = 1L;

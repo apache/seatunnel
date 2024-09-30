@@ -419,7 +419,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                         .collect(JsonArray::new, JsonArray::add, JsonArray::add));
     }
 
-    public static Map<String, Object> getJobMetrics(String jobMetrics) {
+    private Map<String, Object> getJobMetrics(String jobMetrics) {
         Map<String, Object> metricsMap = new HashMap<>();
         // To add metrics, populate the corresponding array,
         String[] countMetricsNames = {
@@ -503,7 +503,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         return metricsMap;
     }
 
-    public static void processMetric(
+    private void processMetric(
             String metricName,
             String tableName,
             JsonNode metricNode,
@@ -540,7 +540,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         }
     }
 
-    public static void aggregateMetrics(
+    private void aggregateMetrics(
             JsonNode jobMetricsStr,
             Long[] metricsSums,
             Double[] metricsRates,
@@ -560,7 +560,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         }
     }
 
-    public static void populateMetricsMap(
+    private void populateMetricsMap(
             Map<String, Object> metricsMap,
             Object[] metrics,
             String[] metricNames,
@@ -579,7 +579,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         }
     }
 
-    public static Map<String, Object> aggregateMap(Map<String, JsonNode> inputMap, boolean isRate) {
+    private Map<String, Object> aggregateMap(Map<String, JsonNode> inputMap, boolean isRate) {
         return isRate
                 ? inputMap.entrySet().stream()
                         .collect(
@@ -725,7 +725,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         return jobInfoJson;
     }
 
-    private static JsonObject toJsonObject(Map<String, Object> jobMetrics) {
+    private JsonObject toJsonObject(Map<String, Object> jobMetrics) {
         JsonObject members = new JsonObject();
         jobMetrics.forEach(
                 (key, value) -> {
@@ -738,8 +738,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         return members;
     }
 
-    public static JsonObject getJobInfoJson(
-            JobState jobState, String jobMetrics, JobDAGInfo jobDAGInfo) {
+    private JsonObject getJobInfoJson(JobState jobState, String jobMetrics, JobDAGInfo jobDAGInfo) {
         return new JsonObject()
                 .add(RestConstant.JOB_ID, String.valueOf(jobState.getJobId()))
                 .add(RestConstant.JOB_NAME, jobState.getJobName())

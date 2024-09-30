@@ -32,8 +32,6 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.engine.server.rest.RestHttpPostCommandProcessor.requestHandle;
-
 public class UpdateTagsServlet extends BaseServlet {
 
     public UpdateTagsServlet(NodeEngineImpl nodeEngine) {
