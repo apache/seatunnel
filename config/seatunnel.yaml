@@ -39,5 +39,5 @@ seatunnel:
         enabled: false
     http:
       port: 8080
-      context-path: /hazelcast/rest/maps
+      context-path: /seatunnel
 
