@@ -166,7 +166,11 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                         .withNetwork(NETWORK)
                         .withCreateContainerCmdModifier(cmd -> cmd.withName(HIVE_SERVER_HOST))
                         .withNetworkAliases(HIVE_SERVER_HOST)
-                        .withEnv("SERVICE_OPTS", "-Dhive.metastore.uris=thrift://metastore:9083")
+                        .withEnv(
+                                "SERVICE_OPTS",
+                                "-Dhive.metastore.uris=thrift://"
+                                        + hmsContainer.getContainerIpAddress()
+                                        + ":9083")
                         .withEnv("IS_RESUME", "true")
                         .dependsOn(hmsContainer);
         hiveServerContainer.setPortBindings(Collections.singletonList("10000:10000"));
