@@ -204,6 +204,7 @@ public class HiveIT extends TestSuiteBase implements TestResource {
             statement.execute(CREATE_SQL);
         } catch (Exception exception) {
             log.error(ExceptionUtils.getMessage(exception));
+            log.info(hiveServerContainer.execInContainer("cat", "/tmp/hive/hive.log").getStdout());
             throw exception;
         }
     }
