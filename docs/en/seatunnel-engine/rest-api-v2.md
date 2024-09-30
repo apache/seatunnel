@@ -9,8 +9,8 @@ completed jobs. The monitoring API is a RESTful API that accepts HTTP requests a
 
 ## Overview
 
-The v2 version of the api uses jetty support.It is the same as the interface specification of v1 version
-,you can specify the port and context-path by modifying the configuration items in `seatunnel.yaml`
+The v2 version of the api uses jetty support. It is the same as the interface specification of v1 version
+, you can specify the port and context-path by modifying the configuration items in `seatunnel.yaml`
 
 
 ```yaml
