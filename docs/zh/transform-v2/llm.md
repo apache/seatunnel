@@ -28,6 +28,8 @@
 要使用的模型提供者。可用选项为:
 OPENAI、DOUBAO、KIMIAI、MICROSOFT, CUSTOM
 
+> tips: 如果使用 Microsoft, api_path 配置不能为空
+
 ### output_data_type
 
 输出数据的数据类型。可用选项为:
