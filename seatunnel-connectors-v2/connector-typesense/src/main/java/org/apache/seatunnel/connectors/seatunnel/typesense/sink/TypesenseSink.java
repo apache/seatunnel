@@ -93,4 +93,9 @@ public class TypesenseSink
                 new DefaultSaveModeHandler(
                         schemaSaveMode, dataSaveMode, catalog, tablePath, null, null));
     }
+
+    @Override
+    public Optional<CatalogTable> getCatalogTable() {
+        return Optional.of(catalogTable);
+    }
 }

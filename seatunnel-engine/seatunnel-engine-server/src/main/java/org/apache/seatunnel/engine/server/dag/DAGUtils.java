@@ -17,8 +17,14 @@
 
 package org.apache.seatunnel.engine.server.dag;
 
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.core.dag.actions.ActionUtils;
+import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 import org.apache.seatunnel.engine.core.job.Edge;
@@ -28,6 +34,7 @@ import org.apache.seatunnel.engine.core.job.VertexInfo;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionPlanGenerator;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,13 +70,49 @@ public class DAGUtils {
                         pipeline.getVertexes()
                                 .forEach(
                                         (id, vertex) -> {
+                                            List<String> tablePaths = new ArrayList<>();
+                                            if (vertex.getAction() instanceof SourceAction) {
+                                                SourceAction sourceAction =
+                                                        (SourceAction) vertex.getAction();
+                                                List<CatalogTable> producedCatalogTables =
+                                                        sourceAction
+                                                                .getSource()
+                                                                .getProducedCatalogTables();
+                                                List<String> collect =
+                                                        producedCatalogTables.stream()
+                                                                .map(
+                                                                        catalogTable ->
+                                                                                catalogTable
+                                                                                        .getTablePath()
+                                                                                        .toString())
+                                                                .collect(Collectors.toList());
+                                                tablePaths.addAll(collect);
+                                            } else if (vertex.getAction() instanceof SinkAction) {
+                                                SeaTunnelSink seaTunnelSink =
+                                                        ((SinkAction<?, ?, ?, ?>)
+                                                                        vertex.getAction())
+                                                                .getSink();
+                                                if (seaTunnelSink instanceof MultiTableSink) {
+                                                    List<String> collect =
+                                                            ((MultiTableSink) seaTunnelSink)
+                                                                    .getSinkTables().stream()
+                                                                            .map(
+                                                                                    TablePath
+                                                                                            ::toString)
+                                                                            .collect(
+                                                                                    Collectors
+                                                                                            .toList());
+                                                    tablePaths.addAll(collect);
+                                                }
+                                            }
                                             vertexInfoMap.put(
                                                     id,
                                                     new VertexInfo(
                                                             vertex.getVertexId(),
                                                             ActionUtils.getActionType(
                                                                     vertex.getAction()),
-                                                            vertex.getAction().getName()));
+                                                            vertex.getAction().getName(),
+                                                            tablePaths));
                                         });
                     });
             return new JobDAGInfo(
@@ -85,11 +128,46 @@ public class DAGUtils {
             Map<Long, VertexInfo> vertexInfoMap =
                     logicalVertexMap.values().stream()
                             .map(
-                                    v ->
-                                            new VertexInfo(
-                                                    v.getVertexId(),
-                                                    ActionUtils.getActionType(v.getAction()),
-                                                    v.getAction().getName()))
+                                    v -> {
+                                        List<String> tablePaths = new ArrayList<>();
+                                        if (v.getAction() instanceof SourceAction) {
+                                            SourceAction sourceAction =
+                                                    (SourceAction) v.getAction();
+                                            List<CatalogTable> producedCatalogTables =
+                                                    sourceAction
+                                                            .getSource()
+                                                            .getProducedCatalogTables();
+                                            List<String> collect =
+                                                    producedCatalogTables.stream()
+                                                            .map(
+                                                                    catalogTable ->
+                                                                            catalogTable
+                                                                                    .getTablePath()
+                                                                                    .toString())
+                                                            .collect(Collectors.toList());
+                                            tablePaths.addAll(collect);
+                                        } else if (v.getAction() instanceof SinkAction) {
+                                            SeaTunnelSink seaTunnelSink =
+                                                    ((SinkAction<?, ?, ?, ?>) v.getAction())
+                                                            .getSink();
+                                            if (seaTunnelSink instanceof MultiTableSink) {
+                                                List<String> collect =
+                                                        ((MultiTableSink) seaTunnelSink)
+                                                                .getSinkTables().stream()
+                                                                        .map(TablePath::toString)
+                                                                        .collect(
+                                                                                Collectors
+                                                                                        .toList());
+                                                tablePaths.addAll(collect);
+                                            }
+                                        }
+
+                                        return new VertexInfo(
+                                                v.getVertexId(),
+                                                ActionUtils.getActionType(v.getAction()),
+                                                v.getAction().getName(),
+                                                tablePaths);
+                                    })
                             .collect(
                                     Collectors.toMap(VertexInfo::getVertexId, Function.identity()));
 

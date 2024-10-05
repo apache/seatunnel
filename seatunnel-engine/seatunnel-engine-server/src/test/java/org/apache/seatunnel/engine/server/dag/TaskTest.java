@@ -22,9 +22,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
@@ -119,10 +117,7 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                         idGenerator.getNextId(),
                         "console",
                         new ConsoleSink(
-                                new SeaTunnelRowType(
-                                        new String[] {"id"},
-                                        new SeaTunnelDataType<?>[] {BasicType.INT_TYPE}),
-                                ReadonlyConfig.fromMap(new HashMap<>())),
+                                new CatalogTable(), ReadonlyConfig.fromMap(new HashMap<>())),
                         Sets.newHashSet(new URL("file:///console.jar")),
                         Collections.emptySet());
         LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, 2);

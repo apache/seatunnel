@@ -20,9 +20,12 @@ package org.apache.seatunnel.connectors.seatunnel.console.sink;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
+
+import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkFactory.LOG_PRINT_DATA;
 import static org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkFactory.LOG_PRINT_DELAY;
@@ -32,11 +35,13 @@ public class ConsoleSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     private final SeaTunnelRowType seaTunnelRowType;
     private final boolean isPrintData;
     private final int delayMs;
+    private final CatalogTable catalogTable;
 
-    public ConsoleSink(SeaTunnelRowType seaTunnelRowType, ReadonlyConfig options) {
-        this.seaTunnelRowType = seaTunnelRowType;
+    public ConsoleSink(CatalogTable catalogTable, ReadonlyConfig options) {
+        this.catalogTable = catalogTable;
         this.isPrintData = options.get(LOG_PRINT_DATA);
         this.delayMs = options.get(LOG_PRINT_DELAY);
+        this.seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
     }
 
     @Override
@@ -47,5 +52,10 @@ public class ConsoleSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     @Override
     public String getPluginName() {
         return "Console";
+    }
+
+    @Override
+    public Optional<CatalogTable> getCatalogTable() {
+        return Optional.ofNullable(catalogTable);
     }
 }

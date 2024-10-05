@@ -88,4 +88,9 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
                         catalogTable,
                         sinkConfig.getCustomSql()));
     }
+
+    @Override
+    public Optional<CatalogTable> getCatalogTable() {
+        return Optional.of(catalogTable);
+    }
 }

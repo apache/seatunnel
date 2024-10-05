@@ -24,6 +24,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -35,4 +36,6 @@ public class VertexInfo implements Serializable {
     private PluginType type;
 
     private String connectorType;
+
+    private List<String> tablePaths;
 }

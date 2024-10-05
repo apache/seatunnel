@@ -95,4 +95,9 @@ public class ElasticsearchSink
                 new DefaultSaveModeHandler(
                         schemaSaveMode, dataSaveMode, catalog, tablePath, null, null));
     }
+
+    @Override
+    public Optional<CatalogTable> getCatalogTable() {
+        return Optional.ofNullable(catalogTable);
+    }
 }

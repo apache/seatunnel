@@ -39,6 +39,7 @@ import com.google.common.base.Throwables;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.CATALOG_TABLE_RULES;
@@ -56,6 +57,7 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     private final AssertTableRule assertTableRule;
     private final Map<String, AssertCatalogTableRule> assertCatalogTableRule;
     private final String catalogTableName;
+    private final CatalogTable catalogTable;
 
     public AssertSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
         this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
@@ -93,6 +95,7 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void>
                     new ConfigException.BadValue(
                             RULES.key(), "Assert rule config is empty, please add rule config."));
         }
+        this.catalogTable = catalogTable;
     }
 
     private void initTableRule(CatalogTable catalogTable, Config tableConfig, String tableName) {
@@ -129,5 +132,10 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     @Override
     public String getPluginName() {
         return "Assert";
+    }
+
+    @Override
+    public Optional<CatalogTable> getCatalogTable() {
+        return Optional.of(catalogTable);
     }
 }

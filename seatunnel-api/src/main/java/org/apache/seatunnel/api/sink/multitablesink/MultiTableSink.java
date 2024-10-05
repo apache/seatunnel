@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -157,7 +158,23 @@ public class MultiTableSink
     }
 
     public List<TablePath> getSinkTables() {
-        return sinks.keySet().stream().map(TablePath::of).collect(Collectors.toList());
+        List<TablePath> collect =
+                sinks.values().stream()
+                        .map(SeaTunnelSink::getCatalogTable)
+                        .map(
+                                catalogTable -> {
+                                    if (catalogTable != Optional.empty()) {
+                                        return ((CatalogTable) catalogTable.get()).getTablePath();
+                                    }
+                                    return null;
+                                })
+                        .collect(Collectors.toList());
+
+        if (collect.contains(null)) {
+            return sinks.keySet().stream().map(TablePath::of).collect(Collectors.toList());
+        } else {
+            return collect;
+        }
     }
 
     @Override
