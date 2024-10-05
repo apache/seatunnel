@@ -30,7 +30,7 @@ more.
 The model provider to use. The available options are:
 OPENAI, DOUBAO, KIMIAI, MICROSOFT, CUSTOM
 
-> tips: If you use Microsoft, please api_path cannot be empty
+> tips: If you use Microsoft, please make sure api_path cannot be empty
 
 ### output_data_type
 
