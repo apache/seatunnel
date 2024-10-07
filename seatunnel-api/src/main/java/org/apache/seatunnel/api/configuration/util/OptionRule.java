@@ -165,7 +165,7 @@ public class OptionRule {
                 @NonNull Option<?>... requiredOptions) {
             verifyConditionalExists(conditionalOption);
 
-            if (expectValues.size() == 0) {
+            if (expectValues.isEmpty()) {
                 throw new OptionValidationException(
                         String.format(
                                 "conditional option '%s' must have expect values .",
@@ -187,7 +187,7 @@ public class OptionRule {
             RequiredOption.ConditionalRequiredOptions option =
                     RequiredOption.ConditionalRequiredOptions.of(
                             expression, new ArrayList<>(Arrays.asList(requiredOptions)));
-            verifyRequiredOptionDuplicate(option);
+            verifyRequiredOptionDuplicate(option, true);
             this.requiredOptions.add(option);
             return this;
         }
@@ -204,7 +204,7 @@ public class OptionRule {
                     RequiredOption.ConditionalRequiredOptions.of(
                             expression, new ArrayList<>(Arrays.asList(requiredOptions)));
 
-            verifyRequiredOptionDuplicate(conditionalRequiredOption);
+            verifyRequiredOptionDuplicate(conditionalRequiredOption, true);
             this.requiredOptions.add(conditionalRequiredOption);
             return this;
         }
@@ -242,12 +242,21 @@ public class OptionRule {
         }
 
         private void verifyRequiredOptionDuplicate(@NonNull RequiredOption requiredOption) {
+            verifyRequiredOptionDuplicate(requiredOption, false);
+        }
+
+        private void verifyRequiredOptionDuplicate(
+                @NonNull RequiredOption requiredOption,
+                @NonNull Boolean ignoreVerifyDuplicateWithOptionOptions) {
             requiredOption
                     .getOptions()
                     .forEach(
                             option -> {
-                                verifyDuplicateWithOptionOptions(
-                                        option, requiredOption.getClass().getSimpleName());
+                                // Check if the option is duplicate with other required options
+                                if (!ignoreVerifyDuplicateWithOptionOptions) {
+                                    verifyDuplicateWithOptionOptions(
+                                            option, requiredOption.getClass().getSimpleName());
+                                }
                                 requiredOptions.forEach(
                                         ro -> {
                                             if (ro
