@@ -27,6 +27,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.platform.commons.util.StringUtils;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
@@ -103,6 +104,10 @@ public class JobLogIT extends SeaTunnelContainer {
 
         assertConsoleLog();
         assertFileLog();
+        //
+        assertFileLogClean(false);
+        Thread.sleep(90000);
+        assertFileLogClean(true);
     }
 
     private void assertConsoleLog() {
@@ -166,6 +171,22 @@ public class JobLogIT extends SeaTunnelContainer {
                                             || pattern.matcher(apiSecondExecResult.getStdout())
                                                     .find());
                         });
+    }
+
+    private void assertFileLogClean(boolean b) throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                server.execInContainer(
+                        "sh",
+                        "-c",
+                        "find /tmp/seatunnel/logs -name \"job-862969647010611201.log\"\n");
+        String file = execResult.getStdout();
+        execResult =
+                secondServer.execInContainer(
+                        "sh",
+                        "-c",
+                        "find /tmp/seatunnel/logs -name \"job-862969647010611201.log\"\n");
+        String file1 = execResult.getStdout();
+        Assertions.assertEquals(b, StringUtils.isBlank(file) && StringUtils.isBlank(file1));
     }
 
     private Response submitJob(

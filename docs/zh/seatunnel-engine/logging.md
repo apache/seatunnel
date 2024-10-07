@@ -92,6 +92,28 @@ SeaTunnel 提供了一个 API，用于查询日志。
 
 有关详细信息，请参阅 [REST-API](rest-api-v2.md)。
 
+## SeaTunnel 日志配置
+
+### 定时删除旧日志
+
+SeaTunnel 支持定时删除旧日志文件，以避免磁盘空间不足。您可以在 `log4j2.properties` 文件中添加以下配置：
+
+```yaml
+    telemetry:
+      logs:
+         scheduled-deletion-enable: true
+         cron: "* * * * *"
+         keep-time: 30000
+         prefix: job
+         path: /tmp/seatunnel/logs
+```
+
+- `scheduled-deletion-enable`: 是否启用定时删除日志
+- `cron`: 定时任务的 cron 表达式
+- `keep-time`: 保留日志的时间（单位：毫秒）
+- `prefix`: 日志文件的前缀
+- `path`: 日志文件的路径,默认与启动脚日志文件路径相同
+
 ## 开发人员最佳实践
 
 您可以通过调用 `org.slf4j.LoggerFactory#LoggerFactory.getLogger` 并以您的类的类作为参数来创建 SLF4J 记录器。

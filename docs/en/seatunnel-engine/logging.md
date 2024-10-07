@@ -92,6 +92,28 @@ SeaTunnel provides an API for querying logs.
 
 For more details, please refer to the [REST-API](rest-api-v2.md).
 
+### SeaTunnel Log Configuration
+
+### Scheduled Deletion of Old Logs
+
+SeaTunnel supports scheduled deletion of old log files to prevent disk space exhaustion. You can add the following configuration in the `log4j2.properties` file:
+
+```yaml
+    telemetry:
+      logs:
+         scheduled-deletion-enable: true
+         cron: "* * * * *"
+         keep-time: 30000
+         prefix: job
+         path: /tmp/seatunnel/logs
+```
+
+- `scheduled-deletion-enable`: Enables or disables scheduled log deletion.
+- `cron`: The cron expression for the scheduled task.
+- `keep-time`: Time to keep the log files (in milliseconds).
+- `prefix`: The prefix for log file names.
+- `path`: The path to the log files, defaults to the same path as the startup log file.
+
 ## Best practices for developers
 
 You can create an SLF4J logger by calling `org.slf4j.LoggerFactory#LoggerFactory.getLogger` with the Class of your class as an argument.
