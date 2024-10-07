@@ -216,8 +216,9 @@ public class CoordinatorService {
         masterActiveListener = Executors.newSingleThreadScheduledExecutor();
         masterActiveListener.scheduleAtFixedRate(
                 this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
-        isJobPending = engineConfig.getScheduleStrategy().equals(ScheduleStrategy.WAIT);
-        if (!dynamicSlot && isJobPending) {
+        isJobPending =
+                engineConfig.getScheduleStrategy().equals(ScheduleStrategy.WAIT) && !dynamicSlot;
+        if (isJobPending) {
             logger.info("Start pending job schedule thread");
             // start pending job schedule thread
             startPendingJobScheduleThread();
@@ -479,12 +480,14 @@ public class CoordinatorService {
                         jobFullName, jobStatus));
         // FIFO strategy，If there is a waiting task, the subsequent task will keep waiting
         boolean canRunJob, preApplyResources;
-        if (dynamicSlot || !isJobPending) {
+        if (isJobPending) {
+            preApplyResources = jobMaster.preApplyResources();
+            // pending队列为空，且资源足够，直接运行
+            canRunJob = (pendingJob.size() == 0 && preApplyResources);
+        } else {
+            // 如果为动态 Slot 或者未启动 pending 队列，直接运行
             canRunJob = true;
             preApplyResources = true;
-        } else {
-            preApplyResources = jobMaster.preApplyResources();
-            canRunJob = (pendingJob.size() == 0 && preApplyResources);
         }
         if (canRunJob) {
             CompletableFuture.runAsync(
@@ -657,8 +660,8 @@ public class CoordinatorService {
                     }
                     if (!jobSubmitFuture.isCompletedExceptionally()) {
                         try {
-                            if (!dynamicSlot && isJobPending) {
-                                if (pendingJob.size() == 0 && jobMaster.preApplyResources()) {
+                            if (isJobPending) {
+                                if (pendingJob.isEmpty() && jobMaster.preApplyResources()) {
                                     pendingJobMasterMap.remove(jobId);
                                     runningJobMasterMap.put(jobId, jobMaster);
                                     jobMaster.run();
@@ -667,12 +670,8 @@ public class CoordinatorService {
                                     jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
                                     logger.info("Resources not enough, enter the pending queue");
                                 }
-                            } else if (dynamicSlot
-                                    || !isJobPending
-                                    || jobMaster.preApplyResources()) {
-                                jobMaster.run();
                             } else {
-                                completeFailJob(jobMaster);
+                                jobMaster.run();
                             }
                         } finally {
                             // voidCompletableFuture will be cancelled when zeta master node

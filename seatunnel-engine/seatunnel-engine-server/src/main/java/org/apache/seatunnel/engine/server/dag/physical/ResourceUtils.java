@@ -46,37 +46,37 @@ public class ResourceUtils {
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures =
                 jobMaster.getPhysicalPlan().getPreApplyResourceFutures();
         // TODO If there is no enough resources for tasks, we need add some wait profile
-        boolean dynamicSlot = jobMaster.getEngineConfig().getSlotServiceConfig().isDynamicSlot();
         boolean isJobPending =
-                jobMaster.getEngineConfig().getScheduleStrategy().equals(ScheduleStrategy.WAIT);
+                jobMaster.getEngineConfig().getScheduleStrategy().equals(ScheduleStrategy.WAIT)
+                        && jobMaster.getEngineConfig().getSlotServiceConfig().isDynamicSlot();
         ResourceManager resourceManager = jobMaster.getResourceManager();
         subPlan.getCoordinatorVertexList()
                 .forEach(
                         coordinator ->
                                 futures.put(
                                         coordinator.getTaskGroupLocation(),
-                                        (dynamicSlot || !isJobPending)
-                                                ? resourceManager.applyResource(
+                                        isJobPending
+                                                ? preApplyResourceFutures.get(
+                                                        coordinator.getTaskGroupLocation())
+                                                : resourceManager.applyResource(
                                                         coordinator
                                                                 .getTaskGroupLocation()
                                                                 .getJobId(),
                                                         new ResourceProfile(),
-                                                        subPlan.getTags())
-                                                : preApplyResourceFutures.get(
-                                                        coordinator.getTaskGroupLocation())));
+                                                        subPlan.getTags())));
 
         subPlan.getPhysicalVertexList()
                 .forEach(
                         task ->
                                 futures.put(
                                         task.getTaskGroupLocation(),
-                                        (dynamicSlot || !isJobPending)
-                                                ? resourceManager.applyResource(
+                                        !isJobPending
+                                                ? preApplyResourceFutures.get(
+                                                        task.getTaskGroupLocation())
+                                                : resourceManager.applyResource(
                                                         task.getTaskGroupLocation().getJobId(),
                                                         new ResourceProfile(),
-                                                        subPlan.getTags())
-                                                : preApplyResourceFutures.get(
-                                                        task.getTaskGroupLocation())));
+                                                        subPlan.getTags())));
 
         futures.forEach(
                 (key, value) -> {
