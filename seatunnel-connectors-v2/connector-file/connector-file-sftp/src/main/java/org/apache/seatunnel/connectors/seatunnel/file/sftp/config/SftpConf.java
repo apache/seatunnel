@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sftp.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
 import java.util.HashMap;
@@ -42,20 +41,16 @@ public class SftpConf extends HadoopConf {
         return SCHEMA;
     }
 
-    public static HadoopConf buildWithConfig(Config config) {
-        String host = config.getString(SftpConfigOptions.SFTP_HOST.key());
-        int port = config.getInt(SftpConfigOptions.SFTP_PORT.key());
+    public static HadoopConf buildWithConfig(ReadonlyConfig config) {
+        String host = config.get(SftpConfigOptions.SFTP_HOST);
+        int port = config.get(SftpConfigOptions.SFTP_PORT);
         String defaultFS = String.format("sftp://%s:%s", host, port);
         HadoopConf hadoopConf = new SftpConf(defaultFS);
         HashMap<String, String> sftpOptions = new HashMap<>();
+        sftpOptions.put("fs.sftp.user." + host, config.get(SftpConfigOptions.SFTP_USER));
         sftpOptions.put(
-                "fs.sftp.user." + host, config.getString(SftpConfigOptions.SFTP_USER.key()));
-        sftpOptions.put(
-                "fs.sftp.password."
-                        + host
-                        + "."
-                        + config.getString(SftpConfigOptions.SFTP_USER.key()),
-                config.getString(SftpConfigOptions.SFTP_PASSWORD.key()));
+                "fs.sftp.password." + host + "." + config.get(SftpConfigOptions.SFTP_USER),
+                config.get(SftpConfigOptions.SFTP_PASSWORD));
         hadoopConf.setExtraOptions(sftpOptions);
         return hadoopConf;
     }

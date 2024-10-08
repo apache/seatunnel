@@ -31,6 +31,7 @@ import org.apache.seatunnel.transform.nlpmodel.ModelTransformConfig;
 import org.apache.seatunnel.transform.nlpmodel.llm.remote.Model;
 import org.apache.seatunnel.transform.nlpmodel.llm.remote.custom.CustomModel;
 import org.apache.seatunnel.transform.nlpmodel.llm.remote.kimiai.KimiAIModel;
+import org.apache.seatunnel.transform.nlpmodel.llm.remote.microsoft.MicrosoftModel;
 import org.apache.seatunnel.transform.nlpmodel.llm.remote.openai.OpenAIModel;
 
 import lombok.NonNull;
@@ -93,6 +94,17 @@ public class LLMTransform extends SingleFieldOutputTransform {
                                 customConfig.get(
                                         LLMTransformConfig.CustomRequestConfig
                                                 .CUSTOM_RESPONSE_PARSE));
+                break;
+            case MICROSOFT:
+                model =
+                        new MicrosoftModel(
+                                inputCatalogTable.getSeaTunnelRowType(),
+                                outputDataType.getSqlType(),
+                                config.get(LLMTransformConfig.INFERENCE_COLUMNS),
+                                config.get(LLMTransformConfig.PROMPT),
+                                config.get(LLMTransformConfig.MODEL),
+                                config.get(LLMTransformConfig.API_KEY),
+                                provider.usedLLMPath(config.get(LLMTransformConfig.API_PATH)));
                 break;
             case OPENAI:
             case DOUBAO:

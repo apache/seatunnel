@@ -15,20 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.ftp.source;
+package org.apache.seatunnel.connectors.seatunnel.file.sftp.catalog;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.MultipleTableFTPFileSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFileSource;
+import org.apache.seatunnel.connectors.seatunnel.file.catalog.AbstractFileCatalog;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 
-public class FtpFileSource extends BaseMultipleTableFileSource {
-    public FtpFileSource(ReadonlyConfig readonlyConfig) {
-        super(new MultipleTableFTPFileSourceConfig(readonlyConfig));
-    }
+public class SftpFileCatalog extends AbstractFileCatalog {
 
-    @Override
-    public String getPluginName() {
-        return FileSystemType.FTP.getFileSystemPluginName();
+    public SftpFileCatalog(
+            HadoopFileSystemProxy hadoopFileSystemProxy, String filePath, String catalogName) {
+        super(hadoopFileSystemProxy, filePath, catalogName);
     }
 }

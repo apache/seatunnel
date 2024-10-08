@@ -17,53 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sftp.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sftp.config.SftpConf;
-import org.apache.seatunnel.connectors.seatunnel.file.sftp.config.SftpConfigOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseMultipleTableFileSink;
 
-import com.google.auto.service.AutoService;
+public class SftpFileSink extends BaseMultipleTableFileSink {
+    public SftpFileSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
+        super(SftpConf.buildWithConfig(readonlyConfig), readonlyConfig, catalogTable);
+    }
 
-import java.util.Optional;
-
-@AutoService(SeaTunnelSink.class)
-public class SftpFileSink extends BaseFileSink {
     @Override
     public String getPluginName() {
         return FileSystemType.SFTP.getFileSystemPluginName();
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        SftpConfigOptions.SFTP_HOST.key(),
-                        SftpConfigOptions.SFTP_PORT.key(),
-                        SftpConfigOptions.SFTP_USER.key(),
-                        SftpConfigOptions.SFTP_PASSWORD.key());
-        if (!result.isSuccess()) {
-            throw new FileConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, result.getMsg()));
-        }
-        super.prepare(pluginConfig);
-        hadoopConf = SftpConf.buildWithConfig(pluginConfig);
-    }
-
-    @Override
-    public Optional<CatalogTable> getWriteCatalogTable() {
-        return super.getWriteCatalogTable();
     }
 }

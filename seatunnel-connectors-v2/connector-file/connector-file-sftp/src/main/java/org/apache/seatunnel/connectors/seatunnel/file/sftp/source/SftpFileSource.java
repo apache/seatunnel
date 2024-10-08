@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
@@ -78,7 +79,7 @@ public class SftpFileSource extends BaseFileSource {
                     "Sftp file source connector only support read [text, csv, json, xml] files");
         }
         String path = pluginConfig.getString(SftpConfigOptions.FILE_PATH.key());
-        hadoopConf = SftpConf.buildWithConfig(pluginConfig);
+        hadoopConf = SftpConf.buildWithConfig(ReadonlyConfig.fromConfig(pluginConfig));
         readStrategy =
                 ReadStrategyFactory.of(
                         pluginConfig.getString(SftpConfigOptions.FILE_FORMAT_TYPE.key()));
