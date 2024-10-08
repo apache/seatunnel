@@ -92,7 +92,9 @@ public class PrometheusSourceReader extends AbstractSingleSplitReader<SeaTunnelR
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        internalPollNext(output);
+        synchronized (output.getCheckpointLock()) {
+            internalPollNext(output);
+        }
     }
 
     @Override
