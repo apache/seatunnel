@@ -33,6 +33,13 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import lombok.Getter;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class MultiTableSink
