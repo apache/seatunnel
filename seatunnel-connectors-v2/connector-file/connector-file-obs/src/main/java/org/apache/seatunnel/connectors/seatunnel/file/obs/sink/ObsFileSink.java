@@ -33,6 +33,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
 
 import com.google.auto.service.AutoService;
 
+import java.util.Optional;
+
 @AutoService(SeaTunnelSink.class)
 public class ObsFileSink extends BaseFileSink {
     @Override

@@ -23,6 +23,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.local.config.LocalFileHadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseMultipleTableFileSink;
 
+import java.util.Optional;
+
 public class LocalFileSink extends BaseMultipleTableFileSink {
 
     private final CatalogTable catalogTable;

@@ -25,6 +25,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 
 import com.google.auto.service.AutoService;
 
+import java.util.Optional;
+
 @AutoService(SeaTunnelSink.class)
 public class HdfsFileSink extends BaseHdfsFileSink {
 
