@@ -51,7 +51,13 @@ public class TaskLogCleanService {
             String prefix,
             String path,
             JobHistoryService jobHistoryService) {
-        this.scheduler = Executors.newScheduledThreadPool(1);
+        this.scheduler =
+                Executors.newSingleThreadScheduledExecutor(
+                        runnable -> {
+                            Thread thread = new Thread(runnable, "job-log-clean-thread");
+                            thread.setDaemon(true);
+                            return thread;
+                        });
         this.running = new AtomicBoolean(false);
         this.keepTime = keepTime;
         this.prefix = prefix;
