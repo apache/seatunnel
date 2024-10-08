@@ -215,7 +215,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             case ARRAY:
                 return objectMapper.readValue((String) field, fieldType.getTypeClass());
             case STRING:
-                return field;
+                return String.valueOf(field);
             case DOUBLE:
                 return Double.parseDouble(field.toString());
             case BOOLEAN:
