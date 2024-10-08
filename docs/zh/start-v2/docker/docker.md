@@ -176,17 +176,20 @@ docker inspect master-1
 
 - 启动worker节点
 ```shell
+# 将ST_DOCKER_MEMBER_LIST设置为master容器的ip
 docker run -d --name seatunnel_worker_1 \
     --network seatunnel-network \
     --rm \
-    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # 设置为刚刚启动的master容器ip
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \
     apache/seatunnel \
     ./bin/seatunnel-cluster.sh -r worker
 
-docker run -d --name seatunnel_worker_2 \ 
+## 启动第二个worker节点
+# 将ST_DOCKER_MEMBER_LIST设置为master容器的ip
+docker run -d --name seatunnel_worker_2 \
     --network seatunnel-network \
     --rm \
-     -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \    # 设置为刚刚启动的master容器ip
+     -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \
     apache/seatunnel \
     ./bin/seatunnel-cluster.sh -r worker    
 
@@ -195,21 +198,22 @@ docker run -d --name seatunnel_worker_2 \
 #### 集群扩容
 
 ```shell
-## start master and export 5801 port 
+# 将ST_DOCKER_MEMBER_LIST设置为已经启动的master容器的ip 
 docker run -d --name seatunnel_master \
     --network seatunnel-network \
     --rm \
-    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # 设置为已启动的master容器ip
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \
     apache/seatunnel \
     ./bin/seatunnel-cluster.sh -r master
 ```
 
 运行这个命令创建一个worker节点
 ```shell
+# 将ST_DOCKER_MEMBER_LIST设置为master容器的ip
 docker run -d --name seatunnel_worker_1 \
     --network seatunnel-network \
     --rm \
-    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # 设置为已启动的master容器ip
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \
     apache/seatunnel \
     ./bin/seatunnel-cluster.sh -r worker
 ```
@@ -363,21 +367,23 @@ networks:
 #### 使用docker container作为客户端
 - 提交任务
 ```shell
+# 将ST_DOCKER_MEMBER_LIST设置为master容器的ip
 docker run --name seatunnel_client \
     --network seatunnel-network \
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \
     --rm \
     apache/seatunnel \
-    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # set it as master node container ip
     ./bin/seatunnel.sh  -c config/v2.batch.config.template
 ```
 
 - 查看作业列表
 ```shell
+# 将ST_DOCKER_MEMBER_LIST设置为master容器的ip
 docker run --name seatunnel_client \
     --network seatunnel-network \
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \
     --rm \
     apache/seatunnel \
-    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # set it as master node container ip
     ./bin/seatunnel.sh  -l
 ```
 

@@ -173,18 +173,20 @@ run this command to get the pod ip.
 
 - start worker node
 ```shell
+# you need update yourself master container ip to `ST_DOCKER_MEMBER_LIST`
 docker run -d --name seatunnel_worker_1 \
     --network seatunnel-network \
     --rm \
-    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # set master container ip to here
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \
     apache/seatunnel \
     ./bin/seatunnel-cluster.sh -r worker
 
 ## start worker2
-docker run -d --name seatunnel_worker_2 \ 
+# you need update yourself master container ip to `ST_DOCKER_MEMBER_LIST`
+docker run -d --name seatunnel_worker_2 \
     --network seatunnel-network \
     --rm \
-     -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \    # set master container ip to here
+     -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \
     apache/seatunnel \
     ./bin/seatunnel-cluster.sh -r worker    
 
@@ -194,20 +196,22 @@ docker run -d --name seatunnel_worker_2 \
 
 run this command to start master node.
 ```shell
+# you need update yourself master container ip to `ST_DOCKER_MEMBER_LIST`
 docker run -d --name seatunnel_master \
     --network seatunnel-network \
     --rm \
-    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # set exist master container ip to here
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \
     apache/seatunnel \
     ./bin/seatunnel-cluster.sh -r master
 ```
 
 run this command to start worker node.
 ```shell
+# you need update yourself master container ip to `ST_DOCKER_MEMBER_LIST`
 docker run -d --name seatunnel_worker_1 \
     --network seatunnel-network \
     --rm \
-    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # set master container ip to here
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \
     apache/seatunnel \
     ./bin/seatunnel-cluster.sh -r worker
 ```
@@ -371,21 +375,23 @@ and run `docker-compose up -d` command, the new worker node will start, and the 
 #### use docker as a client
 - submit job :
 ```shell
+# you need update yourself master container ip to `ST_DOCKER_MEMBER_LIST`
 docker run --name seatunnel_client \
     --network seatunnel-network \
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \
     --rm \
     apache/seatunnel \
-    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # set it as master node container ip
-    ./bin/seatunnel.sh  -c config/v2.batch.config.template # this is an default config, if you need submit your self config, you can mount config file.
+    ./bin/seatunnel.sh  -c config/v2.batch.config.template
 ```
 
 - list job
 ```shell
+# you need update yourself master container ip to `ST_DOCKER_MEMBER_LIST`
 docker run --name seatunnel_client \
     --network seatunnel-network \
+    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \
     --rm \
     apache/seatunnel \
-    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \ # set it as master node container ip
     ./bin/seatunnel.sh  -l
 ```
 
