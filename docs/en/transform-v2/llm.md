@@ -11,7 +11,7 @@ more.
 ## Options
 
 | name                   | type   | required | default value |
-|------------------------| ------ | -------- |---------------|
+|------------------------|--------|----------|---------------|
 | model_provider         | enum   | yes      |               |
 | output_data_type       | enum   | no       | String        |
 | output_column_name     | string | no       | llm_output    |
@@ -28,7 +28,9 @@ more.
 ### model_provider
 
 The model provider to use. The available options are:
-OPENAI, DOUBAO, KIMIAI, CUSTOM
+OPENAI, DOUBAO, KIMIAI, MICROSOFT, CUSTOM
+
+> tips: If you use Microsoft, please make sure api_path cannot be empty
 
 ### output_data_type
 
@@ -254,6 +256,7 @@ sink {
   }
 }
 ```
+
 ### Customize the LLM model
 
 ```hocon

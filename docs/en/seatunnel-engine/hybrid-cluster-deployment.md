@@ -335,4 +335,4 @@ Now that the cluster is deployed, you can complete the submission and management
 
 ### 8.2 Submit Jobs With The REST API
 
-The SeaTunnel Engine provides a REST API for submitting and managing jobs. For more information, please refer to [REST API](rest-api.md)
+The SeaTunnel Engine provides a REST API for submitting and managing jobs. For more information, please refer to [REST API V2](rest-api-v2.md)

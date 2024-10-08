@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.common.config;
 
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
+import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
@@ -77,6 +78,8 @@ public class EngineConfig {
 
     private ScheduleStrategy scheduleStrategy =
             ServerConfigOptions.JOB_SCHEDULE_STRATEGY.defaultValue();
+
+    private HttpConfig httpConfig = ServerConfigOptions.HTTP.defaultValue();
 
     public void setBackupCount(int newBackupCount) {
         checkBackupCount(newBackupCount, 0);

@@ -334,4 +334,4 @@ mkdir -p $SEATUNNEL_HOME/logs
 
 ### 8.2 使用 REST API 提交作业
 
-SeaTunnel Engine 提供了 REST API 用于提交作业。有关详细信息，请参阅 [REST API](rest-api.md)
+SeaTunnel Engine 提供了 REST API 用于提交作业。有关详细信息，请参阅 [REST API V2](rest-api-v2.md)

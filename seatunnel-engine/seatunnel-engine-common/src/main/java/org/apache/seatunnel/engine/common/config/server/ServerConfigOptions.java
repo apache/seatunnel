@@ -229,6 +229,30 @@ public class ServerConfigOptions {
                     .defaultValue(new TelemetryConfig())
                     .withDescription("The telemetry configuration.");
 
+    public static final Option<Integer> PORT =
+            Options.key("port")
+                    .intType()
+                    .defaultValue(8080)
+                    .withDescription("The port of the http server.");
+
+    public static final Option<Boolean> ENABLE_HTTP =
+            Options.key("enable-http")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Whether to enable the http server.");
+
+    public static final Option<String> CONTEXT_PATH =
+            Options.key("context-path")
+                    .stringType()
+                    .defaultValue("")
+                    .withDescription("The context path of the http server.");
+
+    public static final Option<HttpConfig> HTTP =
+            Options.key("http")
+                    .type(new TypeReference<HttpConfig>() {})
+                    .defaultValue(new HttpConfig())
+                    .withDescription("The http configuration.");
+
     public static final String EVENT_REPORT_HTTP = "event-report-http";
     public static final String EVENT_REPORT_HTTP_URL = "url";
     public static final String EVENT_REPORT_HTTP_HEADERS = "headers";

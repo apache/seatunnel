@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarHAStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageMode;
+import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
@@ -173,6 +174,8 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             } else if (ServerConfigOptions.JOB_SCHEDULE_STRATEGY.key().equals(name)) {
                 engineConfig.setScheduleStrategy(
                         ScheduleStrategy.valueOf(getTextContent(node).toUpperCase(Locale.ROOT)));
+            } else if (ServerConfigOptions.HTTP.key().equals(name)) {
+                engineConfig.setHttpConfig(parseHttpConfig(node));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }
@@ -346,5 +349,23 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         }
 
         return metricConfig;
+    }
+
+    private HttpConfig parseHttpConfig(Node httpNode) {
+        HttpConfig httpConfig = new HttpConfig();
+        for (Node node : childElements(httpNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.PORT.key().equals(name)) {
+                httpConfig.setPort(
+                        getIntegerValue(ServerConfigOptions.PORT.key(), getTextContent(node)));
+            } else if (ServerConfigOptions.CONTEXT_PATH.key().equals(name)) {
+                httpConfig.setContextPath(getTextContent(node));
+            } else if (ServerConfigOptions.ENABLE_HTTP.key().equals(name)) {
+                httpConfig.setEnabled(getBooleanValue(getTextContent(node)));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+        return httpConfig;
     }
 }
