@@ -169,7 +169,15 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                         .withEnv(
                                 "SERVICE_OPTS",
                                 "-Dhive.metastore.uris=thrift://"
-                                        + hmsContainer.getContainerIpAddress()
+                                        + hmsContainer
+                                                .getContainerInfo()
+                                                .getNetworkSettings()
+                                                .getNetworks()
+                                                .entrySet()
+                                                .iterator()
+                                                .next()
+                                                .getValue()
+                                                .getIpAddress()
                                         + ":9083")
                         .withEnv("IS_RESUME", "true")
                         .dependsOn(hmsContainer);
