@@ -310,7 +310,7 @@ Source plugin common parameters, please refer to [Source Common Options](../sour
 
 ```hocon
 
-LocalFile {
+FtpFile {
   tables_configs = [
     {
       schema {
@@ -341,7 +341,7 @@ LocalFile {
 
 ```hocon
 
-LocalFile {
+FtpFile {
   tables_configs = [
     {
       schema {
