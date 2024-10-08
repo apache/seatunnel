@@ -282,7 +282,7 @@ public class JsonUtils {
         @Override
         public void serialize(Object value, JsonGenerator gen, SerializerProvider provider)
                 throws IOException {
-            gen.writeRawValue(value.toString());
+            gen.writeRawValue(value == null ? "" : value.toString());
         }
     }
 

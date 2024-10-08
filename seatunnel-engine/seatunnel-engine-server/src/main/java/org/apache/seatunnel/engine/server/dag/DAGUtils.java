@@ -35,6 +35,8 @@ import org.apache.seatunnel.engine.core.job.VertexInfo;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionPlanGenerator;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -43,6 +45,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class DAGUtils {
 
     public static JobDAGInfo getJobDAGInfo(
@@ -148,6 +151,9 @@ public class DAGUtils {
                 tablePaths.addAll(sourceTablePaths);
             } catch (UnsupportedOperationException e) {
                 // ignore
+                log.warn(
+                        "SourceAction {} does not support getProducedCatalogTables, fallback to default table path",
+                        action.getName());
                 tablePaths.add(TablePath.DEFAULT);
             }
         } else if (action instanceof SinkAction) {
