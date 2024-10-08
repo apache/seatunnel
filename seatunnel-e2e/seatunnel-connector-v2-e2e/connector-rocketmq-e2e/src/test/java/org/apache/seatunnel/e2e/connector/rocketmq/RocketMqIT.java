@@ -306,6 +306,14 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
+    @TestTemplate
+    public void testSinkRocketMqWithMultipleTables(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/rocketmq-sink_fake_to_rocketmq_multi_tables.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
     @SneakyThrows
     private void generateTestData(
             ProducerRecordConverter converter, String topic, int start, int end) {
