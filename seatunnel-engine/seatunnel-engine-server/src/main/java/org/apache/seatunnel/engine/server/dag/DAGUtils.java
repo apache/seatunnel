@@ -75,19 +75,26 @@ public class DAGUtils {
                                             if (vertex.getAction() instanceof SourceAction) {
                                                 SourceAction sourceAction =
                                                         (SourceAction) vertex.getAction();
-                                                List<CatalogTable> producedCatalogTables =
-                                                        sourceAction
-                                                                .getSource()
-                                                                .getProducedCatalogTables();
-                                                List<String> collect =
-                                                        producedCatalogTables.stream()
-                                                                .map(
-                                                                        catalogTable ->
-                                                                                catalogTable
-                                                                                        .getTablePath()
-                                                                                        .toString())
-                                                                .collect(Collectors.toList());
-                                                tablePaths.addAll(collect);
+
+                                                try {
+
+                                                    List<CatalogTable> producedCatalogTables =
+                                                            sourceAction
+                                                                    .getSource()
+                                                                    .getProducedCatalogTables();
+                                                    List<String> collect =
+                                                            producedCatalogTables.stream()
+                                                                    .map(
+                                                                            catalogTable ->
+                                                                                    catalogTable
+                                                                                            .getTablePath()
+                                                                                            .toString())
+                                                                    .collect(Collectors.toList());
+                                                    tablePaths.addAll(collect);
+                                                } catch (UnsupportedOperationException e) {
+                                                    // ignore
+                                                    tablePaths.add(TablePath.DEFAULT.getFullName());
+                                                }
                                             } else if (vertex.getAction() instanceof SinkAction) {
                                                 SeaTunnelSink seaTunnelSink =
                                                         ((SinkAction<?, ?, ?, ?>)
