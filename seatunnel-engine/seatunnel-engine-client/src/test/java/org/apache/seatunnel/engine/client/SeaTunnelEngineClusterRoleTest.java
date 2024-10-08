@@ -257,6 +257,8 @@ public class SeaTunnelEngineClusterRoleTest {
         // set job pending
         EngineConfig engineConfig = seaTunnelConfig.getEngineConfig();
         engineConfig.setScheduleStrategy(ScheduleStrategy.WAIT);
+        engineConfig.getSlotServiceConfig().setDynamicSlot(false);
+        engineConfig.getSlotServiceConfig().setSlotNum(1);
 
         seaTunnelConfig
                 .getHazelcastConfig()
