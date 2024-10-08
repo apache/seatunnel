@@ -178,6 +178,8 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         String homePath = "/home/vsftpd/seatunnel";
         String path1 = "/tmp/seatunnel_mult/text/source_1";
         String path2 = "/tmp/seatunnel_mult/text/source_2";
+        deleteFileFromContainer(homePath + path1);
+        deleteFileFromContainer(homePath + path2);
         Assertions.assertEquals(getFileListFromContainer(homePath + path1).size(), 0);
         Assertions.assertEquals(getFileListFromContainer(homePath + path2).size(), 0);
         helper.execute("/text/multiple_table_fake_to_ftp_file_text.conf");
@@ -189,6 +191,8 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         // test mult table and save_mode:CREATE_SCHEMA_WHEN_NOT_EXIST APPEND_DATA
         String path3 = "/tmp/seatunnel_mult2/text/source_1";
         String path4 = "/tmp/seatunnel_mult2/text/source_2";
+        deleteFileFromContainer(homePath + path3);
+        deleteFileFromContainer(homePath + path4);
         Assertions.assertEquals(getFileListFromContainer(homePath + path3).size(), 0);
         Assertions.assertEquals(getFileListFromContainer(homePath + path4).size(), 0);
         helper.execute("/text/multiple_table_fake_to_ftp_file_text_2.conf");
