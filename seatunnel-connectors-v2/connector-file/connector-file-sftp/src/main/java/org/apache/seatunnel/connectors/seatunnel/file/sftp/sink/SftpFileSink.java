@@ -59,4 +59,9 @@ public class SftpFileSink extends BaseFileSink {
         super.prepare(pluginConfig);
         hadoopConf = SftpConf.buildWithConfig(pluginConfig);
     }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return super.getWriteCatalogTable();
+    }
 }

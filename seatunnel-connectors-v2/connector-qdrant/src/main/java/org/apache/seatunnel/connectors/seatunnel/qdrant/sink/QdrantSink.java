@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.qdrant.config.QdrantConfig;
 import org.apache.seatunnel.connectors.seatunnel.qdrant.config.QdrantParameters;
 
 import java.io.IOException;
+import java.util.Optional;
 
 public class QdrantSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         implements SupportMultiTableSink {
@@ -46,5 +47,10 @@ public class QdrantSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     @Override
     public QdrantSinkWriter createWriter(SinkWriter.Context context) throws IOException {
         return new QdrantSinkWriter(catalogTable, qdrantParameters);
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
     }
 }

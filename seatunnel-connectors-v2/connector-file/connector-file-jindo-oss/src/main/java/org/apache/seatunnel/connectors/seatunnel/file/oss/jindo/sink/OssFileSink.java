@@ -60,4 +60,9 @@ public class OssFileSink extends BaseFileSink {
         }
         hadoopConf = OssConf.buildWithConfig(pluginConfig);
     }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return super.getWriteCatalogTable();
+    }
 }

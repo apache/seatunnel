@@ -51,8 +51,8 @@ public class TypesenseSink
                 SupportMultiTableSink,
                 SupportSaveMode {
 
-    private ReadonlyConfig config;
-    private CatalogTable catalogTable;
+    private final ReadonlyConfig config;
+    private final CatalogTable catalogTable;
     private final int maxBatchSize;
     private final int maxRetryCount;
 

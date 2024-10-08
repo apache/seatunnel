@@ -40,10 +40,10 @@ import java.util.Optional;
 public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         implements SupportSaveMode {
 
-    private SeaTunnelRowType seaTunnelRowType;
+    private final SeaTunnelRowType seaTunnelRowType;
     private final SinkConfig sinkConfig;
-    private DataSaveMode dataSaveMode;
-    private SchemaSaveMode schemaSaveMode;
+    private final DataSaveMode dataSaveMode;
+    private final SchemaSaveMode schemaSaveMode;
     private final CatalogTable catalogTable;
 
     public StarRocksSink(

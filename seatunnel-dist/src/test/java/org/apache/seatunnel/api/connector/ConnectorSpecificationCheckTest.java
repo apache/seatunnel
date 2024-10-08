@@ -153,18 +153,15 @@ public class ConnectorSpecificationCheckTest {
                 Assertions.assertFalse(
                         getConsumedType.isPresent(),
                         "Please remove `getConsumedType` method in " + sinkClass.getSimpleName());
-                // 下面这个排除MultiTableSink
-                if (!SupportMultiTableSink.class.isAssignableFrom(sinkClass)) {
-                    Assertions.assertTrue(
-                            getWriteCatalogTable.isPresent(),
-                            "Please implement `getWriteCatalogTable` method in "
-                                    + sinkClass.getSimpleName());
-                    Assertions.assertEquals(
-                            Optional.class,
-                            getWriteCatalogTable.get().getReturnType(),
-                            "The `getWriteCatalogTable` method should return Optional<CatalogTable> in "
-                                    + sinkClass.getSimpleName());
-                }
+                Assertions.assertTrue(
+                        getWriteCatalogTable.isPresent(),
+                        "Please implement `getWriteCatalogTable` method in "
+                                + sinkClass.getSimpleName());
+                Assertions.assertEquals(
+                        Optional.class,
+                        getWriteCatalogTable.get().getReturnType(),
+                        "The `getWriteCatalogTable` method should return Optional<CatalogTable> in "
+                                + sinkClass.getSimpleName());
 
                 log.info(
                         "Check sink connector {} successfully", factory.getClass().getSimpleName());

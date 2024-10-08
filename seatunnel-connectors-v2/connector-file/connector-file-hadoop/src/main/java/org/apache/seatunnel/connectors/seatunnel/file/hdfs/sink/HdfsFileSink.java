@@ -37,4 +37,9 @@ public class HdfsFileSink extends BaseHdfsFileSink {
     public void prepare(Config pluginConfig) throws PrepareFailException {
         super.prepare(pluginConfig);
     }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return super.getWriteCatalogTable();
+    }
 }

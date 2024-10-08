@@ -31,8 +31,7 @@ public class FeishuSinkFactory extends HttpSinkFactory {
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         CatalogTable catalogTable = context.getCatalogTable();
-        return () ->
-                new FeishuSink(context.getOptions().toConfig(), catalogTable.getSeaTunnelRowType());
+        return () -> new FeishuSink(context.getOptions().toConfig(), catalogTable);
     }
 
     @Override

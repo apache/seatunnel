@@ -60,4 +60,9 @@ public class CosFileSink extends BaseFileSink {
         }
         hadoopConf = CosConf.buildWithConfig(pluginConfig);
     }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return super.getWriteCatalogTable();
+    }
 }

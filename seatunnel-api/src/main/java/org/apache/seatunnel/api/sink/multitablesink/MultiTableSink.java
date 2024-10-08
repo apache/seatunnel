@@ -183,4 +183,9 @@ public class MultiTableSink
     public void setJobContext(JobContext jobContext) {
         sinks.values().forEach(sink -> sink.setJobContext(jobContext));
     }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return SeaTunnelSink.super.getWriteCatalogTable();
+    }
 }
