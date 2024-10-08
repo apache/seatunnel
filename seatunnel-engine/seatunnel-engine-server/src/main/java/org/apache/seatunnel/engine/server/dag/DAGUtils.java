@@ -71,7 +71,7 @@ public class DAGUtils {
                         pipeline.getVertexes()
                                 .forEach(
                                         (id, vertex) -> {
-                                            List<String> tablePaths = new ArrayList<>();
+                                            List<TablePath> tablePaths = new ArrayList<>();
                                             if (vertex.getAction() instanceof SourceAction) {
                                                 SourceAction sourceAction =
                                                         (SourceAction) vertex.getAction();
@@ -82,18 +82,14 @@ public class DAGUtils {
                                                             sourceAction
                                                                     .getSource()
                                                                     .getProducedCatalogTables();
-                                                    List<String> collect =
+                                                    List<TablePath> sourceTablePaths =
                                                             producedCatalogTables.stream()
-                                                                    .map(
-                                                                            catalogTable ->
-                                                                                    catalogTable
-                                                                                            .getTablePath()
-                                                                                            .toString())
+                                                                    .map(CatalogTable::getTablePath)
                                                                     .collect(Collectors.toList());
-                                                    tablePaths.addAll(collect);
+                                                    tablePaths.addAll(sourceTablePaths);
                                                 } catch (UnsupportedOperationException e) {
                                                     // ignore
-                                                    tablePaths.add(TablePath.DEFAULT.getFullName());
+                                                    tablePaths.add(TablePath.DEFAULT);
                                                 }
                                             } else if (vertex.getAction() instanceof SinkAction) {
                                                 SeaTunnelSink seaTunnelSink =
@@ -101,24 +97,18 @@ public class DAGUtils {
                                                                         vertex.getAction())
                                                                 .getSink();
                                                 if (seaTunnelSink instanceof MultiTableSink) {
-                                                    List<String> collect =
-                                                            ((MultiTableSink) seaTunnelSink)
-                                                                    .getSinkTables().stream()
-                                                                            .map(
-                                                                                    TablePath
-                                                                                            ::toString)
-                                                                            .collect(
-                                                                                    Collectors
-                                                                                            .toList());
-                                                    tablePaths.addAll(collect);
+                                                    List<TablePath> sinkTablePaths =
+                                                            new ArrayList<>(
+                                                                    ((MultiTableSink) seaTunnelSink)
+                                                                            .getSinkTables());
+                                                    tablePaths.addAll(sinkTablePaths);
                                                 } else {
                                                     Optional<CatalogTable> catalogTable =
                                                             seaTunnelSink.getWriteCatalogTable();
                                                     catalogTable.ifPresent(
                                                             table ->
                                                                     tablePaths.add(
-                                                                            table.getTablePath()
-                                                                                    .getFullName()));
+                                                                            table.getTablePath()));
                                                 }
                                             }
                                             vertexInfoMap.put(
@@ -145,7 +135,7 @@ public class DAGUtils {
                     logicalVertexMap.values().stream()
                             .map(
                                     v -> {
-                                        List<String> tablePaths = new ArrayList<>();
+                                        List<TablePath> tablePaths = new ArrayList<>();
                                         if (v.getAction() instanceof SourceAction) {
                                             SourceAction sourceAction =
                                                     (SourceAction) v.getAction();
@@ -153,36 +143,28 @@ public class DAGUtils {
                                                     sourceAction
                                                             .getSource()
                                                             .getProducedCatalogTables();
-                                            List<String> collect =
+                                            List<TablePath> sourceTablePaths =
                                                     producedCatalogTables.stream()
-                                                            .map(
-                                                                    catalogTable ->
-                                                                            catalogTable
-                                                                                    .getTablePath()
-                                                                                    .toString())
+                                                            .map(CatalogTable::getTablePath)
                                                             .collect(Collectors.toList());
-                                            tablePaths.addAll(collect);
+                                            tablePaths.addAll(sourceTablePaths);
                                         } else if (v.getAction() instanceof SinkAction) {
                                             SeaTunnelSink seaTunnelSink =
                                                     ((SinkAction<?, ?, ?, ?>) v.getAction())
                                                             .getSink();
                                             if (seaTunnelSink instanceof MultiTableSink) {
-                                                List<String> collect =
-                                                        ((MultiTableSink) seaTunnelSink)
-                                                                .getSinkTables().stream()
-                                                                        .map(TablePath::toString)
-                                                                        .collect(
-                                                                                Collectors
-                                                                                        .toList());
-                                                tablePaths.addAll(collect);
+                                                List<TablePath> sinkTablePaths =
+                                                        new ArrayList<>(
+                                                                ((MultiTableSink) seaTunnelSink)
+                                                                        .getSinkTables());
+                                                tablePaths.addAll(sinkTablePaths);
                                             } else {
                                                 Optional<CatalogTable> catalogTable =
                                                         seaTunnelSink.getWriteCatalogTable();
                                                 catalogTable.ifPresent(
                                                         table ->
                                                                 tablePaths.add(
-                                                                        table.getTablePath()
-                                                                                .getFullName()));
+                                                                        table.getTablePath()));
                                             }
                                         }
 

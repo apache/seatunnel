@@ -277,12 +277,12 @@ public class JsonUtils {
     }
 
     /** json serializer */
-    public static class JsonDataSerializer extends JsonSerializer<String> {
+    public static class JsonDataSerializer extends JsonSerializer<Object> {
 
         @Override
-        public void serialize(String value, JsonGenerator gen, SerializerProvider provider)
+        public void serialize(Object value, JsonGenerator gen, SerializerProvider provider)
                 throws IOException {
-            gen.writeRawValue(value);
+            gen.writeRawValue(value.toString());
         }
     }
 

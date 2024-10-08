@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.engine.core.job;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.annotation.JsonSerialize;
+
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.utils.JsonUtils.JsonDataSerializer;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -29,6 +33,7 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonSerialize(using = JsonDataSerializer.class)
 public class VertexInfo implements Serializable {
 
     private long vertexId;
@@ -37,5 +42,5 @@ public class VertexInfo implements Serializable {
 
     private String connectorType;
 
-    private List<String> tablePaths;
+    private List<TablePath> tablePaths;
 }
