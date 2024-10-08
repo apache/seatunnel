@@ -306,6 +306,67 @@ Source plugin common parameters, please refer to [Source Common Options](../sour
 
 ```
 
+### Multiple Table
+
+```hocon
+
+LocalFile {
+  tables_configs = [
+    {
+      schema {
+        table = "student"
+      }
+      path = "/tmp/seatunnel/sink/text"
+      host = "192.168.31.48"
+      port = 21
+      user = tyrantlucifer
+      password = tianchao
+      file_format_type = "parquet"
+    },
+    {
+      schema {
+        table = "teacher"
+      }
+      path = "/tmp/seatunnel/sink/text"
+      host = "192.168.31.48"
+      port = 21
+      user = tyrantlucifer
+      password = tianchao
+      file_format_type = "parquet"
+    }
+  ]
+}
+
+```
+
+```hocon
+
+LocalFile {
+  tables_configs = [
+    {
+      schema {
+        fields {
+          name = string
+          age = int
+        }
+      }
+      path = "/apps/hive/demo/student"
+      file_format_type = "json"
+    },
+    {
+      schema {
+        fields {
+          name = string
+          age = int
+        }
+      }
+      path = "/apps/hive/demo/teacher"
+      file_format_type = "json"
+    }
+}
+
+```
+
 ### Transfer Binary File
 
 ```hocon

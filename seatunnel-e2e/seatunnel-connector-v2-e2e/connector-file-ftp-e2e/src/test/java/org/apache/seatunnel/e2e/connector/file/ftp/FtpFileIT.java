@@ -50,7 +50,7 @@ import java.util.stream.Stream;
 
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK},
+        type = {EngineType.SPARK, EngineType.FLINK},
         disabledReason =
                 "1.The apache-compress version is not compatible with apache-poi. 2.Spark Engine is not compatible with commons-net")
 @Slf4j
@@ -158,13 +158,16 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         helper.execute("/orc/fake_to_ftp_file_orc.conf");
         // test write ftp root path excel file
         helper.execute("/excel/fake_source_to_ftp_root_path_excel.conf");
+        // test ftp source support multipleTable
+        helper.execute("/json/ftp_file_json_to_assert_with_multipletable.conf");
+        String homePath = "/home/vsftpd/seatunnel";
+        String sink01 = "/tmp/seatunnel/json/sink/fake01";
+        String sink02 = "/tmp/seatunnel/json/sink/fake02";
+        Assertions.assertEquals(getFileListFromContainer(homePath + sink01).size(), 1);
+        Assertions.assertEquals(getFileListFromContainer(homePath + sink02).size(), 1);
     }
 
     @TestTemplate
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.FLINK},
-            disabledReason = "Flink dosen't support multi-table at now")
     public void testMultipleTableAndSaveMode(TestContainer container)
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
