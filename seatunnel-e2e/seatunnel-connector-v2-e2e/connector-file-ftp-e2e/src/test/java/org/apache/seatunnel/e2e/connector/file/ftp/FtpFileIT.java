@@ -50,7 +50,7 @@ import java.util.stream.Stream;
 
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
+        type = {EngineType.SPARK},
         disabledReason =
                 "1.The apache-compress version is not compatible with apache-poi. 2.Spark Engine is not compatible with commons-net")
 @Slf4j
