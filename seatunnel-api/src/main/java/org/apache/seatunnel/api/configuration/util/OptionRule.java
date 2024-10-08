@@ -245,15 +245,24 @@ public class OptionRule {
             verifyRequiredOptionDuplicate(requiredOption, false);
         }
 
+        /**
+         * Verifies if there are duplicate options within the required options.
+         *
+         * @param requiredOption The required option to be verified
+         * @param ignoreVerifyDuplicateOptions Whether to ignore duplicate option verification If
+         *     the value is true, the existing items in OptionOptions are ignored Currently, it
+         *     applies only to conditional
+         * @throws OptionValidationException If duplicate options are found
+         */
         private void verifyRequiredOptionDuplicate(
                 @NonNull RequiredOption requiredOption,
-                @NonNull Boolean ignoreVerifyDuplicateWithOptionOptions) {
+                @NonNull Boolean ignoreVerifyDuplicateOptions) {
             requiredOption
                     .getOptions()
                     .forEach(
                             option -> {
-                                // Check if the option is duplicate with other required options
-                                if (!ignoreVerifyDuplicateWithOptionOptions) {
+                                if (!ignoreVerifyDuplicateOptions) {
+                                    // Check if required option that duplicate with option options
                                     verifyDuplicateWithOptionOptions(
                                             option, requiredOption.getClass().getSimpleName());
                                 }
