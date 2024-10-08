@@ -15,20 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.ftp.source;
+package org.apache.seatunnel.connectors.seatunnel.file.ftp.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.MultipleTableFTPFileSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFileSource;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
-public class FtpFileSource extends BaseMultipleTableFileSource {
-    public FtpFileSource(ReadonlyConfig readonlyConfig) {
-        super(new MultipleTableFTPFileSourceConfig(readonlyConfig));
+import lombok.Getter;
+
+@Getter
+public class FTPFileSourceConfig extends BaseFileSourceConfig {
+
+    private static final long serialVersionUID = 1L;
+
+    @Override
+    public HadoopConf getHadoopConfig() {
+        return FtpConf.buildWithConfig(getBaseFileSourceConfig());
     }
 
     @Override
     public String getPluginName() {
         return FileSystemType.FTP.getFileSystemPluginName();
+    }
+
+    public FTPFileSourceConfig(ReadonlyConfig readonlyConfig) {
+        super(readonlyConfig);
     }
 }
