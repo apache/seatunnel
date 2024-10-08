@@ -31,6 +31,8 @@ import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.SchemaUtil;
 
 import org.apache.paimon.catalog.Identifier;
@@ -161,6 +163,8 @@ public class PaimonCatalog implements Catalog, PaimonTable {
             throw new TableAlreadyExistException(this.catalogName, tablePath);
         } catch (org.apache.paimon.catalog.Catalog.DatabaseNotExistException e) {
             throw new DatabaseNotExistException(this.catalogName, tablePath.getDatabaseName());
+        } catch (Exception e) {
+            resolveException(e);
         }
     }
 
@@ -272,5 +276,25 @@ public class PaimonCatalog implements Catalog, PaimonTable {
 
     private Identifier toIdentifier(TablePath tablePath) {
         return Identifier.create(tablePath.getDatabaseName(), tablePath.getTableName());
+    }
+
+    private void resolveException(Exception e) {
+        Throwable cause = e.getCause();
+        if (cause instanceof UnsupportedOperationException) {
+            String message = cause.getMessage();
+            if (message.contains("The type ")
+                    && message.contains(" in primary key field ")
+                    && message.contains(" is unsupported")) {
+                throw new PaimonConnectorException(
+                        PaimonConnectorErrorCode.UNSUPPORTED_PRIMARY_DATATYPE, message);
+            }
+        } else if (cause instanceof RuntimeException) {
+            String message = cause.getMessage();
+            if (message.contains("Cannot define 'bucket-key' in unaware or dynamic bucket mode.")) {
+                throw new PaimonConnectorException(
+                        PaimonConnectorErrorCode.WRITE_PROPS_BUCKET_KEY_ERROR, message);
+            }
+        }
+        throw new CatalogException("An unexpected error occurred", e);
     }
 }

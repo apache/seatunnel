@@ -53,7 +53,7 @@ public class SourceNoMoreElementOperation extends TracingOperation
                     ClassLoader classLoader =
                             server.getTaskExecutionService()
                                     .getExecutionContext(enumeratorTaskID.getTaskGroupLocation())
-                                    .getClassLoader();
+                                    .getClassLoader(enumeratorTaskID.getTaskID());
                     ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
                     Thread.currentThread().setContextClassLoader(classLoader);
                     SourceSplitEnumeratorTask<?> task =

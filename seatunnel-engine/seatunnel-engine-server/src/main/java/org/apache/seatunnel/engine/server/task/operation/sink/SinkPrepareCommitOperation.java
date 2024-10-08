@@ -77,7 +77,7 @@ public class SinkPrepareCommitOperation<CommitInfoT> extends BarrierFlowOperatio
         ClassLoader taskClassLoader =
                 taskExecutionService
                         .getExecutionContext(taskLocation.getTaskGroupLocation())
-                        .getClassLoader();
+                        .getClassLoader(committerTask.getTaskID());
         ClassLoader mainClassLoader = Thread.currentThread().getContextClassLoader();
 
         if (commitInfos != null) {
