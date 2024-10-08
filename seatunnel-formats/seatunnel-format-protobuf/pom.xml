@@ -18,7 +18,7 @@
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-formats</artifactId>
-        <version>2.3.8</version>
+        <version>2.3.9-SNAPSHOT</version>
     </parent>
 
     <artifactId>seatunnel-format-protobuf</artifactId>
