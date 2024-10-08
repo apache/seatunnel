@@ -159,10 +159,13 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         // test write ftp root path excel file
         helper.execute("/excel/fake_source_to_ftp_root_path_excel.conf");
         // test ftp source support multipleTable
-        helper.execute("/json/ftp_file_json_to_assert_with_multipletable.conf");
+
         String homePath = "/home/vsftpd/seatunnel";
-        String sink01 = "/tmp/seatunnel/json/sink/fake01";
-        String sink02 = "/tmp/seatunnel/json/sink/fake02";
+        String sink01 = "/tmp/seatunnel/json/sink/multiplesource/fake01";
+        String sink02 = "/tmp/seatunnel/json/sink/multiplesource/fake02";
+        deleteFileFromContainer(homePath + sink01);
+        deleteFileFromContainer(homePath + sink02);
+        helper.execute("/json/ftp_file_json_to_assert_with_multipletable.conf");
         Assertions.assertEquals(getFileListFromContainer(homePath + sink01).size(), 1);
         Assertions.assertEquals(getFileListFromContainer(homePath + sink02).size(), 1);
     }
@@ -224,6 +227,24 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
             }
         }
         return fileList;
+    }
+
+    @SneakyThrows
+    private void deleteFileFromContainer(String path) {
+        String command = "rm -rf " + path;
+        ExecCreateCmdResponse execCreateCmdResponse =
+                dockerClient
+                        .execCreateCmd(ftpContainer.getContainerId())
+                        .withCmd("sh", "-c", command)
+                        .withAttachStdout(true)
+                        .withAttachStderr(true)
+                        .exec();
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        dockerClient
+                .execStartCmd(execCreateCmdResponse.getId())
+                .exec(new ExecStartResultCallback(outputStream, System.err))
+                .awaitCompletion();
     }
 
     @AfterAll
