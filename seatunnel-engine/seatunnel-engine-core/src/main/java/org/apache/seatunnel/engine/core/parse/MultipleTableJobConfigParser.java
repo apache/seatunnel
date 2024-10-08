@@ -565,30 +565,6 @@ public class MultipleTableJobConfigParser {
         jarUrls.addAll(getSinkPluginJarPaths(sinkConfig));
         List<SinkAction<?, ?, ?, ?>> sinkActions = new ArrayList<>();
 
-        // union
-        if (inputVertices.size() > 1) {
-            Set<Action> inputActions =
-                    inputVertices.stream()
-                            .flatMap(Collection::stream)
-                            .map(Tuple2::_2)
-                            .collect(Collectors.toCollection(LinkedHashSet::new));
-            checkProducedTypeEquals(inputActions);
-            Tuple2<CatalogTable, Action> inputActionSample = inputVertices.get(0).get(0);
-            SinkAction<?, ?, ?, ?> sinkAction =
-                    createSinkAction(
-                            inputActionSample._1(),
-                            inputActions,
-                            readonlyConfig,
-                            classLoader,
-                            jarUrls,
-                            new HashSet<>(),
-                            factoryId,
-                            inputActionSample._2().getParallelism(),
-                            configIndex);
-            sinkActions.add(sinkAction);
-            return sinkActions;
-        }
-
         // TODO move it into tryGenerateMultiTableSink when we don't support sink template
         // sink template
         for (Tuple2<CatalogTable, Action> tuple : inputVertices.get(0)) {
