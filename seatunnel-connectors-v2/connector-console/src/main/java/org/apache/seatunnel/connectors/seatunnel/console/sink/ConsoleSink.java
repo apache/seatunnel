@@ -55,7 +55,7 @@ public class ConsoleSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     }
 
     @Override
-    public Optional<CatalogTable> getCatalogTable() {
+    public Optional<CatalogTable> getWriteCatalogTable() {
         return Optional.ofNullable(catalogTable);
     }
 }

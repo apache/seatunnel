@@ -142,7 +142,7 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
      *
      * @return Optional of catalog table.
      */
-    default Optional<CatalogTable> getCatalogTable() {
+    default Optional<CatalogTable> getWriteCatalogTable() {
         return Optional.empty();
     }
 }

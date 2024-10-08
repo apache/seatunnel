@@ -97,7 +97,7 @@ public class ElasticsearchSink
     }
 
     @Override
-    public Optional<CatalogTable> getCatalogTable() {
+    public Optional<CatalogTable> getWriteCatalogTable() {
         return Optional.ofNullable(catalogTable);
     }
 }

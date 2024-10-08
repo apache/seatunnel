@@ -34,10 +34,6 @@ import org.apache.seatunnel.engine.core.job.VertexInfo;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionPlanGenerator;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -103,6 +99,14 @@ public class DAGUtils {
                                                                                     Collectors
                                                                                             .toList());
                                                     tablePaths.addAll(collect);
+                                                } else {
+                                                    Optional<CatalogTable> catalogTable =
+                                                            seaTunnelSink.getWriteCatalogTable();
+                                                    catalogTable.ifPresent(
+                                                            table ->
+                                                                    tablePaths.add(
+                                                                            table.getTablePath()
+                                                                                    .getFullName()));
                                                 }
                                             }
                                             vertexInfoMap.put(
@@ -159,6 +163,14 @@ public class DAGUtils {
                                                                                 Collectors
                                                                                         .toList());
                                                 tablePaths.addAll(collect);
+                                            } else {
+                                                Optional<CatalogTable> catalogTable =
+                                                        seaTunnelSink.getWriteCatalogTable();
+                                                catalogTable.ifPresent(
+                                                        table ->
+                                                                tablePaths.add(
+                                                                        table.getTablePath()
+                                                                                .getFullName()));
                                             }
                                         }
 

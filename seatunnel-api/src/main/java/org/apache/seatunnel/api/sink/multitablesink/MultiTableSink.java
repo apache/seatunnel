@@ -33,12 +33,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import lombok.Getter;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class MultiTableSink
@@ -158,23 +152,18 @@ public class MultiTableSink
     }
 
     public List<TablePath> getSinkTables() {
-        List<TablePath> collect =
-                sinks.values().stream()
-                        .map(SeaTunnelSink::getCatalogTable)
-                        .map(
-                                catalogTable -> {
-                                    if (catalogTable != Optional.empty()) {
-                                        return ((CatalogTable) catalogTable.get()).getTablePath();
-                                    }
-                                    return null;
-                                })
-                        .collect(Collectors.toList());
 
-        if (collect.contains(null)) {
-            return sinks.keySet().stream().map(TablePath::of).collect(Collectors.toList());
-        } else {
-            return collect;
+        List<TablePath> tablePaths = new ArrayList<>();
+        List<SeaTunnelSink> values = new ArrayList<>(sinks.values());
+        for (int i = 0; i < values.size(); i++) {
+            if (values.get(i).getWriteCatalogTable().isPresent()) {
+                tablePaths.add(
+                        ((CatalogTable) values.get(i).getWriteCatalogTable().get()).getTablePath());
+            } else {
+                tablePaths.add(TablePath.of(sinks.keySet().toArray(new String[0])[i]));
+            }
         }
+        return tablePaths;
     }
 
     @Override

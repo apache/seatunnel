@@ -95,7 +95,7 @@ public class TypesenseSink
     }
 
     @Override
-    public Optional<CatalogTable> getCatalogTable() {
+    public Optional<CatalogTable> getWriteCatalogTable() {
         return Optional.of(catalogTable);
     }
 }
