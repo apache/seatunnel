@@ -14,7 +14,17 @@ v2版本的api使用jetty支持，与v1版本的接口规范相同 ,可以通过
 seatunnel:
   engine:
     enable-http: true
-    jetty-port: 8080
+    port: 8080
+```
+
+同时也可以配置context-path,配置如下：
+
+```yaml
+
+seatunnel:
+  engine:
+    enable-http: true
+    port: 8080
     context-path: /seatunnel
 ```
 
