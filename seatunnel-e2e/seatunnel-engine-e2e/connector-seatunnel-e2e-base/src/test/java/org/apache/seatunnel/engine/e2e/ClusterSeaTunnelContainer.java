@@ -107,7 +107,7 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
         tasks.add(
                 new Tuple3<>(
                         server.getMappedPort(5801), RestConstant.CONTEXT_PATH, CUSTOM_JOB_ID_1));
-        tasks.add(new Tuple3<>(server.getMappedPort(8080), "/seatunnel", CUSTOM_JOB_ID_2));
+        tasks.add(new Tuple3<>(server.getMappedPort(8080), "", CUSTOM_JOB_ID_2));
     }
 
     @Override
