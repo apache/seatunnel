@@ -167,7 +167,7 @@ docker run -d --name seatunnel_master \
 
 - get created container ip
 ```shell
-docker inspect master-1
+docker inspect seatunnel_master
 ```
 run this command to get the pod ip.
 
@@ -401,5 +401,5 @@ more command please refer [user-command](../../seatunnel-engine/user-command.md)
 
 #### use rest api
 
-please refer [Submit A Job](../../seatunnel-engine/rest-api.md#submit-a-job)
+please refer [Submit A Job](../../seatunnel-engine/rest-api-v2.md#submit-a-job)
 
