@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.engine.core.job;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.SerializationFeature;
-
 import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import com.hazelcast.internal.json.JsonArray;
@@ -54,8 +51,6 @@ public class JobDAGInfo implements Serializable {
             pipelineEdgesJsonObject.add(entry.getKey().toString(), jsonArray);
         }
 
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
         JsonObject jsonObject = new JsonObject();
         jsonObject.add("jobId", jobId.toString());
         jsonObject.add("pipelineEdges", pipelineEdgesJsonObject);
