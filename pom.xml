@@ -156,6 +156,7 @@
 
         <!-- prometheus simpleclient -->
         <prometheus.simpleclient.version>0.16.0</prometheus.simpleclient.version>
+        <enableSourceJarCreation>true</enableSourceJarCreation>
 
     </properties>
 
