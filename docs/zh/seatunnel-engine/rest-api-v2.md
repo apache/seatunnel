@@ -1,10 +1,6 @@
 ---
-sidebar_position: 11
+sidebar_position: 12
 ---
-
-**注意:**
-
-推荐使用v2版本的Rest API。 v1 版本已弃用，并将在将来删除。
 
 # RESTful API
 
@@ -12,27 +8,14 @@ SeaTunnel有一个用于监控的API，可用于查询运行作业的状态和�
 
 ## 概述
 
-监控API是由运行的web服务提供的，它是节点运行的一部分，每个节点成员都可以提供rest API功能。
-默认情况下，该服务监听端口为5801，该端口可以在hazelcast.yaml中配置，如下所示：
-
+v2版本的api使用jetty支持，与v1版本的接口规范相同 ,可以通过修改`seatunnel.yaml`中的配置项来指定端口和context-path
 ```yaml
-network:
-    rest-api:
-      enabled: true
-      endpoint-groups:
-        CLUSTER_WRITE:
-          enabled: true
-        DATA:
-          enabled: true
-    join:
-      tcp-ip:
-        enabled: true
-        member-list:
-          - localhost
-    port:
-      auto-increment: true
-      port-count: 100
-      port: 5801
+
+seatunnel:
+  engine:
+    enable-http: true
+    jetty-port: 8080
+    context-path: /seatunnel
 ```
 
 ## API参考
@@ -40,7 +23,7 @@ network:
 ### 返回Zeta集群的概览
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/overview?tag1=value1&tag2=value2</b></code> <code>(Returns an overview over the Zeta engine cluster.)</code></summary>
+ <summary><code>GET</code> <code><b>/seatunnel/overview?tag1=value1&tag2=value2</b></code> <code>(Returns an overview over the Zeta engine cluster.)</code></summary>
 
 #### 参数
 
@@ -72,36 +55,10 @@ network:
 
 ------------------------------------------------------------------------------------------
 
-###  返回当前节点的线程堆栈信息。
-
-<details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/thread-dump</b></code> <code>(返回当前节点的线程堆栈信息。)</code></summary>
-
-#### Parameters
-
-
-#### Responses
-
-```json
-[
-  {
-    "threadName": "",
-    "threadId": 0,
-    "threadState": "",
-    "stackTrace": ""
-  }
-]
-```
-
-</details>
-
-------------------------------------------------------------------------------------------
-
-
 ### 返回所有作业及其当前状态的概览
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-jobs</b></code> <code>(返回所有作业及其当前状态的概览。)</code></summary>
+ <summary><code>GET</code> <code><b>/seatunnel/running-jobs</b></code> <code>(返回所有作业及其当前状态的概览。)</code></summary>
 
 #### 参数
 
@@ -140,7 +97,7 @@ network:
 ### 返回作业的详细信息
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/job-info/:jobId</b></code> <code>(返回作业的详细信息。)</code></summary>
+ <summary><code>GET</code> <code><b>/seatunnel/job-info/:jobId</b></code> <code>(返回作业的详细信息。)</code></summary>
 
 #### 参数
 
@@ -208,10 +165,10 @@ network:
 
 ### 返回作业的详细信息
 
-此API已经弃用，请使用/hazelcast/rest/maps/job-info/:jobId替代。
+此API已经弃用，请使用/seatunnel/job-info/:jobId替代。
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-job/:jobId</b></code> <code>(返回作业的详细信息。)</code></summary>
+ <summary><code>GET</code> <code><b>/seatunnel/running-job/:jobId</b></code> <code>(返回作业的详细信息。)</code></summary>
 
 #### 参数
 
@@ -266,7 +223,7 @@ network:
 ### 返回所有已完成的作业信息
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/finished-jobs/:state</b></code> <code>(返回所有已完成的作业信息。)</code></summary>
+ <summary><code>GET</code> <code><b>/seatunnel/finished-jobs/:state</b></code> <code>(返回所有已完成的作业信息。)</code></summary>
 
 #### 参数
 
@@ -298,7 +255,7 @@ network:
 ### 返回系统监控信息
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/system-monitoring-information</b></code> <code>(返回系统监控信息。)</code></summary>
+ <summary><code>GET</code> <code><b>/seatunnel/system-monitoring-information</b></code> <code>(返回系统监控信息。)</code></summary>
 
 #### 参数
 
@@ -307,9 +264,6 @@ network:
 ```json
 [
   {
-    "isMaster": "true",
-    "host": "localhost",
-    "port": "5801",
     "processors":"8",
     "physical.memory.total":"16.0G",
     "physical.memory.free":"16.3M",
@@ -366,7 +320,7 @@ network:
 ### 提交作业
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/submit-job</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
+<summary><code>POST</code> <code><b>/seatunnel/submit-job</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
 
 #### 参数
 
@@ -425,7 +379,7 @@ network:
 ### 批量提交作业
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/submit-jobs</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
+<summary><code>POST</code> <code><b>/seatunnel/submit-jobs</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
 
 #### 参数(在请求体中params字段中添加)
 
@@ -527,7 +481,7 @@ network:
 ### 停止作业
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/stop-job</b></code> <code>(如果作业成功停止，返回jobId。)</code></summary>
+<summary><code>POST</code> <code><b>/seatunnel/stop-job</b></code> <code>(如果作业成功停止，返回jobId。)</code></summary>
 
 #### 请求体
 
@@ -554,7 +508,7 @@ network:
 ### 批量停止作业
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/stop-jobs</b></code> <code>(如果作业成功停止，返回jobId。)</code></summary>
+<summary><code>POST</code> <code><b>/seatunnel/stop-jobs</b></code> <code>(如果作业成功停止，返回jobId。)</code></summary>
 
 #### 请求体
 
@@ -591,7 +545,7 @@ network:
 ### 加密配置
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/encrypt-config</b></code> <code>(如果配置加密成功，则返回加密后的配置。)</code></summary>
+<summary><code>POST</code> <code><b>/seatunnel/encrypt-config</b></code> <code>(如果配置加密成功，则返回加密后的配置。)</code></summary>
 有关自定义加密的更多信息，请参阅文档[配置-加密-解密](../connector-v2/Config-Encryption-Decryption.md).
 
 #### 请求体
@@ -680,7 +634,7 @@ network:
 ### 更新运行节点的tags
 
 <details>
-<summary><code>POST</code><code><b>/hazelcast/rest/maps/update-tags</b></code><code>因为更新只能针对于某个节点，因此需要用当前节点ip:port用于更新</code><code>(如果更新成功，则返回"success"信息)</code></summary>
+<summary><code>POST</code><code><b>/seatunnel/update-tags</b></code><code>因为更新只能针对于某个节点，因此需要用当前节点ip:port用于更新</code><code>(如果更新成功，则返回"success"信息)</code></summary>
 
 
 #### 更新节点tags

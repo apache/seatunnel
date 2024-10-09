@@ -18,27 +18,20 @@
 seatunnel:
   engine:
     history-job-expire-minutes: 1440
-    backup-count: 1
+    backup-count: 2
     queue-type: blockingqueue
-    print-execution-info-interval: 60
-    print-job-metrics-info-interval: 60
+    print-execution-info-interval: 10
     slot-service:
       dynamic-slot: true
     checkpoint:
-      interval: 10000
-      timeout: 60000
+      interval: 300000
+      timeout: 100000
       storage:
-        type: hdfs
+        type: localfile
         max-retained: 3
         plugin-config:
-          namespace: /tmp/seatunnel/checkpoint_snapshot
-          storage.type: hdfs
-          fs.defaultFS: file:///tmp/ # Ensure that the directory has written permission
-    telemetry:
-      metric:
-        enabled: false
+          namespace: /tmp/seatunnel/checkpoint_snapshot/
     http:
-      enable-http: true
-      port: 8080
-      context-path: /seatunnel
-
+        enable-http: true
+        port: 8080
+        context-path: /seatunnel
