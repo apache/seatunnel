@@ -17,15 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
-import lombok.SneakyThrows;
-import org.apache.poi.hssf.usermodel.HSSFWorkbook;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellType;
-import org.apache.poi.ss.usermodel.DataFormatter;
-import org.apache.poi.ss.usermodel.DateUtil;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -39,17 +32,22 @@ import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.DateUtil;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
+import lombok.SneakyThrows;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.Date;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.IntStream;
@@ -98,7 +96,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
         Sheet sheet =
                 pluginConfig.hasPath(BaseSourceConfigOptions.SHEET_NAME.key())
                         ? workbook.getSheet(
-                        pluginConfig.getString(BaseSourceConfigOptions.SHEET_NAME.key()))
+                                pluginConfig.getString(BaseSourceConfigOptions.SHEET_NAME.key()))
                         : workbook.getSheetAt(0);
         cellCount = seaTunnelRowType.getTotalFields();
         cellCount = partitionsMap.isEmpty() ? cellCount : cellCount + partitionsMap.size();
@@ -129,8 +127,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                                         cell == null
                                                 ? null
                                                 : convert(
-                                                getCellValue(cell.getCellType(), cell),
-                                                fieldTypes[z - 1]));
+                                                        getCellValue(cell.getCellType(), cell),
+                                                        fieldTypes[z - 1]));
                             }
                             if (isMergePartition) {
                                 int index = seaTunnelRowType.getTotalFields();

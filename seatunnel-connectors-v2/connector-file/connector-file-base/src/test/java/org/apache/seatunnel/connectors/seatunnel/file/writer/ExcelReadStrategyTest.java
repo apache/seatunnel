@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.writer;
 
-import lombok.Getter;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -27,11 +29,11 @@ import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ExcelReadStrategy;
-import org.apache.seatunnel.connectors.seatunnel.file.source.reader.XmlReadStrategy;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import lombok.Getter;
 
 import java.io.File;
 import java.io.IOException;
@@ -51,7 +53,7 @@ import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME
 public class ExcelReadStrategyTest {
 
     @Test
-    public void testXmlRead() throws IOException, URISyntaxException {
+    public void testExcelRead() throws IOException, URISyntaxException {
         URL excelFile = ExcelReadStrategyTest.class.getResource("/excel/test_read_excel.xlsx");
         URL conf = ExcelReadStrategyTest.class.getResource("/excel/test_read_excel.conf");
         Assertions.assertNotNull(excelFile);
