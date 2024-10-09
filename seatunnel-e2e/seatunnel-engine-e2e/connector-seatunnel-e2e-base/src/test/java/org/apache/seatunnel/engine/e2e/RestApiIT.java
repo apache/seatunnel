@@ -43,7 +43,10 @@ import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.notNullValue;
 
@@ -227,6 +230,20 @@ public class RestApiIT {
                                                     + batchJobProxy.getJobId())
                                     .then()
                                     .statusCode(200)
+                                    .body(
+                                            "jobDag.jobId",
+                                            equalTo(Long.toString(batchJobProxy.getJobId())))
+                                    .body("jobDag.pipelineEdges", hasKey("1"))
+                                    .body("jobDag.pipelineEdges['1']", hasSize(1))
+                                    .body(
+                                            "jobDag.pipelineEdges['1'][0].inputVertexId",
+                                            equalTo("1"))
+                                    .body(
+                                            "jobDag.pipelineEdges['1'][0].targetVertexId",
+                                            equalTo("2"))
+                                    .body("jobDag.vertexInfoMap", aMapWithSize(2))
+                                    .body("jobDag.vertexInfoMap['1'][0]", equalTo("fake"))
+                                    .body("jobDag.vertexInfoMap['2'][0]", equalTo("fake"))
                                     .body("jobName", equalTo("fake_to_console"))
                                     .body("jobStatus", equalTo("FINISHED"));
                         });
