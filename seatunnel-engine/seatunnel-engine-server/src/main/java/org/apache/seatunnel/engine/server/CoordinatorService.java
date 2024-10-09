@@ -170,8 +170,7 @@ public class CoordinatorService {
 
     private IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap;
 
-    /** If this node is a master node */            // pending队列为空，且资源足够，直接运行
-
+    /** If this node is a master node */
     private volatile boolean isActive = false;
 
     private ExecutorService executorService;
