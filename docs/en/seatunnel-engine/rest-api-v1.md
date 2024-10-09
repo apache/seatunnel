@@ -5,7 +5,9 @@ sidebar_position: 11
 # RESTful API V1
 
 :::caution warn
+
 It is recommended to use the v2 version of the Rest API. The v1 version is deprecated and will be removed in the future.
+
 :::
 
 SeaTunnel has a monitoring API that can be used to query status and statistics of running jobs, as well as recent
