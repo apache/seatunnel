@@ -167,7 +167,7 @@ docker run -d --name seatunnel_master \
 
 - get created container ip
 ```shell
-docker inspect master-1
+docker inspect seatunnel_master
 ```
 run this command to get the pod ip.
 
