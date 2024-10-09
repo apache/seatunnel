@@ -170,7 +170,7 @@ docker run -d --name seatunnel_master \
 
 - 获取容器的ip
 ```shell
-docker inspect master-1
+docker inspect seatunnel_master
 ```
 运行此命令获取master容器的ip
 
