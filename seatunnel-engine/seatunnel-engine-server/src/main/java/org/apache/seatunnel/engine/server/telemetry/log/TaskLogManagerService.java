@@ -18,8 +18,9 @@
 package org.apache.seatunnel.engine.server.telemetry.log;
 
 import org.apache.seatunnel.engine.common.config.server.TelemetryLogsConfig;
-import org.apache.seatunnel.engine.server.master.JobHistoryService;
 
+import com.hazelcast.spi.impl.NodeEngine;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -28,20 +29,21 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 @Slf4j
-public class TaskLogManagerService {
+public class TaskLogManagerService implements AutoCloseable {
 
     private final String cron;
     private final long keepTime;
     private final String prefix;
     private String path;
-    private final JobHistoryService jobHistoryService;
+    private final NodeEngine nodeEngine;
+    private TaskLogCleanService taskLogCleanService;
 
-    public TaskLogManagerService(TelemetryLogsConfig log, JobHistoryService jobHistoryService) {
+    public TaskLogManagerService(TelemetryLogsConfig log, NodeEngineImpl nodeEngine) {
         this.cron = log.getCron();
         this.keepTime = log.getKeepTime();
         this.prefix = log.getPrefix();
         this.path = log.getPath();
-        this.jobHistoryService = jobHistoryService;
+        this.nodeEngine = nodeEngine;
     }
 
     public void initClean() {
@@ -66,7 +68,7 @@ public class TaskLogManagerService {
         } catch (Exception e) {
             throw new RuntimeException("Failed to get current path", e);
         }
-        new TaskLogCleanService(cron, keepTime, prefix, path, jobHistoryService);
+        taskLogCleanService = new TaskLogCleanService(cron, keepTime, prefix, path, nodeEngine);
     }
 
     private static Path resolveSymlink(Path path) throws IOException {
@@ -79,5 +81,12 @@ public class TaskLogManagerService {
             }
         }
         return path;
+    }
+
+    @Override
+    public void close() {
+        if (taskLogCleanService != null) {
+            taskLogCleanService.shutdown();
+        }
     }
 }

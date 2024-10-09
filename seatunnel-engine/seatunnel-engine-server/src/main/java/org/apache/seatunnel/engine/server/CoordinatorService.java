@@ -425,16 +425,6 @@ public class CoordinatorService {
         if (connectorJarStorageConfig.getEnable()) {
             connectorPackageService = new ConnectorPackageService(seaTunnelServer);
         }
-        // task log manager service
-        if (engineConfig.getTelemetryConfig() != null
-                && engineConfig.getTelemetryConfig().getLogs() != null
-                && engineConfig.getTelemetryConfig().getLogs().isEnabled()) {
-            taskLogManagerService =
-                    new TaskLogManagerService(
-                            engineConfig.getTelemetryConfig().getLogs(), jobHistoryService);
-            logger.info("Telemetry logs is enabled, start task log manager service.");
-            taskLogManagerService.initClean();
-        }
 
         restoreAllJobFromMasterNodeSwitchFuture =
                 new PassiveCompletableFuture(
@@ -582,6 +572,10 @@ public class CoordinatorService {
 
         if (resourceManager != null) {
             resourceManager.close();
+        }
+
+        if (taskLogManagerService != null) {
+            taskLogManagerService.close();
         }
 
         try {

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.telemetry.log;
 
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 
 import com.cronutils.model.Cron;
@@ -24,10 +25,12 @@ import com.cronutils.model.definition.CronDefinition;
 import com.cronutils.model.definition.CronDefinitionBuilder;
 import com.cronutils.model.time.ExecutionTime;
 import com.cronutils.parser.CronParser;
+import com.hazelcast.spi.impl.NodeEngine;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.time.ZonedDateTime;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -46,11 +49,7 @@ public class TaskLogCleanService {
     private final String path;
 
     public TaskLogCleanService(
-            String cron,
-            long keepTime,
-            String prefix,
-            String path,
-            JobHistoryService jobHistoryService) {
+            String cron, long keepTime, String prefix, String path, NodeEngine nodeEngine) {
         this.scheduler =
                 Executors.newSingleThreadScheduledExecutor(
                         runnable -> {
@@ -62,7 +61,6 @@ public class TaskLogCleanService {
         this.keepTime = keepTime;
         this.prefix = prefix;
         this.path = path;
-        this.jobHistoryService = jobHistoryService;
         log.info(
                 "TaskLogCleanService init with cron: {}, keepTime: {}, prefix: {}, path: {}",
                 cron,
@@ -70,6 +68,20 @@ public class TaskLogCleanService {
                 prefix,
                 path);
         scheduleTask(cron, new TaskLogCleanThread());
+
+        jobHistoryService =
+                new JobHistoryService(
+                        nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE),
+                        nodeEngine.getLogger(JobHistoryService.class),
+                        new ConcurrentHashMap<>(),
+                        nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE),
+                        nodeEngine
+                                .getHazelcastInstance()
+                                .getMap(Constant.IMAP_FINISHED_JOB_METRICS),
+                        nodeEngine
+                                .getHazelcastInstance()
+                                .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO),
+                        Integer.MAX_VALUE);
     }
 
     public void scheduleTask(String cronExpression, Runnable task) {
@@ -94,7 +106,13 @@ public class TaskLogCleanService {
 
     private void executeTaskAtNextExecution(ExecutionTime executionTime, Runnable task) {
         try {
-            task.run();
+            try {
+                task.run();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            } finally {
+                running.set(false);
+            }
 
             long nextDelay = calculateNextDelay(executionTime);
             log.info("Next execution in: {} ms", nextDelay);
