@@ -81,7 +81,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -89,6 +88,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -187,7 +187,8 @@ public class CoordinatorService {
 
     private PassiveCompletableFuture restoreAllJobFromMasterNodeSwitchFuture;
 
-    private LinkedList<Tuple2<Long, JobMaster>> pendingJob = new LinkedList<>();
+    private ConcurrentLinkedQueue<Tuple2<Long, JobMaster>> pendingJob =
+            new ConcurrentLinkedQueue<>();
 
     private final boolean dynamicSlot;
 
@@ -230,16 +231,18 @@ public class CoordinatorService {
                 () -> {
                     Thread.currentThread().setName("pending-job-schedule-runner");
                     while (true) {
-                        try {
-                            // sleep 5s , not too frequent
-                            Thread.sleep(5000);
-                        } catch (InterruptedException e) {
-                            throw new RuntimeException(e);
+                        if (pendingJob.isEmpty()) {
+                            try {
+                                Thread.sleep(3000);
+                            } catch (InterruptedException e) {
+                                logger.severe(ExceptionUtils.getMessage(e));
+                            }
+                        } else {
+                            pendingJobSchedule();
                         }
-                        pendingJobSchedule();
                     }
                 };
-        new Thread(pendingJobScheduleTask).start();
+        executorService.submit(pendingJobScheduleTask);
     }
 
     private void pendingJobSchedule() {
@@ -256,7 +259,7 @@ public class CoordinatorService {
 
                             if (jobMaster.preApplyResources()) {
                                 logger.info("Resources enough, start running: " + jobId);
-                                pendingJob.pollFirst();
+                                pendingJob.poll();
                                 PendingSourceState pendingSourceState =
                                         pendingJobMasterMap.get(jobId)._1;
 
@@ -283,6 +286,11 @@ public class CoordinatorService {
                                         executorService);
                             } else {
                                 logger.info("Resources not enough, waiting next time");
+                                try {
+                                    Thread.sleep(3000);
+                                } catch (InterruptedException e) {
+                                    logger.severe(ExceptionUtils.getMessage(e));
+                                }
                             }
                         });
     }

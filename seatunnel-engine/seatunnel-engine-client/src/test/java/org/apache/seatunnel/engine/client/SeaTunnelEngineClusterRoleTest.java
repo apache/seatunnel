@@ -233,7 +233,6 @@ public class SeaTunnelEngineClusterRoleTest {
                             () ->
                                     Assertions.assertEquals(
                                             JobStatus.FINISHED, clientJobProxy.getJobStatus()));
-            System.out.println("1234:" + clientJobProxy.getJobStatus());
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
         } finally {
