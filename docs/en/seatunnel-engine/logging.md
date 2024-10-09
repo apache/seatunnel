@@ -101,9 +101,9 @@ SeaTunnel supports scheduled deletion of old log files to prevent disk space exh
 ```yaml
     telemetry:
       logs:
-         scheduled-deletion-enable: true
-         cron: "* * * * *"
-         keep-time: 30000
+         scheduled-deletion-enable: false
+         cron: "0 0 * * *"
+         keep-time: 2592000000 
          prefix: job
          path: /tmp/seatunnel/logs
 ```

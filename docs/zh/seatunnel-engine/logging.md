@@ -101,11 +101,11 @@ SeaTunnel 支持定时删除旧日志文件，以避免磁盘空间不足。您�
 ```yaml
     telemetry:
       logs:
-         scheduled-deletion-enable: true
-         cron: "* * * * *"
-         keep-time: 30000
-         prefix: job
-         path: /tmp/seatunnel/logs
+        scheduled-deletion-enable: false
+        cron: "0 0 * * *"
+        keep-time: 2592000000
+        prefix: job
+        path: /tmp/seatunnel/logs
 ```
 
 - `scheduled-deletion-enable`: 是否启用定时删除日志

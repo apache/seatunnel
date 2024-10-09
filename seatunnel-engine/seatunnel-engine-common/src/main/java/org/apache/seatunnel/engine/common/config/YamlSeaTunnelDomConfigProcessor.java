@@ -338,7 +338,7 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             if (ServerConfigOptions.TELEMETRY_METRIC.key().equals(name)) {
                 telemetryConfig.setMetric(parseTelemetryMetricConfig(node));
             } else if (ServerConfigOptions.TELEMETRY_LOGS.key().equals(name)) {
-                telemetryConfig.setLogs(parseTelemetryLogsConfig(node)); // 解析 logs 部分
+                telemetryConfig.setLogs(parseTelemetryLogsConfig(node));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }

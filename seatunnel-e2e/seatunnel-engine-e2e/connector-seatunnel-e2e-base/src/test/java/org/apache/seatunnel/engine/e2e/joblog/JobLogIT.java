@@ -104,7 +104,6 @@ public class JobLogIT extends SeaTunnelContainer {
 
         assertConsoleLog();
         assertFileLog();
-        //
         assertFileLogClean(false);
         Thread.sleep(90000);
         assertFileLogClean(true);
