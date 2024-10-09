@@ -47,7 +47,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.IntStream;
@@ -228,11 +231,23 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             case DECIMAL:
                 return BigDecimal.valueOf(Double.parseDouble(field.toString()));
             case DATE:
-                return ((LocalDateTime) field).toLocalDate();
+                if (field instanceof LocalDateTime) {
+                    return ((LocalDateTime) field).toLocalDate();
+                }
+                return LocalDate.parse(
+                        (String) field, DateTimeFormatter.ofPattern(dateFormat.getValue()));
             case TIME:
-                return ((LocalDateTime) field).toLocalTime();
+                if (field instanceof LocalDateTime) {
+                    return ((LocalDateTime) field).toLocalTime();
+                }
+                return LocalTime.parse(
+                        (String) field, DateTimeFormatter.ofPattern(timeFormat.getValue()));
             case TIMESTAMP:
-                return field;
+                if (field instanceof LocalDateTime) {
+                    return field;
+                }
+                return LocalDateTime.parse(
+                        (String) field, DateTimeFormatter.ofPattern(datetimeFormat.getValue()));
             case NULL:
                 return "";
             case BYTES:
