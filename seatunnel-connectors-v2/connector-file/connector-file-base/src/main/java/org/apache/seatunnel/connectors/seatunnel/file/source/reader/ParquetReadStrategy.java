@@ -297,6 +297,8 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                             return BasicType.BYTE_TYPE;
                         case INT_16:
                             return BasicType.SHORT_TYPE;
+                        case INT_32:
+                            return BasicType.INT_TYPE;
                         case DATE:
                             return LocalTimeType.LOCAL_DATE_TYPE;
                         default:
