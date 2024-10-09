@@ -170,7 +170,8 @@ public class CoordinatorService {
 
     private IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap;
 
-    /** If this node is a master node */
+    /** If this node is a master node */            // pending队列为空，且资源足够，直接运行
+
     private volatile boolean isActive = false;
 
     private ExecutorService executorService;
@@ -490,10 +491,10 @@ public class CoordinatorService {
         boolean canRunJob, preApplyResources;
         if (isJobPending) {
             preApplyResources = jobMaster.preApplyResources();
-            // pending队列为空，且资源足够，直接运行
+            // The pending queue is empty and there are sufficient resources to run directly
             canRunJob = (pendingJob.size() == 0 && preApplyResources);
         } else {
-            // 如果为动态 Slot 或者未启动 pending 队列，直接运行
+            // If it is a dynamic slot or the pending queue has not been started, run it directly
             canRunJob = true;
             preApplyResources = true;
         }
