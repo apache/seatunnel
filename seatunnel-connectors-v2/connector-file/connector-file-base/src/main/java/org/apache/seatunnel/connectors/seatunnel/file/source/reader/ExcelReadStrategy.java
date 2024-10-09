@@ -17,8 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-
+import lombok.SneakyThrows;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.usermodel.DateUtil;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -32,26 +39,17 @@ import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
-
-import org.apache.poi.hssf.usermodel.HSSFWorkbook;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellType;
-import org.apache.poi.ss.usermodel.DataFormatter;
-import org.apache.poi.ss.usermodel.DateUtil;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-
-import lombok.SneakyThrows;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Date;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.IntStream;
@@ -100,7 +98,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
         Sheet sheet =
                 pluginConfig.hasPath(BaseSourceConfigOptions.SHEET_NAME.key())
                         ? workbook.getSheet(
-                                pluginConfig.getString(BaseSourceConfigOptions.SHEET_NAME.key()))
+                        pluginConfig.getString(BaseSourceConfigOptions.SHEET_NAME.key()))
                         : workbook.getSheetAt(0);
         cellCount = seaTunnelRowType.getTotalFields();
         cellCount = partitionsMap.isEmpty() ? cellCount : cellCount + partitionsMap.size();
@@ -131,8 +129,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                                         cell == null
                                                 ? null
                                                 : convert(
-                                                        getCellValue(cell.getCellType(), cell),
-                                                        fieldTypes[z - 1]));
+                                                getCellValue(cell.getCellType(), cell),
+                                                fieldTypes[z - 1]));
                             }
                             if (isMergePartition) {
                                 int index = seaTunnelRowType.getTotalFields();
@@ -151,7 +149,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                 || isNullOrEmpty(seaTunnelRowType.getFieldTypes())) {
             throw new FileConnectorException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                    "Schmea information is not set or incorrect schmea settings");
+                    "Schema information is not set or incorrect Schema settings");
         }
         SeaTunnelRowType userDefinedRowTypeWithPartition =
                 mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
@@ -190,8 +188,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                 return cell.getBooleanCellValue();
             case NUMERIC:
                 if (DateUtil.isCellDateFormatted(cell)) {
-                    DataFormatter formatter = new DataFormatter();
-                    return formatter.formatCellValue(cell);
+                    return cell.getLocalDateTimeCellValue();
                 }
                 return cell.getNumericCellValue();
             case ERROR:
@@ -233,14 +230,11 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             case DECIMAL:
                 return BigDecimal.valueOf(Double.parseDouble(field.toString()));
             case DATE:
-                return LocalDate.parse(
-                        (String) field, DateTimeFormatter.ofPattern(dateFormat.getValue()));
+                return ((LocalDateTime) field).toLocalDate();
             case TIME:
-                return LocalTime.parse(
-                        (String) field, DateTimeFormatter.ofPattern(timeFormat.getValue()));
+                return ((LocalDateTime) field).toLocalTime();
             case TIMESTAMP:
-                return LocalDateTime.parse(
-                        (String) field, DateTimeFormatter.ofPattern(datetimeFormat.getValue()));
+                return field;
             case NULL:
                 return "";
             case BYTES:
