@@ -34,4 +34,3 @@ seatunnel:
     http:
         enable-http: false
         port: 8080
-        context-path: /seatunnel
