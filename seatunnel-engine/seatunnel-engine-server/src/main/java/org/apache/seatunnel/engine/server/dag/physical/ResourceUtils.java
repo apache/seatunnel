@@ -88,12 +88,7 @@ public class ResourceUtils {
                                     coordinator.getTaskGroupLocation();
                             futures.put(
                                     taskGroupLocation,
-                                    isJobPending
-                                            ? preApplyResourceFutures.get(taskGroupLocation)
-                                            : resourceManager.applyResource(
-                                                    taskGroupLocation.getJobId(),
-                                                    new ResourceProfile(),
-                                                    subPlan.getTags()));
+                                    preApplyResourceFutures.get(taskGroupLocation));
                         });
 
         subPlan.getPhysicalVertexList()
@@ -102,12 +97,7 @@ public class ResourceUtils {
                             TaskGroupLocation taskGroupLocation = task.getTaskGroupLocation();
                             futures.put(
                                     taskGroupLocation,
-                                    isJobPending
-                                            ? preApplyResourceFutures.get(taskGroupLocation)
-                                            : resourceManager.applyResource(
-                                                    taskGroupLocation.getJobId(),
-                                                    new ResourceProfile(),
-                                                    subPlan.getTags()));
+                                    preApplyResourceFutures.get(taskGroupLocation));
                         });
     }
 

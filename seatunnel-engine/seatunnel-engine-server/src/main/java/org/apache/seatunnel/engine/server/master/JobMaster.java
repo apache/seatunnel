@@ -163,6 +163,8 @@ public class JobMaster {
 
     private CheckpointConfig jobCheckpointConfig;
 
+    @Getter private Long jobId;
+
     public String getErrorMessage() {
         return errorMessage;
     }
@@ -170,6 +172,7 @@ public class JobMaster {
     private String errorMessage;
 
     public JobMaster(
+            @NonNull Long jobId,
             @NonNull Data jobImmutableInformationData,
             @NonNull NodeEngine nodeEngine,
             @NonNull ExecutorService executorService,
@@ -182,6 +185,7 @@ public class JobMaster {
             @NonNull IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap,
             EngineConfig engineConfig,
             SeaTunnelServer seaTunnelServer) {
+        this.jobId = jobId;
         this.jobImmutableInformationData = jobImmutableInformationData;
         this.nodeEngine = nodeEngine;
         this.executorService = executorService;
@@ -387,6 +391,8 @@ public class JobMaster {
                                             try {
                                                 return value != null && value.join() != null;
                                             } catch (CompletionException e) {
+                                                LOGGER.warning(
+                                                        "Pre resource application failed, resources may be not enough");
                                                 return false;
                                             }
                                         })
@@ -398,21 +404,40 @@ public class JobMaster {
             physicalPlan.setPreApplyResourceFutures(preApplyResourceFutures);
         } else {
             // Release the resource that has been applied
-            resourceManager
-                    .releaseResources(
-                            jobImmutableInformation.getJobId(),
-                            preApplyResourceFutures.values().stream()
-                                    .filter(
-                                            value -> {
-                                                try {
-                                                    return value != null && value.join() != null;
-                                                } catch (CompletionException e) {
-                                                    return false;
-                                                }
-                                            })
-                                    .map(CompletableFuture::join)
-                                    .collect(Collectors.toList()))
-                    .join();
+            try {
+                RetryUtils.retryWithException(
+                        () -> {
+                            resourceManager
+                                    .releaseResources(
+                                            jobImmutableInformation.getJobId(),
+                                            preApplyResourceFutures.values().stream()
+                                                    .filter(
+                                                            value -> {
+                                                                try {
+                                                                    return value != null
+                                                                            && value.join() != null;
+                                                                } catch (CompletionException e) {
+                                                                    LOGGER.warning(
+                                                                            "Pre resource application failed, resources may be not enough");
+                                                                    return false;
+                                                                }
+                                                            })
+                                                    .map(CompletableFuture::join)
+                                                    .collect(Collectors.toList()))
+                                    .join();
+                            return null;
+                        },
+                        new RetryUtils.RetryMaterial(
+                                Constant.OPERATION_RETRY_TIME,
+                                true,
+                                ExceptionUtil::isOperationNeedRetryException,
+                                Constant.OPERATION_RETRY_SLEEP));
+            } catch (Exception e) {
+                LOGGER.warning(
+                        String.format(
+                                "Pre resource application failed %s",
+                                ExceptionUtils.getMessage(e)));
+            }
         }
         return enoughResource;
     }

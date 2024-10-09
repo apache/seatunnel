@@ -180,6 +180,12 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 LOGGER.warning("Unrecognized element: " + name);
             }
         }
+
+        if (engineConfig.getSlotServiceConfig().isDynamicSlot()) {
+            // If dynamic slot is enabled, the schedule strategy must be REJECT
+            LOGGER.info("Dynamic slot is enabled, the schedule strategy is set to REJECT");
+            engineConfig.setScheduleStrategy(ScheduleStrategy.REJECT);
+        }
     }
 
     private CheckpointConfig parseCheckpointConfig(Node checkpointNode) {

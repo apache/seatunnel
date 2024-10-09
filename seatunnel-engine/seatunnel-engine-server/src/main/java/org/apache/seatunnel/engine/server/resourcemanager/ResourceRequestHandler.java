@@ -141,61 +141,6 @@ public class ResourceRequestHandler {
         return needRequestResource;
     }
 
-    /**
-     * Check if the worker has enough resources to provide the required resources
-     *
-     * @return true if the worker has enough resources to provide the required resources
-     */
-    public List<WorkerProfile> isWorkerResourceEnough(List<WorkerProfile> workerProfiles) {
-        if (workerProfiles == null || workerProfiles.isEmpty()) {
-            // First calculation, get the registered worker
-            workerProfiles = new ArrayList<>(registerWorker.values());
-        }
-
-        for (ResourceProfile profile : resourceProfile) {
-            boolean isEnough =
-                    workerProfiles.stream()
-                            .anyMatch(
-                                    workerProfile -> {
-                                        // Check if the worker has enough unassigned resources or
-                                        // dynamic slots
-                                        if (workerProfile.isDynamicSlot()
-                                                && workerProfile
-                                                        .getUnassignedResource()
-                                                        .enoughThan(profile)) {
-                                            return true;
-                                        }
-                                        // Check if the worker has unassigned slots that meet the
-                                        // resource profile requirements
-                                        List<SlotProfile> slotProfiles =
-                                                new ArrayList<>(
-                                                        Arrays.asList(
-                                                                workerProfile
-                                                                        .getUnassignedSlots()));
-                                        for (SlotProfile slotProfile : slotProfiles) {
-                                            if (slotProfile
-                                                    .getResourceProfile()
-                                                    .enoughThan(profile)) {
-                                                slotProfiles.remove(slotProfile);
-                                                workerProfile.setUnassignedSlots(
-                                                        slotProfiles.toArray(
-                                                                new SlotProfile
-                                                                        [0])); // Update unassigned
-                                                // slots
-                                                return true;
-                                            }
-                                        }
-                                        return false;
-                                    });
-            if (!isEnough) {
-                // If any resource profile cannot be met, return null
-                return null;
-            }
-        }
-        // Return the list of worker profiles that can meet the resource requirements
-        return workerProfiles;
-    }
-
     private List<CompletableFuture<SlotAndWorkerProfile>> requestSlots(
             List<ResourceProfile> requestProfile) {
         List<CompletableFuture<SlotAndWorkerProfile>> allRequestFuture = new ArrayList<>();

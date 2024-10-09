@@ -187,18 +187,16 @@ public class CoordinatorService {
 
     private PassiveCompletableFuture restoreAllJobFromMasterNodeSwitchFuture;
 
-    private ConcurrentLinkedQueue<Tuple2<Long, JobMaster>> pendingJob =
-            new ConcurrentLinkedQueue<>();
+    private ConcurrentLinkedQueue<JobMaster> pendingJob = new ConcurrentLinkedQueue<>();
 
-    private final boolean dynamicSlot;
+    private final boolean isWaitStrategy;
 
-    private final boolean isJobPending;
+    private final ScheduleStrategy scheduleStrategy;
 
     public CoordinatorService(
             @NonNull NodeEngineImpl nodeEngine,
             @NonNull SeaTunnelServer seaTunnelServer,
             EngineConfig engineConfig) {
-        this.dynamicSlot = engineConfig.getSlotServiceConfig().isDynamicSlot();
         this.nodeEngine = nodeEngine;
         this.logger = nodeEngine.getLogger(getClass());
         this.executorService =
@@ -217,13 +215,11 @@ public class CoordinatorService {
         masterActiveListener = Executors.newSingleThreadScheduledExecutor();
         masterActiveListener.scheduleAtFixedRate(
                 this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
-        isJobPending =
-                engineConfig.getScheduleStrategy().equals(ScheduleStrategy.WAIT) && !dynamicSlot;
-        if (isJobPending) {
-            logger.info("Start pending job schedule thread");
-            // start pending job schedule thread
-            startPendingJobScheduleThread();
-        }
+        scheduleStrategy = engineConfig.getScheduleStrategy();
+        isWaitStrategy = scheduleStrategy.equals(ScheduleStrategy.WAIT);
+        logger.info("Start pending job schedule thread");
+        // start pending job schedule thread
+        startPendingJobScheduleThread();
     }
 
     private void startPendingJobScheduleThread() {
@@ -233,7 +229,7 @@ public class CoordinatorService {
                     while (true) {
                         if (pendingJob.isEmpty()) {
                             try {
-                                Thread.sleep(3000);
+                                Thread.sleep(2000);
                             } catch (InterruptedException e) {
                                 logger.severe(ExceptionUtils.getMessage(e));
                             }
@@ -246,53 +242,89 @@ public class CoordinatorService {
     }
 
     private void pendingJobSchedule() {
+        logger.info(
+                String.format(
+                        "Start pending job schedule, pendingJob Size : %s", pendingJob.size()));
         pendingJob.stream()
                 .findFirst()
                 .ifPresent(
-                        pendingJobEntry -> {
-                            Long jobId = pendingJobEntry._1;
-                            JobMaster jobMaster = pendingJobEntry._2;
+                        jobMaster -> {
+                            Long jobId = jobMaster.getJobId();
 
                             logger.info(
-                                    "Start calculating whether pending task resources are enough: "
-                                            + jobId);
+                                    String.format(
+                                            "Start calculating whether pending task resources are enough: %s",
+                                            jobId));
 
-                            if (jobMaster.preApplyResources()) {
-                                logger.info("Resources enough, start running: " + jobId);
-                                pendingJob.poll();
-                                PendingSourceState pendingSourceState =
-                                        pendingJobMasterMap.get(jobId)._1;
-
-                                CompletableFuture.runAsync(
-                                        () -> {
-                                            try {
-                                                if (pendingSourceState
-                                                        == PendingSourceState.RESTORE) {
-                                                    jobMaster
-                                                            .getPhysicalPlan()
-                                                            .getPipelineList()
-                                                            .forEach(SubPlan::restorePipelineState);
-                                                }
-                                                pendingJobMasterMap.remove(jobId);
-                                                runningJobMasterMap.put(jobId, jobMaster);
-                                                jobMaster.run();
-                                            } finally {
-                                                if (jobMasterCompletedSuccessfully(
-                                                        jobMaster, pendingSourceState)) {
-                                                    runningJobMasterMap.remove(jobId);
-                                                }
-                                            }
-                                        },
-                                        executorService);
-                            } else {
-                                logger.info("Resources not enough, waiting next time");
-                                try {
-                                    Thread.sleep(3000);
-                                } catch (InterruptedException e) {
-                                    logger.severe(ExceptionUtils.getMessage(e));
+                            boolean preApplyResources = jobMaster.preApplyResources();
+                            if (!preApplyResources) {
+                                logger.info(
+                                        String.format(
+                                                "Current strategy is %s, and resources is not enough, skipping this schedule, JobID: %s",
+                                                scheduleStrategy, jobId));
+                                if (isWaitStrategy) {
+                                    try {
+                                        Thread.sleep(3000);
+                                    } catch (InterruptedException e) {
+                                        logger.severe(ExceptionUtils.getMessage(e));
+                                    }
+                                    return;
+                                } else {
+                                    completeFailJob(jobMaster);
+                                    return;
                                 }
                             }
+
+                            logger.info(
+                                    String.format("Resources enough, start running: %s", jobId));
+
+                            pendingJob.remove(jobMaster);
+
+                            PendingSourceState pendingSourceState =
+                                    pendingJobMasterMap.get(jobId)._1;
+
+                            CompletableFuture.runAsync(
+                                    () -> {
+                                        try {
+                                            String jobFullName =
+                                                    jobMaster.getPhysicalPlan().getJobFullName();
+                                            JobStatus jobStatus =
+                                                    (JobStatus) runningJobStateIMap.get(jobId);
+                                            if (pendingSourceState == PendingSourceState.RESTORE) {
+                                                jobMaster
+                                                        .getPhysicalPlan()
+                                                        .getPipelineList()
+                                                        .forEach(SubPlan::restorePipelineState);
+                                            }
+                                            logger.info(
+                                                    String.format(
+                                                            "The %s %s is in %s state, restore pipeline and take over this job running",
+                                                            pendingSourceState,
+                                                            jobFullName,
+                                                            jobStatus));
+
+                                            pendingJobMasterMap.remove(jobId);
+                                            runningJobMasterMap.put(jobId, jobMaster);
+                                            jobMaster.run();
+                                        } finally {
+                                            if (jobMasterCompletedSuccessfully(
+                                                    jobMaster, pendingSourceState)) {
+                                                runningJobMasterMap.remove(jobId);
+                                            }
+                                        }
+                                    },
+                                    executorService);
                         });
+    }
+
+    private static void completeFailJob(JobMaster jobMaster) {
+        // If the pending queue is not enabled and resources are insufficient, stop the task from
+        // running
+        JobResult jobResult =
+                new JobResult(
+                        JobStatus.FAILED,
+                        ExceptionUtils.getMessage(new NoEnoughResourceException()));
+        jobMaster.getPhysicalPlan().completeJobEndFuture(jobResult);
     }
 
     private boolean jobMasterCompletedSuccessfully(JobMaster jobMaster, PendingSourceState state) {
@@ -454,9 +486,9 @@ public class CoordinatorService {
             return;
         }
 
-        JobStatus jobStatus = (JobStatus) runningJobStateIMap.get(jobId);
         JobMaster jobMaster =
                 new JobMaster(
+                        jobId,
                         jobInfo.getJobImmutableInformation(),
                         nodeEngine,
                         executorService,
@@ -476,60 +508,10 @@ public class CoordinatorService {
             throw new SeaTunnelEngineException(String.format("Job id %s init failed", jobId), e);
         }
 
-        String jobFullName = jobMaster.getPhysicalPlan().getJobFullName();
-        if (isJobPending) {
-            pendingJobMasterMap.put(jobId, new Tuple2<>(PendingSourceState.RESTORE, jobMaster));
-        } else {
-            runningJobMasterMap.put(jobId, jobMaster);
-        }
-        logger.info(
-                String.format(
-                        "The restore %s is in %s state, restore pipeline and take over this job running",
-                        jobFullName, jobStatus));
-        // FIFO strategy，If there is a waiting task, the subsequent task will keep waiting
-        boolean canRunJob, preApplyResources;
-        if (isJobPending) {
-            preApplyResources = jobMaster.preApplyResources();
-            // The pending queue is empty and there are sufficient resources to run directly
-            canRunJob = (pendingJob.size() == 0 && preApplyResources);
-        } else {
-            // If it is a dynamic slot or the pending queue has not been started, run it directly
-            canRunJob = true;
-            preApplyResources = true;
-        }
-        if (canRunJob) {
-            CompletableFuture.runAsync(
-                    () -> {
-                        try {
-                            if (isJobPending) {
-                                pendingJobMasterMap.remove(jobId);
-                                runningJobMasterMap.put(jobId, jobMaster);
-                            }
-                            jobMaster
-                                    .getPhysicalPlan()
-                                    .getPipelineList()
-                                    .forEach(SubPlan::restorePipelineState);
-                            if (!dynamicSlot && !preApplyResources) {
-                                completeFailJob(jobMaster);
-                                throw new NoEnoughResourceException();
-                            }
-                            jobMaster.run();
-                        } finally {
-                            // voidCompletableFuture will be cancelled when zeta master node
-                            // shutdown to simulate master failure,
-                            // don't update runningJobMasterMap is this case.
-                            if (!jobMaster
-                                    .getJobMasterCompleteFuture()
-                                    .isCompletedExceptionally()) {
-                                runningJobMasterMap.remove(jobId);
-                            }
-                        }
-                    },
-                    executorService);
-        } else {
-            pendingJob.add(new Tuple2<>(jobId, jobMaster));
-            logger.info("Resources not enough, enter the pending queue");
-        }
+        pendingJobMasterMap.put(jobId, new Tuple2<>(PendingSourceState.RESTORE, jobMaster));
+        pendingJob.add(jobMaster);
+        jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
+        logger.info(String.format("The restore job enter pending queue, JobId: %s", jobId));
     }
 
     private void checkNewActiveMaster() {
@@ -562,7 +544,7 @@ public class CoordinatorService {
     public synchronized void clearCoordinatorService() {
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);
-        if (isJobPending) {
+        if (isWaitStrategy) {
             pendingJobMasterMap.values().stream()
                     .filter(Objects::nonNull)
                     .map(Tuple2::_2)
@@ -626,6 +608,7 @@ public class CoordinatorService {
         MDCExecutorService mdcExecutorService = MDCTracer.tracing(jobId, executorService);
         JobMaster jobMaster =
                 new JobMaster(
+                        jobId,
                         jobImmutableInformation,
                         this.nodeEngine,
                         mdcExecutorService,
@@ -648,12 +631,8 @@ public class CoordinatorService {
                                             "The job id %s has already been submitted and is not starting with a savepoint.",
                                             jobId));
                         }
-                        if (isJobPending) {
-                            pendingJobMasterMap.put(
-                                    jobId, new Tuple2<>(PendingSourceState.SUBMIT, jobMaster));
-                        } else {
-                            runningJobMasterMap.put(jobId, jobMaster);
-                        }
+                        pendingJobMasterMap.put(
+                                jobId, new Tuple2<>(PendingSourceState.SUBMIT, jobMaster));
                         runningJobInfoIMap.put(
                                 jobId,
                                 new JobInfo(System.currentTimeMillis(), jobImmutableInformation));
@@ -667,44 +646,19 @@ public class CoordinatorService {
                         jobSubmitFuture.completeExceptionally(new JobException(errorMsg));
                     }
                     if (!jobSubmitFuture.isCompletedExceptionally()) {
-                        try {
-                            if (isJobPending) {
-                                if (pendingJob.isEmpty() && jobMaster.preApplyResources()) {
-                                    pendingJobMasterMap.remove(jobId);
-                                    runningJobMasterMap.put(jobId, jobMaster);
-                                    jobMaster.run();
-                                } else {
-                                    pendingJob.add(new Tuple2<>(jobId, jobMaster));
-                                    jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
-                                    logger.info("Resources not enough, enter the pending queue");
-                                }
-                            } else {
-                                jobMaster.run();
-                            }
-                        } finally {
-                            // voidCompletableFuture will be cancelled when zeta master node
-                            // shutdown to simulate master failure,
-                            // don't update runningJobMasterMap is this case.
-                            if (!jobMaster.getJobMasterCompleteFuture().isCancelled()) {
-                                runningJobMasterMap.remove(jobId);
-                            }
-                        }
+                        pendingJob.add(jobMaster);
+                        jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
+                        logger.info(
+                                String.format(
+                                        "The submit job enter the pending queue , jobId: %s , jobName: %s",
+                                        jobId,
+                                        jobMaster.getJobImmutableInformation().getJobName()));
                     } else {
                         runningJobInfoIMap.remove(jobId);
                         runningJobMasterMap.remove(jobId);
                     }
                 });
         return new PassiveCompletableFuture<>(jobSubmitFuture);
-    }
-
-    private static void completeFailJob(JobMaster jobMaster) {
-        // If the pending queue is not enabled and resources are insufficient, stop the task from
-        // running
-        JobResult jobResult =
-                new JobResult(
-                        JobStatus.FAILING,
-                        ExceptionUtils.getMessage(new NoEnoughResourceException()));
-        jobMaster.getPhysicalPlan().completeJobEndFuture(jobResult);
     }
 
     public PassiveCompletableFuture<Void> savePoint(long jobId) {

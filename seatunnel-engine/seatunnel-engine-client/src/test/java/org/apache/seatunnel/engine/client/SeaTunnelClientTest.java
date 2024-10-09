@@ -435,7 +435,9 @@ public class SeaTunnelClientTest {
             CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
             long jobId = clientJobProxy.getJobId();
 
-            // Running
+            // Sleep for 3 seconds to wait for the task to submit
+            Thread.sleep(3000);
+            //             Running
             Assertions.assertNotNull(jobClient.getJobInfo(jobId));
 
             await().atMost(180000, TimeUnit.MILLISECONDS)

@@ -152,6 +152,8 @@ seatunnel:
     job-schedule-strategy: WAIT
 ```
 
+When `dynamic-slot: true` is used, the `job-schedule-strategy: WAIT` configuration will become invalid and will be forcibly changed to `job-schedule-strategy: REJECT`, because this parameter is meaningless in dynamic slots.
+
 ## 5. Configure The SeaTunnel Engine Network Service
 
 All SeaTunnel Engine network-related configurations are in the `hazelcast.yaml` file.
