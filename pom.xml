@@ -557,6 +557,7 @@
         <dependency>
             <groupId>org.commonmark</groupId>
             <artifactId>commonmark</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <!-- The prometheus simpleclient -->
