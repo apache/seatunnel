@@ -311,15 +311,18 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
     }
 
     private <T> T execute(PrivilegedExceptionAction<T> action) throws IOException {
+        // The execute method is used to handle privileged actions, ensuring that the correct
+        // user context (Kerberos or otherwise) is applied when performing file system operations.
+        // This is necessary to maintain security and proper access control in a Hadoop environment.
+        // If kerberos is disabled, the action is run directly. If kerberos is enabled, the action
+        // is run as a privileged action using the doAsPrivileged method.
         if (isAuthTypeKerberos) {
             return doAsPrivileged(action);
         } else {
             try {
                 return action.run();
-            } catch (IOException e) {
+            } catch (IOException | SeaTunnelRuntimeException e) {
                 throw e;
-            } catch (SeaTunnelRuntimeException e) {
-                throw new SeaTunnelRuntimeException(e.getSeaTunnelErrorCode(), e.getParams());
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
