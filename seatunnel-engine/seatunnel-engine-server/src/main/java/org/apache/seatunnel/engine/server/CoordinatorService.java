@@ -270,6 +270,7 @@ public class CoordinatorService {
                                     }
                                     return;
                                 } else {
+                                    pendingJob.remove(jobMaster);
                                     completeFailJob(jobMaster);
                                     return;
                                 }
