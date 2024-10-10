@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException;
@@ -41,16 +40,14 @@ public class ResourceUtils {
 
     public static void applyResourceForPipeline(
             @NonNull JobMaster jobMaster, @NonNull SubPlan subPlan) {
+
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> futures = new HashMap<>();
         Map<TaskGroupLocation, SlotProfile> slotProfiles = new HashMap<>();
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures =
                 jobMaster.getPhysicalPlan().getPreApplyResourceFutures();
 
         // TODO If there is no enough resources for tasks, we need add some wait profile
-        boolean isJobPending = isJobPending(jobMaster);
-        ResourceManager resourceManager = jobMaster.getResourceManager();
-
-        applyResources(subPlan, futures, preApplyResourceFutures, isJobPending, resourceManager);
+        applyResources(subPlan, futures, preApplyResourceFutures);
 
         futures.forEach(
                 (key, value) -> {
@@ -70,17 +67,10 @@ public class ResourceUtils {
         }
     }
 
-    private static boolean isJobPending(JobMaster jobMaster) {
-        return jobMaster.getEngineConfig().getScheduleStrategy().equals(ScheduleStrategy.WAIT)
-                && !jobMaster.getEngineConfig().getSlotServiceConfig().isDynamicSlot();
-    }
-
     private static void applyResources(
             SubPlan subPlan,
             Map<TaskGroupLocation, CompletableFuture<SlotProfile>> futures,
-            Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures,
-            boolean isJobPending,
-            ResourceManager resourceManager) {
+            Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures) {
         subPlan.getCoordinatorVertexList()
                 .forEach(
                         coordinator -> {
