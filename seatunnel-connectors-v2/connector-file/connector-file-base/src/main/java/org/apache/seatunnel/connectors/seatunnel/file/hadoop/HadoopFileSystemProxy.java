@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.hadoop;
 
 import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
 import org.apache.commons.lang3.StringUtils;
@@ -39,6 +40,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.Serializable;
+import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -46,34 +48,43 @@ import java.util.List;
 public class HadoopFileSystemProxy implements Serializable, Closeable {
 
     private transient UserGroupInformation userGroupInformation;
-
-    private transient Configuration configuration;
-
     private transient FileSystem fileSystem;
 
+    private transient Configuration configuration;
     private final HadoopConf hadoopConf;
+    private boolean isAuthTypeKerberos;
 
     public HadoopFileSystemProxy(@NonNull HadoopConf hadoopConf) {
         this.hadoopConf = hadoopConf;
+        // eager initialization
+        initialize();
     }
 
     public boolean fileExist(@NonNull String filePath) throws IOException {
-        return getFileSystem().exists(new Path(filePath));
+        return execute(() -> getFileSystem().exists(new Path(filePath)));
     }
 
     public void createFile(@NonNull String filePath) throws IOException {
-        if (!getFileSystem().createNewFile(new Path(filePath))) {
-            throw CommonError.fileOperationFailed("SeaTunnel", "create", filePath);
-        }
+        execute(
+                () -> {
+                    if (!getFileSystem().createNewFile(new Path(filePath))) {
+                        throw CommonError.fileOperationFailed("SeaTunnel", "create", filePath);
+                    }
+                    return Void.class;
+                });
     }
 
     public void deleteFile(@NonNull String filePath) throws IOException {
-        Path path = new Path(filePath);
-        if (getFileSystem().exists(path)) {
-            if (!getFileSystem().delete(path, true)) {
-                throw CommonError.fileOperationFailed("SeaTunnel", "delete", filePath);
-            }
-        }
+        execute(
+                () -> {
+                    Path path = new Path(filePath);
+                    if (getFileSystem().exists(path)) {
+                        if (!getFileSystem().delete(path, true)) {
+                            throw CommonError.fileOperationFailed("SeaTunnel", "delete", filePath);
+                        }
+                    }
+                    return Void.class;
+                });
     }
 
     public void renameFile(
@@ -81,89 +92,103 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
             @NonNull String newFilePath,
             boolean removeWhenNewFilePathExist)
             throws IOException {
-        Path oldPath = new Path(oldFilePath);
-        Path newPath = new Path(newFilePath);
+        execute(
+                () -> {
+                    Path oldPath = new Path(oldFilePath);
+                    Path newPath = new Path(newFilePath);
 
-        if (!fileExist(oldPath.toString())) {
-            log.warn(
-                    "rename file :["
-                            + oldPath
-                            + "] to ["
-                            + newPath
-                            + "] already finished in the last commit, skip");
-            return;
-        }
+                    if (!fileExist(oldPath.toString())) {
+                        log.warn(
+                                "rename file :["
+                                        + oldPath
+                                        + "] to ["
+                                        + newPath
+                                        + "] already finished in the last commit, skip");
+                        return Void.class;
+                    }
 
-        if (removeWhenNewFilePathExist) {
-            if (fileExist(newFilePath)) {
-                getFileSystem().delete(newPath, true);
-                log.info("Delete already file: {}", newPath);
-            }
-        }
-        if (!fileExist(newPath.getParent().toString())) {
-            createDir(newPath.getParent().toString());
-        }
+                    if (removeWhenNewFilePathExist) {
+                        if (fileExist(newFilePath)) {
+                            getFileSystem().delete(newPath, true);
+                            log.info("Delete already file: {}", newPath);
+                        }
+                    }
+                    if (!fileExist(newPath.getParent().toString())) {
+                        createDir(newPath.getParent().toString());
+                    }
 
-        if (getFileSystem().rename(oldPath, newPath)) {
-            log.info("rename file :[" + oldPath + "] to [" + newPath + "] finish");
-        } else {
-            throw CommonError.fileOperationFailed(
-                    "SeaTunnel", "rename", oldFilePath + " -> " + newFilePath);
-        }
+                    if (getFileSystem().rename(oldPath, newPath)) {
+                        log.info("rename file :[" + oldPath + "] to [" + newPath + "] finish");
+                    } else {
+                        throw CommonError.fileOperationFailed(
+                                "SeaTunnel", "rename", oldFilePath + " -> " + newFilePath);
+                    }
+                    return Void.class;
+                });
     }
 
     public void createDir(@NonNull String filePath) throws IOException {
-        Path dfs = new Path(filePath);
-        if (!getFileSystem().mkdirs(dfs)) {
-            throw CommonError.fileOperationFailed("SeaTunnel", "create", filePath);
-        }
+        execute(
+                () -> {
+                    Path dfs = new Path(filePath);
+                    if (!getFileSystem().mkdirs(dfs)) {
+                        throw CommonError.fileOperationFailed("SeaTunnel", "create", filePath);
+                    }
+                    return Void.class;
+                });
     }
 
     public List<LocatedFileStatus> listFile(String path) throws IOException {
-        List<LocatedFileStatus> fileList = new ArrayList<>();
-        if (!fileExist(path)) {
-            return fileList;
-        }
-        Path fileName = new Path(path);
-        RemoteIterator<LocatedFileStatus> locatedFileStatusRemoteIterator =
-                getFileSystem().listFiles(fileName, false);
-        while (locatedFileStatusRemoteIterator.hasNext()) {
-            fileList.add(locatedFileStatusRemoteIterator.next());
-        }
-        return fileList;
+        return execute(
+                () -> {
+                    List<LocatedFileStatus> fileList = new ArrayList<>();
+                    if (!fileExist(path)) {
+                        return fileList;
+                    }
+                    Path fileName = new Path(path);
+                    RemoteIterator<LocatedFileStatus> locatedFileStatusRemoteIterator =
+                            getFileSystem().listFiles(fileName, false);
+                    while (locatedFileStatusRemoteIterator.hasNext()) {
+                        fileList.add(locatedFileStatusRemoteIterator.next());
+                    }
+                    return fileList;
+                });
     }
 
     public List<Path> getAllSubFiles(@NonNull String filePath) throws IOException {
-        List<Path> pathList = new ArrayList<>();
-        if (!fileExist(filePath)) {
-            return pathList;
-        }
-        Path fileName = new Path(filePath);
-        FileStatus[] status = getFileSystem().listStatus(fileName);
-        if (status != null) {
-            for (FileStatus fileStatus : status) {
-                if (fileStatus.isDirectory()) {
-                    pathList.add(fileStatus.getPath());
-                }
-            }
-        }
-        return pathList;
+        return execute(
+                () -> {
+                    List<Path> pathList = new ArrayList<>();
+                    if (!fileExist(filePath)) {
+                        return pathList;
+                    }
+                    Path fileName = new Path(filePath);
+                    FileStatus[] status = getFileSystem().listStatus(fileName);
+                    if (status != null) {
+                        for (FileStatus fileStatus : status) {
+                            if (fileStatus.isDirectory()) {
+                                pathList.add(fileStatus.getPath());
+                            }
+                        }
+                    }
+                    return pathList;
+                });
     }
 
     public FileStatus[] listStatus(String filePath) throws IOException {
-        return getFileSystem().listStatus(new Path(filePath));
+        return execute(() -> getFileSystem().listStatus(new Path(filePath)));
     }
 
     public FileStatus getFileStatus(String filePath) throws IOException {
-        return getFileSystem().getFileStatus(new Path(filePath));
+        return execute(() -> getFileSystem().getFileStatus(new Path(filePath)));
     }
 
     public FSDataOutputStream getOutputStream(String filePath) throws IOException {
-        return getFileSystem().create(new Path(filePath), true);
+        return execute(() -> getFileSystem().create(new Path(filePath), true));
     }
 
     public FSDataInputStream getInputStream(String filePath) throws IOException {
-        return getFileSystem().open(new Path(filePath));
+        return execute(() -> getFileSystem().open(new Path(filePath)));
     }
 
     public FileSystem getFileSystem() {
@@ -197,7 +222,7 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
     @Override
     public void close() throws IOException {
         try {
-            if (userGroupInformation != null && enableKerberos()) {
+            if (userGroupInformation != null && isAuthTypeKerberos) {
                 userGroupInformation.logoutUserFromKeytab();
             }
         } finally {
@@ -213,14 +238,17 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
         if (enableKerberos()) {
             configuration.set("hadoop.security.authentication", "kerberos");
             initializeWithKerberosLogin();
+            isAuthTypeKerberos = true;
             return;
         }
         if (enableRemoteUser()) {
             initializeWithRemoteUserLogin();
+            isAuthTypeKerberos = true;
             return;
         }
-        this.fileSystem = FileSystem.get(configuration);
-        this.fileSystem.setWriteChecksum(false);
+        fileSystem = FileSystem.get(configuration);
+        fileSystem.setWriteChecksum(false);
+        isAuthTypeKerberos = false;
     }
 
     private Configuration createConfiguration() {
@@ -256,10 +284,9 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
                             this.fileSystem = FileSystem.get(configuration);
                             return Pair.of(userGroupInformation, fileSystem);
                         });
-        // todo: Use a daemon thread to reloginFromTicketCache
-        this.userGroupInformation = pair.getKey();
-        this.fileSystem = pair.getValue();
-        this.fileSystem.setWriteChecksum(false);
+        userGroupInformation = pair.getKey();
+        fileSystem = pair.getValue();
+        fileSystem.setWriteChecksum(false);
         log.info("Create FileSystem success with Kerberos: {}.", hadoopConf.getKerberosPrincipal());
     }
 
@@ -273,12 +300,42 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
                         configuration,
                         hadoopConf.getRemoteUser(),
                         (configuration, userGroupInformation) -> {
-                            final FileSystem fileSystem = FileSystem.get(configuration);
+                            this.userGroupInformation = userGroupInformation;
+                            this.fileSystem = FileSystem.get(configuration);
                             return Pair.of(userGroupInformation, fileSystem);
                         });
         log.info("Create FileSystem success with RemoteUser: {}.", hadoopConf.getRemoteUser());
-        this.userGroupInformation = pair.getKey();
-        this.fileSystem = pair.getValue();
-        this.fileSystem.setWriteChecksum(false);
+        userGroupInformation = pair.getKey();
+        fileSystem = pair.getValue();
+        fileSystem.setWriteChecksum(false);
+    }
+
+    private <T> T execute(PrivilegedExceptionAction<T> action) throws IOException {
+        if (isAuthTypeKerberos) {
+            return doAsPrivileged(action);
+        } else {
+            try {
+                return action.run();
+            } catch (IOException e) {
+                throw e;
+            } catch (SeaTunnelRuntimeException e) {
+                throw new SeaTunnelRuntimeException(e.getSeaTunnelErrorCode(), e.getParams());
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    private <T> T doAsPrivileged(PrivilegedExceptionAction<T> action) throws IOException {
+        if (fileSystem == null || userGroupInformation == null) {
+            initialize();
+        }
+
+        try {
+            return userGroupInformation.doAs(action);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException(e);
+        }
     }
 }
