@@ -158,7 +158,16 @@ network:
   "createTime": "",
   "jobDag": {
     "jobId": "",
-    "vertexInfoMap": {},
+    "vertexInfoMap": [
+      {
+        "vertexId": 1,
+        "type": "",
+        "connectorType": "",
+        "tablePaths": [
+          ""
+        ]
+      }
+    ],
     "pipelineEdges": {}
   },
   "metrics": {
@@ -228,7 +237,16 @@ network:
   "createTime": "",
   "jobDag": {
     "jobId": "",
-    "vertexInfoMap": {},
+    "vertexInfoMap": [
+      {
+        "vertexId": 1,
+        "type": "",
+        "connectorType": "",
+        "tablePaths": [
+          ""
+        ]
+      }
+    ],
     "pipelineEdges": {}
   },
   "metrics": {
@@ -285,7 +303,16 @@ network:
     "finishTime": "",
     "jobDag": {
       "jobId": "",
-      "vertexInfoMap": {},
+      "vertexInfoMap": [
+        {
+          "vertexId": 1,
+          "type": "",
+          "connectorType": "",
+          "tablePaths": [
+            ""
+          ]
+        }
+      ],
       "pipelineEdges": {}
     },    "metrics": ""
   }

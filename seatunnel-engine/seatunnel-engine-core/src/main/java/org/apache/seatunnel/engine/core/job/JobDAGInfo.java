@@ -54,13 +54,19 @@ public class JobDAGInfo implements Serializable {
         JsonObject jsonObject = new JsonObject();
         jsonObject.add("jobId", jobId.toString());
         jsonObject.add("pipelineEdges", pipelineEdgesJsonObject);
-        JsonObject vertexInfoMapString = new JsonObject();
+        JsonArray vertexInfoMapString = new JsonArray();
         for (Map.Entry<Long, VertexInfo> entry : vertexInfoMap.entrySet()) {
-            JsonArray jsonArray = new JsonArray();
-            for (TablePath tablePath : entry.getValue().getTablePaths()) {
-                jsonArray.add(tablePath.toString());
+            JsonObject vertexInfoJsonObj = new JsonObject();
+            VertexInfo vertexInfo = entry.getValue();
+            vertexInfoJsonObj.add("vertexId", vertexInfo.getVertexId());
+            vertexInfoJsonObj.add("type", vertexInfo.getType().getType());
+            vertexInfoJsonObj.add("vertexName", vertexInfo.getConnectorType());
+            JsonArray tablePaths = new JsonArray();
+            for (TablePath tablePath : vertexInfo.getTablePaths()) {
+                tablePaths.add(tablePath.toString());
             }
-            vertexInfoMapString.add(entry.getKey().toString(), jsonArray);
+            vertexInfoJsonObj.add("tablePaths", tablePaths);
+            vertexInfoMapString.add(vertexInfoJsonObj);
         }
         jsonObject.add("vertexInfoMap", vertexInfoMapString);
         return jsonObject;

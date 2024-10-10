@@ -115,7 +115,16 @@ seatunnel:
   "createTime": "",
   "jobDag": {
     "jobId": "",
-    "vertexInfoMap": {},
+    "vertexInfoMap": [
+      {
+        "vertexId": 1,
+        "type": "",
+        "connectorType": "",
+        "tablePaths": [
+          ""
+        ]
+      }
+    ],
     "pipelineEdges": {}
   },
   "metrics": {
@@ -185,7 +194,16 @@ seatunnel:
   "createTime": "",
   "jobDag": {
     "jobId": "",
-    "vertexInfoMap": {},
+    "vertexInfoMap": [
+      {
+        "vertexId": 1,
+        "type": "",
+        "connectorType": "",
+        "tablePaths": [
+          ""
+        ]
+      }
+    ],
     "pipelineEdges": {}
   },
   "metrics": {
@@ -242,7 +260,16 @@ seatunnel:
     "finishTime": "",
     "jobDag": {
       "jobId": "",
-      "vertexInfoMap": {},
+      "vertexInfoMap": [
+        {
+          "vertexId": 1,
+          "type": "",
+          "connectorType": "",
+          "tablePaths": [
+            ""
+          ]
+        }
+      ],
       "pipelineEdges": {}
     },
     "metrics": ""

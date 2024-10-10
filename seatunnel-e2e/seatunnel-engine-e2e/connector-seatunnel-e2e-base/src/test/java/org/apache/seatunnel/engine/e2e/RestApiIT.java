@@ -46,7 +46,6 @@ import java.util.concurrent.TimeUnit;
 
 import static io.restassured.RestAssured.given;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.CONTEXT_PATH;
-import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
@@ -343,12 +342,24 @@ public class RestApiIT {
                                                 .body(
                                                         "jobDag.pipelineEdges['1'][0].targetVertexId",
                                                         equalTo("2"))
-                                                .body("jobDag.vertexInfoMap", aMapWithSize(2))
+                                                .body("jobDag.vertexInfoMap", hasSize(2))
                                                 .body(
-                                                        "jobDag.vertexInfoMap['1'][0]",
+                                                        "jobDag.vertexInfoMap[0].vertexId",
+                                                        equalTo(1))
+                                                .body(
+                                                        "jobDag.vertexInfoMap[0].type",
+                                                        equalTo("source"))
+                                                .body(
+                                                        "jobDag.vertexInfoMap[0].tablePaths[0]",
                                                         equalTo("fake"))
                                                 .body(
-                                                        "jobDag.vertexInfoMap['2'][0]",
+                                                        "jobDag.vertexInfoMap[1].vertexId",
+                                                        equalTo(2))
+                                                .body(
+                                                        "jobDag.vertexInfoMap[1].type",
+                                                        equalTo("sink"))
+                                                .body(
+                                                        "jobDag.vertexInfoMap[1].tablePaths[0]",
                                                         equalTo("fake"))
                                                 .body("jobName", equalTo("fake_to_console"))
                                                 .body("jobStatus", equalTo("FINISHED"));

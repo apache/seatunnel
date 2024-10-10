@@ -119,7 +119,16 @@ seatunnel:
   "createTime": "",
   "jobDag": {
     "jobId": "",
-    "vertexInfoMap": {},
+    "vertexInfoMap": [
+      {
+        "vertexId": 1,
+        "type": "",
+        "connectorType": "",
+        "tablePaths": [
+          ""
+        ]
+      }
+    ],
     "pipelineEdges": {}
   },
   "metrics": {
@@ -175,7 +184,16 @@ This API has been deprecated, please use /seatunnel/job-info/:jobId instead
   "createTime": "",
   "jobDag": {
     "jobId": "",
-    "vertexInfoMap": {},
+    "vertexInfoMap": [
+      {
+        "vertexId": 1,
+        "type": "",
+        "connectorType": "",
+        "tablePaths": [
+          ""
+        ]
+      }
+    ],
     "pipelineEdges": {}
   },
   "metrics": {
@@ -246,7 +264,16 @@ When we can't get the job info, the response will be:
     "finishTime": "",
     "jobDag": {
       "jobId": "",
-      "vertexInfoMap": {},
+      "vertexInfoMap": [
+        {
+          "vertexId": 1,
+          "type": "",
+          "connectorType": "",
+          "tablePaths": [
+            ""
+          ]
+        }
+      ],
       "pipelineEdges": {}
     },
     "metrics": ""
