@@ -119,7 +119,7 @@ seatunnel:
       {
         "vertexId": 1,
         "type": "",
-        "connectorType": "",
+        "vertexName": "",
         "tablePaths": [
           ""
         ]
@@ -198,7 +198,7 @@ seatunnel:
       {
         "vertexId": 1,
         "type": "",
-        "connectorType": "",
+        "vertexName": "",
         "tablePaths": [
           ""
         ]
@@ -264,7 +264,7 @@ seatunnel:
         {
           "vertexId": 1,
           "type": "",
-          "connectorType": "",
+          "vertexName": "",
           "tablePaths": [
             ""
           ]

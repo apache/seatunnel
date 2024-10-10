@@ -162,7 +162,7 @@ network:
       {
         "vertexId": 1,
         "type": "",
-        "connectorType": "",
+        "vertexName": "",
         "tablePaths": [
           ""
         ]
@@ -241,7 +241,7 @@ network:
       {
         "vertexId": 1,
         "type": "",
-        "connectorType": "",
+        "vertexName": "",
         "tablePaths": [
           ""
         ]
@@ -307,7 +307,7 @@ network:
         {
           "vertexId": 1,
           "type": "",
-          "connectorType": "",
+          "vertexName": "",
           "tablePaths": [
             ""
           ]

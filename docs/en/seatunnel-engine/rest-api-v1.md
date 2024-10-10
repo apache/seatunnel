@@ -165,7 +165,7 @@ network:
       {
         "vertexId": 1,
         "type": "",
-        "connectorType": "",
+        "vertexName": "",
         "tablePaths": [
           ""
         ]
@@ -230,7 +230,7 @@ This API has been deprecated, please use /hazelcast/rest/maps/job-info/:jobId in
       {
         "vertexId": 1,
         "type": "",
-        "connectorType": "",
+        "vertexName": "",
         "tablePaths": [
           ""
         ]
@@ -310,7 +310,7 @@ When we can't get the job info, the response will be:
         {
           "vertexId": 1,
           "type": "",
-          "connectorType": "",
+          "vertexName": "",
           "tablePaths": [
             ""
           ]

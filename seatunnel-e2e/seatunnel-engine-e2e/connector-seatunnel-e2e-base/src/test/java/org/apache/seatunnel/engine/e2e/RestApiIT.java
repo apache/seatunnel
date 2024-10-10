@@ -350,6 +350,9 @@ public class RestApiIT {
                                                         "jobDag.vertexInfoMap[0].type",
                                                         equalTo("source"))
                                                 .body(
+                                                        "jobDag.vertexInfoMap[0].vertexName",
+                                                        equalTo("pipeline-1 [Source[0]-FakeSource]"))
+                                                .body(
                                                         "jobDag.vertexInfoMap[0].tablePaths[0]",
                                                         equalTo("fake"))
                                                 .body(
@@ -358,6 +361,9 @@ public class RestApiIT {
                                                 .body(
                                                         "jobDag.vertexInfoMap[1].type",
                                                         equalTo("sink"))
+                                                .body(
+                                                        "jobDag.vertexInfoMap[1].vertexName",
+                                                        equalTo("pipeline-1 [Sink[0]-console-MultiTableSink]"))
                                                 .body(
                                                         "jobDag.vertexInfoMap[1].tablePaths[0]",
                                                         equalTo("fake"))
