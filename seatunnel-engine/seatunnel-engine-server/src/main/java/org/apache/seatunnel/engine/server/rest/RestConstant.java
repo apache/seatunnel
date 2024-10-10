@@ -76,6 +76,7 @@ public class RestConstant {
     public static final String STOP_JOB_URL = "/stop-job";
     public static final String STOP_JOBS_URL = "/stop-jobs";
     public static final String UPDATE_TAGS_URL = "/update-tags";
+    public static final String GET_LOG = "/get-log";
 
     // metrics
     public static final String TELEMETRY_METRICS_URL = "/hazelcast/rest/instance/metrics";

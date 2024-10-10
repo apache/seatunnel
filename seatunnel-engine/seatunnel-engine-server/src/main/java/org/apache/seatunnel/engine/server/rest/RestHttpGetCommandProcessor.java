@@ -23,7 +23,10 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.tracing.MDCContext;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.env.EnvironmentUtil;
@@ -45,6 +48,13 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.OverviewInfo;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.config.builder.api.Component;
+import org.apache.logging.log4j.core.config.builder.impl.BuiltConfiguration;
+import org.apache.logging.log4j.core.config.properties.PropertiesConfiguration;
+import org.apache.logging.log4j.core.lookup.StrSubstitutor;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Cluster;
@@ -63,8 +73,11 @@ import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import io.prometheus.client.exporter.common.TextFormat;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.StringWriter;
+import java.lang.reflect.Field;
+import java.net.URLDecoder;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -127,6 +140,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     @Override
     public void handle(HttpGetCommand httpGetCommand) {
         String uri = httpGetCommand.getURI();
+
         try {
             if (uri.startsWith(CONTEXT_PATH + RUNNING_JOBS_URL)) {
                 handleRunningJobsInfo(httpGetCommand);
@@ -147,6 +161,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 handleMetrics(httpGetCommand, TextFormat.CONTENT_TYPE_OPENMETRICS_100);
             } else if (uri.startsWith(CONTEXT_PATH + THREAD_DUMP)) {
                 getThreadDump(httpGetCommand);
+            } else if (uri.startsWith(CONTEXT_PATH + RestConstant.GET_LOG)) {
+                getLogContent(httpGetCommand, uri);
             } else {
                 original.handle(httpGetCommand);
             }
@@ -757,5 +773,99 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 .add(RestConstant.JOB_DAG, JsonUtils.toJsonString(jobDAGInfo))
                 .add(RestConstant.PLUGIN_JARS_URLS, new JsonArray())
                 .add(RestConstant.METRICS, toJsonObject(getJobMetrics(jobMetrics)));
+    }
+
+    /**
+     * Get log content
+     *
+     * @param httpGetCommand httpGetCommand
+     * @param uri uri
+     * @throws NoSuchFieldException NoSuchFieldException
+     * @throws IllegalAccessException IllegalAccessException
+     */
+    private void getLogContent(HttpGetCommand httpGetCommand, String uri)
+            throws NoSuchFieldException, IllegalAccessException {
+        LoggerContext context = (LoggerContext) LogManager.getContext(false);
+        PropertiesConfiguration config = (PropertiesConfiguration) context.getConfiguration();
+        StrSubstitutor substitutor = config.getStrSubstitutor();
+        Field propertiesField = BuiltConfiguration.class.getDeclaredField("appendersComponent");
+        propertiesField.setAccessible(true);
+        Component propertiesComponent = (Component) propertiesField.get(config);
+
+        // Get routingAppender log file path
+        String routingLogFilePath =
+                propertiesComponent.getComponents().stream()
+                        .filter(
+                                component ->
+                                        "routingAppender"
+                                                .equals(component.getAttributes().get("name")))
+                        .flatMap(component -> component.getComponents().stream())
+                        .flatMap(component -> component.getComponents().stream())
+                        .flatMap(component -> component.getComponents().stream())
+                        .map(
+                                component ->
+                                        substitutor.replace(
+                                                component.getAttributes().get("fileName")))
+                        .findFirst()
+                        .orElse(null);
+
+        // Get fileAppender log file path
+        String fileLogPath =
+                propertiesComponent.getComponents().stream()
+                        .filter(
+                                component ->
+                                        "fileAppender"
+                                                .equals(component.getAttributes().get("name")))
+                        .map(
+                                component ->
+                                        substitutor.replace(
+                                                component.getAttributes().get("fileName")))
+                        .findFirst()
+                        .orElse(null);
+
+        // Get jobId from uri
+        String jobId = getJobIdForUri(uri);
+
+        // Replace ${ctx:jobId} with jobId
+        boolean isJobIdValid = StringUtils.isNotBlank(jobId);
+        String ctxJid = "${ctx:" + MDCContext.JOB_ID + "}";
+        if (isJobIdValid && routingLogFilePath != null && routingLogFilePath.contains(ctxJid)) {
+            routingLogFilePath = routingLogFilePath.replace(ctxJid, jobId);
+        }
+
+        String readLogPath = isJobIdValid ? routingLogFilePath : fileLogPath;
+        try {
+            String logContent = FileUtils.readFileToStr(new File(readLogPath).toPath());
+            this.prepareResponse(httpGetCommand, logContent);
+        } catch (SeaTunnelRuntimeException e) {
+            // If the log file does not exist, return 400
+            httpGetCommand.send400();
+            logger.warning(
+                    String.format("Log file content is empty, get log path : %s", readLogPath));
+        }
+    }
+
+    /**
+     * Get jobId from uri
+     *
+     * @param uri uri
+     * @return jobId
+     */
+    public static String getJobIdForUri(String uri) {
+        int queryIndex = uri.indexOf("?");
+        if (queryIndex == -1) {
+            return null;
+        }
+
+        Map<String, String> paramMap =
+                Arrays.stream(uri.substring(queryIndex + 1).split("&"))
+                        .map(param -> param.split("="))
+                        .filter(keyValue -> keyValue.length == 2)
+                        .collect(
+                                Collectors.toMap(
+                                        keyValue -> keyValue[0],
+                                        keyValue -> URLDecoder.decode(keyValue[1])));
+
+        return paramMap.getOrDefault("jobId", null);
     }
 }
