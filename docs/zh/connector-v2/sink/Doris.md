@@ -147,6 +147,15 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 
 支持的格式包括 CSV 和 JSON。
 
+## 调优指南
+适当增加`sink.buffer-size`和`doris.batch.size`的值可以提高写性能。
+
+在流模式下，如果`doris.batch.size`和`checkpoint.interval`都配置为较大的值，最后到达的数据可能会有较大的延迟(延迟的时间就是检查点间隔的时间)。
+
+这是因为最后到达的数据总量可能不会超过doris.batch.size指定的阈值。因此，在接收到数据的数据量没有超过该阈值之前只有检查点才会触发提交操作。因此，需要选择一个合适的检查点间隔。
+
+此外，如果你通过`sink.enable-2pc=true`属性启用2pc。`sink.buffer-size`将会失去作用，只有检查点才能触发提交。
+
 ## 任务示例
 
 ### 简单示例:

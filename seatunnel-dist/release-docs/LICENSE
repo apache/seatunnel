@@ -327,6 +327,13 @@ The text of each license is the standard Apache 2.0 license.
      (Apache-2.0) accessors-smart (net.minidev:accessors-smart:2.4.7 - https://mvnrepository.com/artifact/net.minidev/accessors-smart)
      (Apache-2.0) json-smart (net.minidev:json-smart:2.4.7 - https://mvnrepository.com/artifact/net.minidev/json-smart)
      (Apache-2.0) json-path (com.jayway.jsonpath:json-path:2.7.0 - https://mvnrepository.com/artifact/com.jayway.jsonpath/json-path)
+     (The Apache Software License, Version 2.0) Prometheus Java Simpleclient (io.prometheus:simpleclient:0.16.0 - https://mvnrepository.com/artifact/io.prometheus/simpleclient/0.16.0)
+     (The Apache Software License, Version 2.0) Prometheus Java Simpleclient Common (io.prometheus:simpleclient_common:0.16.0 - https://mvnrepository.com/artifact/io.prometheus/simpleclient_common/0.16.0)
+     (The Apache Software License, Version 2.0) Prometheus Java Simpleclient Hotspot (io.prometheus:simpleclient_hotspot:0.16.0 - https://mvnrepository.com/artifact/io.prometheus/simpleclient_hotspot/0.16.0)
+     (The Apache Software License, Version 2.0) Prometheus Java Simpleclient Httpserver (io.prometheus:simpleclient_httpserver:0.16.0 - https://mvnrepository.com/artifact/io.prometheus/simpleclient_httpserver/0.16.0)
+     (The Apache Software License, Version 2.0) Prometheus Java Span Context Supplier - Common (io.prometheus:simpleclient_tracer_common:0.16.0 - https://mvnrepository.com/artifact/io.prometheus/simpleclient_tracer_common/0.16.0)
+     (The Apache Software License, Version 2.0) Prometheus Java Span Context Supplier - OpenTelemetry (io.prometheus:simpleclient_tracer_otel:0.16.0 - https://mvnrepository.com/artifact/io.prometheus/simpleclient_tracer_otel/0.16.0)
+     (The Apache Software License, Version 2.0) Prometheus Java Span Context Supplier - OpenTelemetry Agent (io.prometheus:simpleclient_tracer_otel_agent:0.16.0 - https://mvnrepository.com/artifact/io.prometheus/simpleclient_tracer_otel_agent/0.16.0)
 
 ========================================================================
 MOZILLA PUBLIC LICENSE License

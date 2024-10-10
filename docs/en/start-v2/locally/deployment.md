@@ -5,15 +5,17 @@ sidebar_position: 2
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Download and Make Installation Packages
+# Deployment
 
-## Step 1: Preparation
+## Preparation
 
 Before starting to download SeaTunnel, you need to ensure that you have installed the following software required by SeaTunnel:
 
 * Install [Java](https://www.java.com/en/download/) (Java 8 or 11, and other versions higher than Java 8 can theoretically work) and set `JAVA_HOME`.
 
-## Step 2: Download SeaTunnel
+## Download SeaTunnel Release Package
+
+### Download The Binary Package
 
 Visit the [SeaTunnel Download Page](https://seatunnel.apache.org/download) to download the latest binary package `seatunnel-<version>-bin.tar.gz`.
 
@@ -25,7 +27,7 @@ wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${ve
 tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 ```
 
-## Step 3: Download The Connector Plugins
+### Download The Connector Plugins
 
 Starting from version 2.2.0-beta, the binary package no longer provides connector dependencies by default. Therefore, the first time you use it, you need to run the following command to install the connectors (Alternatively, you can manually download the connectors from the [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/) and move them to the `connectors/` directory. For versions before 2.3.5, place them in the `connectors/seatunnel` directory)：
 
@@ -56,10 +58,33 @@ If you want to install connector plugins by manually downloading connectors, you
 
 :::
 
+## Build SeaTunnel From Source Code
+
+### Download The Source Code
+
+Build from source code. The way of downloading the source code is the same as the way of downloading the binary package.
+You can download the source code from the [download page](https://seatunnel.apache.org/download/) or clone the source code from the [GitHub repository](https://github.com/apache/seatunnel/releases)
+
+### Build The Source Code
+
+```shell
+cd seatunnel
+sh ./mvnw clean install -DskipTests -Dskip.spotless=true
+# get the binary package
+cp seatunnel-dist/target/apache-seatunnel-2.3.8-bin.tar.gz /The-Path-You-Want-To-Copy
+
+cd /The-Path-You-Want-To-Copy
+tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
+```
+
+When built from the source code, all the connector plugins and some necessary dependencies (eg: mysql driver) are included in the binary package. You can directly use the connector plugins without the need to install them separately.
+
+# Run SeaTunnel
+
 Now you have downloaded the SeaTunnel binary package and the connector plugins. Next, you can choose different engine option to run synchronization tasks.
 
-If you use Flink to run the synchronization task, there is no need to deploy the SeaTunnel Engine service cluster. You can refer to [Quick Start of SeaTunnel Flink Engine](quick-start-flink.md) to run your synchronization task.
+If you use Flink to run the synchronization task, there is no need to deploy the SeaTunnel Engine service cluster. You can refer to [Quick Start With Flink](quick-start-flink.md) to run your synchronization task.
 
-If you use Spark to run the synchronization task, there is no need to deploy the SeaTunnel Engine service cluster. You can refer to [Quick Start of SeaTunnel Spark Engine](quick-start-spark.md) to run your synchronization task.
+If you use Spark to run the synchronization task, there is no need to deploy the SeaTunnel Engine service cluster. You can refer to [Quick Start With Spark](quick-start-spark.md) to run your synchronization task.
 
-If you use the builtin SeaTunnel Engine (Zeta) to run tasks, you need to deploy the SeaTunnel Engine service first. Refer to [Deployment of SeaTunnel Engine (Zeta) Service](quick-start-seatunnel-engine.md).
+If you use the builtin SeaTunnel Engine (Zeta) to run tasks, you need to deploy the SeaTunnel Engine service first. Refer to [Quick Start With SeaTunnel Engine](quick-start-seatunnel-engine.md).

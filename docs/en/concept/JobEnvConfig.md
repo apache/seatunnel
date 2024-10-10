@@ -21,13 +21,25 @@ You can configure whether the task is in batch or stream mode through `job.mode`
 
 ### checkpoint.interval
 
-Gets the interval in which checkpoints are periodically scheduled.
+Gets the interval (milliseconds) in which checkpoints are periodically scheduled.
 
-In `STREAMING` mode, checkpoints is required, if you do not set it, it will be obtained from the application configuration file `seatunnel.yaml`. In `BATCH` mode, you can disable checkpoints by not setting this parameter.
+In `STREAMING` mode, checkpoints is required, if you do not set it, it will be obtained from the application configuration file `seatunnel.yaml`. In `BATCH` mode, you can disable checkpoints by not setting this parameter. In Zeta `STREAMING` mode, the default value is 30000 milliseconds.
+
+### checkpoint.timeout
+
+The timeout (in milliseconds) for a checkpoint. If the checkpoint is not completed before the timeout, the job will fail. In Zeta, the default value is 30000 milliseconds.
 
 ### parallelism
 
 This parameter configures the parallelism of source and sink.
+
+### shade.identifier
+
+Specify the method of encryption, if you didn't have the requirement for encrypting or decrypting config files, this option can be ignored.
+
+For more details, you can refer to the documentation [Config Encryption Decryption](../connector-v2/Config-Encryption-Decryption.md)
+
+## Zeta Engine Parameter
 
 ### job.retry.times
 
@@ -42,12 +54,6 @@ Used to control the default retry interval when a job fails. The default value i
 This parameter is used to specify the location of the savemode when the job is executed in the Zeta engine.
 The default value is `CLUSTER`, which means that the savemode is executed on the cluster. If you want to execute the savemode on the client,
 you can set it to `CLIENT`. Please use `CLUSTER` mode as much as possible, because when there are no problems with `CLUSTER` mode, we will remove `CLIENT` mode.
-
-### shade.identifier
-
-Specify the method of encryption, if you didn't have the requirement for encrypting or decrypting config files, this option can be ignored.
-
-For more details, you can refer to the documentation [Config Encryption Decryption](../connector-v2/Config-Encryption-Decryption.md)
 
 ## Flink Engine Parameter
 

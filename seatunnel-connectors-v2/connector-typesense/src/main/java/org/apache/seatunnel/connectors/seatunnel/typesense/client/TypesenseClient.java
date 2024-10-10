@@ -68,7 +68,7 @@ public class TypesenseClient {
 
     public static TypesenseClient createInstance(ReadonlyConfig config) {
         List<String> hosts = config.get(TypesenseConnectionConfig.HOSTS);
-        String protocol = config.get(TypesenseConnectionConfig.protocol);
+        String protocol = config.get(TypesenseConnectionConfig.PROTOCOL);
         String apiKey = config.get(TypesenseConnectionConfig.APIKEY);
         return createInstance(hosts, apiKey, protocol);
     }

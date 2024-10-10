@@ -21,13 +21,13 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.utils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.IcebergTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.schema.SchemaAddColumn;
@@ -36,7 +36,6 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.schema.SchemaChang
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.schema.SchemaDeleteColumn;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.schema.SchemaModifyColumn;
 
-import org.apache.commons.collections.CollectionUtils;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
@@ -54,16 +53,17 @@ import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toList;
 
@@ -100,7 +100,7 @@ public class SchemaUtils {
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         TableSchema tableSchema = table.getTableSchema();
         // Convert to iceberg schema
-        Schema schema = toIcebergSchema(tableSchema.toPhysicalRowDataType(), readonlyConfig);
+        Schema schema = toIcebergSchema(tableSchema, readonlyConfig);
         // Convert sink config
         SinkConfig config = new SinkConfig(readonlyConfig);
         // build auto create table
@@ -114,9 +114,9 @@ public class SchemaUtils {
             Catalog catalog,
             TableIdentifier tableIdentifier,
             SinkConfig config,
-            SeaTunnelRowType rowType) {
+            TableSchema tableSchema) {
         // Generate struct type
-        Schema schema = toIcebergSchema(rowType, config.getReadonlyConfig());
+        Schema schema = toIcebergSchema(tableSchema, config.getReadonlyConfig());
         return createTable(catalog, tableIdentifier, config, schema, config.getAutoCreateProps());
     }
 
@@ -158,29 +158,19 @@ public class SchemaUtils {
 
     @VisibleForTesting
     @NotNull protected static Schema toIcebergSchema(
-            SeaTunnelRowType rowType, ReadonlyConfig readonlyConfig) {
-        Types.StructType structType = SchemaUtils.toIcebergType(rowType).asStructType();
-        Set<Integer> identifierFieldIds = new HashSet<>();
-        if (Objects.nonNull(readonlyConfig)) {
-            List<String> pks =
-                    SinkConfig.stringToList(readonlyConfig.get(SinkConfig.TABLE_PRIMARY_KEYS), ",");
-            if (CollectionUtils.isNotEmpty(pks)) {
-                for (String pk : pks) {
-                    Optional<Integer> pkId =
-                            structType.fields().stream()
-                                    .filter(nestedField -> nestedField.name().equals(pk))
-                                    .map(Types.NestedField::fieldId)
-                                    .findFirst();
-                    if (!pkId.isPresent()) {
-                        throw new IllegalArgumentException(
-                                String.format(
-                                        "iceberg table pk:%s not present in the incoming struct",
-                                        pk));
-                    }
-                    identifierFieldIds.add(pkId.get());
-                }
-            }
-        }
+            TableSchema tableSchema, ReadonlyConfig readonlyConfig) {
+        Types.StructType structType = SchemaUtils.toIcebergType(tableSchema);
+        Set<Integer> identifierFieldIds =
+                readonlyConfig.getOptional(SinkConfig.TABLE_PRIMARY_KEYS)
+                        .map(e -> SinkConfig.stringToList(e, ","))
+                        .orElseGet(
+                                () ->
+                                        Optional.ofNullable(tableSchema.getPrimaryKey())
+                                                .map(e -> e.getColumnNames())
+                                                .orElse(Collections.emptyList()))
+                        .stream()
+                        .map(f -> structType.field(f).fieldId())
+                        .collect(Collectors.toSet());
         List<Types.NestedField> fields = new ArrayList<>();
         structType
                 .fields()
@@ -217,14 +207,17 @@ public class SchemaUtils {
                         .filter(updateType -> !typeMatches(table.schema(), updateType))
                         .collect(toList());
 
-        // filter out columns that have the updated type
+        // filter out columns that have already been deleted
         List<SchemaDeleteColumn> deleteColumns =
                 wrapper.deleteColumns().stream()
                         .filter(deleteColumn -> findColumns(table.schema(), deleteColumn))
                         .collect(toList());
 
-        // Rename column name
-        List<SchemaChangeColumn> changeColumns = new ArrayList<>(wrapper.changeColumns());
+        // filter out columns that have already been changed
+        List<SchemaChangeColumn> changeColumns =
+                wrapper.changeColumns().stream()
+                        .filter(changeColumn -> findColumns(table.schema(), changeColumn))
+                        .collect(toList());
 
         if (addColumns.isEmpty()
                 && modifyColumns.isEmpty()
@@ -265,12 +258,33 @@ public class SchemaUtils {
         return schema.findField(deleteColumn.name()) != null;
     }
 
+    private static boolean findColumns(
+            org.apache.iceberg.Schema schema, SchemaChangeColumn changeColumn) {
+        return schema.findField(changeColumn.oldName()) != null;
+    }
+
     public static SeaTunnelDataType<?> toSeaTunnelType(String fieldName, Type type) {
         return IcebergTypeMapper.mapping(fieldName, type);
     }
 
     public static Type toIcebergType(SeaTunnelDataType<?> rowType) {
         return IcebergTypeMapper.toIcebergType(rowType);
+    }
+
+    public static Types.StructType toIcebergType(TableSchema tableSchema) {
+        List<Types.NestedField> structFields = new ArrayList<>();
+        AtomicInteger idIncrementer = new AtomicInteger(1);
+        for (Column column : tableSchema.getColumns()) {
+            Types.NestedField icebergField =
+                    Types.NestedField.of(
+                            idIncrementer.getAndIncrement(),
+                            column.isNullable(),
+                            column.getName(),
+                            IcebergTypeMapper.toIcebergType(column.getDataType(), idIncrementer),
+                            column.getComment());
+            structFields.add(icebergField);
+        }
+        return Types.StructType.of(structFields);
     }
 
     public static PartitionSpec createPartitionSpec(Schema schema, List<String> partitionBy) {

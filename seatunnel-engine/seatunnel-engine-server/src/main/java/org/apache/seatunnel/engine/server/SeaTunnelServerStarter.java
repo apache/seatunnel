@@ -20,10 +20,12 @@ package org.apache.seatunnel.engine.server;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.server.telemetry.metrics.ExportsInstanceInitializer;
 
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.instance.impl.HazelcastInstanceProxy;
+import com.hazelcast.instance.impl.Node;
 import lombok.NonNull;
 
 public class SeaTunnelServerStarter {
@@ -40,13 +42,36 @@ public class SeaTunnelServerStarter {
 
     public static HazelcastInstanceImpl createHazelcastInstance(
             @NonNull SeaTunnelConfig seaTunnelConfig) {
-        return ((HazelcastInstanceProxy)
-                        HazelcastInstanceFactory.newHazelcastInstance(
-                                seaTunnelConfig.getHazelcastConfig(),
-                                HazelcastInstanceFactory.createInstanceName(
-                                        seaTunnelConfig.getHazelcastConfig()),
-                                new SeaTunnelNodeContext(seaTunnelConfig)))
-                .getOriginal();
+        return createHazelcastInstance(seaTunnelConfig, null);
+    }
+
+    public static HazelcastInstanceImpl createHazelcastInstance(
+            @NonNull SeaTunnelConfig seaTunnelConfig, String customInstanceName) {
+        return initializeHazelcastInstance(seaTunnelConfig, customInstanceName);
+    }
+
+    private static HazelcastInstanceImpl initializeHazelcastInstance(
+            @NonNull SeaTunnelConfig seaTunnelConfig, String customInstanceName) {
+        boolean condition = checkTelemetryConfig(seaTunnelConfig);
+        String instanceName =
+                customInstanceName != null
+                        ? customInstanceName
+                        : HazelcastInstanceFactory.createInstanceName(
+                                seaTunnelConfig.getHazelcastConfig());
+
+        HazelcastInstanceImpl original =
+                ((HazelcastInstanceProxy)
+                                HazelcastInstanceFactory.newHazelcastInstance(
+                                        seaTunnelConfig.getHazelcastConfig(),
+                                        instanceName,
+                                        new SeaTunnelNodeContext(seaTunnelConfig)))
+                        .getOriginal();
+        // init telemetry instance
+        if (condition) {
+            initTelemetryInstance(original.node);
+        }
+
+        return original;
     }
 
     public static HazelcastInstanceImpl createMasterAndWorkerHazelcastInstance(
@@ -92,5 +117,21 @@ public class SeaTunnelServerStarter {
     public static HazelcastInstanceImpl createHazelcastInstance() {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         return createHazelcastInstance(seaTunnelConfig);
+    }
+
+    public static void initTelemetryInstance(@NonNull Node node) {
+        ExportsInstanceInitializer.init(node);
+    }
+
+    private static boolean checkTelemetryConfig(SeaTunnelConfig seaTunnelConfig) {
+        // "hazelcast.jmx" need to set "true", for hazelcast metrics
+        if (seaTunnelConfig.getEngineConfig().getTelemetryConfig().getMetric().isEnabled()) {
+            seaTunnelConfig
+                    .getHazelcastConfig()
+                    .getProperties()
+                    .setProperty("hazelcast.jmx", "true");
+            return true;
+        }
+        return false;
     }
 }

@@ -118,6 +118,8 @@ public class OssFileIT extends TestSuiteBase {
                     "/text/e2e_time_format.txt",
                     "test/seatunnel/read/text_time_format/e2e.txt",
                     true);
+            ossUtils.uploadTestFiles(
+                    "text/e2e-text.zip", "test/seatunnel/read/zip/text/e2e-text.zip", true);
             Path txtLzo = convertToLzoFile(ContainerUtil.getResourcesFile("/text/e2e.txt"));
             ossUtils.uploadTestFiles(
                     txtLzo.toString(), "test/seatunnel/read/lzo_text/e2e.txt", false);
@@ -156,6 +158,7 @@ public class OssFileIT extends TestSuiteBase {
         helper.execute("/text/oss_file_text_skip_headers.conf");
         // test read oss text file
         helper.execute("/text/oss_file_text_to_assert.conf");
+        helper.execute("/text/oss_file_zip_text_to_assert.conf");
         // test read oss text file with projection
         helper.execute("/text/oss_file_text_projection_to_assert.conf");
         // test write oss json file

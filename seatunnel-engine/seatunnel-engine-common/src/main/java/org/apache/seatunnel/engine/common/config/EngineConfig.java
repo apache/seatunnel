@@ -19,9 +19,11 @@ package org.apache.seatunnel.engine.common.config;
 
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
+import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
+import org.apache.seatunnel.engine.common.config.server.TelemetryConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 
@@ -70,6 +72,10 @@ public class EngineConfig {
     private Map<String, String> eventReportHttpHeaders = Collections.emptyMap();
 
     private ExecutionMode mode = ExecutionMode.CLUSTER;
+
+    private TelemetryConfig telemetryConfig = ServerConfigOptions.TELEMETRY.defaultValue();
+
+    private HttpConfig httpConfig = ServerConfigOptions.HTTP.defaultValue();
 
     public void setBackupCount(int newBackupCount) {
         checkBackupCount(newBackupCount, 0);

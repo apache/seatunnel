@@ -109,6 +109,8 @@ public class S3FileIT extends TestSuiteBase {
                     "/excel/e2e.xlsx",
                     "test/seatunnel/read/excel_filter/name=tyrantlucifer/hobby=coding/e2e_filter.xlsx",
                     true);
+            s3Utils.uploadTestFiles(
+                    "/text/e2e-text.zip", "test/seatunnel/read/text_zip/e2e-text.zip", true);
             s3Utils.createDir("tmp/fake_empty");
         } finally {
             s3Utils.close();
@@ -116,6 +118,7 @@ public class S3FileIT extends TestSuiteBase {
 
         TestHelper helper = new TestHelper(container);
 
+        helper.execute("/text/s3_file_zip_text_to_assert.conf");
         helper.execute("/excel/fake_to_s3_excel.conf");
         helper.execute("/excel/s3_excel_to_assert.conf");
         helper.execute("/excel/s3_excel_projection_to_assert.conf");

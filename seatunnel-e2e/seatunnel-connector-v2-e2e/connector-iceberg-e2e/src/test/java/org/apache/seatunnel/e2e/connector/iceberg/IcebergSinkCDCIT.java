@@ -325,10 +325,10 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                     results.add(record);
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                log.error(e.getMessage());
             }
         } catch (Exception ex) {
-            ex.printStackTrace();
+            log.error(ex.getMessage());
         }
         return results;
     }
