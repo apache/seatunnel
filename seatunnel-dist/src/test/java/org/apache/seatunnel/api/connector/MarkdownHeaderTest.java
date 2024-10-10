@@ -33,7 +33,7 @@ import java.util.stream.Stream;
 
 public class MarkdownHeaderTest {
 
-    private static List<Path> docsDirectorys = new ArrayList<>();
+    private static final List<Path> docsDirectorys = new ArrayList<>();
 
     @BeforeAll
     public static void setup() {
@@ -42,7 +42,7 @@ public class MarkdownHeaderTest {
     }
 
     @Test
-    public void testPrimaryHeadersHaveNoTextAbove() throws IOException {
+    public void testPrimaryHeadersHaveNoTextAbove() {
         docsDirectorys.forEach(
                 docsDirectory -> {
                     try (Stream<Path> paths = Files.walk(docsDirectory)) {
@@ -89,14 +89,14 @@ public class MarkdownHeaderTest {
                                 Assertions.fail(
                                         String.format(
                                                 "The file %s is empty and has no content.",
-                                                mdPath.toString()));
+                                                mdPath));
                             }
 
                             if (!firstRelevantLine.startsWith("# ")) {
                                 Assertions.fail(
                                         String.format(
                                                 "The first line of the file %s is not a first level heading. First line content: “%s” (line number: %d)",
-                                                mdPath.toString(), firstRelevantLine, lineNumber));
+                                                mdPath, firstRelevantLine, lineNumber));
                             }
                         }
                     } catch (IOException e) {

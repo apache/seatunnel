@@ -140,7 +140,6 @@
         <groovy.version>4.0.16</groovy.version>
         <jetty.version>9.4.56.v20240826</jetty.version>
         <jakarta.servlet-api>4.0.4</jakarta.servlet-api>
-        <commonmark>0.21.0</commonmark>
         <!-- Option args -->
         <skipUT>false</skipUT>
         <skipIT>true</skipIT>
@@ -488,12 +487,6 @@
                 <scope>provided</scope>
             </dependency>
 
-            <dependency>
-                <groupId>org.commonmark</groupId>
-                <artifactId>commonmark</artifactId>
-                <version>${commonmark}</version>
-            </dependency>
-
         </dependencies>
     </dependencyManagement>
 
@@ -551,12 +544,6 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.commonmark</groupId>
-            <artifactId>commonmark</artifactId>
             <scope>test</scope>
         </dependency>
 
