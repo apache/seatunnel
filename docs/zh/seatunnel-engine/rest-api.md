@@ -157,10 +157,9 @@ network:
   "jobStatus": "",
   "createTime": "",
   "jobDag": {
-    "vertices": [
-    ],
-    "edges": [
-    ]
+    "jobId": "",
+    "vertexInfoMap": {},
+    "pipelineEdges": {}
   },
   "metrics": {
     "SourceReceivedCount": "",
@@ -228,10 +227,9 @@ network:
   "jobStatus": "",
   "createTime": "",
   "jobDag": {
-    "vertices": [
-    ],
-    "edges": [
-    ]
+    "jobId": "",
+    "vertexInfoMap": {},
+    "pipelineEdges": {}
   },
   "metrics": {
     "sourceReceivedCount": "",
@@ -285,8 +283,11 @@ network:
     "errorMsg": null,
     "createTime": "",
     "finishTime": "",
-    "jobDag": "",
-    "metrics": ""
+    "jobDag": {
+      "jobId": "",
+      "vertexInfoMap": {},
+      "pipelineEdges": {}
+    },    "metrics": ""
   }
 ]
 ```

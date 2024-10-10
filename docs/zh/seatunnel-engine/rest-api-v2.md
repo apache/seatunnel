@@ -114,10 +114,9 @@ seatunnel:
   "jobStatus": "",
   "createTime": "",
   "jobDag": {
-    "vertices": [
-    ],
-    "edges": [
-    ]
+    "jobId": "",
+    "vertexInfoMap": {},
+    "pipelineEdges": {}
   },
   "metrics": {
     "SourceReceivedCount": "",
@@ -185,10 +184,9 @@ seatunnel:
   "jobStatus": "",
   "createTime": "",
   "jobDag": {
-    "vertices": [
-    ],
-    "edges": [
-    ]
+    "jobId": "",
+    "vertexInfoMap": {},
+    "pipelineEdges": {}
   },
   "metrics": {
     "sourceReceivedCount": "",
@@ -242,7 +240,11 @@ seatunnel:
     "errorMsg": null,
     "createTime": "",
     "finishTime": "",
-    "jobDag": "",
+    "jobDag": {
+      "jobId": "",
+      "vertexInfoMap": {},
+      "pipelineEdges": {}
+    },
     "metrics": ""
   }
 ]

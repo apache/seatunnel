@@ -118,10 +118,9 @@ seatunnel:
   "jobStatus": "",
   "createTime": "",
   "jobDag": {
-    "vertices": [
-    ],
-    "edges": [
-    ]
+    "jobId": "",
+    "vertexInfoMap": {},
+    "pipelineEdges": {}
   },
   "metrics": {
     "sourceReceivedCount": "",
@@ -175,10 +174,9 @@ This API has been deprecated, please use /seatunnel/job-info/:jobId instead
   "jobStatus": "",
   "createTime": "",
   "jobDag": {
-    "vertices": [
-    ],
-    "edges": [
-    ]
+    "jobId": "",
+    "vertexInfoMap": {},
+    "pipelineEdges": {}
   },
   "metrics": {
     "SourceReceivedCount": "",
@@ -246,7 +244,11 @@ When we can't get the job info, the response will be:
     "errorMsg": null,
     "createTime": "",
     "finishTime": "",
-    "jobDag": "",
+    "jobDag": {
+      "jobId": "",
+      "vertexInfoMap": {},
+      "pipelineEdges": {}
+    },
     "metrics": ""
   }
 ]
