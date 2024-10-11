@@ -30,6 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.kudu.state.KuduCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.kudu.state.KuduSinkState;
 
 import java.io.IOException;
+import java.util.Optional;
 
 /**
  * Kudu Sink implementation by using SeaTunnel sink API. This class contains the method to create
@@ -40,11 +41,14 @@ public class KuduSink
                         SeaTunnelRow, KuduSinkState, KuduCommitInfo, KuduAggregatedCommitInfo>,
                 SupportMultiTableSink {
 
-    private KuduSinkConfig kuduSinkConfig;
-    private SeaTunnelRowType seaTunnelRowType;
+    private final KuduSinkConfig kuduSinkConfig;
+    private final SeaTunnelRowType seaTunnelRowType;
+
+    private final CatalogTable catalogTable;
 
     public KuduSink(KuduSinkConfig kuduSinkConfig, CatalogTable catalogTable) {
         this.kuduSinkConfig = kuduSinkConfig;
+        this.catalogTable = catalogTable;
         this.seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
     }
 
@@ -56,5 +60,10 @@ public class KuduSink
     @Override
     public KuduSinkWriter createWriter(SinkWriter.Context context) throws IOException {
         return new KuduSinkWriter(seaTunnelRowType, kuduSinkConfig);
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
     }
 }

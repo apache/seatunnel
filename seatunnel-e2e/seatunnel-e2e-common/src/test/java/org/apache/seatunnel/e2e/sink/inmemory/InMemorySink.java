@@ -80,4 +80,9 @@ public class InMemorySink
     public Optional<SaveModeHandler> getSaveModeHandler() {
         return Optional.of(new InMemorySaveModeHandler(catalogTable));
     }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
+    }
 }

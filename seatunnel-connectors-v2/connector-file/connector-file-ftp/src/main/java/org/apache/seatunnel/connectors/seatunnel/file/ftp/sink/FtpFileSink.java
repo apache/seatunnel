@@ -23,7 +23,12 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseMultipleTableFileSink;
 
+import java.util.Optional;
+
 public class FtpFileSink extends BaseMultipleTableFileSink {
+
+    private final CatalogTable catalogTable;
+
     @Override
     public String getPluginName() {
         return FileSystemType.FTP.getFileSystemPluginName();
@@ -31,5 +36,11 @@ public class FtpFileSink extends BaseMultipleTableFileSink {
 
     public FtpFileSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
         super(FtpConf.buildWithConfig(readonlyConfig), readonlyConfig, catalogTable);
+        this.catalogTable = catalogTable;
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
     }
 }

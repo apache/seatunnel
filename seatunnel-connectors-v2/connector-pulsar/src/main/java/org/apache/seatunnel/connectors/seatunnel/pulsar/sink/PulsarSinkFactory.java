@@ -53,9 +53,6 @@ public class PulsarSinkFactory implements TableSinkFactory {
 
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
-        return () ->
-                new PulsarSink(
-                        context.getOptions(),
-                        context.getCatalogTable().getTableSchema().toPhysicalRowDataType());
+        return () -> new PulsarSink(context.getOptions(), context.getCatalogTable());
     }
 }
