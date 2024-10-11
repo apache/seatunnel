@@ -143,4 +143,9 @@ public class HudiSink
                         catalogTable,
                         null));
     }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
+    }
 }

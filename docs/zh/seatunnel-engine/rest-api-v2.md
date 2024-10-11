@@ -1,51 +1,47 @@
 ---
-sidebar_position: 11
+sidebar_position: 12
 ---
 
 # RESTful API
 
-SeaTunnel has a monitoring API that can be used to query status and statistics of running jobs, as well as recent
-completed jobs. The monitoring API is a RESTful API that accepts HTTP requests and responds with JSON data.
+SeaTunnel有一个用于监控的API，可用于查询运行作业的状态和统计信息，以及最近完成的作业。监控API是RESTful风格的，它接受HTTP请求并使用JSON数据格式进行响应。
 
-## Overview
+## 概述
 
-The monitoring API is backed by a web server that runs as part of the node, each node member can provide RESTful api capability.
-By default, this server listens at port 5801, which can be configured in hazelcast.yaml like :
-
+v2版本的api使用jetty支持，与v1版本的接口规范相同 ,可以通过修改`seatunnel.yaml`中的配置项来指定端口和context-path
 ```yaml
-network:
-    rest-api:
-      enabled: true
-      endpoint-groups:
-        CLUSTER_WRITE:
-          enabled: true
-        DATA:
-          enabled: true
-    join:
-      tcp-ip:
-        enabled: true
-        member-list:
-          - localhost
-    port:
-      auto-increment: true
-      port-count: 100
-      port: 5801
+
+seatunnel:
+  engine:
+    enable-http: true
+    port: 8080
 ```
 
-## API reference
+同时也可以配置context-path,配置如下：
 
-### Returns an overview over the Zeta engine cluster.
+```yaml
+
+seatunnel:
+  engine:
+    enable-http: true
+    port: 8080
+    context-path: /seatunnel
+```
+
+## API参考
+
+### 返回Zeta集群的概览
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/overview?tag1=value1&tag2=value2</b></code> <code>(Returns an overview over the Zeta engine cluster.)</code></summary>
+ <summary><code>GET</code> <code><b>/overview?tag1=value1&tag2=value2</b></code> <code>(Returns an overview over the Zeta engine cluster.)</code></summary>
 
-#### Parameters
+#### 参数
 
-> |   name   |   type   | data type |                                             description                                              |
-> |----------|----------|-----------|------------------------------------------------------------------------------------------------------|
-> | tag_name | optional | string    | the tags filter, you can add tag filter to get those matched worker count, and slot on those workers |
+> |  参数名称  | 是否必传 | 参数类型 |           参数描述           |
+> |--------|------|------|--------------------------|
+> | tag键值对 | 否    | 字符串  | 一组标签值, 通过该标签值过滤满足条件的节点信息 |
 
-#### Responses
+#### 响应
 
 ```json
 {
@@ -61,49 +57,22 @@ network:
 }
 ```
 
-**Notes:**
-- If you use `dynamic-slot`, the `totalSlot` and `unassignedSlot` always be `0`. when you set it to fix slot number, it will return the correct total and unassigned slot number
-- If the url has tag filter, the `works`, `totalSlot` and `unassignedSlot` will return the result on the matched worker. but the job related metric will always return the cluster level information.
+**注意:**
+- 当你使用`dynamic-slot`时, 返回结果中的`totalSlot`和`unassignedSlot`将始终为0. 设置为固定的slot值后, 将正确返回集群中总共的slot数量以及未分配的slot数量.
+- 当添加标签过滤后, `works`, `totalSlot`, `unassignedSlot`将返回满足条件的节点的相关指标. 注意`runningJobs`等job相关指标为集群级别结果, 无法根据标签进行过滤.
 
 </details>
 
 ------------------------------------------------------------------------------------------
 
-###  Returns thread dump information for the current node.
+### 返回所有作业及其当前状态的概览
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/thread-dump</b></code> <code>(Returns thread dump information for the current node.)</code></summary>
+ <summary><code>GET</code> <code><b>/running-jobs</b></code> <code>(返回所有作业及其当前状态的概览。)</code></summary>
 
-#### Parameters
+#### 参数
 
-
-#### Responses
-
-```json
-[
-  {
-    "threadName": "",
-    "threadId": 0,
-    "threadState": "",
-    "stackTrace": ""
-  }
-]
-```
-
-</details>
-
-------------------------------------------------------------------------------------------
-
-
-
-### Returns An Overview And State Of All Jobs
-
-<details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-jobs</b></code> <code>(Returns an overview over all jobs and their current state.)</code></summary>
-
-#### Parameters
-
-#### Responses
+#### 响应
 
 ```json
 [
@@ -135,18 +104,18 @@ network:
 
 ------------------------------------------------------------------------------------------
 
-### Return Details Of A Job
+### 返回作业的详细信息
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/job-info/:jobId</b></code> <code>(Return details of a job. )</code></summary>
+ <summary><code>GET</code> <code><b>/job-info/:jobId</b></code> <code>(返回作业的详细信息。)</code></summary>
 
-#### Parameters
+#### 参数
 
-> | name  |   type   | data type | description |
-> |-------|----------|-----------|-------------|
-> | jobId | required | long      | job id      |
+> | 参数名称  | 是否必传 | 参数类型 |  参数描述  |
+> |-------|------|------|--------|
+> | jobId | 是    | long | job id |
 
-#### Responses
+#### 响应
 
 ```json
 {
@@ -155,67 +124,18 @@ network:
   "jobStatus": "",
   "createTime": "",
   "jobDag": {
-    "vertices": [
+    "jobId": "",
+    "vertexInfoMap": [
+      {
+        "vertexId": 1,
+        "type": "",
+        "vertexName": "",
+        "tablePaths": [
+          ""
+        ]
+      }
     ],
-    "edges": [
-    ]
-  },
-  "metrics": {
-    "sourceReceivedCount": "",
-    "sinkWriteCount": ""
-  },
-  "finishedTime": "",
-  "errorMsg": null,
-  "envOptions": {
-  },
-  "pluginJarsUrls": [
-  ],
-  "isStartWithSavePoint": false
-}
-```
-
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
-`envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
-`finishedTime`, `errorMsg` will return when job is finished.
-
-When we can't get the job info, the response will be:
-
-```json
-{
-  "jobId" : ""
-}
-```
-
-</details>
-
-------------------------------------------------------------------------------------------
-
-### Return Details Of A Job
-
-This API has been deprecated, please use /hazelcast/rest/maps/job-info/:jobId instead
-
-<details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-job/:jobId</b></code> <code>(Return details of a job. )</code></summary>
-
-#### Parameters
-
-> | name  |   type   | data type | description |
-> |-------|----------|-----------|-------------|
-> | jobId | required | long      | job id      |
-
-#### Responses
-
-```json
-{
-  "jobId": "",
-  "jobName": "",
-  "jobStatus": "",
-  "createTime": "",
-  "jobDag": {
-    "vertices": [
-    ],
-    "edges": [
-    ]
+    "pipelineEdges": {}
   },
   "metrics": {
     "SourceReceivedCount": "",
@@ -245,11 +165,11 @@ This API has been deprecated, please use /hazelcast/rest/maps/job-info/:jobId in
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
-`envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
-`finishedTime`, `errorMsg` will return when job is finished.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` 字段总会返回.
+`envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
+`finishedTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
 
-When we can't get the job info, the response will be:
+当我们查询不到这个Job时，返回结果为：
 
 ```json
 {
@@ -261,18 +181,83 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
-### Return All Finished Jobs Info
+### 返回作业的详细信息
+
+此API已经弃用，请使用/job-info/:jobId替代。
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/finished-jobs/:state</b></code> <code>(Return all finished Jobs Info.)</code></summary>
+ <summary><code>GET</code> <code><b>/running-job/:jobId</b></code> <code>(返回作业的详细信息。)</code></summary>
 
-#### Parameters
+#### 参数
 
-> | name  |   type   | data type |                           description                            |
-> |-------|----------|-----------|------------------------------------------------------------------|
-> | state | optional | string    | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`UNKNOWABLE` |
+> | 参数名称  | 是否必传 | 参数类型 |  参数描述  |
+> |-------|------|------|--------|
+> | jobId | 是    | long | job id |
 
-#### Responses
+#### 响应
+
+```json
+{
+  "jobId": "",
+  "jobName": "",
+  "jobStatus": "",
+  "createTime": "",
+  "jobDag": {
+    "jobId": "",
+    "vertexInfoMap": [
+      {
+        "vertexId": 1,
+        "type": "",
+        "vertexName": "",
+        "tablePaths": [
+          ""
+        ]
+      }
+    ],
+    "pipelineEdges": {}
+  },
+  "metrics": {
+    "sourceReceivedCount": "",
+    "sinkWriteCount": ""
+  },
+  "finishedTime": "",
+  "errorMsg": null,
+  "envOptions": {
+  },
+  "pluginJarsUrls": [
+  ],
+  "isStartWithSavePoint": false
+}
+```
+
+`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` 字段总会返回.
+`envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
+`finishedTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
+
+当我们查询不到这个Job时，返回结果为：
+
+```json
+{
+  "jobId" : ""
+}
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### 返回所有已完成的作业信息
+
+<details>
+ <summary><code>GET</code> <code><b>/finished-jobs/:state</b></code> <code>(返回所有已完成的作业信息。)</code></summary>
+
+#### 参数
+
+> | 参数名称  |   是否必传   |  参数类型  |                               参数描述                               |
+> |-------|----------|--------|------------------------------------------------------------------|
+> | state | optional | string | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`UNKNOWABLE` |
+
+#### 响应
 
 ```json
 [
@@ -283,7 +268,20 @@ When we can't get the job info, the response will be:
     "errorMsg": null,
     "createTime": "",
     "finishTime": "",
-    "jobDag": "",
+    "jobDag": {
+      "jobId": "",
+      "vertexInfoMap": [
+        {
+          "vertexId": 1,
+          "type": "",
+          "vertexName": "",
+          "tablePaths": [
+            ""
+          ]
+        }
+      ],
+      "pipelineEdges": {}
+    },
     "metrics": ""
   }
 ]
@@ -293,21 +291,18 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
-### Returns System Monitoring Information
+### 返回系统监控信息
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/system-monitoring-information</b></code> <code>(Returns system monitoring information.)</code></summary>
+ <summary><code>GET</code> <code><b>/system-monitoring-information</b></code> <code>(返回系统监控信息。)</code></summary>
 
-#### Parameters
+#### 参数
 
-#### Responses
+#### 响应
 
 ```json
 [
   {
-    "isMaster": "true",
-    "host": "localhost",
-    "port": "5801",
     "processors":"8",
     "physical.memory.total":"16.0G",
     "physical.memory.free":"16.3M",
@@ -361,20 +356,20 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
-### Submit A Job
+### 提交作业
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/submit-job</b></code> <code>(Returns jobId and jobName if job submitted successfully.)</code></summary>
+<summary><code>POST</code> <code><b>/submit-job</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
 
-#### Parameters
+#### 参数
 
-> |         name         |   type   | data type |            description            |
-> |----------------------|----------|-----------|-----------------------------------|
-> | jobId                | optional | string    | job id                            |
-> | jobName              | optional | string    | job name                          |
-> | isStartWithSavePoint | optional | string    | if job is started with save point |
+> |         参数名称         |   是否必传   |  参数类型  |               参数描述                |
+> |----------------------|----------|--------|-----------------------------------|
+> | jobId                | optional | string | job id                            |
+> | jobName              | optional | string | job name                          |
+> | isStartWithSavePoint | optional | string | if job is started with save point |
 
-#### Body
+#### 请求体
 
 ```json
 {
@@ -406,7 +401,7 @@ When we can't get the job info, the response will be:
 }
 ```
 
-#### Responses
+#### 响应
 
 ```json
 {
@@ -419,20 +414,23 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
-### Batch Submit Jobs
+
+### 批量提交作业
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/submit-jobs</b></code> <code>(Returns jobId and jobName if the job is successfully submitted.)</code></summary>
+<summary><code>POST</code> <code><b>/submit-jobs</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
 
-#### Parameters (add in the `params` field in the request body)
+#### 参数(在请求体中params字段中添加)
 
-> |    Parameter Name     |   Required   |  Type   |              Description              |
-> |----------------------|--------------|---------|---------------------------------------|
-> | jobId                | optional     | string  | job id                                |
-> | jobName              | optional     | string  | job name                              |
-> | isStartWithSavePoint | optional     | string  | if the job is started with save point |
+> |         参数名称         |   是否必传   |  参数类型  |               参数描述                |
+> |----------------------|----------|--------|-----------------------------------|
+> | jobId                | optional | string | job id                            |
+> | jobName              | optional | string | job name                          |
+> | isStartWithSavePoint | optional | string | if job is started with save point |
 
-#### Request Body
+
+
+#### 请求体
 
 ```json
 [
@@ -501,7 +499,7 @@ When we can't get the job info, the response will be:
 ]
 ```
 
-#### Response
+#### 响应
 
 ```json
 [
@@ -519,12 +517,12 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
-### Stop A Job
+### 停止作业
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/stop-job</b></code> <code>(Returns jobId if job stoped successfully.)</code></summary>
+<summary><code>POST</code> <code><b>/stop-job</b></code> <code>(如果作业成功停止，返回jobId。)</code></summary>
 
-#### Body
+#### 请求体
 
 ```json
 {
@@ -533,7 +531,7 @@ When we can't get the job info, the response will be:
 }
 ```
 
-#### Responses
+#### 响应
 
 ```json
 {
@@ -543,13 +541,15 @@ When we can't get the job info, the response will be:
 
 </details>
 
+
 ------------------------------------------------------------------------------------------
-### Batch Stop Jobs
+
+### 批量停止作业
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/stop-jobs</b></code> <code>(Returns jobId if the job is successfully stopped.)</code></summary>
+<summary><code>POST</code> <code><b>/stop-jobs</b></code> <code>(如果作业成功停止，返回jobId。)</code></summary>
 
-#### Request Body
+#### 请求体
 
 ```json
 [
@@ -564,7 +564,7 @@ When we can't get the job info, the response will be:
 ]
 ```
 
-#### Response
+#### 响应
 
 ```json
 [
@@ -580,13 +580,14 @@ When we can't get the job info, the response will be:
 </details>
 
 ------------------------------------------------------------------------------------------
-### Encrypt Config
+
+### 加密配置
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/encrypt-config</b></code> <code>(Returns the encrypted config if config is encrypted successfully.)</code></summary>
-For more information about customize encryption, please refer to the documentation [config-encryption-decryption](../connector-v2/Config-Encryption-Decryption.md).
+<summary><code>POST</code> <code><b>/encrypt-config</b></code> <code>(如果配置加密成功，则返回加密后的配置。)</code></summary>
+有关自定义加密的更多信息，请参阅文档[配置-加密-解密](../connector-v2/Config-Encryption-Decryption.md).
 
-#### Body
+#### 请求体
 
 ```json
 {
@@ -626,7 +627,7 @@ For more information about customize encryption, please refer to the documentati
 }
 ```
 
-#### Responses
+#### 响应
 
 ```json
 {
@@ -667,24 +668,24 @@ For more information about customize encryption, please refer to the documentati
 
 </details>
 
-
 ------------------------------------------------------------------------------------------
 
-### Update the tags of running node
+### 更新运行节点的tags
 
-<details><summary><code>POST</code><code><b>/hazelcast/rest/maps/update-tags</b></code><code>Because the update can only target a specific node, the current node's `ip:port` needs to be used for the update</code><code>(If the update is successful, return a success message)</code></summary>
+<details>
+<summary><code>POST</code><code><b>/update-tags</b></code><code>因为更新只能针对于某个节点，因此需要用当前节点ip:port用于更新</code><code>(如果更新成功，则返回"success"信息)</code></summary>
 
 
-#### update node tags
-##### Body
-If the request parameter is a `Map` object, it indicates that the tags of the current node need to be updated
+#### 更新节点tags
+##### 请求体
+如果请求参数是`Map`对象，表示要更新当前节点的tags
 ```json
 {
   "tag1": "dev_1",
   "tag2": "dev_2"
 }
 ```
-##### Responses
+##### 响应
 
 ```json
 {
@@ -692,14 +693,14 @@ If the request parameter is a `Map` object, it indicates that the tags of the cu
   "message": "update node tags done."
 }
 ```
-#### remove node tags
-##### Body
-If the parameter is an empty `Map` object, it means that the tags of the current node need to be cleared
+#### 移除节点tags
+##### 请求体
+如果参数为空`Map`对象，表示要清除当前节点的tags
 ```json
 {}
 ```
-##### Responses
-
+##### 响应
+响应体将为：
 ```json
 {
   "status": "success",
@@ -707,10 +708,10 @@ If the parameter is an empty `Map` object, it means that the tags of the current
 }
 ```
 
-#### Request parameter exception
-- If the parameter body is empty
+#### 请求参数异常
+- 如果请求参数为空
 
-##### Responses
+##### 响应
 
 ```json
 {
@@ -718,8 +719,8 @@ If the parameter is an empty `Map` object, it means that the tags of the current
     "message": "Request body is empty."
 }
 ```
-- If the parameter is not a `Map` object
-##### Responses
+- 如果参数不是`Map`对象
+##### 响应
 
 ```json
 {
@@ -728,4 +729,3 @@ If the parameter is an empty `Map` object, it means that the tags of the current
 }
 ```
 </details>
-

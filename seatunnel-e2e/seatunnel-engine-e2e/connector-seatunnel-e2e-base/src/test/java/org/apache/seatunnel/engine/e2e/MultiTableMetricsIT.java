@@ -90,6 +90,7 @@ public class MultiTableMetricsIT {
                                                                     .getLocalMember()
                                                                     .getAddress()
                                                                     .getPort()
+                                                            + RestConstant.CONTEXT_PATH
                                                             + RestConstant.JOB_INFO_URL
                                                             + "/"
                                                             + batchJobProxy.getJobId());
