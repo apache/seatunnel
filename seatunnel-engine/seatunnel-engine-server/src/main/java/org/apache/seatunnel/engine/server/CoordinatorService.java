@@ -318,14 +318,20 @@ public class CoordinatorService {
                         });
     }
 
-    private static void completeFailJob(JobMaster jobMaster) {
+    private void completeFailJob(JobMaster jobMaster) {
         // If the pending queue is not enabled and resources are insufficient, stop the task from
         // running
         JobResult jobResult =
                 new JobResult(
                         JobStatus.FAILED,
                         ExceptionUtils.getMessage(new NoEnoughResourceException()));
+        jobMaster.getPhysicalPlan().updateJobState(JobStatus.FAILED);
         jobMaster.getPhysicalPlan().completeJobEndFuture(jobResult);
+
+        logger.info(
+                String.format(
+                        "The job %s is not running because the resources is not enough insufficient",
+                        jobMaster.getJobId()));
     }
 
     private boolean jobMasterCompletedSuccessfully(JobMaster jobMaster, PendingSourceState state) {
