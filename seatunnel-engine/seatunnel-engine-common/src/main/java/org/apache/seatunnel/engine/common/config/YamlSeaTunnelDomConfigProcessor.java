@@ -38,6 +38,10 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
+import com.cronutils.model.CronType;
+import com.cronutils.model.definition.CronDefinition;
+import com.cronutils.model.definition.CronDefinitionBuilder;
+import com.cronutils.parser.CronParser;
 import com.hazelcast.config.InvalidConfigurationException;
 import com.hazelcast.internal.config.AbstractDomConfigProcessor;
 import com.hazelcast.logging.ILogger;
@@ -370,7 +374,18 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             } else if (ServerConfigOptions.TELEMETRY_LOGS_SCHEDULED_DELETION_CRON
                     .key()
                     .equals(name)) {
-                logsConfig.setCron(getTextContent(node));
+                CronDefinition cronDefinition =
+                        CronDefinitionBuilder.instanceDefinitionFor(CronType.UNIX);
+                CronParser parser = new CronParser(cronDefinition);
+                String cronExpression = getTextContent(node);
+                try {
+                    parser.parse(cronExpression);
+                } catch (Exception e) {
+                    throw new IllegalArgumentException(
+                            ServerConfigOptions.TELEMETRY_LOGS_SCHEDULED_DELETION_CRON
+                                    + " must be a valid cron expression");
+                }
+                logsConfig.setCron(cronExpression);
             } else if (ServerConfigOptions.TELEMETRY_LOGS_SCHEDULED_DELETION_KEEP_TIME
                     .key()
                     .equals(name)) {

@@ -94,9 +94,9 @@ For more details, please refer to the [REST-API](rest-api-v2.md).
 
 ### SeaTunnel Log Configuration
 
-### Scheduled Deletion of Old Logs
+### Scheduled deletion of old logs
 
-SeaTunnel supports scheduled deletion of old log files to prevent disk space exhaustion. You can add the following configuration in the `log4j2.properties` file:
+SeaTunnel supports scheduled deletion of old log files to prevent disk space exhaustion. You can add the following configuration in the `seatunnel.yml` file:
 
 ```yaml
     telemetry:

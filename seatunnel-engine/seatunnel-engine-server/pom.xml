@@ -57,10 +57,6 @@
             <groupId>org.awaitility</groupId>
             <artifactId>awaitility</artifactId>
         </dependency>
-        <dependency>
-            <groupId>com.cronutils</groupId>
-            <artifactId>cron-utils</artifactId>
-        </dependency>
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>

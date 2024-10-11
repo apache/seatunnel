@@ -21,6 +21,7 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 
 import com.cronutils.model.Cron;
+import com.cronutils.model.CronType;
 import com.cronutils.model.definition.CronDefinition;
 import com.cronutils.model.definition.CronDefinitionBuilder;
 import com.cronutils.model.time.ExecutionTime;
@@ -85,8 +86,7 @@ public class TaskLogCleanService {
     }
 
     public void scheduleTask(String cronExpression, Runnable task) {
-        CronDefinition cronDefinition =
-                CronDefinitionBuilder.instanceDefinitionFor(com.cronutils.model.CronType.UNIX);
+        CronDefinition cronDefinition = CronDefinitionBuilder.instanceDefinitionFor(CronType.UNIX);
         CronParser parser = new CronParser(cronDefinition);
         Cron cron = parser.parse(cronExpression);
         ExecutionTime executionTime = ExecutionTime.forCron(cron);
