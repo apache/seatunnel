@@ -57,6 +57,7 @@ import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.json.JsonValue;
 import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.internal.util.JsonUtil;
 import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
@@ -74,7 +75,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import static com.hazelcast.internal.util.JsonUtil.toJsonObject;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES_PER_SECONDS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
@@ -188,7 +188,7 @@ public class BaseServlet extends HttpServlet {
                 .add(RestConstant.JOB_STATUS, jobStatus.toString())
                 .add(
                         RestConstant.ENV_OPTIONS,
-                        toJsonObject(logicalDag.getJobConfig().getEnvOptions()))
+                        JsonUtil.toJsonObject(logicalDag.getJobConfig().getEnvOptions()))
                 .add(
                         RestConstant.CREATE_TIME,
                         DateTimeUtils.toString(
@@ -574,5 +574,18 @@ public class BaseServlet extends HttpServlet {
                         data,
                         jobImmutableInformation.isStartWithSavePoint());
         voidPassiveCompletableFuture.join();
+    }
+
+    private JsonObject toJsonObject(Map<String, Object> jobMetrics) {
+        JsonObject members = new JsonObject();
+        jobMetrics.forEach(
+                (key, value) -> {
+                    if (value instanceof Map) {
+                        members.add(key, toJsonObject((Map<String, Object>) value));
+                    } else {
+                        members.add(key, value.toString());
+                    }
+                });
+        return members;
     }
 }
