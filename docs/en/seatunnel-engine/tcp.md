@@ -1,9 +1,8 @@
 ---
+sidebar_position: 10
+---
 
-sidebar_position: 6
--------------------
-
-# TCP NetWork
+# TCP Network
 
 If multicast is not the preferred way of discovery for your environment, then you can configure SeaTunnel Engine to be a full TCP/IP cluster. When you configure SeaTunnel Engine to discover members by TCP/IP, you must list all or a subset of the members' host names and/or IP addresses as cluster members. You do not have to list all of these cluster members, but at least one of the listed members has to be active in the cluster when a new member joins.
 

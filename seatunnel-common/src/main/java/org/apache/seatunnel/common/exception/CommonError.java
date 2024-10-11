@@ -266,9 +266,31 @@ public class CommonError {
             String connector, int sourceFieldsNum, int sinkFieldsNum) {
         Map<String, String> params = new HashMap<>();
         params.put("connector", connector);
-        params.put("sourceFiledName", String.valueOf(sourceFieldsNum));
-        params.put("sourceFiledType", String.valueOf(sinkFieldsNum));
+        params.put("sourceFieldsNum", String.valueOf(sourceFieldsNum));
+        params.put("sinkFieldsNum", String.valueOf(sinkFieldsNum));
         return new SeaTunnelRuntimeException(
                 WRITE_SEATUNNEL_ROW_ERROR_WITH_FILEDS_NOT_MATCH, params);
+    }
+
+    public static SeaTunnelRuntimeException formatDateTimeError(String datetime, String field) {
+        Map<String, String> params = new HashMap<>();
+        params.put("datetime", datetime);
+        params.put("field", field);
+        return new SeaTunnelRuntimeException(CommonErrorCode.FORMAT_DATETIME_ERROR, params);
+    }
+
+    public static SeaTunnelRuntimeException formatDateError(String date, String field) {
+        Map<String, String> params = new HashMap<>();
+        params.put("date", date);
+        params.put("field", field);
+        return new SeaTunnelRuntimeException(CommonErrorCode.FORMAT_DATE_ERROR, params);
+    }
+
+    public static SeaTunnelRuntimeException unsupportedMethod(
+            String identifier, String methodName) {
+        Map<String, String> params = new HashMap<>();
+        params.put("identifier", identifier);
+        params.put("methodName", methodName);
+        return new SeaTunnelRuntimeException(CommonErrorCode.UNSUPPORTED_METHOD, params);
     }
 }

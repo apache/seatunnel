@@ -30,9 +30,11 @@ import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.client.job.JobMetricsRunner;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
@@ -49,6 +51,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
@@ -111,9 +114,10 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                                 .getJobDetailStatus(Long.parseLong(clientCommandArgs.getJobId()));
                 System.out.println(jobState);
             } else if (null != clientCommandArgs.getCancelJobId()) {
-                engineClient
-                        .getJobClient()
-                        .cancelJob(Long.parseLong(clientCommandArgs.getCancelJobId()));
+                List<String> cancelJobIds = clientCommandArgs.getCancelJobId();
+                for (String cancelJobId : cancelJobIds) {
+                    engineClient.getJobClient().cancelJob(Long.parseLong(cancelJobId));
+                }
             } else if (null != clientCommandArgs.getMetricsJobId()) {
                 String jobMetrics =
                         engineClient
@@ -251,6 +255,12 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
     private HazelcastInstance createServerInLocal(
             String clusterName, SeaTunnelConfig seaTunnelConfig) {
         seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
+        // local mode only support MASTER_AND_WORKER role
+        seaTunnelConfig
+                .getEngineConfig()
+                .setClusterRole(EngineConfig.ClusterRole.MASTER_AND_WORKER);
+        // set local mode
+        seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
         seaTunnelConfig.getHazelcastConfig().getNetworkConfig().setPortAutoIncrement(true);
         return HazelcastInstanceFactory.newHazelcastInstance(
                 seaTunnelConfig.getHazelcastConfig(),

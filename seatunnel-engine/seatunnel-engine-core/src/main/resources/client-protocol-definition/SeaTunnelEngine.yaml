@@ -58,6 +58,11 @@ methods:
           nullable: false
           since: 2.0
           doc: ''
+        - name: isStartWithSavePoint
+          type: boolean
+          nullable: false
+          since: 2.0
+          doc: ''
     response: {}
 
   - id: 3

@@ -18,8 +18,14 @@
 package org.apache.seatunnel.engine.e2e;
 
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
+import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
+import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.core.job.JobResult;
+import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
 import org.awaitility.Awaitility;
@@ -31,6 +37,7 @@ import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -86,6 +93,72 @@ public class ClusterIT {
 
             if (node2 != null) {
                 node2.shutdown();
+            }
+        }
+    }
+
+    @Test
+    public void testTaskGroupErrorMsgLost() throws Exception {
+        HazelcastInstanceImpl node1 = null;
+        SeaTunnelClient engineClient = null;
+
+        String testClusterName = "Test_TaskGroupErrorMsgLost";
+
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig
+                .getHazelcastConfig()
+                .setClusterName(TestUtils.getClusterName(testClusterName));
+        seaTunnelConfig.getEngineConfig().setClassloaderCacheMode(true);
+
+        try {
+            node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+            HazelcastInstanceImpl finalNode = node1;
+            Awaitility.await()
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            1, finalNode.getCluster().getMembers().size()));
+
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            engineClient = new SeaTunnelClient(clientConfig);
+
+            String filePath =
+                    TestUtils.getResource("stream_fake_to_inmemory_with_runtime_list.conf");
+            JobConfig jobConfig = new JobConfig();
+            jobConfig.setName(testClusterName);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
+
+            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+
+            CompletableFuture<PassiveCompletableFuture<JobResult>> objectCompletableFuture =
+                    CompletableFuture.supplyAsync(clientJobProxy::doWaitForJobComplete);
+
+            Awaitility.await()
+                    .atMost(120000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Thread.sleep(2000);
+                                Assertions.assertTrue(objectCompletableFuture.isDone());
+
+                                PassiveCompletableFuture<JobResult>
+                                        jobResultPassiveCompletableFuture =
+                                                objectCompletableFuture.get();
+                                JobResult jobResult = jobResultPassiveCompletableFuture.get();
+                                Assertions.assertEquals(JobStatus.FAILED, jobResult.getStatus());
+                                Assertions.assertTrue(
+                                        jobResult.getError().contains("runtime error 4"));
+                            });
+
+        } finally {
+            if (engineClient != null) {
+                engineClient.close();
+            }
+
+            if (node1 != null) {
+                node1.shutdown();
             }
         }
     }

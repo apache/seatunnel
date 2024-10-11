@@ -37,9 +37,7 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.google.common.collect.Lists;
 
-import java.io.IOException;
 import java.math.BigDecimal;
-import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -59,7 +57,6 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
     private static final String SQLSERVER_DATABASE = "master";
     private static final String SQLSERVER_SCHEMA = "dbo";
     private static final String SQLSERVER_CATALOG_DATABASE = "catalog_test";
-
     private static final int SQLSERVER_CONTAINER_PORT = 1433;
     private static final String SQLSERVER_URL =
             "jdbc:sqlserver://"
@@ -103,7 +100,9 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     + "\tVARBINARY_MAX_TEST varbinary(MAX) NULL,\n"
                     + "\tVARCHAR_TEST varchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
                     + "\tVARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS DEFAULT NULL NULL,\n"
-                    + "\tXML_TEST xml NULL\n"
+                    + "\tXML_TEST xml NULL,\n"
+                    + "\tUDT_TEST UDTDECIMAL NULL,\n"
+                    + "\tCONSTRAINT PK_TEST_INDEX PRIMARY KEY (INT_IDENTITY_TEST)\n"
                     + ");";
 
     private static final String SINK_CREATE_SQL =
@@ -140,7 +139,8 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     + "\tVARBINARY_MAX_TEST varbinary(MAX) NULL,\n"
                     + "\tVARCHAR_TEST varchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
                     + "\tVARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS DEFAULT NULL NULL,\n"
-                    + "\tXML_TEST xml NULL\n"
+                    + "\tXML_TEST xml NULL,\n"
+                    + "\tUDT_TEST UDTDECIMAL NULL\n"
                     + ");";
 
     private String username;
@@ -180,11 +180,21 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
+                .tablePathFullName(TablePath.DEFAULT.getFullName())
                 .build();
     }
 
     @Override
-    void compareResult(String executeKey) throws SQLException, IOException {}
+    protected void createSchemaIfNeeded() {
+        // create user-defined type
+        String sql = "CREATE TYPE UDTDECIMAL FROM decimal(12, 2);";
+        try {
+            connection.prepareStatement(sql).executeUpdate();
+        } catch (Exception e) {
+            throw new SeaTunnelRuntimeException(
+                    JdbcITErrorCode.CREATE_TABLE_FAILED, "Fail to execute sql " + sql, e);
+        }
+    }
 
     @Override
     String driverUrl() {
@@ -227,6 +237,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     "VARCHAR_TEST",
                     "VARCHAR_MAX_TEST",
                     "XML_TEST",
+                    "UDT_TEST"
                 };
 
         List<SeaTunnelRow> rows = new ArrayList<>();
@@ -266,6 +277,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                                 "VarCharValue" + i, // VARCHAR_TEST
                                 "VarCharMaxValue" + i, // VARCHAR_MAX_TEST
                                 "<xml>Test" + i + "</xml>", // XML_TEST
+                                new BigDecimal("123.45") // UDT_TEST
                             });
             rows.add(row);
         }

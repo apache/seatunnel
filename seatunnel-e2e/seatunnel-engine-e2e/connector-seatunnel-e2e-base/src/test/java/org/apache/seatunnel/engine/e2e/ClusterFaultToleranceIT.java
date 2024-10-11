@@ -771,7 +771,7 @@ public class ClusterFaultToleranceIT {
                             + "          type: hdfs\n"
                             + "          namespace: /tmp/seatunnel/imap\n"
                             + "          clusterName: "
-                            + testClusterName
+                            + TestUtils.getClusterName(testClusterName)
                             + "\n"
                             + "          fs.defaultFS: file:///\n"
                             + "\n"
@@ -978,7 +978,7 @@ public class ClusterFaultToleranceIT {
                             + "          namespace: /seatunnel-test/imap\n"
                             + "          storage.type: oss\n"
                             + "          clusterName: "
-                            + testClusterName
+                            + TestUtils.getClusterName(testClusterName)
                             + "\n"
                             + "          oss.bucket: "
                             + OSS_BUCKET_NAME
@@ -992,7 +992,6 @@ public class ClusterFaultToleranceIT {
                             + "          fs.oss.endpoint: "
                             + OSS_ENDPOINT
                             + "\n"
-                            + "          fs.oss.credentials.provider: org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider\n"
                             + "  properties:\n"
                             + "    hazelcast.invocation.max.retry.count: 200\n"
                             + "    hazelcast.tcp.join.port.try.count: 30\n"

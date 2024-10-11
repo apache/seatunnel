@@ -12,6 +12,7 @@
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
 
 ## Description
 
@@ -51,7 +52,7 @@ and the default template can be modified according to the situation. Only work o
 Default template:
 
 ```sql
-CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (
+CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
 ${rowtype_primary_key},
 ${rowtype_fields}
 ) ENGINE=OLAP
@@ -64,7 +65,7 @@ DISTRIBUTED BY HASH (${rowtype_primary_key})PROPERTIES (
 If a custom field is filled in the template, such as adding an `id` field
 
 ```sql
-CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
+CREATE TABLE IF NOT EXISTS `${database}`.`${table}`
 (   
     id,
     ${rowtype_fields}
@@ -106,7 +107,8 @@ Before the synchronous task is turned on, different treatment schemes are select
 Option introduction：  
 `RECREATE_SCHEMA` ：Will create when the table does not exist, delete and rebuild when the table is saved        
 `CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the table does not exist, skipped when the table is saved        
-`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist
+`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist  
+`IGNORE` ：Ignore the treatment of the table
 
 ### data_save_mode[Enum]
 
@@ -227,6 +229,7 @@ sink {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
     username = root
     password = ""
     database = "test"
@@ -247,6 +250,7 @@ sink {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
     username = root
     password = ""
     database = "test"
@@ -267,6 +271,7 @@ sink {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
     username = root
     password = ""
     database = "test"
@@ -279,6 +284,91 @@ sink {
       column_separator = "\\x01"
       row_delimiter = "\\x02"
     }
+  }
+}
+```
+
+### Multiple table
+
+#### example1
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    
+    table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  StarRocks {
+    nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
+    username = root
+    password = ""
+    database = "${database_name}_test"
+    table = "${table_name}_test"
+    ...
+
+    // Support upsert/delete event synchronization (enable_upsert_delete=true), only supports PrimaryKey model.
+    enable_upsert_delete = true
+  }
+}
+```
+
+#### example2
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = oracle.jdbc.driver.OracleDriver
+    url = "jdbc:oracle:thin:@localhost:1521/XE"
+    user = testUser
+    password = testPassword
+
+    table_list = [
+      {
+        table_path = "TESTSCHEMA.TABLE_1"
+      },
+      {
+        table_path = "TESTSCHEMA.TABLE_2"
+      }
+    ]
+  }
+}
+
+transform {
+}
+
+sink {
+  StarRocks {
+    nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
+    username = root
+    password = ""
+    database = "${schema_name}_test"
+    table = "${table_name}_test"
+    ...
+
+    // Support upsert/delete event synchronization (enable_upsert_delete=true), only supports PrimaryKey model.
+    enable_upsert_delete = true
   }
 }
 ```

@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -31,15 +33,23 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 class PostgresCatalogTest {
 
-    @Test
-    void testCatalog() {
-        JdbcUrlUtil.UrlInfo urlInfo =
-                JdbcUrlUtil.getUrlInfo("jdbc:postgresql://127.0.0.1:5432/liulitest");
-        PostgresCatalog catalog =
-                new PostgresCatalog("postgres", "postgres", "postgres", urlInfo, null);
+    static PostgresCatalog catalog;
+
+    @BeforeAll
+    static void before() {
+        catalog =
+                new PostgresCatalog(
+                        "postgres",
+                        "pg",
+                        "pg#2024",
+                        JdbcUrlUtil.getUrlInfo("jdbc:postgresql://127.0.0.1:5432/postgres"),
+                        null);
 
         catalog.open();
+    }
 
+    @Test
+    void testCatalog() {
         MySqlCatalog mySqlCatalog =
                 new MySqlCatalog(
                         "mysql",
@@ -58,5 +68,15 @@ class PostgresCatalogTest {
 
         catalog.createTable(
                 new TablePath("liulitest", "public", "all_types_table_02"), table, false);
+    }
+
+    @Test
+    void exists() {
+        Assertions.assertFalse(catalog.databaseExists("postgres"));
+        Assertions.assertFalse(
+                catalog.tableExists(TablePath.of("postgres", "pg_catalog", "pg_aggregate")));
+        Assertions.assertTrue(catalog.databaseExists("zdykdb"));
+        Assertions.assertTrue(
+                catalog.tableExists(TablePath.of("zdykdb", "pg_catalog", "pg_class")));
     }
 }

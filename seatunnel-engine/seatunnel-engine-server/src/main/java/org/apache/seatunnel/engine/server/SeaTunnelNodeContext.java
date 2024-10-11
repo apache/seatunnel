@@ -19,11 +19,17 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 
+import com.hazelcast.config.JoinConfig;
 import com.hazelcast.instance.impl.DefaultNodeContext;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.instance.impl.NodeExtension;
+import com.hazelcast.internal.cluster.Joiner;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
+import static com.hazelcast.config.ConfigAccessor.getActiveMemberNetworkConfig;
+
+@Slf4j
 public class SeaTunnelNodeContext extends DefaultNodeContext {
 
     private final SeaTunnelConfig seaTunnelConfig;
@@ -35,5 +41,19 @@ public class SeaTunnelNodeContext extends DefaultNodeContext {
     @Override
     public NodeExtension createNodeExtension(@NonNull Node node) {
         return new org.apache.seatunnel.engine.server.NodeExtension(node, seaTunnelConfig);
+    }
+
+    @Override
+    public Joiner createJoiner(Node node) {
+        JoinConfig join =
+                getActiveMemberNetworkConfig(seaTunnelConfig.getHazelcastConfig()).getJoin();
+        join.verify();
+
+        if (join.getTcpIpConfig().isEnabled()) {
+            log.info("Using LiteNodeDropOutTcpIpJoiner TCP/IP discovery");
+            return new LiteNodeDropOutTcpIpJoiner(node);
+        }
+
+        return super.createJoiner(node);
     }
 }

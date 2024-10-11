@@ -4,7 +4,7 @@ In this section, we are going to show you how to set up your development environ
 example in your JetBrains IntelliJ IDEA.
 
 > You can develop or test SeaTunnel code in any development environment that you like, but here we use
-> [JetBrains IDEA](https://www.jetbrains.com/idea/) as an example to teach you to step by step environment.
+> [JetBrains IDEA](https://www.jetbrains.com/idea/) as an example to teach you to step by step.
 
 ## Prepare
 
@@ -35,17 +35,17 @@ Otherwise, your code could not start in JetBrains IntelliJ IDEA correctly.
 ./mvnw install -Dmaven.test.skip
 ```
 
-### Building seaTunnel from source
+### Building SeaTunnel From Source
 
-After you install the maven, you can use the follow command to compile and package.
+After you install the maven, you can use the following command to compile and package.
 
 ```
 mvn clean package -pl seatunnel-dist -am -Dmaven.test.skip=true
 ```
 
-### Building sub module
+### Building Sub Module
 
-If you want to build submodules separately,you can use the follow command to compile and package.
+If you want to build submodules separately, you can use the following command to compile and package.
 
 ```ssh
 # This is an example of building the redis connector separately
@@ -55,9 +55,9 @@ If you want to build submodules separately,you can use the follow command to com
 
 ### Install JetBrains IDEA Scala Plugin
 
-Now, you can open your JetBrains IntelliJ IDEA and explore the source code, but allow building Scala code in IDEA,
-you should also install JetBrains IntelliJ IDEA's [Scala plugin](https://plugins.jetbrains.com/plugin/1347-scala).
-See [install plugins for IDEA](https://www.jetbrains.com/help/idea/managing-plugins.html#install-plugins) if you want to.
+Now, you can open your JetBrains IntelliJ IDEA and explore the source code. But before building Scala code in IDEA,
+you should also install JetBrains IntelliJ IDEA's [Scala Plugin](https://plugins.jetbrains.com/plugin/1347-scala).
+See [Install Plugins For IDEA](https://www.jetbrains.com/help/idea/managing-plugins.html#install-plugins) if you want to.
 
 ### Install JetBrains IDEA Lombok Plugin
 
@@ -66,7 +66,7 @@ See [install plugins for IDEA](https://www.jetbrains.com/help/idea/managing-plug
 
 ### Code Style
 
-Apache SeaTunnel uses `Spotless` for code style and formatting checks. You could run the following command and `Spotless` will automatically fix the code style and formatting errors for you:
+Apache SeaTunnel uses `Spotless` for code style and format checks. You can run the following command and `Spotless` will automatically fix the code style and formatting errors for you:
 
 ```shell
 ./mvnw spotless:apply
@@ -77,43 +77,51 @@ You could copy the `pre-commit hook` file `/tools/spotless_check/pre-commit.sh` 
 ## Run Simple Example
 
 After all the above things are done, you just finish the environment setup and can run an example we provide to you out
-of box. All examples are in module `seatunnel-examples`, you could pick one you are interested in, [running or debugging
-it in IDEA](https://www.jetbrains.com/help/idea/run-debug-configuration.html) as you wish.
+of box. All examples are in module `seatunnel-examples`, you could pick one you are interested in, [Running Or Debugging
+It In IDEA](https://www.jetbrains.com/help/idea/run-debug-configuration.html) as you wish.
 
-Here we use `seatunnel-examples/seatunnel-flink-connector-v2-example/src/main/java/org/apache/seatunnel/example/flink/v2/SeaTunnelApiExample.java`
-as an example, when you run it successfully you could see the output as below:
+Here we use `seatunnel-examples/seatunnel-engine-examples/src/main/java/org/apache/seatunnel/example/engine/SeaTunnelEngineExample.java`
+as an example, when you run it successfully you can see the output as below:
 
 ```log
-+I[Ricky Huo, 71]
-+I[Gary, 12]
-+I[Ricky Huo, 93]
-...
-...
-+I[Ricky Huo, 83]
+2024-08-10 11:45:32,839 INFO  org.apache.seatunnel.core.starter.seatunnel.command.ClientExecuteCommand - 
+***********************************************
+           Job Statistic Information
+***********************************************
+Start Time                : 2024-08-10 11:45:30
+End Time                  : 2024-08-10 11:45:32
+Total Time(s)             :                   2
+Total Read Count          :                   5
+Total Write Count         :                   5
+Total Failed Count        :                   0
+***********************************************
 ```
 
 ## What's More
 
 All our examples use simple source and sink to make it less dependent and easy to run. You can change the example configuration
-in `resources/examples`. You could change your configuration as below, if you want to use PostgreSQL as the source and
+in `resources/examples`. You can change your configuration as below, if you want to use PostgreSQL as the source and
 sink to console.
+Please note that when using connectors other than FakeSource and Console, you need to modify the dependencies in the `pom.xml` file of the corresponding submodule of seatunnel-example.
 
 ```conf
 env {
   parallelism = 1
+  job.mode = "BATCH"
 }
-
 source {
-  JdbcSource {
-    driver = org.postgresql.Driver
-    url = "jdbc:postgresql://host:port/database"
-    username = postgres
-    query = "select * from test"
-  }
+    Jdbc {
+        driver = org.postgresql.Driver
+        url = "jdbc:postgresql://host:port/database"
+        username = postgres
+        password = "123456"
+        query = "select * from test"
+        table_path = "database.test"
+    }
 }
 
 sink {
-  ConsoleSink {}
+  Console {}
 }
 ```
 

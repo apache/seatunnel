@@ -17,6 +17,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 ## Key Features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
 
 By default, we use 2PC commit to ensure `exactly-once`
 
@@ -60,6 +61,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 | parquet_avro_write_fixed_as_int96     | array   | no       | -                                          | Only used when file_format is parquet.                                                            |
 | enable_header_write                   | boolean | no       | false                                      | Only used when file_format_type is text,csv.<br/> false:don't write header,true:write header.     |
 | encoding                              | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                             |
+| schema_save_mode                      | string  | no       | CREATE_SCHEMA_WHEN_NOT_EXIST               | Existing dir processing method                                                                    |
+| data_save_mode                        | string  | no       | APPEND_DATA                                | Existing data processing method                                                                   |
 
 ### path [string]
 
@@ -166,7 +169,7 @@ Tips: excel type does not support any compression format
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.
 
 ### max_rows_in_memory [int]
 
@@ -204,6 +207,21 @@ Only used when file_format_type is text,csv.false:don't write header,true:write 
 
 Only used when file_format_type is json,text,csv,xml.
 The encoding of the file to write. This param will be parsed by `Charset.forName(encoding)`.
+
+### schema_save_mode [string]
+
+Existing dir processing method.
+- RECREATE_SCHEMA: will create when the dir does not exist, delete and recreate when the dir is exist
+- CREATE_SCHEMA_WHEN_NOT_EXIST: will create when the dir does not exist, skipped when the dir is exist
+- ERROR_WHEN_SCHEMA_NOT_EXIST: error will be reported when the dir does not exist
+- IGNORE ：Ignore the treatment of the table
+
+### data_save_mode [string]
+
+Existing data processing method.
+- DROP_DATA: preserve dir and delete data files
+- APPEND_DATA: preserve dir, preserve data files
+- ERROR_WHEN_DATA_EXISTS: when there is data files, an error is reported
 
 ## Example
 
@@ -278,6 +296,8 @@ LocalFile {
     file_format_type="excel"
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true
+    schema_save_mode=RECREATE_SCHEMA
+    data_save_mode=DROP_DATA
   }
 
 ```

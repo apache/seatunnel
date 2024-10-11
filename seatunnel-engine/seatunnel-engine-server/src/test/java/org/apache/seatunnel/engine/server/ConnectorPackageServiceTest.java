@@ -282,7 +282,9 @@ public class ConnectorPackageServiceTest {
 
         Data data = instance1.getSerializationService().toData(jobImmutableInformation);
 
-        coordinatorService.submitJob(jobId, data).join();
+        coordinatorService
+                .submitJob(jobId, data, jobImmutableInformation.isStartWithSavePoint())
+                .join();
 
         // waiting for job status turn to running
         await().atMost(20000, TimeUnit.MILLISECONDS)

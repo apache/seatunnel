@@ -54,16 +54,19 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.ServiceLoader;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 @Slf4j
+@SuppressWarnings("unchecked")
 public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
 
     private static final String PLUGIN_MAPPING_FILE = "plugin-mapping.properties";
@@ -430,17 +433,16 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         if (ArrayUtils.isEmpty(targetPluginFiles)) {
             return Optional.empty();
         }
-        if (targetPluginFiles.length > 1) {
-            throw new IllegalArgumentException(
-                    "Found multiple plugin jar: "
-                            + Arrays.stream(targetPluginFiles)
-                                    .map(File::getPath)
-                                    .collect(Collectors.joining(","))
-                            + " for pluginIdentifier: "
-                            + pluginIdentifier);
-        }
         try {
-            URL pluginJarPath = targetPluginFiles[0].toURI().toURL();
+            URL pluginJarPath;
+            if (targetPluginFiles.length == 1) {
+                pluginJarPath = targetPluginFiles[0].toURI().toURL();
+            } else {
+                pluginJarPath =
+                        findMostSimlarPluginJarFile(targetPluginFiles, pluginJarPrefix)
+                                .toURI()
+                                .toURL();
+            }
             log.info("Discovery plugin jar for: {} at: {}", pluginIdentifier, pluginJarPath);
             return Optional.of(pluginJarPath);
         } catch (MalformedURLException e) {
@@ -449,6 +451,107 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                     pluginIdentifier,
                     e);
             return Optional.empty();
+        }
+    }
+
+    private static File findMostSimlarPluginJarFile(
+            File[] targetPluginFiles, String pluginJarPrefix) {
+        String splitRegex = "\\-|\\_|\\.";
+        double maxSimlarity = -Integer.MAX_VALUE;
+        int mostSimlarPluginJarFileIndex = -1;
+        for (int i = 0; i < targetPluginFiles.length; i++) {
+            File file = targetPluginFiles[i];
+            String fileName = file.getName();
+            double similarity =
+                    CosineSimilarityUtil.cosineSimilarity(pluginJarPrefix, fileName, splitRegex);
+            if (similarity > maxSimlarity) {
+                maxSimlarity = similarity;
+                mostSimlarPluginJarFileIndex = i;
+            }
+        }
+        return targetPluginFiles[mostSimlarPluginJarFileIndex];
+    }
+
+    static class CosineSimilarityUtil {
+        public static double cosineSimilarity(String textA, String textB, String splitRegrex) {
+            Set<String> words1 =
+                    new HashSet<>(Arrays.asList(textA.toLowerCase().split(splitRegrex)));
+            Set<String> words2 =
+                    new HashSet<>(Arrays.asList(textB.toLowerCase().split(splitRegrex)));
+            int[] termFrequency1 = calculateTermFrequencyVector(textA, words1, splitRegrex);
+            int[] termFrequency2 = calculateTermFrequencyVector(textB, words2, splitRegrex);
+            return calculateCosineSimilarity(termFrequency1, termFrequency2);
+        }
+
+        private static int[] calculateTermFrequencyVector(
+                String text, Set<String> words, String splitRegrex) {
+            int[] termFrequencyVector = new int[words.size()];
+            String[] textArray = text.toLowerCase().split(splitRegrex);
+            List<String> orderedWords = new ArrayList<String>();
+            words.clear();
+            for (String word : textArray) {
+                if (!words.contains(word)) {
+                    orderedWords.add(word);
+                    words.add(word);
+                }
+            }
+            for (String word : textArray) {
+                if (words.contains(word)) {
+                    int index = 0;
+                    for (String w : orderedWords) {
+                        if (w.equals(word)) {
+                            termFrequencyVector[index]++;
+                            break;
+                        }
+                        index++;
+                    }
+                }
+            }
+            return termFrequencyVector;
+        }
+
+        private static double calculateCosineSimilarity(int[] vectorA, int[] vectorB) {
+            double dotProduct = 0.0;
+            double magnitudeA = 0.0;
+            double magnitudeB = 0.0;
+            int vectorALength = vectorA.length;
+            int vectorBLength = vectorB.length;
+            if (vectorALength < vectorBLength) {
+                int[] vectorTemp = new int[vectorBLength];
+                for (int i = 0; i < vectorB.length; i++) {
+                    if (i <= vectorALength - 1) {
+                        vectorTemp[i] = vectorA[i];
+                    } else {
+                        vectorTemp[i] = 0;
+                    }
+                }
+                vectorA = vectorTemp;
+            }
+            if (vectorALength > vectorBLength) {
+                int[] vectorTemp = new int[vectorALength];
+                for (int i = 0; i < vectorA.length; i++) {
+                    if (i <= vectorBLength - 1) {
+                        vectorTemp[i] = vectorB[i];
+                    } else {
+                        vectorTemp[i] = 0;
+                    }
+                }
+                vectorB = vectorTemp;
+            }
+            for (int i = 0; i < vectorA.length; i++) {
+                dotProduct += vectorA[i] * vectorB[i];
+                magnitudeA += Math.pow(vectorA[i], 2);
+                magnitudeB += Math.pow(vectorB[i], 2);
+            }
+
+            magnitudeA = Math.sqrt(magnitudeA);
+            magnitudeB = Math.sqrt(magnitudeB);
+
+            if (magnitudeA == 0 || magnitudeB == 0) {
+                return 0.0; // Avoid dividing by 0
+            } else {
+                return dotProduct / (magnitudeA * magnitudeB);
+            }
         }
     }
 }

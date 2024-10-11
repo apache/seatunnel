@@ -334,9 +334,9 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
     }
 
     private void assertHasData(String table) {
-        try (Statement statement = jdbcConnection.createStatement()) {
-            String sql = String.format("select * from %s.%s limit 1", DATABASE, table);
-            ResultSet source = statement.executeQuery(sql);
+        String sql = String.format("select * from %s.%s limit 1", DATABASE, table);
+        try (Statement statement = jdbcConnection.createStatement();
+                ResultSet source = statement.executeQuery(sql)) {
             Assertions.assertTrue(source.next());
         } catch (Exception e) {
             throw new RuntimeException("test starrocks server image error", e);
@@ -361,7 +361,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                         "root",
                         PASSWORD,
                         String.format(URL, starRocksServer.getHost()),
-                        "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (\n ${rowtype_fields}\n ) ENGINE=OLAP \n  DUPLICATE KEY(`BIGINT_COL`) \n  DISTRIBUTED BY HASH (BIGINT_COL) BUCKETS 1 \n PROPERTIES (\n   \"replication_num\" = \"1\", \n  \"in_memory\" = \"false\" , \n  \"storage_format\" = \"DEFAULT\"  \n )");
+                        "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (\n ${rowtype_fields}\n ) ENGINE=OLAP \n  DUPLICATE KEY(`BIGINT_COL`) \n  DISTRIBUTED BY HASH (BIGINT_COL) BUCKETS 1 \n PROPERTIES (\n   \"replication_num\" = \"1\", \n  \"in_memory\" = \"false\" , \n  \"storage_format\" = \"DEFAULT\"  \n )");
         starRocksCatalog.open();
         CatalogTable catalogTable = starRocksCatalog.getTable(tablePathStarRocksSource);
         // sink tableExists ?

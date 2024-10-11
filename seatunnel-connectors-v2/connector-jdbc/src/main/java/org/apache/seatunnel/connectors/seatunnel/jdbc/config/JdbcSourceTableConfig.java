@@ -58,6 +58,12 @@ public class JdbcSourceTableConfig implements Serializable {
     @JsonProperty("partition_upper_bound")
     private BigDecimal partitionEnd;
 
+    @JsonProperty("use_select_count")
+    private Boolean useSelectCount;
+
+    @JsonProperty("skip_analyze")
+    private Boolean skipAnalyze;
+
     @Tolerate
     public JdbcSourceTableConfig() {}
 
@@ -88,11 +94,16 @@ public class JdbcSourceTableConfig implements Serializable {
                     if (tableConfig.getPartitionNumber() == null) {
                         tableConfig.setPartitionNumber(DEFAULT_PARTITION_NUMBER);
                     }
+                    tableConfig.setUseSelectCount(
+                            connectorConfig.get(JdbcSourceOptions.USE_SELECT_COUNT));
+                    tableConfig.setSkipAnalyze(connectorConfig.get(JdbcSourceOptions.SKIP_ANALYZE));
                 });
 
         if (tableList.size() > 1) {
             List<String> tableIds =
-                    tableList.stream().map(e -> e.getTablePath()).collect(Collectors.toList());
+                    tableList.stream()
+                            .map(JdbcSourceTableConfig::getTablePath)
+                            .collect(Collectors.toList());
             Set<String> tableIdSet = new HashSet<>(tableIds);
             if (tableIdSet.size() < tableList.size() - 1) {
                 throw new IllegalArgumentException(

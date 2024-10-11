@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.hive;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.inceptor.InceptorDialect;
 
 import com.google.auto.service.AutoService;
 
@@ -33,6 +34,15 @@ public class HiveDialectFactory implements JdbcDialectFactory {
 
     @Override
     public JdbcDialect create() {
+        throw new UnsupportedOperationException(
+                "Can't create JdbcDialect without compatible mode for Hive");
+    }
+
+    @Override
+    public JdbcDialect create(String compatibleMode, String fieldId) {
+        if ("inceptor".equals(compatibleMode)) {
+            return new InceptorDialect();
+        }
         return new HiveDialect();
     }
 }

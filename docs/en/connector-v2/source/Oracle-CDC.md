@@ -91,6 +91,8 @@ GRANT SELECT ON V_$ARCHIVED_LOG TO logminer_user;
 GRANT SELECT ON V_$ARCHIVE_DEST_STATUS TO logminer_user;
 GRANT EXECUTE ON DBMS_LOGMNR TO logminer_user;
 GRANT EXECUTE ON DBMS_LOGMNR_D TO logminer_user;
+GRANT SELECT ANY TRANSACTION TO logminer_user;
+GRANT SELECT ON V_$TRANSACTION TO logminer_user;
 ```
 
 ##### Oracle 11g is not supported
@@ -244,9 +246,11 @@ exit;
 | sample-sharding.threshold                      | Integer  | No       | 1000    | This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.                                                                                   |
 | inverse-sampling.rate                          | Integer  | No       | 1000    | The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.                                                                                                                                                              |
 | exactly_once                                   | Boolean  | No       | false   | Enable exactly once semantic.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| use_select_count                               | Boolean  | No       | false   | Use select count for table count rather then other methods in full stage.In this scenario, select count directly is used when it is faster to update statistics using sql from analysis table                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| skip_analyze                                   | Boolean  | No       | false   | Skip the analysis of table count in full stage.In this scenario, you schedule analysis table sql to update related table statistics periodically or your table data does not change frequently                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | format                                         | Enum     | No       | DEFAULT | Optional output format for Oracle CDC, valid enumerations are `DEFAULT`、`COMPATIBLE_DEBEZIUM_JSON`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | debezium                                       | Config   | No       | -       | Pass-through [Debezium's properties](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/oracle.adoc#connector-properties) to Debezium Embedded Engine which is used to capture data changes from Oracle server.                                                                                                                                                                                                                                                                                                                                                      |
-| common-options                                 |          | no       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| common-options                                 |          | no       | -       | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 ## Task Example
 
@@ -269,6 +273,44 @@ source {
   }
 }
 ```
+
+> Use the select count(*) instead of analysis table for count table rows in full stage
+>
+> ```conf
+> source {
+> # This is a example source plugin **only for test and demonstrate the feature source plugin**
+> Oracle-CDC {
+> result_table_name = "customers"
+> use_select_count = true 
+> username = "system"
+> password = "oracle"
+> database-names = ["XE"]
+> schema-names = ["DEBEZIUM"]
+> table-names = ["XE.DEBEZIUM.FULL_TYPES"]
+> base-url = "jdbc:oracle:thin:system/oracle@oracle-host:1521:xe"
+> source.reader.close.timeout = 120000
+> }
+> }
+> ```
+>
+> Use the select NUM_ROWS from all_tables for the table rows but skip the analyze table.
+>
+> ```conf
+> source {
+> # This is a example source plugin **only for test and demonstrate the feature source plugin**
+> Oracle-CDC {
+> result_table_name = "customers"
+> skip_analyze = true 
+> username = "system"
+> password = "oracle"
+> database-names = ["XE"]
+> schema-names = ["DEBEZIUM"]
+> table-names = ["XE.DEBEZIUM.FULL_TYPES"]
+> base-url = "jdbc:oracle:thin:system/oracle@oracle-host:1521:xe"
+> source.reader.close.timeout = 120000
+> }
+> }
+> ```
 
 ### Support custom primary key for table
 

@@ -37,6 +37,7 @@ header:
     - '**/*.iml'
     - '**/*.ini'
     - '**/*.svg'
+    - '**/*.txt'
     - '**/.gitignore'
     - '**/LICENSE'
     - '**/NOTICE'
@@ -50,5 +51,6 @@ header:
     - 'seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/protocol/task/AbstractSeaTunnelMessageTask.java'
     - 'seatunnel-engine/seatunnel-engine-common/src/main/java/org/apache/seatunnel/engine/common/utils/PassiveCompletableFuture.java'
     - 'seatunnel-connectors-v2/connector-cdc/connector-cdc-postgres/src/main/java/io/debezium/connector/postgresql/connection/PostgresReplicationConnection.java'
+    - 'seatunnel-shade/seatunnel-hazelcast/seatunnel-hazelcast-shade/src/main/java/com/hazelcast/**'
 
   comment: on-failure

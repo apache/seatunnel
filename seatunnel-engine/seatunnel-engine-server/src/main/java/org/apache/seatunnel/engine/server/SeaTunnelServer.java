@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
@@ -28,6 +29,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
+import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolStatus;
 
 import org.apache.hadoop.fs.FileSystem;
 
@@ -68,12 +70,15 @@ public class SeaTunnelServer
     private ClassLoaderService classLoaderService;
     private CoordinatorService coordinatorService;
     private ScheduledExecutorService monitorService;
+    private JettyService jettyService;
 
     @Getter private SeaTunnelHealthMonitor seaTunnelHealthMonitor;
 
     private final SeaTunnelConfig seaTunnelConfig;
 
     private volatile boolean isRunning = true;
+
+    @Getter private EventService eventService;
 
     public SeaTunnelServer(@NonNull SeaTunnelConfig seaTunnelConfig) {
         this.liveOperationRegistry = new LiveOperationRegistry();
@@ -83,6 +88,12 @@ public class SeaTunnelServer
 
     /** Lazy load for Slot Service */
     public SlotService getSlotService() {
+        // If the node is master node, the slot service is not needed.
+        if (EngineConfig.ClusterRole.MASTER.ordinal()
+                == seaTunnelConfig.getEngineConfig().getClusterRole().ordinal()) {
+            return null;
+        }
+
         if (slotService == null) {
             synchronized (this) {
                 if (slotService == null) {
@@ -104,15 +115,39 @@ public class SeaTunnelServer
         this.nodeEngine = (NodeEngineImpl) engine;
         // TODO Determine whether to execute there method on the master node according to the deploy
         // type
+
         classLoaderService =
                 new DefaultClassLoaderService(
                         seaTunnelConfig.getEngineConfig().isClassloaderCacheMode());
-        taskExecutionService =
-                new TaskExecutionService(
-                        classLoaderService, nodeEngine, nodeEngine.getProperties());
-        nodeEngine.getMetricsRegistry().registerDynamicMetricsProvider(taskExecutionService);
-        taskExecutionService.start();
-        getSlotService();
+
+        eventService = new EventService(nodeEngine);
+
+        if (EngineConfig.ClusterRole.MASTER_AND_WORKER.ordinal()
+                == seaTunnelConfig.getEngineConfig().getClusterRole().ordinal()) {
+            startWorker();
+            startMaster();
+
+        } else if (EngineConfig.ClusterRole.WORKER.ordinal()
+                == seaTunnelConfig.getEngineConfig().getClusterRole().ordinal()) {
+            startWorker();
+        } else {
+            startMaster();
+        }
+
+        seaTunnelHealthMonitor = new SeaTunnelHealthMonitor(((NodeEngineImpl) engine).getNode());
+
+        // Start Jetty server
+        if (seaTunnelConfig.getEngineConfig().getHttpConfig().isEnabled()) {
+            jettyService = new JettyService(nodeEngine, seaTunnelConfig);
+            jettyService.createJettyServer();
+        }
+
+        // a trick way to fix StatisticsDataReferenceCleaner thread class loader leak.
+        // see https://issues.apache.org/jira/browse/HADOOP-19049
+        FileSystem.Statistics statistics = new FileSystem.Statistics("SeaTunnel");
+    }
+
+    private void startMaster() {
         coordinatorService =
                 new CoordinatorService(nodeEngine, this, seaTunnelConfig.getEngineConfig());
         monitorService = Executors.newSingleThreadScheduledExecutor();
@@ -121,12 +156,14 @@ public class SeaTunnelServer
                 0,
                 seaTunnelConfig.getEngineConfig().getPrintExecutionInfoInterval(),
                 TimeUnit.SECONDS);
+    }
 
-        seaTunnelHealthMonitor = new SeaTunnelHealthMonitor(((NodeEngineImpl) engine).getNode());
-
-        // a trick way to fix StatisticsDataReferenceCleaner thread class loader leak.
-        // see https://issues.apache.org/jira/browse/HADOOP-19049
-        FileSystem.Statistics statistics = new FileSystem.Statistics("SeaTunnel");
+    private void startWorker() {
+        taskExecutionService =
+                new TaskExecutionService(classLoaderService, nodeEngine, eventService);
+        nodeEngine.getMetricsRegistry().registerDynamicMetricsProvider(taskExecutionService);
+        taskExecutionService.start();
+        getSlotService();
     }
 
     @Override
@@ -135,6 +172,10 @@ public class SeaTunnelServer
     @Override
     public void shutdown(boolean terminate) {
         isRunning = false;
+
+        if (jettyService != null) {
+            jettyService.shutdownJettyServer();
+        }
         if (taskExecutionService != null) {
             taskExecutionService.shutdown();
         }
@@ -149,6 +190,10 @@ public class SeaTunnelServer
         }
         if (coordinatorService != null) {
             coordinatorService.shutdown();
+        }
+
+        if (eventService != null) {
+            eventService.shutdownNow();
         }
     }
 
@@ -290,5 +335,9 @@ public class SeaTunnelServer
 
     public ConnectorPackageService getConnectorPackageService() {
         return getCoordinatorService().getConnectorPackageService();
+    }
+
+    public ThreadPoolStatus getThreadPoolStatusMetrics() {
+        return coordinatorService.getThreadPoolStatusMetrics();
     }
 }

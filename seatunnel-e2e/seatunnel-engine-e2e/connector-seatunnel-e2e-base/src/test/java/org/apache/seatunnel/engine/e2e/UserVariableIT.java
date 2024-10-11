@@ -34,7 +34,7 @@ public class UserVariableIT extends TestSuiteBase {
     public void userVariableTest(TestContainer container) throws IOException, InterruptedException {
         List<String> variables = new ArrayList<>();
         String list = "[abc,def]";
-        variables.add("resName=fake");
+        variables.add("resName=a$(date +\"%Y%m%d\")");
         variables.add("rowNum=10");
         variables.add("strTemplate=" + list);
         variables.add("nameType=string");
@@ -42,6 +42,21 @@ public class UserVariableIT extends TestSuiteBase {
         variables.add("sourceTableName=sql");
         Container.ExecResult execResult =
                 container.executeJob("/fake_to_console.variables.conf", variables);
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void userVariableWithDefaultValueTest(TestContainer container)
+            throws IOException, InterruptedException {
+        List<String> variables = new ArrayList<>();
+        String list = "[abc,def]";
+        variables.add("strTemplate=" + list);
+        variables.add("ageType=int");
+        variables.add("nameVal=abc");
+        variables.add("sourceTableName=sql");
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/fake_to_console_with_default_value.variables.conf", variables);
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 }

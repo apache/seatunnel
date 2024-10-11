@@ -20,6 +20,7 @@ package org.apache.seatunnel.translation.spark.source.partition.batch;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 import org.apache.seatunnel.translation.spark.source.reader.SeaTunnelInputPartitionReader;
 import org.apache.seatunnel.translation.spark.source.reader.batch.CoordinatedBatchPartitionReader;
 import org.apache.seatunnel.translation.spark.source.reader.batch.ParallelBatchPartitionReader;
@@ -37,17 +38,21 @@ public class BatchPartition implements InputPartition<InternalRow> {
     protected final Integer subtaskId;
     private Map<String, String> envOptions;
 
+    private final MultiTableManager multiTableManager;
+
     public BatchPartition(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
             Integer parallelism,
             String jobId,
             Integer subtaskId,
-            Map<String, String> envOptions) {
+            Map<String, String> envOptions,
+            MultiTableManager multiTableManager) {
         this.source = source;
         this.parallelism = parallelism;
         this.jobId = jobId;
         this.subtaskId = subtaskId;
         this.envOptions = envOptions;
+        this.multiTableManager = multiTableManager;
     }
 
     @Override
@@ -56,11 +61,11 @@ public class BatchPartition implements InputPartition<InternalRow> {
         if (source instanceof SupportCoordinate) {
             partitionReader =
                     new CoordinatedBatchPartitionReader(
-                            source, parallelism, jobId, subtaskId, envOptions);
+                            source, parallelism, jobId, subtaskId, envOptions, multiTableManager);
         } else {
             partitionReader =
                     new ParallelBatchPartitionReader(
-                            source, parallelism, jobId, subtaskId, envOptions);
+                            source, parallelism, jobId, subtaskId, envOptions, multiTableManager);
         }
         return new SeaTunnelInputPartitionReader(partitionReader);
     }

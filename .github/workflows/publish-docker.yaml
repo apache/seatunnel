@@ -18,16 +18,15 @@ name: publish-docker
 
 on:
   push:
-    branches:
-      - dev
-      - docker
+    tags:
+      - '*'
     paths-ignore:
       - 'docs/**'
       - '**/*.md'
-      - 'seatunnel-ui/**'
 
 env:
-  HUB: ghcr.io/${{ github.repository }}
+  DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USER }}
+  DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
 jobs:
   build:
@@ -36,11 +35,16 @@ jobs:
     permissions:
       contents: read
       packages: write
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
+      - uses: actions/checkout@v4
       - name: Cache local Maven repository
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
@@ -51,26 +55,28 @@ jobs:
         with:
           java-version:  8
           distribution: 'adopt'
+
       - name: Log in to the Container registry
-        uses: docker/login-action@v1.10.0
+        uses: docker/login-action@v3
         with:
-          registry: ${{ env.HUB }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ env.DOCKER_PASSWORD }}
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v3
       - name: Build and push docker images
         env:
-          MAVEN_OPTS: -Xmx2G -Xms2G
+          MAVEN_OPTS: -Xmx4096m
         run: |
-          ./mvnw -B clean deploy \
-          -Dmaven.test.skip \
-          -Dmaven.javadoc.skip \
+          ./mvnw -B clean install \
+          -Dmaven.test.skip=true \
+          -Dmaven.javadoc.skip=true \
           -Dlicense.skipAddThirdParty=true \
+          -D"docker.build.skip"=false \
+          -D"docker.verify.skip"=false \
+          -D"docker.push.skip"=false \
+          -D"skip.spotless"=true \
           -Dmaven.deploy.skip \
-          -Ddocker.tag=${{ github.sha }} \
-          -Ddocker.hub=${{ env.HUB }} \
-          -Pdocker \
-          --no-snapshot-updates
+          --no-snapshot-updates \
+          -Pdocker,seatunnel

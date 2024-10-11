@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
-import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
@@ -41,7 +40,7 @@ import java.sql.SQLException;
 @Slf4j
 public class SqlServerCatalog extends AbstractJdbcCatalog {
 
-    private static final String SELECT_COLUMNS_SQL_TEMPLATE =
+    public static final String SELECT_COLUMNS_SQL_TEMPLATE =
             "SELECT tbl.name AS table_name,\n"
                     + "       col.name AS column_name,\n"
                     + "       ext.value AS comment,\n"
@@ -54,7 +53,7 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
                     + "       def.definition AS default_value\n"
                     + "FROM sys.tables tbl\n"
                     + "    INNER JOIN sys.columns col ON tbl.object_id = col.object_id\n"
-                    + "    LEFT JOIN sys.types types ON col.user_type_id = types.user_type_id\n"
+                    + "    LEFT JOIN sys.types types ON col.system_type_id = types.user_type_id\n"
                     + "    LEFT JOIN sys.extended_properties ext ON ext.major_id = col.object_id AND ext.minor_id = col.column_id\n"
                     + "    LEFT JOIN sys.default_constraints def ON col.default_object_id = def.object_id AND ext.minor_id = col.column_id AND ext.name = 'MS_Description'\n"
                     + "WHERE schema_name(tbl.schema_id) = '%s' %s\n"
@@ -67,6 +66,20 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
             JdbcUrlUtil.UrlInfo urlInfo,
             String defaultSchema) {
         super(catalogName, username, pwd, urlInfo, defaultSchema);
+    }
+
+    @Override
+    protected String getDatabaseWithConditionSql(String databaseName) {
+        return String.format(getListDatabaseSql() + "  where name = '%s'", databaseName);
+    }
+
+    @Override
+    protected String getTableWithConditionSql(TablePath tablePath) {
+        return String.format(
+                getListTableSql(tablePath.getDatabaseName())
+                        + "  and  TABLE_SCHEMA = '%s' and TABLE_NAME = '%s'",
+                tablePath.getSchemaName(),
+                tablePath.getTableName());
     }
 
     @Override
@@ -117,8 +130,10 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
-        return SqlServerCreateTableSqlBuilder.builder(tablePath, table).build(tablePath, table);
+    protected String getCreateTableSql(
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
+        return SqlServerCreateTableSqlBuilder.builder(tablePath, table, createIndex)
+                .build(tablePath, table);
     }
 
     @Override
@@ -145,20 +160,6 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getUrlFromDatabaseName(String databaseName) {
         return baseUrl + ";databaseName=" + databaseName + ";" + suffix;
-    }
-
-    @Override
-    public boolean tableExists(TablePath tablePath) throws CatalogException {
-        try {
-            if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
-                return databaseExists(tablePath.getDatabaseName())
-                        && listTables(tablePath.getDatabaseName())
-                                .contains(tablePath.getSchemaAndTableName());
-            }
-            return listTables(defaultDatabase).contains(tablePath.getSchemaAndTableName());
-        } catch (DatabaseNotExistException e) {
-            return false;
-        }
     }
 
     @Override

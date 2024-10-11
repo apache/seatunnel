@@ -23,18 +23,21 @@ import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.FactoryException;
+import org.apache.seatunnel.api.table.factory.FactoryUtil;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
@@ -44,14 +47,16 @@ import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginD
 import com.google.common.collect.Lists;
 
 import java.net.URL;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.DEFAULT_ID;
-import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 
 /** The util used for Spark/Flink to create to SeaTunnelSource etc. */
+@SuppressWarnings("rawtypes")
 public class PluginUtil {
 
     protected static final String ENGINE_TYPE = "seatunnel";
@@ -97,11 +102,6 @@ public class PluginUtil {
             catalogTables =
                     CatalogTableUtil.convertDataTypeToCatalogTables(seaTunnelDataType, tableId);
         }
-
-        if (catalogTables.size() != 1) {
-            throw new SeaTunnelException(
-                    String.format("Unsupported table number: %d on flink", catalogTables.size()));
-        }
         return new SourceTableInfo(source, catalogTables);
     }
 
@@ -130,21 +130,21 @@ public class PluginUtil {
         return source;
     }
 
-    public static TableTransformFactory createTransformFactory(
+    public static Optional<? extends Factory> createTransformFactory(
+            SeaTunnelFactoryDiscovery factoryDiscovery,
             SeaTunnelTransformPluginDiscovery transformPluginDiscovery,
             Config transformConfig,
             List<URL> pluginJars) {
         PluginIdentifier pluginIdentifier =
                 PluginIdentifier.of(
                         ENGINE_TYPE, "transform", transformConfig.getString(PLUGIN_NAME.key()));
-        final ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(transformConfig);
-        final String factoryId = readonlyConfig.get(PLUGIN_NAME);
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        final TableTransformFactory factory =
-                discoverFactory(classLoader, TableTransformFactory.class, factoryId);
         pluginJars.addAll(
                 transformPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
-        return factory;
+        try {
+            return factoryDiscovery.createOptionalPluginInstance(pluginIdentifier);
+        } catch (FactoryException e) {
+            return Optional.empty();
+        }
     }
 
     public static Optional<? extends Factory> createSinkFactory(
@@ -161,6 +161,87 @@ public class PluginUtil {
         } catch (FactoryException e) {
             return Optional.empty();
         }
+    }
+
+    public static SeaTunnelSink createSink(
+            Optional<? extends Factory> factory,
+            Config sinkConfig,
+            SeaTunnelSinkPluginDiscovery sinkPluginDiscovery,
+            JobContext jobContext,
+            List<CatalogTable> catalogTables,
+            ClassLoader classLoader) {
+        boolean fallBack = !factory.isPresent() || isFallback(factory.get());
+        if (fallBack) {
+            SeaTunnelSink sink =
+                    fallbackCreateSink(
+                            sinkPluginDiscovery,
+                            PluginIdentifier.of(
+                                    ENGINE_TYPE,
+                                    PluginType.SINK.getType(),
+                                    sinkConfig.getString(PLUGIN_NAME.key())),
+                            sinkConfig);
+            sink.setJobContext(jobContext);
+            sink.setTypeInfo(catalogTables.get(0).getSeaTunnelRowType());
+            return sink;
+        } else {
+            if (catalogTables.size() > 1) {
+                Map<String, SeaTunnelSink> sinks = new HashMap<>();
+                ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(sinkConfig);
+                catalogTables.forEach(
+                        catalogTable -> {
+                            TableSinkFactoryContext context =
+                                    TableSinkFactoryContext.replacePlaceholderAndCreate(
+                                            catalogTable,
+                                            ReadonlyConfig.fromConfig(sinkConfig),
+                                            classLoader,
+                                            ((TableSinkFactory) factory.get())
+                                                    .excludeTablePlaceholderReplaceKeys());
+                            ConfigValidator.of(context.getOptions())
+                                    .validate(factory.get().optionRule());
+                            SeaTunnelSink action =
+                                    ((TableSinkFactory) factory.get())
+                                            .createSink(context)
+                                            .createSink();
+                            action.setJobContext(jobContext);
+                            sinks.put(catalogTable.getTablePath().toString(), action);
+                        });
+                return FactoryUtil.createMultiTableSink(sinks, readonlyConfig, classLoader);
+            }
+            TableSinkFactoryContext context =
+                    TableSinkFactoryContext.replacePlaceholderAndCreate(
+                            catalogTables.get(0),
+                            ReadonlyConfig.fromConfig(sinkConfig),
+                            classLoader,
+                            ((TableSinkFactory) factory.get())
+                                    .excludeTablePlaceholderReplaceKeys());
+            ConfigValidator.of(context.getOptions()).validate(factory.get().optionRule());
+            SeaTunnelSink sink =
+                    ((TableSinkFactory) factory.get()).createSink(context).createSink();
+            sink.setJobContext(jobContext);
+            return sink;
+        }
+    }
+
+    public static boolean isFallback(Factory factory) {
+        try {
+            ((TableSinkFactory) factory).createSink(null);
+        } catch (Exception e) {
+            if (e instanceof UnsupportedOperationException
+                    && "The Factory has not been implemented and the deprecated Plugin will be used."
+                            .equals(e.getMessage())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static SeaTunnelSink fallbackCreateSink(
+            SeaTunnelSinkPluginDiscovery sinkPluginDiscovery,
+            PluginIdentifier pluginIdentifier,
+            Config pluginConfig) {
+        SeaTunnelSink source = sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
+        source.prepare(pluginConfig);
+        return source;
     }
 
     public static void ensureJobModeMatch(JobContext jobContext, SeaTunnelSource source) {

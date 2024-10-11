@@ -38,6 +38,10 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
     private static final String DRIVER_CLASS_NAME = "oracle.jdbc.driver.OracleDriver";
 
     private List<String> schemaList;
+
+    private Boolean useSelectCount;
+
+    private Boolean skipAnalyze;
     /**
      * An optional list of regular expressions that match schema names to be monitored; any schema
      * name not included in the whitelist will be excluded from monitoring. By default all
@@ -45,6 +49,16 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
      */
     public JdbcSourceConfigFactory schemaList(List<String> schemaList) {
         this.schemaList = schemaList;
+        return this;
+    }
+
+    public JdbcSourceConfigFactory useSelectCount(Boolean useSelectCount) {
+        this.useSelectCount = useSelectCount;
+        return this;
+    }
+
+    public JdbcSourceConfigFactory skipAnalyze(Boolean skipAnalyze) {
+        this.skipAnalyze = skipAnalyze;
         return this;
     }
 
@@ -123,6 +137,8 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
         }
 
         return new OracleSourceConfig(
+                useSelectCount,
+                skipAnalyze,
                 startupConfig,
                 stopConfig,
                 databaseList,

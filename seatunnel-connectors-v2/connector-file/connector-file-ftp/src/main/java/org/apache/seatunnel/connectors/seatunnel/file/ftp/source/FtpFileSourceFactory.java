@@ -19,9 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.file.ftp.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
@@ -29,6 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConfigOption
 
 import com.google.auto.service.AutoService;
 
+import java.io.Serializable;
 import java.util.Arrays;
 
 @AutoService(Factory.class)
@@ -39,14 +43,20 @@ public class FtpFileSourceFactory implements TableSourceFactory {
     }
 
     @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new FtpFileSource(context.getOptions());
+    }
+
+    @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(FtpConfigOptions.FILE_PATH)
-                .required(FtpConfigOptions.FTP_HOST)
-                .required(FtpConfigOptions.FTP_PORT)
-                .required(FtpConfigOptions.FTP_USERNAME)
-                .required(FtpConfigOptions.FTP_PASSWORD)
-                .required(FtpConfigOptions.FILE_FORMAT_TYPE)
+                .optional(FtpConfigOptions.FILE_PATH)
+                .optional(FtpConfigOptions.FTP_HOST)
+                .optional(FtpConfigOptions.FTP_PORT)
+                .optional(FtpConfigOptions.FTP_USERNAME)
+                .optional(FtpConfigOptions.FTP_PASSWORD)
+                .optional(FtpConfigOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         BaseSourceConfigOptions.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
@@ -72,6 +82,7 @@ public class FtpFileSourceFactory implements TableSourceFactory {
                 .optional(BaseSourceConfigOptions.FILE_FILTER_PATTERN)
                 .optional(BaseSourceConfigOptions.COMPRESS_CODEC)
                 .optional(FtpConfigOptions.FTP_CONNECTION_MODE)
+                .optional(BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC)
                 .build();
     }
 

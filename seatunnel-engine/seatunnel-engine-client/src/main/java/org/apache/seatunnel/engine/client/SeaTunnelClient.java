@@ -170,25 +170,24 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
     public Map<String, String> getClusterHealthMetrics() {
         Set<Member> members = hazelcastClient.getHazelcastInstance().getCluster().getMembers();
         Map<String, String> healthMetricsMap = new HashMap<>();
-        members.stream()
-                .forEach(
-                        member -> {
-                            String metrics =
-                                    hazelcastClient.requestAndDecodeResponse(
-                                            member.getUuid(),
-                                            SeaTunnelGetClusterHealthMetricsCodec.encodeRequest(),
-                                            SeaTunnelGetClusterHealthMetricsCodec::decodeResponse);
-                            String[] split = metrics.split(",");
-                            Map<String, String> kvMap = new LinkedHashMap<>();
-                            Arrays.stream(split)
-                                    .forEach(
-                                            kv -> {
-                                                String[] kvArr = kv.split("=");
-                                                kvMap.put(kvArr[0], kvArr[1]);
-                                            });
-                            healthMetricsMap.put(
-                                    member.getAddress().toString(), JsonUtils.toJsonString(kvMap));
-                        });
+        members.forEach(
+                member -> {
+                    String metrics =
+                            hazelcastClient.requestAndDecodeResponse(
+                                    member.getUuid(),
+                                    SeaTunnelGetClusterHealthMetricsCodec.encodeRequest(),
+                                    SeaTunnelGetClusterHealthMetricsCodec::decodeResponse);
+                    String[] split = metrics.split(",");
+                    Map<String, String> kvMap = new LinkedHashMap<>();
+                    Arrays.stream(split)
+                            .forEach(
+                                    kv -> {
+                                        String[] kvArr = kv.split("=");
+                                        kvMap.put(kvArr[0], kvArr[1]);
+                                    });
+                    healthMetricsMap.put(
+                            member.getAddress().toString(), JsonUtils.toJsonString(kvMap));
+                });
 
         return healthMetricsMap;
     }

@@ -56,7 +56,7 @@ Max queue size before flushing events/envelopes to the disk
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
 
 ## Example
 

@@ -17,15 +17,16 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
+import org.apache.commons.lang3.StringUtils;
+
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import lombok.NonNull;
 
 import java.io.Serializable;
 
 @Getter
 @EqualsAndHashCode
-@RequiredArgsConstructor
 public final class TableIdentifier implements Serializable {
     private static final long serialVersionUID = 1L;
 
@@ -35,7 +36,18 @@ public final class TableIdentifier implements Serializable {
 
     private final String schemaName;
 
-    private final String tableName;
+    @NonNull private final String tableName;
+
+    public TableIdentifier(
+            String catalogName, String databaseName, String schemaName, @NonNull String tableName) {
+        this.catalogName = catalogName;
+        this.databaseName = databaseName;
+        this.schemaName = schemaName;
+        this.tableName = tableName;
+        if (StringUtils.isEmpty(tableName)) {
+            throw new IllegalArgumentException("tableName cannot be empty");
+        }
+    }
 
     public static TableIdentifier of(String catalogName, String databaseName, String tableName) {
         return new TableIdentifier(catalogName, databaseName, null, tableName);

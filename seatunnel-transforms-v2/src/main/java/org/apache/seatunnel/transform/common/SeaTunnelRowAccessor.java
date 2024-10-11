@@ -41,4 +41,8 @@ public class SeaTunnelRowAccessor {
     public Object getField(int pos) {
         return row.getField(pos);
     }
+
+    public Object[] getFields() {
+        return row.getFields();
+    }
 }

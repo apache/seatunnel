@@ -24,29 +24,29 @@ import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundExce
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
+import org.apache.seatunnel.engine.server.task.operation.TracingOperation;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
-import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 
-public class RequestSplitOperation extends Operation implements IdentifiedDataSerializable {
+public class RequestSplitOperation extends TracingOperation implements IdentifiedDataSerializable {
 
     private TaskLocation enumeratorTaskID;
 
-    private TaskLocation taskID;
+    private TaskLocation taskLocation;
 
     public RequestSplitOperation() {}
 
-    public RequestSplitOperation(TaskLocation taskID, TaskLocation enumeratorTaskID) {
+    public RequestSplitOperation(TaskLocation taskLocation, TaskLocation enumeratorTaskID) {
         this.enumeratorTaskID = enumeratorTaskID;
-        this.taskID = taskID;
+        this.taskLocation = taskLocation;
     }
 
     @Override
-    public void run() throws Exception {
+    public void runInternal() throws Exception {
         SeaTunnelServer server = getService();
 
         RetryUtils.retryWithException(
@@ -54,12 +54,12 @@ public class RequestSplitOperation extends Operation implements IdentifiedDataSe
                     ClassLoader classLoader =
                             server.getTaskExecutionService()
                                     .getExecutionContext(enumeratorTaskID.getTaskGroupLocation())
-                                    .getClassLoader();
+                                    .getClassLoader(taskLocation.getTaskID());
                     ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
                     Thread.currentThread().setContextClassLoader(classLoader);
                     SourceSplitEnumeratorTask<?> task =
                             server.getTaskExecutionService().getTask(enumeratorTaskID);
-                    task.requestSplit(taskID.getTaskIndex());
+                    task.requestSplit(taskLocation.getTaskIndex());
                     Thread.currentThread().setContextClassLoader(oldClassLoader);
                     return null;
                 },
@@ -81,14 +81,14 @@ public class RequestSplitOperation extends Operation implements IdentifiedDataSe
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        out.writeObject(taskID);
+        out.writeObject(taskLocation);
         out.writeObject(enumeratorTaskID);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        taskID = in.readObject();
+        taskLocation = in.readObject();
         enumeratorTaskID = in.readObject();
     }
 

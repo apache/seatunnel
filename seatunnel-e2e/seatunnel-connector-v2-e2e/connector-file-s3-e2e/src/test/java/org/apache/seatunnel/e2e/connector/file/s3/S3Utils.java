@@ -81,18 +81,4 @@ public class S3Utils {
             s3Client.shutdown();
         }
     }
-
-    public static void main(String[] args) {
-        S3Utils s3Utils = new S3Utils();
-        s3Utils.uploadTestFiles(
-                "/Users/gaojun/workspace/seatunnel/seatunnel-e2e/seatunnel-connector-v2-e2e/connector-file-s3-e2e/src/test/resources/excel/e2e.xlsx",
-                "test/test/seatunnel/e2e.xlsx",
-                false);
-
-        s3Utils.createDir("test/test1");
-        s3Utils.uploadTestFiles(
-                "/Users/gaojun/workspace/seatunnel/seatunnel-e2e/seatunnel-connector-v2-e2e/connector-file-s3-e2e/src/test/resources/excel/e2e.xlsx",
-                "test/test1/seatunnel/e2e.xlsx",
-                false);
-    }
 }

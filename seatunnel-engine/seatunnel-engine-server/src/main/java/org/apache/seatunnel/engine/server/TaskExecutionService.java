@@ -19,8 +19,9 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.api.common.metrics.MetricTags;
 import org.apache.seatunnel.api.event.Event;
+import org.apache.seatunnel.api.tracing.MDCExecutorService;
+import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
@@ -30,7 +31,6 @@ import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
-import org.apache.seatunnel.engine.server.event.JobEventReportOperation;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
@@ -42,6 +42,7 @@ import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
 import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskGroupUtils;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
@@ -49,12 +50,11 @@ import org.apache.seatunnel.engine.server.service.jar.ServerConnectorPackageClie
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
-import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import org.apache.commons.collections4.CollectionUtils;
 
 import com.google.common.collect.Lists;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.hazelcast.core.OperationTimeoutException;
 import com.hazelcast.instance.impl.NodeState;
 import com.hazelcast.internal.metrics.DynamicMetricsProvider;
 import com.hazelcast.internal.metrics.MetricDescriptor;
@@ -66,8 +66,6 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
-import com.hazelcast.spi.properties.HazelcastProperties;
-import lombok.Getter;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 
@@ -81,7 +79,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -147,13 +144,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     private final ServerConnectorPackageClient serverConnectorPackageClient;
 
-    private final BlockingQueue<Event> eventBuffer;
-    private final ExecutorService eventForwardService;
+    private final EventService eventService;
 
     public TaskExecutionService(
             ClassLoaderService classLoaderService,
             NodeEngineImpl nodeEngine,
-            HazelcastProperties properties) {
+            EventService eventService) {
         seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         this.hzInstanceName = nodeEngine.getHazelcastInstance().getName();
         this.nodeEngine = nodeEngine;
@@ -176,42 +172,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         serverConnectorPackageClient =
                 new ServerConnectorPackageClient(nodeEngine, seaTunnelConfig);
 
-        eventBuffer = new ArrayBlockingQueue<>(2048);
-        eventForwardService =
-                Executors.newSingleThreadExecutor(
-                        new ThreadFactoryBuilder().setNameFormat("event-forwarder-%d").build());
-        eventForwardService.submit(
-                () -> {
-                    List<Event> events = new ArrayList<>();
-                    RetryUtils.RetryMaterial retryMaterial =
-                            new RetryUtils.RetryMaterial(2, true, e -> true);
-                    while (!Thread.currentThread().isInterrupted()) {
-                        try {
-                            events.clear();
-
-                            Event first = eventBuffer.take();
-                            events.add(first);
-
-                            eventBuffer.drainTo(events, 500);
-                            JobEventReportOperation operation = new JobEventReportOperation(events);
-
-                            RetryUtils.retryWithException(
-                                    () ->
-                                            NodeEngineUtil.sendOperationToMasterNode(
-                                                            nodeEngine, operation)
-                                                    .join(),
-                                    retryMaterial);
-
-                            logger.fine("Event forward success, events " + events.size());
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                            logger.info("Event forward thread interrupted");
-                        } catch (Throwable t) {
-                            logger.warning(
-                                    "Event forward failed, discard events " + events.size(), t);
-                        }
-                    }
-                });
+        this.eventService = eventService;
     }
 
     public void start() {
@@ -222,7 +183,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         isRunning = false;
         executorService.shutdownNow();
         scheduledExecutorService.shutdown();
-        eventForwardService.shutdownNow();
     }
 
     public TaskGroupContext getExecutionContext(TaskGroupLocation taskGroupLocation) {
@@ -275,6 +235,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     private void submitBlockingTask(
             TaskGroupExecutionTracker taskGroupExecutionTracker, List<Task> tasks) {
+        MDCExecutorService mdcExecutorService = MDCTracer.tracing(executorService);
 
         CountDownLatch startedLatch = new CountDownLatch(tasks.size());
         taskGroupExecutionTracker.blockingFutures =
@@ -291,7 +252,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                                 "BlockingWorker-"
                                                         + taskGroupExecutionTracker.taskGroup
                                                                 .getTaskGroupLocation()))
-                        .map(executorService::submit)
+                        .map(mdcExecutorService::submit)
                         .collect(toList());
 
         // Do not return from this method until all workers have started. Otherwise,
@@ -320,33 +281,50 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         taskImmutableInfo.getExecutionId()));
         TaskGroup taskGroup = null;
         try {
-            Set<ConnectorJarIdentifier> connectorJarIdentifiers =
+            List<Set<ConnectorJarIdentifier>> connectorJarIdentifiersList =
                     taskImmutableInfo.getConnectorJarIdentifiers();
-            Set<URL> jars = new HashSet<>();
-            ClassLoader classLoader;
-            if (!CollectionUtils.isEmpty(connectorJarIdentifiers)) {
-                // Prioritize obtaining the jar package file required for the current task execution
-                // from the local, if it does not exist locally, it will be downloaded from the
-                // master node.
-                jars =
-                        serverConnectorPackageClient.getConnectorJarFromLocal(
-                                connectorJarIdentifiers);
-            } else if (!CollectionUtils.isEmpty(taskImmutableInfo.getJars())) {
-                jars = taskImmutableInfo.getJars();
+            List<Data> taskData = taskImmutableInfo.getTasksData();
+            ConcurrentHashMap<Long, ClassLoader> classLoaders = new ConcurrentHashMap<>();
+            List<Task> tasks = new ArrayList<>();
+            ConcurrentHashMap<Long, Collection<URL>> taskJars = new ConcurrentHashMap<>();
+            for (int i = 0; i < taskData.size(); i++) {
+                Set<URL> jars = new HashSet<>();
+                Set<ConnectorJarIdentifier> connectorJarIdentifiers =
+                        connectorJarIdentifiersList.get(i);
+                if (!CollectionUtils.isEmpty(connectorJarIdentifiers)) {
+                    // Prioritize obtaining the jar package file required for the current task
+                    // execution
+                    // from the local, if it does not exist locally, it will be downloaded from the
+                    // master node.
+                    jars =
+                            serverConnectorPackageClient.getConnectorJarFromLocal(
+                                    connectorJarIdentifiers);
+                } else if (!CollectionUtils.isEmpty(taskImmutableInfo.getJars().get(i))) {
+                    jars = taskImmutableInfo.getJars().get(i);
+                }
+                ClassLoader classLoader =
+                        classLoaderService.getClassLoader(
+                                taskImmutableInfo.getJobId(), Lists.newArrayList(jars));
+                Task task;
+                if (jars.isEmpty()) {
+                    task = nodeEngine.getSerializationService().toObject(taskData.get(i));
+                } else {
+                    task =
+                            CustomClassLoadedObject.deserializeWithCustomClassLoader(
+                                    nodeEngine.getSerializationService(),
+                                    classLoader,
+                                    taskData.get(i));
+                }
+                tasks.add(task);
+                classLoaders.put(task.getTaskID(), classLoader);
+                taskJars.put(task.getTaskID(), jars);
             }
-            classLoader =
-                    classLoaderService.getClassLoader(
-                            taskImmutableInfo.getJobId(), Lists.newArrayList(jars));
-            if (jars.isEmpty()) {
-                taskGroup =
-                        nodeEngine.getSerializationService().toObject(taskImmutableInfo.getGroup());
-            } else {
-                taskGroup =
-                        CustomClassLoadedObject.deserializeWithCustomClassLoader(
-                                nodeEngine.getSerializationService(),
-                                classLoader,
-                                taskImmutableInfo.getGroup());
-            }
+            taskGroup =
+                    TaskGroupUtils.createTaskGroup(
+                            taskImmutableInfo.getTaskGroupType(),
+                            taskImmutableInfo.getTaskGroupLocation(),
+                            taskImmutableInfo.getTaskGroupName(),
+                            tasks);
 
             logger.info(
                     String.format(
@@ -360,7 +338,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                     "TaskGroupLocation: %s already exists",
                                     taskGroup.getTaskGroupLocation()));
                 }
-                deployLocalTask(taskGroup, classLoader, jars);
+                deployLocalTask(taskGroup, classLoaders, taskJars);
                 return TaskDeployState.success();
             }
         } catch (Throwable t) {
@@ -375,15 +353,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
-    @Deprecated
     public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
-            @NonNull TaskGroup taskGroup) {
-        return deployLocalTask(
-                taskGroup, Thread.currentThread().getContextClassLoader(), emptyList());
-    }
-
-    public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
-            @NonNull TaskGroup taskGroup, @NonNull ClassLoader classLoader, Collection<URL> jars) {
+            @NonNull TaskGroup taskGroup,
+            @NonNull ConcurrentHashMap<Long, ClassLoader> classLoaders,
+            ConcurrentHashMap<Long, Collection<URL>> jars) {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
         try {
             taskGroup.init();
@@ -414,15 +387,20 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                                         seaTunnelConfig
                                                                 .getEngineConfig()
                                                                 .getTaskExecutionThreadShareMode();
-                                                if (mode.equals(ThreadShareMode.ALL)) return true;
-                                                if (mode.equals(ThreadShareMode.OFF)) return false;
-                                                if (mode.equals(ThreadShareMode.PART))
+                                                if (mode.equals(ThreadShareMode.ALL)) {
+                                                    return true;
+                                                }
+                                                if (mode.equals(ThreadShareMode.OFF)) {
+                                                    return false;
+                                                }
+                                                if (mode.equals(ThreadShareMode.PART)) {
                                                     return t.isThreadsShare();
+                                                }
                                                 return true;
                                             }));
             executionContexts.put(
                     taskGroup.getTaskGroupLocation(),
-                    new TaskGroupContext(taskGroup, classLoader, jars));
+                    new TaskGroupContext(taskGroup, classLoaders, jars));
             cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
             submitThreadShareTask(executionTracker, byCooperation.get(true));
             submitBlockingTask(executionTracker, byCooperation.get(false));
@@ -458,7 +436,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                             r.getTaskGroupLocation(), r.getExecutionState()));
                             notifyTaskStatusToMaster(taskGroup.getTaskGroupLocation(), r);
                         }),
-                executorService);
+                MDCTracer.tracing(executorService));
         return new PassiveCompletableFuture<>(resultFuture);
     }
 
@@ -530,7 +508,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         if (!taskAsyncFunctionFuture.containsKey(taskGroupLocation)) {
             taskAsyncFunctionFuture.put(taskGroupLocation, new ConcurrentHashMap<>());
         }
-        CompletableFuture<?> future = CompletableFuture.runAsync(task, executorService);
+        CompletableFuture<?> future =
+                CompletableFuture.runAsync(task, MDCTracer.tracing(executorService));
         taskAsyncFunctionFuture.get(taskGroupLocation).put(id, future);
         future.whenComplete(
                 (r, e) -> {
@@ -623,10 +602,13 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                         }
                                     });
                 });
-        if (localMap.size() > 0) {
+        if (!localMap.isEmpty()) {
+            boolean lockedIMap = false;
             try {
-                if (!metricsImap.tryLock(
-                        Constant.IMAP_RUNNING_JOB_METRICS_KEY, 2, TimeUnit.SECONDS)) {
+                lockedIMap =
+                        metricsImap.tryLock(
+                                Constant.IMAP_RUNNING_JOB_METRICS_KEY, 5, TimeUnit.SECONDS);
+                if (!lockedIMap) {
                     logger.warning("try lock failed in update metrics");
                     return;
                 }
@@ -640,7 +622,17 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         "The Imap acquisition failed due to the hazelcast node being offline or restarted, and will be retried next time",
                         e);
             } finally {
-                metricsImap.unlock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+                if (lockedIMap) {
+                    boolean unLockedIMap = false;
+                    while (!unLockedIMap) {
+                        try {
+                            metricsImap.unlock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+                            unLockedIMap = true;
+                        } catch (OperationTimeoutException e) {
+                            logger.warning("unlock imap failed in update metrics", e);
+                        }
+                    }
+                }
             }
         }
         this.printTaskExecutionRuntimeInfo();
@@ -668,10 +660,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     public void reportEvent(Event e) {
-        while (!eventBuffer.offer(e)) {
-            eventBuffer.poll();
-            logger.warning("Event buffer is full, discard the oldest event");
-        }
+        eventService.reportEvent(e);
     }
 
     private final class BlockingWorker implements Runnable {
@@ -691,7 +680,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             ClassLoader classLoader =
                     executionContexts
                             .get(taskGroupExecutionTracker.taskGroup.getTaskGroupLocation())
-                            .getClassLoader();
+                            .getClassLoaders()
+                            .get(tracker.task.getTaskID());
             ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
             Thread.currentThread().setContextClassLoader(classLoader);
             final Task t = tracker.task;
@@ -750,16 +740,16 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         public AtomicReference<TaskTracker> exclusiveTaskTracker = new AtomicReference<>();
         final TaskCallTimer timer;
         private Thread myThread;
-        public LinkedBlockingDeque<TaskTracker> taskqueue;
+        public LinkedBlockingDeque<TaskTracker> taskQueue;
         private Future<?> thisTaskFuture;
         private BlockingQueue<Future<?>> futureBlockingQueue;
 
         public CooperativeTaskWorker(
-                LinkedBlockingDeque<TaskTracker> taskqueue,
+                LinkedBlockingDeque<TaskTracker> taskQueue,
                 RunBusWorkSupplier runBusWorkSupplier,
                 BlockingQueue<Future<?>> futureBlockingQueue) {
             logger.info(String.format("Created new BusWork : %s", this.hashCode()));
-            this.taskqueue = taskqueue;
+            this.taskQueue = taskQueue;
             this.timer = new TaskCallTimer(50, keep, runBusWorkSupplier, this);
             this.futureBlockingQueue = futureBlockingQueue;
         }
@@ -774,7 +764,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 TaskTracker taskTracker =
                         null != exclusiveTaskTracker.get()
                                 ? exclusiveTaskTracker.get()
-                                : taskqueue.takeFirst();
+                                : taskQueue.takeFirst();
                 TaskGroupExecutionTracker taskGroupExecutionTracker =
                         taskTracker.taskGroupExecutionTracker;
                 if (taskGroupExecutionTracker.executionCompletedExceptionally()) {
@@ -799,7 +789,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     myThread.setContextClassLoader(
                             executionContexts
                                     .get(taskGroupExecutionTracker.taskGroup.getTaskGroupLocation())
-                                    .getClassLoader());
+                                    .getClassLoaders()
+                                    .get(taskTracker.task.getTaskID()));
                     call = taskTracker.task.call();
                     synchronized (timer) {
                         timer.timerStop();
@@ -841,7 +832,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         // Task is not completed. Put task to the end of the queue
                         // If the current work has an exclusive tracker, it will not be put back
                         if (null == exclusiveTaskTracker.get()) {
-                            taskqueue.offer(taskTracker);
+                            taskQueue.offer(taskTracker);
                         }
                     }
                 }
@@ -862,7 +853,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
 
         public boolean runNewBusWork(boolean checkTaskQueue) {
-            if (!checkTaskQueue || taskQueue.size() > 0) {
+            if (!checkTaskQueue || !taskQueue.isEmpty()) {
                 BlockingQueue<Future<?>> futureBlockingQueue = new LinkedBlockingQueue<>();
                 CooperativeTaskWorker cooperativeTaskWorker =
                         new CooperativeTaskWorker(taskQueue, this, futureBlockingQueue);
@@ -889,7 +880,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
         private final AtomicBoolean isCancel = new AtomicBoolean(false);
 
-        @Getter private Map<Long, Future<?>> currRunningTaskFuture = new ConcurrentHashMap<>();
+        private final Map<Long, Future<?>> currRunningTaskFuture = new ConcurrentHashMap<>();
 
         TaskGroupExecutionTracker(
                 @NonNull CompletableFuture<Void> cancellationFuture,
@@ -936,7 +927,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             .forEach(f -> f.cancel(true));
                 }
             } catch (CancellationException ignore) {
-                // ignore
+                logger.warning(ExceptionUtils.getMessage(ignore));
             }
         }
 
@@ -952,30 +943,52 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 finishedExecutionContexts.put(
                         taskGroupLocation, executionContexts.remove(taskGroupLocation));
                 cancellationFutures.remove(taskGroupLocation);
-                cancelAsyncFunction(taskGroupLocation);
-                updateMetricsContextInImap();
+                try {
+                    cancelAsyncFunction(taskGroupLocation);
+                } catch (Throwable t) {
+                    logger.severe("cancel async function failed", t);
+                }
+                try {
+                    updateMetricsContextInImap();
+                } catch (Throwable t) {
+                    logger.severe("update metrics context in imap failed", t);
+                }
                 if (ex == null) {
+                    logger.info(
+                            String.format(
+                                    "taskGroup %s complete with FINISHED", taskGroupLocation));
                     future.complete(
                             new TaskExecutionState(taskGroupLocation, ExecutionState.FINISHED));
                     return;
                 } else if (isCancel.get()) {
+                    logger.info(
+                            String.format(
+                                    "taskGroup %s complete with CANCELED", taskGroupLocation));
                     future.complete(
                             new TaskExecutionState(taskGroupLocation, ExecutionState.CANCELED));
                     return;
                 } else {
+                    logger.info(
+                            String.format("taskGroup %s complete with FAILED", taskGroupLocation));
                     future.complete(
                             new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, ex));
                 }
             }
             if (!isCancel.get() && ex != null) {
+                logger.info(
+                        String.format(
+                                "task %s error with exception: [%s], cancel other task in taskGroup %s.",
+                                task.getTaskID(), ex, taskGroupLocation));
                 cancelAllTask(taskGroupLocation);
             }
         }
 
         private void recycleClassLoader(TaskGroupLocation taskGroupLocation) {
             TaskGroupContext context = executionContexts.get(taskGroupLocation);
-            executionContexts.get(taskGroupLocation).setClassLoader(null);
-            classLoaderService.releaseClassLoader(taskGroupLocation.getJobId(), context.getJars());
+            executionContexts.get(taskGroupLocation).setClassLoaders(null);
+            for (Collection<URL> jars : context.getJars().values()) {
+                classLoaderService.releaseClassLoader(taskGroupLocation.getJobId(), jars);
+            }
         }
 
         boolean executionCompletedExceptionally() {

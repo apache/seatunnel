@@ -44,6 +44,7 @@ import org.apache.seatunnel.format.json.debezium.DebeziumJsonDeserializationSche
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.json.maxwell.MaxWellJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.ogg.OggJsonDeserializationSchema;
+import org.apache.seatunnel.format.protobuf.ProtobufDeserializationSchema;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
@@ -69,8 +70,11 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FIEL
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KEY_POLL_TIMEOUT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.MESSAGE_FORMAT_ERROR_HANDLE_WAY_OPTION;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PATTERN;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PROTOBUF_MESSAGE_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PROTOBUF_SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE_OFFSETS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE_TIMESTAMP;
@@ -86,6 +90,8 @@ public class KafkaSourceConfig implements Serializable {
     @Getter private final Properties properties;
     @Getter private final long discoveryIntervalMillis;
     @Getter private final MessageFormatErrorHandleWay messageFormatErrorHandleWay;
+    @Getter private final String consumerGroup;
+    @Getter private final long pollTimeout;
 
     public KafkaSourceConfig(ReadonlyConfig readonlyConfig) {
         this.bootstrap = readonlyConfig.get(BOOTSTRAP_SERVERS);
@@ -95,6 +101,8 @@ public class KafkaSourceConfig implements Serializable {
         this.discoveryIntervalMillis = readonlyConfig.get(KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS);
         this.messageFormatErrorHandleWay =
                 readonlyConfig.get(MESSAGE_FORMAT_ERROR_HANDLE_WAY_OPTION);
+        this.pollTimeout = readonlyConfig.get(KEY_POLL_TIMEOUT);
+        this.consumerGroup = readonlyConfig.get(CONSUMER_GROUP);
     }
 
     private Properties createKafkaProperties(ReadonlyConfig readonlyConfig) {
@@ -128,7 +136,6 @@ public class KafkaSourceConfig implements Serializable {
         ConsumerMetadata consumerMetadata = new ConsumerMetadata();
         consumerMetadata.setTopic(readonlyConfig.get(TOPIC));
         consumerMetadata.setPattern(readonlyConfig.get(PATTERN));
-        consumerMetadata.setConsumerGroup(readonlyConfig.get(CONSUMER_GROUP));
         consumerMetadata.setProperties(new Properties());
         // Create a catalog
         CatalogTable catalogTable = createCatalogTable(readonlyConfig);
@@ -216,7 +223,15 @@ public class KafkaSourceConfig implements Serializable {
         return CatalogTable.of(
                 TableIdentifier.of("", tablePath),
                 tableSchema,
-                Collections.emptyMap(),
+                new HashMap<String, String>() {
+                    {
+                        Optional.ofNullable(readonlyConfig.get(PROTOBUF_MESSAGE_NAME))
+                                .ifPresent(value -> put(PROTOBUF_MESSAGE_NAME.key(), value));
+
+                        Optional.ofNullable(readonlyConfig.get(PROTOBUF_SCHEMA))
+                                .ifPresent(value -> put(PROTOBUF_SCHEMA.key(), value));
+                    }
+                },
                 Collections.emptyList(),
                 null);
     }
@@ -224,6 +239,8 @@ public class KafkaSourceConfig implements Serializable {
     private DeserializationSchema<SeaTunnelRow> createDeserializationSchema(
             CatalogTable catalogTable, ReadonlyConfig readonlyConfig) {
         SeaTunnelRowType seaTunnelRowType = catalogTable.getSeaTunnelRowType();
+
+        MessageFormat format = readonlyConfig.get(FORMAT);
 
         if (!readonlyConfig.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
             return TextDeserializationSchema.builder()
@@ -233,7 +250,6 @@ public class KafkaSourceConfig implements Serializable {
                     .build();
         }
 
-        MessageFormat format = readonlyConfig.get(FORMAT);
         switch (format) {
             case JSON:
                 return new JsonDeserializationSchema(catalogTable, false, false);
@@ -270,6 +286,8 @@ public class KafkaSourceConfig implements Serializable {
                 return new DebeziumJsonDeserializationSchema(catalogTable, true, includeSchema);
             case AVRO:
                 return new AvroDeserializationSchema(catalogTable);
+            case PROTOBUF:
+                return new ProtobufDeserializationSchema(catalogTable);
             default:
                 throw new SeaTunnelJsonFormatException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,

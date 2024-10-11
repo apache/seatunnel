@@ -137,7 +137,7 @@ Set redis expiration time, the unit is second. The default value is -1, keys do 
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
 
 ## Example
 

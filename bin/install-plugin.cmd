@@ -22,8 +22,8 @@ REM Get seatunnel home
 set "SEATUNNEL_HOME=%~dp0..\"
 echo Set SEATUNNEL_HOME to [%SEATUNNEL_HOME%]
 
-REM Connector default version is 2.3.6, you can also choose a custom version. eg: 2.1.2:  install-plugin.bat 2.1.2
-set "version=2.3.6"
+REM Connector default version is 2.3.8, you can also choose a custom version. eg: 2.3.8:  install-plugin.bat 2.3.8
+set "version=2.3.8"
 if not "%~1"=="" set "version=%~1"
 
 REM Create the lib directory
@@ -45,7 +45,7 @@ for /f "usebackq delims=" %%a in ("%SEATUNNEL_HOME%\config\plugin_config") do (
     setlocal enabledelayedexpansion
     if "!line:~0,1!" neq "-" if "!line:~0,1!" neq "#" (
         echo install connector : !line!
-        call "%SEATUNNEL_HOME%\mvnw.cmd" dependency:get -DgroupId="org.apache.seatunnel" -DartifactId="!line!" -Dversion="%version%" -Ddest="%SEATUNNEL_HOME%\connectors"
+        call "%SEATUNNEL_HOME%\mvnw.cmd" dependency:get -Dtransitive=false -DgroupId="org.apache.seatunnel" -DartifactId="!line!" -Dversion="%version%" -Ddest="%SEATUNNEL_HOME%\connectors"
     )
     endlocal
 )

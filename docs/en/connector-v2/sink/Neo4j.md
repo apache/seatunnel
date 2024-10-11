@@ -90,7 +90,7 @@ The maximum amount of time to wait for a TCP connection to be established (secon
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
 
 ## WriteOneByOneExample
 

@@ -30,10 +30,6 @@ import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.ConstraintKey;
-import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
-import org.apache.seatunnel.api.table.catalog.PrimaryKey;
-import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -48,7 +44,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 
@@ -61,14 +56,14 @@ public class IcebergSink
                 SupportSaveMode,
                 SupportMultiTableSink {
     private static String PLUGIN_NAME = "Iceberg";
-    private SinkConfig config;
-    private ReadonlyConfig readonlyConfig;
-    private CatalogTable catalogTable;
+    private final SinkConfig config;
+    private final ReadonlyConfig readonlyConfig;
+    private final CatalogTable catalogTable;
 
     public IcebergSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
         this.readonlyConfig = pluginConfig;
         this.config = new SinkConfig(pluginConfig);
-        this.catalogTable = convertLowerCaseCatalogTable(catalogTable);
+        this.catalogTable = catalogTable;
         // Reset primary keys if need
         if (config.getPrimaryKeys().isEmpty()
                 && Objects.nonNull(this.catalogTable.getTableSchema().getPrimaryKey())) {
@@ -88,8 +83,7 @@ public class IcebergSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, IcebergCommitInfo, IcebergSinkState> createWriter(
-            SinkWriter.Context context) throws IOException {
+    public IcebergSinkWriter createWriter(SinkWriter.Context context) throws IOException {
         return IcebergSinkWriter.of(config, catalogTable);
     }
 
@@ -131,7 +125,6 @@ public class IcebergSink
         }
         Catalog catalog =
                 catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), readonlyConfig);
-        catalog.open();
         return Optional.of(
                 new DefaultSaveModeHandler(
                         config.getSchemaSaveMode(),
@@ -139,73 +132,5 @@ public class IcebergSink
                         catalog,
                         catalogTable,
                         null));
-    }
-
-    private CatalogTable convertLowerCaseCatalogTable(CatalogTable catalogTable) {
-        TableSchema tableSchema = catalogTable.getTableSchema();
-        TableSchema.Builder builder = TableSchema.builder();
-        tableSchema
-                .getColumns()
-                .forEach(
-                        column -> {
-                            PhysicalColumn physicalColumn =
-                                    PhysicalColumn.of(
-                                            column.getName(),
-                                            column.getDataType(),
-                                            column.getColumnLength(),
-                                            column.isNullable(),
-                                            column.getDefaultValue(),
-                                            column.getComment());
-                            builder.column(physicalColumn);
-                        });
-        // set primary
-        if (Objects.nonNull(tableSchema.getPrimaryKey())) {
-            PrimaryKey newPrimaryKey =
-                    PrimaryKey.of(
-                            tableSchema.getPrimaryKey().getPrimaryKey(),
-                            tableSchema.getPrimaryKey().getColumnNames().stream()
-                                    .map(String::toLowerCase)
-                                    .collect(Collectors.toList()));
-            builder.primaryKey(newPrimaryKey);
-        }
-
-        if (Objects.nonNull(tableSchema.getConstraintKeys())) {
-            tableSchema
-                    .getConstraintKeys()
-                    .forEach(
-                            constraintKey -> {
-                                ConstraintKey newConstraintKey =
-                                        ConstraintKey.of(
-                                                constraintKey.getConstraintType(),
-                                                constraintKey.getConstraintName(),
-                                                constraintKey.getColumnNames() != null
-                                                        ? constraintKey.getColumnNames().stream()
-                                                                .map(
-                                                                        constraintKeyColumn ->
-                                                                                ConstraintKey
-                                                                                        .ConstraintKeyColumn
-                                                                                        .of(
-                                                                                                constraintKeyColumn
-                                                                                                                        .getColumnName()
-                                                                                                                != null
-                                                                                                        ? constraintKeyColumn
-                                                                                                                .getColumnName()
-                                                                                                                .toLowerCase()
-                                                                                                        : null,
-                                                                                                constraintKeyColumn
-                                                                                                        .getSortType()))
-                                                                .collect(Collectors.toList())
-                                                        : null);
-                                builder.constraintKey(newConstraintKey);
-                            });
-        }
-
-        return CatalogTable.of(
-                catalogTable.getTableId(),
-                builder.build(),
-                catalogTable.getOptions(),
-                catalogTable.getPartitionKeys(),
-                catalogTable.getComment(),
-                catalogTable.getCatalogName());
     }
 }

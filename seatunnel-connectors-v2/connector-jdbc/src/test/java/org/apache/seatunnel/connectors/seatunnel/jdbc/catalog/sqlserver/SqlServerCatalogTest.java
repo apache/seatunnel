@@ -24,6 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
 
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.MethodOrderer;
@@ -38,7 +39,7 @@ import java.util.List;
 class SqlServerCatalogTest {
 
     static JdbcUrlUtil.UrlInfo sqlParse =
-            SqlServerURLParser.parse("jdbc:sqlserver://127.0.0.1:1434;database=TestDB");
+            SqlServerURLParser.parse("jdbc:sqlserver://127.0.0.1:1433;database=master");
     static JdbcUrlUtil.UrlInfo MysqlUrlInfo =
             JdbcUrlUtil.getUrlInfo("jdbc:mysql://127.0.0.1:33061/liuliTest?useSSL=false");
     static JdbcUrlUtil.UrlInfo pg =
@@ -84,9 +85,14 @@ class SqlServerCatalogTest {
     }
 
     @Test
-    void tableExists() {
-
-        //        boolean b = sqlServerCatalog.tableExists(tablePath);
+    void exists() {
+        Assertions.assertTrue(sqlServerCatalog.databaseExists("master"));
+        Assertions.assertTrue(
+                sqlServerCatalog.tableExists(
+                        TablePath.of("master", "dbo", "MSreplication_options")));
+        Assertions.assertTrue(
+                sqlServerCatalog.tableExists(TablePath.of("master", "dbo", "spt_fallback_db")));
+        Assertions.assertFalse(sqlServerCatalog.tableExists(TablePath.of("master", "dbo", "xxx")));
     }
 
     @Test

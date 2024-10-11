@@ -32,6 +32,10 @@
         <module>seatunnel-guava</module>
         <module>seatunnel-arrow-5.0</module>
         <module>seatunnel-thrift-service</module>
+        <module>seatunnel-hazelcast</module>
+        <module>seatunnel-janino</module>
+        <module>seatunnel-jetty9-9.4.56</module>
+
     </modules>
 
     <build>

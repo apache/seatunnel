@@ -16,17 +16,18 @@
 
 ## 选项
 
-|            名称            |   类型   | 是否必须 | 默认值 |
-|--------------------------|--------|------|-----|
-| email_from_address       | string | 是    | -   |
-| email_to_address         | string | 是    | -   |
-| email_host               | string | 是    | -   |
-| email_transport_protocol | string | 是    | -   |
-| email_smtp_auth          | string | 是    | -   |
-| email_authorization_code | string | 是    | -   |
-| email_message_headline   | string | 是    | -   |
-| email_message_content    | string | 是    | -   |
-| common-options           |        | 否    | -   |
+|            名称            |   类型    | 是否必须 | 默认值 |
+|--------------------------|---------|------|-----|
+| email_from_address       | string  | 是    | -   |
+| email_to_address         | string  | 是    | -   |
+| email_host               | string  | 是    | -   |
+| email_transport_protocol | string  | 是    | -   |
+| email_smtp_auth          | boolean | 是    | -   |
+| email_smtp_port          | int     | 否    | 465 |
+| email_authorization_code | string  | 否    | -   |
+| email_message_headline   | string  | 是    | -   |
+| email_message_content    | string  | 是    | -   |
+| common-options           |         | 否    | -   |
 
 ### email_from_address [string]
 
@@ -34,7 +35,7 @@
 
 ### email_to_address [string]
 
-接收邮件的地址
+接收邮件的地址，支持多个邮箱地址，以逗号（,）分隔。
 
 ### email_host [string]
 
@@ -44,9 +45,13 @@
 
 加载会话的协议
 
-### email_smtp_auth [string]
+### email_smtp_auth [boolean]
 
 是否对客户进行认证
+
+### email_smtp_port [int]
+
+选择用于身份验证的端口。
 
 ### email_authorization_code [string]
 
@@ -62,7 +67,7 @@
 
 ### common options
 
-Sink插件常用参数，请参考 [Sink常用选项](common-options.md) 了解详情.
+Sink插件常用参数，请参考 [Sink常用选项](../sink-common-options.md) 了解详情.
 
 ## 示例
 

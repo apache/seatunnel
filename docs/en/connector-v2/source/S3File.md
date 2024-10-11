@@ -20,14 +20,14 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 - [x] file format type
-  - [x] text
-  - [x] csv
-  - [x] parquet
-  - [x] orc
-  - [x] json
-  - [x] excel
-  - [x] xml
-  - [x] binary
+    - [x] text
+    - [x] csv
+    - [x] parquet
+    - [x] orc
+    - [x] json
+    - [x] excel
+    - [x] xml
+    - [x] binary
 
 ## Description
 
@@ -196,7 +196,7 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 
 ## Options
 
-|              name               |  type   | required |                     default value                     |                                                                                                                                                                                                Description                                                                                                                                                                                                 |
+|              name               |  type   | required |                     default value                     | Description                                                                                                                                                                                                                                                                                                                                                                                                |
 |---------------------------------|---------|----------|-------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                            | string  | yes      | -                                                     | The s3 path that needs to be read can have sub paths, but the sub paths need to meet certain format requirements. Specific requirements can be referred to "parse_partition_from_path" option                                                                                                                                                                                                              |
 | file_format_type                | string  | yes      | -                                                     | File type, supported as the following file types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`                                                                                                                                                                                                                                                                                               |
@@ -217,9 +217,10 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | sheet_name                      | string  | no       | -                                                     | Reader the sheet of the workbook,Only used when file_format is excel.                                                                                                                                                                                                                                                                                                                                      |
 | xml_row_tag                     | string  | no       | -                                                     | Specifies the tag name of the data rows within the XML file, only valid for XML files.                                                                                                                                                                                                                                                                                                                     |
 | xml_use_attr_format             | boolean | no       | -                                                     | Specifies whether to process data using the tag attribute format, only valid for XML files.                                                                                                                                                                                                                                                                                                                |
-| compress_codec                  | string  | no       | none                                                  |
-| encoding                        | string  | no       | UTF-8                                                 |
-| common-options                  |         | no       | -                                                     | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.                                                                                                                                                                                                                                                                                                   |
+| compress_codec                  | string  | no       | none                                                  |                                                                                                                                                                                                                                                                                                                                                                                                            |
+| archive_compress_codec          | string  | no       | none                                                  |                                                                                                                                                                                                                                                                                                                                                                                                            |
+| encoding                        | string  | no       | UTF-8                                                 |                                                                                                                                                                                                                                                                                                                                                                                                            |
+| common-options                  |         | no       | -                                                     | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                                                                                                                                                         |
 
 ### delimiter/field_delimiter [string]
 
@@ -234,6 +235,17 @@ The compress codec of files and the details that supported as the following show
 - csv: `lzo` `none`
 - orc/parquet:  
   automatically recognizes the compression type, no additional settings required.
+
+### archive_compress_codec [string]
+
+The compress codec of archive files and the details that supported as the following shown:
+
+| archive_compress_codec | file_format        | archive_compress_suffix |
+|------------------------|--------------------|-------------------------|
+| ZIP                    | txt,json,excel,xml | .zip                    |
+| TAR                    | txt,json,excel,xml | .tar                    |
+| TAR_GZ                 | txt,json,excel,xml | .tar.gz                 |
+| NONE                   | all                | .*                      |
 
 ### encoding [string]
 
@@ -346,8 +358,8 @@ sink {
 ### Next version
 
 - [Feature] Support S3A protocol ([3632](https://github.com/apache/seatunnel/pull/3632))
-  - Allow user to add additional hadoop-s3 parameters
-  - Allow the use of the s3a protocol
-  - Decouple hadoop-aws dependencies
+    - Allow user to add additional hadoop-s3 parameters
+    - Allow the use of the s3a protocol
+    - Decouple hadoop-aws dependencies
 - [Feature]Set S3 AK to optional ([3688](https://github.com/apache/seatunnel/pull/))
 

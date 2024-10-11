@@ -1,11 +1,12 @@
 ---
-
 sidebar_position: 9
--------------------
+---
+
+# 资源隔离
 
 在2.3.6版本之后, SeaTunnel支持对每个实例添加`tag`, 然后在提交任务时可以在配置文件中使用`tag_filter`来选择任务将要运行的节点.
 
-# 如何实现改功能
+## 如何实现改功能
 
 1. 更新`hazelcast.yaml`文件
 
@@ -80,4 +81,8 @@ sink {
 - 当`tag_filter`中存在多个过滤条件时, 会根据key存在以及value相等的全部匹配的节点, 当没有找到匹配的节点时, 会抛出 `NoEnoughResourceException`异常.
 
 ![img.png](../../images/resource-isolation.png)
+
+3. 更新运行中node的tags （可选）
+
+获取具体的使用信息，请参考 [更新运行节点的tags](rest-api-v2.md)
 

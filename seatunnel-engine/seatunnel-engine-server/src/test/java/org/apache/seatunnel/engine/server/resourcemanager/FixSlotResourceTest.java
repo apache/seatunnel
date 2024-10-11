@@ -35,19 +35,32 @@ import static org.awaitility.Awaitility.await;
 
 public class FixSlotResourceTest extends AbstractSeaTunnelServerTest<FixSlotResourceTest> {
 
+    private final int totalSlots = 3;
+
     @Override
     public SeaTunnelConfig loadSeaTunnelConfig() {
         SeaTunnelConfig seaTunnelConfig = super.loadSeaTunnelConfig();
         SlotServiceConfig slotServiceConfig =
                 seaTunnelConfig.getEngineConfig().getSlotServiceConfig();
         slotServiceConfig.setDynamicSlot(false);
-        slotServiceConfig.setSlotNum(3);
+        slotServiceConfig.setSlotNum(totalSlots);
         seaTunnelConfig.getEngineConfig().setSlotServiceConfig(slotServiceConfig);
         return seaTunnelConfig;
     }
 
     @Test
     public void testEnoughResource() throws ExecutionException, InterruptedException {
+        // wait all slot ready
+        await().atMost(20000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    totalSlots,
+                                    server.getCoordinatorService()
+                                            .getResourceManager()
+                                            .getUnassignedSlots(null)
+                                            .size());
+                        });
         long jobId = System.currentTimeMillis();
         List<ResourceProfile> resourceProfiles = new ArrayList<>();
         resourceProfiles.add(new ResourceProfile());
@@ -83,10 +96,10 @@ public class FixSlotResourceTest extends AbstractSeaTunnelServerTest<FixSlotReso
                 .untilAsserted(
                         () -> {
                             Assertions.assertEquals(
-                                    3,
+                                    totalSlots,
                                     server.getCoordinatorService()
                                             .getResourceManager()
-                                            .getUnassignedSlots()
+                                            .getUnassignedSlots(null)
                                             .size());
                         });
         resourceProfiles.remove(0);

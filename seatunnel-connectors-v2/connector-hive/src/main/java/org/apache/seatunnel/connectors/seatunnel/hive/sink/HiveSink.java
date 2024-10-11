@@ -179,14 +179,12 @@ public class HiveSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> restoreWriter(
-            SinkWriter.Context context, List<FileSinkState> states) {
+    public HiveSinkWriter restoreWriter(SinkWriter.Context context, List<FileSinkState> states) {
         return new HiveSinkWriter(getWriteStrategy(), hadoopConf, context, jobId, states);
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> createWriter(
-            SinkWriter.Context context) {
+    public HiveSinkWriter createWriter(SinkWriter.Context context) {
         return new HiveSinkWriter(getWriteStrategy(), hadoopConf, context, jobId);
     }
 

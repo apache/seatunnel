@@ -29,6 +29,8 @@ import org.apache.seatunnel.connectors.seatunnel.common.sql.template.SqlTemplate
 
 import org.apache.commons.lang3.StringUtils;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -39,6 +41,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+@Slf4j
 public class DorisCatalogUtil {
 
     public static final String ALL_DATABASES_QUERY =
@@ -184,12 +187,22 @@ public class DorisCatalogUtil {
                         .filter(column -> !columnInTemplate.containsKey(column.getName()))
                         .map(x -> DorisCatalogUtil.columnToDorisType(x, typeConverter))
                         .collect(Collectors.joining(",\n"));
+
+        if (template.contains(SaveModePlaceHolder.TABLE_NAME.getPlaceHolder())) {
+            // TODO: Remove this compatibility config
+            template =
+                    template.replaceAll(
+                            SaveModePlaceHolder.TABLE_NAME.getReplacePlaceHolder(),
+                            tablePath.getTableName());
+            log.warn(
+                    "The variable placeholder `${table_name}` has been marked as deprecated and will be removed soon, please use `${table}`");
+        }
+
         return template.replaceAll(
                         SaveModePlaceHolder.DATABASE.getReplacePlaceHolder(),
                         tablePath.getDatabaseName())
                 .replaceAll(
-                        SaveModePlaceHolder.TABLE_NAME.getReplacePlaceHolder(),
-                        tablePath.getTableName())
+                        SaveModePlaceHolder.TABLE.getReplacePlaceHolder(), tablePath.getTableName())
                 .replaceAll(
                         SaveModePlaceHolder.ROWTYPE_FIELDS.getReplacePlaceHolder(), rowTypeFields);
     }

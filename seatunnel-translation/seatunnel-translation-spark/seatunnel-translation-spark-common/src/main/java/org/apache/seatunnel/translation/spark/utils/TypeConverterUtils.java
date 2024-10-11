@@ -43,7 +43,9 @@ public class TypeConverterUtils {
 
     private static final Map<DataType, SeaTunnelDataType<?>> TO_SEA_TUNNEL_TYPES =
             new HashMap<>(16);
-    public static final String ROW_KIND_FIELD = "op";
+    public static final String ROW_KIND_FIELD = "seatunnel_row_kind";
+    public static final String ROW = "row";
+    public static final String TABLE_ID = "seatunnel_table_id";
     public static final String LOGICAL_TIME_TYPE_FLAG = "logical_time_type";
 
     static {
@@ -125,6 +127,19 @@ public class TypeConverterUtils {
 
             fields[i] =
                     new StructField(rowType.getFieldNames()[i], convert(fieldType), true, metadata);
+        }
+        return new StructType(fields);
+    }
+
+    public static DataType parcel(SeaTunnelDataType<?> dataType) {
+        // 0 -> row kind, 1 -> table id
+        SeaTunnelRowType seaTunnelRowType = (SeaTunnelRowType) dataType;
+        StructField[] fields = new StructField[2 + seaTunnelRowType.getTotalFields()];
+        fields[0] = new StructField(ROW_KIND_FIELD, DataTypes.ByteType, true, Metadata.empty());
+        fields[1] = new StructField(TABLE_ID, DataTypes.StringType, true, Metadata.empty());
+        StructType structType = (StructType) convert(dataType);
+        for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
+            fields[i + 2] = structType.fields()[i];
         }
         return new StructType(fields);
     }

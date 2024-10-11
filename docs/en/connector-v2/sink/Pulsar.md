@@ -24,21 +24,21 @@ Sink connector for Apache Pulsar.
 
 ## Sink Options
 
-|         Name         |  Type  | Required |       Default       |                                               Description                                                |
-|----------------------|--------|----------|---------------------|----------------------------------------------------------------------------------------------------------|
-| topic                | String | Yes      | -                   | sink pulsar topic                                                                                        |
-| client.service-url   | String | Yes      | -                   | Service URL provider for Pulsar service.                                                                 |
-| admin.service-url    | String | Yes      | -                   | The Pulsar service HTTP URL for the admin endpoint.                                                      |
-| auth.plugin-class    | String | No       | -                   | Name of the authentication plugin.                                                                       |
-| auth.params          | String | No       | -                   | Parameters for the authentication plugin.                                                                |
-| format               | String | No       | json                | Data format. The default format is json. Optional text format.                                           |
-| field_delimiter      | String | No       | ,                   | Customize the field delimiter for data format.                                                           |
-| semantics            | Enum   | No       | AT_LEAST_ONCE       | Consistency semantics for writing to pulsar.                                                             |
-| transaction_timeout  | Int    | No       | 600                 | The transaction timeout is specified as 10 minutes by default.                                           |
-| pulsar.config        | Map    | No       | -                   | In addition to the above parameters that must be specified by the Pulsar producer client.                |
-| message.routing.mode | Enum   | No       | RoundRobinPartition | Default routing mode for messages to partition.                                                          |
-| partition_key_fields | array  | No       | -                   | Configure which fields are used as the key of the pulsar message.                                        |
-| common-options       | config | no       | -                   | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details. |
+|         Name         |  Type  | Required |       Default       |                                                   Description                                                    |
+|----------------------|--------|----------|---------------------|------------------------------------------------------------------------------------------------------------------|
+| topic                | String | Yes      | -                   | sink pulsar topic                                                                                                |
+| client.service-url   | String | Yes      | -                   | Service URL provider for Pulsar service.                                                                         |
+| admin.service-url    | String | Yes      | -                   | The Pulsar service HTTP URL for the admin endpoint.                                                              |
+| auth.plugin-class    | String | No       | -                   | Name of the authentication plugin.                                                                               |
+| auth.params          | String | No       | -                   | Parameters for the authentication plugin.                                                                        |
+| format               | String | No       | json                | Data format. The default format is json. Optional text format.                                                   |
+| field_delimiter      | String | No       | ,                   | Customize the field delimiter for data format.                                                                   |
+| semantics            | Enum   | No       | AT_LEAST_ONCE       | Consistency semantics for writing to pulsar.                                                                     |
+| transaction_timeout  | Int    | No       | 600                 | The transaction timeout is specified as 10 minutes by default.                                                   |
+| pulsar.config        | Map    | No       | -                   | In addition to the above parameters that must be specified by the Pulsar producer client.                        |
+| message.routing.mode | Enum   | No       | RoundRobinPartition | Default routing mode for messages to partition.                                                                  |
+| partition_key_fields | array  | No       | -                   | Configure which fields are used as the key of the pulsar message.                                                |
+| common-options       | config | no       | -                   | Source plugin common parameters, please refer to [Source Common Options](../sink-common-options.md) for details. |
 
 ## Parameter Interpretation
 
@@ -126,7 +126,7 @@ The selected field must be an existing field in the upstream.
 
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
+Source plugin common parameters, please refer to [Source Common Options](../sink-common-options.md) for details.
 
 ## Task Example
 

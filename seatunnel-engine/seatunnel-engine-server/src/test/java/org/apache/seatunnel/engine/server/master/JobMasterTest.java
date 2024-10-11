@@ -306,7 +306,8 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
 
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
-                server.getCoordinatorService().submitJob(jobId, data);
+                server.getCoordinatorService()
+                        .submitJob(jobId, data, jobImmutableInformation.isStartWithSavePoint());
         voidPassiveCompletableFuture.join();
 
         JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);

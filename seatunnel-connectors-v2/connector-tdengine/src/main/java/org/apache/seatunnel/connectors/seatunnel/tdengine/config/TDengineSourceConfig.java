@@ -30,7 +30,6 @@ import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengine
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.STABLE;
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.TIMEZONE;
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.UPPER_BOUND;
-import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.URL;
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.USERNAME;
 
 @Data
@@ -54,7 +53,10 @@ public class TDengineSourceConfig implements Serializable {
 
     public static TDengineSourceConfig buildSourceConfig(Config pluginConfig) {
         TDengineSourceConfig tdengineSourceConfig = new TDengineSourceConfig();
-        tdengineSourceConfig.setUrl(pluginConfig.hasPath(URL) ? pluginConfig.getString(URL) : null);
+        tdengineSourceConfig.setUrl(
+                pluginConfig.hasPath(ConfigNames.URL)
+                        ? pluginConfig.getString(ConfigNames.URL)
+                        : null);
         tdengineSourceConfig.setDatabase(
                 pluginConfig.hasPath(DATABASE) ? pluginConfig.getString(DATABASE) : null);
         tdengineSourceConfig.setStable(
@@ -69,6 +71,7 @@ public class TDengineSourceConfig implements Serializable {
                 pluginConfig.hasPath(LOWER_BOUND) ? pluginConfig.getString(LOWER_BOUND) : null);
         tdengineSourceConfig.setTimezone(
                 pluginConfig.hasPath(TIMEZONE) ? pluginConfig.getString(TIMEZONE) : "UTC");
+
         return tdengineSourceConfig;
     }
 

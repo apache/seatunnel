@@ -34,7 +34,7 @@ import java.util.List;
 public class SeaTunnelTransformPluginDiscovery extends AbstractPluginDiscovery<SeaTunnelTransform> {
 
     public SeaTunnelTransformPluginDiscovery() {
-        super(Common.libDir());
+        super(Common.connectorDir());
     }
 
     @Override

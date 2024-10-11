@@ -19,8 +19,8 @@ package org.apache.seatunnel.e2e.connector.file.local;
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.container.TestHelper;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
@@ -31,9 +31,9 @@ import org.junit.jupiter.api.TestTemplate;
 import java.io.IOException;
 
 @DisabledOnContainer(
-        value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason = "Currently SPARK and FLINK do not support multi table")
+        value = {TestContainerId.SPARK_2_4},
+        type = {},
+        disabledReason = "")
 public class LocalFileWithMultipleTableIT extends TestSuiteBase {
 
     /** Copy data files to container */

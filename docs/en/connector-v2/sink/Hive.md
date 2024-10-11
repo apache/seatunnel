@@ -15,6 +15,7 @@ If you use SeaTunnel Engine, You need put seatunnel-hadoop3-3.1.4-uber.jar and h
 
 ## Key features
 
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
 By default, we use 2PC commit to ensure `exactly-once`
@@ -83,13 +84,13 @@ The principal of kerberos
 
 The keytab path of kerberos
 
-### abort_drop_partition_metadata [list]
+### abort_drop_partition_metadata [boolean]
 
 Flag to decide whether to drop partition metadata from Hive Metastore during an abort operation. Note: this only affects the metadata in the metastore, the data in the partition will always be deleted(data generated during the synchronization process).
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
 
 ## Example
 

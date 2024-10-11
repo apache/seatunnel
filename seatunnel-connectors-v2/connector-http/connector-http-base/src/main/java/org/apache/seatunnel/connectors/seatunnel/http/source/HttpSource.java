@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -100,6 +101,11 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             } else {
                 pageInfo.setTotalPageSize(HttpConfig.TOTAL_PAGE_SIZE.defaultValue());
             }
+            if (pageConfig.hasPath(HttpConfig.START_PAGE_NUMBER.key())) {
+                pageInfo.setPageIndex(pageConfig.getLong(HttpConfig.START_PAGE_NUMBER.key()));
+            } else {
+                pageInfo.setPageIndex(HttpConfig.START_PAGE_NUMBER.defaultValue());
+            }
 
             if (pageConfig.hasPath(HttpConfig.BATCH_SIZE.key())) {
                 pageInfo.setBatchSize(pageConfig.getInt(HttpConfig.BATCH_SIZE.key()));
@@ -146,7 +152,7 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             }
         } else {
             TableIdentifier tableIdentifier =
-                    TableIdentifier.of(HttpConfig.CONNECTOR_IDENTITY, null, null);
+                    TableIdentifier.of(HttpConfig.CONNECTOR_IDENTITY, TablePath.DEFAULT);
             TableSchema tableSchema =
                     TableSchema.builder()
                             .column(

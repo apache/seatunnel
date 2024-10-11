@@ -25,9 +25,9 @@ The MongoDB CDC connector allows for reading snapshot data and incremental data 
 In order to use the Mongodb CDC connector, the following dependencies are required.
 They can be downloaded via install-plugin.sh or from the Maven central repository.
 
-| Datasource | Supported Versions |                                                    Dependency                                                     |
-|------------|--------------------|-------------------------------------------------------------------------------------------------------------------|
-| MongoDB    | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-cdc-mongodb) |
+| Datasource | Supported Versions | Dependency                                                                                |
+|------------|--------------------|-------------------------------------------------------------------------------------------|
+| MongoDB    | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-cdc-mongodb) |
 
 ## Availability Settings
 
@@ -118,7 +118,7 @@ For specific types in MongoDB, we use Extended JSON format to map them to Seatun
 | poll.await.time.ms                 | Long   | No       | 1000    | The amount of time to wait before checking for new results on the change stream.                                                                                                                                                                                            |
 | heartbeat.interval.ms              | String | No       | 0       | The length of time in milliseconds between sending heartbeat messages. Use 0 to disable.                                                                                                                                                                                    |
 | incremental.snapshot.chunk.size.mb | Long   | No       | 64      | The chunk size mb of incremental snapshot.                                                                                                                                                                                                                                  |
-| common-options                     |        | No       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.                                                                                                                                                                    |
+| common-options                     |        | No       | -       | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                          |
 
 ### Tips:
 

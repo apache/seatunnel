@@ -22,6 +22,7 @@
 ## Key features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
 
 By default, we use 2PC commit to ensure `exactly-once`
 
@@ -238,7 +239,7 @@ Tips: excel type does not support any compression format
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.
 
 ### max_rows_in_memory [int]
 
@@ -509,7 +510,6 @@ sink {
     compress_codec = "lzo"
   }
 }
-
 ```
 
 ## Changelog

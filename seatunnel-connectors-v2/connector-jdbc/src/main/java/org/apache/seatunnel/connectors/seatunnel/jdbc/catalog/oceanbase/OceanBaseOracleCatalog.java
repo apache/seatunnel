@@ -23,21 +23,15 @@ import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
 
-import java.util.Arrays;
-import java.util.Collections;
+import java.sql.SQLException;
 import java.util.List;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 public class OceanBaseOracleCatalog extends OracleCatalog {
-
-    static {
-        EXCLUDED_SCHEMAS =
-                Collections.unmodifiableList(
-                        Arrays.asList("oceanbase", "LBACSYS", "ORAAUDITOR", "SYS"));
-    }
 
     public OceanBaseOracleCatalog(
             String catalogName,
@@ -54,6 +48,22 @@ public class OceanBaseOracleCatalog extends OracleCatalog {
     }
 
     @Override
+    protected String getDatabaseWithConditionSql(String databaseName) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean tableExists(TablePath tablePath) throws CatalogException {
+        try {
+            return querySQLResultExists(
+                    this.getUrlFromDatabaseName(tablePath.getDatabaseName()),
+                    getTableWithConditionSql(tablePath));
+        } catch (SQLException e) {
+            throw new SeaTunnelException("Failed to querySQLResult", e);
+        }
+    }
+
+    @Override
     public List<String> listTables(String databaseName)
             throws CatalogException, DatabaseNotExistException {
         String dbUrl = getUrlFromDatabaseName(databaseName);
@@ -66,16 +76,8 @@ public class OceanBaseOracleCatalog extends OracleCatalog {
     }
 
     @Override
-    public boolean tableExists(TablePath tablePath) throws CatalogException {
-        try {
-            return listTables(tablePath.getDatabaseName()).contains(getTableName(tablePath));
-        } catch (DatabaseNotExistException e) {
-            return false;
-        }
-    }
-
-    @Override
-    public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
+    public void createTable(
+            TablePath tablePath, CatalogTable table, boolean ignoreIfExists, boolean createIndex)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         checkNotNull(tablePath, "Table path cannot be null");
 
@@ -94,6 +96,6 @@ public class OceanBaseOracleCatalog extends OracleCatalog {
             throw new TableAlreadyExistException(catalogName, tablePath);
         }
 
-        createTableInternal(tablePath, table);
+        createTableInternal(tablePath, table, createIndex);
     }
 }

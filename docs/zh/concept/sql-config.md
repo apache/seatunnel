@@ -1,8 +1,10 @@
 # SQL配置文件
 
+在编写`SQL`配置文件之前，请确保配置文件的名称应该以`.sql`结尾。
+
 ## SQL配置文件结构
 
-`SQL`配置文件类似下面。
+`SQL`配置文件类似下面这样：
 
 ### SQL
 
@@ -120,7 +122,10 @@ CREATE TABLE sink_table WITH (
 INSERT INTO sink_table SELECT id, name, age, email FROM source_table;
 ```
 
-* `SELECT FROM` 部分为源端映射表的表名，`SELECT` 部分的语法参考：[SQL-transform](../transform-v2/sql.md) `query` 配置项
+* `SELECT FROM` 部分为源端映射表的表名，`SELECT` 部分的语法参考：[SQL-transform](../transform-v2/sql.md) `query` 配置项。如果select的字段是关键字([参考](https://github.com/JSQLParser/JSqlParser/blob/master/src/main/jjtree/net/sf/jsqlparser/parser/JSqlParserCC.jjt))，你应该像这样使用\`filedName\`
+```sql
+INSERT INTO sink_table SELECT id, name, age, email,`output` FROM source_table;
+```
 * `INSERT INTO` 部分为目标端映射表的表名
 * 注意：该语法**不支持**在 `INSERT` 中指定字段，如：`INSERT INTO sink_table (id, name, age, email) SELECT id, name, age, email FROM source_table;`
 
@@ -173,7 +178,7 @@ CREATE TABLE temp1 AS SELECT id, name, age, email FROM source_table;
 ```
 
 * 该语法可以将一个`SELECT`查询结果作为一个临时表，用于的`INSERT INTO`操作
-* `SELECT` 部分的语法参考：[SQL-transform](../transform-v2/sql.md) `query` 配置项
+* `SELECT` 部分的语法参考：[SQL Transform](../transform-v2/sql.md) `query` 配置项
 
 ```sql
 CREATE TABLE temp1 AS SELECT id, name, age, email FROM source_table;

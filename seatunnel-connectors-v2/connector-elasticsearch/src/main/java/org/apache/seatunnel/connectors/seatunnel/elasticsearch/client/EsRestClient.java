@@ -58,6 +58,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import javax.net.ssl.SSLContext;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -76,7 +77,7 @@ import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsT
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.OBJECT;
 
 @Slf4j
-public class EsRestClient {
+public class EsRestClient implements Closeable {
 
     private static final int CONNECTION_REQUEST_TIMEOUT = 10 * 1000;
 
@@ -258,6 +259,7 @@ public class EsRestClient {
         }
     }
 
+    @Override
     public void close() {
         try {
             restClient.close();
@@ -370,6 +372,30 @@ public class EsRestClient {
         return scrollResult;
     }
 
+    /**
+     * Instead of the getIndexDocsCount method to determine if the index exists,
+     *
+     * <p>
+     *
+     * <p>getIndexDocsCount throws an exception if the index does not exist
+     *
+     * <p>
+     *
+     * @param index index
+     * @return true or false
+     */
+    public boolean checkIndexExist(String index) {
+        Request request = new Request("HEAD", "/" + index);
+        try {
+            Response response = restClient.performRequest(request);
+            int statusCode = response.getStatusLine().getStatusCode();
+            return statusCode == 200;
+        } catch (Exception ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.CHECK_INDEX_FAILED, ex);
+        }
+    }
+
     public List<IndexDocsCount> getIndexDocsCount(String index) {
         String endpoint = String.format("/_cat/indices/%s?h=index,docsCount&format=json", index);
         Request request = new Request("GET", endpoint);
@@ -477,6 +503,35 @@ public class EsRestClient {
         } catch (IOException ex) {
             throw new ElasticsearchConnectorException(
                     ElasticsearchConnectorErrorCode.DROP_INDEX_FAILED, ex);
+        }
+    }
+
+    public void clearIndexData(String indexName) {
+        String endpoint = String.format("/%s/_delete_by_query", indexName);
+        Request request = new Request("POST", endpoint);
+        String jsonString = "{ \"query\": { \"match_all\": {} } }";
+        request.setJsonEntity(jsonString);
+
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.CLEAR_INDEX_DATA_FAILED,
+                        "POST " + endpoint + " response null");
+            }
+            // todo: if the index doesn't exist, the response status code is 200?
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                return;
+            } else {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.CLEAR_INDEX_DATA_FAILED,
+                        String.format(
+                                "POST %s response status code=%d",
+                                endpoint, response.getStatusLine().getStatusCode()));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.CLEAR_INDEX_DATA_FAILED, ex);
         }
     }
 

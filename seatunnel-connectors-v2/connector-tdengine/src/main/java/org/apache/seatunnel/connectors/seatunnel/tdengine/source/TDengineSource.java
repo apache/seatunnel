@@ -40,6 +40,7 @@ import org.apache.seatunnel.connectors.seatunnel.tdengine.typemapper.TDengineTyp
 import org.apache.commons.lang3.ArrayUtils;
 
 import com.google.auto.service.AutoService;
+import com.taosdata.jdbc.TSDBDriver;
 import lombok.SneakyThrows;
 
 import java.sql.Connection;
@@ -49,6 +50,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.PASSWORD;
@@ -127,42 +129,36 @@ public class TDengineSource
         List<String> fieldNames = new ArrayList<>();
         List<SeaTunnelDataType<?>> fieldTypes = new ArrayList<>();
 
-        String jdbcUrl =
-                String.join(
-                        "",
-                        config.getUrl(),
-                        config.getDatabase(),
-                        "?user=",
-                        config.getUsername(),
-                        "&password=",
-                        config.getPassword());
+        String jdbcUrl = String.join("", config.getUrl(), config.getDatabase());
+
         // check td driver whether exist and if not, try to register
         checkDriverExist(jdbcUrl);
-        try (Connection conn = DriverManager.getConnection(jdbcUrl)) {
-            try (Statement statement = conn.createStatement()) {
+
+        Properties properties = new Properties();
+        properties.put(TSDBDriver.PROPERTY_KEY_USER, config.getUsername());
+        properties.put(TSDBDriver.PROPERTY_KEY_PASSWORD, config.getPassword());
+        String metaSQL =
+                String.format(
+                        "select table_name from information_schema.ins_tables where db_name = '%s' and stable_name='%s'",
+                        config.getDatabase(), config.getStable());
+        try (Connection conn = DriverManager.getConnection(jdbcUrl, properties);
+                Statement statement = conn.createStatement();
                 ResultSet metaResultSet =
                         statement.executeQuery(
-                                "desc " + config.getDatabase() + "." + config.getStable());
-                while (metaResultSet.next()) {
-                    if (timestampFieldName == null) {
-                        timestampFieldName = metaResultSet.getString(1);
-                    }
-                    fieldNames.add(metaResultSet.getString(1));
-                    fieldTypes.add(TDengineTypeMapper.mapping(metaResultSet.getString(2)));
+                                String.format(
+                                        "desc %s.%s", config.getDatabase(), config.getStable()));
+                ResultSet subTableNameResultSet = statement.executeQuery(metaSQL)) {
+            while (metaResultSet.next()) {
+                if (timestampFieldName == null) {
+                    timestampFieldName = metaResultSet.getString(1);
                 }
+                fieldNames.add(metaResultSet.getString(1));
+                fieldTypes.add(TDengineTypeMapper.mapping(metaResultSet.getString(2)));
             }
-            try (Statement statement = conn.createStatement()) {
-                String metaSQL =
-                        "select table_name from information_schema.ins_tables where db_name = '"
-                                + config.getDatabase()
-                                + "' and stable_name='"
-                                + config.getStable()
-                                + "';";
-                ResultSet subTableNameResultSet = statement.executeQuery(metaSQL);
-                while (subTableNameResultSet.next()) {
-                    String subTableName = subTableNameResultSet.getString(1);
-                    subTableNames.add(subTableName);
-                }
+
+            while (subTableNameResultSet.next()) {
+                String subTableName = subTableNameResultSet.getString(1);
+                subTableNames.add(subTableName);
             }
         }
 

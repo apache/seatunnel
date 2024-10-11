@@ -42,6 +42,7 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
     // ============================data types=====================
     static final String MYSQL_NULL = "NULL";
     static final String MYSQL_BIT = "BIT";
+    static final String MYSQL_BIT_UNSIGNED = "BIT UNSIGNED";
 
     // -------------------------number----------------------------
     static final String MYSQL_TINYINT = "TINYINT";
@@ -79,6 +80,7 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
     public static final String MYSQL_TIME = "TIME";
     public static final String MYSQL_TIMESTAMP = "TIMESTAMP";
     static final String MYSQL_YEAR = "YEAR";
+    static final String MYSQL_YEAR_UNSIGNED = "YEAR UNSIGNED";
 
     // ------------------------------blob-------------------------
     static final String MYSQL_TINYBLOB = "TINYBLOB";
@@ -129,6 +131,10 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                         .comment(typeDefine.getComment());
 
         String mysqlDataType = typeDefine.getDataType().toUpperCase();
+        if (mysqlDataType.endsWith("ZEROFILL")) {
+            mysqlDataType =
+                    mysqlDataType.substring(0, mysqlDataType.length() - "ZEROFILL".length()).trim();
+        }
         if (typeDefine.isUnsigned() && !(mysqlDataType.endsWith(" UNSIGNED"))) {
             mysqlDataType = mysqlDataType + " UNSIGNED";
         }
@@ -137,6 +143,7 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                 builder.dataType(BasicType.VOID_TYPE);
                 break;
             case MYSQL_BIT:
+            case MYSQL_BIT_UNSIGNED:
                 if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {
                     builder.dataType(BasicType.BOOLEAN_TYPE);
                 } else if (typeDefine.getLength() == 1) {
@@ -166,6 +173,7 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
             case MYSQL_INT:
             case MYSQL_INTEGER:
             case MYSQL_YEAR:
+            case MYSQL_YEAR_UNSIGNED:
                 builder.dataType(BasicType.INT_TYPE);
                 break;
             case MYSQL_INT_UNSIGNED:

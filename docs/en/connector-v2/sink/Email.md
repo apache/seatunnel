@@ -14,25 +14,26 @@ The tested email version is 1.5.6.
 
 ## Options
 
-|           name           |  type  | required | default value |
-|--------------------------|--------|----------|---------------|
-| email_from_address       | string | yes      | -             |
-| email_to_address         | string | yes      | -             |
-| email_host               | string | yes      | -             |
-| email_transport_protocol | string | yes      | -             |
-| email_smtp_auth          | string | yes      | -             |
-| email_authorization_code | string | yes      | -             |
-| email_message_headline   | string | yes      | -             |
-| email_message_content    | string | yes      | -             |
-| common-options           |        | no       | -             |
+|           name           |  type   | required | default value |
+|--------------------------|---------|----------|---------------|
+| email_from_address       | string  | yes      | -             |
+| email_to_address         | string  | yes      | -             |
+| email_host               | string  | yes      | -             |
+| email_transport_protocol | string  | yes      | -             |
+| email_smtp_auth          | boolean | yes      | -             |
+| email_smtp_port          | int     | no       | 465           |
+| email_authorization_code | string  | no       | -             |
+| email_message_headline   | string  | yes      | -             |
+| email_message_content    | string  | yes      | -             |
+| common-options           |         | no       | -             |
 
 ### email_from_address [string]
 
-Sender Email Address .
+Sender Email Address.
 
 ### email_to_address [string]
 
-Address to receive mail.
+Address to receive mail, Support multiple email addresses, separated by commas (,).
 
 ### email_host [string]
 
@@ -42,9 +43,13 @@ SMTP server to connect to.
 
 The protocol to load the session .
 
-### email_smtp_auth [string]
+### email_smtp_auth [boolean]
 
 Whether to authenticate the customer.
+
+### email_smtp_port [int]
+
+Select port for authentication.
 
 ### email_authorization_code [string]
 
@@ -60,7 +65,7 @@ The body of the entire message.
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.
 
 ## Example
 

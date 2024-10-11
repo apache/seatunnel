@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
@@ -69,6 +70,7 @@ public class ZetaSQLType {
     public static final String BIGINT = "BIGINT";
     public static final String LONG = "LONG";
     public static final String BYTE = "BYTE";
+    public static final String BYTES = "BYTES";
     public static final String DOUBLE = "DOUBLE";
     public static final String FLOAT = "FLOAT";
     public static final String TIMESTAMP = "TIMESTAMP";
@@ -109,6 +111,13 @@ public class ZetaSQLType {
             Column columnExp = (Column) expression;
             String columnName = columnExp.getColumnName();
             int index = inputRowType.indexOf(columnName, false);
+            if (index == -1
+                    && columnName.startsWith(ZetaSQLEngine.ESCAPE_IDENTIFIER)
+                    && columnName.endsWith(ZetaSQLEngine.ESCAPE_IDENTIFIER)) {
+                columnName = columnName.substring(1, columnName.length() - 1);
+                index = inputRowType.indexOf(columnName, false);
+            }
+
             if (index != -1) {
                 return inputRowType.getFieldType(index);
             } else {
@@ -119,7 +128,14 @@ public class ZetaSQLType {
                 SeaTunnelRowType parRowType = inputRowType;
                 SeaTunnelDataType<?> filedTypeRes = null;
                 for (int i = 0; i < deep; i++) {
-                    int idx = parRowType.indexOf(columnNames[i], false);
+                    String key = columnNames[i];
+                    int idx = parRowType.indexOf(key, false);
+                    if (idx == -1
+                            && key.startsWith(ZetaSQLEngine.ESCAPE_IDENTIFIER)
+                            && key.endsWith(ZetaSQLEngine.ESCAPE_IDENTIFIER)) {
+                        key = key.substring(1, key.length() - 1);
+                        idx = parRowType.indexOf(key, false);
+                    }
                     if (idx == -1) {
                         throw new IllegalArgumentException(
                                 String.format("can't find field [%s]", fullyQualifiedName));
@@ -128,12 +144,15 @@ public class ZetaSQLType {
                     if (filedTypeRes instanceof SeaTunnelRowType) {
                         parRowType = (SeaTunnelRowType) filedTypeRes;
                     } else if (filedTypeRes instanceof MapType) {
-                        //  for map type. only support it's the latest struct.
-                        if (i != deep - 2) {
+                        if (i < deep - 2) {
                             throw new IllegalArgumentException(
-                                    "For now, we only support map struct is the latest struct in inner query function! Please modify your query!");
+                                    "For now, when you query map field with inner query, it must be latest field or latest struct field! Please modify your query!");
                         }
-                        return ((MapType<?, ?>) filedTypeRes).getValueType();
+                        if (i == deep - 1) {
+                            return filedTypeRes;
+                        } else {
+                            return ((MapType<?, ?>) filedTypeRes).getValueType();
+                        }
                     }
                 }
                 return filedTypeRes;
@@ -311,6 +330,8 @@ public class ZetaSQLType {
                 return BasicType.LONG_TYPE;
             case BYTE:
                 return BasicType.BYTE_TYPE;
+            case BYTES:
+                return PrimitiveByteArrayType.INSTANCE;
             case DOUBLE:
                 return BasicType.DOUBLE_TYPE;
             case FLOAT:

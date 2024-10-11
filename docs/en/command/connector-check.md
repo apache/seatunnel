@@ -1,4 +1,4 @@
-# Connector check command usage
+# Connector Check Command Usage
 
 ## Command Entrypoint
 

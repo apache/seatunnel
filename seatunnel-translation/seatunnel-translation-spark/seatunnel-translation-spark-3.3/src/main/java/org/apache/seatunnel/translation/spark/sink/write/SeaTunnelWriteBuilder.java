@@ -28,20 +28,23 @@ public class SeaTunnelWriteBuilder<StateT, CommitInfoT, AggregatedCommitInfoT>
         implements WriteBuilder {
 
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
-    private final CatalogTable catalogTable;
+    private final CatalogTable[] catalogTables;
     private final String jobId;
+    private final int parallelism;
 
     public SeaTunnelWriteBuilder(
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
-            CatalogTable catalogTable,
-            String jobId) {
+            CatalogTable[] catalogTables,
+            String jobId,
+            int parallelism) {
         this.sink = sink;
-        this.catalogTable = catalogTable;
+        this.catalogTables = catalogTables;
         this.jobId = jobId;
+        this.parallelism = parallelism;
     }
 
     @Override
     public Write build() {
-        return new SeaTunnelWrite<>(sink, catalogTable, jobId);
+        return new SeaTunnelWrite<>(sink, catalogTables, jobId, parallelism);
     }
 }

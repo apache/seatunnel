@@ -59,6 +59,13 @@ public class JsonSerializationSchema implements SerializationSchema {
         this.charset = charset;
     }
 
+    public JsonSerializationSchema(SeaTunnelRowType rowType, String nullValue) {
+        this.rowType = rowType;
+        this.runtimeConverter =
+                new RowToJsonConverters().createConverter(checkNotNull(rowType), nullValue);
+        this.charset = StandardCharsets.UTF_8;
+    }
+
     @Override
     public byte[] serialize(SeaTunnelRow row) {
         if (node == null) {

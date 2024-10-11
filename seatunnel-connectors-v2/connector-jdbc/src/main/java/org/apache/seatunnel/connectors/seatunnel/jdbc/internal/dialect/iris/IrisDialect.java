@@ -193,7 +193,9 @@ public class IrisDialect implements JdbcDialect {
     @Override
     public ResultSetMetaData getResultSetMetaData(Connection conn, String query)
             throws SQLException {
-        PreparedStatement ps = conn.prepareStatement(query);
-        return ps.executeQuery().getMetaData();
+        try (PreparedStatement ps = conn.prepareStatement(query);
+                ResultSet resultSet = ps.executeQuery()) {
+            return resultSet.getMetaData();
+        }
     }
 }

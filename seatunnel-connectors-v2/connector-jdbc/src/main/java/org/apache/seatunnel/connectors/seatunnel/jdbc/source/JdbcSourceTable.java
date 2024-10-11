@@ -37,5 +37,7 @@ public class JdbcSourceTable implements Serializable {
     private final Integer partitionNumber;
     private final BigDecimal partitionStart;
     private final BigDecimal partitionEnd;
+    private final Boolean useSelectCount;
+    private final Boolean skipAnalyze;
     private final CatalogTable catalogTable;
 }

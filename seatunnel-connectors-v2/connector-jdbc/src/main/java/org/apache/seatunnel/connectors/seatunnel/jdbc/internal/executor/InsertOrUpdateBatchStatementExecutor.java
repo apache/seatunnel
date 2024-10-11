@@ -112,13 +112,16 @@ public class InsertOrUpdateBatchStatementExecutor
 
     @Override
     public void closeStatements() throws SQLException {
-        if (!submitted) {
-            executeBatch();
-        }
-        for (PreparedStatement statement :
-                Arrays.asList(existStatement, insertStatement, updateStatement)) {
-            if (statement != null) {
-                statement.close();
+        try {
+            if (!submitted) {
+                executeBatch();
+            }
+        } finally {
+            for (PreparedStatement statement :
+                    Arrays.asList(existStatement, insertStatement, updateStatement)) {
+                if (statement != null) {
+                    statement.close();
+                }
             }
         }
     }

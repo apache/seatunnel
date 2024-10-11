@@ -22,15 +22,12 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.hbase.client.HbaseClient;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
 import org.apache.seatunnel.connectors.seatunnel.hbase.format.HBaseDeserializationFormat;
-import org.apache.seatunnel.connectors.seatunnel.hbase.utils.HbaseConnectionUtil;
 
-import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
-import org.apache.hadoop.hbase.client.Scan;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
@@ -39,13 +36,13 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Deque;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSourceSplit> {
@@ -54,14 +51,13 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
 
     private final transient Map<String, byte[][]> namesMap;
 
-    private final Set<String> columnFamilies = new LinkedHashSet<>();
-    private final SourceReader.Context context;
+    private final Context context;
     private final SeaTunnelRowType seaTunnelRowType;
     private volatile boolean noMoreSplit = false;
+    private final HbaseClient hbaseClient;
 
     private HbaseParameters hbaseParameters;
     private final List<String> columnNames;
-    private final transient Connection connection;
 
     private HBaseDeserializationFormat hbaseDeserializationFormat =
             new HBaseDeserializationFormat();
@@ -74,18 +70,18 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
         this.seaTunnelRowType = seaTunnelRowType;
         this.namesMap = Maps.newConcurrentMap();
 
-        this.columnNames = hbaseParameters.getColumns();
+        this.columnNames =
+                Arrays.asList(seaTunnelRowType.getFieldNames()).stream()
+                        .filter(name -> !ROW_KEY.equals(name))
+                        .collect(Collectors.toList());
         // Check if input column names are in format: [ columnFamily:column ].
         this.columnNames.stream()
-                .peek(
+                .forEach(
                         column ->
                                 Preconditions.checkArgument(
-                                        (column.contains(":") && column.split(":").length == 2)
-                                                || this.ROW_KEY.equalsIgnoreCase(column),
-                                        "Invalid column names, it should be [ColumnFamily:Column] format"))
-                .forEach(column -> this.columnFamilies.add(column.split(":")[0]));
-
-        connection = HbaseConnectionUtil.getHbaseConnection(hbaseParameters);
+                                        column.contains(":") && column.split(":").length == 2,
+                                        "Invalid column names, it should be [ColumnFamily:Column] format"));
+        hbaseClient = HbaseClient.createInstance(hbaseParameters);
     }
 
     @Override
@@ -102,9 +98,9 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
                 throw new IOException("Failed to close HBase Scanner.", e);
             }
         }
-        if (this.connection != null) {
+        if (this.hbaseClient != null) {
             try {
-                this.connection.close();
+                this.hbaseClient.close();
             } catch (Exception e) {
                 throw new IOException("Failed to close HBase connection.", e);
             }
@@ -118,14 +114,8 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
             final HbaseSourceSplit split = sourceSplits.poll();
             if (Objects.nonNull(split)) {
                 // read logic
-                if (this.currentScanner == null) {
-                    Scan scan = new Scan();
-                    scan.withStartRow(split.getStartRow(), true);
-                    scan.withStopRow(split.getEndRow(), true);
-                    this.currentScanner =
-                            this.connection
-                                    .getTable(TableName.valueOf(hbaseParameters.getTable()))
-                                    .getScanner(scan);
+                if (currentScanner == null) {
+                    currentScanner = hbaseClient.scan(split, hbaseParameters, this.columnNames);
                 }
                 for (Result result : currentScanner) {
                     SeaTunnelRow seaTunnelRow =
@@ -152,7 +142,7 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
             byte[] bytes;
             try {
                 // handle rowkey column
-                if (this.ROW_KEY.equals(columnName)) {
+                if (ROW_KEY.equals(columnName)) {
                     bytes = result.getRow();
                 } else {
                     byte[][] arr = this.namesMap.get(columnName);

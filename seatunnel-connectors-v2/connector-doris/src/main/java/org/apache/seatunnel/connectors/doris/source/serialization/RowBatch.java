@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.doris.source.serialization;
 import org.apache.seatunnel.shade.org.apache.arrow.memory.RootAllocator;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.BigIntVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.BitVector;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.DateDayVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.DecimalVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.FieldVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.FixedSizeBinaryVector;
@@ -27,6 +28,7 @@ import org.apache.seatunnel.shade.org.apache.arrow.vector.Float4Vector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.Float8Vector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.IntVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.SmallIntVector;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.TimeStampMicroVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.TinyIntVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.VarCharVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.VectorSchemaRoot;
@@ -46,6 +48,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 
@@ -71,21 +75,21 @@ import java.util.function.IntFunction;
 
 @Slf4j
 public class RowBatch {
-    // offset for iterate the rowBatch
-    private int offsetInRowBatch = 0;
-    private int rowCountInOneBatch = 0;
-    private int readRowCount = 0;
     SeaTunnelDataType<?>[] fieldTypes;
-    private List<SeaTunnelRow> seatunnelRowBatch = new ArrayList<>();
     private final ArrowStreamReader arrowStreamReader;
-    private VectorSchemaRoot root;
-    private List<FieldVector> fieldVectors;
-    private RootAllocator rootAllocator;
     private final String DATETIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
     private final String DATETIMEV2_PATTERN = "yyyy-MM-dd HH:mm:ss.SSSSSS";
     private final DateTimeFormatter dateTimeV2Formatter =
             DateTimeFormatter.ofPattern(DATETIMEV2_PATTERN);
     private final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    // offset for iterate the rowBatch
+    private int offsetInRowBatch = 0;
+    private int rowCountInOneBatch = 0;
+    private int readRowCount = 0;
+    private List<SeaTunnelRow> seatunnelRowBatch = new ArrayList<>();
+    private VectorSchemaRoot root;
+    private List<FieldVector> fieldVectors;
+    private RootAllocator rootAllocator;
 
     public RowBatch(TScanBatchResult nextResult, SeaTunnelRowType seaTunnelRowType) {
         this.rootAllocator = new RootAllocator(Integer.MAX_VALUE);
@@ -293,6 +297,19 @@ public class RowBatch {
                                 return new BigDecimal(new BigInteger(bytes), 0);
                             });
                     break;
+                } else if (fieldVector instanceof VarCharVector) {
+                    VarCharVector varCharVector = (VarCharVector) fieldVector;
+                    Preconditions.checkArgument(
+                            minorType.equals(Types.MinorType.VARCHAR),
+                            typeMismatchMessage(currentType, minorType));
+                    addValueToRowForAllRows(
+                            col,
+                            rowIndex ->
+                                    varCharVector.isNull(rowIndex)
+                                            ? null
+                                            : new BigDecimal(
+                                                    new String(varCharVector.get(rowIndex))));
+                    break;
                 }
                 DecimalVector decimalVector = (DecimalVector) fieldVector;
                 Preconditions.checkArgument(
@@ -307,6 +324,21 @@ public class RowBatch {
                 break;
             case "DATE":
             case "DATEV2":
+                if (fieldVector instanceof DateDayVector) {
+                    DateDayVector dateVector = (DateDayVector) fieldVector;
+                    Preconditions.checkArgument(
+                            minorType.equals(Types.MinorType.DATEDAY),
+                            typeMismatchMessage(currentType, minorType));
+                    addValueToRowForAllRows(
+                            col,
+                            rowIndex -> {
+                                if (dateVector.isNull(rowIndex)) {
+                                    return null;
+                                }
+                                return LocalDate.ofEpochDay(dateVector.get(rowIndex));
+                            });
+                    break;
+                }
                 VarCharVector dateVector = (VarCharVector) fieldVector;
                 Preconditions.checkArgument(
                         minorType.equals(Types.MinorType.VARCHAR),
@@ -322,6 +354,22 @@ public class RowBatch {
                         });
                 break;
             case "TIMESTAMP":
+                if (fieldVector instanceof TimeStampMicroVector) {
+                    TimeStampMicroVector timestampVector = (TimeStampMicroVector) fieldVector;
+
+                    addValueToRowForAllRows(
+                            col,
+                            rowIndex -> {
+                                if (timestampVector.isNull(rowIndex)) {
+                                    return null;
+                                }
+                                String stringValue = timestampVector.getObject(rowIndex).toString();
+                                stringValue = completeMilliseconds(stringValue);
+
+                                return DateTimeUtils.parse(stringValue);
+                            });
+                    break;
+                }
                 VarCharVector timestampVector = (VarCharVector) fieldVector;
                 Preconditions.checkArgument(
                         minorType.equals(Types.MinorType.VARCHAR),
@@ -499,6 +547,9 @@ public class RowBatch {
         }
 
         if (vectorObject instanceof Integer) {
+            if (sqlType.equals(SqlType.DATE)) {
+                return LocalDate.ofEpochDay((int) vectorObject);
+            }
             return Integer.valueOf(vectorObject.toString());
         }
 
@@ -520,6 +571,8 @@ public class RowBatch {
                 return LocalDateTime.parse(stringValue, dateTimeV2Formatter);
             } else if (sqlType.equals(SqlType.DATE)) {
                 return LocalDate.parse(vectorObject.toString(), dateFormatter);
+            } else if (sqlType.equals(SqlType.DECIMAL)) {
+                return new BigDecimal(vectorObject.toString());
             }
             return vectorObject.toString();
         }
@@ -539,6 +592,13 @@ public class RowBatch {
                 right--;
             }
             return new BigDecimal(new BigInteger(bytes), 0);
+        }
+        if (vectorObject instanceof LocalDate) {
+            return DateUtils.parse(vectorObject.toString());
+        }
+
+        if (vectorObject instanceof LocalDateTime) {
+            return DateTimeUtils.parse(vectorObject.toString());
         }
 
         return vectorObject.toString();

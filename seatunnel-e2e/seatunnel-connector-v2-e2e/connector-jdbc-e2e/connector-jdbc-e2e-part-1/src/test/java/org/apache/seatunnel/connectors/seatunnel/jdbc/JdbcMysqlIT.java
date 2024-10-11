@@ -42,12 +42,14 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSourceState;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.apache.commons.lang3.tuple.Pair;
 
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -67,6 +69,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -145,7 +148,8 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     + "    `c_integer_unsigned`     int(10) unsigned      DEFAULT NULL,\n"
                     + "    `c_bigint_30`            BIGINT(40)  unsigned  DEFAULT NULL,\n"
                     + "    `c_decimal_unsigned_30`  DECIMAL(30) unsigned  DEFAULT NULL,\n"
-                    + "    `c_decimal_30`           DECIMAL(30)           DEFAULT NULL\n"
+                    + "    `c_decimal_30`           DECIMAL(30)           DEFAULT NULL,\n"
+                    + "    UNIQUE (c_bigint_30)\n"
                     + ");";
 
     @Override
@@ -178,11 +182,13 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                 .testData(testDataSet)
                 .catalogDatabase(CATALOG_DATABASE)
                 .catalogTable(MYSQL_SINK)
+                .tablePathFullName(MYSQL_DATABASE + "." + MYSQL_SOURCE)
                 .build();
     }
 
     @Override
-    protected void compareResult(String executeKey) {
+    protected void checkResult(
+            String executeKey, TestContainer container, Container.ExecResult execResult) {
         String[] fieldNames =
                 new String[] {
                     "c_bit_1",
@@ -479,8 +485,11 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         map1.put("url", getUrl());
         ReadonlyConfig config1 = ReadonlyConfig.fromMap(map1);
         TableSinkFactoryContext context1 =
-                new TableSinkFactoryContext(
-                        catalogTable, config1, Thread.currentThread().getContextClassLoader());
+                TableSinkFactoryContext.replacePlaceholderAndCreate(
+                        catalogTable,
+                        config1,
+                        Thread.currentThread().getContextClassLoader(),
+                        Collections.emptyList());
         JdbcSink jdbcSink1 = (JdbcSink) new JdbcSinkFactory().createSink(context1).createSink();
         Properties connectionProperties1 = getSinkProperties(jdbcSink1);
         Assertions.assertEquals(connectionProperties1.get("rewriteBatchedStatements"), "true");
@@ -490,8 +499,11 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         map2.put("url", getUrl() + "?rewriteBatchedStatements=false");
         ReadonlyConfig config2 = ReadonlyConfig.fromMap(map2);
         TableSinkFactoryContext context2 =
-                new TableSinkFactoryContext(
-                        catalogTable, config2, Thread.currentThread().getContextClassLoader());
+                TableSinkFactoryContext.replacePlaceholderAndCreate(
+                        catalogTable,
+                        config2,
+                        Thread.currentThread().getContextClassLoader(),
+                        Collections.emptyList());
         JdbcSink jdbcSink2 = (JdbcSink) new JdbcSinkFactory().createSink(context2).createSink();
         Properties connectionProperties2 = getSinkProperties(jdbcSink2);
         Assertions.assertEquals(connectionProperties2.get("rewriteBatchedStatements"), "false");
@@ -504,8 +516,11 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         map3.put("url", getUrl());
         ReadonlyConfig config3 = ReadonlyConfig.fromMap(map3);
         TableSinkFactoryContext context3 =
-                new TableSinkFactoryContext(
-                        catalogTable, config3, Thread.currentThread().getContextClassLoader());
+                TableSinkFactoryContext.replacePlaceholderAndCreate(
+                        catalogTable,
+                        config3,
+                        Thread.currentThread().getContextClassLoader(),
+                        Collections.emptyList());
         JdbcSink jdbcSink3 = (JdbcSink) new JdbcSinkFactory().createSink(context3).createSink();
         Properties connectionProperties3 = getSinkProperties(jdbcSink3);
         Assertions.assertEquals(connectionProperties3.get("rewriteBatchedStatements"), "false");
@@ -519,8 +534,11 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         map4.put("url", getUrl() + "?useSSL=false&rewriteBatchedStatements=true");
         ReadonlyConfig config4 = ReadonlyConfig.fromMap(map4);
         TableSinkFactoryContext context4 =
-                new TableSinkFactoryContext(
-                        catalogTable, config4, Thread.currentThread().getContextClassLoader());
+                TableSinkFactoryContext.replacePlaceholderAndCreate(
+                        catalogTable,
+                        config4,
+                        Thread.currentThread().getContextClassLoader(),
+                        Collections.emptyList());
         JdbcSink jdbcSink4 = (JdbcSink) new JdbcSinkFactory().createSink(context4).createSink();
         Properties connectionProperties4 = getSinkProperties(jdbcSink4);
         Assertions.assertEquals(connectionProperties4.get("useSSL"), "true");

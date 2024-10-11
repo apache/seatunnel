@@ -64,7 +64,7 @@ public class StarRocksCreateTableTest {
 
         String result =
                 StarRocksSaveModeUtil.getCreateTableSql(
-                        "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (                                                                                                                                                   \n"
+                        "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (                                                                                                                                                   \n"
                                 + "${rowtype_primary_key}  ,       \n"
                                 + "${rowtype_unique_key} , \n"
                                 + "`create_time` DATETIME NOT NULL ,  \n"
@@ -232,7 +232,7 @@ public class StarRocksCreateTableTest {
 
         String result =
                 StarRocksSaveModeUtil.getCreateTableSql(
-                        "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (\n"
+                        "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (\n"
                                 + "`L_COMMITDATE`,\n"
                                 + "${rowtype_primary_key},\n"
                                 + "L_SUPPKEY BIGINT NOT NULL,\n"
@@ -289,7 +289,7 @@ public class StarRocksCreateTableTest {
 
         String result =
                 StarRocksSaveModeUtil.getCreateTableSql(
-                        "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (                                                                                                                                                   \n"
+                        "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (                                                                                                                                                   \n"
                                 + "${rowtype_primary_key}  ,       \n"
                                 + "`create_time` DATETIME NOT NULL ,  \n"
                                 + "${rowtype_fields}  \n"
@@ -346,7 +346,7 @@ public class StarRocksCreateTableTest {
 
         String result =
                 StarRocksSaveModeUtil.getCreateTableSql(
-                        "create table '${database}'.'${table_name}'(\n"
+                        "create table '${database}'.'${table}'(\n"
                                 + "     ${rowtype_fields}\n"
                                 + " )\n"
                                 + " partitioned by ${rowtype_primary_key};",

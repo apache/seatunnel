@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
-import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -42,8 +41,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Slf4j
-public class JdbcSinkWriter extends AbstractJdbcSinkWriter
-        implements SupportMultiTableSinkWriter<ConnectionPoolManager> {
+public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager> {
     private final Integer primaryKeyIndex;
 
     public JdbcSinkWriter(

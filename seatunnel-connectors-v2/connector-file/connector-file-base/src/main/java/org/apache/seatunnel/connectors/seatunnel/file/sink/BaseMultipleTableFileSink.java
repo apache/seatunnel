@@ -21,12 +21,20 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
@@ -39,20 +47,25 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategyF
 import java.util.List;
 import java.util.Optional;
 
+import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
+
 public abstract class BaseMultipleTableFileSink
         implements SeaTunnelSink<
                         SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo>,
-                SupportMultiTableSink {
+                SupportMultiTableSink,
+                SupportSaveMode {
 
     private final HadoopConf hadoopConf;
     private final CatalogTable catalogTable;
     private final FileSinkConfig fileSinkConfig;
     private String jobId;
+    private final ReadonlyConfig readonlyConfig;
 
     public abstract String getPluginName();
 
     public BaseMultipleTableFileSink(
             HadoopConf hadoopConf, ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
+        this.readonlyConfig = readonlyConfig;
         this.hadoopConf = hadoopConf;
         this.fileSinkConfig =
                 new FileSinkConfig(readonlyConfig.toConfig(), catalogTable.getSeaTunnelRowType());
@@ -77,8 +90,7 @@ public abstract class BaseMultipleTableFileSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> createWriter(
-            SinkWriter.Context context) {
+    public BaseFileSinkWriter createWriter(SinkWriter.Context context) {
         return new BaseFileSinkWriter(createWriteStrategy(), hadoopConf, context, jobId);
     }
 
@@ -102,5 +114,24 @@ public abstract class BaseMultipleTableFileSink
                 WriteStrategyFactory.of(fileSinkConfig.getFileFormat(), fileSinkConfig);
         writeStrategy.setSeaTunnelRowTypeInfo(catalogTable.getSeaTunnelRowType());
         return writeStrategy;
+    }
+
+    @Override
+    public Optional<SaveModeHandler> getSaveModeHandler() {
+
+        CatalogFactory catalogFactory =
+                discoverFactory(
+                        Thread.currentThread().getContextClassLoader(),
+                        CatalogFactory.class,
+                        getPluginName());
+        if (catalogFactory == null) {
+            return Optional.empty();
+        }
+        final Catalog catalog = catalogFactory.createCatalog(getPluginName(), readonlyConfig);
+        SchemaSaveMode schemaSaveMode = readonlyConfig.get(BaseSinkConfig.SCHEMA_SAVE_MODE);
+        DataSaveMode dataSaveMode = readonlyConfig.get(BaseSinkConfig.DATA_SAVE_MODE);
+        return Optional.of(
+                new DefaultSaveModeHandler(
+                        schemaSaveMode, dataSaveMode, catalog, catalogTable, null));
     }
 }

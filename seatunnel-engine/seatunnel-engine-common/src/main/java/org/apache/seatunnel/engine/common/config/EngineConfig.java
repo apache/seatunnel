@@ -19,10 +19,13 @@ package org.apache.seatunnel.engine.common.config;
 
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
+import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
+import org.apache.seatunnel.engine.common.config.server.TelemetryConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
+import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 
 import lombok.Data;
 
@@ -63,8 +66,16 @@ public class EngineConfig {
     private int historyJobExpireMinutes =
             ServerConfigOptions.HISTORY_JOB_EXPIRE_MINUTES.defaultValue();
 
+    private ClusterRole clusterRole = ClusterRole.MASTER_AND_WORKER;
+
     private String eventReportHttpApi;
     private Map<String, String> eventReportHttpHeaders = Collections.emptyMap();
+
+    private ExecutionMode mode = ExecutionMode.CLUSTER;
+
+    private TelemetryConfig telemetryConfig = ServerConfigOptions.TELEMETRY.defaultValue();
+
+    private HttpConfig httpConfig = ServerConfigOptions.HTTP.defaultValue();
 
     public void setBackupCount(int newBackupCount) {
         checkBackupCount(newBackupCount, 0);
@@ -108,6 +119,12 @@ public class EngineConfig {
         checkNotNull(queueType);
         this.queueType = queueType;
         return this;
+    }
+
+    public enum ClusterRole {
+        MASTER_AND_WORKER,
+        MASTER,
+        WORKER
     }
 
     public EngineConfig setEventReportHttpApi(String eventReportHttpApi) {

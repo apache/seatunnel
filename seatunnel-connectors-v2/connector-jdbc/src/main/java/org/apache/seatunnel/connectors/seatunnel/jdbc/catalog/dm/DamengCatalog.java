@@ -30,8 +30,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeMapper;
 
-import org.apache.commons.lang3.StringUtils;
-
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
@@ -39,15 +37,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 @Slf4j
 public class DamengCatalog extends AbstractJdbcCatalog {
-    private static final List<String> EXCLUDED_SCHEMAS =
-            Collections.unmodifiableList(
-                    Arrays.asList("SYS", "SYSDBA", "SYSSSO", "SYSAUDITOR", "CTISYS"));
 
     private static final String SELECT_COLUMNS_SQL =
             "SELECT COLUMNS.COLUMN_NAME, COLUMNS.DATA_TYPE, COLUMNS.DATA_LENGTH, COLUMNS.DATA_PRECISION, COLUMNS.DATA_SCALE "
@@ -71,12 +64,27 @@ public class DamengCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
+    protected String getDatabaseWithConditionSql(String databaseName) {
+        return String.format(getListDatabaseSql() + " where name = '%s'", databaseName);
+    }
+
+    @Override
+    protected String getTableWithConditionSql(TablePath tablePath) {
+        return String.format(
+                getListTableSql(tablePath.getDatabaseName())
+                        + " where OWNER = '%s' and TABLE_NAME = '%s'",
+                tablePath.getSchemaName(),
+                tablePath.getTableName());
+    }
+
+    @Override
     protected String getListDatabaseSql() {
         return "SELECT name FROM v$database";
     }
 
     @Override
-    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
+    protected String getCreateTableSql(
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
         throw new UnsupportedOperationException();
     }
 
@@ -97,9 +105,6 @@ public class DamengCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getTableName(ResultSet rs) throws SQLException {
-        if (EXCLUDED_SCHEMAS.contains(rs.getString(1))) {
-            return null;
-        }
         return rs.getString(1) + "." + rs.getString(2);
     }
 
@@ -145,20 +150,6 @@ public class DamengCatalog extends AbstractJdbcCatalog {
         return tablePath.getSchemaAndTableName();
     }
 
-    @Override
-    public boolean tableExists(TablePath tablePath) throws CatalogException {
-        try {
-            if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
-                return databaseExists(tablePath.getDatabaseName())
-                        && listTables(tablePath.getDatabaseName())
-                                .contains(tablePath.getSchemaAndTableName());
-            }
-            return listTables().contains(tablePath.getSchemaAndTableName());
-        } catch (DatabaseNotExistException e) {
-            return false;
-        }
-    }
-
     private List<String> listTables() {
         List<String> databases = listDatabases();
         return listTables(databases.get(0));
@@ -178,9 +169,6 @@ public class DamengCatalog extends AbstractJdbcCatalog {
 
             List<String> tables = new ArrayList<>();
             while (rs.next()) {
-                if (EXCLUDED_SCHEMAS.contains(rs.getString(1))) {
-                    continue;
-                }
                 tables.add(rs.getString(1) + "." + rs.getString(2));
             }
 

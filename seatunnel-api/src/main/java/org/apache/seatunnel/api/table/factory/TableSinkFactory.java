@@ -19,6 +19,9 @@ package org.apache.seatunnel.api.table.factory;
 
 import org.apache.seatunnel.api.table.connector.TableSink;
 
+import java.util.Collections;
+import java.util.List;
+
 /**
  * This is an SPI interface, used to create {@link TableSink}. Each plugin need to have it own
  * implementation.
@@ -40,5 +43,10 @@ public interface TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT
             TableSinkFactoryContext context) {
         throw new UnsupportedOperationException(
                 "The Factory has not been implemented and the deprecated Plugin will be used.");
+    }
+
+    @Deprecated
+    default List<String> excludeTablePlaceholderReplaceKeys() {
+        return Collections.emptyList();
     }
 }

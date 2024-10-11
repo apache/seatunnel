@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig;
 
 import java.io.IOException;
@@ -45,8 +44,7 @@ public class InfluxDBSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
-            throws IOException {
+    public InfluxDBSinkWriter createWriter(SinkWriter.Context context) throws IOException {
         return new InfluxDBSinkWriter(sinkConfig, seaTunnelRowType);
     }
 }

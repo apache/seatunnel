@@ -28,9 +28,9 @@ Used to read data from Clickhouse.
 In order to use the Clickhouse connector, the following dependencies are required.
 They can be downloaded via install-plugin.sh or from the Maven central repository.
 
-| Datasource | Supported Versions |                                                    Dependency                                                    |
-|------------|--------------------|------------------------------------------------------------------------------------------------------------------|
-| Clickhouse | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-clickhouse) |
+| Datasource | Supported Versions | Dependency                                                                               |
+|------------|--------------------|------------------------------------------------------------------------------------------|
+| Clickhouse | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-clickhouse) |
 
 ## Data Type Mapping
 
@@ -49,15 +49,16 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 ## Source Options
 
-|       Name       |  Type  | Required |        Default         |                                                               Description                                                                |
-|------------------|--------|----------|------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
-| host             | String | Yes      | -                      | `ClickHouse` cluster address, the format is `host:port` , allowing multiple `hosts` to be specified. Such as `"host1:8123,host2:8123"` . |
-| database         | String | Yes      | -                      | The `ClickHouse` database.                                                                                                               |
-| sql              | String | Yes      | -                      | The query sql used to search data though Clickhouse server.                                                                              |
-| username         | String | Yes      | -                      | `ClickHouse` user username.                                                                                                              |
-| password         | String | Yes      | -                      | `ClickHouse` user password.                                                                                                              |
-| server_time_zone | String | No       | ZoneId.systemDefault() | The session time zone in database server. If not set, then ZoneId.systemDefault() is used to determine the server time zone.             |
-| common-options   |        | No       | -                      | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.                                 |
+|       Name        |  Type  | Required |        Default         |                                                                                                                                                 Description                                                                                                                                                 |
+|-------------------|--------|----------|------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| host              | String | Yes      | -                      | `ClickHouse` cluster address, the format is `host:port` , allowing multiple `hosts` to be specified. Such as `"host1:8123,host2:8123"` .                                                                                                                                                                    |
+| database          | String | Yes      | -                      | The `ClickHouse` database.                                                                                                                                                                                                                                                                                  |
+| sql               | String | Yes      | -                      | The query sql used to search data though Clickhouse server.                                                                                                                                                                                                                                                 |
+| username          | String | Yes      | -                      | `ClickHouse` user username.                                                                                                                                                                                                                                                                                 |
+| password          | String | Yes      | -                      | `ClickHouse` user password.                                                                                                                                                                                                                                                                                 |
+| clickhouse.config | Map    | No       | -                      | In addition to the above mandatory parameters that must be specified by `clickhouse-jdbc` , users can also specify multiple optional parameters, which cover all the [parameters](https://github.com/ClickHouse/clickhouse-jdbc/tree/master/clickhouse-client#configuration) provided by `clickhouse-jdbc`. |
+| server_time_zone  | String | No       | ZoneId.systemDefault() | The session time zone in database server. If not set, then ZoneId.systemDefault() is used to determine the server time zone.                                                                                                                                                                                |
+| common-options    |        | No       | -                      | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                                                          |
 
 ## How to Create a Clickhouse Data Synchronization Jobs
 
@@ -80,6 +81,9 @@ source {
     password = "xxxxx"
     server_time_zone = "UTC"
     result_table_name = "test"
+    clickhouse.config = {
+      "socket_timeout": "300000"
+    }
   }
 }
 

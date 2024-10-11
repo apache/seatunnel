@@ -28,5 +28,5 @@ public class SinkCommonOptions {
             Options.key("multi_table_sink_replica")
                     .intType()
                     .defaultValue(1)
-                    .withDescription("The replica number of multi table sink");
+                    .withDescription("The replica number of multi table sink writer");
 }

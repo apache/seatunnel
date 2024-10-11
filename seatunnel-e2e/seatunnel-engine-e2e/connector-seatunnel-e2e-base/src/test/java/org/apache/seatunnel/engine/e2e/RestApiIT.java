@@ -34,13 +34,18 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.config.Config;
+import com.hazelcast.config.MemberAttributeConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static io.restassured.RestAssured.given;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.CONTEXT_PATH;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.notNullValue;
@@ -60,14 +65,36 @@ public class RestApiIT {
 
     private static SeaTunnelClient engineClient;
 
+    private static SeaTunnelConfig node1Config;
+
+    private static SeaTunnelConfig node2Config;
+
+    private static Map<Integer, Integer> ports;
+
     @BeforeEach
     void beforeClass() throws Exception {
         String testClusterName = TestUtils.getClusterName("RestApiIT");
-        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
-        seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
-        node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+        node1Config = ConfigProvider.locateAndGetSeaTunnelConfig();
+        node1Config.getEngineConfig().getHttpConfig().setPort(8080);
+        node1Config.getEngineConfig().getHttpConfig().setEnabled(true);
+        node1Config.getHazelcastConfig().setClusterName(testClusterName);
+        node1Config.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
+        node1Config.getEngineConfig().getSlotServiceConfig().setSlotNum(20);
+        MemberAttributeConfig node1Tags = new MemberAttributeConfig();
+        node1Tags.setAttribute("node", "node1");
+        node1Config.getHazelcastConfig().setMemberAttributeConfig(node1Tags);
+        node1 = SeaTunnelServerStarter.createHazelcastInstance(node1Config);
 
-        node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+        MemberAttributeConfig node2Tags = new MemberAttributeConfig();
+        node2Tags.setAttribute("node", "node2");
+        Config node2hzconfig = node1Config.getHazelcastConfig().setMemberAttributeConfig(node2Tags);
+        node2Config = ConfigProvider.locateAndGetSeaTunnelConfig();
+        node2Config.getEngineConfig().getHttpConfig().setPort(8081);
+        node2Config.getEngineConfig().getHttpConfig().setEnabled(true);
+        node2Config.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
+        node2Config.getEngineConfig().getSlotServiceConfig().setSlotNum(20);
+        node2Config.setHazelcastConfig(node2hzconfig);
+        node2 = SeaTunnelServerStarter.createHazelcastInstance(node2Config);
 
         String filePath = TestUtils.getResource("stream_fakesource_to_file.conf");
         JobConfig jobConfig = new JobConfig();
@@ -77,7 +104,7 @@ public class RestApiIT {
         clientConfig.setClusterName(testClusterName);
         engineClient = new SeaTunnelClient(clientConfig);
         ClientJobExecutionEnvironment jobExecutionEnv =
-                engineClient.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
+                engineClient.createExecutionContext(filePath, jobConfig, node1Config);
 
         clientJobProxy = jobExecutionEnv.execute();
 
@@ -92,7 +119,7 @@ public class RestApiIT {
         JobConfig batchConf = new JobConfig();
         batchConf.setName("fake_to_console");
         ClientJobExecutionEnvironment batchJobExecutionEnv =
-                engineClient.createExecutionContext(batchFilePath, batchConf, seaTunnelConfig);
+                engineClient.createExecutionContext(batchFilePath, batchConf, node1Config);
         batchJobProxy = batchJobExecutionEnv.execute();
         Awaitility.await()
                 .atMost(5, TimeUnit.MINUTES)
@@ -100,101 +127,173 @@ public class RestApiIT {
                         () ->
                                 Assertions.assertEquals(
                                         JobStatus.FINISHED, batchJobProxy.getJobStatus()));
+        ports = new HashMap<>();
+        ports.put(
+                node1.getCluster().getLocalMember().getAddress().getPort(),
+                node1Config.getEngineConfig().getHttpConfig().getPort());
+        ports.put(
+                node2.getCluster().getLocalMember().getAddress().getPort(),
+                node2Config.getEngineConfig().getHttpConfig().getPort());
     }
 
     @Test
     public void testGetRunningJobById() {
+
         Arrays.asList(node2, node1)
                 .forEach(
-                        instance -> {
-                            given().get(
-                                            HOST
-                                                    + instance.getCluster()
-                                                            .getLocalMember()
-                                                            .getAddress()
-                                                            .getPort()
-                                                    + RestConstant.RUNNING_JOB_URL
-                                                    + "/"
-                                                    + clientJobProxy.getJobId())
-                                    .then()
-                                    .statusCode(200)
-                                    .body("jobName", equalTo("fake_to_file"))
-                                    .body("jobStatus", equalTo("RUNNING"));
-                        });
+                        instance ->
+                                ports.forEach(
+                                        (key, value) -> {
+                                            given().get(
+                                                            HOST
+                                                                    + key
+                                                                    + CONTEXT_PATH
+                                                                    + RestConstant.RUNNING_JOB_URL
+                                                                    + "/"
+                                                                    + clientJobProxy.getJobId())
+                                                    .then()
+                                                    .statusCode(200)
+                                                    .body("jobName", equalTo("fake_to_file"))
+                                                    .body("jobStatus", equalTo("RUNNING"));
+
+                                            given().get(
+                                                            HOST
+                                                                    + value
+                                                                    + node1Config
+                                                                            .getEngineConfig()
+                                                                            .getHttpConfig()
+                                                                            .getContextPath()
+                                                                    + RestConstant.RUNNING_JOB_URL
+                                                                    + "/"
+                                                                    + clientJobProxy.getJobId())
+                                                    .then()
+                                                    .statusCode(200)
+                                                    .body("jobName", equalTo("fake_to_file"))
+                                                    .body("jobStatus", equalTo("RUNNING"));
+                                        }));
     }
 
     @Test
     public void testGetJobById() {
         Arrays.asList(node2, node1)
                 .forEach(
-                        instance -> {
-                            given().get(
-                                            HOST
-                                                    + instance.getCluster()
-                                                            .getLocalMember()
-                                                            .getAddress()
-                                                            .getPort()
-                                                    + RestConstant.RUNNING_JOB_URL
-                                                    + "/"
-                                                    + batchJobProxy.getJobId())
-                                    .then()
-                                    .statusCode(200)
-                                    .body("jobName", equalTo("fake_to_console"))
-                                    .body("jobStatus", equalTo("FINISHED"));
-                        });
+                        instance ->
+                                ports.forEach(
+                                        (key, value) -> {
+                                            given().get(
+                                                            HOST
+                                                                    + key
+                                                                    + CONTEXT_PATH
+                                                                    + RestConstant.RUNNING_JOB_URL
+                                                                    + "/"
+                                                                    + batchJobProxy.getJobId())
+                                                    .then()
+                                                    .statusCode(200)
+                                                    .body("jobName", equalTo("fake_to_console"))
+                                                    .body("jobStatus", equalTo("FINISHED"));
+
+                                            given().get(
+                                                            HOST
+                                                                    + value
+                                                                    + node1Config
+                                                                            .getEngineConfig()
+                                                                            .getHttpConfig()
+                                                                            .getContextPath()
+                                                                    + RestConstant.RUNNING_JOB_URL
+                                                                    + "/"
+                                                                    + batchJobProxy.getJobId())
+                                                    .then()
+                                                    .statusCode(200)
+                                                    .body("jobName", equalTo("fake_to_console"))
+                                                    .body("jobStatus", equalTo("FINISHED"));
+                                        }));
     }
 
     @Test
     public void testGetAnNotExistJobById() {
         Arrays.asList(node2, node1)
                 .forEach(
-                        instance -> {
-                            given().get(
-                                            HOST
-                                                    + instance.getCluster()
-                                                            .getLocalMember()
-                                                            .getAddress()
-                                                            .getPort()
-                                                    + RestConstant.RUNNING_JOB_URL
-                                                    + "/"
-                                                    + 123)
-                                    .then()
-                                    .statusCode(200)
-                                    .body("jobId", equalTo("123"));
-                        });
-        Arrays.asList(node2, node1)
-                .forEach(
-                        instance -> {
-                            given().get(
-                                            HOST
-                                                    + instance.getCluster()
-                                                            .getLocalMember()
-                                                            .getAddress()
-                                                            .getPort()
-                                                    + RestConstant.RUNNING_JOB_URL
-                                                    + "/")
-                                    .then()
-                                    .statusCode(500);
-                        });
+                        instance ->
+                                ports.forEach(
+                                        (key, value) -> {
+                                            given().get(
+                                                            HOST
+                                                                    + key
+                                                                    + CONTEXT_PATH
+                                                                    + RestConstant.RUNNING_JOB_URL
+                                                                    + "/"
+                                                                    + 123)
+                                                    .then()
+                                                    .statusCode(200)
+                                                    .body("jobId", equalTo("123"));
+
+                                            given().get(
+                                                            HOST
+                                                                    + key
+                                                                    + CONTEXT_PATH
+                                                                    + RestConstant.RUNNING_JOB_URL
+                                                                    + "/")
+                                                    .then()
+                                                    .statusCode(400);
+
+                                            given().get(
+                                                            HOST
+                                                                    + value
+                                                                    + node1Config
+                                                                            .getEngineConfig()
+                                                                            .getHttpConfig()
+                                                                            .getContextPath()
+                                                                    + RestConstant.RUNNING_JOB_URL
+                                                                    + "/"
+                                                                    + 123)
+                                                    .then()
+                                                    .statusCode(200)
+                                                    .body("jobId", equalTo("123"));
+
+                                            given().get(
+                                                            HOST
+                                                                    + value
+                                                                    + node1Config
+                                                                            .getEngineConfig()
+                                                                            .getHttpConfig()
+                                                                            .getContextPath()
+                                                                    + RestConstant.RUNNING_JOB_URL
+                                                                    + "/")
+                                                    .then()
+                                                    .statusCode(400);
+                                        }));
     }
 
     @Test
     public void testGetRunningJobs() {
         Arrays.asList(node2, node1)
                 .forEach(
-                        instance -> {
-                            given().get(
-                                            HOST
-                                                    + instance.getCluster()
-                                                            .getLocalMember()
-                                                            .getAddress()
-                                                            .getPort()
-                                                    + RestConstant.RUNNING_JOBS_URL)
-                                    .then()
-                                    .statusCode(200)
-                                    .body("[0].jobName", equalTo("fake_to_file"))
-                                    .body("[0].jobStatus", equalTo("RUNNING"));
-                        });
+                        instance ->
+                                ports.forEach(
+                                        (key, value) -> {
+                                            given().get(
+                                                            HOST
+                                                                    + key
+                                                                    + CONTEXT_PATH
+                                                                    + RestConstant.RUNNING_JOBS_URL)
+                                                    .then()
+                                                    .statusCode(200)
+                                                    .body("[0].jobName", equalTo("fake_to_file"))
+                                                    .body("[0].jobStatus", equalTo("RUNNING"));
+
+                                            given().get(
+                                                            HOST
+                                                                    + value
+                                                                    + node1Config
+                                                                            .getEngineConfig()
+                                                                            .getHttpConfig()
+                                                                            .getContextPath()
+                                                                    + RestConstant.RUNNING_JOBS_URL)
+                                                    .then()
+                                                    .statusCode(200)
+                                                    .body("[0].jobName", equalTo("fake_to_file"))
+                                                    .body("[0].jobStatus", equalTo("RUNNING"));
+                                        }));
     }
 
     @Test
@@ -202,19 +301,35 @@ public class RestApiIT {
         Arrays.asList(node2, node1)
                 .forEach(
                         instance -> {
-                            given().get(
-                                            HOST
-                                                    + instance.getCluster()
-                                                            .getLocalMember()
-                                                            .getAddress()
-                                                            .getPort()
-                                                    + RestConstant.JOB_INFO_URL
-                                                    + "/"
-                                                    + batchJobProxy.getJobId())
-                                    .then()
-                                    .statusCode(200)
-                                    .body("jobName", equalTo("fake_to_console"))
-                                    .body("jobStatus", equalTo("FINISHED"));
+                            ports.forEach(
+                                    (key, value) -> {
+                                        given().get(
+                                                        HOST
+                                                                + key
+                                                                + CONTEXT_PATH
+                                                                + RestConstant.JOB_INFO_URL
+                                                                + "/"
+                                                                + batchJobProxy.getJobId())
+                                                .then()
+                                                .statusCode(200)
+                                                .body("jobName", equalTo("fake_to_console"))
+                                                .body("jobStatus", equalTo("FINISHED"));
+
+                                        given().get(
+                                                        HOST
+                                                                + value
+                                                                + node1Config
+                                                                        .getEngineConfig()
+                                                                        .getHttpConfig()
+                                                                        .getContextPath()
+                                                                + RestConstant.JOB_INFO_URL
+                                                                + "/"
+                                                                + batchJobProxy.getJobId())
+                                                .then()
+                                                .statusCode(200)
+                                                .body("jobName", equalTo("fake_to_console"))
+                                                .body("jobStatus", equalTo("FINISHED"));
+                                    });
                         });
     }
 
@@ -223,19 +338,158 @@ public class RestApiIT {
         Arrays.asList(node2, node1)
                 .forEach(
                         instance -> {
-                            given().get(
-                                            HOST
-                                                    + instance.getCluster()
-                                                            .getLocalMember()
-                                                            .getAddress()
-                                                            .getPort()
-                                                    + RestConstant.OVERVIEW)
-                                    .then()
-                                    .statusCode(200)
-                                    .body("projectVersion", notNullValue())
-                                    .body("totalSlot", equalTo("40"))
-                                    .body("workers", equalTo("2"));
+                            ports.forEach(
+                                    (key, value) -> {
+                                        given().get(
+                                                        HOST
+                                                                + key
+                                                                + CONTEXT_PATH
+                                                                + RestConstant.OVERVIEW)
+                                                .then()
+                                                .statusCode(200)
+                                                .body("projectVersion", notNullValue())
+                                                .body("totalSlot", equalTo("40"))
+                                                .body("workers", equalTo("2"));
+                                        given().get(
+                                                        HOST
+                                                                + value
+                                                                + node1Config
+                                                                        .getEngineConfig()
+                                                                        .getHttpConfig()
+                                                                        .getContextPath()
+                                                                + RestConstant.OVERVIEW)
+                                                .then()
+                                                .statusCode(200)
+                                                .body("projectVersion", notNullValue())
+                                                .body("totalSlot", equalTo("40"))
+                                                .body("workers", equalTo("2"));
+                                    });
                         });
+    }
+
+    @Test
+    public void testOverviewFilterByTag() {
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance -> {
+                            ports.forEach(
+                                    (key, value) -> {
+                                        given().get(
+                                                        HOST
+                                                                + key
+                                                                + CONTEXT_PATH
+                                                                + RestConstant.OVERVIEW
+                                                                + "?node=node1")
+                                                .then()
+                                                .statusCode(200)
+                                                .body("projectVersion", notNullValue())
+                                                .body("totalSlot", equalTo("20"))
+                                                .body("workers", equalTo("1"));
+                                        given().get(
+                                                        HOST
+                                                                + value
+                                                                + node1Config
+                                                                        .getEngineConfig()
+                                                                        .getHttpConfig()
+                                                                        .getContextPath()
+                                                                + RestConstant.OVERVIEW
+                                                                + "?node=node1")
+                                                .then()
+                                                .statusCode(200)
+                                                .body("projectVersion", notNullValue())
+                                                .body("totalSlot", equalTo("20"))
+                                                .body("workers", equalTo("1"));
+                                    });
+                        });
+    }
+
+    @Test
+    public void testUpdateTagsSuccess() {
+
+        String config = "{\n" + "    \"tag1\": \"dev_1\",\n" + "    \"tag2\": \"dev_2\"\n" + "}";
+        given().get(
+                        HOST
+                                + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + CONTEXT_PATH
+                                + RestConstant.OVERVIEW
+                                + "?tag1=dev_1")
+                .then()
+                .statusCode(200)
+                .body("projectVersion", notNullValue())
+                .body("totalSlot", equalTo("0"))
+                .body("workers", equalTo("0"));
+        given().body(config)
+                .put(
+                        HOST
+                                + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + CONTEXT_PATH
+                                + RestConstant.UPDATE_TAGS_URL)
+                .then()
+                .statusCode(200)
+                .body("message", equalTo("update node tags done."));
+
+        given().get(
+                        HOST
+                                + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + CONTEXT_PATH
+                                + RestConstant.OVERVIEW
+                                + "?tag1=dev_1")
+                .then()
+                .statusCode(200)
+                .body("projectVersion", notNullValue())
+                .body("totalSlot", equalTo("20"))
+                .body("workers", equalTo("1"));
+    }
+
+    @Test
+    public void testUpdateTagsFail() {
+
+        given().put(
+                        HOST
+                                + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + CONTEXT_PATH
+                                + RestConstant.UPDATE_TAGS_URL)
+                .then()
+                .statusCode(400)
+                .body("message", equalTo("Request body is empty."));
+    }
+
+    @Test
+    public void testClearTags() {
+
+        String config = "{}";
+        given().get(
+                        HOST
+                                + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + CONTEXT_PATH
+                                + RestConstant.OVERVIEW
+                                + "?node=node1")
+                .then()
+                .statusCode(200)
+                .body("projectVersion", notNullValue())
+                .body("totalSlot", equalTo("20"))
+                .body("workers", equalTo("1"));
+        given().body(config)
+                .put(
+                        HOST
+                                + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + CONTEXT_PATH
+                                + RestConstant.UPDATE_TAGS_URL)
+                .then()
+                .statusCode(200)
+                .body("message", equalTo("update node tags done."));
+
+        given().get(
+                        HOST
+                                + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + CONTEXT_PATH
+                                + RestConstant.OVERVIEW
+                                + "?node=node1")
+                .then()
+                .statusCode(200)
+                .body("projectVersion", notNullValue())
+                .body("totalSlot", equalTo("0"))
+                .body("workers", equalTo("0"));
     }
 
     @Test
@@ -243,36 +497,69 @@ public class RestApiIT {
         Arrays.asList(node2, node1)
                 .forEach(
                         instance ->
-                                given().get(
-                                                HOST
-                                                        + instance.getCluster()
-                                                                .getLocalMember()
-                                                                .getAddress()
-                                                                .getPort()
-                                                        + RestConstant.RUNNING_THREADS)
-                                        .then()
-                                        .statusCode(200)
-                                        .body("[0].threadName", notNullValue())
-                                        .body("[0].classLoader", notNullValue()));
+                                ports.forEach(
+                                        (key, value) -> {
+                                            given().get(
+                                                            HOST
+                                                                    + key
+                                                                    + CONTEXT_PATH
+                                                                    + RestConstant.RUNNING_THREADS)
+                                                    .then()
+                                                    .statusCode(200)
+                                                    .body("[0].threadName", notNullValue())
+                                                    .body("[0].classLoader", notNullValue());
+                                            given().get(
+                                                            HOST
+                                                                    + value
+                                                                    + node1Config
+                                                                            .getEngineConfig()
+                                                                            .getHttpConfig()
+                                                                            .getContextPath()
+                                                                    + RestConstant.RUNNING_THREADS)
+                                                    .then()
+                                                    .statusCode(200)
+                                                    .body("[0].threadName", notNullValue())
+                                                    .body("[0].classLoader", notNullValue());
+                                        }));
     }
 
     @Test
     public void testSystemMonitoringInformation() {
         Arrays.asList(node2, node1)
                 .forEach(
-                        instance -> {
-                            given().get(
-                                            HOST
-                                                    + instance.getCluster()
-                                                            .getLocalMember()
-                                                            .getAddress()
-                                                            .getPort()
-                                                    + RestConstant.SYSTEM_MONITORING_INFORMATION)
-                                    .then()
-                                    .assertThat()
-                                    .time(lessThan(5000L))
-                                    .statusCode(200);
-                        });
+                        instance ->
+                                ports.forEach(
+                                        (key, value) -> {
+                                            given().get(
+                                                            HOST
+                                                                    + key
+                                                                    + CONTEXT_PATH
+                                                                    + RestConstant
+                                                                            .SYSTEM_MONITORING_INFORMATION)
+                                                    .then()
+                                                    .assertThat()
+                                                    .time(lessThan(5000L))
+                                                    .body("[0].host", equalTo("localhost"))
+                                                    .body("[0].port", notNullValue())
+                                                    .body("[0].isMaster", notNullValue())
+                                                    .statusCode(200);
+                                            given().get(
+                                                            HOST
+                                                                    + value
+                                                                    + node1Config
+                                                                            .getEngineConfig()
+                                                                            .getHttpConfig()
+                                                                            .getContextPath()
+                                                                    + RestConstant
+                                                                            .SYSTEM_MONITORING_INFORMATION)
+                                                    .then()
+                                                    .assertThat()
+                                                    .time(lessThan(5000L))
+                                                    .body("[0].host", equalTo("localhost"))
+                                                    .body("[0].port", notNullValue())
+                                                    .body("[0].isMaster", notNullValue())
+                                                    .statusCode(200);
+                                        }));
     }
 
     @Test
@@ -280,57 +567,115 @@ public class RestApiIT {
         Arrays.asList(node2, node1)
                 .forEach(
                         instance -> {
-                            String config =
-                                    "{\n"
-                                            + "    \"env\": {\n"
-                                            + "        \"parallelism\": 1,\n"
-                                            + "        \"shade.identifier\":\"base64\"\n"
-                                            + "    },\n"
-                                            + "    \"source\": [\n"
-                                            + "        {\n"
-                                            + "            \"plugin_name\": \"MySQL-CDC\",\n"
-                                            + "            \"schema\" : {\n"
-                                            + "                \"fields\": {\n"
-                                            + "                    \"name\": \"string\",\n"
-                                            + "                    \"age\": \"int\"\n"
-                                            + "                }\n"
-                                            + "            },\n"
-                                            + "            \"result_table_name\": \"fake\",\n"
-                                            + "            \"parallelism\": 1,\n"
-                                            + "            \"hostname\": \"127.0.0.1\",\n"
-                                            + "            \"username\": \"seatunnel\",\n"
-                                            + "            \"password\": \"seatunnel_password\",\n"
-                                            + "            \"table-name\": \"inventory_vwyw0n\"\n"
-                                            + "        }\n"
-                                            + "    ],\n"
-                                            + "    \"transform\": [\n"
-                                            + "    ],\n"
-                                            + "    \"sink\": [\n"
-                                            + "        {\n"
-                                            + "            \"plugin_name\": \"Clickhouse\",\n"
-                                            + "            \"host\": \"localhost:8123\",\n"
-                                            + "            \"database\": \"default\",\n"
-                                            + "            \"table\": \"fake_all\",\n"
-                                            + "            \"username\": \"seatunnel\",\n"
-                                            + "            \"password\": \"seatunnel_password\"\n"
-                                            + "        }\n"
-                                            + "    ]\n"
-                                            + "}";
-                            given().body(config)
-                                    .post(
-                                            HOST
-                                                    + instance.getCluster()
-                                                            .getLocalMember()
-                                                            .getAddress()
-                                                            .getPort()
-                                                    + RestConstant.ENCRYPT_CONFIG)
-                                    .then()
-                                    .statusCode(200)
-                                    .body("source[0].result_table_name", equalTo("fake"))
-                                    .body("source[0].username", equalTo("c2VhdHVubmVs"))
-                                    .body(
-                                            "source[0].password",
-                                            equalTo("c2VhdHVubmVsX3Bhc3N3b3Jk"));
+                            ports.forEach(
+                                    (key, value) -> {
+                                        String config =
+                                                "{\n"
+                                                        + "    \"env\": {\n"
+                                                        + "        \"parallelism\": 1,\n"
+                                                        + "        \"shade.identifier\":\"base64\"\n"
+                                                        + "    },\n"
+                                                        + "    \"source\": [\n"
+                                                        + "        {\n"
+                                                        + "            \"plugin_name\": \"MySQL-CDC\",\n"
+                                                        + "            \"schema\" : {\n"
+                                                        + "                \"fields\": {\n"
+                                                        + "                    \"name\": \"string\",\n"
+                                                        + "                    \"age\": \"int\"\n"
+                                                        + "                }\n"
+                                                        + "            },\n"
+                                                        + "            \"result_table_name\": \"fake\",\n"
+                                                        + "            \"parallelism\": 1,\n"
+                                                        + "            \"hostname\": \"127.0.0.1\",\n"
+                                                        + "            \"username\": \"seatunnel\",\n"
+                                                        + "            \"password\": \"seatunnel_password\",\n"
+                                                        + "            \"table-name\": \"inventory_vwyw0n\"\n"
+                                                        + "        }\n"
+                                                        + "    ],\n"
+                                                        + "    \"transform\": [\n"
+                                                        + "    ],\n"
+                                                        + "    \"sink\": [\n"
+                                                        + "        {\n"
+                                                        + "            \"plugin_name\": \"Clickhouse\",\n"
+                                                        + "            \"host\": \"localhost:8123\",\n"
+                                                        + "            \"database\": \"default\",\n"
+                                                        + "            \"table\": \"fake_all\",\n"
+                                                        + "            \"username\": \"seatunnel\",\n"
+                                                        + "            \"password\": \"seatunnel_password\"\n"
+                                                        + "        }\n"
+                                                        + "    ]\n"
+                                                        + "}";
+                                        given().body(config)
+                                                .post(
+                                                        HOST
+                                                                + key
+                                                                + CONTEXT_PATH
+                                                                + RestConstant.ENCRYPT_CONFIG)
+                                                .then()
+                                                .statusCode(200)
+                                                .body(
+                                                        "source[0].result_table_name",
+                                                        equalTo("fake"))
+                                                .body("source[0].username", equalTo("c2VhdHVubmVs"))
+                                                .body(
+                                                        "source[0].password",
+                                                        equalTo("c2VhdHVubmVsX3Bhc3N3b3Jk"));
+
+                                        given().body(config)
+                                                .post(
+                                                        HOST
+                                                                + value
+                                                                + node1Config
+                                                                        .getEngineConfig()
+                                                                        .getHttpConfig()
+                                                                        .getContextPath()
+                                                                + RestConstant.ENCRYPT_CONFIG)
+                                                .then()
+                                                .statusCode(200)
+                                                .body(
+                                                        "source[0].result_table_name",
+                                                        equalTo("fake"))
+                                                .body("source[0].username", equalTo("c2VhdHVubmVs"))
+                                                .body(
+                                                        "source[0].password",
+                                                        equalTo("c2VhdHVubmVsX3Bhc3N3b3Jk"));
+                                    });
+                        });
+    }
+
+    @Test
+    public void testGetThreadDump() {
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance -> {
+                            ports.forEach(
+                                    (key, value) -> {
+                                        given().get(
+                                                        HOST
+                                                                + key
+                                                                + CONTEXT_PATH
+                                                                + RestConstant.THREAD_DUMP)
+                                                .then()
+                                                .statusCode(200)
+                                                .body("[0].threadName", notNullValue())
+                                                .body("[0].threadState", notNullValue())
+                                                .body("[0].stackTrace", notNullValue())
+                                                .body("[0].threadId", notNullValue());
+                                        given().get(
+                                                        HOST
+                                                                + value
+                                                                + node1Config
+                                                                        .getEngineConfig()
+                                                                        .getHttpConfig()
+                                                                        .getContextPath()
+                                                                + RestConstant.THREAD_DUMP)
+                                                .then()
+                                                .statusCode(200)
+                                                .body("[0].threadName", notNullValue())
+                                                .body("[0].threadState", notNullValue())
+                                                .body("[0].stackTrace", notNullValue())
+                                                .body("[0].threadId", notNullValue());
+                                    });
                         });
     }
 

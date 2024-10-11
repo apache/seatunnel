@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,6 +35,13 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
+
+import static org.apache.seatunnel.api.table.type.BasicType.BOOLEAN_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TextFormatSchemaTest {
     public String content =
@@ -144,5 +152,80 @@ public class TextFormatSchemaTest {
                 (byte[]) seaTunnelRow.getField(12), "tyrantlucifer".getBytes());
         Assertions.assertEquals(seaTunnelRow.getField(2), "tyrantlucifer");
         Assertions.assertEquals(data, content);
+    }
+
+    @Test
+    public void testParseUnsupportedDateTimeFormat() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"date_field"},
+                        new SeaTunnelDataType<?>[] {LocalTimeType.LOCAL_DATE_TYPE});
+        TextDeserializationSchema deserializationSchema =
+                TextDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter("\u0001")
+                        .build();
+        String content = "2022-092-24";
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> deserializationSchema.deserialize(content.getBytes()));
+        Assertions.assertEquals(
+                "ErrorCode:[COMMON-32], ErrorDescription:[The date format '2022-092-24' of field 'date_field' is not supported. Please check the date format.]",
+                exception.getMessage());
+
+        SeaTunnelRowType rowType2 =
+                new SeaTunnelRowType(
+                        new String[] {"timestamp_field"},
+                        new SeaTunnelDataType<?>[] {
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                        });
+        TextDeserializationSchema deserializationSchema2 =
+                TextDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType2)
+                        .delimiter("\u0001")
+                        .build();
+        String content2 = "2022-09-24-22:45:00";
+        SeaTunnelRuntimeException exception2 =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> deserializationSchema2.deserialize(content2.getBytes()));
+        Assertions.assertEquals(
+                "ErrorCode:[COMMON-33], ErrorDescription:[The datetime format '2022-09-24-22:45:00' of field 'timestamp_field' is not supported. Please check the datetime format.]",
+                exception2.getMessage());
+    }
+
+    @Test
+    public void testSerializationWithNullValue() throws Exception {
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {
+                            "bool", "int", "longValue", "float", "name", "date", "time", "timestamp"
+                        },
+                        new SeaTunnelDataType[] {
+                            BOOLEAN_TYPE,
+                            INT_TYPE,
+                            LONG_TYPE,
+                            FLOAT_TYPE,
+                            STRING_TYPE,
+                            LocalTimeType.LOCAL_DATE_TYPE,
+                            LocalTimeType.LOCAL_TIME_TYPE,
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE
+                        });
+
+        Object[] fields = new Object[] {null, null, null, null, null, null, null, null};
+        SeaTunnelRow expected = new SeaTunnelRow(fields);
+
+        TextSerializationSchema textSerializationSchema =
+                TextSerializationSchema.builder()
+                        .seaTunnelRowType(schema)
+                        .delimiter("\u0001")
+                        .nullValue("\\N")
+                        .build();
+
+        System.out.println(new String(textSerializationSchema.serialize(expected)));
+        assertEquals(
+                "\\N\u0001\\N\u0001\\N\u0001\\N\u0001\\N\u0001\\N\u0001\\N\u0001\\N",
+                new String(textSerializationSchema.serialize(expected)));
     }
 }

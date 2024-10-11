@@ -263,6 +263,17 @@ public class MySqlTypeConverterTest {
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(new DecimalType(20, 0), column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("bigint unsigned zerofill")
+                        .dataType("bigint unsigned zerofill")
+                        .build();
+        column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(new DecimalType(20, 0), column.getDataType());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
     }
 
     @Test

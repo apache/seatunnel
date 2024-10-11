@@ -48,7 +48,12 @@ public class IcebergCatalogFactory implements CatalogFactory {
                         CommonConfig.KEY_NAMESPACE,
                         CommonConfig.KEY_TABLE,
                         CommonConfig.CATALOG_PROPS)
-                .optional(CommonConfig.HADOOP_PROPS, KEY_CASE_SENSITIVE)
+                .optional(
+                        CommonConfig.HADOOP_PROPS,
+                        CommonConfig.KERBEROS_PRINCIPAL,
+                        CommonConfig.KERBEROS_KEYTAB_PATH,
+                        CommonConfig.KRB5_PATH,
+                        KEY_CASE_SENSITIVE)
                 .build();
     }
 }

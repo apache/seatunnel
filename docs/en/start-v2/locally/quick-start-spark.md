@@ -1,23 +1,21 @@
 ---
-
 sidebar_position: 4
--------------------
+---
 
 # Quick Start With Spark
 
 ## Step 1: Deployment SeaTunnel And Connectors
 
-Before starting, make sure you have downloaded and deployed SeaTunnel as described in [deployment](deployment.md)
+Before starting, make sure you have downloaded and deployed SeaTunnel as described in [Deployment](deployment.md)
 
-## Step 2: Deployment And Config Spark
+## Step 2: Deploy And Config Spark
 
-Please [download Spark](https://spark.apache.org/downloads.html) first(**required version >= 2.4.0**). For more information you could
-see [Getting Started: standalone](https://spark.apache.org/docs/latest/spark-standalone.html#installing-spark-standalone-to-a-cluster)
+Please [Download Spark](https://spark.apache.org/downloads.html) first(**required version >= 2.4.0**). For more information you can
+see [Getting Started: Standalone](https://spark.apache.org/docs/latest/spark-standalone.html#installing-spark-standalone-to-a-cluster)
 
-**Configure SeaTunnel**: Change the setting in `config/seatunnel-env.sh`, it is base on the path your engine install at [deployment](deployment.md).
-Change `SPARK_HOME` to the Spark deployment dir.
+**Configure SeaTunnel**: Change the setting in `${SEATUNNEL_HOME}/config/seatunnel-env.sh` and set `SPARK_HOME` to the Spark deployment dir.
 
-## Step 3: Add Job Config File to define a job
+## Step 3: Add Job Config File To Define A Job
 
 Edit `config/seatunnel.streaming.conf.template`, which determines the way and logic of data input, processing, and output after seatunnel is started.
 The following is an example of the configuration file, which is the same as the example application mentioned above.
@@ -60,13 +58,13 @@ sink {
 
 ```
 
-More information about config please check [config concept](../../concept/config.md)
+More information about config please check [Config Concept](../../concept/config.md)
 
 ## Step 4: Run SeaTunnel Application
 
-You could start the application by the following commands
+You could start the application by the following commands:
 
-spark 2.4.x
+Spark 2.4.x
 
 ```bash
 cd "apache-seatunnel-${version}"
@@ -76,7 +74,7 @@ cd "apache-seatunnel-${version}"
 --config ./config/v2.streaming.conf.template
 ```
 
-spark3.x.x
+Spark3.x.x
 
 ```shell
 cd "apache-seatunnel-${version}"
@@ -86,10 +84,10 @@ cd "apache-seatunnel-${version}"
 --config ./config/v2.streaming.conf.template
 ```
 
-**See The Output**: When you run the command, you could see its output in your console. You can think this
-is a sign that the command ran successfully or not.
+**See The Output**: When you run the command, you can see its output in your console. This
+is a sign to determine whether the command ran successfully or not.
 
-The SeaTunnel console will prints some logs as below:
+The SeaTunnel console will print some logs as below:
 
 ```shell
 fields : name, age
@@ -114,7 +112,7 @@ row=16 : SGZCr, 94186144
 
 ## What's More
 
-For now, you are already take a quick look about SeaTunnel with Spark, you could see [connector](/docs/category/connector-v2) to find all
-source and sink SeaTunnel supported. Or see [SeaTunnel With Spark](../../other-engine/spark.md) if you want to know more about SeaTunnel Run With Spark.
+- Start write your own config file now, choose the [connector](../../connector-v2/source) you want to use, and configure the parameters according to the connector's documentation.
+- See [SeaTunnel With Spark](../../other-engine/spark.md) if you want to know more about SeaTunnel With Spark.
+- SeaTunnel have a builtin engine named `Zeta`, and it's the default engine of SeaTunnel. You can follow [Quick Start](quick-start-seatunnel-engine.md) to configure and run a data synchronization job.
 
-SeaTunnel have an own engine named `Zeta` and `Zeta` is the default engine of SeaTunnel. You can follow [Quick Start](quick-start-seatunnel-engine.md) to configure and run a data synchronization job.

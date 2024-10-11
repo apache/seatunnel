@@ -116,7 +116,8 @@ public class ClickhouseFileSink
                         config.getString(DATABASE.key()),
                         config.getString(SERVER_TIME_ZONE.key()),
                         config.getString(USERNAME.key()),
-                        config.getString(PASSWORD.key()));
+                        config.getString(PASSWORD.key()),
+                        null);
 
         ClickhouseProxy proxy = new ClickhouseProxy(nodes.get(0));
         Map<String, String> tableSchema =

@@ -50,7 +50,7 @@ public class MaxWellJsonSerDeSchemaTest {
                     new String[] {"id", "name", "description", "weight"},
                     new SeaTunnelDataType[] {INT_TYPE, STRING_TYPE, STRING_TYPE, FLOAT_TYPE});
     private static final CatalogTable catalogTables =
-            CatalogTableUtil.getCatalogTable("", "", "", "", SEATUNNEL_ROW_TYPE);
+            CatalogTableUtil.getCatalogTable("", "", "", "test", SEATUNNEL_ROW_TYPE);
 
     @Test
     public void testFilteringTables() throws Exception {

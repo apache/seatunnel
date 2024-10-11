@@ -34,9 +34,13 @@ public class TypeDefineUtils {
     }
 
     public static Long charTo4ByteLength(Long charLength) {
+        return charToByteLength(charLength, 4);
+    }
+
+    public static Long charToByteLength(Long charLength, int byteSize) {
         if (charLength == null) {
             return null;
         }
-        return charLength * 4;
+        return charLength * byteSize;
     }
 }

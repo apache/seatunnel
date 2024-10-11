@@ -57,17 +57,17 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class IrisCatalog extends AbstractJdbcCatalog {
 
     private static final String LIST_TABLES_SQL_TEMPLATE =
-            "SELECT TABLE_SCHEMA,TABLE_NAME FROM INFORMATION_SCHEMA.Tables WHERE TABLE_SCHEMA='%s' and TABLE_TYPE != 'SYSTEM TABLE' and TABLE_TYPE != 'SYSTEM VIEW';";
+            "SELECT TABLE_SCHEMA,TABLE_NAME FROM INFORMATION_SCHEMA.Tables WHERE TABLE_SCHEMA='%s' and TABLE_TYPE != 'SYSTEM TABLE' and TABLE_TYPE != 'SYSTEM VIEW'";
 
     public IrisCatalog(
             String catalogName, String username, String password, JdbcUrlUtil.UrlInfo urlInfo) {
         super(catalogName, username, password, urlInfo, null);
-        SYS_DATABASES.add("%SYS");
     }
 
     @Override
-    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
-        return new IrisCreateTableSqlBuilder(table).build(tablePath);
+    protected String getCreateTableSql(
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
+        return new IrisCreateTableSqlBuilder(table, createIndex).build(tablePath);
     }
 
     @Override
@@ -100,13 +100,6 @@ public class IrisCatalog extends AbstractJdbcCatalog {
         }
         return schemaName + "." + tableName;
     }
-
-    //    @Override
-    //    protected String getSelectColumnsSql(TablePath tablePath) {
-    //        return String.format(
-    //                SELECT_COLUMNS_SQL_TEMPLATE, tablePath.getSchemaName(),
-    // tablePath.getTableName());
-    //    }
 
     @Override
     protected Column buildColumn(ResultSet resultSet) throws SQLException {
@@ -145,11 +138,24 @@ public class IrisCatalog extends AbstractJdbcCatalog {
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
         try {
-            return listTables(tablePath.getSchemaName())
-                    .contains(tablePath.getSchemaAndTableName());
-        } catch (DatabaseNotExistException e) {
-            return false;
+            return querySQLResultExists(
+                    this.getUrlFromDatabaseName(tablePath.getDatabaseName()),
+                    getTableWithConditionSql(tablePath));
+        } catch (SQLException e) {
+            throw new SeaTunnelException("Failed to querySQLResult", e);
         }
+    }
+
+    @Override
+    protected String getTableWithConditionSql(TablePath tablePath) {
+        return String.format(
+                getListTableSql(tablePath.getSchemaName()) + " and TABLE_NAME = '%s'",
+                tablePath.getTableName());
+    }
+
+    @Override
+    protected String getUrlFromDatabaseName(String databaseName) {
+        return defaultUrl;
     }
 
     @Override
@@ -219,7 +225,8 @@ public class IrisCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
+    public void createTable(
+            TablePath tablePath, CatalogTable table, boolean ignoreIfExists, boolean createIndex)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         checkNotNull(tablePath, "Table path cannot be null");
         if (defaultSchema.isPresent()) {
@@ -237,7 +244,7 @@ public class IrisCatalog extends AbstractJdbcCatalog {
             throw new TableAlreadyExistException(catalogName, tablePath);
         }
 
-        createTableInternal(tablePath, table);
+        createTableInternal(tablePath, table, createIndex);
     }
 
     @Override

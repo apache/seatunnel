@@ -1,8 +1,8 @@
-# Seatunnel runs on Flink
+# Seatunnel Runs On Flink
 
-Flink is a powerful high-performance distributed stream processing engine,More information about it you can,You can search for `Apache Flink`
+Flink is a powerful high-performance distributed stream processing engine. More information about it you can search for `Apache Flink`
 
-### Set Flink configuration information in the job
+### Set Flink Configuration Information In The Job
 
 Begin with `flink.`
 
@@ -19,9 +19,9 @@ env {
 Enumeration types are not currently supported, you need to specify them in the Flink conf file ,Only these types of Settings are supported for the time being:<br/>
 Integer/Boolean/String/Duration
 
-### How to set up a simple Flink job
+### How To Set Up A Simple Flink Job
 
-This is a simple job that runs on Flink Randomly generated data is printed to the console
+This is a simple job that runs on Flink. Randomly generated data is printed to the console
 
 ```
 env {
@@ -79,6 +79,6 @@ sink{
 }
 ```
 
-### How to run a job in a project
+### How To Run A Job In A Project
 
-After you pull the code to the local, go to the `seatunnel-examples/seatunnel-flink-connector-v2-example` module find `org.apache.seatunnel.example.flink.v2.SeaTunnelApiExample` To complete the operation of the job
+After you pull the code to the local, go to the `seatunnel-examples/seatunnel-flink-connector-v2-example` module and find `org.apache.seatunnel.example.flink.v2.SeaTunnelApiExample` to complete the operation of the job.

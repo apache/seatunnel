@@ -58,7 +58,7 @@ public class PulsarCanalDecoratorTest {
 
         SeaTunnelRowType seaTunnelRowType = new SeaTunnelRowType(fieldNames, dataTypes);
         CatalogTable catalogTables =
-                CatalogTableUtil.getCatalogTable("", "", "", "", seaTunnelRowType);
+                CatalogTableUtil.getCatalogTable("", "", "", "test", seaTunnelRowType);
         CanalJsonDeserializationSchema canalJsonDeserializationSchema =
                 CanalJsonDeserializationSchema.builder(catalogTables).build();
         PulsarCanalDecorator pulsarCanalDecorator =

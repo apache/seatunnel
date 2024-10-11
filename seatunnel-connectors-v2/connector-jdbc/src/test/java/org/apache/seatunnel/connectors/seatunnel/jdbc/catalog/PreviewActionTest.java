@@ -375,7 +375,7 @@ public class PreviewActionTest {
                 "IF OBJECT_ID('[testddatabase].[testtable]', 'U') IS NULL \n"
                         + "BEGIN \n"
                         + "CREATE TABLE [testddatabase].[testtable] ( \n"
-                        + "\t[test] TEXT NULL\n"
+                        + "\t[test] NVARCHAR(MAX) NULL\n"
                         + ");\n"
                         + "EXEC testddatabase.sys.sp_addextendedproperty 'MS_Description', N'comment', 'schema', N'null', 'table', N'testtable';\n"
                         + "EXEC testddatabase.sys.sp_addextendedproperty 'MS_Description', N'', 'schema', N'null', 'table', N'testtable', 'column', N'test';\n"

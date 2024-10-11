@@ -80,7 +80,7 @@ public class NotifyTaskRestoreOperation extends TaskOperation {
     }
 
     @Override
-    public void run() throws Exception {
+    public void runInternal() throws Exception {
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(
                 () -> {
@@ -98,7 +98,8 @@ public class NotifyTaskRestoreOperation extends TaskOperation {
                                         () -> {
                                             Thread.currentThread()
                                                     .setContextClassLoader(
-                                                            groupContext.getClassLoader());
+                                                            groupContext.getClassLoader(
+                                                                    task.getTaskID()));
                                             try {
                                                 log.debug(
                                                         "NotifyTaskRestoreOperation.restoreState "

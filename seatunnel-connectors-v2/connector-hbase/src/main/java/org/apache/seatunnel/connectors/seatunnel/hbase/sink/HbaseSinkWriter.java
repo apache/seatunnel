@@ -17,50 +17,46 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hbase.sink;
 
+import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.hbase.client.HbaseClient;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
 import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.hbase.state.HbaseCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.hbase.state.HbaseSinkState;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.BufferedMutator;
-import org.apache.hadoop.hbase.client.BufferedMutatorParams;
-import org.apache.hadoop.hbase.client.Connection;
-import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Durability;
-import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+public class HbaseSinkWriter
+        implements SinkWriter<SeaTunnelRow, HbaseCommitInfo, HbaseSinkState>,
+                SupportMultiTableSinkWriter<Void> {
 
     private static final String ALL_COLUMNS = "all_columns";
 
-    private final Configuration hbaseConfiguration = HBaseConfiguration.create();
-
-    private final Connection hbaseConnection;
-
-    private final BufferedMutator hbaseMutator;
+    private final HbaseClient hbaseClient;
 
     private final SeaTunnelRowType seaTunnelRowType;
 
     private final HbaseParameters hbaseParameters;
 
-    private final List<Integer> rowkeyColumnIndexes;
+    private List<Integer> rowkeyColumnIndexes;
 
-    private final int versionColumnIndex;
+    private int versionColumnIndex;
 
     private String defaultFamilyName = "value";
 
@@ -68,45 +64,38 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             SeaTunnelRowType seaTunnelRowType,
             HbaseParameters hbaseParameters,
             List<Integer> rowkeyColumnIndexes,
-            int versionColumnIndex)
-            throws IOException {
+            int versionColumnIndex) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.hbaseParameters = hbaseParameters;
         this.rowkeyColumnIndexes = rowkeyColumnIndexes;
         this.versionColumnIndex = versionColumnIndex;
 
         if (hbaseParameters.getFamilyNames().size() == 1) {
-            defaultFamilyName = hbaseParameters.getFamilyNames().getOrDefault(ALL_COLUMNS, "value");
+            defaultFamilyName =
+                    hbaseParameters.getFamilyNames().getOrDefault(ALL_COLUMNS, defaultFamilyName);
         }
 
-        // initialize hbase configuration
-        hbaseConfiguration.set("hbase.zookeeper.quorum", hbaseParameters.getZookeeperQuorum());
-        if (hbaseParameters.getHbaseExtraConfig() != null) {
-            hbaseParameters.getHbaseExtraConfig().forEach(hbaseConfiguration::set);
-        }
-        // initialize hbase connection
-        hbaseConnection = ConnectionFactory.createConnection(hbaseConfiguration);
-        // initialize hbase mutator
-        BufferedMutatorParams bufferedMutatorParams =
-                new BufferedMutatorParams(TableName.valueOf(hbaseParameters.getTable()))
-                        .pool(HTable.getDefaultExecutor(hbaseConfiguration))
-                        .writeBufferSize(hbaseParameters.getWriteBufferSize());
-        hbaseMutator = hbaseConnection.getBufferedMutator(bufferedMutatorParams);
+        this.hbaseClient = HbaseClient.createInstance(hbaseParameters);
     }
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         Put put = convertRowToPut(element);
-        hbaseMutator.mutate(put);
+        hbaseClient.mutate(put);
     }
 
     @Override
+    public Optional<HbaseCommitInfo> prepareCommit() throws IOException {
+        return Optional.empty();
+    }
+
+    @Override
+    public void abortPrepare() {}
+
+    @Override
     public void close() throws IOException {
-        if (hbaseMutator != null) {
-            hbaseMutator.close();
-        }
-        if (hbaseConnection != null) {
-            hbaseConnection.close();
+        if (hbaseClient != null) {
+            hbaseClient.close();
         }
     }
 
@@ -131,6 +120,7 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                         .collect(Collectors.toList());
         for (Integer writeColumnIndex : writeColumnIndexes) {
             String fieldName = seaTunnelRowType.getFieldName(writeColumnIndex);
+            Map<String, String> configurationFamilyNames = hbaseParameters.getFamilyNames();
             String familyName =
                     hbaseParameters.getFamilyNames().getOrDefault(fieldName, defaultFamilyName);
             byte[] bytes = convertColumnToBytes(row, writeColumnIndex);

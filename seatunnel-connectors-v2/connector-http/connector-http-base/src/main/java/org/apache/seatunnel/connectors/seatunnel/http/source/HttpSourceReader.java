@@ -154,13 +154,20 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     @Override
+    public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+        synchronized (output.getCheckpointLock()) {
+            internalPollNext(output);
+        }
+    }
+
+    @Override
     public void internalPollNext(Collector<SeaTunnelRow> output) throws Exception {
         try {
             if (pageInfoOptional.isPresent()) {
                 noMoreElementFlag = false;
-                Long pageIndex = 1L;
+                PageInfo info = pageInfoOptional.get();
+                Long pageIndex = info.getPageIndex();
                 while (!noMoreElementFlag) {
-                    PageInfo info = pageInfoOptional.get();
                     // increment page
                     info.setPageIndex(pageIndex);
                     // set request param

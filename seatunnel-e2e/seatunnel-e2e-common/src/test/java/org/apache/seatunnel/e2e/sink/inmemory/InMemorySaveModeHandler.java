@@ -43,6 +43,9 @@ public class InMemorySaveModeHandler implements SaveModeHandler {
     }
 
     @Override
+    public void open() {}
+
+    @Override
     public void handleSchemaSaveMode() {
         log.info("handle schema savemode with table path: {}", catalogTable.getTablePath());
     }

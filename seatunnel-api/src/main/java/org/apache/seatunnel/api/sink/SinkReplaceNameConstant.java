@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.api.sink;
 
+/** @deprecated instead by {@link TablePlaceholder} todo remove this class */
+@Deprecated
 public final class SinkReplaceNameConstant {
 
     public static final String REPLACE_TABLE_NAME_KEY = "${table_name}";

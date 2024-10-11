@@ -1,7 +1,6 @@
 ---
-
 sidebar_position: 1
--------------------
+---
 
 # SeaTunnel Engine
 
@@ -18,23 +17,27 @@ In the future, SeaTunnel Engine will further optimize its functions to support f
 
 ### Cluster Management
 
-- Support stand-alone operation;
+- Support standalone operation;
 - Support cluster operation;
 - Support autonomous cluster (decentralized), which saves the users from specifying a master node for the SeaTunnel Engine cluster, because it can select a master node by itself during operation, and a new master node will be chosen automatically when the master node fails.
 - Autonomous Cluster nodes-discovery and nodes with the same cluster_name will automatically form a cluster.
 
 ### Core functions
 
-- Supports running jobs in local mode, and the cluster is automatically destroyed after the job once completed;
-- Supports running jobs in Cluster mode (single machine or cluster), submitting jobs to the SeaTunnel Engine service through the SeaTunnel Client, and the service continues to run after the job is completed and waits for the next job submission;
+- Support running jobs in local mode, and the cluster is automatically destroyed after the job once completed;
+- Support running jobs in cluster mode (single machine or cluster), submitting jobs to the SeaTunnel Engine service through the SeaTunnel client, and the service continues to run after the job is completed and waits for the next job submission;
 - Support offline batch synchronization;
 - Support real-time synchronization;
 - Batch-stream integration, all SeaTunnel V2 connectors can run in SeaTunnel Engine;
-- Supports distributed snapshot algorithm, and supports two-stage submission with SeaTunnel V2 connector, ensuring that data is executed only once.
-- Support job invocation at the Pipeline level to ensure that it can be started even when resources are limited;
-- Supports fault tolerance for jobs at the Pipeline level. Task failure only affects the Pipeline where it is located, and only the task under the Pipeline needs to be rolled back;
+- Support distributed snapshot algorithm, and supports two-stage submission with SeaTunnel V2 connector, ensuring that data is executed only once.
+- Support job invocation at the pipeline level to ensure that it can be started even when resources are limited;
+- Support fault tolerance for jobs at the Pipeline level. Task failure only affects the pipeline where it is located, and only the task under the Pipeline needs to be rolled back;
 - Support dynamic thread sharing to synchronize a large number of small data sets in real-time.
 
 ### Quick Start
 
 https://seatunnel.apache.org/docs/start-v2/locally/quick-start-seatunnel-engine
+
+### Download & Install
+
+[Download & Install](download-seatunnel.md)

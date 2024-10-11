@@ -93,4 +93,16 @@ public interface JdbcSourceOptions {
                                     + "The value represents the denominator of the sampling rate fraction. "
                                     + "For example, a value of 1000 means a sampling rate of 1/1000. "
                                     + "This parameter is used when the sample sharding strategy is triggered.");
+
+    Option<Boolean> USE_SELECT_COUNT =
+            Options.key("use_select_count")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Use select count for table count");
+
+    Option<Boolean> SKIP_ANALYZE =
+            Options.key("skip_analyze")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Skip the analysis of table count");
 }

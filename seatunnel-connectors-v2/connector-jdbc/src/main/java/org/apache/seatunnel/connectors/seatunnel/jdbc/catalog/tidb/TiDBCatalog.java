@@ -22,14 +22,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog
 
 public class TiDBCatalog extends MySqlCatalog {
 
-    static {
-        SYS_DATABASES.clear();
-        SYS_DATABASES.add("information_schema");
-        SYS_DATABASES.add("mysql");
-        SYS_DATABASES.add("performance_schema");
-        SYS_DATABASES.add("metrics_schema");
-    }
-
     public TiDBCatalog(
             String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
         super(catalogName, username, pwd, urlInfo);

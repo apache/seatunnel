@@ -19,6 +19,8 @@ package org.apache.seatunnel.translation.flink.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.event.EnumeratorCloseEvent;
+import org.apache.seatunnel.api.source.event.EnumeratorOpenEvent;
 
 import org.apache.flink.api.connector.source.SourceEvent;
 import org.apache.flink.api.connector.source.SplitEnumerator;
@@ -49,6 +51,7 @@ public class FlinkSourceEnumerator<SplitT extends SourceSplit, EnumStateT>
 
     private final SplitEnumeratorContext<SplitWrapper<SplitT>> enumeratorContext;
 
+    private final SourceSplitEnumerator.Context<SplitT> context;
     private final int parallelism;
 
     private final Object lock = new Object();
@@ -62,12 +65,14 @@ public class FlinkSourceEnumerator<SplitT extends SourceSplit, EnumStateT>
             SplitEnumeratorContext<SplitWrapper<SplitT>> enumContext) {
         this.sourceSplitEnumerator = enumerator;
         this.enumeratorContext = enumContext;
+        this.context = new FlinkSourceSplitEnumeratorContext<>(enumeratorContext);
         this.parallelism = enumeratorContext.currentParallelism();
     }
 
     @Override
     public void start() {
         sourceSplitEnumerator.open();
+        context.getEventListener().onEvent(new EnumeratorOpenEvent());
     }
 
     @Override
@@ -106,6 +111,7 @@ public class FlinkSourceEnumerator<SplitT extends SourceSplit, EnumStateT>
     @Override
     public void close() throws IOException {
         sourceSplitEnumerator.close();
+        context.getEventListener().onEvent(new EnumeratorCloseEvent());
     }
 
     @Override
