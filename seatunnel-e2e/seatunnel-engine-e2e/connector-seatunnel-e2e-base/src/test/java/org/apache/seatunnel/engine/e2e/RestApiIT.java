@@ -47,6 +47,8 @@ import java.util.concurrent.TimeUnit;
 import static io.restassured.RestAssured.given;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.CONTEXT_PATH;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.notNullValue;
 
@@ -327,6 +329,46 @@ public class RestApiIT {
                                                                 + batchJobProxy.getJobId())
                                                 .then()
                                                 .statusCode(200)
+                                                .body(
+                                                        "jobDag.jobId",
+                                                        equalTo(
+                                                                Long.toString(
+                                                                        batchJobProxy.getJobId())))
+                                                .body("jobDag.pipelineEdges", hasKey("1"))
+                                                .body("jobDag.pipelineEdges['1']", hasSize(1))
+                                                .body(
+                                                        "jobDag.pipelineEdges['1'][0].inputVertexId",
+                                                        equalTo("1"))
+                                                .body(
+                                                        "jobDag.pipelineEdges['1'][0].targetVertexId",
+                                                        equalTo("2"))
+                                                .body("jobDag.vertexInfoMap", hasSize(2))
+                                                .body(
+                                                        "jobDag.vertexInfoMap[0].vertexId",
+                                                        equalTo(1))
+                                                .body(
+                                                        "jobDag.vertexInfoMap[0].type",
+                                                        equalTo("source"))
+                                                .body(
+                                                        "jobDag.vertexInfoMap[0].vertexName",
+                                                        equalTo(
+                                                                "pipeline-1 [Source[0]-FakeSource]"))
+                                                .body(
+                                                        "jobDag.vertexInfoMap[0].tablePaths[0]",
+                                                        equalTo("fake"))
+                                                .body(
+                                                        "jobDag.vertexInfoMap[1].vertexId",
+                                                        equalTo(2))
+                                                .body(
+                                                        "jobDag.vertexInfoMap[1].type",
+                                                        equalTo("sink"))
+                                                .body(
+                                                        "jobDag.vertexInfoMap[1].vertexName",
+                                                        equalTo(
+                                                                "pipeline-1 [Sink[0]-console-MultiTableSink]"))
+                                                .body(
+                                                        "jobDag.vertexInfoMap[1].tablePaths[0]",
+                                                        equalTo("fake"))
                                                 .body("jobName", equalTo("fake_to_console"))
                                                 .body("jobStatus", equalTo("FINISHED"));
                                     });

@@ -27,13 +27,17 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig;
 import org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkConfig;
 
+import lombok.Getter;
+
+import java.util.Optional;
+
 public class EmailSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         implements SupportMultiTableSink {
 
-    private SeaTunnelRowType seaTunnelRowType;
-    private ReadonlyConfig readonlyConfig;
-    private CatalogTable catalogTable;
-    private EmailSinkConfig pluginConfig;
+    private final SeaTunnelRowType seaTunnelRowType;
+    @Getter private ReadonlyConfig readonlyConfig;
+    private final CatalogTable catalogTable;
+    private final EmailSinkConfig pluginConfig;
 
     public EmailSink(ReadonlyConfig config, CatalogTable table) {
         this.readonlyConfig = config;
@@ -50,5 +54,10 @@ public class EmailSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     @Override
     public String getPluginName() {
         return EmailConfig.CONNECTOR_IDENTITY;
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.of(catalogTable);
     }
 }
