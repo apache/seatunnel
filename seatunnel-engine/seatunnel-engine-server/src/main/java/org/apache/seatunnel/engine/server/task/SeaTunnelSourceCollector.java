@@ -107,7 +107,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                             "Unsupported row type: " + rowType.getClass().getName());
                 }
                 flowControlGate.audit((SeaTunnelRow) row);
-                taskMetricsCalcContext.updateMetrics(row);
+                taskMetricsCalcContext.updateMetrics(row, tableId);
             }
             sendRecordToNext(new Record<>(row));
             emptyThisPollNext = false;

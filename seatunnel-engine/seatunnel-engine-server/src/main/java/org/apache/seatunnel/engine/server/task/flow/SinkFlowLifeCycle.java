@@ -23,12 +23,15 @@ import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SinkWriter.Context;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
 import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
@@ -54,10 +57,12 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
@@ -70,7 +75,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private final SinkAction<T, StateT, CommitInfoT, AggregatedCommitInfoT> sinkAction;
     private SinkWriter<T, CommitInfoT, StateT> writer;
-    private SinkWriter.Context writerContext;
+    private Context writerContext;
 
     private transient Optional<Serializer<CommitInfoT>> commitInfoSerializer;
     private transient Optional<Serializer<StateT>> writerStateSerializer;
@@ -117,7 +122,11 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         List<TablePath> sinkTables = new ArrayList<>();
         boolean isMulti = sinkAction.getSink() instanceof MultiTableSink;
         if (isMulti) {
-            sinkTables = ((MultiTableSink) sinkAction.getSink()).getSinkTables();
+            List<Map<TablePath, TablePath>> tablesMaps =
+                    ((MultiTableSink) sinkAction.getSink()).getSinkTables();
+            for (Map<TablePath, TablePath> tableMap : tablesMaps) {
+                sinkTables.addAll(tableMap.values());
+            }
         }
         this.taskMetricsCalcContext =
                 new TaskMetricsCalcContext(metricsContext, PluginType.SINK, isMulti, sinkTables);
@@ -246,8 +255,37 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 if (prepareClose) {
                     return;
                 }
+                AtomicReference<String> tableId = new AtomicReference<>();
                 writer.write((T) record.getData());
-                taskMetricsCalcContext.updateMetrics(record.getData());
+                if (record.getData() instanceof SeaTunnelRow) {
+                    if (this.sinkAction.getSink() instanceof MultiTableSink) {
+                        List<Map<TablePath, TablePath>> tables =
+                                ((MultiTableSink) this.sinkAction.getSink()).getSinkTables();
+                        tables.forEach(
+                                tablePathTablePathMap -> {
+                                    tablePathTablePathMap.forEach(
+                                            (k, v) -> {
+                                                if (k.equals(
+                                                        TablePath.of(
+                                                                ((SeaTunnelRow) record.getData())
+                                                                        .getTableId()))) {
+                                                    tableId.set(v.getFullName());
+                                                }
+                                            });
+                                });
+                    } else {
+                        Optional<CatalogTable> writeCatalogTable =
+                                this.sinkAction.getSink().getWriteCatalogTable();
+                        tableId.set(
+                                writeCatalogTable
+                                        .map(
+                                                catalogTable ->
+                                                        catalogTable.getTablePath().getFullName())
+                                        .orElseGet(TablePath.DEFAULT::getFullName));
+                    }
+
+                    taskMetricsCalcContext.updateMetrics(record.getData(), tableId.get());
+                }
             }
         } catch (Exception e) {
             throw new RuntimeException(e);

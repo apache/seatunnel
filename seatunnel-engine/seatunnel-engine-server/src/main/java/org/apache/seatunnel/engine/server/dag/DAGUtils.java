@@ -159,8 +159,12 @@ public class DAGUtils {
         } else if (action instanceof SinkAction) {
             SeaTunnelSink seaTunnelSink = ((SinkAction<?, ?, ?, ?>) action).getSink();
             if (seaTunnelSink instanceof MultiTableSink) {
-                List<TablePath> sinkTablePaths =
-                        new ArrayList<>(((MultiTableSink) seaTunnelSink).getSinkTables());
+                List<TablePath> sinkTablePaths = new ArrayList<>();
+                List<Map<TablePath, TablePath>> tables =
+                        ((MultiTableSink) seaTunnelSink).getSinkTables();
+                for (Map<TablePath, TablePath> table : tables) {
+                    sinkTablePaths.addAll(table.values());
+                }
                 tablePaths.addAll(sinkTablePaths);
             } else {
                 Optional<CatalogTable> catalogTable = seaTunnelSink.getWriteCatalogTable();
