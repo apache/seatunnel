@@ -737,13 +737,13 @@ seatunnel:
 ### 获取日志内容
 
 <details>
- <summary><code>GET</code> <code><b>/get-log?jobId=${jobId}</b></code> <code>(返回日志信息。)</code></summary></summary>
+ <summary><code>GET</code> <code><b>/get-log?jobId=:jobId</b></code> <code>(返回日志信息。)</code></summary></summary>
 
 #### 参数
 
 > | 参数名称  | 是否必传 | 参数类型 |  参数描述  |
 > |-------|------|------|--------|
-> | jobId | 否    | long | job id |
+> | :jobId | 否    | long | job id |
 
 当jobId传入时，返回该job的日志信息，否则返回所有日志信息。
 
