@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
+import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
@@ -69,6 +70,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private final SinkAction<T, StateT, CommitInfoT, AggregatedCommitInfoT> sinkAction;
     private SinkWriter<T, CommitInfoT, StateT> writer;
+    private SinkWriter.Context writerContext;
 
     private transient Optional<Serializer<CommitInfoT>> commitInfoSerializer;
     private transient Optional<Serializer<StateT>> writerStateSerializer;
@@ -150,6 +152,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     public void close() throws IOException {
         super.close();
         writer.close();
+        writerContext.getEventListener().onEvent(new WriterCloseEvent());
         try {
             if (resourceManager != null) {
                 resourceManager.close();
@@ -283,19 +286,13 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                                                                     .deserialize(bytes)))
                             .collect(Collectors.toList());
         }
+        this.writerContext =
+                new SinkWriterContext(
+                        sinkAction.getParallelism(), indexID, metricsContext, eventListener);
         if (states.isEmpty()) {
-            this.writer =
-                    sinkAction
-                            .getSink()
-                            .createWriter(
-                                    new SinkWriterContext(indexID, metricsContext, eventListener));
+            this.writer = sinkAction.getSink().createWriter(writerContext);
         } else {
-            this.writer =
-                    sinkAction
-                            .getSink()
-                            .restoreWriter(
-                                    new SinkWriterContext(indexID, metricsContext, eventListener),
-                                    states);
+            this.writer = sinkAction.getSink().restoreWriter(writerContext, states);
         }
         if (this.writer instanceof SupportResourceShare) {
             resourceManager =

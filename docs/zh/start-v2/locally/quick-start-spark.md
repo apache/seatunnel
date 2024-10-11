@@ -2,7 +2,7 @@
 sidebar_position: 4
 ---
 
-# Spark引擎快速开始
+# Spark 引擎快速开始
 
 ## 步骤 1: 部署SeaTunnel及连接器
 

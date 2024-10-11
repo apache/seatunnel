@@ -45,14 +45,9 @@ for %%I in (%*) do (
 
 set "JAVA_OPTS=%JvmOption%"
 set "SEATUNNEL_CONFIG=%CONF_DIR%\seatunnel.yaml"
-for %%I in (%*) do (
-    set "arg=%%I"
-    if "!arg:~0,10!"=="JvmOption=" (
-        set "JAVA_OPTS=%JAVA_OPTS% !arg:~10!"
-    )
-)
 
 set "JAVA_OPTS=%JAVA_OPTS% -Dlog4j2.contextSelector=org.apache.logging.log4j.core.async.AsyncLoggerContextSelector"
+set "JAVA_OPTS=%JAVA_OPTS% -Dlog4j2.isThreadContextMapInheritable=true"
 
 REM Server Debug Config
 REM Usage instructions:
@@ -102,6 +97,14 @@ if "%NODE_ROLE%" == "master" (
 ) else (
     echo Unknown node role: %NODE_ROLE%
     exit 1
+)
+
+REM Parse JvmOption from command line, it should be parsed after jvm_options
+for %%I in (%*) do (
+    set "arg=%%I"
+    if "!arg:~0,10!"=="JvmOption=" (
+        set "JAVA_OPTS=%JAVA_OPTS% !arg:~10!"
+    )
 )
 
 IF NOT EXIST "%HAZELCAST_CONFIG%" (

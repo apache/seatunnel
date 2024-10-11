@@ -171,6 +171,14 @@ public final class MemberImpl extends AbstractMember
         attributes.put(key, value);
     }
 
+    public void updateAttribute(Map<String, String> tags) {
+        ensureLocalMember();
+        attributes.clear();
+        if (tags.size() > 0) {
+            attributes.putAll(tags);
+        }
+    }
+
     public int getFactoryId() {
         return ClusterDataSerializerHook.F_ID;
     }

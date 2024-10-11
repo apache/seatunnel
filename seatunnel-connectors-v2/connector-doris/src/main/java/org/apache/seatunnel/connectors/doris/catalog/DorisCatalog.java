@@ -495,6 +495,15 @@ public class DorisCatalog implements Catalog {
     }
 
     @Override
+    public void executeSql(TablePath tablePath, String sql) {
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.execute();
+        } catch (SQLException e) {
+            throw new CatalogException(String.format("Failed executeSql error %s", sql), e);
+        }
+    }
+
+    @Override
     public PreviewResult previewAction(
             ActionType actionType, TablePath tablePath, Optional<CatalogTable> catalogTable) {
         if (actionType == ActionType.CREATE_TABLE) {

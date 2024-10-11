@@ -30,13 +30,12 @@ import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
-import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
-import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -44,6 +43,8 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import lombok.SneakyThrows;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -73,12 +74,23 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output) {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
-        FSDataInputStream file = hadoopFileSystemProxy.getInputStream(path);
+        resolveArchiveCompressedInputStream(path, tableId, output, partitionsMap, FileFormat.EXCEL);
+    }
+
+    @Override
+    protected void readProcess(
+            String path,
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            InputStream inputStream,
+            Map<String, String> partitionsMap,
+            String currentFileName)
+            throws IOException {
         Workbook workbook;
-        if (path.endsWith(".xls")) {
-            workbook = new HSSFWorkbook(file);
-        } else if (path.endsWith(".xlsx")) {
-            workbook = new XSSFWorkbook(file);
+        if (currentFileName.endsWith(".xls")) {
+            workbook = new HSSFWorkbook(inputStream);
+        } else if (currentFileName.endsWith(".xlsx")) {
+            workbook = new XSSFWorkbook(inputStream);
         } else {
             throw new FileConnectorException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
@@ -138,7 +150,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                 || isNullOrEmpty(seaTunnelRowType.getFieldTypes())) {
             throw new FileConnectorException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                    "Schmea information is not set or incorrect schmea settings");
+                    "Schema information is not set or incorrect Schema settings");
         }
         SeaTunnelRowType userDefinedRowTypeWithPartition =
                 mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
@@ -177,8 +189,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                 return cell.getBooleanCellValue();
             case NUMERIC:
                 if (DateUtil.isCellDateFormatted(cell)) {
-                    DataFormatter formatter = new DataFormatter();
-                    return formatter.formatCellValue(cell);
+                    return cell.getLocalDateTimeCellValue();
                 }
                 return cell.getNumericCellValue();
             case ERROR:
@@ -202,7 +213,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             case ARRAY:
                 return objectMapper.readValue((String) field, fieldType.getTypeClass());
             case STRING:
-                return field;
+                return String.valueOf(field);
             case DOUBLE:
                 return Double.parseDouble(field.toString());
             case BOOLEAN:
@@ -220,12 +231,21 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             case DECIMAL:
                 return BigDecimal.valueOf(Double.parseDouble(field.toString()));
             case DATE:
+                if (field instanceof LocalDateTime) {
+                    return ((LocalDateTime) field).toLocalDate();
+                }
                 return LocalDate.parse(
                         (String) field, DateTimeFormatter.ofPattern(dateFormat.getValue()));
             case TIME:
+                if (field instanceof LocalDateTime) {
+                    return ((LocalDateTime) field).toLocalTime();
+                }
                 return LocalTime.parse(
                         (String) field, DateTimeFormatter.ofPattern(timeFormat.getValue()));
             case TIMESTAMP:
+                if (field instanceof LocalDateTime) {
+                    return field;
+                }
                 return LocalDateTime.parse(
                         (String) field, DateTimeFormatter.ofPattern(datetimeFormat.getValue()));
             case NULL:

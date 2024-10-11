@@ -281,7 +281,8 @@ Before turning on the synchronous task, do different treatment of the target pat
 Option introduction：  
 `RECREATE_SCHEMA` ：Will be created when the path does not exist. If the path already exists, delete the path and recreate it.         
 `CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the path does not exist, use the path when the path is existed.        
-`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the path does not exist
+`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the path does not exist  
+`IGNORE` ：Ignore the treatment of the table
 
 ### data_save_mode[Enum]
 

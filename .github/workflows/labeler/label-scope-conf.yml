@@ -257,6 +257,19 @@ activemq:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-activemq/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(activemq)/**'
+
+qdrant:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-qdrant/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(qdrant)/**'
+
+typesense:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-typesense/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(typesense)/**'
+
 Zeta Rest API:
   - changed-files:
       - any-glob-to-any-file: seatunnel-engine/**/server/rest/**

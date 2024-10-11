@@ -33,7 +33,6 @@ import org.apache.iceberg.common.DynClasses;
 import org.apache.iceberg.common.DynMethods;
 
 import lombok.extern.slf4j.Slf4j;
-import sun.security.krb5.KrbException;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -50,25 +49,20 @@ public class IcebergCatalogLoader implements Serializable {
     private static final long serialVersionUID = -6003040601422350869L;
     private static final List<String> HADOOP_CONF_FILES =
             ImmutableList.of("core-site.xml", "hdfs-site.xml", "hive-site.xml");
-    private CommonConfig config;
+    private final CommonConfig config;
 
     public IcebergCatalogLoader(CommonConfig config) {
         this.config = config;
     }
 
     public Catalog loadCatalog() {
-        // When using the seatunel engine, set the current class loader to prevent loading failures
+        // When using the SeaTunnel engine, set the current class loader to prevent loading failures
         Thread.currentThread().setContextClassLoader(IcebergCatalogLoader.class.getClassLoader());
         return CatalogUtil.buildIcebergCatalog(
                 config.getCatalogName(), config.getCatalogProps(), loadHadoopConfig(config));
     }
 
-    /**
-     * Loading Hadoop configuration through reflection
-     *
-     * @param config
-     * @return
-     */
+    /** Loading Hadoop configuration through reflection */
     public Object loadHadoopConfig(CommonConfig config) {
         Class<?> configClass =
                 DynClasses.builder()
@@ -175,11 +169,10 @@ public class IcebergCatalogLoader implements Serializable {
                         "Start Kerberos authentication using principal {} and keytab {}",
                         principal,
                         keytabPath);
-                sun.security.krb5.Config.refresh();
                 UserGroupInformation.loginUserFromKeytab(principal, keytabPath);
                 UserGroupInformation loginUser = UserGroupInformation.getLoginUser();
                 log.info("Kerberos authentication successful,UGI {}", loginUser);
-            } catch (IOException | KrbException e) {
+            } catch (IOException e) {
                 throw new SeaTunnelException("check connectivity failed, " + e.getMessage(), e);
             }
         }

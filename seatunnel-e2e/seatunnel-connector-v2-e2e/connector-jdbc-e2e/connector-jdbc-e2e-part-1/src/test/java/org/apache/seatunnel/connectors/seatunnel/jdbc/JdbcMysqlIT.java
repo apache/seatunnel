@@ -42,12 +42,14 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSourceState;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.apache.commons.lang3.tuple.Pair;
 
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -180,11 +182,13 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                 .testData(testDataSet)
                 .catalogDatabase(CATALOG_DATABASE)
                 .catalogTable(MYSQL_SINK)
+                .tablePathFullName(MYSQL_DATABASE + "." + MYSQL_SOURCE)
                 .build();
     }
 
     @Override
-    protected void compareResult(String executeKey) {
+    protected void checkResult(
+            String executeKey, TestContainer container, Container.ExecResult execResult) {
         String[] fieldNames =
                 new String[] {
                     "c_bit_1",

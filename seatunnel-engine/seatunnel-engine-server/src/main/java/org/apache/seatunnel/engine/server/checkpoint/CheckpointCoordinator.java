@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
@@ -187,6 +188,7 @@ public class CheckpointCoordinator {
                             return thread;
                         });
         ((ScheduledThreadPoolExecutor) this.scheduler).setRemoveOnCancelPolicy(true);
+        this.scheduler = MDCTracer.tracing(scheduler);
         this.serializer = new ProtoStuffSerializer();
         this.pipelineTasks = getPipelineTasks(plan.getPipelineSubtasks());
         this.pipelineTaskStatus = new ConcurrentHashMap<>();
@@ -486,8 +488,14 @@ public class CheckpointCoordinator {
         }
         final long currentTimestamp = Instant.now().toEpochMilli();
         if (checkpointType.notFinalCheckpoint() && checkpointType.notSchemaChangeCheckpoint()) {
-            if (currentTimestamp - latestTriggerTimestamp.get()
-                            < coordinatorConfig.getCheckpointInterval()
+            long diffFromLastTimestamp = currentTimestamp - latestTriggerTimestamp.get();
+            if (diffFromLastTimestamp <= 0) {
+                LOG.error(
+                        "The time on your server may not be incremental which can lead checkpoint to stop. The latestTriggerTimestamp: ({}), but the currentTimestamp: ({})",
+                        latestTriggerTimestamp.get(),
+                        currentTimestamp);
+            }
+            if (diffFromLastTimestamp < coordinatorConfig.getCheckpointInterval()
                     || !isAllTaskReady) {
                 return;
             }

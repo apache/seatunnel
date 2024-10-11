@@ -44,6 +44,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.junitpioneer.jupiter.SetEnvironmentVariable;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.core.HazelcastInstance;
@@ -662,13 +663,13 @@ public class SeaTunnelClientTest {
             Assertions.assertEquals(
                     totalCount.get(SOURCE_RECEIVED_COUNT),
                     tableCount.entrySet().stream()
-                            .filter(e -> e.getKey().startsWith(SOURCE_RECEIVED_COUNT))
+                            .filter(e -> e.getKey().startsWith(SOURCE_RECEIVED_COUNT + "#"))
                             .mapToLong(Map.Entry::getValue)
                             .sum());
             Assertions.assertEquals(
                     totalCount.get(SINK_WRITE_COUNT),
                     tableCount.entrySet().stream()
-                            .filter(e -> e.getKey().startsWith(SINK_WRITE_COUNT))
+                            .filter(e -> e.getKey().startsWith(SINK_WRITE_COUNT + "#"))
                             .mapToLong(Map.Entry::getValue)
                             .sum());
             Assertions.assertEquals(
@@ -684,24 +685,74 @@ public class SeaTunnelClientTest {
                             .mapToLong(Map.Entry::getValue)
                             .sum());
             // Instantaneous rates in the same direction are directly added
-            Assertions.assertEquals(
-                    totalCount.get(SOURCE_RECEIVED_QPS),
-                    tableCount.entrySet().stream()
-                            .filter(e -> e.getKey().startsWith(SOURCE_RECEIVED_QPS + "#"))
-                            .mapToLong(Map.Entry::getValue)
-                            .sum());
-            Assertions.assertEquals(
-                    totalCount.get(SINK_WRITE_QPS),
-                    tableCount.entrySet().stream()
-                            .filter(e -> e.getKey().startsWith(SINK_WRITE_QPS + "#"))
-                            .mapToLong(Map.Entry::getValue)
-                            .sum());
+            // The size does not fluctuate more than %2 of the total value
+            Assertions.assertTrue(
+                    Math.abs(
+                                    totalCount.get(SOURCE_RECEIVED_QPS)
+                                            - tableCount.entrySet().stream()
+                                                    .filter(
+                                                            e ->
+                                                                    e.getKey()
+                                                                            .startsWith(
+                                                                                    SOURCE_RECEIVED_QPS
+                                                                                            + "#"))
+                                                    .mapToLong(Map.Entry::getValue)
+                                                    .sum())
+                            < totalCount.get(SOURCE_RECEIVED_QPS) * 0.02);
+            Assertions.assertTrue(
+                    Math.abs(
+                                    totalCount.get(SINK_WRITE_QPS)
+                                            - tableCount.entrySet().stream()
+                                                    .filter(
+                                                            e ->
+                                                                    e.getKey()
+                                                                            .startsWith(
+                                                                                    SINK_WRITE_QPS
+                                                                                            + "#"))
+                                                    .mapToLong(Map.Entry::getValue)
+                                                    .sum())
+                            < totalCount.get(SINK_WRITE_QPS) * 0.02);
+            Assertions.assertTrue(
+                    Math.abs(
+                                    totalCount.get(SOURCE_RECEIVED_BYTES_PER_SECONDS)
+                                            - tableCount.entrySet().stream()
+                                                    .filter(
+                                                            e ->
+                                                                    e.getKey()
+                                                                            .startsWith(
+                                                                                    SOURCE_RECEIVED_BYTES_PER_SECONDS
+                                                                                            + "#"))
+                                                    .mapToLong(Map.Entry::getValue)
+                                                    .sum())
+                            < totalCount.get(SOURCE_RECEIVED_BYTES_PER_SECONDS) * 0.02);
+            Assertions.assertTrue(
+                    Math.abs(
+                                    totalCount.get(SINK_WRITE_BYTES_PER_SECONDS)
+                                            - tableCount.entrySet().stream()
+                                                    .filter(
+                                                            e ->
+                                                                    e.getKey()
+                                                                            .startsWith(
+                                                                                    SINK_WRITE_BYTES_PER_SECONDS
+                                                                                            + "#"))
+                                                    .mapToLong(Map.Entry::getValue)
+                                                    .sum())
+                            < totalCount.get(SINK_WRITE_BYTES_PER_SECONDS) * 0.02);
 
         } catch (ExecutionException | InterruptedException | JsonProcessingException e) {
             throw new RuntimeException(e);
         } finally {
             seaTunnelClient.close();
         }
+    }
+
+    @Test
+    @SetEnvironmentVariable(
+            key = "ST_DOCKER_MEMBER_LIST",
+            value = "127.0.0.1,127.0.0.2,127.0.0.3,127.0.0.4")
+    public void testDockerEnvOverwrite() {
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        Assertions.assertEquals(4, clientConfig.getNetworkConfig().getAddresses().size());
     }
 
     @AfterAll

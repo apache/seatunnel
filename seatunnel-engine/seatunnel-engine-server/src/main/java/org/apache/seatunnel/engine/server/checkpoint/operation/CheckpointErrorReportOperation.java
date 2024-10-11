@@ -40,7 +40,7 @@ public class CheckpointErrorReportOperation extends TaskOperation {
     }
 
     @Override
-    public void run() throws Exception {
+    public void runInternal() throws Exception {
         SeaTunnelServer server = getService();
         server.getCoordinatorService()
                 .getJobMaster(taskLocation.getJobId())

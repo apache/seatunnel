@@ -61,9 +61,6 @@ import java.util.stream.Collectors;
 public class DorisIT extends AbstractDorisIT {
     private static final String UNIQUE_TABLE = "doris_e2e_unique_table";
     private static final String DUPLICATE_TABLE = "doris_duplicate_table";
-    private static final String DRIVER_JAR =
-            "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-
     private static final String sourceDB = "e2e_source";
     private static final String sinkDB = "e2e_sink";
     private Connection conn;
@@ -172,6 +169,16 @@ public class DorisIT extends AbstractDorisIT {
                                         + DRIVER_JAR);
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
+
+    @TestTemplate
+    public void testCustomSql(TestContainer container) throws IOException, InterruptedException {
+        initializeJdbcTable();
+        Container.ExecResult execResult =
+                container.executeJob("/doris_source_and_sink_with_custom_sql.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(101, tableCount(sinkDB, UNIQUE_TABLE));
+        clearUniqueTable();
+    }
 
     @TestTemplate
     public void testDoris(TestContainer container) throws IOException, InterruptedException {
@@ -342,6 +349,20 @@ public class DorisIT extends AbstractDorisIT {
         sourceResultSet.last();
         sinkResultSet.last();
         Assertions.assertEquals(sourceResultSet.getRow(), sinkResultSet.getRow());
+    }
+
+    private Integer tableCount(String db, String table) {
+        try (Statement statement = conn.createStatement()) {
+            String sql = String.format("select count(*) from %s.%s", db, table);
+            ResultSet source = statement.executeQuery(sql);
+            if (source.next()) {
+                int rowCount = source.getInt(1);
+                return rowCount;
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to check data in Doris server", e);
+        }
+        return -1;
     }
 
     private void assertHasData(String db, String table) {

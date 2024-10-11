@@ -65,12 +65,12 @@ public class IcebergSource
 
     private static final long serialVersionUID = 4343414808223919870L;
 
-    private SourceConfig sourceConfig;
-    private Schema tableSchema;
-    private Schema projectedSchema;
-    private SeaTunnelRowType seaTunnelRowType;
+    private final SourceConfig sourceConfig;
+    private final Schema tableSchema;
+    private final Schema projectedSchema;
+    private final SeaTunnelRowType seaTunnelRowType;
     private JobContext jobContext;
-    private CatalogTable catalogTable;
+    private final CatalogTable catalogTable;
 
     public IcebergSource(ReadonlyConfig config, CatalogTable catalogTable) {
         this.sourceConfig = SourceConfig.loadConfig(config);

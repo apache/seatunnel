@@ -67,7 +67,7 @@
                         <phase>package</phase>
                         <configuration>
                             <finalName>seatunnel-hadoop3-3.1.4-uber</finalName>
-                            <createSourcesJar>true</createSourcesJar>
+                            <createSourcesJar>${enableSourceJarCreation}</createSourcesJar>
                             <shadeSourcesContent>true</shadeSourcesContent>
                             <shadedArtifactAttached>false</shadedArtifactAttached>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
@@ -97,7 +97,6 @@
                                         <include>com.google.common.base.*</include>
                                         <include>com.google.common.cache.*</include>
                                         <include>com.google.common.collect.*</include>
-                                        <include>com.google.common.util.*</include>
                                     </includes>
                                 </relocation>
                                 <relocation>

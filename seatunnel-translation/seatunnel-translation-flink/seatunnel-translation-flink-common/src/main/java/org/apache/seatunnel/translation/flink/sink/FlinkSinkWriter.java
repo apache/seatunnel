@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.common.metrics.MetricNames;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.flink.api.connector.sink.Sink;
@@ -53,6 +53,8 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
     private final org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT>
             sinkWriter;
 
+    private final org.apache.seatunnel.api.sink.SinkWriter.Context context;
+
     private final Counter sinkWriteCount;
 
     private final Counter sinkWriteBytes;
@@ -66,10 +68,11 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
     FlinkSinkWriter(
             org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter,
             long checkpointId,
-            SeaTunnelDataType<?> dataType,
-            MetricsContext metricsContext) {
+            org.apache.seatunnel.api.sink.SinkWriter.Context context) {
+        this.context = context;
         this.sinkWriter = sinkWriter;
         this.checkpointId = checkpointId;
+        MetricsContext metricsContext = context.getMetricsContext();
         this.sinkWriteCount = metricsContext.counter(MetricNames.SINK_WRITE_COUNT);
         this.sinkWriteBytes = metricsContext.counter(MetricNames.SINK_WRITE_BYTES);
         this.sinkWriterQPS = metricsContext.meter(MetricNames.SINK_WRITE_QPS);
@@ -118,6 +121,7 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
     @Override
     public void close() throws Exception {
         sinkWriter.close();
+        context.getEventListener().onEvent(new WriterCloseEvent());
         try {
             if (resourceManager != null) {
                 resourceManager.close();

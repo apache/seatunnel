@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
+import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 
@@ -47,16 +48,19 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
     protected volatile MultiTableResourceManager resourceManager;
 
     private final MultiTableManager multiTableManager;
+    private final SinkWriter.Context context;
 
     public SeaTunnelSparkDataWriter(
             SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
             @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
             MultiTableManager multiTableManager,
-            long epochId) {
+            long epochId,
+            SinkWriter.Context context) {
         this.sinkWriter = sinkWriter;
         this.sinkCommitter = sinkCommitter;
         this.multiTableManager = multiTableManager;
         this.epochId = epochId == 0 ? 1 : epochId;
+        this.context = context;
         initResourceManger();
     }
 
@@ -89,6 +93,7 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
                 new SeaTunnelSparkWriterCommitMessage<>(latestCommitInfoT);
         cleanCommitInfo();
         sinkWriter.close();
+        context.getEventListener().onEvent(new WriterCloseEvent());
         try {
             if (resourceManager != null) {
                 resourceManager.close();

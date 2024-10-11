@@ -25,16 +25,26 @@ import org.apache.seatunnel.e2e.common.container.TestHelper;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
+import org.apache.commons.lang3.StringUtils;
+
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.shaded.com.github.dockerjava.core.command.ExecStartResultCallback;
 
+import com.github.dockerjava.api.command.ExecCreateCmdResponse;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.stream.Stream;
 
 @DisabledOnContainer(
@@ -84,6 +94,11 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
                 sftpContainer);
 
         ContainerUtil.copyFileIntoContainers(
+                "/text/e2e-text.zip",
+                "/home/seatunnel/tmp/seatunnel/read/zip/text/e2e-text.zip",
+                sftpContainer);
+
+        ContainerUtil.copyFileIntoContainers(
                 "/excel/e2e.xlsx",
                 "/home/seatunnel/tmp/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xlsx",
                 sftpContainer);
@@ -121,6 +136,8 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
         helper.execute("/text/sftp_file_text_to_assert.conf");
         // test read sftp text file with projection
         helper.execute("/text/sftp_file_text_projection_to_assert.conf");
+        // test read sftp zip text file
+        helper.execute("/text/sftp_file_zip_text_to_assert.conf");
         // test write sftp json file
         helper.execute("/json/fake_to_sftp_file_json.conf");
         // test read sftp json file
@@ -129,6 +146,87 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
         helper.execute("/xml/fake_to_sftp_file_xml.conf");
         // test read sftp xml file
         helper.execute("/xml/sftp_file_xml_to_assert.conf");
+    }
+
+    @TestTemplate
+    public void testMultipleTableAndSaveMode(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
+        // test mult table and save_mode:RECREATE_SCHEMA DROP_DATA
+        String homePath = "/home/seatunnel";
+        String path1 = "/tmp/multiple_1/seatunnel/text/source_1";
+        String path2 = "/tmp/multiple_1/seatunnel/text/source_2";
+        deleteFileFromContainer(homePath + path1);
+        deleteFileFromContainer(homePath + path2);
+        Assertions.assertEquals(getFileListFromContainer(homePath + path1).size(), 0);
+        Assertions.assertEquals(getFileListFromContainer(homePath + path2).size(), 0);
+        helper.execute("/text/multiple_fake_to_sftp_file_text_recreate_schema.conf");
+        Assertions.assertEquals(getFileListFromContainer(homePath + path1).size(), 1);
+        Assertions.assertEquals(getFileListFromContainer(homePath + path2).size(), 1);
+        helper.execute("/text/multiple_fake_to_sftp_file_text_recreate_schema.conf");
+        Assertions.assertEquals(getFileListFromContainer(homePath + path1).size(), 1);
+        Assertions.assertEquals(getFileListFromContainer(homePath + path2).size(), 1);
+        // test mult table and save_mode:CREATE_SCHEMA_WHEN_NOT_EXIST APPEND_DATA
+        String path3 = "/tmp/multiple_2/seatunnel/text/source_1";
+        String path4 = "/tmp/multiple_2/seatunnel/text/source_2";
+        deleteFileFromContainer(homePath + path3);
+        deleteFileFromContainer(homePath + path4);
+        Assertions.assertEquals(getFileListFromContainer(homePath + path3).size(), 0);
+        Assertions.assertEquals(getFileListFromContainer(homePath + path4).size(), 0);
+        helper.execute("/text/multiple_fake_to_sftp_file_text_append.conf");
+        Assertions.assertEquals(getFileListFromContainer(homePath + path3).size(), 1);
+        Assertions.assertEquals(getFileListFromContainer(homePath + path4).size(), 1);
+        helper.execute("/text/multiple_fake_to_sftp_file_text_append.conf");
+        Assertions.assertEquals(getFileListFromContainer(homePath + path3).size(), 2);
+        Assertions.assertEquals(getFileListFromContainer(homePath + path4).size(), 2);
+    }
+
+    @SneakyThrows
+    private List<String> getFileListFromContainer(String path) {
+        String command = "ls -1 " + path;
+        ExecCreateCmdResponse execCreateCmdResponse =
+                dockerClient
+                        .execCreateCmd(sftpContainer.getContainerId())
+                        .withCmd("sh", "-c", command)
+                        .withAttachStdout(true)
+                        .withAttachStderr(true)
+                        .exec();
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        dockerClient
+                .execStartCmd(execCreateCmdResponse.getId())
+                .exec(new ExecStartResultCallback(outputStream, System.err))
+                .awaitCompletion();
+
+        String output = new String(outputStream.toByteArray(), StandardCharsets.UTF_8).trim();
+        List<String> fileList = new ArrayList<>();
+        log.info("container path file list is :{}", output);
+        String[] files = output.split("\n");
+        for (String file : files) {
+            if (StringUtils.isNotEmpty(file)) {
+                log.info("container path file name is :{}", file);
+                fileList.add(file);
+            }
+        }
+        return fileList;
+    }
+
+    @SneakyThrows
+    private void deleteFileFromContainer(String path) {
+        String command = "rm -rf " + path;
+        ExecCreateCmdResponse execCreateCmdResponse =
+                dockerClient
+                        .execCreateCmd(sftpContainer.getContainerId())
+                        .withCmd("sh", "-c", command)
+                        .withAttachStdout(true)
+                        .withAttachStderr(true)
+                        .exec();
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        dockerClient
+                .execStartCmd(execCreateCmdResponse.getId())
+                .exec(new ExecStartResultCallback(outputStream, System.err))
+                .awaitCompletion();
     }
 
     @AfterAll

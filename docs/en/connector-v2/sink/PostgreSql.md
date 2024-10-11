@@ -118,7 +118,8 @@ Before the synchronous task is turned on, different treatment schemes are select
 Option introduction：  
 `RECREATE_SCHEMA` ：Will create when the table does not exist, delete and rebuild when the table is saved        
 `CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the table does not exist, skipped when the table is saved        
-`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist
+`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist  
+`IGNORE` ：Ignore the treatment of the table
 
 ### data_save_mode[Enum]
 

@@ -149,6 +149,7 @@ public class DefaultSlotService implements SlotService {
         return new SlotAndWorkerProfile(getWorkerProfile(), profile);
     }
 
+    @Override
     public SlotContext getSlotContext(SlotProfile slotProfile) {
         if (!contexts.containsKey(slotProfile.getSlotID())) {
             throw new WrongTargetSlotException(

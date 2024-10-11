@@ -99,10 +99,11 @@ table选项参数可以填入一任意表名，这个名字最终会被用作目
 
 ### schema_save_mode[Enum]
 
-在同步任务打开之前，针对目标端已存在的表结构选择不同的处理方法。可选值有：
-`RECREATE_SCHEMA` ：不存在的表会直接创建，已存在的表会删除并根据参数重新创建
-`CREATE_SCHEMA_WHEN_NOT_EXIST` ：忽略已存在的表，不存在的表会直接创建
-`ERROR_WHEN_SCHEMA_NOT_EXIST` ：当有不存在的表时会直接报错
+在同步任务打开之前，针对目标端已存在的表结构选择不同的处理方法。可选值有：  
+`RECREATE_SCHEMA` ：不存在的表会直接创建，已存在的表会删除并根据参数重新创建  
+`CREATE_SCHEMA_WHEN_NOT_EXIST` ：忽略已存在的表，不存在的表会直接创建  
+`ERROR_WHEN_SCHEMA_NOT_EXIST` ：当有不存在的表时会直接报错  
+`IGNORE` ：忽略对表的处理
 
 ### data_save_mode[Enum]
 
@@ -185,6 +186,7 @@ source {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
     username = root
     password = ""
     database = "test"
@@ -204,6 +206,7 @@ sink {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
     username = root
     password = ""
     database = "test"
@@ -222,6 +225,7 @@ sink {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
     username = root
     password = ""
     database = "test"
@@ -242,6 +246,7 @@ sink {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
     username = root
     password = ""
     database = "test"
@@ -262,6 +267,7 @@ sink {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
     username = root
     password = ""
     database = "test"

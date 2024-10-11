@@ -25,11 +25,15 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLPa
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -77,6 +81,9 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                     + "    VARCHAR_10_COL                varchar2(10),\n"
                     + "    CHAR_10_COL                   char(10),\n"
                     + "    CLOB_COL                      clob,\n"
+                    + "    NUMBER_1             number(1),\n"
+                    + "    NUMBER_6             number(6),\n"
+                    + "    NUMBER_10             number(10),\n"
                     + "    NUMBER_3_SF_2_DP              number(3, 2),\n"
                     + "    NUMBER_7_SF_N2_DP             number(7, -2),\n"
                     + "    INTEGER_COL                   integer,\n"
@@ -97,6 +104,9 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                     + "    VARCHAR_10_COL                varchar2(10),\n"
                     + "    CHAR_10_COL                   char(10),\n"
                     + "    CLOB_COL                      clob,\n"
+                    + "    NUMBER_1             number(1),\n"
+                    + "    NUMBER_6             number(6),\n"
+                    + "    NUMBER_10             number(10),\n"
                     + "    NUMBER_3_SF_2_DP              number(3, 2),\n"
                     + "    NUMBER_7_SF_N2_DP             number(7, -2),\n"
                     + "    INTEGER_COL                   integer,\n"
@@ -115,6 +125,9 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                 "VARCHAR_10_COL",
                 "CHAR_10_COL",
                 "CLOB_COL",
+                "NUMBER_1",
+                "NUMBER_6",
+                "NUMBER_10",
                 "NUMBER_3_SF_2_DP",
                 "NUMBER_7_SF_N2_DP",
                 "INTEGER_COL",
@@ -146,6 +159,14 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                                         + " where INTEGER_COL = 1")
                         .build();
         dialect.sampleDataFromColumn(connection, table, "INTEGER_COL", 1, 1024);
+    }
+
+    @TestTemplate
+    public void testOracleWithoutDecimalTypeNarrowing(TestContainer container) throws Exception {
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/jdbc_oracle_source_to_sink_without_decimal_type_narrowing.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @Override
@@ -184,11 +205,13 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
+                // oracle jdbc not support getTables/getCatalog/getSchema , is empty
+                .tablePathFullName(TablePath.DEFAULT.getFullName())
                 .build();
     }
 
     @Override
-    void compareResult(String executeKey) {
+    void checkResult(String executeKey, TestContainer container, Container.ExecResult execResult) {
         defaultCompare(executeKey, fieldNames, "INTEGER_COL");
     }
 
@@ -207,6 +230,9 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                                 String.format("f%s", i),
                                 String.format("f%s", i),
                                 String.format("f%s", i),
+                                1,
+                                i * 10,
+                                i * 1000,
                                 BigDecimal.valueOf(1.1),
                                 BigDecimal.valueOf(2400),
                                 i,

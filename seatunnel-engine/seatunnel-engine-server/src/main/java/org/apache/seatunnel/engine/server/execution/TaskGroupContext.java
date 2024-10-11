@@ -22,12 +22,21 @@ import lombok.Data;
 
 import java.net.URL;
 import java.util.Collection;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Data
 @AllArgsConstructor
 public class TaskGroupContext {
     private TaskGroup taskGroup;
 
-    private ClassLoader classLoader;
-    private Collection<URL> jars;
+    private ConcurrentHashMap<Long, ClassLoader> classLoaders;
+    private ConcurrentHashMap<Long, Collection<URL>> jars;
+
+    public ClassLoader getClassLoader(long taskId) {
+        if (classLoaders != null) {
+            return classLoaders.get(taskId);
+        } else {
+            return null;
+        }
+    }
 }

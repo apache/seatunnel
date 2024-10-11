@@ -204,23 +204,6 @@ spark {
 }
 ```
 
-## 如何为 YARN 上的 SeaTunnel 指定不同的 JDK 版本？
-
-例如要设置JDK版本为JDK8，有两种情况：
-
-- YARN集群已部署JDK8，但默认JDK不是JDK8。 在 SeaTunnel 配置文件中添加两个配置：
-
-  ```
-    env {
-   ...
-   spark.executorEnv.JAVA_HOME="/your/java_8_home/directory"
-   spark.yarn.appMasterEnv.JAVA_HOME="/your/java_8_home/directory"
-   ...
-  }
-  ```
-- YARN集群未部署JDK8。 此时，启动附带JDK8的SeaTunnel。 详细操作参见：
-  https://www.cnblogs.com/jasondan/p/spark-specific-jdk-version.html
-
 ## Spark local[*]模式运行SeaTunnel时总是出现OOM怎么办？
 
 如果以本地模式运行，则需要修改`start-seatunnel.sh`启动脚本。 在 `spark-submit` 之后添加参数 `--driver-memory 4g` 。 一般情况下，生产环境中不使用本地模式。 因此，On YARN时一般不需要设置该参数。 有关详细信息，请参阅：[应用程序属性](https://spark.apache.org/docs/latest/configuration.html#application-properties)。
@@ -334,10 +317,6 @@ spark-submit --verbose
    --conf 'spark.executor.extraJavaOptions=-verbose:class'
     ...
 ```
-
-## 如何使用SeaTunnel跨HDFS集群同步数据？
-
-只需正确配置 hdfs-site.xml 即可。 参考：https://www.cnblogs.com/suanec/p/7828139.html。
 
 ## 我想学习SeaTunnel的源代码。 我应该从哪里开始？
 

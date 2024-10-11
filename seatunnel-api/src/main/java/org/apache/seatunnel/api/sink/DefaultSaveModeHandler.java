@@ -60,6 +60,11 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
     }
 
     @Override
+    public void open() {
+        catalog.open();
+    }
+
+    @Override
     public void handleSchemaSaveMode() {
         switch (schemaSaveMode) {
             case RECREATE_SCHEMA:
@@ -70,6 +75,8 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
                 break;
             case ERROR_WHEN_SCHEMA_NOT_EXIST:
                 errorWhenSchemaNotExist();
+                break;
+            case IGNORE:
                 break;
             default:
                 throw new UnsupportedOperationException("Unsupported save mode: " + schemaSaveMode);

@@ -17,10 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.junit.jupiter.api.Assertions;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -105,11 +110,17 @@ public class JdbcStarRocksdbIT extends AbstractJdbcIT {
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
+                .tablePathFullName(TablePath.DEFAULT.getFullName())
                 .build();
     }
 
     @Override
-    void compareResult(String executeKey) {}
+    void checkResult(String executeKey, TestContainer container, Container.ExecResult execResult) {
+        if (container.identifier().equals(TestContainerId.SEATUNNEL)) {
+            Assertions.assertTrue(
+                    execResult.getStdout().contains("Loading catalog tables for catalog"));
+        }
+    }
 
     @Override
     String driverUrl() {

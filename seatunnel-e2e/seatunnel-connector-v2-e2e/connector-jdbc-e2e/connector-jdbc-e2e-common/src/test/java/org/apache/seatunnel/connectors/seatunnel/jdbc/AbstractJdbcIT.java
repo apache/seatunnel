@@ -26,11 +26,17 @@ import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.iris.IrisCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceTableConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -72,7 +78,9 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -93,7 +101,8 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                                 "bash",
                                 "-c",
                                 "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + driverUrl());
+                                        + driverUrl()
+                                        + " --no-check-certificate");
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
 
@@ -105,7 +114,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     abstract JdbcCase getJdbcCase();
 
-    abstract void compareResult(String executeKey) throws SQLException, IOException;
+    void checkResult(String executeKey, TestContainer container, Container.ExecResult execResult) {}
 
     abstract String driverUrl();
 
@@ -116,7 +125,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     protected URLClassLoader getUrlClassLoader() throws MalformedURLException {
         if (urlClassLoader == null) {
             urlClassLoader =
-                    new URLClassLoader(
+                    new InsecureURLClassLoader(
                             new URL[] {new URL(driverUrl())},
                             AbstractJdbcIT.class.getClassLoader());
             Thread.currentThread().setContextClassLoader(urlClassLoader);
@@ -344,7 +353,10 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             try {
                 Container.ExecResult execResult = container.executeJob(configFile);
                 Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-                compareResult(String.format("%s in [%s]", configFile, container.identifier()));
+                checkResult(
+                        String.format("%s in [%s]", configFile, container.identifier()),
+                        container,
+                        execResult);
             } finally {
                 clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
             }
@@ -452,6 +464,54 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             catalog.dropDatabase(targetTablePath, false);
             Assertions.assertFalse(catalog.databaseExists(targetTablePath.getDatabaseName()));
         }
+        Exception exception =
+                Assertions.assertThrows(
+                        Exception.class,
+                        () ->
+                                catalog.truncateTable(
+                                        TablePath.of("not_exist", "not_exist", "not_exist"),
+                                        false));
+
+        Assertions.assertTrue(
+                exception instanceof TableNotExistException
+                        || exception instanceof CatalogException);
+    }
+
+    @Test
+    public void testCatalogWithCatalogUtils() throws SQLException, ClassNotFoundException {
+        if (StringUtils.isBlank(jdbcCase.getTablePathFullName())) {
+            return;
+        }
+
+        List<JdbcSourceTableConfig> tablesConfig = new ArrayList<>();
+        JdbcSourceTableConfig tableConfig =
+                JdbcSourceTableConfig.builder()
+                        .query("SELECT * FROM " + jdbcCase.getSourceTable())
+                        .useSelectCount(false)
+                        .build();
+        tablesConfig.add(tableConfig);
+        Map<TablePath, JdbcSourceTable> tables =
+                JdbcCatalogUtils.getTables(
+                        JdbcConnectionConfig.builder()
+                                .url(jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost()))
+                                .driverName(jdbcCase.getDriverClass())
+                                .username(jdbcCase.getUserName())
+                                .password(jdbcCase.getPassword())
+                                .build(),
+                        tablesConfig);
+        Set<TablePath> tablePaths = tables.keySet();
+
+        tablePaths.forEach(
+                tablePath -> {
+                    log.info(
+                            "Expected: {} Actual: {}",
+                            tablePath.getFullName(),
+                            jdbcCase.getTablePathFullName());
+                    Assertions.assertTrue(
+                            tablePath
+                                    .getFullName()
+                                    .equalsIgnoreCase(jdbcCase.getTablePathFullName()));
+                });
     }
 
     protected Object[] toArrayResult(ResultSet resultSet, String[] fieldNames)

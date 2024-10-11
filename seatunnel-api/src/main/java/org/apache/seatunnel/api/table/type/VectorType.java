@@ -17,15 +17,23 @@
 
 package org.apache.seatunnel.api.table.type;
 
+import org.apache.seatunnel.api.annotation.Experimental;
+
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * VectorType represents a vector type in SeaTunnel.
+ *
+ * <p>Experimental feature, use with caution
+ */
+@Experimental
 public class VectorType<T> implements SeaTunnelDataType<T> {
     private static final long serialVersionUID = 2L;
 
-    public static final VectorType<Float> VECTOR_FLOAT_TYPE =
-            new VectorType<>(Float.class, SqlType.FLOAT_VECTOR);
+    public static final VectorType<ByteBuffer> VECTOR_FLOAT_TYPE =
+            new VectorType<>(ByteBuffer.class, SqlType.FLOAT_VECTOR);
 
     public static final VectorType<Map> VECTOR_SPARSE_FLOAT_TYPE =
             new VectorType<>(Map.class, SqlType.SPARSE_FLOAT_VECTOR);

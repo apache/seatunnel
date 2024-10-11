@@ -29,9 +29,7 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.google.common.collect.Lists;
 
-import java.io.IOException;
 import java.math.BigDecimal;
-import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -120,9 +118,6 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
                 .testData(testDataSet)
                 .build();
     }
-
-    @Override
-    void compareResult(String executeKey) throws SQLException, IOException {}
 
     @Override
     String driverUrl() {

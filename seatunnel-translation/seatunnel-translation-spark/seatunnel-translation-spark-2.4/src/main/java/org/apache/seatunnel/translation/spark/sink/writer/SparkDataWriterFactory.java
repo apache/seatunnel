@@ -36,20 +36,23 @@ public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFa
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink;
     private final CatalogTable[] catalogTables;
     private final String jobId;
+    private final int parallelism;
 
     SparkDataWriterFactory(
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink,
             CatalogTable[] catalogTables,
-            String jobId) {
+            String jobId,
+            int parallelism) {
         this.sink = sink;
         this.catalogTables = catalogTables;
         this.jobId = jobId;
+        this.parallelism = parallelism;
     }
 
     @Override
     public DataWriter<InternalRow> createDataWriter(int partitionId, long taskId, long epochId) {
         org.apache.seatunnel.api.sink.SinkWriter.Context context =
-                new DefaultSinkWriterContext(jobId, (int) taskId);
+                new DefaultSinkWriterContext(jobId, (int) taskId, parallelism);
         SinkWriter<SeaTunnelRow, CommitInfoT, StateT> writer;
         SinkCommitter<CommitInfoT> committer;
         try {
@@ -63,6 +66,6 @@ public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFa
             throw new RuntimeException("Failed to create SinkCommitter.", e);
         }
         return new SparkDataWriter<>(
-                writer, committer, new MultiTableManager(catalogTables), epochId);
+                writer, committer, new MultiTableManager(catalogTables), epochId, context);
     }
 }

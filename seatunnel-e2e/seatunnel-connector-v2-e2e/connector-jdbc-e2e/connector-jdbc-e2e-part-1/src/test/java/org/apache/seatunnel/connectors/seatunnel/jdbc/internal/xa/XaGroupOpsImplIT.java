@@ -93,7 +93,7 @@ class XaGroupOpsImplIT {
     @Test
     void testRecoverAndRollback() throws Exception {
         JobContext jobContext = new JobContext();
-        SinkWriter.Context writerContext1 = new DefaultSinkWriterContext(1);
+        SinkWriter.Context writerContext1 = new DefaultSinkWriterContext(1, 1);
         Xid xid1 = xidGenerator.generateXid(jobContext, writerContext1, System.currentTimeMillis());
         Xid xid2 =
                 xidGenerator.generateXid(

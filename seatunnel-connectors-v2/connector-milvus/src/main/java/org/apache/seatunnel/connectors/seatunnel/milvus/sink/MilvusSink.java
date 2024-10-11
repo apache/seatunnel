@@ -103,7 +103,6 @@ public class MilvusSink
         SchemaSaveMode schemaSaveMode = config.get(MilvusSinkConfig.SCHEMA_SAVE_MODE);
         DataSaveMode dataSaveMode = config.get(MilvusSinkConfig.DATA_SAVE_MODE);
 
-        catalog.open();
         return Optional.of(
                 new DefaultSaveModeHandler(
                         schemaSaveMode,

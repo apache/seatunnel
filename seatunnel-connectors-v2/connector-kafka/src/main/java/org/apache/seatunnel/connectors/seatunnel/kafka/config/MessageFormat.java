@@ -26,5 +26,6 @@ public enum MessageFormat {
     COMPATIBLE_KAFKA_CONNECT_JSON,
     OGG_JSON,
     AVRO,
-    MAXWELL_JSON
+    MAXWELL_JSON,
+    PROTOBUF
 }

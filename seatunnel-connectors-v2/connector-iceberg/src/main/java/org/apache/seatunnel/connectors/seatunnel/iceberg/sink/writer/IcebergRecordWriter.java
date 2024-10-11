@@ -54,7 +54,7 @@ public class IcebergRecordWriter implements RecordWriter {
     private final List<WriteResult> writerResults;
     private TaskWriter<Record> writer;
     private RowConverter recordConverter;
-    private IcebergWriterFactory writerFactory;
+    private final IcebergWriterFactory writerFactory;
 
     public IcebergRecordWriter(Table table, IcebergWriterFactory writerFactory, SinkConfig config) {
         this.config = config;
@@ -91,6 +91,8 @@ public class IcebergRecordWriter implements RecordWriter {
     public void applySchemaChange(SeaTunnelRowType afterRowType, SchemaChangeEvent event) {
         log.info("Apply schema change start.");
         SchemaChangeWrapper updates = new SchemaChangeWrapper();
+        // get the latest schema in case another process updated it
+        table.refresh();
         Schema schema = table.schema();
         if (event instanceof AlterTableDropColumnEvent) {
             AlterTableDropColumnEvent dropColumnEvent = (AlterTableDropColumnEvent) event;
@@ -122,12 +124,7 @@ public class IcebergRecordWriter implements RecordWriter {
         }
     }
 
-    /**
-     * apply schema update
-     *
-     * @param updates
-     * @return
-     */
+    /** apply schema update */
     private void applySchemaUpdate(SchemaChangeWrapper updates) {
         // complete the current file
         flush();
@@ -169,7 +166,4 @@ public class IcebergRecordWriter implements RecordWriter {
                         table.spec().partitionType()));
         writer = null;
     }
-
-    @Override
-    public void close() {}
 }
