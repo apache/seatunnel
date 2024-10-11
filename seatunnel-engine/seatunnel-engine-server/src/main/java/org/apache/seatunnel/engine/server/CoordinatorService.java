@@ -63,6 +63,7 @@ import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.JobCounter;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolStatus;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
+import org.apache.seatunnel.engine.server.utils.PeekBlockingQueue;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.hazelcast.cluster.Address;
@@ -88,7 +89,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -187,7 +187,7 @@ public class CoordinatorService {
 
     private PassiveCompletableFuture restoreAllJobFromMasterNodeSwitchFuture;
 
-    private ConcurrentLinkedQueue<JobMaster> pendingJob = new ConcurrentLinkedQueue<>();
+    private PeekBlockingQueue<JobMaster> pendingJob = new PeekBlockingQueue<>();
 
     private final boolean isWaitStrategy;
 
@@ -227,95 +227,94 @@ public class CoordinatorService {
                 () -> {
                     Thread.currentThread().setName("pending-job-schedule-runner");
                     while (true) {
-                        if (pendingJob.isEmpty()) {
-                            try {
-                                Thread.sleep(2000);
-                            } catch (InterruptedException e) {
-                                logger.severe(ExceptionUtils.getMessage(e));
-                            }
-                        } else {
+                        try {
                             pendingJobSchedule();
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        } finally {
+                            pendingJob.release();
                         }
                     }
                 };
         executorService.submit(pendingJobScheduleTask);
     }
 
-    private void pendingJobSchedule() {
+    private void pendingJobSchedule() throws InterruptedException {
+        JobMaster jobMaster = pendingJob.peekBlocking();
+        if (Objects.isNull(jobMaster)) {
+            // This situation almost never happens because pendingJobSchedule is single-threaded
+            logger.warning("The peek job master is null");
+            return;
+        }
         logger.info(
                 String.format(
                         "Start pending job schedule, pendingJob Size : %s", pendingJob.size()));
-        pendingJob.stream()
-                .findFirst()
-                .ifPresent(
-                        jobMaster -> {
-                            Long jobId = jobMaster.getJobId();
 
-                            logger.info(
-                                    String.format(
-                                            "Start calculating whether pending task resources are enough: %s",
-                                            jobId));
+        Long jobId = jobMaster.getJobId();
 
-                            boolean preApplyResources = jobMaster.preApplyResources();
-                            if (!preApplyResources) {
-                                logger.info(
-                                        String.format(
-                                                "Current strategy is %s, and resources is not enough, skipping this schedule, JobID: %s",
-                                                scheduleStrategy, jobId));
-                                if (isWaitStrategy) {
-                                    try {
-                                        Thread.sleep(3000);
-                                    } catch (InterruptedException e) {
-                                        logger.severe(ExceptionUtils.getMessage(e));
-                                    }
-                                    return;
-                                } else {
-                                    pendingJob.remove(jobMaster);
-                                    completeFailJob(jobMaster);
-                                    return;
-                                }
-                            }
+        logger.info(
+                String.format(
+                        "Start calculating whether pending task resources are enough: %s", jobId));
 
-                            logger.info(
-                                    String.format("Resources enough, start running: %s", jobId));
+        boolean preApplyResources = jobMaster.preApplyResources();
+        if (!preApplyResources) {
+            logger.info(
+                    String.format(
+                            "Current strategy is %s, and resources is not enough, skipping this schedule, JobID: %s",
+                            scheduleStrategy, jobId));
+            if (isWaitStrategy) {
+                try {
+                    Thread.sleep(3000);
+                } catch (InterruptedException e) {
+                    logger.severe(ExceptionUtils.getMessage(e));
+                }
+                return;
+            } else {
+                queueRemove(jobMaster);
+                completeFailJob(jobMaster);
+                return;
+            }
+        }
 
-                            pendingJob.remove(jobMaster);
+        logger.info(String.format("Resources enough, start running: %s", jobId));
 
-                            PendingSourceState pendingSourceState =
-                                    pendingJobMasterMap.get(jobId)._1;
+        queueRemove(jobMaster);
 
-                            CompletableFuture.runAsync(
-                                    () -> {
-                                        try {
-                                            String jobFullName =
-                                                    jobMaster.getPhysicalPlan().getJobFullName();
-                                            JobStatus jobStatus =
-                                                    (JobStatus) runningJobStateIMap.get(jobId);
-                                            if (pendingSourceState == PendingSourceState.RESTORE) {
-                                                jobMaster
-                                                        .getPhysicalPlan()
-                                                        .getPipelineList()
-                                                        .forEach(SubPlan::restorePipelineState);
-                                            }
-                                            logger.info(
-                                                    String.format(
-                                                            "The %s %s is in %s state, restore pipeline and take over this job running",
-                                                            pendingSourceState,
-                                                            jobFullName,
-                                                            jobStatus));
+        PendingSourceState pendingSourceState = pendingJobMasterMap.get(jobId)._1;
 
-                                            pendingJobMasterMap.remove(jobId);
-                                            runningJobMasterMap.put(jobId, jobMaster);
-                                            jobMaster.run();
-                                        } finally {
-                                            if (jobMasterCompletedSuccessfully(
-                                                    jobMaster, pendingSourceState)) {
-                                                runningJobMasterMap.remove(jobId);
-                                            }
-                                        }
-                                    },
-                                    executorService);
-                        });
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        String jobFullName = jobMaster.getPhysicalPlan().getJobFullName();
+                        JobStatus jobStatus = (JobStatus) runningJobStateIMap.get(jobId);
+                        if (pendingSourceState == PendingSourceState.RESTORE) {
+                            jobMaster
+                                    .getPhysicalPlan()
+                                    .getPipelineList()
+                                    .forEach(SubPlan::restorePipelineState);
+                        }
+                        logger.info(
+                                String.format(
+                                        "The %s %s is in %s state, restore pipeline and take over this job running",
+                                        pendingSourceState, jobFullName, jobStatus));
+
+                        pendingJobMasterMap.remove(jobId);
+                        runningJobMasterMap.put(jobId, jobMaster);
+                        jobMaster.run();
+                    } finally {
+                        if (jobMasterCompletedSuccessfully(jobMaster, pendingSourceState)) {
+                            runningJobMasterMap.remove(jobId);
+                        }
+                    }
+                },
+                executorService);
+    }
+
+    private void queueRemove(JobMaster jobMaster) throws InterruptedException {
+        JobMaster take = pendingJob.take();
+        if (take != jobMaster) {
+            logger.warning("The job master is not equal to the peek job master");
+        }
     }
 
     private void completeFailJob(JobMaster jobMaster) {
@@ -516,7 +515,7 @@ public class CoordinatorService {
         }
 
         pendingJobMasterMap.put(jobId, new Tuple2<>(PendingSourceState.RESTORE, jobMaster));
-        pendingJob.add(jobMaster);
+        pendingJob.put(jobMaster);
         jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
         logger.info(String.format("The restore job enter pending queue, JobId: %s", jobId));
     }
@@ -653,7 +652,7 @@ public class CoordinatorService {
                         jobSubmitFuture.completeExceptionally(new JobException(errorMsg));
                     }
                     if (!jobSubmitFuture.isCompletedExceptionally()) {
-                        pendingJob.add(jobMaster);
+                        pendingJob.put(jobMaster);
                         jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
                         logger.info(
                                 String.format(

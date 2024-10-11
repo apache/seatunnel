@@ -142,7 +142,7 @@ public class JobExecutionIT {
             Assertions.assertFalse(jobStatus1.isEndState());
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
-            Thread.sleep(1000);
+            Thread.sleep(5000);
             clientJobProxy.cancelJob();
 
             await().atMost(20000, TimeUnit.MILLISECONDS)
