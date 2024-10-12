@@ -282,7 +282,8 @@ public class CoordinatorService {
 
         PendingSourceState pendingSourceState = pendingJobMasterMap.get(jobId)._1;
 
-        CompletableFuture.runAsync(
+        MDCExecutorService mdcExecutorService = MDCTracer.tracing(jobId, executorService);
+        mdcExecutorService.submit(
                 () -> {
                     try {
                         String jobFullName = jobMaster.getPhysicalPlan().getJobFullName();
@@ -306,8 +307,7 @@ public class CoordinatorService {
                             runningJobMasterMap.remove(jobId);
                         }
                     }
-                },
-                executorService);
+                });
     }
 
     private void queueRemove(JobMaster jobMaster) throws InterruptedException {
@@ -697,10 +697,7 @@ public class CoordinatorService {
     public PassiveCompletableFuture<JobResult> waitForJobComplete(long jobId) {
         // must wait for all job restore complete
         restoreAllJobFromMasterNodeSwitchFuture.join();
-        JobMaster runningJobMaster =
-                Optional.ofNullable(pendingJobMasterMap.get(jobId))
-                        .map(t -> t._2)
-                        .orElse(runningJobMasterMap.get(jobId));
+        JobMaster runningJobMaster = getJobMaster(jobId);
         if (runningJobMaster == null) {
             // Because operations on Imap cannot be performed within Operation.
             CompletableFuture<JobHistoryService.JobState> jobStateFuture =
@@ -729,10 +726,7 @@ public class CoordinatorService {
     }
 
     public PassiveCompletableFuture<Void> cancelJob(long jobId) {
-        JobMaster runningJobMaster =
-                Optional.ofNullable(pendingJobMasterMap.get(jobId))
-                        .map(t -> t._2)
-                        .orElse(runningJobMasterMap.get(jobId));
+        JobMaster runningJobMaster = getJobMaster(jobId);
         if (runningJobMaster == null) {
             CompletableFuture<Void> future = new CompletableFuture<>();
             future.complete(null);
