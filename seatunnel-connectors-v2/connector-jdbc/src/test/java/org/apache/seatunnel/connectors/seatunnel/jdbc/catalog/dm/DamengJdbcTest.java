@@ -33,7 +33,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 
 @Disabled("Please Test it in your local environment")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-public class DamengCatalogTest {
+public class DamengJdbcTest {
 
     private static final JdbcUrlUtil.UrlInfo DM_URL_INFO =
             JdbcUrlUtil.getUrlInfo("jdbc:dm://172.16.17.156:30236");
