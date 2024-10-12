@@ -20,22 +20,16 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.dm;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.catalog.ConstraintKey;
-import org.apache.seatunnel.api.table.catalog.PrimaryKey;
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
-import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeMapper;
-
-import org.apache.commons.lang3.StringUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -45,9 +39,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 
 @Slf4j
 public class DamengCatalog extends AbstractJdbcCatalog {
@@ -171,45 +163,16 @@ public class DamengCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    public CatalogTable getTable(TablePath tablePath)
-            throws CatalogException, TableNotExistException {
-        if (!tableExists(tablePath)) {
-            throw new TableNotExistException(catalogName, tablePath);
+    protected TableSchema.Builder buildColumnsReturnTablaSchemaBuilder(
+            TablePath tablePath, Connection conn) throws SQLException {
+        TableSchema.Builder columnsBuilder = TableSchema.builder();
+        DatabaseMetaData metaData = conn.getMetaData();
+        try (ResultSet resultSet =
+                metaData.getColumns(
+                        null, tablePath.getSchemaName(), tablePath.getTableName(), null)) {
+            buildColumnsWithErrorCheck(tablePath, resultSet, columnsBuilder);
         }
-        String dbUrl;
-        if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
-            dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
-        } else {
-            dbUrl = getUrlFromDatabaseName(defaultDatabase);
-        }
-        try {
-            Connection conn = getConnection(dbUrl);
-            DatabaseMetaData metaData = conn.getMetaData();
-            try (ResultSet resultSet =
-                    metaData.getColumns(
-                            null, tablePath.getSchemaName(), tablePath.getTableName(), null)) {
-                Optional<PrimaryKey> primaryKey = getPrimaryKey(metaData, tablePath);
-                List<ConstraintKey> constraintKeys = getConstraintKeys(metaData, tablePath);
-
-                TableSchema.Builder builder = TableSchema.builder();
-                buildColumnsWithErrorCheck(tablePath, resultSet, builder);
-                // add primary key
-                primaryKey.ifPresent(builder::primaryKey);
-                // add constraint key
-                constraintKeys.forEach(builder::constraintKey);
-                TableIdentifier tableIdentifier = getTableIdentifier(tablePath);
-                return CatalogTable.of(
-                        tableIdentifier,
-                        builder.build(),
-                        buildConnectorOptions(tablePath),
-                        Collections.emptyList(),
-                        "",
-                        catalogName);
-            }
-        } catch (Exception e) {
-            throw new CatalogException(
-                    String.format("Failed getting table %s", tablePath.getFullName()), e);
-        }
+        return columnsBuilder;
     }
 
     @Override
