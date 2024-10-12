@@ -21,18 +21,23 @@
 package org.apache.seatunnel.e2e.connector.paimon;
 
 import org.apache.paimon.data.Timestamp;
+import org.apache.paimon.types.RowKind;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Arrays;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class PaimonRecord {
+    public RowKind rowKind;
     public Long pkId;
     public String name;
     public Integer score;
+    public String op;
     public String dt;
     public Timestamp oneTime;
     public Timestamp twoTime;
@@ -42,6 +47,12 @@ public class PaimonRecord {
 
     public PaimonRecord(Long pkId, String name) {
         this.pkId = pkId;
+        this.name = name;
+    }
+
+    public PaimonRecord(RowKind rowKind, Long pkId, String name) {
+        this(pkId, name);
+        this.rowKind = rowKind;
         this.name = name;
     }
 
@@ -67,5 +78,24 @@ public class PaimonRecord {
         this.twoTime = twoTime;
         this.threeTime = threeTime;
         this.fourTime = fourTime;
+    }
+
+    public String toChangeLogFull() {
+        Object[] objects = new Object[4];
+        objects[0] = rowKind.shortString();
+        objects[1] = pkId;
+        objects[2] = name;
+        objects[3] = score;
+        return Arrays.toString(objects);
+    }
+
+    public String toChangeLogLookUp() {
+        Object[] objects = new Object[5];
+        objects[0] = rowKind.shortString();
+        objects[1] = pkId;
+        objects[2] = name;
+        objects[3] = score;
+        objects[4] = op;
+        return Arrays.toString(objects);
     }
 }

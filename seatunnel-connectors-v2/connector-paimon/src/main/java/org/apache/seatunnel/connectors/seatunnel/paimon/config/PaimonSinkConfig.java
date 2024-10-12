@@ -23,16 +23,22 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
+import org.apache.paimon.CoreOptions;
+
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 @Getter
 @Slf4j
 public class PaimonSinkConfig extends PaimonConfig {
+
+    public static final String CHANGELOG_TMP_PATH = "changelog-tmp-path";
+
     public static final Option<SchemaSaveMode> SCHEMA_SAVE_MODE =
             Options.key("schema_save_mode")
                     .enumType(SchemaSaveMode.class)
@@ -44,7 +50,6 @@ public class PaimonSinkConfig extends PaimonConfig {
                     .enumType(DataSaveMode.class)
                     .defaultValue(DataSaveMode.APPEND_DATA)
                     .withDescription("data_save_mode");
-
     public static final Option<String> PRIMARY_KEYS =
             Options.key("paimon.table.primary-keys")
                     .stringType()
@@ -66,11 +71,13 @@ public class PaimonSinkConfig extends PaimonConfig {
                     .withDescription(
                             "Properties passed through to paimon table initialization, such as 'file.format', 'bucket'(org.apache.paimon.CoreOptions)");
 
-    private SchemaSaveMode schemaSaveMode;
-    private DataSaveMode dataSaveMode;
-    private List<String> primaryKeys;
-    private List<String> partitionKeys;
-    private Map<String, String> writeProps;
+    private final SchemaSaveMode schemaSaveMode;
+    private final DataSaveMode dataSaveMode;
+    private final CoreOptions.ChangelogProducer changelogProducer;
+    private final String changelogTmpPath;
+    private final List<String> primaryKeys;
+    private final List<String> partitionKeys;
+    private final Map<String, String> writeProps;
 
     public PaimonSinkConfig(ReadonlyConfig readonlyConfig) {
         super(readonlyConfig);
@@ -79,6 +86,20 @@ public class PaimonSinkConfig extends PaimonConfig {
         this.primaryKeys = stringToList(readonlyConfig.get(PRIMARY_KEYS), ",");
         this.partitionKeys = stringToList(readonlyConfig.get(PARTITION_KEYS), ",");
         this.writeProps = readonlyConfig.get(WRITE_PROPS);
+        this.changelogProducer =
+                Stream.of(CoreOptions.ChangelogProducer.values())
+                        .filter(
+                                cp ->
+                                        cp.toString()
+                                                .equalsIgnoreCase(
+                                                        writeProps.getOrDefault(
+                                                                CoreOptions.CHANGELOG_PRODUCER
+                                                                        .key(),
+                                                                "")))
+                        .findFirst()
+                        .orElse(null);
+        this.changelogTmpPath =
+                writeProps.getOrDefault(CHANGELOG_TMP_PATH, System.getProperty("java.io.tmpdir"));
         checkConfig();
     }
 

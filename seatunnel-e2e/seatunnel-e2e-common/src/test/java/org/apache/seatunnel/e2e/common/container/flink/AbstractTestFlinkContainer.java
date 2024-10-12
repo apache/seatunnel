@@ -132,6 +132,11 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
     }
 
     @Override
+    protected String getCancelJobCommand() {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    @Override
     protected String getRestoreCommand() {
         throw new UnsupportedOperationException("Not implemented");
     }
@@ -150,14 +155,14 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
     @Override
     public Container.ExecResult executeJob(String confFile)
             throws IOException, InterruptedException {
-        return executeJob(confFile, null);
+        return executeJob(confFile, Collections.emptyList());
     }
 
     @Override
     public Container.ExecResult executeJob(String confFile, List<String> variables)
             throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
-        return executeJob(jobManager, confFile, variables);
+        return executeJob(jobManager, confFile, null, variables);
     }
 
     @Override
