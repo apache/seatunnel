@@ -124,7 +124,7 @@ public class JdbcPostgresIdentifierIT extends TestSuiteBase implements TestResou
                     + "    \"MULTIPOLYGON\" varchar(2000) NULL,\n"
                     + "    \"GEOMETRYCOLLECTION\" varchar(2000) NULL,\n"
                     + "    \"GEOG\" varchar(2000) NULL,\n"
-                    + "    \"inet_col\" inet NULL\n"
+                    + "    \"INET_COL\" inet NULL\n"
                     + "  )";
 
     private static final String SOURCE_SQL =
