@@ -74,6 +74,7 @@ public class PaimonStreamReadIT extends AbstractPaimonIT implements TestResource
 
         given().ignoreExceptions()
                 .await()
+                .pollDelay(20L, TimeUnit.SECONDS)
                 .atLeast(100L, TimeUnit.MILLISECONDS)
                 .atMost(400L, TimeUnit.SECONDS)
                 .untilAsserted(
@@ -94,6 +95,7 @@ public class PaimonStreamReadIT extends AbstractPaimonIT implements TestResource
 
         given().ignoreExceptions()
                 .await()
+                .pollDelay(20L, TimeUnit.SECONDS)
                 .atLeast(100L, TimeUnit.MILLISECONDS)
                 .atMost(400L, TimeUnit.SECONDS)
                 .untilAsserted(
@@ -133,7 +135,7 @@ public class PaimonStreamReadIT extends AbstractPaimonIT implements TestResource
                                         intArray,
                                         row.getString(2),
                                         row.getBoolean(3),
-                                        row.getShort(4),
+                                        row.getByte(4),
                                         row.getShort(5),
                                         row.getInt(6),
                                         row.getLong(7),

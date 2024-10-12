@@ -8,6 +8,33 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 Sink connector for Apache Paimon. It can support cdc mode 、auto create table.
 
+### Comparison between Seatunnel and Paimon vsrsion
+
+| Seatunnel Version | Paimon Version   |
+|-------------------|------------------|
+| 2.3.2  -  2.3.3   | 0.4-SNAPSHOT     |
+| 2.3.4             | 0.6-SNAPSHOT     |
+| 2.3.5  -  2.3.11  | 0.7.0-incubating |
+| 2.3.12            | 1.1.1            |
+
+### Key Considerations for Upgrading Paimon from `0.7.0-incubating` to `1.1.1`
+
+1. **Backup Recommendations**
+   Although compatibility is ensured, it is strongly recommended to backup critical data, especially the metadata directory, before initiating the upgrade.
+2. **Gradual Upgrade Process**
+   - **Test Environment Validation**: First validate the upgrade process in a staging environment.
+   - **Update JAR Files**: Replace Paimon JAR files with version 1.1.1.
+   - **Automatic Format Upgrade**: The system will automatically detect and upgrade older file formats.
+3. **Configuration Check**
+   Review your configurations to ensure no deprecated options are in use. While most configurations remain backward-compatible, deprecated settings may require updates.
+4. **Post-Upgrade Validation**
+   Verify the following after upgrading:
+   - **Read/Write Operations**: Ensure data ingestion and retrieval workflows function normally.
+   - **Query Performance**: Confirm that query response times meet expectations.
+   - **New Feature Verification**: Test all newly introduced features (e.g., time travel, enhanced compaction) to ensure proper functionality.
+
+**Note**: These steps help minimize risks and ensure a smooth transition to the stable version 1.1.1.
+
 ## Supported DataSource Info
 
 | Datasource | Dependent |                                   Maven                                   |
@@ -82,11 +109,12 @@ Cdc Ingestion supports a limited number of schema changes. Currently supported s
 
 * Modify column. More specifically, If you modify the column type, the following changes are supported:
 
-    * altering from a string type (char, varchar, text) to another string type with longer length,
-    * altering from a binary type (binary, varbinary, blob) to another binary type with longer length,
-    * altering from an integer type (tinyint, smallint, int, bigint) to another integer type with wider range,
-    * altering from a floating-point type (float, double) to another floating-point type with wider range,
-  
+  * altering from a string type (char, varchar, text) to another string type with longer length,
+  * altering from a binary type (binary, varbinary, blob) to another binary type with longer length,
+  * altering from an integer type (tinyint, smallint, int, bigint) to another integer type with wider range,
+  * altering from a floating-point type (float, double) to another floating-point type with wider range,
+    
+
   are supported. 
   > Note:
   > 

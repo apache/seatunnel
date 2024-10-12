@@ -330,7 +330,8 @@ public class PaimonSinkWithSchemaEvolutionIT extends AbstractPaimonIT implements
     private void vertifySchemaAndData(
             TestContainer container,
             List<ImmutableTriple<String[], Integer, Integer>> idRangesWithFiledProjection) {
-        await().atMost(30, TimeUnit.SECONDS)
+        await().pollDelay(3, TimeUnit.SECONDS)
+                .atMost(30, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             // 1. Vertify the schema
