@@ -158,23 +158,17 @@ public class MultiTableSink
         return Optional.of(new MultiTableSinkAggregatedCommitter(aggCommitters));
     }
 
-    public List<Map<TablePath, TablePath>> getSinkTables() {
+    public List<TablePath> getSinkTables() {
 
-        List<Map<TablePath, TablePath>> tablePaths = new ArrayList<>();
-
+        List<TablePath> tablePaths = new ArrayList<>();
         List<SeaTunnelSink> values = new ArrayList<>(sinks.values());
         for (int i = 0; i < values.size(); i++) {
-            Map<TablePath, TablePath> tablePath = new HashMap<>();
             if (values.get(i).getWriteCatalogTable().isPresent()) {
-                tablePath.put(
-                        TablePath.of(sinks.keySet().toArray(new String[0])[i]),
+                tablePaths.add(
                         ((CatalogTable) values.get(i).getWriteCatalogTable().get()).getTablePath());
             } else {
-                tablePath.put(
-                        TablePath.of(sinks.keySet().toArray(new String[0])[i]), TablePath.DEFAULT);
+                tablePaths.add(TablePath.of(sinks.keySet().toArray(new String[0])[i]));
             }
-
-            tablePaths.add(tablePath);
         }
         return tablePaths;
     }

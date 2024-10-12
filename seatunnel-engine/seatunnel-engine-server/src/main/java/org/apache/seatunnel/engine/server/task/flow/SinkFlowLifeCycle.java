@@ -56,6 +56,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -102,6 +103,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private EventListener eventListener;
 
+    private final List<Map<TablePath, TablePath>> tablesMaps = new ArrayList<>();
+
     public SinkFlowLifeCycle(
             SinkAction<T, StateT, CommitInfoT, AggregatedCommitInfoT> sinkAction,
             TaskLocation taskLocation,
@@ -122,10 +125,23 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         List<TablePath> sinkTables = new ArrayList<>();
         boolean isMulti = sinkAction.getSink() instanceof MultiTableSink;
         if (isMulti) {
-            List<Map<TablePath, TablePath>> tablesMaps =
-                    ((MultiTableSink) sinkAction.getSink()).getSinkTables();
-            for (Map<TablePath, TablePath> tableMap : tablesMaps) {
-                sinkTables.addAll(tableMap.values());
+            sinkTables = ((MultiTableSink) sinkAction.getSink()).getSinkTables();
+            String[] keys =
+                    ((MultiTableSink) sinkAction.getSink())
+                            .getSinks()
+                            .keySet()
+                            .toArray(new String[0]);
+            Map<TablePath, TablePath> tableMap = new HashMap<>();
+            for (int i = 0; i < ((MultiTableSink) sinkAction.getSink()).getSinks().size(); i++) {
+                tableMap.put(TablePath.of(keys[i]), sinkTables.get(i));
+            }
+            tablesMaps.add(tableMap);
+        } else {
+            Optional<CatalogTable> catalogTable = sinkAction.getSink().getWriteCatalogTable();
+            if (catalogTable.isPresent()) {
+                sinkTables.add(catalogTable.get().getTablePath());
+            } else {
+                sinkTables.add(TablePath.DEFAULT);
             }
         }
         this.taskMetricsCalcContext =
@@ -259,9 +275,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 writer.write((T) record.getData());
                 if (record.getData() instanceof SeaTunnelRow) {
                     if (this.sinkAction.getSink() instanceof MultiTableSink) {
-                        List<Map<TablePath, TablePath>> tables =
-                                ((MultiTableSink) this.sinkAction.getSink()).getSinkTables();
-                        tables.forEach(
+                        tablesMaps.forEach(
                                 tablePathTablePathMap -> {
                                     tablePathTablePathMap.forEach(
                                             (k, v) -> {
