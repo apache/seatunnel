@@ -19,30 +19,39 @@ package org.apache.seatunnel.connectors.seatunnel.activemq.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import java.io.IOException;
+import java.util.Optional;
 
 public class ActivemqSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private final SeaTunnelRowType seaTunnelRowType;
     private final ReadonlyConfig pluginConfig;
+    private final CatalogTable catalogTable;
 
     @Override
     public String getPluginName() {
         return "ActiveMQ";
     }
 
-    public ActivemqSink(ReadonlyConfig pluginConfig, SeaTunnelRowType rowType) {
+    public ActivemqSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
         this.pluginConfig = pluginConfig;
-        this.seaTunnelRowType = rowType;
+        this.catalogTable = catalogTable;
+        this.seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
     }
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
             throws IOException {
         return new ActivemqSinkWriter(pluginConfig, seaTunnelRowType);
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.of(catalogTable);
     }
 }

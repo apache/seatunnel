@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.state.EasysearchAggregatedCommitInfo;
@@ -29,6 +30,8 @@ import org.apache.seatunnel.connectors.seatunnel.easysearch.state.EasysearchComm
 import org.apache.seatunnel.connectors.seatunnel.easysearch.state.EasysearchSinkState;
 
 import com.google.auto.service.AutoService;
+
+import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.SinkConfig.MAX_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.SinkConfig.MAX_RETRY_COUNT;
@@ -74,5 +77,10 @@ public class EasysearchSink
             SinkWriter.Context context) {
         return new EasysearchSinkWriter(
                 context, seaTunnelRowType, pluginConfig, maxBatchSize, maxRetryCount);
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return SeaTunnelSink.super.getWriteCatalogTable();
     }
 }

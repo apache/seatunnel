@@ -18,7 +18,17 @@ The v2 version of the api uses jetty support. It is the same as the interface sp
 seatunnel:
   engine:
     enable-http: true
-    jetty-port: 8080
+    port: 8080
+```
+
+Context-path can also be configured as follows:
+
+```yaml
+
+seatunnel:
+  engine:
+    enable-http: true
+    port: 8080
     context-path: /seatunnel
 ```
 
@@ -27,7 +37,7 @@ seatunnel:
 ### Returns an overview over the Zeta engine cluster.
 
 <details>
- <summary><code>GET</code> <code><b>/seatunnel/overview?tag1=value1&tag2=value2</b></code> <code>(Returns an overview over the Zeta engine cluster.)</code></summary>
+ <summary><code>GET</code> <code><b>/overview?tag1=value1&tag2=value2</b></code> <code>(Returns an overview over the Zeta engine cluster.)</code></summary>
 
 #### Parameters
 
@@ -62,7 +72,7 @@ seatunnel:
 ### Returns An Overview And State Of All Jobs
 
 <details>
- <summary><code>GET</code> <code><b>/seatunnel/running-jobs</b></code> <code>(Returns an overview over all jobs and their current state.)</code></summary>
+ <summary><code>GET</code> <code><b>/running-jobs</b></code> <code>(Returns an overview over all jobs and their current state.)</code></summary>
 
 #### Parameters
 
@@ -101,7 +111,7 @@ seatunnel:
 ### Return Details Of A Job
 
 <details>
- <summary><code>GET</code> <code><b>/seatunnel/job-info/:jobId</b></code> <code>(Return details of a job. )</code></summary>
+ <summary><code>GET</code> <code><b>/job-info/:jobId</b></code> <code>(Return details of a job. )</code></summary>
 
 #### Parameters
 
@@ -118,10 +128,18 @@ seatunnel:
   "jobStatus": "",
   "createTime": "",
   "jobDag": {
-    "vertices": [
+    "jobId": "",
+    "vertexInfoMap": [
+      {
+        "vertexId": 1,
+        "type": "",
+        "vertexName": "",
+        "tablePaths": [
+          ""
+        ]
+      }
     ],
-    "edges": [
-    ]
+    "pipelineEdges": {}
   },
   "metrics": {
     "sourceReceivedCount": "",
@@ -155,10 +173,10 @@ When we can't get the job info, the response will be:
 
 ### Return Details Of A Job
 
-This API has been deprecated, please use /seatunnel/job-info/:jobId instead
+This API has been deprecated, please use /job-info/:jobId instead
 
 <details>
- <summary><code>GET</code> <code><b>/seatunnel/running-job/:jobId</b></code> <code>(Return details of a job. )</code></summary>
+ <summary><code>GET</code> <code><b>/running-job/:jobId</b></code> <code>(Return details of a job. )</code></summary>
 
 #### Parameters
 
@@ -175,10 +193,18 @@ This API has been deprecated, please use /seatunnel/job-info/:jobId instead
   "jobStatus": "",
   "createTime": "",
   "jobDag": {
-    "vertices": [
+    "jobId": "",
+    "vertexInfoMap": [
+      {
+        "vertexId": 1,
+        "type": "",
+        "vertexName": "",
+        "tablePaths": [
+          ""
+        ]
+      }
     ],
-    "edges": [
-    ]
+    "pipelineEdges": {}
   },
   "metrics": {
     "SourceReceivedCount": "",
@@ -227,7 +253,7 @@ When we can't get the job info, the response will be:
 ### Return All Finished Jobs Info
 
 <details>
- <summary><code>GET</code> <code><b>/seatunnel/finished-jobs/:state</b></code> <code>(Return all finished Jobs Info.)</code></summary>
+ <summary><code>GET</code> <code><b>/finished-jobs/:state</b></code> <code>(Return all finished Jobs Info.)</code></summary>
 
 #### Parameters
 
@@ -246,7 +272,20 @@ When we can't get the job info, the response will be:
     "errorMsg": null,
     "createTime": "",
     "finishTime": "",
-    "jobDag": "",
+    "jobDag": {
+      "jobId": "",
+      "vertexInfoMap": [
+        {
+          "vertexId": 1,
+          "type": "",
+          "vertexName": "",
+          "tablePaths": [
+            ""
+          ]
+        }
+      ],
+      "pipelineEdges": {}
+    },
     "metrics": ""
   }
 ]
@@ -259,7 +298,7 @@ When we can't get the job info, the response will be:
 ### Returns System Monitoring Information
 
 <details>
- <summary><code>GET</code> <code><b>/seatunnel/system-monitoring-information</b></code> <code>(Returns system monitoring information.)</code></summary>
+ <summary><code>GET</code> <code><b>/system-monitoring-information</b></code> <code>(Returns system monitoring information.)</code></summary>
 
 #### Parameters
 
@@ -324,7 +363,7 @@ When we can't get the job info, the response will be:
 ### Submit A Job
 
 <details>
-<summary><code>POST</code> <code><b>/seatunnel/submit-job</b></code> <code>(Returns jobId and jobName if job submitted successfully.)</code></summary>
+<summary><code>POST</code> <code><b>/submit-job</b></code> <code>(Returns jobId and jobName if job submitted successfully.)</code></summary>
 
 #### Parameters
 
@@ -382,7 +421,7 @@ When we can't get the job info, the response will be:
 ### Batch Submit Jobs
 
 <details>
-<summary><code>POST</code> <code><b>/seatunnel/submit-jobs</b></code> <code>(Returns jobId and jobName if the job is successfully submitted.)</code></summary>
+<summary><code>POST</code> <code><b>/submit-jobs</b></code> <code>(Returns jobId and jobName if the job is successfully submitted.)</code></summary>
 
 #### Parameters (add in the `params` field in the request body)
 
@@ -482,7 +521,7 @@ When we can't get the job info, the response will be:
 ### Stop A Job
 
 <details>
-<summary><code>POST</code> <code><b>/seatunnel/stop-job</b></code> <code>(Returns jobId if job stoped successfully.)</code></summary>
+<summary><code>POST</code> <code><b>/stop-job</b></code> <code>(Returns jobId if job stoped successfully.)</code></summary>
 
 #### Body
 
@@ -507,7 +546,7 @@ When we can't get the job info, the response will be:
 ### Batch Stop Jobs
 
 <details>
-<summary><code>POST</code> <code><b>/seatunnel/stop-jobs</b></code> <code>(Returns jobId if the job is successfully stopped.)</code></summary>
+<summary><code>POST</code> <code><b>/stop-jobs</b></code> <code>(Returns jobId if the job is successfully stopped.)</code></summary>
 
 #### Request Body
 
@@ -543,7 +582,7 @@ When we can't get the job info, the response will be:
 ### Encrypt Config
 
 <details>
-<summary><code>POST</code> <code><b>/seatunnel/encrypt-config</b></code> <code>(Returns the encrypted config if config is encrypted successfully.)</code></summary>
+<summary><code>POST</code> <code><b>/encrypt-config</b></code> <code>(Returns the encrypted config if config is encrypted successfully.)</code></summary>
 For more information about customize encryption, please refer to the documentation [config-encryption-decryption](../connector-v2/Config-Encryption-Decryption.md).
 
 #### Body
@@ -632,7 +671,7 @@ For more information about customize encryption, please refer to the documentati
 
 ### Update the tags of running node
 
-<details><summary><code>POST</code><code><b>/seatunnel/update-tags</b></code><code>Because the update can only target a specific node, the current node's `ip:port` needs to be used for the update</code><code>(If the update is successful, return a success message)</code></summary>
+<details><summary><code>POST</code><code><b>/update-tags</b></code><code>Because the update can only target a specific node, the current node's `ip:port` needs to be used for the update</code><code>(If the update is successful, return a success message)</code></summary>
 
 
 #### update node tags

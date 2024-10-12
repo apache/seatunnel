@@ -55,7 +55,7 @@ public class IcebergSink
                         IcebergAggregatedCommitInfo>,
                 SupportSaveMode,
                 SupportMultiTableSink {
-    private static String PLUGIN_NAME = "Iceberg";
+    private static final String PLUGIN_NAME = "Iceberg";
     private final SinkConfig config;
     private final ReadonlyConfig readonlyConfig;
     private final CatalogTable catalogTable;
@@ -132,5 +132,10 @@ public class IcebergSink
                         catalog,
                         catalogTable,
                         null));
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
     }
 }

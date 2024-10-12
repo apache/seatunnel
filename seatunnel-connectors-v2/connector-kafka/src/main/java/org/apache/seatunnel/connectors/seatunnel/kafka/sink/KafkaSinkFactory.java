@@ -50,9 +50,6 @@ public class KafkaSinkFactory implements TableSinkFactory {
 
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
-        return () ->
-                new KafkaSink(
-                        context.getOptions(),
-                        context.getCatalogTable().getTableSchema().toPhysicalRowDataType());
+        return () -> new KafkaSink(context.getOptions(), context.getCatalogTable());
     }
 }
