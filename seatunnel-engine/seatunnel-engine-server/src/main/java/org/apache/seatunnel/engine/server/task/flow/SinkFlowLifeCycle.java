@@ -275,18 +275,25 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 writer.write((T) record.getData());
                 if (record.getData() instanceof SeaTunnelRow) {
                     if (this.sinkAction.getSink() instanceof MultiTableSink) {
-                        tablesMaps.forEach(
-                                tablePathTablePathMap -> {
-                                    tablePathTablePathMap.forEach(
-                                            (k, v) -> {
-                                                if (k.equals(
-                                                        TablePath.of(
-                                                                ((SeaTunnelRow) record.getData())
-                                                                        .getTableId()))) {
-                                                    tableId.set(v.getFullName());
-                                                }
-                                            });
-                                });
+                        if (((SeaTunnelRow) record.getData()).getTableId().isEmpty()) {
+                            tableId.set(TablePath.DEFAULT.getFullName());
+                        } else {
+                            tablesMaps.forEach(
+                                    tablePathTablePathMap -> {
+                                        tablePathTablePathMap.forEach(
+                                                (k, v) -> {
+                                                    if (k.equals(
+                                                            TablePath.of(
+                                                                    ((SeaTunnelRow)
+                                                                                    record
+                                                                                            .getData())
+                                                                            .getTableId()))) {
+                                                        tableId.set(v.getFullName());
+                                                    }
+                                                });
+                                    });
+                        }
+
                     } else {
                         Optional<CatalogTable> writeCatalogTable =
                                 this.sinkAction.getSink().getWriteCatalogTable();
