@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.InetType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import com.google.auto.service.AutoService;
@@ -81,6 +82,7 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String PG_CHAR_ARRAY = "_bpchar";
     // character varying <=> varchar
     public static final String PG_VARCHAR = "varchar";
+    public static final String PG_INET = "inet";
     public static final String PG_CHARACTER_VARYING = "character varying";
     // character varying[] <=> varchar[] <=> _varchar
     public static final String PG_VARCHAR_ARRAY = "_varchar";
@@ -215,6 +217,9 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.sourceType(pgDataType);
                 builder.columnLength(128L);
+                break;
+            case PG_INET:
+                builder.dataType(InetType.INSTANCE);
                 break;
             case PG_JSON:
             case PG_JSONB:

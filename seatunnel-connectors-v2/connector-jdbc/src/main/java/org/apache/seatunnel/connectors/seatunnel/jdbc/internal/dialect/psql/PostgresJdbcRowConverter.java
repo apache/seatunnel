@@ -41,6 +41,7 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
 
     private static final String PG_GEOMETRY = "GEOMETRY";
     private static final String PG_GEOGRAPHY = "GEOGRAPHY";
+    private static final String PG_INET = "INET";
 
     @Override
     public String converterName() {
@@ -57,6 +58,9 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
             String metaDataColumnType =
                     rs.getMetaData().getColumnTypeName(resultSetIndex).toUpperCase(Locale.ROOT);
             switch (seaTunnelDataType.getSqlType()) {
+                case INET:
+                    fields[fieldIndex] = JdbcFieldTypeUtils.getString(rs, resultSetIndex);
+                    break;
                 case STRING:
                     if (metaDataColumnType.equals(PG_GEOMETRY)
                             || metaDataColumnType.equals(PG_GEOGRAPHY)) {
