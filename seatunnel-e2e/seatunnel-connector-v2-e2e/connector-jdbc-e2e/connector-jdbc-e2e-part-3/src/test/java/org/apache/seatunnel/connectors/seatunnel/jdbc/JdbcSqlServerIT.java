@@ -101,6 +101,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     + "\tVARCHAR_TEST varchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
                     + "\tVARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS DEFAULT NULL NULL,\n"
                     + "\tXML_TEST xml NULL,\n"
+                    + "\tUDT_TEST UDTDECIMAL NULL,\n"
                     + "\tCONSTRAINT PK_TEST_INDEX PRIMARY KEY (INT_IDENTITY_TEST)\n"
                     + ");";
 
@@ -138,7 +139,8 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     + "\tVARBINARY_MAX_TEST varbinary(MAX) NULL,\n"
                     + "\tVARCHAR_TEST varchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
                     + "\tVARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS DEFAULT NULL NULL,\n"
-                    + "\tXML_TEST xml NULL\n"
+                    + "\tXML_TEST xml NULL,\n"
+                    + "\tUDT_TEST UDTDECIMAL NULL\n"
                     + ");";
 
     private String username;
@@ -183,6 +185,18 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
     }
 
     @Override
+    protected void createSchemaIfNeeded() {
+        // create user-defined type
+        String sql = "CREATE TYPE UDTDECIMAL FROM decimal(12, 2);";
+        try {
+            connection.prepareStatement(sql).executeUpdate();
+        } catch (Exception e) {
+            throw new SeaTunnelRuntimeException(
+                    JdbcITErrorCode.CREATE_TABLE_FAILED, "Fail to execute sql " + sql, e);
+        }
+    }
+
+    @Override
     String driverUrl() {
         return "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.4.1.jre8/mssql-jdbc-9.4.1.jre8.jar";
     }
@@ -223,6 +237,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     "VARCHAR_TEST",
                     "VARCHAR_MAX_TEST",
                     "XML_TEST",
+                    "UDT_TEST"
                 };
 
         List<SeaTunnelRow> rows = new ArrayList<>();
@@ -262,6 +277,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                                 "VarCharValue" + i, // VARCHAR_TEST
                                 "VarCharMaxValue" + i, // VARCHAR_MAX_TEST
                                 "<xml>Test" + i + "</xml>", // XML_TEST
+                                new BigDecimal("123.45") // UDT_TEST
                             });
             rows.add(row);
         }

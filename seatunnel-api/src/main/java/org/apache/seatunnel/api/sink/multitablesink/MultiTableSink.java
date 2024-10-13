@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -32,6 +33,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import lombok.Getter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -157,7 +159,18 @@ public class MultiTableSink
     }
 
     public List<TablePath> getSinkTables() {
-        return sinks.keySet().stream().map(TablePath::of).collect(Collectors.toList());
+
+        List<TablePath> tablePaths = new ArrayList<>();
+        List<SeaTunnelSink> values = new ArrayList<>(sinks.values());
+        for (int i = 0; i < values.size(); i++) {
+            if (values.get(i).getWriteCatalogTable().isPresent()) {
+                tablePaths.add(
+                        ((CatalogTable) values.get(i).getWriteCatalogTable().get()).getTablePath());
+            } else {
+                tablePaths.add(TablePath.of(sinks.keySet().toArray(new String[0])[i]));
+            }
+        }
+        return tablePaths;
     }
 
     @Override
@@ -169,5 +182,10 @@ public class MultiTableSink
     @Override
     public void setJobContext(JobContext jobContext) {
         sinks.values().forEach(sink -> sink.setJobContext(jobContext));
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return SeaTunnelSink.super.getWriteCatalogTable();
     }
 }
