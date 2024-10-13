@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.catalog;
 
+import org.apache.seatunnel.api.sink.SaveModePlaceHolder;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PreviewResult;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.SQLPreviewResult;
@@ -31,39 +32,38 @@ import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistExce
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.StarRocksSaveModeUtil;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.util.StarRocksConditionProvider;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
-import com.mysql.cj.MysqlType;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.IntStream;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
@@ -76,9 +76,9 @@ public class StarRocksCatalog implements Catalog {
     protected final String pwd;
     protected final String baseUrl;
     protected String defaultUrl;
-    private final JdbcUrlUtil.UrlInfo urlInfo;
     private final String template;
     private Connection conn;
+    private final StarRocksTypeConverter typeConverter;
 
     private static final Logger LOG = LoggerFactory.getLogger(StarRocksCatalog.class);
 
@@ -87,7 +87,7 @@ public class StarRocksCatalog implements Catalog {
 
         checkArgument(StringUtils.isNotBlank(username));
         checkArgument(StringUtils.isNotBlank(defaultUrl));
-        urlInfo = JdbcUrlUtil.getUrlInfo(defaultUrl);
+        JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(defaultUrl);
         this.baseUrl = urlInfo.getUrlWithoutDatabase();
         if (urlInfo.getDefaultDatabase().isPresent()) {
             this.defaultDatabase = urlInfo.getDefaultDatabase().get();
@@ -97,6 +97,7 @@ public class StarRocksCatalog implements Catalog {
         this.username = username;
         this.pwd = pwd;
         this.template = template;
+        this.typeConverter = new StarRocksTypeConverter();
     }
 
     @Override
@@ -148,50 +149,60 @@ public class StarRocksCatalog implements Catalog {
             throw new TableNotExistException(catalogName, tablePath);
         }
 
-        try {
-            Optional<PrimaryKey> primaryKey =
-                    getPrimaryKey(tablePath.getDatabaseName(), tablePath.getTableName());
+        try (PreparedStatement ps =
+                conn.prepareStatement(StarRocksConditionProvider.TABLE_SCHEMA_QUERY)) {
+            ps.setString(1, tablePath.getDatabaseName());
+            ps.setString(2, tablePath.getTableName());
+            try (ResultSet resultSet = ps.executeQuery()) {
+                Map<String, String> options = buildConnectorOptions(tablePath);
+                Optional<PrimaryKey> primaryKey =
+                        getPrimaryKey(tablePath.getDatabaseName(), tablePath.getTableName());
 
-            PreparedStatement ps =
-                    conn.prepareStatement(
-                            String.format(
-                                    "SELECT * FROM %s WHERE 1 = 0;",
-                                    tablePath.getFullNameWithQuoted()));
+                TableSchema.Builder builder = TableSchema.builder();
+                buildTableSchemaWithErrorCheck(
+                        tablePath, resultSet, builder, options, Collections.emptyList());
 
-            ResultSetMetaData tableMetaData = ps.getMetaData();
+                primaryKey.ifPresent(builder::primaryKey);
 
-            TableSchema.Builder builder = TableSchema.builder();
-            buildColumnsWithErrorCheck(
-                    tablePath,
-                    builder,
-                    IntStream.range(1, tableMetaData.getColumnCount() + 1).iterator(),
-                    i -> {
-                        try {
-                            SeaTunnelDataType<?> type = fromJdbcType(tableMetaData, i);
-                            // TODO add default value and test it
-                            return PhysicalColumn.of(
-                                    tableMetaData.getColumnName(i),
-                                    type,
-                                    tableMetaData.getColumnDisplaySize(i),
-                                    tableMetaData.isNullable(i) == ResultSetMetaData.columnNullable,
-                                    null,
-                                    tableMetaData.getColumnLabel(i));
-                        } catch (SQLException e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
+                TableIdentifier tableIdentifier =
+                        TableIdentifier.of(
+                                catalogName, tablePath.getDatabaseName(), tablePath.getTableName());
+                return CatalogTable.of(
+                        tableIdentifier, builder.build(), options, Collections.emptyList(), "");
+            }
+        } catch (SeaTunnelRuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new CatalogException(
+                    String.format("Failed getting table %s", tablePath.getFullName()), e);
+        }
+    }
 
-            primaryKey.ifPresent(builder::primaryKey);
-
-            TableIdentifier tableIdentifier =
-                    TableIdentifier.of(
-                            catalogName, tablePath.getDatabaseName(), tablePath.getTableName());
-            return CatalogTable.of(
-                    tableIdentifier,
-                    builder.build(),
-                    buildConnectorOptions(tablePath),
-                    Collections.emptyList(),
-                    "");
+    @Override
+    public CatalogTable getTable(TablePath tablePath, List<String> fieldNames)
+            throws CatalogException, TableNotExistException {
+        if (!tableExists(tablePath)) {
+            throw new TableNotExistException(catalogName, tablePath);
+        }
+        TableSchema.Builder builder = TableSchema.builder();
+        try (PreparedStatement ps =
+                conn.prepareStatement(StarRocksConditionProvider.TABLE_SCHEMA_QUERY)) {
+            ps.setString(1, tablePath.getDatabaseName());
+            ps.setString(2, tablePath.getTableName());
+            try (ResultSet rs = ps.executeQuery()) {
+                Map<String, String> options = buildConnectorOptions(tablePath);
+                buildTableSchemaWithErrorCheck(tablePath, rs, builder, options, fieldNames);
+                return CatalogTable.of(
+                        TableIdentifier.of(
+                                catalogName, tablePath.getDatabaseName(), tablePath.getTableName()),
+                        builder.build(),
+                        options,
+                        Collections.emptyList(),
+                        "",
+                        catalogName);
+            }
+        } catch (SeaTunnelRuntimeException e) {
+            throw e;
         } catch (Exception e) {
             throw new CatalogException(
                     String.format("Failed getting table %s", tablePath.getFullName()), e);
@@ -285,75 +296,6 @@ public class StarRocksCatalog implements Catalog {
         }
     }
 
-    /** @see com.mysql.cj.MysqlType */
-    private SeaTunnelDataType<?> fromJdbcType(ResultSetMetaData metadata, int colIndex)
-            throws SQLException {
-        MysqlType starrocksType = MysqlType.getByName(metadata.getColumnTypeName(colIndex));
-        switch (starrocksType) {
-            case NULL:
-                return BasicType.VOID_TYPE;
-            case BOOLEAN:
-                return BasicType.BOOLEAN_TYPE;
-            case BIT:
-            case TINYINT:
-                return BasicType.BYTE_TYPE;
-            case TINYINT_UNSIGNED:
-            case SMALLINT:
-                return BasicType.SHORT_TYPE;
-            case SMALLINT_UNSIGNED:
-            case INT:
-            case MEDIUMINT:
-            case MEDIUMINT_UNSIGNED:
-                return BasicType.INT_TYPE;
-            case INT_UNSIGNED:
-            case BIGINT:
-                return BasicType.LONG_TYPE;
-            case FLOAT:
-            case FLOAT_UNSIGNED:
-                return BasicType.FLOAT_TYPE;
-            case DOUBLE:
-            case DOUBLE_UNSIGNED:
-                return BasicType.DOUBLE_TYPE;
-            case TIME:
-                return LocalTimeType.LOCAL_TIME_TYPE;
-            case DATE:
-                return LocalTimeType.LOCAL_DATE_TYPE;
-            case TIMESTAMP:
-            case DATETIME:
-                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
-            case CHAR:
-            case VARCHAR:
-            case TINYTEXT:
-            case TEXT:
-            case MEDIUMTEXT:
-            case LONGTEXT:
-            case JSON:
-            case ENUM:
-                return BasicType.STRING_TYPE;
-            case BINARY:
-            case VARBINARY:
-            case TINYBLOB:
-            case BLOB:
-            case MEDIUMBLOB:
-            case LONGBLOB:
-            case GEOMETRY:
-                return PrimitiveByteArrayType.INSTANCE;
-            case BIGINT_UNSIGNED:
-            case DECIMAL:
-            case DECIMAL_UNSIGNED:
-                int precision = metadata.getPrecision(colIndex);
-                int scale = metadata.getScale(colIndex);
-                return new DecimalType(precision, scale);
-            default:
-                throw new StarRocksConnectorException(
-                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                        String.format(
-                                "Doesn't support Starrocks type '%s' yet",
-                                starrocksType.getName()));
-        }
-    }
-
-    @SuppressWarnings("MagicNumber")
     private Map<String, String> buildConnectorOptions(TablePath tablePath) {
         Map<String, String> options = new HashMap<>(8);
         options.put("connector", "starrocks");
@@ -374,39 +316,6 @@ public class StarRocksCatalog implements Catalog {
                     String.format("Failed create table in catalog %s, sql :[%s]", catalogName, sql),
                     e);
         }
-    }
-
-    /**
-     * URL has to be without database, like "jdbc:mysql://localhost:5432/" or
-     * "jdbc:mysql://localhost:5432" rather than "jdbc:mysql://localhost:5432/db".
-     */
-    public static boolean validateJdbcUrlWithoutDatabase(String url) {
-        String[] parts = url.trim().split("\\/+");
-
-        return parts.length == 2;
-    }
-
-    /**
-     * URL has to be with database, like "jdbc:mysql://localhost:5432/db" rather than
-     * "jdbc:mysql://localhost:5432/".
-     */
-    @SuppressWarnings("MagicNumber")
-    public static boolean validateJdbcUrlWithDatabase(String url) {
-        String[] parts = url.trim().split("\\/+");
-        return parts.length == 3;
-    }
-
-    /**
-     * Ensure that the url was validated {@link #validateJdbcUrlWithDatabase}.
-     *
-     * @return The array size is fixed at 2, index 0 is base url, and index 1 is default database.
-     */
-    public static String[] splitDefaultUrl(String defaultUrl) {
-        String[] res = new String[2];
-        int index = defaultUrl.lastIndexOf("/") + 1;
-        res[0] = defaultUrl.substring(0, index);
-        res[1] = defaultUrl.substring(index);
-        return res;
     }
 
     @Override
@@ -514,5 +423,95 @@ public class StarRocksCatalog implements Catalog {
         } else {
             throw new UnsupportedOperationException("Unsupported action type: " + actionType);
         }
+    }
+
+    private void buildTableSchemaWithErrorCheck(
+            TablePath tablePath,
+            ResultSet resultSet,
+            TableSchema.Builder builder,
+            Map<String, String> options,
+            List<String> fieldNames)
+            throws SQLException {
+        Map<String, String> unsupported = new LinkedHashMap<>();
+        List<String> keyList = new ArrayList<>();
+        while (resultSet.next()) {
+            try {
+                String columName = resultSet.getString("COLUMN_NAME");
+                if (CollectionUtils.isEmpty(fieldNames) || fieldNames.contains(columName)) {
+                    String columnKey = resultSet.getString("COLUMN_KEY");
+                    builder.column(buildColumn(resultSet));
+                    if ("UNI".equalsIgnoreCase(columnKey)) {
+                        keyList.add(columName);
+                    } else if ("DUP".equalsIgnoreCase(columnKey)) {
+                        String dupKey =
+                                options.getOrDefault(
+                                        SaveModePlaceHolder.ROWTYPE_DUPLICATE_KEY
+                                                .getPlaceHolderKey(),
+                                        "");
+                        if (StringUtils.isBlank(dupKey)) {
+                            dupKey = columName;
+                        } else {
+                            dupKey = dupKey + "," + columName;
+                        }
+                        options.put(
+                                SaveModePlaceHolder.ROWTYPE_DUPLICATE_KEY.getPlaceHolderKey(),
+                                dupKey);
+                    }
+                }
+            } catch (SeaTunnelRuntimeException e) {
+                if (e.getSeaTunnelErrorCode()
+                        .equals(CommonErrorCode.CONVERT_TO_SEATUNNEL_TYPE_ERROR_SIMPLE)) {
+                    unsupported.put(e.getParams().get("field"), e.getParams().get("dataType"));
+                } else {
+                    throw e;
+                }
+            }
+        }
+        if (!keyList.isEmpty()) {
+            builder.primaryKey(
+                    PrimaryKey.of(
+                            "uk_" + tablePath.getDatabaseName() + "_" + tablePath.getTableName(),
+                            keyList));
+        }
+        if (!unsupported.isEmpty()) {
+            throw CommonError.getCatalogTableWithUnsupportedType(
+                    catalogName, tablePath.getFullName(), unsupported);
+        }
+    }
+
+    private Column buildColumn(ResultSet resultSet) throws SQLException {
+        String columnName = resultSet.getString("COLUMN_NAME");
+        // e.g. tinyint(1) unsigned
+        String columnType = resultSet.getString("COLUMN_TYPE");
+        // e.g. tinyint
+        String dataType = resultSet.getString("DATA_TYPE").toUpperCase();
+        String comment = resultSet.getString("COLUMN_COMMENT");
+        Object defaultValue = resultSet.getObject("COLUMN_DEFAULT");
+        String isNullableStr = resultSet.getString("IS_NULLABLE");
+        boolean isNullable = isNullableStr.equals("YES");
+        // e.g. `decimal(10, 2)` is 10
+        long numberPrecision = resultSet.getInt("NUMERIC_PRECISION");
+        // e.g. `decimal(10, 2)` is 2
+        int numberScale = resultSet.getInt("NUMERIC_SCALE");
+        long charOctetLength = resultSet.getLong("CHARACTER_MAXIMUM_LENGTH");
+        // e.g. `timestamp(3)` is 3
+        int timePrecision = resultSet.getInt("DATETIME_PRECISION");
+
+        Preconditions.checkArgument(!(numberPrecision > 0 && charOctetLength > 0));
+        Preconditions.checkArgument(!(numberScale > 0 && timePrecision > 0));
+
+        BasicTypeDefine<StarRocksType> typeDefine =
+                BasicTypeDefine.<StarRocksType>builder()
+                        .name(columnName)
+                        .columnType(columnType)
+                        .dataType(dataType)
+                        .length(Math.max(charOctetLength, numberPrecision))
+                        .precision(numberPrecision)
+                        .scale(Math.max(numberScale, timePrecision))
+                        .nullable(isNullable)
+                        .defaultValue(defaultValue)
+                        .comment(comment)
+                        .build();
+        return typeConverter.convert(typeDefine);
     }
 }

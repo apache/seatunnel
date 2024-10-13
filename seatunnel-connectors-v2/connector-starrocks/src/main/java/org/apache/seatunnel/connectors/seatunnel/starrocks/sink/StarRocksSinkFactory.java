@@ -100,6 +100,6 @@ public class StarRocksSinkFactory implements TableSinkFactory {
                         catalogTable.getPartitionKeys(),
                         catalogTable.getCatalogName());
 
-        return () -> new StarRocksSink(sinkConfig, finalCatalogTable, context.getOptions());
+        return () -> new StarRocksSink(sinkConfig, finalCatalogTable);
     }
 }

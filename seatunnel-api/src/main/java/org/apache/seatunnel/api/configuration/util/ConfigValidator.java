@@ -126,7 +126,7 @@ public class ConfigValidator {
 
     void validate(RequiredOption.AbsolutelyRequiredOptions requiredOption) {
         List<Option<?>> absentOptions = getAbsentOptions(requiredOption.getRequiredOption());
-        if (absentOptions.size() == 0) {
+        if (absentOptions.isEmpty()) {
             return;
         }
         throw new OptionValidationException(
