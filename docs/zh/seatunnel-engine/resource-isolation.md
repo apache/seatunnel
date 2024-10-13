@@ -84,5 +84,5 @@ sink {
 
 3. 更新运行中node的tags （可选）
 
-获取具体的使用信息，请参考 [更新运行节点的tags](https://seatunnel.apache.org/zh-CN/docs/seatunnel-engine/rest-api/)
+获取具体的使用信息，请参考 [更新运行节点的tags](rest-api.md)
 
