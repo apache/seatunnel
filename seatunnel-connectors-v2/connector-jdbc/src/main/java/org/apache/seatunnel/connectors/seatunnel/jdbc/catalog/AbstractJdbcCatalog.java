@@ -178,30 +178,37 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             DatabaseMetaData metaData = conn.getMetaData();
             Optional<PrimaryKey> primaryKey = getPrimaryKey(metaData, tablePath);
             List<ConstraintKey> constraintKeys = getConstraintKeys(metaData, tablePath);
-            try (PreparedStatement ps = conn.prepareStatement(getSelectColumnsSql(tablePath));
-                    ResultSet resultSet = ps.executeQuery()) {
+            TableSchema.Builder tableSchemaBuilder =
+                    buildColumnsReturnTablaSchemaBuilder(tablePath, conn);
+            // add primary key
+            primaryKey.ifPresent(tableSchemaBuilder::primaryKey);
+            // add constraint key
+            constraintKeys.forEach(tableSchemaBuilder::constraintKey);
+            TableIdentifier tableIdentifier = getTableIdentifier(tablePath);
+            return CatalogTable.of(
+                    tableIdentifier,
+                    tableSchemaBuilder.build(),
+                    buildConnectorOptions(tablePath),
+                    Collections.emptyList(),
+                    "",
+                    catalogName);
 
-                TableSchema.Builder builder = TableSchema.builder();
-                buildColumnsWithErrorCheck(tablePath, resultSet, builder);
-                // add primary key
-                primaryKey.ifPresent(builder::primaryKey);
-                // add constraint key
-                constraintKeys.forEach(builder::constraintKey);
-                TableIdentifier tableIdentifier = getTableIdentifier(tablePath);
-                return CatalogTable.of(
-                        tableIdentifier,
-                        builder.build(),
-                        buildConnectorOptions(tablePath),
-                        Collections.emptyList(),
-                        "",
-                        catalogName);
-            }
         } catch (SeaTunnelRuntimeException e) {
             throw e;
         } catch (Exception e) {
             throw new CatalogException(
                     String.format("Failed getting table %s", tablePath.getFullName()), e);
         }
+    }
+
+    protected TableSchema.Builder buildColumnsReturnTablaSchemaBuilder(
+            TablePath tablePath, Connection conn) throws SQLException {
+        TableSchema.Builder columnsBuilder = TableSchema.builder();
+        try (PreparedStatement ps = conn.prepareStatement(getSelectColumnsSql(tablePath));
+                ResultSet resultSet = ps.executeQuery()) {
+            buildColumnsWithErrorCheck(tablePath, resultSet, columnsBuilder);
+        }
+        return columnsBuilder;
     }
 
     protected void buildColumnsWithErrorCheck(
