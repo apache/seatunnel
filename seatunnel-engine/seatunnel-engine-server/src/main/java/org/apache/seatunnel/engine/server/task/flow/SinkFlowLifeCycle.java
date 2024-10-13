@@ -276,7 +276,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 if (record.getData() instanceof SeaTunnelRow) {
                     if (this.sinkAction.getSink() instanceof MultiTableSink) {
                         if (((SeaTunnelRow) record.getData()).getTableId().isEmpty()) {
-                            tableId.set(TablePath.DEFAULT.getFullName());
+                            tableId.set(((SeaTunnelRow) record.getData()).getTableId());
                         } else {
                             tablesMaps.forEach(
                                     tablePathTablePathMap -> {
