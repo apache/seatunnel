@@ -264,18 +264,6 @@ public class MultiTableSinkWriter
         return Optional.of(multiTableCommitInfo);
     }
 
-    //    private void flushMetrics(SinkWriter<SeaTunnelRow, ?, ?> writer) {
-    //        if (writer instanceof SinkMetricsCalc) {
-    //            taskMetricsCalcContext.collectMetrics(
-    //                    ((SinkMetricsCalc) writer).collectMetricsContext());
-    //            ((CycleMetricsContext)
-    // temporaryTaskMetricsCalcContext.getMetricsContext()).clear();
-    //        } else {
-    //            taskMetricsCalcContext.collectMetrics(collectMetricsContext());
-    //            ((CycleMetricsContext) collectMetricsContext()).clear();
-    //        }
-    //    }
-
     @Override
     public void abortPrepare() {
         Throwable firstE = null;
@@ -308,15 +296,6 @@ public class MultiTableSinkWriter
     public void close() throws IOException {
         // The variables used in lambda expressions should be final or valid final, so they are
         // modified to arrays
-
-        //        sinkWritersWithIndex.forEach(
-        //                sinkWriterMap -> {
-        //                    sinkWriterMap.forEach(
-        //                            (key, value) -> {
-        //                                flushMetrics(value);
-        //                            });
-        //                });
-
         final Throwable[] firstE = {null};
         try {
             checkQueueRemain();
