@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.telemetry.log;
 
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 
 import com.cronutils.model.Cron;
@@ -26,12 +27,12 @@ import com.cronutils.model.definition.CronDefinition;
 import com.cronutils.model.definition.CronDefinitionBuilder;
 import com.cronutils.model.time.ExecutionTime;
 import com.cronutils.parser.CronParser;
+import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.time.ZonedDateTime;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -44,10 +45,11 @@ public class TaskLogCleanService {
 
     private final ScheduledExecutorService scheduler;
     private final AtomicBoolean running;
-    private final JobHistoryService jobHistoryService;
     private final long keepTime;
     private final String prefix;
     private final String path;
+
+    private final NodeEngine nodeEngine;
 
     public TaskLogCleanService(
             String cron, long keepTime, String prefix, String path, NodeEngine nodeEngine) {
@@ -62,6 +64,7 @@ public class TaskLogCleanService {
         this.keepTime = keepTime;
         this.prefix = prefix;
         this.path = path;
+        this.nodeEngine = nodeEngine;
         log.info(
                 "TaskLogCleanService init with cron: {}, keepTime: {}, prefix: {}, path: {}",
                 cron,
@@ -69,20 +72,6 @@ public class TaskLogCleanService {
                 prefix,
                 path);
         scheduleTask(cron, new TaskLogCleanThread());
-
-        jobHistoryService =
-                new JobHistoryService(
-                        nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE),
-                        nodeEngine.getLogger(JobHistoryService.class),
-                        new ConcurrentHashMap<>(),
-                        nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE),
-                        nodeEngine
-                                .getHazelcastInstance()
-                                .getMap(Constant.IMAP_FINISHED_JOB_METRICS),
-                        nodeEngine
-                                .getHazelcastInstance()
-                                .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO),
-                        Integer.MAX_VALUE);
     }
 
     public void scheduleTask(String cronExpression, Runnable task) {
@@ -196,12 +185,33 @@ public class TaskLogCleanService {
         private boolean checkTaskStatus(String logFileName) {
             Pattern pattern = Pattern.compile("\\b(\\d{18})\\b");
             Matcher matcher = pattern.matcher(logFileName);
-            JobHistoryService.JobState jobDetailState = null;
+            boolean isEnd = true;
+
             if (matcher.find()) {
-                jobDetailState =
-                        jobHistoryService.getJobDetailState(Long.parseLong(matcher.group(1)));
+                JobStatus jobStateWithRunMap = null;
+                JobStatus jobStateWithFinishedMap = null;
+                long jobId = Long.parseLong(matcher.group(1));
+                IMap<Object, Object> finishedMap =
+                        nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE);
+                IMap<Object, Object> runMap =
+                        nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+
+                Object status = finishedMap.get(jobId);
+                if (status != null) {
+                    jobStateWithFinishedMap = ((JobHistoryService.JobState) status).getJobStatus();
+                }
+                status = runMap.get(jobId);
+                if (status != null) {
+                    jobStateWithRunMap = (JobStatus) status;
+                }
+                isEnd =
+                        status != null
+                                && jobStateWithFinishedMap != null
+                                && !jobStateWithFinishedMap.isEndState()
+                                && !jobStateWithRunMap.isEndState();
+                log.info("Job {} is running: {}", jobId, isEnd);
             }
-            return jobDetailState != null && jobDetailState.getJobStatus().isEndState();
+            return isEnd;
         }
     }
 }
