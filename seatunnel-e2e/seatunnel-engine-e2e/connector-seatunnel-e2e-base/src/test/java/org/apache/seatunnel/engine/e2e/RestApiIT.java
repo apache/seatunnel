@@ -280,6 +280,49 @@ public class RestApiIT {
                                                                     + RestConstant.RUNNING_JOBS_URL)
                                                     .then()
                                                     .statusCode(200)
+                                                    .body(
+                                                            "[0].jobDag.jobId",
+                                                            equalTo(
+                                                                    Long.toString(
+                                                                            clientJobProxy
+                                                                                    .getJobId())))
+                                                    .body("[0].jobDag.pipelineEdges", hasKey("1"))
+                                                    .body(
+                                                            "[0].jobDag.pipelineEdges['1']",
+                                                            hasSize(1))
+                                                    .body(
+                                                            "[0].jobDag.pipelineEdges['1'][0].inputVertexId",
+                                                            equalTo("1"))
+                                                    .body(
+                                                            "[0].jobDag.pipelineEdges['1'][0].targetVertexId",
+                                                            equalTo("2"))
+                                                    .body("[0].jobDag.vertexInfoMap", hasSize(2))
+                                                    .body(
+                                                            "[0].jobDag.vertexInfoMap[0].vertexId",
+                                                            equalTo(1))
+                                                    .body(
+                                                            "[0].jobDag.vertexInfoMap[0].type",
+                                                            equalTo("source"))
+                                                    .body(
+                                                            "[0].jobDag.vertexInfoMap[0].vertexName",
+                                                            equalTo(
+                                                                    "pipeline-1 [Source[0]-FakeSource]"))
+                                                    .body(
+                                                            "[0].jobDag.vertexInfoMap[0].tablePaths[0]",
+                                                            equalTo("fake"))
+                                                    .body(
+                                                            "[0].jobDag.vertexInfoMap[1].vertexId",
+                                                            equalTo(2))
+                                                    .body(
+                                                            "[0].jobDag.vertexInfoMap[1].type",
+                                                            equalTo("sink"))
+                                                    .body(
+                                                            "[0].jobDag.vertexInfoMap[1].vertexName",
+                                                            equalTo(
+                                                                    "pipeline-1 [Sink[0]-LocalFile-MultiTableSink]"))
+                                                    .body(
+                                                            "[0].jobDag.vertexInfoMap[1].tablePaths[0]",
+                                                            equalTo("fake"))
                                                     .body("[0].jobName", equalTo("fake_to_file"))
                                                     .body("[0].jobStatus", equalTo("RUNNING"));
 
@@ -293,6 +336,49 @@ public class RestApiIT {
                                                                     + RestConstant.RUNNING_JOBS_URL)
                                                     .then()
                                                     .statusCode(200)
+                                                    .body(
+                                                            "[0].jobDag.jobId",
+                                                            equalTo(
+                                                                    Long.toString(
+                                                                            clientJobProxy
+                                                                                    .getJobId())))
+                                                    .body("[0].jobDag.pipelineEdges", hasKey("1"))
+                                                    .body(
+                                                            "[0].jobDag.pipelineEdges['1']",
+                                                            hasSize(1))
+                                                    .body(
+                                                            "[0].jobDag.pipelineEdges['1'][0].inputVertexId",
+                                                            equalTo("1"))
+                                                    .body(
+                                                            "[0].jobDag.pipelineEdges['1'][0].targetVertexId",
+                                                            equalTo("2"))
+                                                    .body("[0].jobDag.vertexInfoMap", hasSize(2))
+                                                    .body(
+                                                            "[0].jobDag.vertexInfoMap[0].vertexId",
+                                                            equalTo(1))
+                                                    .body(
+                                                            "[0].jobDag.vertexInfoMap[0].type",
+                                                            equalTo("source"))
+                                                    .body(
+                                                            "[0].jobDag.vertexInfoMap[0].vertexName",
+                                                            equalTo(
+                                                                    "pipeline-1 [Source[0]-FakeSource]"))
+                                                    .body(
+                                                            "[0].jobDag.vertexInfoMap[0].tablePaths[0]",
+                                                            equalTo("fake"))
+                                                    .body(
+                                                            "[0].jobDag.vertexInfoMap[1].vertexId",
+                                                            equalTo(2))
+                                                    .body(
+                                                            "[0].jobDag.vertexInfoMap[1].type",
+                                                            equalTo("sink"))
+                                                    .body(
+                                                            "[0].jobDag.vertexInfoMap[1].vertexName",
+                                                            equalTo(
+                                                                    "pipeline-1 [Sink[0]-LocalFile-MultiTableSink]"))
+                                                    .body(
+                                                            "[0].jobDag.vertexInfoMap[1].tablePaths[0]",
+                                                            equalTo("fake"))
                                                     .body("[0].jobName", equalTo("fake_to_file"))
                                                     .body("[0].jobStatus", equalTo("RUNNING"));
                                         }));
@@ -314,6 +400,54 @@ public class RestApiIT {
                                                                 + batchJobProxy.getJobId())
                                                 .then()
                                                 .statusCode(200)
+                                                .body(
+                                                        "jobDag.jobId",
+                                                        equalTo(
+                                                                Long.toString(
+                                                                        batchJobProxy.getJobId())))
+                                                .body("jobDag.pipelineEdges", hasKey("1"))
+                                                .body("jobDag.pipelineEdges['1']", hasSize(1))
+                                                .body(
+                                                        "jobDag.pipelineEdges['1'][0].inputVertexId",
+                                                        equalTo("1"))
+                                                .body(
+                                                        "jobDag.pipelineEdges['1'][0].targetVertexId",
+                                                        equalTo("2"))
+                                                .body("jobDag.vertexInfoMap", hasSize(2))
+                                                .body(
+                                                        "jobDag.vertexInfoMap[0].vertexId",
+                                                        equalTo(1))
+                                                .body(
+                                                        "jobDag.vertexInfoMap[0].type",
+                                                        equalTo("source"))
+                                                .body(
+                                                        "jobDag.vertexInfoMap[0].vertexName",
+                                                        equalTo(
+                                                                "pipeline-1 [Source[0]-FakeSource]"))
+                                                .body(
+                                                        "jobDag.vertexInfoMap[0].tablePaths[0]",
+                                                        equalTo("fake"))
+                                                .body(
+                                                        "jobDag.vertexInfoMap[1].vertexId",
+                                                        equalTo(2))
+                                                .body(
+                                                        "jobDag.vertexInfoMap[1].type",
+                                                        equalTo("sink"))
+                                                .body(
+                                                        "jobDag.vertexInfoMap[1].vertexName",
+                                                        equalTo(
+                                                                "pipeline-1 [Sink[0]-console-MultiTableSink]"))
+                                                .body(
+                                                        "jobDag.vertexInfoMap[1].tablePaths[0]",
+                                                        equalTo("fake"))
+                                                .body(
+                                                        "metrics.TableSourceReceivedCount.fake",
+                                                        equalTo("5"))
+                                                .body(
+                                                        "metrics.TableSinkWriteCount.fake",
+                                                        equalTo("5"))
+                                                .body("metrics.SinkWriteCount", equalTo("5"))
+                                                .body("metrics.SourceReceivedCount", equalTo("5"))
                                                 .body("jobName", equalTo("fake_to_console"))
                                                 .body("jobStatus", equalTo("FINISHED"));
 

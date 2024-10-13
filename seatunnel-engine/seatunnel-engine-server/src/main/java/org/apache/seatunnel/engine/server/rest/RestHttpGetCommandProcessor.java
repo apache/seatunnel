@@ -35,6 +35,7 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.dag.DAGUtils;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpGetCommandProcessor;
 import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
 import org.apache.seatunnel.engine.server.operation.GetClusterHealthMetricsOperation;
@@ -692,6 +693,13 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
             jobStatus = seaTunnelServer.getCoordinatorService().getJobStatus(jobId);
         }
 
+        JobDAGInfo jobDAGInfo =
+                DAGUtils.getJobDAGInfo(
+                        logicalDag,
+                        jobImmutableInformation,
+                        getSeaTunnelServer(false).getSeaTunnelConfig().getEngineConfig(),
+                        true);
+
         jobInfoJson
                 .add(RestConstant.JOB_ID, String.valueOf(jobId))
                 .add(RestConstant.JOB_NAME, logicalDag.getJobConfig().getName())
@@ -704,7 +712,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                         DateTimeUtils.toString(
                                 jobImmutableInformation.getCreateTime(),
                                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
-                .add(RestConstant.JOB_DAG, logicalDag.getLogicalDagAsJson())
+                .add(RestConstant.JOB_DAG, jobDAGInfo.toJsonObject())
                 .add(
                         RestConstant.PLUGIN_JARS_URLS,
                         (JsonValue)
