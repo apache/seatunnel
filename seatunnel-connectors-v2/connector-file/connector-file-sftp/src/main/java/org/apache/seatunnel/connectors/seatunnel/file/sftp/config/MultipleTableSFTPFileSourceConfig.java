@@ -15,20 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.sftp.source;
+package org.apache.seatunnel.connectors.seatunnel.file.sftp.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.sftp.config.MultipleTableSFTPFileSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFileSource;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
 
-public class SftpFileSource extends BaseMultipleTableFileSource {
-    public SftpFileSource(ReadonlyConfig config) {
-        super(new MultipleTableSFTPFileSourceConfig(config));
+public class MultipleTableSFTPFileSourceConfig extends BaseMultipleTableFileSourceConfig {
+
+    public MultipleTableSFTPFileSourceConfig(ReadonlyConfig ossFileSourceRootConfig) {
+        super(ossFileSourceRootConfig);
     }
 
     @Override
-    public String getPluginName() {
-        return FileSystemType.SFTP.getFileSystemPluginName();
+    public BaseFileSourceConfig getBaseSourceConfig(ReadonlyConfig readonlyConfig) {
+        return new SFTPFileSourceConfig(readonlyConfig);
     }
 }
