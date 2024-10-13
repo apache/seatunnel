@@ -369,6 +369,14 @@ public class RestApiIT {
                                                 .body(
                                                         "jobDag.vertexInfoMap[1].tablePaths[0]",
                                                         equalTo("fake"))
+                                                .body(
+                                                        "metrics.TableSourceReceivedCount.fake",
+                                                        equalTo("5"))
+                                                .body(
+                                                        "metrics.TableSinkWriteCount.fake",
+                                                        equalTo("5"))
+                                                .body("metrics.SinkWriteCount", equalTo("5"))
+                                                .body("metrics.SourceReceivedCount", equalTo("5"))
                                                 .body("jobName", equalTo("fake_to_console"))
                                                 .body("jobStatus", equalTo("FINISHED"));
                                     });
