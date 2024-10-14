@@ -79,4 +79,22 @@ public class Config {
                     .defaultValue(-1L)
                     .withDescription(
                             "The interval for dynamically discovering topics and partitions.");
+
+    public static final Option<String> SOURCE =
+            Options.key("source")
+                    .stringType()
+                    .defaultValue("SeaTunnel-Source")
+                    .withDescription("Aliyun sls producer source");
+
+    public static final Option<String> TOPIC =
+            Options.key("topic")
+                    .stringType()
+                    .defaultValue("SeaTunnel-Topic")
+                    .withDescription("Aliyun sls producer topic");
+
+    public static final Option<Integer> LOG_GROUP_SIZE =
+            Options.key("log_group_size")
+                    .intType()
+                    .defaultValue(100)
+                    .withDescription("Aliyun sls log group write size");
 }

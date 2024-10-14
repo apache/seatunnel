@@ -163,7 +163,7 @@ public class SlsSourceReader implements SourceReader<SeaTunnelRow, SlsSourceSpli
         return sourceSplits.stream().map(SlsSourceSplit::copy).collect(Collectors.toList());
     }
 
-    // 接受
+    // received splits and do somethins for this
     @Override
     public void addSplits(List<SlsSourceSplit> splits) {
         running = true;

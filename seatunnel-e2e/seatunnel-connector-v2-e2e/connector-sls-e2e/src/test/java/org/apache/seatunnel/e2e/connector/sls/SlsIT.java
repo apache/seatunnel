@@ -54,4 +54,12 @@ public class SlsIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/sls_source_without_schema_to_console.conf");
         Assertions.assertEquals(0, execResult2.getExitCode(), execResult2.getStderr());
     }
+
+    @TestTemplate
+    public void testSlsStreamingSink(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult1 =
+                container.executeJob("/sls_sink_to_console.conf");
+        Assertions.assertEquals(0, execResult1.getExitCode(), execResult1.getStderr());
+    }
 }

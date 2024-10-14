@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.sls;
 
+import org.apache.seatunnel.connectors.seatunnel.sls.sink.SlsSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.sls.source.SlsSourceFactory;
 
 import org.junit.jupiter.api.Assertions;
@@ -27,5 +28,6 @@ public class SlsFactoryTest {
     @Test
     void optionRule() {
         Assertions.assertNotNull((new SlsSourceFactory()).optionRule());
+        Assertions.assertNotNull((new SlsSinkFactory()).optionRule());
     }
 }
