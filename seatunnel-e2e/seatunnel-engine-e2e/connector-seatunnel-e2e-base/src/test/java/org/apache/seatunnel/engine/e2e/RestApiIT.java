@@ -27,6 +27,8 @@ import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
+import org.apache.logging.log4j.core.config.Configurator;
+
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -43,8 +45,11 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static io.restassured.RestAssured.given;
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.CONTEXT_PATH;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasKey;
@@ -75,6 +80,10 @@ public class RestApiIT {
 
     @BeforeEach
     void beforeClass() throws Exception {
+        Configurator.initialize(
+                null,
+                PROJECT_ROOT_PATH
+                        + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/job-log-file/log4j2.properties");
         String testClusterName = TestUtils.getClusterName("RestApiIT");
         node1Config = ConfigProvider.locateAndGetSeaTunnelConfig();
         node1Config.getEngineConfig().getHttpConfig().setPort(8080);
@@ -136,6 +145,58 @@ public class RestApiIT {
         ports.put(
                 node2.getCluster().getLocalMember().getAddress().getPort(),
                 node2Config.getEngineConfig().getHttpConfig().getPort());
+    }
+
+    @Test
+    public void testGetLog() {
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance ->
+                                ports.forEach(
+                                        (key, value) -> {
+                                            // Verify log list interface logs/
+                                            Assertions.assertTrue(
+                                                    given().get(
+                                                                    HOST
+                                                                            + key
+                                                                            + CONTEXT_PATH
+                                                                            + RestConstant.GET_LOGS)
+                                                            .body()
+                                                            .prettyPrint()
+                                                            .contains(
+                                                                    clientJobProxy.getJobId()
+                                                                            + ".log"));
+
+                                            // Verify log list interface logs/:jobId
+                                            String logList =
+                                                    given().get(
+                                                                    HOST
+                                                                            + key
+                                                                            + CONTEXT_PATH
+                                                                            + RestConstant.GET_LOGS
+                                                                            + "/"
+                                                                            + clientJobProxy
+                                                                                    .getJobId())
+                                                            .body()
+                                                            .prettyPrint();
+                                            Assertions.assertTrue(
+                                                    logList.contains(
+                                                            clientJobProxy.getJobId() + ".log"));
+
+                                            // verify access log link
+                                            Pattern pattern =
+                                                    Pattern.compile("href\\s*=\\s*\"([^\"]+)\"");
+                                            Matcher matcher = pattern.matcher(logList);
+                                            while (matcher.find()) {
+                                                String link = matcher.group(1);
+                                                Assertions.assertTrue(
+                                                        given().get(link)
+                                                                .body()
+                                                                .prettyPrint()
+                                                                .contains(
+                                                                        "Init JobMaster for Job fake_to_file"));
+                                            }
+                                        }));
     }
 
     @Test

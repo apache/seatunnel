@@ -770,27 +770,47 @@ network:
 
 ------------------------------------------------------------------------------------------
 
-### 获取日志内容
+### 获取所有节点日志内容
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/get-log?jobId=:jobId</b></code> <code>(返回日志信息。)</code></summary></summary>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/logs/:jobId</b></code> <code>(返回日志列表。)</code></summary></summary>
 
-#### 参数
+#### 请求参数
 
-> | 参数名称  | 是否必传 | 参数类型 |  参数描述  |
-> |-------|------|------|--------|
-> | :jobId | 否    | long | job id |
+#### 参数(在请求体中params字段中添加)
 
-当jobId传入时，返回该job的日志信息，否则返回所有日志信息。
+> |         参数名称         |   是否必传   |  参数类型  |               参数描述                |
+> |----------------------|----------|--------|-----------------------------------|
+> | jobId                | optional | string | job id                            |
+
+当`jobId`为空时，返回所有节点的日志信息，否则返回指定`jobId`在所有节点的的日志列表。
 
 #### 响应
 
-日志内容
+返回请求节点的日志列表、内容
 
 #### 例子
 
-获取jobId为`733584788375666689`的日志信息：`http://localhost:5801/hazelcast/rest/maps/get-log?jobId=733584788375666689`
-获取全部日志信息：`http://localhost:5801/hazelcast/rest/maps/get-log`
+获取所有节点jobId为`733584788375666689`的日志信息：`http://localhost:5801/hazelcast/rest/maps/logs/733584788375666689`
+获取所有节点日志列表：`http://localhost:5801/hazelcast/rest/maps/logs`
+获取日志文件内容：`http://localhost:5801/hazelcast/rest/maps/logs/job-898380162133917698.log``
 
+
+</details>
+
+
+### 获取单节点日志内容
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/log</b></code> <code>(返回日志列表。)</code></summary></summary>
+
+#### 响应
+
+返回请求节点的日志列表
+
+#### 例子
+
+获取当前节点的日志列表：`http://localhost:5801/hazelcast/rest/maps/log`
+获取日志文件内容：`http://localhost:5801/hazelcast/rest/maps/logs/job-898380162133917698.log``
 
 </details>

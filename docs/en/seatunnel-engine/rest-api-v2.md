@@ -727,29 +727,3 @@ If the parameter is an empty `Map` object, it means that the tags of the current
 }
 ```
 </details>
-
-------------------------------------------------------------------------------------------
-
-### Get Log Information
-
-<details>
- <summary><code>GET</code> <code><b>/get-log?jobId=:jobId</b></code> <code>(Retrieves log information.)</code></summary>
-
-#### Parameters
-
-> | Parameter Name | Required | Parameter Type | Description         |
-> |----------------|----------|----------------|---------------------|
-> | :jobId          | No       | long           | Job ID (optional)    |
-
-If a jobId is provided, it returns the log information for that specific job. If not provided, it returns the logs for all jobs.
-
-#### Response
-
-Log content.
-
-#### e.g.
-
-Retrieve log information for the job with jobId `733584788375666689`: `http://localhost:5801/get-log?jobId=733584788375666689`  
-Retrieve all log information: `http://localhost:5801/get-log`
-
-</details>
