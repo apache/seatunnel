@@ -48,7 +48,7 @@ public class BinaryWriteStrategy extends AbstractWriteStrategy {
     @Override
     public void setCatalogTable(CatalogTable catalogTable) {
         super.setCatalogTable(catalogTable);
-        if (!catalogTable.equals(BinaryReadStrategy.binaryRowType)) {
+        if (!catalogTable.getSeaTunnelRowType().equals(BinaryReadStrategy.binaryRowType)) {
             throw new FileConnectorException(
                     FileConnectorErrorCode.FORMAT_NOT_SUPPORT,
                     "BinaryWriteStrategy only supports binary format, please read file with `BINARY` format, and do not change schema in the transform.");
