@@ -80,6 +80,14 @@
             <artifactId>terajdbc4</artifactId>
             <scope>test</scope>
         </dependency>
+
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-jdbc</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>com.sap.cloud.db.jdbc</groupId>
             <artifactId>ngdbc</artifactId>

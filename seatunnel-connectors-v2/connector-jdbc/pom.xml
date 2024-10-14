@@ -41,6 +41,7 @@
         <sqlite.version>3.39.3.0</sqlite.version>
         <tablestore.version>5.13.9</tablestore.version>
         <teradata.version>17.20.00.12</teradata.version>
+        <presto.version>0.179</presto.version>
         <redshift.version>2.1.0.9</redshift.version>
         <saphana.version>2.14.7</saphana.version>
         <snowflake.version>3.13.29</snowflake.version>
@@ -139,6 +140,13 @@
                 <groupId>com.teradata.jdbc</groupId>
                 <artifactId>terajdbc4</artifactId>
                 <version>${teradata.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-jdbc</artifactId>
+                <version>${presto.version}</version>
                 <scope>provided</scope>
             </dependency>
 
@@ -280,6 +288,12 @@
             <groupId>com.teradata.jdbc</groupId>
             <artifactId>terajdbc4</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-jdbc</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>com.amazon.redshift</groupId>
             <artifactId>redshift-jdbc42</artifactId>

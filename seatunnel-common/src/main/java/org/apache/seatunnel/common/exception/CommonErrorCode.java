@@ -22,6 +22,7 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
     FILE_OPERATION_FAILED("COMMON-01", "<identifier> <operation> file '<fileName>' failed."),
     JSON_OPERATION_FAILED(
             "COMMON-02", "<identifier> JSON convert/parse '<payload>' operation failed."),
+    UNSUPPORTED_OPERATION("COMMON-05", "Unsupported operation"),
     UNSUPPORTED_DATA_TYPE(
             "COMMON-07", "'<identifier>' unsupported data type '<dataType>' of '<field>'"),
     UNSUPPORTED_ENCODING("COMMON-08", "unsupported encoding '<encoding>'"),
@@ -46,6 +47,7 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
     FILE_NOT_EXISTED(
             "COMMON-22",
             "<identifier> <operation> file '<fileName>' failed, because it not existed."),
+
     WRITE_SEATUNNEL_ROW_ERROR(
             "COMMON-23",
             "<connector> write SeaTunnelRow failed, the SeaTunnelRow value is '<seaTunnelRow>'."),

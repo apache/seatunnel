@@ -170,6 +170,7 @@
                 <include>com.aliyun.phoenix:ali-phoenix-shaded-thin-client:jar</include>
                 <include>mysql:mysql-connector-java:jar</include>
                 <include>org.postgresql:postgresql:jar</include>
+                <include>com.facebook.presto:presto-jdbc:jar</include>
                 <include>com.dameng:DmJdbcDriver18:jar</include>
                 <include>com.microsoft.sqlserver:mssql-jdbc:jar</include>
                 <include>com.oracle.database.jdbc:ojdbc8:jar</include>
