@@ -15,19 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.sls;
+package org.apache.seatunnel.connectors.seatunnel.sls.state;
 
-import org.apache.seatunnel.connectors.seatunnel.sls.sink.SlsSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.sls.source.SlsSourceFactory;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import java.io.Serializable;
 
-public class SlsFactoryTest {
+@Data
+@AllArgsConstructor
+public class SlsCommitInfo implements Serializable {
 
-    @Test
-    void optionRule() {
-        Assertions.assertNotNull((new SlsSourceFactory()).optionRule());
-        Assertions.assertNotNull((new SlsSinkFactory()).optionRule());
-    }
+    private final String data;
 }
