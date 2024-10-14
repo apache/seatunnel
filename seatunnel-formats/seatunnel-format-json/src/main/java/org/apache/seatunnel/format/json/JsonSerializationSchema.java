@@ -71,7 +71,7 @@ public class JsonSerializationSchema implements SerializationSchema {
         if (node == null) {
             node = mapper.createObjectNode();
         }
-
+        node.put("_rowKind",row.getRowKind().shortString());
         try {
             runtimeConverter.convert(mapper, node, row);
             return mapper.writeValueAsString(node).getBytes(charset);
