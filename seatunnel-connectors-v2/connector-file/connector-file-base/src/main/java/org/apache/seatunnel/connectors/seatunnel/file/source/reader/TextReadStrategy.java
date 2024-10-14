@@ -172,8 +172,9 @@ public class TextReadStrategy extends AbstractReadStrategy {
 
     @Override
     public void setCatalogTable(CatalogTable catalogTable) {
+        SeaTunnelRowType rowType = catalogTable.getSeaTunnelRowType();
         SeaTunnelRowType userDefinedRowTypeWithPartition =
-                mergePartitionTypes(fileNames.get(0), catalogTable);
+                mergePartitionTypes(fileNames.get(0), rowType);
         Optional<String> fieldDelimiterOptional =
                 ReadonlyConfig.fromConfig(pluginConfig)
                         .getOptional(BaseSourceConfigOptions.FIELD_DELIMITER);
@@ -202,7 +203,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
             deserializationSchema =
                     builder.seaTunnelRowType(userDefinedRowTypeWithPartition).build();
         } else {
-            deserializationSchema = builder.seaTunnelRowType(catalogTable).build();
+            deserializationSchema = builder.seaTunnelRowType(rowType).build();
         }
         // column projection
         if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_COLUMNS.key())) {
@@ -211,15 +212,15 @@ public class TextReadStrategy extends AbstractReadStrategy {
             String[] fields = new String[readColumns.size()];
             SeaTunnelDataType<?>[] types = new SeaTunnelDataType[readColumns.size()];
             for (int i = 0; i < indexes.length; i++) {
-                indexes[i] = catalogTable.indexOf(readColumns.get(i));
-                fields[i] = catalogTable.getFieldName(indexes[i]);
-                types[i] = catalogTable.getFieldType(indexes[i]);
+                indexes[i] = rowType.indexOf(readColumns.get(i));
+                fields[i] = rowType.getFieldName(indexes[i]);
+                types[i] = rowType.getFieldType(indexes[i]);
             }
             this.seaTunnelRowType = new SeaTunnelRowType(fields, types);
             this.seaTunnelRowTypeWithPartition =
                     mergePartitionTypes(fileNames.get(0), this.seaTunnelRowType);
         } else {
-            this.seaTunnelRowType = catalogTable;
+            this.seaTunnelRowType = rowType;
             this.seaTunnelRowTypeWithPartition = userDefinedRowTypeWithPartition;
         }
     }

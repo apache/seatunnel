@@ -147,14 +147,14 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
 
     @Override
     public void setCatalogTable(CatalogTable catalogTable) {
-        if (isNullOrEmpty(catalogTable.getFieldNames())
-                || isNullOrEmpty(catalogTable.getFieldTypes())) {
+        SeaTunnelRowType rowType = catalogTable.getSeaTunnelRowType();
+        if (isNullOrEmpty(rowType.getFieldNames()) || isNullOrEmpty(rowType.getFieldTypes())) {
             throw new FileConnectorException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     "Schema information is not set or incorrect Schema settings");
         }
         SeaTunnelRowType userDefinedRowTypeWithPartition =
-                mergePartitionTypes(fileNames.get(0), catalogTable);
+                mergePartitionTypes(fileNames.get(0), rowType);
         // column projection
         if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_COLUMNS.key())) {
             // get the read column index from user-defined row type
@@ -162,15 +162,15 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             String[] fields = new String[readColumns.size()];
             SeaTunnelDataType<?>[] types = new SeaTunnelDataType[readColumns.size()];
             for (int i = 0; i < indexes.length; i++) {
-                indexes[i] = catalogTable.indexOf(readColumns.get(i));
-                fields[i] = catalogTable.getFieldName(indexes[i]);
-                types[i] = catalogTable.getFieldType(indexes[i]);
+                indexes[i] = rowType.indexOf(readColumns.get(i));
+                fields[i] = rowType.getFieldName(indexes[i]);
+                types[i] = rowType.getFieldType(indexes[i]);
             }
             this.seaTunnelRowType = new SeaTunnelRowType(fields, types);
             this.seaTunnelRowTypeWithPartition =
                     mergePartitionTypes(fileNames.get(0), this.seaTunnelRowType);
         } else {
-            this.seaTunnelRowType = catalogTable;
+            this.seaTunnelRowType = rowType;
             this.seaTunnelRowTypeWithPartition = userDefinedRowTypeWithPartition;
         }
     }

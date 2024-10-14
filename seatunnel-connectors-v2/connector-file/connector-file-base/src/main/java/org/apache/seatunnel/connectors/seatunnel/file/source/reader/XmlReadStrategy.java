@@ -175,19 +175,19 @@ public class XmlReadStrategy extends AbstractReadStrategy {
 
     @Override
     public void setCatalogTable(CatalogTable catalogTable) {
-        if (ArrayUtils.isEmpty(catalogTable.getFieldNames())
-                || ArrayUtils.isEmpty(catalogTable.getFieldTypes())) {
+        SeaTunnelRowType rowType = catalogTable.getSeaTunnelRowType();
+        if (ArrayUtils.isEmpty(rowType.getFieldNames())
+                || ArrayUtils.isEmpty(rowType.getFieldTypes())) {
             throw new FileConnectorException(
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                     "Schema information is undefined or misconfigured, please check your configuration file.");
         }
 
         if (readColumns.isEmpty()) {
-            this.seaTunnelRowType = catalogTable;
-            this.seaTunnelRowTypeWithPartition =
-                    mergePartitionTypes(fileNames.get(0), catalogTable);
+            this.seaTunnelRowType = rowType;
+            this.seaTunnelRowTypeWithPartition = mergePartitionTypes(fileNames.get(0), rowType);
         } else {
-            if (readColumns.retainAll(Arrays.asList(catalogTable.getFieldNames()))) {
+            if (readColumns.retainAll(Arrays.asList(rowType.getFieldNames()))) {
                 log.warn(
                         "The read columns configuration will be filtered by the schema configuration, this may cause the actual results to be inconsistent with expectations. This is due to read columns not being a subset of the schema, "
                                 + "maybe you should check the schema and read_columns!");
@@ -196,9 +196,9 @@ public class XmlReadStrategy extends AbstractReadStrategy {
             String[] fields = new String[readColumns.size()];
             SeaTunnelDataType<?>[] types = new SeaTunnelDataType[readColumns.size()];
             for (int i = 0; i < readColumns.size(); i++) {
-                indexes[i] = catalogTable.indexOf(readColumns.get(i));
-                fields[i] = catalogTable.getFieldName(indexes[i]);
-                types[i] = catalogTable.getFieldType(indexes[i]);
+                indexes[i] = rowType.indexOf(readColumns.get(i));
+                fields[i] = rowType.getFieldName(indexes[i]);
+                types[i] = rowType.getFieldType(indexes[i]);
             }
             this.seaTunnelRowType = new SeaTunnelRowType(fields, types);
             this.seaTunnelRowTypeWithPartition =
