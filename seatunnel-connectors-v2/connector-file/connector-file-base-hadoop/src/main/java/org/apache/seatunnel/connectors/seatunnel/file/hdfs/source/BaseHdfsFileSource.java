@@ -21,9 +21,9 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -109,9 +109,9 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
                 case JSON:
                 case EXCEL:
                 case XML:
-                    SeaTunnelRowType userDefinedSchema =
-                            CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
-                    readStrategy.setSeaTunnelRowTypeInfo(userDefinedSchema);
+                    CatalogTable userDefinedCatalogTable =
+                            CatalogTableUtil.buildWithConfig(pluginConfig);
+                    readStrategy.setCatalogTable(userDefinedCatalogTable);
                     rowType = readStrategy.getActualSeaTunnelRowTypeInfo();
                     break;
                 case ORC:

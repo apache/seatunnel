@@ -26,6 +26,8 @@ import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
@@ -110,7 +112,9 @@ public abstract class BaseFileSink
     protected WriteStrategy createWriteStrategy() {
         WriteStrategy writeStrategy =
                 WriteStrategyFactory.of(fileSinkConfig.getFileFormat(), fileSinkConfig);
-        writeStrategy.setSeaTunnelRowTypeInfo(seaTunnelRowType);
+        writeStrategy.setCatalogTable(
+                CatalogTableUtil.getCatalogTable(
+                        "file", null, null, TablePath.DEFAULT.getTableName(), seaTunnelRowType));
         return writeStrategy;
     }
 }

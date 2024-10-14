@@ -21,9 +21,9 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
@@ -72,9 +72,8 @@ public class ExcelReadStrategyTest {
         excelReadStrategy.init(localConf);
 
         List<String> fileNamesByPath = excelReadStrategy.getFileNamesByPath(excelFilePath);
-        SeaTunnelRowType userDefinedSchema =
-                CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
-        excelReadStrategy.setSeaTunnelRowTypeInfo(userDefinedSchema);
+        CatalogTable userDefinedCatalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
+        excelReadStrategy.setCatalogTable(userDefinedCatalogTable);
         TestCollector testCollector = new TestCollector();
         excelReadStrategy.read(fileNamesByPath.get(0), "", testCollector);
         for (SeaTunnelRow seaTunnelRow : testCollector.getRows()) {
