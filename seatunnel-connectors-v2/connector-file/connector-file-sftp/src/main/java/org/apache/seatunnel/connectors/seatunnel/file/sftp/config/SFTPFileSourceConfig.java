@@ -36,7 +36,7 @@ public class SFTPFileSourceConfig extends BaseFileSourceConfig {
 
     @Override
     public String getPluginName() {
-        return FileSystemType.OSS.getFileSystemPluginName();
+        return FileSystemType.SFTP.getFileSystemPluginName();
     }
 
     public SFTPFileSourceConfig(ReadonlyConfig readonlyConfig) {
