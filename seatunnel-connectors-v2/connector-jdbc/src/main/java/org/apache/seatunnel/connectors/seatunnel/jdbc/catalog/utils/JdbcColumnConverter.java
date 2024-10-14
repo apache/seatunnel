@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.VectorType;
 
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
@@ -69,6 +70,8 @@ import static java.sql.Types.VARCHAR;
  */
 @Deprecated
 public class JdbcColumnConverter {
+
+    public static final int OB_VECTOR = 1111;
 
     public static List<Column> convert(DatabaseMetaData metadata, TablePath tablePath)
             throws SQLException {
@@ -195,6 +198,9 @@ public class JdbcColumnConverter {
             case BLOB:
                 seaTunnelType = PrimitiveByteArrayType.INSTANCE;
                 bitLength = precision * 8;
+                break;
+            case OB_VECTOR:
+                seaTunnelType = VectorType.VECTOR_FLOAT_TYPE;
                 break;
             default:
                 throw new UnsupportedOperationException("Unsupported JDBC type: " + jdbcType);

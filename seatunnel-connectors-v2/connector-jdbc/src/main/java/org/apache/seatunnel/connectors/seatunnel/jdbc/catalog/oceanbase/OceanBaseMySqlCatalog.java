@@ -20,16 +20,20 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oceanbase;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.JdbcColumnConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbase.OceanBaseMySqlTypeConverter;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbase.OceanBaseMySqlTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbase.OceanBaseMysqlType;
+
+import org.apache.commons.lang3.StringUtils;
 
 import com.google.common.base.Preconditions;
 import lombok.extern.slf4j.Slf4j;
@@ -40,9 +44,14 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Slf4j
 public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
@@ -201,8 +210,7 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
         try (Statement statement = defaultConnection.createStatement();
                 ResultSet resultSet = statement.executeQuery(sqlQuery)) {
             ResultSetMetaData metaData = resultSet.getMetaData();
-            return CatalogUtils.getCatalogTable(
-                    metaData, new OceanBaseMySqlTypeMapper(typeConverter), sqlQuery);
+            return getCatalogTable(metaData, defaultConnection.getMetaData(), sqlQuery);
         }
     }
 
@@ -216,5 +224,50 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
         return String.format(
                 "SELECT * FROM `%s`.`%s` LIMIT 1;",
                 tablePath.getDatabaseName(), tablePath.getTableName());
+    }
+
+    public static CatalogTable getCatalogTable(
+            ResultSetMetaData resultSetMetaData, DatabaseMetaData databaseMetaData, String sqlQuery)
+            throws SQLException {
+        TableSchema.Builder schemaBuilder = TableSchema.builder();
+        Map<String, String> unsupported = new LinkedHashMap<>();
+        String tableName = null;
+        String databaseName = null;
+        String schemaName = null;
+        String catalogName = "jdbc_catalog";
+        try {
+            tableName = resultSetMetaData.getTableName(1);
+            databaseName = resultSetMetaData.getCatalogName(1);
+            schemaName = resultSetMetaData.getSchemaName(1);
+            catalogName = resultSetMetaData.getCatalogName(1);
+        } catch (SQLException ignored) {
+        }
+        if (!unsupported.isEmpty()) {
+            throw CommonError.getCatalogTableWithUnsupportedType("UNKNOWN", sqlQuery, unsupported);
+        }
+        databaseName = StringUtils.isBlank(databaseName) ? null : databaseName;
+        schemaName = StringUtils.isBlank(schemaName) ? null : schemaName;
+        TablePath tablePath =
+                StringUtils.isBlank(tableName)
+                        ? TablePath.DEFAULT
+                        : TablePath.of(databaseName, schemaName, tableName);
+        List<Column> columns = JdbcColumnConverter.convert(databaseMetaData, tablePath);
+        ResultSet primaryKeys = databaseMetaData.getPrimaryKeys(catalogName, schemaName, tableName);
+        while (primaryKeys.next()) {
+            String primaryKey = primaryKeys.getString("COLUMN_NAME");
+            schemaBuilder.primaryKey(
+                    PrimaryKey.of(
+                            primaryKey,
+                            Collections.singletonList(primaryKey),
+                            resultSetMetaData.isAutoIncrement(primaryKeys.getRow())));
+        }
+        schemaBuilder.columns(columns);
+        return CatalogTable.of(
+                TableIdentifier.of(catalogName, tablePath),
+                schemaBuilder.build(),
+                new HashMap<>(),
+                new ArrayList<>(),
+                "",
+                catalogName);
     }
 }
