@@ -204,12 +204,6 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                     case STRING:
                         statement.setString(statementIndex, (String) row.getField(fieldIndex));
                         break;
-                    case INET:
-                        PGobject inetObject = new PGobject();
-                        inetObject.setType(PG_INET);
-                        inetObject.setValue(String.valueOf(row.getField(fieldIndex)));
-                        statement.setObject(statementIndex, inetObject);
-                        break;
                     case BOOLEAN:
                         statement.setBoolean(statementIndex, (Boolean) row.getField(fieldIndex));
                         break;
