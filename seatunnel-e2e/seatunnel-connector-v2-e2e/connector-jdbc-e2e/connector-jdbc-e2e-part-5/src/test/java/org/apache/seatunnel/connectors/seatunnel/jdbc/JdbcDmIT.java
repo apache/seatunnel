@@ -220,6 +220,14 @@ public class JdbcDmIT extends AbstractJdbcIT {
         return Pair.of(fieldNames, rows);
     }
 
+    protected String buildTableInfoWithSchema(String database, String schema, String table) {
+        return buildTableInfoWithSchema(schema, table);
+    }
+
+    protected void clearTable(String database, String schema, String table) {
+        clearTable(schema, table);
+    }
+
     @Override
     protected GenericContainer<?> initContainer() {
         GenericContainer<?> container =
