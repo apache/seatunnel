@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -173,20 +174,20 @@ public class XmlReadStrategy extends AbstractReadStrategy {
     }
 
     @Override
-    public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        if (ArrayUtils.isEmpty(seaTunnelRowType.getFieldNames())
-                || ArrayUtils.isEmpty(seaTunnelRowType.getFieldTypes())) {
+    public void setCatalogTable(CatalogTable catalogTable) {
+        if (ArrayUtils.isEmpty(catalogTable.getFieldNames())
+                || ArrayUtils.isEmpty(catalogTable.getFieldTypes())) {
             throw new FileConnectorException(
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                     "Schema information is undefined or misconfigured, please check your configuration file.");
         }
 
         if (readColumns.isEmpty()) {
-            this.seaTunnelRowType = seaTunnelRowType;
+            this.seaTunnelRowType = catalogTable;
             this.seaTunnelRowTypeWithPartition =
-                    mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
+                    mergePartitionTypes(fileNames.get(0), catalogTable);
         } else {
-            if (readColumns.retainAll(Arrays.asList(seaTunnelRowType.getFieldNames()))) {
+            if (readColumns.retainAll(Arrays.asList(catalogTable.getFieldNames()))) {
                 log.warn(
                         "The read columns configuration will be filtered by the schema configuration, this may cause the actual results to be inconsistent with expectations. This is due to read columns not being a subset of the schema, "
                                 + "maybe you should check the schema and read_columns!");
@@ -195,9 +196,9 @@ public class XmlReadStrategy extends AbstractReadStrategy {
             String[] fields = new String[readColumns.size()];
             SeaTunnelDataType<?>[] types = new SeaTunnelDataType[readColumns.size()];
             for (int i = 0; i < readColumns.size(); i++) {
-                indexes[i] = seaTunnelRowType.indexOf(readColumns.get(i));
-                fields[i] = seaTunnelRowType.getFieldName(indexes[i]);
-                types[i] = seaTunnelRowType.getFieldType(indexes[i]);
+                indexes[i] = catalogTable.indexOf(readColumns.get(i));
+                fields[i] = catalogTable.getFieldName(indexes[i]);
+                types[i] = catalogTable.getFieldType(indexes[i]);
             }
             this.seaTunnelRowType = new SeaTunnelRowType(fields, types);
             this.seaTunnelRowTypeWithPartition =

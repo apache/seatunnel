@@ -21,9 +21,9 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
@@ -66,9 +66,8 @@ public class XmlReadStrategyTest {
         xmlReadStrategy.setPluginConfig(pluginConfig);
         xmlReadStrategy.init(localConf);
         List<String> fileNamesByPath = xmlReadStrategy.getFileNamesByPath(xmlFilePath);
-        SeaTunnelRowType userDefinedSchema =
-                CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
-        xmlReadStrategy.setSeaTunnelRowTypeInfo(userDefinedSchema);
+        CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
+        xmlReadStrategy.setCatalogTable(catalogTable);
         TestCollector testCollector = new TestCollector();
         xmlReadStrategy.read(fileNamesByPath.get(0), "", testCollector);
         for (SeaTunnelRow seaTunnelRow : testCollector.getRows()) {
