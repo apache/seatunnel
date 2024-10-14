@@ -63,7 +63,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
@@ -103,7 +102,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private EventListener eventListener;
 
-    private final List<Map<TablePath, TablePath>> tablesMaps = new ArrayList<>();
+    /** Mapping relationship between upstream tablepath and downstream tablepath. */
+    private final Map<TablePath, TablePath> tablesMaps = new HashMap<>();
 
     public SinkFlowLifeCycle(
             SinkAction<T, StateT, CommitInfoT, AggregatedCommitInfoT> sinkAction,
@@ -126,16 +126,14 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         boolean isMulti = sinkAction.getSink() instanceof MultiTableSink;
         if (isMulti) {
             sinkTables = ((MultiTableSink) sinkAction.getSink()).getSinkTables();
-            String[] keys =
+            String[] upstreamTablePaths =
                     ((MultiTableSink) sinkAction.getSink())
                             .getSinks()
                             .keySet()
                             .toArray(new String[0]);
-            Map<TablePath, TablePath> tableMap = new HashMap<>();
             for (int i = 0; i < ((MultiTableSink) sinkAction.getSink()).getSinks().size(); i++) {
-                tableMap.put(TablePath.of(keys[i]), sinkTables.get(i));
+                tablesMaps.put(TablePath.of(upstreamTablePaths[i]), sinkTables.get(i));
             }
-            tablesMaps.add(tableMap);
         } else {
             Optional<CatalogTable> catalogTable = sinkAction.getSink().getWriteCatalogTable();
             if (catalogTable.isPresent()) {
@@ -271,42 +269,36 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 if (prepareClose) {
                     return;
                 }
-                AtomicReference<String> tableId = new AtomicReference<>();
+                String tableId = "";
                 writer.write((T) record.getData());
                 if (record.getData() instanceof SeaTunnelRow) {
                     if (this.sinkAction.getSink() instanceof MultiTableSink) {
                         if (((SeaTunnelRow) record.getData()).getTableId() == null
                                 || ((SeaTunnelRow) record.getData()).getTableId().isEmpty()) {
-                            tableId.set(((SeaTunnelRow) record.getData()).getTableId());
+                            tableId = ((SeaTunnelRow) record.getData()).getTableId();
                         } else {
-                            tablesMaps.forEach(
-                                    tablePathTablePathMap -> {
-                                        tablePathTablePathMap.forEach(
-                                                (k, v) -> {
-                                                    if (k.equals(
-                                                            TablePath.of(
-                                                                    ((SeaTunnelRow)
-                                                                                    record
-                                                                                            .getData())
-                                                                            .getTableId()))) {
-                                                        tableId.set(v.getFullName());
-                                                    }
-                                                });
-                                    });
+
+                            tableId =
+                                    tablesMaps
+                                            .get(
+                                                    TablePath.of(
+                                                            ((SeaTunnelRow) record.getData())
+                                                                    .getTableId()))
+                                            .getFullName();
                         }
 
                     } else {
                         Optional<CatalogTable> writeCatalogTable =
                                 this.sinkAction.getSink().getWriteCatalogTable();
-                        tableId.set(
+                        tableId =
                                 writeCatalogTable
                                         .map(
                                                 catalogTable ->
                                                         catalogTable.getTablePath().getFullName())
-                                        .orElseGet(TablePath.DEFAULT::getFullName));
+                                        .orElseGet(TablePath.DEFAULT::getFullName);
                     }
 
-                    taskMetricsCalcContext.updateMetrics(record.getData(), tableId.get());
+                    taskMetricsCalcContext.updateMetrics(record.getData(), tableId);
                 }
             }
         } catch (Exception e) {
