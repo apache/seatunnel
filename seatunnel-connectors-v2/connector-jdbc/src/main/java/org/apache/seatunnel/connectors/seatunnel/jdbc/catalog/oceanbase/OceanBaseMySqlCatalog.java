@@ -29,7 +29,6 @@ import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.JdbcColumnConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbase.OceanBaseMySqlTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbase.OceanBaseMysqlType;
 
@@ -226,7 +225,7 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
                 tablePath.getDatabaseName(), tablePath.getTableName());
     }
 
-    public static CatalogTable getCatalogTable(
+    public CatalogTable getCatalogTable(
             ResultSetMetaData resultSetMetaData, DatabaseMetaData databaseMetaData, String sqlQuery)
             throws SQLException {
         TableSchema.Builder schemaBuilder = TableSchema.builder();
@@ -251,7 +250,7 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
                 StringUtils.isBlank(tableName)
                         ? TablePath.DEFAULT
                         : TablePath.of(databaseName, schemaName, tableName);
-        List<Column> columns = JdbcColumnConverter.convert(databaseMetaData, tablePath);
+        List<Column> columns = OceanBaseMySqlTypeConverter.convert(databaseMetaData, tablePath);
         ResultSet primaryKeys = databaseMetaData.getPrimaryKeys(catalogName, schemaName, tableName);
         while (primaryKeys.next()) {
             String primaryKey = primaryKeys.getString("COLUMN_NAME");
