@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.sink.multitablesink;
 
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportCheckpointIdDownStream;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
@@ -46,7 +47,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 public class MultiTableSinkWriter
-        implements SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState> {
+        implements SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState>,
+                SupportCheckpointIdDownStream {
 
     private final Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters;
     private final Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext;
@@ -220,6 +222,11 @@ public class MultiTableSinkWriter
 
     @Override
     public Optional<MultiTableCommitInfo> prepareCommit() throws IOException {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<MultiTableCommitInfo> prepareCommit(long checkpointId) throws IOException {
         checkQueueRemain();
         subSinkErrorCheck();
         MultiTableCommitInfo multiTableCommitInfo =
@@ -238,7 +245,14 @@ public class MultiTableSinkWriter
                                                             .entrySet()) {
                                         Optional<?> commit;
                                         try {
-                                            commit = sinkWriterEntry.getValue().prepareCommit();
+                                            SinkWriter<SeaTunnelRow, ?, ?> sinkWriter =
+                                                    sinkWriterEntry.getValue();
+                                            commit =
+                                                    (sinkWriter
+                                                                    instanceof
+                                                                    SupportCheckpointIdDownStream)
+                                                            ? sinkWriter.prepareCommit(checkpointId)
+                                                            : sinkWriter.prepareCommit();
                                         } catch (IOException e) {
                                             throw new RuntimeException(e);
                                         }

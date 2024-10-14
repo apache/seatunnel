@@ -20,6 +20,7 @@ package org.apache.seatunnel.translation.spark.sink.writer;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportCheckpointIdDownStream;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
 import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -87,7 +88,10 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
         // 2. commit fails
         //   2.1. We have the commit info, we need to execute the sinkCommitter#abort to rollback
         // the transaction.
-        Optional<CommitInfoT> commitInfoTOptional = sinkWriter.prepareCommit();
+        Optional<CommitInfoT> commitInfoTOptional =
+                (sinkWriter instanceof SupportCheckpointIdDownStream)
+                        ? sinkWriter.prepareCommit(epochId)
+                        : sinkWriter.prepareCommit();
         commitInfoTOptional.ifPresent(commitInfoT -> latestCommitInfoT = commitInfoT);
         sinkWriter.snapshotState(epochId++);
         if (sinkCommitter != null) {

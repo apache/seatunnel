@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportCheckpointIdDownStream;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
 import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
@@ -185,7 +186,10 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 }
                 if (barrier.snapshot()) {
                     try {
-                        lastCommitInfo = writer.prepareCommit();
+                        lastCommitInfo =
+                                (writer instanceof SupportCheckpointIdDownStream)
+                                        ? writer.prepareCommit(barrier.getId())
+                                        : writer.prepareCommit();
                     } catch (Exception e) {
                         writer.abortPrepare();
                         throw e;

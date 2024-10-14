@@ -15,23 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit;
+package org.apache.seatunnel.api.sink;
 
-import org.apache.paimon.table.sink.CommitMessage;
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
-
-import java.io.Serializable;
-import java.util.List;
-
-/** Paimon connector commit information class, contains the list of {@link CommitMessage}. */
-@Data
-@AllArgsConstructor
-public class PaimonCommitInfo implements Serializable {
-    private static final long serialVersionUID = 1L;
-
-    List<CommitMessage> committables;
-
-    Long checkpointId;
-}
+/**
+ * The Sink Connectors which prepareCommit() or commit() that need checkpointId should implement
+ * this interface
+ */
+public interface SupportCheckpointIdDownStream {}
