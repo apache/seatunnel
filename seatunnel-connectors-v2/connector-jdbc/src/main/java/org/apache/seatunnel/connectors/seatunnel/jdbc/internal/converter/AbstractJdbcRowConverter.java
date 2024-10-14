@@ -29,8 +29,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErr
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
 
-import org.postgresql.util.PGobject;
-
 import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
@@ -63,7 +61,6 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
     protected static final BigDecimal[] TYPE_ARRAY_BIG_DECIMAL = new BigDecimal[0];
     protected static final LocalDate[] TYPE_ARRAY_LOCAL_DATE = new LocalDate[0];
     protected static final LocalDateTime[] TYPE_ARRAY_LOCAL_DATETIME = new LocalDateTime[0];
-    protected static final String PG_INET = "inet";
 
     public abstract String converterName();
 

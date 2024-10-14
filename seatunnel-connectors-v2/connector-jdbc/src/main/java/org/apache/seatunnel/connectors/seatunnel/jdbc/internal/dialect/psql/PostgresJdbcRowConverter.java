@@ -41,7 +41,6 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
 
     private static final String PG_GEOMETRY = "GEOMETRY";
     private static final String PG_GEOGRAPHY = "GEOGRAPHY";
-    private static final String PG_INET = "INET";
 
     @Override
     public String converterName() {
