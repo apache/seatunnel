@@ -82,6 +82,7 @@
         <module>connector-email-e2e</module>
         <module>connector-cdc-opengauss-e2e</module>
         <module>connector-cdc-tidb-e2e</module>
+        <module>connector-timeplus-e2e</module>
     </modules>
 
     <dependencies>

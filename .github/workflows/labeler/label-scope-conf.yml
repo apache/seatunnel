@@ -293,3 +293,8 @@ sls:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-sls/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(sls)/**'
+timeplus:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-timeplus/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(timeplus)/**'
