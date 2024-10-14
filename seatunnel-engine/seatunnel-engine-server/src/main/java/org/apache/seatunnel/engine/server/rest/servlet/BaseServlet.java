@@ -39,6 +39,7 @@ import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.operation.CancelJobOperation;
+import org.apache.seatunnel.engine.server.operation.GetClusterHealthMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
 import org.apache.seatunnel.engine.server.operation.SavePointJobOperation;
@@ -52,6 +53,9 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import com.google.gson.Gson;
+import com.hazelcast.cluster.Address;
+import com.hazelcast.cluster.Cluster;
+import com.hazelcast.cluster.Member;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
@@ -59,6 +63,7 @@ import com.hazelcast.internal.json.JsonValue;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.spi.impl.NodeEngineImpl;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -70,6 +75,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -92,6 +99,7 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SOURCE_
 import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SOURCE_RECEIVED_COUNT;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SOURCE_RECEIVED_QPS;
 
+@Slf4j
 public class BaseServlet extends HttpServlet {
 
     protected final NodeEngineImpl nodeEngine;
@@ -134,6 +142,16 @@ public class BaseServlet extends HttpServlet {
         resp.setContentType("application/json");
         resp.setStatus(statusCode);
         resp.getWriter().write(new Gson().toJson(obj));
+    }
+
+    protected void write(HttpServletResponse resp, Object obj) throws IOException {
+        resp.setContentType("text/plain");
+        resp.getWriter().write(obj.toString());
+    }
+
+    protected void writeHtml(HttpServletResponse resp, Object obj) throws IOException {
+        resp.setContentType("text/html; charset=UTF-8");
+        resp.getWriter().write(obj.toString());
     }
 
     protected JsonObject convertToJson(JobInfo jobInfo, long jobId) {
@@ -574,5 +592,40 @@ public class BaseServlet extends HttpServlet {
                         data,
                         jobImmutableInformation.isStartWithSavePoint());
         voidPassiveCompletableFuture.join();
+    }
+
+    protected JsonArray getSystemMonitoringInformationJsonValues() {
+        Cluster cluster = nodeEngine.getHazelcastInstance().getCluster();
+
+        Set<Member> members = cluster.getMembers();
+        JsonArray jsonValues =
+                members.stream()
+                        .map(
+                                member -> {
+                                    Address address = member.getAddress();
+                                    String input = null;
+                                    try {
+                                        input =
+                                                (String)
+                                                        NodeEngineUtil.sendOperationToMemberNode(
+                                                                        nodeEngine,
+                                                                        new GetClusterHealthMetricsOperation(),
+                                                                        address)
+                                                                .get();
+                                    } catch (InterruptedException | ExecutionException e) {
+                                        log.error("Failed to get cluster health metrics", e);
+                                    }
+                                    String[] parts = input.split(", ");
+                                    JsonObject jobInfo = new JsonObject();
+                                    Arrays.stream(parts)
+                                            .forEach(
+                                                    part -> {
+                                                        String[] keyValue = part.split("=");
+                                                        jobInfo.add(keyValue[0], keyValue[1]);
+                                                    });
+                                    return jobInfo;
+                                })
+                        .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+        return jsonValues;
     }
 }

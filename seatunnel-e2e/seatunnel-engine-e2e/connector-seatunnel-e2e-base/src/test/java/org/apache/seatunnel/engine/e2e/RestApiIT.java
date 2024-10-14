@@ -166,6 +166,20 @@ public class RestApiIT {
                                                             .contains(
                                                                     clientJobProxy.getJobId()
                                                                             + ".log"));
+                                            Assertions.assertTrue(
+                                                    given().get(
+                                                                    HOST
+                                                                            + value
+                                                                            + node1Config
+                                                                                    .getEngineConfig()
+                                                                                    .getHttpConfig()
+                                                                                    .getContextPath()
+                                                                            + RestConstant.GET_LOGS)
+                                                            .body()
+                                                            .prettyPrint()
+                                                            .contains(
+                                                                    clientJobProxy.getJobId()
+                                                                            + ".log"));
 
                                             // Verify log list interface logs/:jobId
                                             String logList =

@@ -882,7 +882,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 + "</body></html>";
     }
 
-    private static String getFileLogPath(PropertiesConfiguration config)
+    private String getFileLogPath(PropertiesConfiguration config)
             throws NoSuchFieldException, IllegalAccessException {
         Field propertiesField = BuiltConfiguration.class.getDeclaredField("appendersComponent");
         propertiesField.setAccessible(true);
