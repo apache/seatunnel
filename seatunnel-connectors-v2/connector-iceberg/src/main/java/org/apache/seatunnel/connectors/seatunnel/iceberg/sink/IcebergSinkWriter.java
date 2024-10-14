@@ -146,7 +146,15 @@ public class IcebergSinkWriter
     public void abortPrepare() {}
 
     @Override
-    public void close() throws IOException {}
+    public void close() throws IOException {
+        try {
+            if (writer != null) {
+                writer.close();
+            }
+        } finally {
+            results.clear();
+        }
+    }
 
     private String fieldsInfo(SeaTunnelRowType seaTunnelRowType) {
         String[] fieldsInfo = new String[seaTunnelRowType.getTotalFields()];

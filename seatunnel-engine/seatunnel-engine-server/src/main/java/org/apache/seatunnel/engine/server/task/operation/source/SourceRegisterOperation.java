@@ -60,7 +60,7 @@ public class SourceRegisterOperation extends TracingOperation
                     ClassLoader classLoader =
                             server.getTaskExecutionService()
                                     .getExecutionContext(enumeratorTaskID.getTaskGroupLocation())
-                                    .getClassLoader();
+                                    .getClassLoader(enumeratorTaskID.getTaskID());
                     ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
                     SourceSplitEnumeratorTask<?> task =
                             server.getTaskExecutionService().getTask(enumeratorTaskID);

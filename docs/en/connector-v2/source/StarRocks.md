@@ -19,25 +19,25 @@ delivers the query plan as a parameter to BE nodes, and then obtains data result
 
 ## Options
 
-|          name           |  type  | required |   default value   |
-|-------------------------|--------|----------|-------------------|
-| node_urls               | list   | yes      | -                 |
-| username                | string | yes      | -                 |
-| password                | string | yes      | -                 |
-| database                | string | yes      | -                 |
-| table                   | string | yes      | -                 |
-| scan_filter             | string | no       | -                 |
-| schema                  | config | yes      | -                 |
-| request_tablet_size     | int    | no       | Integer.MAX_VALUE |
-| scan_connect_timeout_ms | int    | no       | 30000             |
-| scan_query_timeout_sec  | int    | no       | 3600              |
-| scan_keep_alive_min     | int    | no       | 10                |
-| scan_batch_rows         | int    | no       | 1024              |
-| scan_mem_limit          | long   | no       | 2147483648        |
-| max_retries             | int    | no       | 3                 |
-| scan.params.*           | string | no       | -                 |
+| name                     |  type  | required |   default value   |
+|--------------------------|--------|----------|-------------------|
+| nodeUrls                 | list   | yes      | -                 |
+| username                 | string | yes      | -                 |
+| password                 | string | yes      | -                 |
+| database                 | string | yes      | -                 |
+| table                    | string | yes      | -                 |
+| scan_filter              | string | no       | -                 |
+| schema                   | config | yes      | -                 |
+| request_tablet_size      | int    | no       | Integer.MAX_VALUE |
+| scan_connect_timeout_ms  | int    | no       | 30000             |
+| scan_query_timeout_sec   | int    | no       | 3600              |
+| scan_keep_alive_min      | int    | no       | 10                |
+| scan_batch_rows          | int    | no       | 1024              |
+| scan_mem_limit           | long   | no       | 2147483648        |
+| max_retries              | int    | no       | 3                 |
+| scan.params.*            | string | no       | -                 |
 
-### node_urls [list]
+### nodeUrls [list]
 
 `StarRocks` cluster address, the format is `["fe_ip:fe_http_port", ...]`
 

@@ -61,9 +61,6 @@ import java.util.stream.Collectors;
 public class DorisIT extends AbstractDorisIT {
     private static final String UNIQUE_TABLE = "doris_e2e_unique_table";
     private static final String DUPLICATE_TABLE = "doris_duplicate_table";
-    private static final String DRIVER_JAR =
-            "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-
     private static final String sourceDB = "e2e_source";
     private static final String sinkDB = "e2e_sink";
     private Connection conn;

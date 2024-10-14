@@ -37,7 +37,7 @@ public class TypesenseConnectionConfig {
                     .noDefaultValue()
                     .withDescription("Typesense api key");
 
-    public static final Option<String> protocol =
+    public static final Option<String> PROTOCOL =
             Options.key("protocol")
                     .stringType()
                     .defaultValue("http")

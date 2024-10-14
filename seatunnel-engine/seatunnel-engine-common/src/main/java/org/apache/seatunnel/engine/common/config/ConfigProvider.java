@@ -113,6 +113,10 @@ public final class ConfigProvider {
             yamlConfigLocator.locateDefault();
             config = new YamlClientConfigBuilder(yamlConfigLocator.getIn()).build();
         }
+        String stDockerMemberList = System.getenv("ST_DOCKER_MEMBER_LIST");
+        if (stDockerMemberList != null) {
+            config.getNetworkConfig().setAddresses(Arrays.asList(stDockerMemberList.split(",")));
+        }
         return config;
     }
 

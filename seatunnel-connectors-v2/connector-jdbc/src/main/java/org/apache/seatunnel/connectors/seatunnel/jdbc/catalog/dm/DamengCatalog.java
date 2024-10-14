@@ -21,6 +21,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.dm;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
@@ -33,6 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTy
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -41,18 +43,6 @@ import java.util.List;
 
 @Slf4j
 public class DamengCatalog extends AbstractJdbcCatalog {
-
-    private static final String SELECT_COLUMNS_SQL =
-            "SELECT COLUMNS.COLUMN_NAME, COLUMNS.DATA_TYPE, COLUMNS.DATA_LENGTH, COLUMNS.DATA_PRECISION, COLUMNS.DATA_SCALE "
-                    + ", COLUMNS.NULLABLE, COLUMNS.DATA_DEFAULT, COMMENTS.COMMENTS "
-                    + "FROM ALL_TAB_COLUMNS COLUMNS "
-                    + "LEFT JOIN ALL_COL_COMMENTS COMMENTS "
-                    + "ON COLUMNS.OWNER = COMMENTS.SCHEMA_NAME "
-                    + "AND COLUMNS.TABLE_NAME = COMMENTS.TABLE_NAME "
-                    + "AND COLUMNS.COLUMN_NAME = COMMENTS.COLUMN_NAME "
-                    + "WHERE COLUMNS.OWNER = '%s' "
-                    + "AND COLUMNS.TABLE_NAME = '%s' "
-                    + "ORDER BY COLUMNS.COLUMN_ID ASC";
 
     public DamengCatalog(
             String catalogName,
@@ -85,7 +75,7 @@ public class DamengCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getCreateTableSql(
             TablePath tablePath, CatalogTable table, boolean createIndex) {
-        throw new UnsupportedOperationException();
+        return new DamengCreateTableSqlBuilder(table, createIndex).build(tablePath);
     }
 
     @Override
@@ -95,7 +85,7 @@ public class DamengCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getTableName(TablePath tablePath) {
-        return tablePath.getSchemaAndTableName().toUpperCase();
+        return tablePath.getSchemaAndTableName("\"");
     }
 
     @Override
@@ -109,26 +99,18 @@ public class DamengCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected String getSelectColumnsSql(TablePath tablePath) {
-        return String.format(
-                SELECT_COLUMNS_SQL, tablePath.getSchemaName(), tablePath.getTableName());
-    }
-
-    @Override
     protected Column buildColumn(ResultSet resultSet) throws SQLException {
         String columnName = resultSet.getString("COLUMN_NAME");
-        String typeName = resultSet.getString("DATA_TYPE");
-        long columnLength = resultSet.getLong("DATA_LENGTH");
-        long columnPrecision = resultSet.getLong("DATA_PRECISION");
-        int columnScale = resultSet.getInt("DATA_SCALE");
-        String columnComment = resultSet.getString("COMMENTS");
-        Object defaultValue = resultSet.getObject("DATA_DEFAULT");
-        boolean isNullable = resultSet.getString("NULLABLE").equals("Y");
-
+        String typeName = resultSet.getString("TYPE_NAME");
+        Long columnLength = resultSet.getLong("COLUMN_SIZE");
+        Long columnPrecision = columnLength;
+        Integer columnScale = resultSet.getObject("DECIMAL_DIGITS", Integer.class);
+        String columnComment = resultSet.getString("REMARKS");
+        Object defaultValue = resultSet.getObject("COLUMN_DEF");
+        boolean isNullable = (resultSet.getInt("NULLABLE") == DatabaseMetaData.columnNullable);
         BasicTypeDefine typeDefine =
                 BasicTypeDefine.builder()
                         .name(columnName)
-                        .columnType(typeName)
                         .dataType(typeName)
                         .length(columnLength)
                         .precision(columnPrecision)
@@ -148,11 +130,6 @@ public class DamengCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getOptionTableName(TablePath tablePath) {
         return tablePath.getSchemaAndTableName();
-    }
-
-    private List<String> listTables() {
-        List<String> databases = listDatabases();
-        return listTables(databases.get(0));
     }
 
     @Override
@@ -183,5 +160,32 @@ public class DamengCatalog extends AbstractJdbcCatalog {
     public CatalogTable getTable(String sqlQuery) throws SQLException {
         Connection defaultConnection = getConnection(defaultUrl);
         return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery, new DmdbTypeMapper());
+    }
+
+    @Override
+    protected TableSchema.Builder buildColumnsReturnTablaSchemaBuilder(
+            TablePath tablePath, Connection conn) throws SQLException {
+        TableSchema.Builder columnsBuilder = TableSchema.builder();
+        DatabaseMetaData metaData = conn.getMetaData();
+        try (ResultSet resultSet =
+                metaData.getColumns(
+                        null, tablePath.getSchemaName(), tablePath.getTableName(), null)) {
+            buildColumnsWithErrorCheck(tablePath, resultSet, columnsBuilder);
+        }
+        return columnsBuilder;
+    }
+
+    @Override
+    protected String getTruncateTableSql(TablePath tablePath) {
+        return String.format(
+                "TRUNCATE TABLE \"%s\".\"%s\"",
+                tablePath.getSchemaName(), tablePath.getTableName());
+    }
+
+    @Override
+    protected String getExistDataSql(TablePath tablePath) {
+        return String.format(
+                "select * from \"%s\".\"%s\" WHERE rownum = 1",
+                tablePath.getSchemaName(), tablePath.getTableName());
     }
 }

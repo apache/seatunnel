@@ -17,10 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.sink.bucket;
 
-import org.apache.commons.collections.CollectionUtils;
-import org.apache.paimon.codegen.CodeGenUtils;
-import org.apache.paimon.codegen.Projection;
 import org.apache.paimon.crosspartition.IndexBootstrap;
+import org.apache.paimon.data.GenericRow;
 import org.apache.paimon.data.InternalRow;
 import org.apache.paimon.index.SimpleHashBucketAssigner;
 import org.apache.paimon.reader.RecordReader;
@@ -29,14 +27,19 @@ import org.apache.paimon.schema.TableSchema;
 import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.table.sink.RowPartitionKeyExtractor;
+import org.apache.paimon.types.DataField;
+import org.apache.paimon.types.DataType;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class PaimonBucketAssigner {
 
     private final RowPartitionKeyExtractor extractor;
-
-    private final Projection bucketKeyProjection;
 
     private final SimpleHashBucketAssigner simpleHashBucketAssigner;
 
@@ -46,10 +49,6 @@ public class PaimonBucketAssigner {
         FileStoreTable fileStoreTable = (FileStoreTable) table;
         this.schema = fileStoreTable.schema();
         this.extractor = new RowPartitionKeyExtractor(fileStoreTable.schema());
-        this.bucketKeyProjection =
-                CodeGenUtils.newProjection(
-                        fileStoreTable.schema().logicalRowType(),
-                        fileStoreTable.schema().projection(fileStoreTable.schema().bucketKeys()));
         long dynamicBucketTargetRowNum =
                 ((FileStoreTable) table).coreOptions().dynamicBucketTargetRowNum();
         this.simpleHashBucketAssigner =
@@ -59,13 +58,27 @@ public class PaimonBucketAssigner {
 
     private void loadBucketIndex(FileStoreTable fileStoreTable, int numAssigners, int assignId) {
         IndexBootstrap indexBootstrap = new IndexBootstrap(fileStoreTable);
+        List<String> fieldNames = schema.fieldNames();
+        Map<String, Integer> fieldIndexMap =
+                IntStream.range(0, fieldNames.size())
+                        .boxed()
+                        .collect(Collectors.toMap(fieldNames::get, Function.identity()));
+        List<DataField> primaryKeys = schema.primaryKeysFields();
         try (RecordReader<InternalRow> recordReader =
                 indexBootstrap.bootstrap(numAssigners, assignId)) {
             RecordReaderIterator<InternalRow> readerIterator =
                     new RecordReaderIterator<>(recordReader);
             while (readerIterator.hasNext()) {
                 InternalRow row = readerIterator.next();
-                assign(row);
+                GenericRow binaryRow = new GenericRow(fieldNames.size());
+                for (int i = 0; i < primaryKeys.size(); i++) {
+                    String name = primaryKeys.get(i).name();
+                    DataType type = primaryKeys.get(i).type();
+                    binaryRow.setField(
+                            fieldIndexMap.get(name),
+                            InternalRow.createFieldGetter(type, i).getFieldOrNull(row));
+                }
+                assign(binaryRow);
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -73,12 +86,7 @@ public class PaimonBucketAssigner {
     }
 
     public int assign(InternalRow rowData) {
-        int hash;
-        if (CollectionUtils.isEmpty(this.schema.bucketKeys())) {
-            hash = extractor.trimmedPrimaryKey(rowData).hashCode();
-        } else {
-            hash = bucketKeyProjection.apply(rowData).hashCode();
-        }
+        int hash = extractor.trimmedPrimaryKey(rowData).hashCode();
         return Math.abs(
                 this.simpleHashBucketAssigner.assign(this.extractor.partition(rowData), hash));
     }

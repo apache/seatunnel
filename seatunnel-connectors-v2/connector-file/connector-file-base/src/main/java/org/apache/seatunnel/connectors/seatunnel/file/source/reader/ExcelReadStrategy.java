@@ -36,7 +36,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorExc
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
-import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -151,7 +150,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                 || isNullOrEmpty(seaTunnelRowType.getFieldTypes())) {
             throw new FileConnectorException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                    "Schmea information is not set or incorrect schmea settings");
+                    "Schema information is not set or incorrect Schema settings");
         }
         SeaTunnelRowType userDefinedRowTypeWithPartition =
                 mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
@@ -190,8 +189,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                 return cell.getBooleanCellValue();
             case NUMERIC:
                 if (DateUtil.isCellDateFormatted(cell)) {
-                    DataFormatter formatter = new DataFormatter();
-                    return formatter.formatCellValue(cell);
+                    return cell.getLocalDateTimeCellValue();
                 }
                 return cell.getNumericCellValue();
             case ERROR:
@@ -215,7 +213,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             case ARRAY:
                 return objectMapper.readValue((String) field, fieldType.getTypeClass());
             case STRING:
-                return field;
+                return String.valueOf(field);
             case DOUBLE:
                 return Double.parseDouble(field.toString());
             case BOOLEAN:
@@ -233,12 +231,21 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             case DECIMAL:
                 return BigDecimal.valueOf(Double.parseDouble(field.toString()));
             case DATE:
+                if (field instanceof LocalDateTime) {
+                    return ((LocalDateTime) field).toLocalDate();
+                }
                 return LocalDate.parse(
                         (String) field, DateTimeFormatter.ofPattern(dateFormat.getValue()));
             case TIME:
+                if (field instanceof LocalDateTime) {
+                    return ((LocalDateTime) field).toLocalTime();
+                }
                 return LocalTime.parse(
                         (String) field, DateTimeFormatter.ofPattern(timeFormat.getValue()));
             case TIMESTAMP:
+                if (field instanceof LocalDateTime) {
+                    return field;
+                }
                 return LocalDateTime.parse(
                         (String) field, DateTimeFormatter.ofPattern(datetimeFormat.getValue()));
             case NULL:

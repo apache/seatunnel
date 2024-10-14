@@ -237,4 +237,9 @@ public class JdbcSink
         }
         return Optional.empty();
     }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
+    }
 }

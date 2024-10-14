@@ -19,25 +19,25 @@ support version >= 2.x and <= 8.x.
 
 ## Options
 
-| name                    | type    | required | default value                                                |
-| ----------------------- | ------- | -------- | ------------------------------------------------------------ |
-| hosts                   | array   | yes      | -                                                            |
-| username                | string  | no       | -                                                            |
-| password                | string  | no       | -                                                            |
+| name                    | type    | required | default value                                                  |
+|-------------------------|---------|----------|----------------------------------------------------------------|
+| hosts                   | array   | yes      | -                                                              |
+| username                | string  | no       | -                                                              |
+| password                | string  | no       | -                                                              |
 | index                   | string  | no       | If the index list does not exist, the index must be configured |
-| index_list              | array   | no       | used to define a multiple table task                         |
-| source                  | array   | no       | -                                                            |
-| query                   | json    | no       | {"match_all": {}}                                            |
-| scroll_time             | string  | no       | 1m                                                           |
-| scroll_size             | int     | no       | 100                                                          |
-| tls_verify_certificate  | boolean | no       | true                                                         |
-| tls_verify_hostnames    | boolean | no       | true                                                         |
-| array_column            | map     | no       |                                                              |
-| tls_keystore_path       | string  | no       | -                                                            |
-| tls_keystore_password   | string  | no       | -                                                            |
-| tls_truststore_path     | string  | no       | -                                                            |
-| tls_truststore_password | string  | no       | -                                                            |
-| common-options          |         | no       | -                                                            |
+| index_list              | array   | no       | used to define a multiple table task                           |
+| source                  | array   | no       | -                                                              |
+| query                   | json    | no       | {"match_all": {}}                                              |
+| scroll_time             | string  | no       | 1m                                                             |
+| scroll_size             | int     | no       | 100                                                            |
+| tls_verify_certificate  | boolean | no       | true                                                           |
+| tls_verify_hostnames    | boolean | no       | true                                                           |
+| array_column            | map     | no       |                                                                |
+| tls_keystore_path       | string  | no       | -                                                              |
+| tls_keystore_password   | string  | no       | -                                                              |
+| tls_truststore_path     | string  | no       | -                                                              |
+| tls_truststore_password | string  | no       | -                                                              |
+| common-options          |         | no       | -                                                              |
 
 
 

@@ -32,4 +32,6 @@ public interface TaskGroup extends Serializable {
     <T extends Task> T getTask(long taskID);
 
     void setTasksContext(Map<Long, TaskExecutionContext> taskExecutionContextMap);
+
+    TaskGroupType getTaskGroupType();
 }

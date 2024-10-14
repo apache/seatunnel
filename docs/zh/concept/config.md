@@ -206,11 +206,7 @@ export varName="value with space"
 ```
 然后您可以在配置文件中使用变量。
 
-如果您在配置文件中设置了没有默认值的变量，但在执行中未传递，则会抛出异常。
-如：
-```shell
-Caused by: org.apache.seatunnel.core.starter.exception.CommandExecuteException: Variable substitution error: ${resName}_table
-```
+如果您在配置文件中设置了没有默认值的变量，但在执行过程中未传递该变量，则会保留该变量值，系统不会抛出异常。但请您需要确保其他流程能够正确解析该变量值。例如，ElasticSearch的索引需要支持`${xxx}`这样的格式来动态指定索引。若其他流程不支持，程序可能无法正常运行。
 
 具体样例：
 ```hocon

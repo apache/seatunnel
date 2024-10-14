@@ -53,6 +53,7 @@ import scala.collection.immutable.HashMap.HashTrieMap;
 import scala.collection.mutable.WrappedArray;
 
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -107,17 +108,23 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case DECIMAL:
                 return Decimal.apply((BigDecimal) field);
             case ARRAY:
+                Class<?> elementTypeClass =
+                        ((ArrayType<?, ?>) dataType).getElementType().getTypeClass();
                 // if string array, we need to covert every item in array from String to UTF8String
                 if (((ArrayType<?, ?>) dataType).getElementType().equals(BasicType.STRING_TYPE)) {
                     Object[] fields = (Object[]) field;
-                    Object[] objects =
+                    UTF8String[] objects =
                             Arrays.stream(fields)
                                     .map(v -> UTF8String.fromString((String) v))
-                                    .toArray();
+                                    .toArray(UTF8String[]::new);
                     return ArrayData.toArrayData(objects);
                 }
                 // except string, now only support convert boolean int tinyint smallint bigint float
                 // double, because SeaTunnel Array only support these types
+                Object array = Array.newInstance(elementTypeClass, ((Object[]) field).length);
+                for (int i = 0; i < ((Object[]) field).length; i++) {
+                    Array.set(array, i, ((Object[]) field)[i]);
+                }
                 return ArrayData.toArrayData(field);
             default:
                 if (field instanceof scala.Some) {
@@ -339,14 +346,17 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
     }
 
     private static Object reconvertArray(ArrayData arrayData, ArrayType<?, ?> arrayType) {
+        Class<?> elementTypeClass = arrayType.getElementType().getTypeClass();
         if (arrayData == null || arrayData.numElements() == 0) {
             return Collections.emptyList().toArray();
         }
-        Object[] newArray = new Object[arrayData.numElements()];
+        Object[] newArray = (Object[]) Array.newInstance(elementTypeClass, arrayData.numElements());
         Object[] values =
                 arrayData.toObjectArray(TypeConverterUtils.convert(arrayType.getElementType()));
         for (int i = 0; i < arrayData.numElements(); i++) {
-            newArray[i] = reconvert(values[i], arrayType.getElementType());
+            Object reconvert =
+                    elementTypeClass.cast(reconvert(values[i], arrayType.getElementType()));
+            newArray[i] = reconvert;
         }
         return newArray;
     }
