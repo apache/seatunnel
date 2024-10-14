@@ -47,8 +47,7 @@ public class SlsIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testSlsStreamingSink(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult1 =
-                container.executeJob("/sls_sink_to_console.conf");
+        Container.ExecResult execResult1 = container.executeJob("/sls_sink_to_console.conf");
         Assertions.assertEquals(0, execResult1.getExitCode(), execResult1.getStderr());
     }
 
