@@ -47,7 +47,7 @@ public class ResourceUtils {
                 jobMaster.getPhysicalPlan().getPreApplyResourceFutures();
 
         // TODO If there is no enough resources for tasks, we need add some wait profile
-        applyResources(subPlan, futures, preApplyResourceFutures);
+        allocateResources(subPlan, futures, preApplyResourceFutures);
 
         futures.forEach(
                 (key, value) -> {
@@ -67,7 +67,7 @@ public class ResourceUtils {
         }
     }
 
-    private static void applyResources(
+    private static void allocateResources(
             SubPlan subPlan,
             Map<TaskGroupLocation, CompletableFuture<SlotProfile>> futures,
             Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures) {

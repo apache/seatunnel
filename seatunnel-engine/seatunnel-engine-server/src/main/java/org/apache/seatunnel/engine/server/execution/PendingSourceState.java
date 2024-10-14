@@ -18,8 +18,13 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
+/**
+ * This state is used in the pending scheduling queue to determine different processing logic for
+ * different tasks.
+ */
 public enum PendingSourceState {
+    // Task submitted through CoordinatorService.submitJob, set to SUBMIT
     SUBMIT,
-
+    // Task restored through restoreAllRunningJobFromMasterNodeSwitch, set to RESTORE
     RESTORE;
 }

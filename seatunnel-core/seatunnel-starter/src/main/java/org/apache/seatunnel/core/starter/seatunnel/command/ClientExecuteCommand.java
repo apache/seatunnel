@@ -58,7 +58,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.seatunnel.core.starter.utils.FileUtils.checkConfigExist;
 
@@ -201,12 +200,11 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                         seaTunnelConfig.getEngineConfig().getPrintJobMetricsInfoInterval(),
                         TimeUnit.SECONDS);
 
-                AtomicReference<String> lastJobStatus = new AtomicReference<>();
-                executorService.scheduleAtFixedRate(
-                        new JobStatusRunner(engineClient.getJobClient(), jobId, lastJobStatus),
+                executorService.schedule(
+                        new JobStatusRunner(engineClient.getJobClient(), jobId),
                         0,
-                        5,
                         TimeUnit.SECONDS);
+
                 // wait for job complete
                 JobResult jobResult = clientJobProxy.waitForJobCompleteV2();
                 jobStatus = jobResult.getStatus();

@@ -244,15 +244,16 @@ public class CoordinatorService {
         if (Objects.isNull(jobMaster)) {
             // This situation almost never happens because pendingJobSchedule is single-threaded
             logger.warning("The peek job master is null");
+            Thread.sleep(3000);
             return;
         }
-        logger.info(
+        logger.fine(
                 String.format(
                         "Start pending job schedule, pendingJob Size : %s", pendingJob.size()));
 
         Long jobId = jobMaster.getJobId();
 
-        logger.info(
+        logger.fine(
                 String.format(
                         "Start calculating whether pending task resources are enough: %s", jobId));
 
@@ -313,7 +314,7 @@ public class CoordinatorService {
     private void queueRemove(JobMaster jobMaster) throws InterruptedException {
         JobMaster take = pendingJob.take();
         if (take != jobMaster) {
-            logger.warning("The job master is not equal to the peek job master");
+            logger.severe("The job master is not equal to the peek job master");
         }
     }
 

@@ -82,4 +82,8 @@ public enum JobStatus {
     public boolean isEndState() {
         return endState != EndState.NOT_END;
     }
+
+    public static JobStatus fromString(String status) {
+        return JobStatus.valueOf(status.toUpperCase());
+    }
 }

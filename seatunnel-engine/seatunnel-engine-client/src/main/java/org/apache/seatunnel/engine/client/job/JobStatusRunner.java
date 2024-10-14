@@ -17,40 +17,59 @@
 
 package org.apache.seatunnel.engine.client.job;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.concurrent.atomic.AtomicReference;
-
 @Slf4j
 public class JobStatusRunner implements Runnable {
+
     private final JobClient jobClient;
     private final Long jobId;
-    private final AtomicReference<String> atomicReference;
 
-    public JobStatusRunner(
-            JobClient jobClient, Long jobId, AtomicReference<String> atomicReference) {
+    public JobStatusRunner(JobClient jobClient, Long jobId) {
         this.jobClient = jobClient;
         this.jobId = jobId;
-        this.atomicReference = atomicReference;
     }
 
     @Override
     public void run() {
         Thread.currentThread().setName("job-status-runner-" + jobId);
         try {
-            String jobStatus = jobClient.getJobStatus(jobId);
-            String lastJobStatus = atomicReference.get();
-            if (lastJobStatus == null
-                    || lastJobStatus.equals(JobStatus.PENDING.toString())
-                    || !lastJobStatus.equals(jobStatus)) {
-                atomicReference.set(jobStatus);
-                log.info("Job status: {}", jobStatus);
+            while (isPrint(jobClient.getJobStatus(jobId))) {
+                Thread.sleep(5000);
             }
-
         } catch (Exception e) {
-            log.warn("Failed to get job runner status.");
+            log.error("Failed to get job runner status. {}", ExceptionUtils.getMessage(e));
         }
+    }
+
+    private boolean isPrint(String jobStatus) {
+        boolean isPrint = true;
+        switch (JobStatus.fromString(jobStatus)) {
+            case PENDING:
+                this.log(jobStatus);
+                break;
+            case RUNNING:
+            case SCHEDULED:
+            case FAILING:
+            case FAILED:
+            case DOING_SAVEPOINT:
+            case SAVEPOINT_DONE:
+            case CANCELING:
+            case CANCELED:
+            case FINISHED:
+            case UNKNOWABLE:
+                this.log(jobStatus);
+                isPrint = false;
+            default:
+                break;
+        }
+        return isPrint;
+    }
+
+    private void log(String jobStatus) {
+        log.info("Job status: {}", jobStatus);
     }
 }
