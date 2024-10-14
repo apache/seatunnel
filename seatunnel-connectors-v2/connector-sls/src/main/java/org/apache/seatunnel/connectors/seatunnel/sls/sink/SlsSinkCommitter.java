@@ -15,19 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.sls;
+package org.apache.seatunnel.connectors.seatunnel.sls.sink;
 
-import org.apache.seatunnel.connectors.seatunnel.sls.sink.SlsSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.sls.source.SlsSourceFactory;
+import org.apache.seatunnel.api.sink.SinkCommitter;
+import org.apache.seatunnel.connectors.seatunnel.sls.state.SlsCommitInfo;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import java.io.IOException;
+import java.util.List;
 
-public class SlsFactoryTest {
-
-    @Test
-    void optionRule() {
-        Assertions.assertNotNull((new SlsSourceFactory()).optionRule());
-        Assertions.assertNotNull((new SlsSinkFactory()).optionRule());
+public class SlsSinkCommitter implements SinkCommitter<SlsCommitInfo> {
+    @Override
+    public List<SlsCommitInfo> commit(List<SlsCommitInfo> commitInfos) throws IOException {
+        // nothing to do, when write function, data had sended
+        return null;
     }
+
+    @Override
+    public void abort(List<SlsCommitInfo> commitInfos) throws IOException {}
 }

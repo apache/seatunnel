@@ -15,19 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.sls;
+package org.apache.seatunnel.connectors.seatunnel.sls.state;
 
-import org.apache.seatunnel.connectors.seatunnel.sls.sink.SlsSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.sls.source.SlsSourceFactory;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import java.util.List;
 
-public class SlsFactoryTest {
-
-    @Test
-    void optionRule() {
-        Assertions.assertNotNull((new SlsSourceFactory()).optionRule());
-        Assertions.assertNotNull((new SlsSinkFactory()).optionRule());
-    }
+@Data
+@AllArgsConstructor
+public class SlsAggregatedCommitInfo {
+    List<SlsCommitInfo> commitInfos;
 }

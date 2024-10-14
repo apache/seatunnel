@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    https://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,19 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.sls;
+package org.apache.seatunnel.connectors.seatunnel.file.sftp.config;
 
-import org.apache.seatunnel.connectors.seatunnel.sls.sink.SlsSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.sls.source.SlsSourceFactory;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+public class MultipleTableSFTPFileSourceConfig extends BaseMultipleTableFileSourceConfig {
 
-public class SlsFactoryTest {
+    public MultipleTableSFTPFileSourceConfig(ReadonlyConfig ossFileSourceRootConfig) {
+        super(ossFileSourceRootConfig);
+    }
 
-    @Test
-    void optionRule() {
-        Assertions.assertNotNull((new SlsSourceFactory()).optionRule());
-        Assertions.assertNotNull((new SlsSinkFactory()).optionRule());
+    @Override
+    public BaseFileSourceConfig getBaseSourceConfig(ReadonlyConfig readonlyConfig) {
+        return new SFTPFileSourceConfig(readonlyConfig);
     }
 }
