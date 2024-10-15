@@ -106,7 +106,6 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
                     new DebeziumJsonDeserializeSchema(
                             config.get(JdbcSourceOptions.DEBEZIUM_PROPERTIES));
         }
-
         SeaTunnelDataType<SeaTunnelRow> physicalRowType = dataType;
         String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
         return (DebeziumDeserializationSchema<T>)
