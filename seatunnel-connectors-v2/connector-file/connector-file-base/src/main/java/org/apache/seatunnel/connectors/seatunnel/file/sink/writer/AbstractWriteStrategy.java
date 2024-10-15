@@ -124,11 +124,23 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         String[] fieldNames = seaTunnelRowType.getFieldNames();
         List<String> newFieldNames = new ArrayList<>();
         List<SeaTunnelDataType<?>> newFieldTypes = new ArrayList<>();
-        sinkColumnsIndex.forEach(
-                index -> {
-                    newFieldNames.add(fieldNames[index]);
-                    newFieldTypes.add(fieldTypes[index]);
-                });
+        if (fieldNames.length != sinkColumnsIndex.size()) {
+            sinkColumnsIndex = new ArrayList<>();
+            for (int i = 0; i < fieldNames.length; i++) {
+                sinkColumnsIndex.add(i);
+            }
+            sinkColumnsIndex.forEach(
+                    index -> {
+                        newFieldNames.add(fieldNames[index]);
+                        newFieldTypes.add(fieldTypes[index]);
+                    });
+        } else {
+            sinkColumnsIndex.forEach(
+                    index -> {
+                        newFieldNames.add(fieldNames[index]);
+                        newFieldTypes.add(fieldTypes[index]);
+                    });
+        }
         return new SeaTunnelRowType(
                 newFieldNames.toArray(new String[0]),
                 newFieldTypes.toArray(new SeaTunnelDataType[0]));
