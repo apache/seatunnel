@@ -31,7 +31,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-|             name              |  type   | required | default value  |
+| name                          |  type   | required | default value  |
 |-------------------------------|---------|----------|----------------|
 | table_name                    | string  | yes      | -              |
 | metastore_uri                 | string  | yes      | -              |
@@ -44,6 +44,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | kerberos_principal            | string  | no       | -              |
 | kerberos_keytab_path          | string  | no       | -              |
 | abort_drop_partition_metadata | boolean | no       | true           |
+| overwrite                     | boolean | no       | false          |
 | common-options                |         | no       | -              |
 
 ### table_name [string]
@@ -87,6 +88,10 @@ The keytab path of kerberos
 ### abort_drop_partition_metadata [boolean]
 
 Flag to decide whether to drop partition metadata from Hive Metastore during an abort operation. Note: this only affects the metadata in the metastore, the data in the partition will always be deleted(data generated during the synchronization process).
+
+### overwrite [boolean]
+
+Flag to decide whether to use overwrite mode when inserting data into Hive. If set to true, for non-partitioned tables, the existing data in the table will be deleted before inserting new data. For partitioned tables, the data in the relevant partition will be deleted before inserting new data.
 
 ### common options
 
