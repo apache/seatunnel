@@ -39,6 +39,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Properties;
 
 import static java.math.BigDecimal.ROUND_CEILING;
 import static org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils.doubleCompare;
@@ -62,6 +63,8 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
             long start = System.currentTimeMillis();
 
             Column splitColumn = getSplitColumn(jdbc, dialect, tableId);
+            System.out.println("getSplitColumn");
+            System.out.println(splitColumn.name());
             List<SnapshotSplit> splits = new ArrayList<>();
             if (splitColumn == null) {
                 if (sourceConfig.isExactlyOnce()) {
@@ -383,15 +386,16 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
         Table table = dialect.queryTableSchema(jdbc, tableId).getTable();
 
         // first , compare user defined split column is in the primary key or unique key
-        String sc = null;
+        Properties splitColumnProperties = new Properties();
         try {
-            sc = sourceConfig.getSplitColumn();
+            splitColumnProperties = sourceConfig.getSplitColumn();
         } catch (Exception e) {
             log.error("Config splitColumn get exception in {}:{}", tableId, e);
         }
-        Boolean isUniqueKey = dialect.isUniqueKey(jdbc, tableId, sc);
+        String tableSc = (String) splitColumnProperties.get(tableId.catalog()+"."+tableId.table());
+        Boolean isUniqueKey = dialect.isUniqueKey(jdbc, tableId, tableSc);
         if (isUniqueKey) {
-            Column column = table.columnWithName(sc);
+            Column column = table.columnWithName(tableSc);
             return column;
         } else {
             log.warn("Config splitColumn not exists or not unique key for table {}", tableId);

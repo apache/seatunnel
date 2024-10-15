@@ -51,7 +51,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
             JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD.defaultValue();
     protected int inverseSamplingRate = JdbcSourceOptions.INVERSE_SAMPLING_RATE.defaultValue();
     protected int splitSize = SourceOptions.SNAPSHOT_SPLIT_SIZE.defaultValue();
-    protected String splitColumn = SourceOptions.SNAPSHOT_SPLIT_COLUMN.defaultValue();;
+    protected Properties splitColumn;
     protected int fetchSize = SourceOptions.SNAPSHOT_FETCH_SIZE.defaultValue();
     protected String serverTimeZone = JdbcSourceOptions.SERVER_TIME_ZONE.defaultValue();
     protected long connectTimeoutMillis = JdbcSourceOptions.CONNECT_TIMEOUT_MS.defaultValue();
@@ -66,7 +66,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         return this;
     }
 
-    public JdbcSourceConfigFactory splitColumn(String splitColumn) {
+    public JdbcSourceConfigFactory splitColumn(Properties splitColumn) {
         this.splitColumn = splitColumn;
         return this;
     }
@@ -245,7 +245,9 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.sampleShardingThreshold = config.get(JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD);
         this.inverseSamplingRate = config.get(JdbcSourceOptions.INVERSE_SAMPLING_RATE);
         this.splitSize = config.get(SourceOptions.SNAPSHOT_SPLIT_SIZE);
-        this.splitColumn = config.get(SourceOptions.SNAPSHOT_SPLIT_COLUMN);
+        this.splitColumn = new Properties();
+        config.getOptional(SourceOptions.SNAPSHOT_SPLIT_COLUMN)
+                .ifPresent(map -> splitColumn.putAll(map));
         this.fetchSize = config.get(SourceOptions.SNAPSHOT_FETCH_SIZE);
         this.serverTimeZone = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
         this.connectTimeoutMillis = config.get(JdbcSourceOptions.CONNECT_TIMEOUT_MS);

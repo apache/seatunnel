@@ -34,7 +34,7 @@ public abstract class BaseSourceConfig implements SourceConfig {
     @Getter protected final StopConfig stopConfig;
 
     @Getter protected final int splitSize;
-    @Getter protected final String splitColumn;
+    @Getter protected final Properties splitColumn;
 
     @Getter protected final double distributionFactorUpper;
     @Getter protected final double distributionFactorLower;
@@ -51,7 +51,7 @@ public abstract class BaseSourceConfig implements SourceConfig {
             StartupConfig startupConfig,
             StopConfig stopConfig,
             int splitSize,
-            String splitColumn,
+            Properties splitColumn,
             double distributionFactorUpper,
             double distributionFactorLower,
             int sampleShardingThreshold,

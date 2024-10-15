@@ -37,9 +37,9 @@ public class SourceOptions {
                     .withDescription(
                             "The split size (number of rows) of table snapshot, captured tables are split into multiple splits when read the snapshot of table.");
 
-    public static final Option<String> SNAPSHOT_SPLIT_COLUMN =
+    public static final Option<Map<String, String>> SNAPSHOT_SPLIT_COLUMN =
             Options.key("snapshot.split.column")
-                    .stringType()
+                    .mapType()
                     .noDefaultValue()
                     .withDescription(
                             "The split column of table snapshot, captured tables are split into multiple splits when read the snapshot of table.");
