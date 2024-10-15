@@ -48,18 +48,18 @@ public class JobInfoServlet extends BaseServlet {
         if (jobId != null && jobId.length() > 1) {
             jobId = jobId.substring(1);
         } else {
-            jobId = "";
+            throw new IllegalArgumentException("The jobId must not be empty.");
         }
 
         IMap<Object, Object> jobInfoMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
-        JobInfo jobInfo = (JobInfo) jobInfoMap.get(Long.valueOf(jobId));
+        Object jobInfo = jobInfoMap.get(Long.valueOf(jobId));
         IMap<Object, Object> finishedJobStateMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE);
-        JobState finishedJobState = (JobState) finishedJobStateMap.get(Long.valueOf(jobId));
-        if (!jobId.isEmpty() && jobInfo != null) {
-            writeJson(resp, convertToJson(jobInfo, Long.parseLong(jobId)));
-        } else if (!jobId.isEmpty() && finishedJobState != null) {
+        Object finishedJobState = finishedJobStateMap.get(Long.valueOf(jobId));
+        if (jobInfo != null) {
+            writeJson(resp, convertToJson((JobInfo) jobInfo, Long.parseLong(jobId)));
+        } else if (finishedJobState != null) {
             JobMetrics finishedJobMetrics =
                     (JobMetrics)
                             nodeEngine
@@ -75,7 +75,7 @@ public class JobInfoServlet extends BaseServlet {
             writeJson(
                     resp,
                     getJobInfoJson(
-                            finishedJobState,
+                            (JobState) finishedJobState,
                             finishedJobMetrics.toJsonString(),
                             finishedJobDAGInfo));
         } else {

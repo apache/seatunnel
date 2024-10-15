@@ -218,7 +218,7 @@ public class BaseServlet extends HttpServlet {
                 .add(
                         RestConstant.IS_START_WITH_SAVE_POINT,
                         jobImmutableInformation.isStartWithSavePoint())
-                .add(RestConstant.METRICS, toJsonObject(getJobMetrics(jobMetrics)));
+                .add(RestConstant.METRICS, metricsToJsonObject(getJobMetrics(jobMetrics)));
 
         return jobInfoJson;
     }
@@ -296,7 +296,7 @@ public class BaseServlet extends HttpServlet {
                                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
                 .add(RestConstant.JOB_DAG, jobDAGInfo.toJsonObject())
                 .add(RestConstant.PLUGIN_JARS_URLS, new JsonArray())
-                .add(RestConstant.METRICS, toJsonObject(getJobMetrics(jobMetrics)));
+                .add(RestConstant.METRICS, metricsToJsonObject(getJobMetrics(jobMetrics)));
     }
 
     private Map<String, Object> getJobMetrics(String jobMetrics) {
@@ -584,12 +584,12 @@ public class BaseServlet extends HttpServlet {
         voidPassiveCompletableFuture.join();
     }
 
-    private JsonObject toJsonObject(Map<String, Object> jobMetrics) {
+    private JsonObject metricsToJsonObject(Map<String, Object> jobMetrics) {
         JsonObject members = new JsonObject();
         jobMetrics.forEach(
                 (key, value) -> {
                     if (value instanceof Map) {
-                        members.add(key, toJsonObject((Map<String, Object>) value));
+                        members.add(key, metricsToJsonObject((Map<String, Object>) value));
                     } else {
                         members.add(key, value.toString());
                     }

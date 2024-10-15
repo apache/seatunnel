@@ -323,6 +323,12 @@ public class RestApiIT {
                                                     .body(
                                                             "[0].jobDag.vertexInfoMap[1].tablePaths[0]",
                                                             equalTo("fake"))
+                                                    .body(
+                                                            "[0].jobDag.envOptions.'job.mode'",
+                                                            equalTo("STREAMING"))
+                                                    .body(
+                                                            "[0].jobDag.envOptions.'checkpoint.interval'",
+                                                            equalTo("5000"))
                                                     .body("[0].jobName", equalTo("fake_to_file"))
                                                     .body("[0].jobStatus", equalTo("RUNNING"));
 
@@ -379,6 +385,12 @@ public class RestApiIT {
                                                     .body(
                                                             "[0].jobDag.vertexInfoMap[1].tablePaths[0]",
                                                             equalTo("fake"))
+                                                    .body(
+                                                            "[0].jobDag.envOptions.'job.mode'",
+                                                            equalTo("STREAMING"))
+                                                    .body(
+                                                            "[0].jobDag.envOptions.'checkpoint.interval'",
+                                                            equalTo("5000"))
                                                     .body("[0].jobName", equalTo("fake_to_file"))
                                                     .body("[0].jobStatus", equalTo("RUNNING"));
                                         }));
@@ -448,6 +460,9 @@ public class RestApiIT {
                                                         equalTo("5"))
                                                 .body("metrics.SinkWriteCount", equalTo("5"))
                                                 .body("metrics.SourceReceivedCount", equalTo("5"))
+                                                .body(
+                                                        "[0].jobDag.envOptions.'job.mode'",
+                                                        equalTo("BATCH"))
                                                 .body("jobName", equalTo("fake_to_console"))
                                                 .body("jobStatus", equalTo("FINISHED"));
 
@@ -511,6 +526,9 @@ public class RestApiIT {
                                                         equalTo("5"))
                                                 .body("metrics.SinkWriteCount", equalTo("5"))
                                                 .body("metrics.SourceReceivedCount", equalTo("5"))
+                                                .body(
+                                                        "[0].jobDag.envOptions.'job.mode'",
+                                                        equalTo("BATCH"))
                                                 .body("jobName", equalTo("fake_to_console"))
                                                 .body("jobStatus", equalTo("FINISHED"));
                                     });

@@ -705,9 +705,6 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 .add(RestConstant.JOB_NAME, logicalDag.getJobConfig().getName())
                 .add(RestConstant.JOB_STATUS, jobStatus.toString())
                 .add(
-                        RestConstant.ENV_OPTIONS,
-                        JsonUtil.toJsonObject(logicalDag.getJobConfig().getEnvOptions()))
-                .add(
                         RestConstant.CREATE_TIME,
                         DateTimeUtils.toString(
                                 jobImmutableInformation.getCreateTime(),
