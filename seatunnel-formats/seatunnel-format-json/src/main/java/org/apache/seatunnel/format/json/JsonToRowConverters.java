@@ -250,6 +250,9 @@ public class JsonToRowConverters implements Serializable {
     }
 
     private LocalDate convertToLocalDate(JsonNode jsonNode, String fieldName) {
+        if ("".equals(jsonNode.asText())) {
+            return null;
+        }
         String dateStr = jsonNode.asText();
         DateTimeFormatter dateFormatter = fieldFormatterMap.get(fieldName);
         if (dateFormatter == null) {
@@ -264,11 +267,18 @@ public class JsonToRowConverters implements Serializable {
     }
 
     private LocalTime convertToLocalTime(JsonNode jsonNode) {
+        if ("".equals(jsonNode.asText())) {
+            return null;
+        }
         TemporalAccessor parsedTime = TIME_FORMAT.parse(jsonNode.asText());
         return parsedTime.query(TemporalQueries.localTime());
     }
 
     private LocalDateTime convertToLocalDateTime(JsonNode jsonNode, String fieldName) {
+        if ("".equals(jsonNode.asText())) {
+            return null;
+        }
+
         String datetimeStr = jsonNode.asText();
         DateTimeFormatter dateTimeFormatter = fieldFormatterMap.get(fieldName);
         if (dateTimeFormatter == null) {
