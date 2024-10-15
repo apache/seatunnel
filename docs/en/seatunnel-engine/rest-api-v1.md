@@ -121,10 +121,19 @@ network:
     },
     "createTime": "",
     "jobDag": {
-      "vertices": [
+      "jobId": "",
+      "envOptions": [],
+      "vertexInfoMap": [
+        {
+          "vertexId": 1,
+          "type": "",
+          "vertexName": "",
+          "tablePaths": [
+            ""
+          ]
+        }
       ],
-      "edges": [
-      ]
+      "pipelineEdges": {}
     },
     "pluginJarsUrls": [
     ],
@@ -162,6 +171,7 @@ network:
   "createTime": "",
   "jobDag": {
     "jobId": "",
+    "envOptions": [],
     "vertexInfoMap": [
       {
         "vertexId": 1,
@@ -227,6 +237,7 @@ This API has been deprecated, please use /hazelcast/rest/maps/job-info/:jobId in
   "createTime": "",
   "jobDag": {
     "jobId": "",
+    "envOptions": [],
     "vertexInfoMap": [
       {
         "vertexId": 1,
@@ -307,6 +318,7 @@ When we can't get the job info, the response will be:
     "finishTime": "",
     "jobDag": {
       "jobId": "",
+      "envOptions": [],
       "vertexInfoMap": [
         {
           "vertexId": 1,
