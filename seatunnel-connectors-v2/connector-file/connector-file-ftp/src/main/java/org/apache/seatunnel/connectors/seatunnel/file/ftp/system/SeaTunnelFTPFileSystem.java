@@ -156,10 +156,7 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
         }
 
         setFsFtpConnectionMode(
-                client,
-                conf.get(
-                        FS_FTP_CONNECTION_MODE,
-                        FtpConnectionMode.ACTIVE_LOCAL_DATA_CONNECTION_MODE.getMode()));
+                client, conf.get(FS_FTP_CONNECTION_MODE, FtpConnectionMode.ACTIVE_LOCAL.getMode()));
 
         return client;
     }
@@ -172,13 +169,14 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
      */
     private void setFsFtpConnectionMode(FTPClient client, String mode) {
         switch (FtpConnectionMode.fromMode(mode)) {
-            case ACTIVE_LOCAL_DATA_CONNECTION_MODE:
+            case ACTIVE_LOCAL:
                 client.enterLocalActiveMode();
                 break;
-            case PASSIVE_LOCAL_DATA_CONNECTION_MODE:
+            case PASSIVE_LOCAL:
                 client.enterLocalPassiveMode();
                 break;
             default:
+                System.out.println("Unsupported FTP connection mode: " + mode);
                 break;
         }
     }
