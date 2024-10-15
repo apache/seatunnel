@@ -278,13 +278,15 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                             tableId = ((SeaTunnelRow) record.getData()).getTableId();
                         } else {
 
+                            TablePath tablePath =
+                                    tablesMaps.get(
+                                            TablePath.of(
+                                                    ((SeaTunnelRow) record.getData())
+                                                            .getTableId()));
                             tableId =
-                                    tablesMaps
-                                            .get(
-                                                    TablePath.of(
-                                                            ((SeaTunnelRow) record.getData())
-                                                                    .getTableId()))
-                                            .getFullName();
+                                    tablePath != null
+                                            ? tablePath.getFullName()
+                                            : TablePath.DEFAULT.getFullName();
                         }
 
                     } else {
