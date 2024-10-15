@@ -75,7 +75,7 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
      * @throws IOException If fail to prepareCommit
      */
     default Optional<CommitInfoT> prepareCommit(long checkpointId) throws IOException {
-        return Optional.empty();
+        return prepareCommit();
     }
 
     /**
