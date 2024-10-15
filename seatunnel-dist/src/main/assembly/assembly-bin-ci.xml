@@ -197,7 +197,7 @@
                 <include>org.apache.thrift:libfb303:jar</include>
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
-            <outputDirectory>/lib</outputDirectory>
+            <outputDirectory>/plugins/jdbc/lib</outputDirectory>
             <scope>provided</scope>
         </dependencySet>
     </dependencySets>
