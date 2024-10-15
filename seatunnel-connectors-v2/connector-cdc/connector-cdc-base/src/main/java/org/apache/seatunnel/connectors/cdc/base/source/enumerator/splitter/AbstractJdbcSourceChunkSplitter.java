@@ -390,7 +390,8 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
         } catch (Exception e) {
             log.error("Config splitColumn get exception in {}:{}", tableId, e);
         }
-        String tableSc = (String) splitColumnProperties.get(tableId.catalog()+"."+tableId.table());
+        String tableSc =
+                (String) splitColumnProperties.get(tableId.catalog() + "." + tableId.table());
         Boolean isUniqueKey = dialect.isUniqueKey(jdbc, tableId, tableSc);
         if (isUniqueKey) {
             Column column = table.columnWithName(tableSc);
