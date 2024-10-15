@@ -1,5 +1,5 @@
 ---
-sidebar_position: 13
+sidebar_position: 14
 ---
 
 # Telemetry
@@ -48,8 +48,8 @@ Note: All metrics both have the same labelName `cluster`, that's value is the co
 | hazelcast_executor_queueSize              | Gauge | **type**, the type of executor, including: "async" "client" "clientBlocking" "clientQuery" "io" "offloadable" "scheduled" "system" | The hazelcast executor queueSize of seatunnel cluster node              |
 | hazelcast_partition_partitionCount        | Gauge | -                                                                                                                                  | The partitionCount of seatunnel cluster node                            |
 | hazelcast_partition_activePartition       | Gauge | -                                                                                                                                  | The activePartition of seatunnel cluster node                           |
-| hazelcast_partition_isClusterSafe         | Gauge | -                                                                                                                                  | Weather is cluster safe of partition                                    |
-| hazelcast_partition_isLocalMemberSafe     | Gauge | -                                                                                                                                  | Weather is local member safe of partition                               |
+| hazelcast_partition_isClusterSafe         | Gauge | -                                                                                                                                  | Whether is cluster safe of partition                                    |
+| hazelcast_partition_isLocalMemberSafe     | Gauge | -                                                                                                                                  | Whether is local member safe of partition                               |
 
 ### Thread Pool Status
 

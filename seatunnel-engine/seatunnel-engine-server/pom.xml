@@ -58,6 +58,19 @@
             <artifactId>awaitility</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-jetty9-9.4.56</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <version>${jakarta.servlet-api}</version>
+            <scope>provided</scope>
+        </dependency>
+
         <!-- test -->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
@@ -101,6 +114,12 @@
             <groupId>com.squareup.okhttp</groupId>
             <artifactId>mockwebserver</artifactId>
             <version>2.7.5</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit-pioneer</groupId>
+            <artifactId>junit-pioneer</artifactId>
+            <version>1.9.1</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

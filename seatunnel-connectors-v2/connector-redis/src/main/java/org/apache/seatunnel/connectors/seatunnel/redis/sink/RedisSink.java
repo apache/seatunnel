@@ -28,13 +28,14 @@ import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 
 import java.io.IOException;
+import java.util.Optional;
 
 public class RedisSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         implements SupportMultiTableSink {
     private final RedisParameters redisParameters = new RedisParameters();
-    private SeaTunnelRowType seaTunnelRowType;
-    private ReadonlyConfig readonlyConfig;
-    private CatalogTable catalogTable;
+    private final SeaTunnelRowType seaTunnelRowType;
+    private final ReadonlyConfig readonlyConfig;
+    private final CatalogTable catalogTable;
 
     public RedisSink(ReadonlyConfig config, CatalogTable table) {
         this.readonlyConfig = config;
@@ -51,5 +52,10 @@ public class RedisSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     @Override
     public RedisSinkWriter createWriter(SinkWriter.Context context) throws IOException {
         return new RedisSinkWriter(seaTunnelRowType, redisParameters);
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
     }
 }

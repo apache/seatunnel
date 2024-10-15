@@ -22,9 +22,13 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
@@ -55,8 +59,10 @@ import com.hazelcast.map.IMap;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.concurrent.Executors;
 
 public class TaskTest extends AbstractSeaTunnelServerTest {
@@ -114,15 +120,22 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                         Collections.emptySet());
         LogicalVertex fake2Vertex = new LogicalVertex(fake2.getId(), fake2, 2);
 
+        List<Column> columns = new ArrayList<>();
+        columns.add(PhysicalColumn.of("id", BasicType.INT_TYPE, 11L, 0, true, 111, ""));
+
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("default", TablePath.DEFAULT),
+                        TableSchema.builder().columns(columns).build(),
+                        new HashMap<>(),
+                        Collections.emptyList(),
+                        "fake");
+
         Action console =
                 new SinkAction<>(
                         idGenerator.getNextId(),
                         "console",
-                        new ConsoleSink(
-                                new SeaTunnelRowType(
-                                        new String[] {"id"},
-                                        new SeaTunnelDataType<?>[] {BasicType.INT_TYPE}),
-                                ReadonlyConfig.fromMap(new HashMap<>())),
+                        new ConsoleSink(catalogTable, ReadonlyConfig.fromMap(new HashMap<>())),
                         Sets.newHashSet(new URL("file:///console.jar")),
                         Collections.emptySet());
         LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, 2);

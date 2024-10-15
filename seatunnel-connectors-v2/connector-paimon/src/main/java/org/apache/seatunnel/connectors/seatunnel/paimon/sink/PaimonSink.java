@@ -158,4 +158,9 @@ public class PaimonSink
     public void setLoadTable(Table table) {
         this.table = table;
     }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
+    }
 }

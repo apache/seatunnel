@@ -44,8 +44,8 @@ import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory
 
 public class S3FileSink extends BaseMultipleTableFileSink implements SupportSaveMode {
 
-    private CatalogTable catalogTable;
-    private ReadonlyConfig readonlyConfig;
+    private final CatalogTable catalogTable;
+    private final ReadonlyConfig readonlyConfig;
 
     private static final String S3 = "S3";
 
@@ -88,5 +88,10 @@ public class S3FileSink extends BaseMultipleTableFileSink implements SupportSave
         return Optional.of(
                 new DefaultSaveModeHandler(
                         schemaSaveMode, dataSaveMode, catalog, catalogTable, null));
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
     }
 }
