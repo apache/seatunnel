@@ -19,14 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbas
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
@@ -36,42 +34,16 @@ import com.google.auto.service.AutoService;
 import com.google.common.base.Preconditions;
 import lombok.extern.slf4j.Slf4j;
 
-import java.sql.DatabaseMetaData;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
 import static java.sql.Types.BIGINT;
-import static java.sql.Types.BINARY;
-import static java.sql.Types.BIT;
-import static java.sql.Types.BLOB;
 import static java.sql.Types.BOOLEAN;
-import static java.sql.Types.CHAR;
-import static java.sql.Types.CLOB;
 import static java.sql.Types.DATE;
 import static java.sql.Types.DECIMAL;
 import static java.sql.Types.DOUBLE;
 import static java.sql.Types.FLOAT;
-import static java.sql.Types.INTEGER;
-import static java.sql.Types.LONGNVARCHAR;
-import static java.sql.Types.LONGVARBINARY;
-import static java.sql.Types.LONGVARCHAR;
-import static java.sql.Types.NCHAR;
-import static java.sql.Types.NCLOB;
-import static java.sql.Types.NUMERIC;
-import static java.sql.Types.NVARCHAR;
-import static java.sql.Types.REAL;
 import static java.sql.Types.SMALLINT;
 import static java.sql.Types.TIME;
 import static java.sql.Types.TIMESTAMP;
-import static java.sql.Types.TIMESTAMP_WITH_TIMEZONE;
-import static java.sql.Types.TIME_WITH_TIMEZONE;
 import static java.sql.Types.TINYINT;
-import static java.sql.Types.VARBINARY;
-import static java.sql.Types.VARCHAR;
 
 @Slf4j
 @AutoService(TypeConverter.class)
@@ -140,9 +112,7 @@ public class OceanBaseMySqlTypeConverter
     public static final long POWER_2_32 = (long) Math.pow(2, 32);
     public static final long MAX_VARBINARY_LENGTH = POWER_2_16 - 4;
 
-    public static final int OB_VECTOR_JSON_DATA_TYPE = 1111;
-    public static final String OB_JSON_TYPE_NAME = "JSON";
-    public static final String OB_YEAR_TYPE_NAME = "YEAR";
+    private static final String VECTOR_TYPE_NAME = "VECTOR";
 
     @Override
     public String identifier() {
@@ -159,7 +129,7 @@ public class OceanBaseMySqlTypeConverter
                         .defaultValue(typeDefine.getDefaultValue())
                         .comment(typeDefine.getComment());
 
-        String mysqlDataType = typeDefine.getDataType().toUpperCase();
+        String mysqlDataType = typeDefine.getColumnType().toUpperCase();
         if (typeDefine.isUnsigned() && !(mysqlDataType.endsWith(" UNSIGNED"))) {
             mysqlDataType = mysqlDataType + " UNSIGNED";
         }
@@ -331,6 +301,10 @@ public class OceanBaseMySqlTypeConverter
             case MYSQL_DATETIME:
             case MYSQL_TIMESTAMP:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                builder.scale(typeDefine.getScale());
+                break;
+            case VECTOR_TYPE_NAME:
+                builder.dataType(VectorType.VECTOR_FLOAT_TYPE);
                 builder.scale(typeDefine.getScale());
                 break;
             default:
@@ -553,143 +527,5 @@ public class OceanBaseMySqlTypeConverter
         }
 
         return builder.build();
-    }
-
-    public static List<Column> convert(DatabaseMetaData metadata, TablePath tablePath)
-            throws SQLException {
-        List<Column> columns = new ArrayList<>();
-
-        try (ResultSet columnsResultSet =
-                metadata.getColumns(
-                        tablePath.getDatabaseName(),
-                        tablePath.getSchemaName(),
-                        tablePath.getTableName(),
-                        null)) {
-
-            while (columnsResultSet.next()) {
-                String columnName = columnsResultSet.getString("COLUMN_NAME");
-                int jdbcType = columnsResultSet.getInt("DATA_TYPE");
-                String nativeType = columnsResultSet.getString("TYPE_NAME");
-                int columnSize = columnsResultSet.getInt("COLUMN_SIZE");
-                int decimalDigits = columnsResultSet.getInt("DECIMAL_DIGITS");
-                int nullable = columnsResultSet.getInt("NULLABLE");
-
-                Column column =
-                        convert(
-                                columnName,
-                                jdbcType,
-                                nativeType,
-                                nullable,
-                                columnSize,
-                                decimalDigits);
-                columns.add(column);
-            }
-        }
-        return columns;
-    }
-
-    public static Column convert(
-            String columnName,
-            int jdbcType,
-            String nativeType,
-            int isNullable,
-            int precision,
-            int scale)
-            throws SQLException {
-        int columnLength = precision;
-        long longColumnLength = precision;
-        long bitLength = 0;
-        SeaTunnelDataType seaTunnelType;
-        switch (jdbcType) {
-            case BOOLEAN:
-                seaTunnelType = BasicType.BOOLEAN_TYPE;
-                break;
-            case BIT:
-                if (precision == 1) {
-                    seaTunnelType = BasicType.BOOLEAN_TYPE;
-                } else {
-                    seaTunnelType = PrimitiveByteArrayType.INSTANCE;
-                }
-                break;
-            case TINYINT:
-                seaTunnelType = BasicType.BYTE_TYPE;
-                break;
-            case SMALLINT:
-                seaTunnelType = BasicType.SHORT_TYPE;
-                break;
-            case INTEGER:
-                seaTunnelType = BasicType.INT_TYPE;
-                break;
-            case BIGINT:
-                seaTunnelType = BasicType.LONG_TYPE;
-                break;
-            case FLOAT:
-                seaTunnelType = BasicType.FLOAT_TYPE;
-                break;
-            case REAL:
-                seaTunnelType = BasicType.DOUBLE_TYPE;
-                break;
-            case DOUBLE:
-                seaTunnelType = BasicType.DOUBLE_TYPE;
-                break;
-            case NUMERIC:
-            case DECIMAL:
-                seaTunnelType = new DecimalType(precision, scale);
-                break;
-            case CHAR:
-            case VARCHAR:
-            case LONGVARCHAR:
-            case NCHAR:
-            case NVARCHAR:
-            case LONGNVARCHAR:
-            case CLOB:
-            case NCLOB:
-                seaTunnelType = BasicType.STRING_TYPE;
-                columnLength = precision * 3;
-                longColumnLength = precision * 3;
-                break;
-            case DATE:
-                seaTunnelType =
-                        nativeType.equals(OB_YEAR_TYPE_NAME)
-                                ? BasicType.INT_TYPE
-                                : LocalTimeType.LOCAL_DATE_TYPE;
-                break;
-            case TIME:
-            case TIME_WITH_TIMEZONE:
-                seaTunnelType = LocalTimeType.LOCAL_TIME_TYPE;
-                break;
-            case TIMESTAMP:
-            case TIMESTAMP_WITH_TIMEZONE:
-                seaTunnelType = LocalTimeType.LOCAL_DATE_TIME_TYPE;
-                break;
-            case BINARY:
-            case VARBINARY:
-            case LONGVARBINARY:
-            case BLOB:
-                seaTunnelType = PrimitiveByteArrayType.INSTANCE;
-                bitLength = precision * 8;
-                break;
-            case OB_VECTOR_JSON_DATA_TYPE:
-                seaTunnelType =
-                        nativeType.equals(OB_JSON_TYPE_NAME)
-                                ? BasicType.STRING_TYPE
-                                : VectorType.VECTOR_FLOAT_TYPE;
-                break;
-            default:
-                throw new UnsupportedOperationException("Unsupported JDBC type: " + jdbcType);
-        }
-        return PhysicalColumn.of(
-                columnName,
-                seaTunnelType,
-                columnLength,
-                isNullable != ResultSetMetaData.columnNoNulls,
-                null,
-                null,
-                nativeType,
-                false,
-                false,
-                bitLength,
-                Collections.emptyMap(),
-                longColumnLength);
     }
 }
