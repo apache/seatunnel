@@ -123,7 +123,6 @@ public class OceanBaseMySqlTypeConverter
         if (typeDefine.isUnsigned() && !(mysqlDataType.endsWith(" UNSIGNED"))) {
             mysqlDataType = mysqlDataType + " UNSIGNED";
         }
-        System.out.println(typeDefine.getName() + "的值类型是：" + mysqlDataType);
         switch (mysqlDataType) {
             case MYSQL_NULL:
                 builder.dataType(BasicType.VOID_TYPE);
