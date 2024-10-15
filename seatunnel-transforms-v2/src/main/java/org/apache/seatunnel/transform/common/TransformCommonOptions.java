@@ -17,14 +17,37 @@
 
 package org.apache.seatunnel.transform.common;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
-public final class CommonOptions {
+public class TransformCommonOptions {
 
-    public static Option<ErrorHandleWay> ROW_ERROR_HANDLE_WAY_OPTION =
+    public static final Option<List<Map<String, Object>>> MULTI_TABLES =
+            Options.key("table_transform")
+                    .type(new TypeReference<List<Map<String, Object>>>() {})
+                    .defaultValue(Collections.emptyList())
+                    .withDescription("The table transform config");
+
+    public static final Option<String> TABLE_PATH =
+            Options.key("table_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The table path of catalog table");
+
+    public static final Option<String> TABLE_MATCH_REGEX =
+            Options.key("table_match_regex")
+                    .stringType()
+                    .defaultValue(".*")
+                    .withDescription("The regex to match the table path");
+
+    public static final Option<ErrorHandleWay> ROW_ERROR_HANDLE_WAY_OPTION =
             Options.key("row_error_handle_way")
                     .singleChoice(
                             ErrorHandleWay.class,
@@ -34,8 +57,7 @@ public final class CommonOptions {
                             "The processing method of data format error. The default value is fail, and the optional value is (fail, skip). "
                                     + "When fail is selected, data format error will block and an exception will be thrown. "
                                     + "When skip is selected, data format error will skip this line data.");
-
-    public static Option<ErrorHandleWay> COLUMN_ERROR_HANDLE_WAY_OPTION =
+    public static final Option<ErrorHandleWay> COLUMN_ERROR_HANDLE_WAY_OPTION =
             Options.key("column_error_handle_way")
                     .enumType(ErrorHandleWay.class)
                     .noDefaultValue()
