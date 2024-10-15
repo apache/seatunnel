@@ -119,6 +119,26 @@ public interface JdbcDataSourceDialect extends DataSourceDialect<JdbcSourceConfi
                 .collect(Collectors.toList());
     }
 
+    default Boolean isUniqueKey(JdbcConnection jdbcConnection, TableId tableId, String columnName)
+            throws SQLException {
+        boolean isUnique = false;
+        if (null != columnName) {
+            DatabaseMetaData metaData = jdbcConnection.connection().getMetaData();
+            ResultSet resultSet =
+                    metaData.getIndexInfo(
+                            tableId.catalog(), tableId.schema(), tableId.table(), false, false);
+
+            while (resultSet.next()) {
+                if (columnName.equalsIgnoreCase(resultSet.getString("COLUMN_NAME"))
+                        && resultSet.getBoolean("NON_UNIQUE") == false) {
+                    isUnique = true;
+                    break;
+                }
+            }
+        }
+        return isUnique;
+    }
+
     default List<ConstraintKey> getConstraintKeys(JdbcConnection jdbcConnection, TableId tableId)
             throws SQLException {
         DatabaseMetaData metaData = jdbcConnection.connection().getMetaData();

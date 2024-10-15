@@ -37,6 +37,13 @@ public class SourceOptions {
                     .withDescription(
                             "The split size (number of rows) of table snapshot, captured tables are split into multiple splits when read the snapshot of table.");
 
+    public static final Option<String> SNAPSHOT_SPLIT_COLUMN =
+            Options.key("snapshot.split.column")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The split column of table snapshot, captured tables are split into multiple splits when read the snapshot of table.");
+
     public static final Option<Integer> SNAPSHOT_FETCH_SIZE =
             Options.key("snapshot.fetch.size")
                     .intType()
@@ -111,7 +118,7 @@ public class SourceOptions {
     public static OptionRule.Builder getBaseRule() {
         return OptionRule.builder()
                 .optional(FORMAT)
-                .optional(SNAPSHOT_SPLIT_SIZE, SNAPSHOT_FETCH_SIZE)
+                .optional(SNAPSHOT_SPLIT_SIZE, SNAPSHOT_FETCH_SIZE, SNAPSHOT_SPLIT_COLUMN)
                 .optional(INCREMENTAL_PARALLELISM)
                 .optional(DEBEZIUM_PROPERTIES);
     }

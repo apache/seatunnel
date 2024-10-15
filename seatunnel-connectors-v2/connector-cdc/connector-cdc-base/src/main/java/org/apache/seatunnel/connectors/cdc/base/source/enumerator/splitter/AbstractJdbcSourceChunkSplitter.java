@@ -379,12 +379,28 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
     protected Column getSplitColumn(
             JdbcConnection jdbc, JdbcDataSourceDialect dialect, TableId tableId)
             throws SQLException {
-        Optional<PrimaryKey> primaryKey = dialect.getPrimaryKey(jdbc, tableId);
         Column splitColumn = null;
+        Table table = dialect.queryTableSchema(jdbc, tableId).getTable();
+
+        // first , compare user defined split column is in the primary key or unique key
+        String sc = null;
+        try {
+            sc = sourceConfig.getSplitColumn();
+        } catch (Exception e) {
+            log.error("Config splitColumn get exception in {}:{}", tableId, e);
+        }
+        Boolean isUniqueKey = dialect.isUniqueKey(jdbc, tableId, sc);
+        if (isUniqueKey) {
+            Column column = table.columnWithName(sc);
+            return column;
+        } else {
+            log.warn("Config splitColumn not exists or nor unique key for table {}", tableId);
+        }
+
+        Optional<PrimaryKey> primaryKey = dialect.getPrimaryKey(jdbc, tableId);
         if (primaryKey.isPresent()) {
             List<String> pkColumns = primaryKey.get().getColumnNames();
 
-            Table table = dialect.queryTableSchema(jdbc, tableId).getTable();
             for (String pkColumn : pkColumns) {
                 Column column = table.columnWithName(pkColumn);
                 if (isEvenlySplitColumn(column)) {
@@ -400,7 +416,6 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
 
         List<ConstraintKey> uniqueKeys = dialect.getUniqueKeys(jdbc, tableId);
         if (!uniqueKeys.isEmpty()) {
-            Table table = dialect.queryTableSchema(jdbc, tableId).getTable();
             for (ConstraintKey uniqueKey : uniqueKeys) {
                 List<ConstraintKey.ConstraintKeyColumn> uniqueKeyColumns =
                         uniqueKey.getColumnNames();
