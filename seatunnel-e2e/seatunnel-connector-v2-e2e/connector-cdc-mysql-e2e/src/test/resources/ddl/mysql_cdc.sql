@@ -67,7 +67,7 @@ CREATE TABLE mysql_cdc_e2e_source_table
     `f_json`               json                           DEFAULT NULL,
     `f_year`               year                           DEFAULT NULL,
     PRIMARY KEY (`id`),
-    UNIQUE KEY uniq_key_f (f_int, f_bigint) USING BTREE
+    UNIQUE KEY uniq_key_f (`id`, `f_int`, `f_bigint`) USING BTREE
 ) ENGINE = InnoDB
   AUTO_INCREMENT = 2
   DEFAULT CHARSET = utf8mb4
@@ -118,7 +118,7 @@ CREATE TABLE mysql_cdc_e2e_source_table2
     `f_json`               json                           DEFAULT NULL,
     `f_year`               year                           DEFAULT NULL,
     PRIMARY KEY (`id`),
-    UNIQUE KEY uniq_key_f (f_int, f_bigint) USING BTREE
+    UNIQUE KEY uniq_key_f (`id`, `f_int`, `f_bigint`) USING BTREE
 ) ENGINE = InnoDB
   AUTO_INCREMENT = 2
   DEFAULT CHARSET = utf8mb4
