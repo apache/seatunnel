@@ -312,7 +312,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob(
                         "/kafka/kafkasource_format_error_handle_way_fail_to_console.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        Assertions.assertEquals(1, execResult.getExitCode(), execResult.getStderr());
     }
 
     @TestTemplate
