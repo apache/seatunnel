@@ -51,6 +51,7 @@ import java.util.regex.Pattern;
 import static io.restassured.RestAssured.given;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.CONTEXT_PATH;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
@@ -155,29 +156,31 @@ public class RestApiIT {
                                 ports.forEach(
                                         (key, value) -> {
                                             // Verify log list interface logs/
-                                            Assertions.assertTrue(
-                                                    given().get(
-                                                                    HOST
-                                                                            + key
-                                                                            + CONTEXT_PATH
-                                                                            + RestConstant.GET_LOGS)
-                                                            .body()
-                                                            .prettyPrint()
-                                                            .contains(
+
+                                            given().get(
+                                                            HOST
+                                                                    + key
+                                                                    + CONTEXT_PATH
+                                                                    + RestConstant.GET_LOGS)
+                                                    .then()
+                                                    .statusCode(200)
+                                                    .body(
+                                                            containsString(
                                                                     clientJobProxy.getJobId()
                                                                             + ".log"));
-                                            Assertions.assertTrue(
-                                                    given().get(
-                                                                    HOST
-                                                                            + value
-                                                                            + node1Config
-                                                                                    .getEngineConfig()
-                                                                                    .getHttpConfig()
-                                                                                    .getContextPath()
-                                                                            + RestConstant.GET_LOGS)
-                                                            .body()
-                                                            .prettyPrint()
-                                                            .contains(
+
+                                            given().get(
+                                                            HOST
+                                                                    + value
+                                                                    + node1Config
+                                                                            .getEngineConfig()
+                                                                            .getHttpConfig()
+                                                                            .getContextPath()
+                                                                    + RestConstant.GET_LOGS)
+                                                    .then()
+                                                    .statusCode(200)
+                                                    .body(
+                                                            containsString(
                                                                     clientJobProxy.getJobId()
                                                                             + ".log"));
 

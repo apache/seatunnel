@@ -811,6 +811,6 @@ network:
 #### 例子
 
 获取当前节点的日志列表：`http://localhost:5801/hazelcast/rest/maps/log`
-获取日志文件内容：`http://localhost:5801/hazelcast/rest/maps/logs/job-898380162133917698.log``
+获取日志文件内容：`http://localhost:5801/hazelcast/rest/maps/log/job-898380162133917698.log`
 
 </details>

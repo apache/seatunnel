@@ -728,3 +728,47 @@ If the parameter is an empty `Map` object, it means that the tags of the current
 ```
 </details>
 
+------------------------------------------------------------------------------------------
+
+### Get Log Content from All Nodes
+
+<details>
+ <summary><code>GET</code> <code><b>/logs/:jobId</b></code> <code>(Returns a list of logs.)</code></summary>
+
+#### Request Parameters
+
+#### Parameters (Add in the `params` field of the request body)
+
+> |         Parameter Name        | Required |  Type  |               Description                |
+> |------------------------------|----------|--------|-----------------------------------------|
+> | jobId                        | optional | string | The job ID                              |
+
+When `jobId` is empty, it returns log information for all nodes. Otherwise, it returns a list of logs for the specified `jobId` across all nodes.
+
+#### Response
+
+Returns a list and content of logs from the requested nodes.
+
+#### Examples
+
+To get log information for `jobId` `733584788375666689` from all nodes: `http://localhost:5801/logs/733584788375666689`
+To get a list of logs from all nodes: `http://localhost:5801/logs`
+To get the content of a log file: `http://localhost:5801/logs/job-898380162133917698.log`
+
+</details>
+
+### Get Log Content from a Single Node
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/log</b></code> <code>(Returns a list of logs.)</code></summary>
+
+#### Response
+
+Returns a list of logs from the requested node.
+
+#### Examples
+
+To get a list of logs from the current node: `http://localhost:5801/log`
+To get the content of a log file: `http://localhost:5801/log/job-898380162133917698.log`
+
+</details>
