@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.cdc.base.config;
 
 import java.io.Serializable;
-import java.util.Properties;
 
 /** The source configuration which offers basic source configuration. */
 public interface SourceConfig extends Serializable {
@@ -28,8 +27,6 @@ public interface SourceConfig extends Serializable {
     StopConfig getStopConfig();
 
     int getSplitSize();
-
-    Properties getSplitColumn();
 
     boolean isExactlyOnce();
 
