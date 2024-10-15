@@ -461,7 +461,7 @@ public class RestApiIT {
                                                 .body("metrics.SinkWriteCount", equalTo("5"))
                                                 .body("metrics.SourceReceivedCount", equalTo("5"))
                                                 .body(
-                                                        "[0].jobDag.envOptions.'job.mode'",
+                                                        "jobDag.envOptions.'job.mode'",
                                                         equalTo("BATCH"))
                                                 .body("jobName", equalTo("fake_to_console"))
                                                 .body("jobStatus", equalTo("FINISHED"));
@@ -527,7 +527,7 @@ public class RestApiIT {
                                                 .body("metrics.SinkWriteCount", equalTo("5"))
                                                 .body("metrics.SourceReceivedCount", equalTo("5"))
                                                 .body(
-                                                        "[0].jobDag.envOptions.'job.mode'",
+                                                        "jobDag.envOptions.'job.mode'",
                                                         equalTo("BATCH"))
                                                 .body("jobName", equalTo("fake_to_console"))
                                                 .body("jobStatus", equalTo("FINISHED"));
