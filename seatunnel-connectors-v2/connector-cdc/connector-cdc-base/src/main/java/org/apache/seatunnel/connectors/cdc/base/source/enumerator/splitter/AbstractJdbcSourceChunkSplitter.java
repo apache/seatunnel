@@ -397,11 +397,15 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
             Column column = table.columnWithName(tableSc);
             if (isEvenlySplitColumn(column)) {
                 return column;
-            }else{
-                log.warn("Config snapshot.split.column type in {} is not TINYINT、SMALLINT、INT、BIGINT、DECIMAL、STRING", tableId);
+            } else {
+                log.warn(
+                        "Config snapshot.split.column type in {} is not TINYINT、SMALLINT、INT、BIGINT、DECIMAL、STRING",
+                        tableId);
             }
         } else {
-            log.warn("Config snapshot.split.column not exists or not unique key for table {}", tableId);
+            log.warn(
+                    "Config snapshot.split.column not exists or not unique key for table {}",
+                    tableId);
         }
 
         Optional<PrimaryKey> primaryKey = dialect.getPrimaryKey(jdbc, tableId);
