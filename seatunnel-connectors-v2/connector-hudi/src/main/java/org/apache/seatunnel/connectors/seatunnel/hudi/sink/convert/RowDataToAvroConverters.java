@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
+import org.apache.avro.Conversions;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
@@ -45,6 +46,8 @@ import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.AvroSc
 /** Tool class used to convert from {@link SeaTunnelRow} to Avro {@link GenericRecord}. */
 public class RowDataToAvroConverters implements Serializable {
 
+    private static final Conversions.DecimalConversion DECIMAL_CONVERSION =
+            new Conversions.DecimalConversion();
     // --------------------------------------------------------------------------------
     // Runtime Converters
     // --------------------------------------------------------------------------------
@@ -166,8 +169,9 @@ public class RowDataToAvroConverters implements Serializable {
 
                             @Override
                             public Object convert(Schema schema, Object object) {
-                                return ByteBuffer.wrap(
-                                        ((BigDecimal) object).unscaledValue().toByteArray());
+                                BigDecimal javaDecimal = (BigDecimal) object;
+                                return DECIMAL_CONVERSION.toFixed(
+                                        javaDecimal, schema, schema.getLogicalType());
                             }
                         };
                 break;

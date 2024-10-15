@@ -38,6 +38,7 @@ import java.util.Arrays;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.AvroSchemaConverter.ROW_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.AvroSchemaConverter.convertToSchema;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.RowDataToAvroConverters.createConverter;
 
@@ -62,7 +63,9 @@ public class HudiRecordConverter implements Serializable {
                     seaTunnelRowType.getFieldNames()[i],
                     createConverter(seaTunnelRowType.getFieldType(i))
                             .convert(
-                                    convertToSchema(seaTunnelRowType.getFieldType(i)),
+                                    convertToSchema(
+                                            seaTunnelRowType.getFieldType(i),
+                                            ROW_NAME + "_" + seaTunnelRowType.getFieldNames()[i]),
                                     element.getField(i)));
         }
         return new HoodieAvroRecord<>(

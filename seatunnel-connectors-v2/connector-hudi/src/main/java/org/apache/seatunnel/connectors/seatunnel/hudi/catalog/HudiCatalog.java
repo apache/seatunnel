@@ -53,6 +53,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.hbase.thirdparty.com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.CDC_ENABLED;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.RECORD_KEY_FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.TABLE_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.AvroSchemaConverter.convertToSchema;
@@ -195,6 +196,7 @@ public class HudiCatalog implements Catalog {
                     String.join(",", tableConfig.getRecordKeyFields().get()));
         }
         options.put(TABLE_TYPE.key(), tableType.name());
+        options.put(CDC_ENABLED.key(), String.valueOf(tableConfig.isCDCEnabled()));
         return CatalogTable.of(
                 TableIdentifier.of(
                         catalogName, tablePath.getDatabaseName(), tablePath.getTableName()),
@@ -222,6 +224,8 @@ public class HudiCatalog implements Catalog {
                         .setTableName(tablePath.getTableName())
                         .setPartitionFields(String.join(",", table.getPartitionKeys()))
                         .setPayloadClassName(HoodieAvroPayload.class.getName())
+                        .setCDCEnabled(
+                                Boolean.parseBoolean(table.getOptions().get(CDC_ENABLED.key())))
                         .initTable(new HadoopStorageConfiguration(hadoopConf), tablePathStr);
             }
         } catch (IOException e) {

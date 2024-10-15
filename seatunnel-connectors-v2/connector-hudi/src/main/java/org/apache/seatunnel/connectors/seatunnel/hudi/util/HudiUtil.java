@@ -184,7 +184,6 @@ public class HudiUtil {
                                                 hudiTable.getMinCommitsToKeep(),
                                                 hudiTable.getMaxCommitsToKeep())
                                         .build())
-                        .withAutoCommit(hudiSinkConfig.isAutoCommit())
                         .withCleanConfig(
                                 HoodieCleanConfig.newBuilder()
                                         .withAutoClean(true)

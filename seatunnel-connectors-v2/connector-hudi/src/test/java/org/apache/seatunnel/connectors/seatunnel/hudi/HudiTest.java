@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi;
 
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -52,6 +53,7 @@ import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -67,6 +69,7 @@ import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.AvroSchemaConverter.ROW_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.AvroSchemaConverter.convertToSchema;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.RowDataToAvroConverters.createConverter;
 
@@ -95,7 +98,8 @@ public class HudiTest {
                         "date",
                         "time",
                         "timestamp3",
-                        "map"
+                        "map",
+                        "decimal"
                     },
                     new SeaTunnelDataType[] {
                         BOOLEAN_TYPE,
@@ -107,6 +111,7 @@ public class HudiTest {
                         LocalTimeType.LOCAL_TIME_TYPE,
                         LocalTimeType.LOCAL_DATE_TIME_TYPE,
                         new MapType(STRING_TYPE, LONG_TYPE),
+                        new DecimalType(10, 5),
                     });
 
     private String getSchema() {
@@ -165,7 +170,8 @@ public class HudiTest {
             expected.setField(7, timestamp3.toLocalDateTime());
             Map<String, Long> map = new HashMap<>();
             map.put("element", 123L);
-            expected.setField(9, map);
+            expected.setField(8, map);
+            expected.setField(9, BigDecimal.valueOf(10.121));
             String instantTime = javaWriteClient.startCommit();
             List<HoodieRecord<HoodieAvroPayload>> hoodieRecords = new ArrayList<>();
             hoodieRecords.add(convertRow(expected));
@@ -184,7 +190,9 @@ public class HudiTest {
                     seaTunnelRowType.getFieldNames()[i],
                     createConverter(seaTunnelRowType.getFieldType(i))
                             .convert(
-                                    convertToSchema(seaTunnelRowType.getFieldType(i)),
+                                    convertToSchema(
+                                            seaTunnelRowType.getFieldType(i),
+                                            ROW_NAME + "_" + seaTunnelRowType.getFieldNames()[i]),
                                     element.getField(i)));
         }
 

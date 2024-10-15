@@ -36,6 +36,8 @@ import java.util.List;
 /** Converts an Avro schema into Seatunnel's type information. */
 public class AvroSchemaConverter implements Serializable {
 
+    public static final String ROW_NAME = "org.apache.seatunnel.avro.generated.record";
+
     private AvroSchemaConverter() {
         // private
     }
@@ -50,7 +52,7 @@ public class AvroSchemaConverter implements Serializable {
      * @return Avro's {@link Schema} matching this logical type.
      */
     public static Schema convertToSchema(SeaTunnelDataType<?> schema) {
-        return convertToSchema(schema, "org.apache.seatunnel.avro.generated.record");
+        return convertToSchema(schema, ROW_NAME);
     }
 
     /**
@@ -105,10 +107,15 @@ public class AvroSchemaConverter implements Serializable {
                 return nullableSchema(time);
             case DECIMAL:
                 DecimalType decimalType = (DecimalType) dataType;
-                // store BigDecimal as byte[]
+                // store BigDecimal as Fixed
+                // for spark compatibility.
                 Schema decimal =
                         LogicalTypes.decimal(decimalType.getPrecision(), decimalType.getScale())
-                                .addToSchema(SchemaBuilder.builder().bytesType());
+                                .addToSchema(
+                                        SchemaBuilder.fixed(String.format("%s.fixed", rowName))
+                                                .size(
+                                                        computeMinBytesForDecimalPrecision(
+                                                                decimalType.getPrecision())));
                 return nullableSchema(decimal);
             case ROW:
                 SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
@@ -165,5 +172,13 @@ public class AvroSchemaConverter implements Serializable {
     /** Returns schema with nullable true. */
     private static Schema nullableSchema(Schema schema) {
         return Schema.createUnion(SchemaBuilder.builder().nullType(), schema);
+    }
+
+    private static int computeMinBytesForDecimalPrecision(int precision) {
+        int numBytes = 1;
+        while (Math.pow(2.0, 8 * numBytes - 1) < Math.pow(10.0, precision)) {
+            numBytes += 1;
+        }
+        return numBytes;
     }
 }
