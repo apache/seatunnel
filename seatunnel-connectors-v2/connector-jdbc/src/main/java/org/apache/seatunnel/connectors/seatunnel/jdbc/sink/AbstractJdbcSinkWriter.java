@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
+import org.apache.seatunnel.api.sink.SinkMetricsCalc;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.Column;
@@ -61,6 +62,7 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
     protected transient boolean isOpen;
     protected JdbcConnectionProvider connectionProvider;
     protected JdbcSinkConfig jdbcSinkConfig;
+    protected SinkMetricsCalc sinkMetricsCalc;
     protected JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> outputFormat;
 
     @Override
@@ -126,7 +128,11 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
         }
         this.outputFormat =
                 new JdbcOutputFormatBuilder(
-                                dialect, connectionProvider, jdbcSinkConfig, tableSchema)
+                                dialect,
+                                connectionProvider,
+                                jdbcSinkConfig,
+                                tableSchema,
+                                sinkMetricsCalc)
                         .build();
         this.outputFormat.open();
     }

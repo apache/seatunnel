@@ -17,21 +17,23 @@
 
 package org.apache.seatunnel.api.common.metrics;
 
-import java.io.Serializable;
+/** Plan to restore snapshot indicators */
+public class CycleMetricsContext extends AbstractMetricsContext {
 
-public interface Metric extends Serializable {
+    public CycleMetricsContext() {}
 
-    /** Returns the name of the associated metric. */
-    String name();
+    public CycleMetricsContext(MetricsContext metricsMap) {
+        if (metricsMap instanceof AbstractMetricsContext) {
+            this.metrics.putAll(((AbstractMetricsContext) metricsMap).getMetrics());
+        }
+    }
 
     /**
-     * Return the measurement unit for the associated metric. Meant to provide further information
-     * on the type of value measured by the user-defined metric. Doesn't affect the functionality of
-     * the metric, it still remains a simple numeric value, but is used to populate the {@link
-     * MetricTags#UNIT} tag in the metric's description.
+     * Clears the contents of this metricsContext.
+     *
+     * <p>This method removes all stored data, resetting the object to its initial state.
      */
-    Unit unit();
-
-    /** Clears the current count. */
-    void clear();
+    public void clear() {
+        metrics.values().forEach(Metric::clear);
+    }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
+import org.apache.seatunnel.api.sink.SinkMetricsCalc;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
 
@@ -39,13 +40,22 @@ public class KafkaNoTransactionSender<K, V> implements KafkaProduceSender<K, V> 
 
     private final KafkaProducer<K, V> kafkaProducer;
 
-    public KafkaNoTransactionSender(Properties properties) {
+    private final SinkMetricsCalc sinkMetricsCalc;
+
+    public KafkaNoTransactionSender(Properties properties, SinkMetricsCalc sinkMetricsCalc) {
         this.kafkaProducer = new KafkaProducer<>(properties);
+        this.sinkMetricsCalc = sinkMetricsCalc;
     }
 
     @Override
     public void send(ProducerRecord<K, V> producerRecord) {
-        kafkaProducer.send(producerRecord);
+        try {
+            kafkaProducer.send(producerRecord);
+            sinkMetricsCalc.confirmMetrics();
+        } catch (Exception e) {
+            sinkMetricsCalc.cancelMetrics();
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -71,12 +81,14 @@ public class KafkaNoTransactionSender<K, V> implements KafkaProduceSender<K, V> 
     @Override
     public List<KafkaSinkState> snapshotState(long checkpointId) {
         kafkaProducer.flush();
+        sinkMetricsCalc.confirmMetrics();
         return Collections.emptyList();
     }
 
     @Override
     public void close() {
         kafkaProducer.flush();
+        sinkMetricsCalc.confirmMetrics();
         kafkaProducer.close();
     }
 }

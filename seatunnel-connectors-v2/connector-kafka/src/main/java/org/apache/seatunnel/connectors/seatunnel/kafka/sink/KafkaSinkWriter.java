@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.SinkMetricsCalc;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -66,6 +67,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     private final KafkaProduceSender<byte[], byte[]> kafkaProducerSender;
     private final SeaTunnelRowSerializer<byte[], byte[]> seaTunnelRowSerializer;
+    private final SinkMetricsCalc sinkMetricsCalc;
 
     private static final int PREFIX_RANGE = 10000;
 
@@ -76,6 +78,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             List<KafkaSinkState> kafkaStates) {
         this.context = context;
         this.seaTunnelRowType = seaTunnelRowType;
+        this.sinkMetricsCalc = new SinkMetricsCalc(context.getMetricsContext());
         if (pluginConfig.get(ASSIGN_PARTITIONS) != null
                 && !CollectionUtils.isEmpty(pluginConfig.get(ASSIGN_PARTITIONS))) {
             MessageContentPartitioner.setAssignPartitions(pluginConfig.get(ASSIGN_PARTITIONS));
@@ -104,7 +107,8 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                     generateTransactionId(this.transactionPrefix, this.lastCheckpointId + 1));
         } else {
             this.kafkaProducerSender =
-                    new KafkaNoTransactionSender<>(getKafkaProperties(pluginConfig));
+                    new KafkaNoTransactionSender<>(
+                            getKafkaProperties(pluginConfig), sinkMetricsCalc);
         }
     }
 
@@ -112,6 +116,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     public void write(SeaTunnelRow element) {
         ProducerRecord<byte[], byte[]> producerRecord =
                 seaTunnelRowSerializer.serializeRow(element);
+        sinkMetricsCalc.collectMetrics(element);
         kafkaProducerSender.send(producerRecord);
     }
 

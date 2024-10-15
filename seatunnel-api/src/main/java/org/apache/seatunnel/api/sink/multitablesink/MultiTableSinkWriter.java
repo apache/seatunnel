@@ -57,8 +57,8 @@ public class MultiTableSinkWriter
     private final Random random = new Random();
     private final List<BlockingQueue<SeaTunnelRow>> blockingQueues = new ArrayList<>();
     private final ExecutorService executorService;
-    private MultiTableResourceManager resourceManager;
     private volatile boolean submitted = false;
+    private MultiTableResourceManager resourceManager;
 
     public MultiTableSinkWriter(
             Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters,

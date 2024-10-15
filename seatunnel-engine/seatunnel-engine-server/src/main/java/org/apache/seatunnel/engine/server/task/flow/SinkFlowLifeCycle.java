@@ -18,10 +18,12 @@
 package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.common.metrics.TaskMetricsCalcContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkCommitter;
+import org.apache.seatunnel.api.sink.SinkMetricsCalc;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
 import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
@@ -36,7 +38,6 @@ import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.event.JobEventListener;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.metrics.TaskMetricsCalcContext;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SinkWriterContext;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
@@ -91,6 +92,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private TaskMetricsCalcContext taskMetricsCalcContext;
 
+    private SinkMetricsCalc sinkMetricsCalc;
+
     private final boolean containAggCommitter;
 
     private MultiTableResourceManager resourceManager;
@@ -114,6 +117,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         this.containAggCommitter = containAggCommitter;
         this.metricsContext = metricsContext;
         this.eventListener = new JobEventListener(taskLocation, runningTask.getExecutionContext());
+        // need to start collecting statistics for each table and set the start time when sink
+        // arrives
         List<TablePath> sinkTables = new ArrayList<>();
         boolean isMulti = sinkAction.getSink() instanceof MultiTableSink;
         if (isMulti) {
@@ -121,6 +126,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         }
         this.taskMetricsCalcContext =
                 new TaskMetricsCalcContext(metricsContext, PluginType.SINK, isMulti, sinkTables);
+        this.sinkMetricsCalc = new SinkMetricsCalc(metricsContext);
     }
 
     @Override
@@ -247,7 +253,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     return;
                 }
                 writer.write((T) record.getData());
-                taskMetricsCalcContext.updateMetrics(record.getData());
+                sinkMetricsCalc.collectMetrics(record.getData());
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -258,6 +264,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         if (committer.isPresent() && lastCommitInfo.isPresent()) {
             committer.get().commit(Collections.singletonList(lastCommitInfo.get()));
+            sinkMetricsCalc.confirmMetrics();
         }
     }
 
@@ -265,6 +272,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         if (committer.isPresent() && lastCommitInfo.isPresent()) {
             committer.get().abort(Collections.singletonList(lastCommitInfo.get()));
+            sinkMetricsCalc.cancelMetrics();
         }
     }
 

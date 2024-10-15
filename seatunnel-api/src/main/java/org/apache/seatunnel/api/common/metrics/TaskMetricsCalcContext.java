@@ -14,15 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.engine.server.metrics;
+package org.apache.seatunnel.api.common.metrics;
 
-import org.apache.seatunnel.api.common.metrics.Counter;
-import org.apache.seatunnel.api.common.metrics.Meter;
-import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.PluginType;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.List;
@@ -71,6 +69,12 @@ public class TaskMetricsCalcContext {
         initializeMetrics(isMulti, tables);
     }
 
+    public TaskMetricsCalcContext(MetricsContext metricsContext, PluginType type) {
+        this.metricsContext = metricsContext;
+        this.type = type;
+        initializeMetrics(true, null);
+    }
+
     private void initializeMetrics(boolean isMulti, List<TablePath> tables) {
         if (type.equals(PluginType.SINK)) {
             this.initializeMetrics(
@@ -102,7 +106,7 @@ public class TaskMetricsCalcContext {
         QPS = metricsContext.meter(qpsName);
         bytes = metricsContext.counter(bytesName);
         bytesPerSeconds = metricsContext.meter(bytesPerSecondsName);
-        if (isMulti) {
+        if (isMulti && CollectionUtils.isNotEmpty(tables)) {
             tables.forEach(
                     tablePath -> {
                         countPerTable.put(
@@ -122,7 +126,86 @@ public class TaskMetricsCalcContext {
         }
     }
 
-    public void updateMetrics(Object data) {
+    public void collectMetrics(MetricsContext metricsContext) {
+        if (metricsContext instanceof AbstractMetricsContext) {
+            AbstractMetricsContext context = (AbstractMetricsContext) metricsContext;
+
+            context.getMetrics()
+                    .forEach(
+                            (k, v) -> {
+                                long countValue = 0;
+                                String[] keyParts = k.split("#");
+                                String tableName = (keyParts.length > 1) ? keyParts[1] : null;
+                                String metricName = keyParts[0];
+
+                                switch (type) {
+                                    case SINK:
+                                        if (v instanceof Counter) {
+                                            Counter counter = (Counter) v;
+                                            countValue = counter.getCount();
+
+                                            if (metricName.equals(SINK_WRITE_COUNT)) {
+                                                if (tableName != null) {
+                                                    countPerTable
+                                                            .getOrDefault(
+                                                                    k,
+                                                                    createMetric(k, Counter.class))
+                                                            .inc(countValue);
+                                                }
+                                                if (k.equals(SINK_WRITE_COUNT)) {
+                                                    count.inc(countValue);
+                                                }
+                                            } else if (metricName.equals(SINK_WRITE_BYTES)) {
+                                                if (tableName != null) {
+                                                    bytesPerTable
+                                                            .getOrDefault(
+                                                                    k,
+                                                                    createMetric(k, Counter.class))
+                                                            .inc(countValue);
+                                                }
+                                                if (k.equals(SINK_WRITE_BYTES)) {
+                                                    bytes.inc(countValue);
+                                                }
+                                            }
+
+                                        } else if (v instanceof Meter) {
+                                            Meter meter = (Meter) v;
+                                            countValue = meter.getCount();
+
+                                            if (metricName.equals(SINK_WRITE_QPS)) {
+                                                if (tableName != null) {
+                                                    QPSPerTable.getOrDefault(
+                                                                    k, createMetric(k, Meter.class))
+                                                            .markEvent(countValue);
+                                                }
+                                                if (k.equals(SINK_WRITE_QPS)) {
+                                                    QPS.markEvent(countValue);
+                                                }
+                                            } else if (metricName.equals(
+                                                    SINK_WRITE_BYTES_PER_SECONDS)) {
+                                                if (tableName != null) {
+                                                    bytesPerSecondsPerTable
+                                                            .getOrDefault(
+                                                                    k, createMetric(k, Meter.class))
+                                                            .markEvent(countValue);
+                                                }
+                                                if (k.equals(SINK_WRITE_BYTES_PER_SECONDS)) {
+                                                    bytesPerSeconds.markEvent(countValue);
+                                                }
+                                            }
+                                        }
+                                        break;
+
+                                    case SOURCE:
+                                    default:
+                                        throw new IllegalArgumentException(
+                                                "Unknown plugin type: " + type);
+                                }
+                            });
+        }
+    }
+
+    public void collectMetrics(Object data) {
         count.inc();
         QPS.markEvent();
         if (data instanceof SeaTunnelRow) {
@@ -188,14 +271,13 @@ public class TaskMetricsCalcContext {
                     PluginType.SINK.equals(type)
                             ? sinkMetric + "#" + tableName
                             : sourceMetric + "#" + tableName;
-            T newMetric = createMetric(metricsContext, metricName, cls);
+            T newMetric = createMetric(metricName, cls);
             processor.process(newMetric);
             metricMap.put(tableName, newMetric);
         }
     }
 
-    private <T> T createMetric(
-            MetricsContext metricsContext, String metricName, Class<T> metricClass) {
+    private <T> T createMetric(String metricName, Class<T> metricClass) {
         if (metricClass == Counter.class) {
             return metricClass.cast(metricsContext.counter(metricName));
         } else if (metricClass == Meter.class) {

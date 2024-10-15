@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.sink.SinkMetricsCalc;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -87,6 +88,7 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
         this.tableSchema = tableSchema;
         this.jdbcSinkConfig = jdbcSinkConfig;
         this.context = context;
+        this.sinkMetricsCalc = new SinkMetricsCalc(sinkcontext.getMetricsContext());
         this.sinkcontext = sinkcontext;
         this.recoverStates = states;
         this.xidGenerator = XidGenerator.semanticXidGenerator();
@@ -95,7 +97,9 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
                 XaFacade.fromJdbcConnectionOptions(jdbcSinkConfig.getJdbcConnectionConfig());
         this.xaFacade = (XaFacade) this.connectionProvider;
         this.outputFormat =
-                new JdbcOutputFormatBuilder(dialect, xaFacade, jdbcSinkConfig, tableSchema).build();
+                new JdbcOutputFormatBuilder(
+                                dialect, xaFacade, jdbcSinkConfig, tableSchema, sinkMetricsCalc)
+                        .build();
         this.xaGroupOps = new XaGroupOpsImpl(xaFacade);
     }
 

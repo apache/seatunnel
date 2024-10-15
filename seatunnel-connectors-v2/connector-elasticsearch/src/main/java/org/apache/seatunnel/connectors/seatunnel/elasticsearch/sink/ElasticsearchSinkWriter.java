@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.SinkMetricsCalc;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -59,6 +60,7 @@ public class ElasticsearchSinkWriter
     private final List<String> requestEsList;
     private EsRestClient esRestClient;
     private RetryMaterial retryMaterial;
+    private SinkMetricsCalc sinkMetricsCalc;
     private static final long DEFAULT_SLEEP_TIME_MS = 200L;
 
     public ElasticsearchSinkWriter(
@@ -67,6 +69,7 @@ public class ElasticsearchSinkWriter
             ReadonlyConfig config,
             int maxBatchSize,
             int maxRetryCount) {
+        this.sinkMetricsCalc = new SinkMetricsCalc(context.getMetricsContext());
         this.context = context;
         this.maxBatchSize = maxBatchSize;
 
@@ -88,11 +91,14 @@ public class ElasticsearchSinkWriter
         if (RowKind.UPDATE_BEFORE.equals(element.getRowKind())) {
             return;
         }
-
+        // Try to collect metrics
+        sinkMetricsCalc.collectMetrics(element);
         String indexRequestRow = seaTunnelRowSerializer.serializeRow(element);
         requestEsList.add(indexRequestRow);
         if (requestEsList.size() >= maxBatchSize) {
             bulkEsWithRetry(this.esRestClient, this.requestEsList);
+            // Confirm metrics after normal writing
+            sinkMetricsCalc.confirmMetrics();
         }
     }
 
@@ -125,6 +131,8 @@ public class ElasticsearchSinkWriter
                     retryMaterial);
             requestEsList.clear();
         } catch (Exception e) {
+            // Rollback metrics after write failure
+            sinkMetricsCalc.cancelMetrics();
             throw new ElasticsearchConnectorException(
                     CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
                     "ElasticSearch execute batch statement error",
