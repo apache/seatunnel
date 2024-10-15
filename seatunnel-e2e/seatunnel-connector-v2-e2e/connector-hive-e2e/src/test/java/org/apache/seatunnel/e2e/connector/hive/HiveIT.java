@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.connector.hive;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -25,34 +26,53 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
-import org.testcontainers.utility.MountableFile;
+import org.testcontainers.lifecycle.Startables;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.File;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.Duration;
+import java.util.Collections;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
+
+import static org.awaitility.Awaitility.given;
 
 @DisabledOnContainer(
         value = {},
         type = {EngineType.SPARK, EngineType.FLINK})
-@Disabled(
-        "[HDFS/COS/OSS/S3] is not available in CI, if you want to run this test, please set up your own environment in the test case file, hadoop_hive_conf_path_local and ip below}")
 @Slf4j
 public class HiveIT extends TestSuiteBase implements TestResource {
-    private static final String HADOOP_HIVE_CONF_PATH_LOCAL =
-            "/Users/dailai/software/hadoop-3.3.3/etc/hadoop";
-    private static final String HADOOP_HIVE_CONF_PATH_IN_CONTAINER = "/tmp/hadoop";
+    private static final String CREATE_SQL =
+            "CREATE TABLE test_hive_sink_on_hdfs"
+                    + "("
+                    + "    pk_id  BIGINT,"
+                    + "    name   STRING,"
+                    + "    score  INT"
+                    + ")";
+
+    private static final String HMS_HOST = "metastore";
+    private static final String HIVE_SERVER_HOST = "hiveserver2";
 
     private String hiveExeUrl() {
-        return "https://repo1.maven.org/maven2/org/apache/hive/hive-exec/2.3.9/hive-exec-2.3.9.jar";
+        return "https://repo1.maven.org/maven2/org/apache/hive/hive-exec/3.1.3/hive-exec-3.1.3.jar";
+    }
+
+    private String libFb303Url() {
+        return "https://repo1.maven.org/maven2/org/apache/thrift/libfb303/0.9.3/libfb303-0.9.3.jar";
     }
 
     private String hadoopAwsUrl() {
-        return "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/2.6.5/hadoop-aws-2.6.5.jar";
+        return "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.1.4/hadoop-aws-3.1.4.jar";
     }
 
     private String aliyunSdkOssUrl() {
@@ -71,42 +91,39 @@ public class HiveIT extends TestSuiteBase implements TestResource {
         return "https://repo1.maven.org/maven2/com/qcloud/cos/hadoop-cos/2.6.5-8.0.2/hadoop-cos-2.6.5-8.0.2.jar";
     }
 
+    private HiveContainer hiveServerContainer;
+    private HiveContainer hmsContainer;
+    private Connection hiveConnection;
+
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                container.execInContainer("sh", "-c", "chmod -R 777 /etc/hosts");
-                container.execInContainer("sh", "-c", "echo \"${IP01} hadoop01\" >> /etc/hosts");
-                container.execInContainer("sh", "-c", "echo \"${IP02} hadoop02\" >> /etc/hosts");
-                container.execInContainer("sh", "-c", "echo \"${IP03} hadoop03\" >> /etc/hosts");
-                container.execInContainer("sh", "-c", "echo \"${IP04} hadoop04\" >> /etc/hosts");
-                container.execInContainer("sh", "-c", "echo \"${IP05} hadoop05\" >> /etc/hosts");
-                container.execInContainer("sh", "-c", "echo \"${IP06} hadoop06\" >> /etc/hosts");
-                Assertions.assertTrue(
-                        new File(HADOOP_HIVE_CONF_PATH_LOCAL).exists(),
-                        HADOOP_HIVE_CONF_PATH_LOCAL + " must exist");
-                container.execInContainer(
-                        "sh", "-c", "mkdir -p " + HADOOP_HIVE_CONF_PATH_IN_CONTAINER);
-                container.execInContainer(
-                        "sh", "-c", "chmod -R 777 " + HADOOP_HIVE_CONF_PATH_IN_CONTAINER);
-                // Copy local hadoop conf and hive conf to the container
-                container.copyFileToContainer(
-                        MountableFile.forHostPath(HADOOP_HIVE_CONF_PATH_LOCAL),
-                        HADOOP_HIVE_CONF_PATH_IN_CONTAINER);
-
+                //                container.execInContainer("sh", "-c", "chmod -R 777 /etc/hosts");
+                //                // To avoid get a canonical host from a docker DNS server
+                //                container.execInContainer("sh", "-c", "echo `getent hosts hivee2e`
+                // >> /etc/hosts");
                 // The jar of hive-exec
-                Container.ExecResult extraCommands =
+                Container.ExecResult downloadHiveExeCommands =
                         container.execInContainer(
                                 "sh",
                                 "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Hive/lib && cd /tmp/seatunnel/plugins/Hive/lib && wget "
+                                "mkdir -p /tmp/seatunnel/lib && cd /tmp/seatunnel/lib && wget "
                                         + hiveExeUrl());
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+                Assertions.assertEquals(
+                        0,
+                        downloadHiveExeCommands.getExitCode(),
+                        downloadHiveExeCommands.getStderr());
+                Container.ExecResult downloadLibFb303Commands =
+                        container.execInContainer(
+                                "sh", "-c", "cd /tmp/seatunnel/lib && wget " + libFb303Url());
+                Assertions.assertEquals(
+                        0,
+                        downloadLibFb303Commands.getExitCode(),
+                        downloadLibFb303Commands.getStderr());
                 // The jar of s3
                 Container.ExecResult downloadS3Commands =
                         container.execInContainer(
-                                "sh",
-                                "-c",
-                                "cd /tmp/seatunnel/plugins/Hive/lib && wget " + hadoopAwsUrl());
+                                "sh", "-c", "cd /tmp/seatunnel/lib && wget " + hadoopAwsUrl());
                 Assertions.assertEquals(
                         0, downloadS3Commands.getExitCode(), downloadS3Commands.getStderr());
                 // The jar of oss
@@ -114,7 +131,7 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                         container.execInContainer(
                                 "sh",
                                 "-c",
-                                "cd /tmp/seatunnel/plugins/Hive/lib && wget "
+                                "cd /tmp/seatunnel/lib && wget "
                                         + aliyunSdkOssUrl()
                                         + " && wget "
                                         + jdomUrl()
@@ -125,18 +142,90 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                 // The jar of cos
                 Container.ExecResult downloadCosCommands =
                         container.execInContainer(
-                                "sh",
-                                "-c",
-                                "cd /tmp/seatunnel/plugins/Hive/lib && wget " + hadoopCosUrl());
+                                "sh", "-c", "cd /tmp/seatunnel/lib && wget " + hadoopCosUrl());
                 Assertions.assertEquals(
                         0, downloadCosCommands.getExitCode(), downloadCosCommands.getStderr());
             };
 
+    @BeforeAll
     @Override
-    public void startUp() throws Exception {}
+    public void startUp() throws Exception {
+        hmsContainer =
+                HiveContainer.hmsStandalone()
+                        .withCreateContainerCmdModifier(cmd -> cmd.withName(HMS_HOST))
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(HMS_HOST);
+        hmsContainer.setPortBindings(Collections.singletonList("9083:9083"));
 
+        Startables.deepStart(Stream.of(hmsContainer)).join();
+        log.info(hmsContainer.getLogs());
+        log.info("HMS just started");
+
+        hiveServerContainer =
+                HiveContainer.hiveServer()
+                        .withNetwork(NETWORK)
+                        .withCreateContainerCmdModifier(cmd -> cmd.withName(HIVE_SERVER_HOST))
+                        .withNetworkAliases(HIVE_SERVER_HOST)
+                        .withEnv(
+                                "SERVICE_OPTS",
+                                "-Dhive.metastore.uris=thrift://"
+                                        + hmsContainer
+                                                .getContainerInfo()
+                                                .getNetworkSettings()
+                                                .getNetworks()
+                                                .entrySet()
+                                                .iterator()
+                                                .next()
+                                                .getValue()
+                                                .getIpAddress()
+                                        + ":9083")
+                        .withEnv("IS_RESUME", "true")
+                        .dependsOn(hmsContainer);
+        hiveServerContainer.setPortBindings(Collections.singletonList("10000:10000"));
+
+        Startables.deepStart(Stream.of(hiveServerContainer)).join();
+        log.info(hiveServerContainer.getLogs());
+        log.info("HiveServer2 just started");
+        log.info(hiveServerContainer.execInContainer("cat", "/tmp/hive/hive.log").getStdout());
+        given().ignoreExceptions()
+                .await()
+                .atMost(360, TimeUnit.SECONDS)
+                .pollDelay(Duration.ofSeconds(10L))
+                .untilAsserted(this::initializeConnection);
+        prepareTable();
+    }
+
+    @AfterAll
     @Override
-    public void tearDown() throws Exception {}
+    public void tearDown() throws Exception {
+        if (hmsContainer != null) {
+            log.info(hmsContainer.execInContainer("cat", "/tmp/hive/hive.log").getStdout());
+            hmsContainer.close();
+        }
+        if (hiveServerContainer != null) {
+            log.info(hiveServerContainer.execInContainer("cat", "/tmp/hive/hive.log").getStdout());
+            hiveServerContainer.close();
+        }
+    }
+
+    private void initializeConnection()
+            throws ClassNotFoundException, InstantiationException, IllegalAccessException,
+                    SQLException {
+        this.hiveConnection = this.hiveServerContainer.getConnection();
+    }
+
+    private void prepareTable() throws Exception {
+        log.info(
+                String.format(
+                        "Databases are %s",
+                        this.hmsContainer.createMetaStoreClient().getAllDatabases()));
+        try (Statement statement = this.hiveConnection.createStatement()) {
+            statement.execute(CREATE_SQL);
+        } catch (Exception exception) {
+            log.error(ExceptionUtils.getMessage(exception));
+            throw exception;
+        }
+    }
 
     private void executeJob(TestContainer container, String job1, String job2)
             throws IOException, InterruptedException {
@@ -153,16 +242,22 @@ public class HiveIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @Disabled(
+            "[HDFS/COS/OSS/S3] is not available in CI, if you want to run this test, please set up your own environment in the test case file, hadoop_hive_conf_path_local and ip below}")
     public void testFakeSinkHiveOnS3(TestContainer container) throws Exception {
         executeJob(container, "/fake_to_hive_on_s3.conf", "/hive_on_s3_to_assert.conf");
     }
 
     @TestTemplate
+    @Disabled(
+            "[HDFS/COS/OSS/S3] is not available in CI, if you want to run this test, please set up your own environment in the test case file, hadoop_hive_conf_path_local and ip below}")
     public void testFakeSinkHiveOnOSS(TestContainer container) throws Exception {
         executeJob(container, "/fake_to_hive_on_oss.conf", "/hive_on_oss_to_assert.conf");
     }
 
     @TestTemplate
+    @Disabled(
+            "[HDFS/COS/OSS/S3] is not available in CI, if you want to run this test, please set up your own environment in the test case file, hadoop_hive_conf_path_local and ip below}")
     public void testFakeSinkHiveOnCos(TestContainer container) throws Exception {
         executeJob(container, "/fake_to_hive_on_cos.conf", "/hive_on_cos_to_assert.conf");
     }

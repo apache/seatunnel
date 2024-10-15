@@ -27,7 +27,7 @@ import java.util.List;
 
 public interface TestContainer extends TestResource {
 
-    Network NETWORK = Network.newNetwork();
+    Network NETWORK = Network.builder().enableIpv6(false).build();
 
     TestContainerId identifier();
 
