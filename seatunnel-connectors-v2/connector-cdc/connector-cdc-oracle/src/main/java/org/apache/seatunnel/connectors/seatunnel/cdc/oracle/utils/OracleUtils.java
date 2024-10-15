@@ -21,13 +21,13 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
+import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleConnectorConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffset;
 
 import org.apache.kafka.connect.source.SourceRecord;
 
 import io.debezium.connector.oracle.OracleConnection;
-import io.debezium.connector.oracle.OracleConnectorConfig;
 import io.debezium.connector.oracle.OracleDatabaseSchema;
 import io.debezium.connector.oracle.OracleDefaultValueConverter;
 import io.debezium.connector.oracle.OracleTopicSelector;

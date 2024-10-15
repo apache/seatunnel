@@ -337,6 +337,39 @@ source {
 
 ```
 
+### Support PDB
+
+```conf
+env {
+ parallelism = 1
+ job.mode = "STREAMING"
+ checkpoint.interval = 10000
+ }
+
+ source {
+ Oracle-CDC {
+ result_table_name = "fake"
+ base-url = "jdbc:oracle:thin:@//localhost:1524/ORCLPDB1"
+ username = "system"
+ password = "oracle"
+ database-names = ["ORCLCDB"]
+ schema-names = ["TEST"]
+ table-names = ["ORCLCDB.TEST.T1"]
+ exactly_once = true
+
+ debezium {
+ database.pdb.name = "ORCLPDB1"
+ }
+ }
+ }
+
+ sink {
+ console {
+ source_table_name="fake"
+ }
+}
+```
+
 ### Support debezium-compatible format send to kafka
 
 > Must be used with kafka connector sink, see [compatible debezium format](../formats/cdc-compatible-debezium-json.md) for details
