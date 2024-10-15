@@ -31,12 +31,14 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalo
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbase.OceanBaseMySqlTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbase.OceanBaseMysqlType;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang.StringUtils;
 
+import com.google.common.base.Preconditions;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -130,19 +132,11 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
         return indexList;
     }
 
-    /**
-     * For more information about oceanbase, see com.oceanbase.jdbc.JDBC4DatabaseMetaData in
-     * oceanbase-client
-     *
-     * @param resultSet
-     * @return
-     * @throws SQLException
-     */
     @Override
     protected Column buildColumn(ResultSet resultSet) throws SQLException {
         String columnName = resultSet.getString("COLUMN_NAME");
         // e.g. tinyint(1) unsigned
-        String columnType = resultSet.getString("TYPE_NAME");
+        String columnType = resultSet.getString("COLUMN_TYPE");
         // e.g. tinyint
         String dataType = resultSet.getString("DATA_TYPE").toUpperCase();
         String comment = resultSet.getString("COLUMN_COMMENT");
@@ -150,16 +144,19 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
         String isNullableStr = resultSet.getString("IS_NULLABLE");
         boolean isNullable = isNullableStr.equals("YES");
         // e.g. `decimal(10, 2)` is 10
-        long numberPrecision = resultSet.getInt("COLUMN_SIZE");
+        long numberPrecision = resultSet.getInt("NUMERIC_PRECISION");
         // e.g. `decimal(10, 2)` is 2
-        int numberScale = resultSet.getInt("DECIMAL_DIGITS");
+        int numberScale = resultSet.getInt("NUMERIC_SCALE");
         // e.g. `varchar(10)` is 40
-        long charOctetLength = resultSet.getLong("CHAR_OCTET_LENGTH");
+        long charOctetLength = resultSet.getLong("CHARACTER_OCTET_LENGTH");
         // e.g. `timestamp(3)` is 3
         //        int timePrecision =
         //                MySqlVersion.V_5_5.equals(version) ? 0 :
         // resultSet.getInt("DATETIME_PRECISION");
-        int timePrecision = resultSet.getInt("COLUMN_SIZE");
+        int timePrecision = resultSet.getInt("DATETIME_PRECISION");
+        Preconditions.checkArgument(!(numberPrecision > 0 && charOctetLength > 0));
+        Preconditions.checkArgument(!(numberScale > 0 && timePrecision > 0));
+
         OceanBaseMysqlType oceanbaseMysqlType = OceanBaseMysqlType.getByName(columnType);
         boolean unsigned = columnType.toLowerCase(Locale.ROOT).contains("unsigned");
 
@@ -245,23 +242,17 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
                 StringUtils.isBlank(tableName)
                         ? TablePath.DEFAULT
                         : TablePath.of(databaseName, schemaName, tableName);
-        ResultSet resultSet =
-                defaultConnection
-                        .getMetaData()
-                        .getColumns(catalogName, schemaName, tableName, null);
+        PreparedStatement ps = defaultConnection.prepareStatement(getSelectColumnsSql(tablePath));
+        ResultSet resultSet = ps.executeQuery();
         ResultSet primaryKeys =
                 defaultConnection.getMetaData().getPrimaryKeys(catalogName, schemaName, tableName);
-        String primaryKeyColumnName = null;
         while (primaryKeys.next()) {
-            primaryKeyColumnName = primaryKeys.getString("COLUMN_NAME");
-        }
-        while (resultSet.next()) {
-            Boolean isAutoincrement = resultSet.getBoolean("IS_AUTOINCREMENT");
+            String primaryKeyColumnName = primaryKeys.getString("COLUMN_NAME");
             schemaBuilder.primaryKey(
                     PrimaryKey.of(
-                            primaryKeyColumnName,
-                            Collections.singletonList(primaryKeyColumnName),
-                            isAutoincrement));
+                            primaryKeyColumnName, Collections.singletonList(primaryKeyColumnName)));
+        }
+        while (resultSet.next()) {
             schemaBuilder.column(buildColumn(resultSet));
         }
         return CatalogTable.of(

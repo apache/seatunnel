@@ -34,17 +34,6 @@ import com.google.auto.service.AutoService;
 import com.google.common.base.Preconditions;
 import lombok.extern.slf4j.Slf4j;
 
-import static java.sql.Types.BIGINT;
-import static java.sql.Types.BOOLEAN;
-import static java.sql.Types.DATE;
-import static java.sql.Types.DECIMAL;
-import static java.sql.Types.DOUBLE;
-import static java.sql.Types.FLOAT;
-import static java.sql.Types.SMALLINT;
-import static java.sql.Types.TIME;
-import static java.sql.Types.TIMESTAMP;
-import static java.sql.Types.TINYINT;
-
 @Slf4j
 @AutoService(TypeConverter.class)
 public class OceanBaseMySqlTypeConverter
@@ -112,7 +101,8 @@ public class OceanBaseMySqlTypeConverter
     public static final long POWER_2_32 = (long) Math.pow(2, 32);
     public static final long MAX_VARBINARY_LENGTH = POWER_2_16 - 4;
 
-    private static final String VECTOR_TYPE_NAME = "VECTOR";
+    private static final String VECTOR_TYPE_NAME = "";
+    private static final String VECTOR_NAME = "VECTOR";
 
     @Override
     public String identifier() {
@@ -129,10 +119,11 @@ public class OceanBaseMySqlTypeConverter
                         .defaultValue(typeDefine.getDefaultValue())
                         .comment(typeDefine.getComment());
 
-        String mysqlDataType = typeDefine.getColumnType().toUpperCase();
+        String mysqlDataType = typeDefine.getDataType().toUpperCase();
         if (typeDefine.isUnsigned() && !(mysqlDataType.endsWith(" UNSIGNED"))) {
             mysqlDataType = mysqlDataType + " UNSIGNED";
         }
+        System.out.println(typeDefine.getName() + "的值类型是：" + mysqlDataType);
         switch (mysqlDataType) {
             case MYSQL_NULL:
                 builder.dataType(BasicType.VOID_TYPE);
@@ -304,8 +295,15 @@ public class OceanBaseMySqlTypeConverter
                 builder.scale(typeDefine.getScale());
                 break;
             case VECTOR_TYPE_NAME:
-                builder.dataType(VectorType.VECTOR_FLOAT_TYPE);
-                builder.scale(typeDefine.getScale());
+                String columnType = typeDefine.getColumnType();
+                if (columnType.startsWith("vector(") && columnType.endsWith(")")) {
+                    Integer number =
+                            Integer.parseInt(
+                                    columnType.substring(
+                                            columnType.indexOf("(") + 1, columnType.indexOf(")")));
+                    builder.dataType(VectorType.VECTOR_FLOAT_TYPE);
+                    builder.scale(number);
+                }
                 break;
             default:
                 throw CommonError.convertToSeaTunnelTypeError(
@@ -518,6 +516,11 @@ public class OceanBaseMySqlTypeConverter
                 } else {
                     builder.columnType(MYSQL_DATETIME);
                 }
+                break;
+            case FLOAT_VECTOR:
+                builder.nativeType(VECTOR_NAME);
+                builder.columnType(String.format("%s(%s)", VECTOR_NAME, column.getScale()));
+                builder.dataType(VECTOR_NAME);
                 break;
             default:
                 throw CommonError.convertToConnectorTypeError(
