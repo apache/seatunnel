@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricNames;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
-import org.apache.seatunnel.api.sink.SupportCheckpointIdDownStream;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
 import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -102,10 +101,7 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
 
     @Override
     public List<CommitWrapper<CommT>> prepareCommit(boolean flush) throws IOException {
-        Optional<CommT> commTOptional =
-                (sinkWriter instanceof SupportCheckpointIdDownStream)
-                        ? sinkWriter.prepareCommit(checkpointId)
-                        : sinkWriter.prepareCommit();
+        Optional<CommT> commTOptional = sinkWriter.prepareCommit(checkpointId);
         return commTOptional
                 .map(CommitWrapper::new)
                 .map(Collections::singletonList)

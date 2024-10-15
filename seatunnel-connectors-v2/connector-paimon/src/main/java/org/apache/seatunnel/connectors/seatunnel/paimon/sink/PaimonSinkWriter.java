@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.sink;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.sink.SupportCheckpointIdDownStream;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -62,7 +61,6 @@ import java.util.stream.Collectors;
 @Slf4j
 public class PaimonSinkWriter
         implements SinkWriter<SeaTunnelRow, PaimonCommitInfo, PaimonSinkState>,
-                SupportCheckpointIdDownStream,
                 SupportMultiTableSinkWriter<Void> {
 
     private String commitUser = UUID.randomUUID().toString();

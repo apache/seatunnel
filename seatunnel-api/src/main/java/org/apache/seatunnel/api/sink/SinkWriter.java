@@ -62,6 +62,7 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
      *
      * @return the commit info need to commit
      */
+    @Deprecated
     Optional<CommitInfoT> prepareCommit() throws IOException;
 
     /**

@@ -20,7 +20,6 @@ package org.apache.seatunnel.translation.spark.sink.write;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.sink.SupportCheckpointIdDownStream;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
 import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -80,10 +79,7 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
 
     @Override
     public WriterCommitMessage commit() throws IOException {
-        Optional<CommitInfoT> commitInfoTOptional =
-                (sinkWriter instanceof SupportCheckpointIdDownStream)
-                        ? sinkWriter.prepareCommit(epochId)
-                        : sinkWriter.prepareCommit();
+        Optional<CommitInfoT> commitInfoTOptional = sinkWriter.prepareCommit(epochId);
         commitInfoTOptional.ifPresent(commitInfoT -> latestCommitInfoT = commitInfoT);
         sinkWriter.snapshotState(epochId++);
         if (sinkCommitter != null) {
