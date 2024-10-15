@@ -70,6 +70,7 @@ public class SeaTunnelServerStarter {
         if (condition) {
             initTelemetryInstance(original.node);
         }
+
         return original;
     }
 

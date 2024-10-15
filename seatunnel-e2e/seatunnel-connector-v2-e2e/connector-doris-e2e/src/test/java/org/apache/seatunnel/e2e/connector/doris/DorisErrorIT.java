@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.connector.doris;
 
+import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -41,8 +42,6 @@ import static org.awaitility.Awaitility.given;
 @Slf4j
 public class DorisErrorIT extends AbstractDorisIT {
     private static final String TABLE = "doris_e2e_table";
-    private static final String DRIVER_JAR =
-            "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
 
     private static final String sinkDB = "e2e_sink";
 
@@ -82,8 +81,7 @@ public class DorisErrorIT extends AbstractDorisIT {
         Assertions.assertTrue(
                 future.get()
                         .getStderr()
-                        .contains(
-                                "Caused by: org.apache.seatunnel.connectors.doris.exception.DorisConnectorException: ErrorCode:[Doris-01], ErrorDescription:[stream load error]"));
+                        .contains(DorisConnectorErrorCode.STREAM_LOAD_FAILED.getCode()));
         Assertions.assertTrue(
                 future.get()
                         .getStderr()
@@ -94,7 +92,7 @@ public class DorisErrorIT extends AbstractDorisIT {
         // wait for the container to restart
         given().ignoreExceptions()
                 .await()
-                .atMost(10000, TimeUnit.SECONDS)
+                .atMost(360, TimeUnit.SECONDS)
                 .untilAsserted(this::initializeJdbcConnection);
     }
 

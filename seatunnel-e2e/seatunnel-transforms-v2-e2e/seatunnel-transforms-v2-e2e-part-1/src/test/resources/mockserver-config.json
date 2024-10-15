@@ -104,5 +104,37 @@
         "Content-Type": "application/json"
       }
     }
+  },
+  {
+    "httpRequest": {
+      "method": "POST",
+      "path": "/openai/deployments/gpt-35-turbo/chat/.*"
+    },
+    "httpResponse": {
+      "body": {
+        "id": "chatcmpl-6v7mkQj980V1yBec6ETrKPRqFjNw9",
+        "object": "chat.completion",
+        "created": 1679072642,
+        "model": "gpt-35-turbo",
+        "usage": {
+          "prompt_tokens": 58,
+          "completion_tokens": 68,
+          "total_tokens": 126
+        },
+        "choices": [
+          {
+            "message": {
+              "role": "assistant",
+              "content": "[\"Chinese\"]"
+            },
+            "finish_reason": "stop",
+            "index": 0
+          }
+        ]
+      },
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
   }
 ]

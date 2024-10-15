@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter.Context;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
@@ -32,6 +33,7 @@ import org.apache.seatunnel.connectors.seatunnel.exception.DingTalkConnectorExce
 import com.google.auto.service.AutoService;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.config.DingTalkConfig.SECRET;
 import static org.apache.seatunnel.connectors.seatunnel.config.DingTalkConfig.URL;
@@ -72,5 +74,10 @@ public class DingTalkSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(Context context) throws IOException {
         return new DingTalkWriter(
                 pluginConfig.getString(URL.key()), pluginConfig.getString(SECRET.key()));
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return super.getWriteCatalogTable();
     }
 }

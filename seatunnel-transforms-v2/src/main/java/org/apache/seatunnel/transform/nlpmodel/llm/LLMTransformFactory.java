@@ -26,7 +26,6 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
 import org.apache.seatunnel.transform.nlpmodel.ModelProvider;
-import org.apache.seatunnel.transform.nlpmodel.ModelTransformConfig;
 
 import com.google.auto.service.AutoService;
 
@@ -50,14 +49,17 @@ public class LLMTransformFactory implements TableTransformFactory {
                         LLMTransformConfig.PROCESS_BATCH_SIZE)
                 .conditional(
                         LLMTransformConfig.MODEL_PROVIDER,
-                        Lists.newArrayList(ModelProvider.OPENAI, ModelProvider.DOUBAO),
+                        Lists.newArrayList(
+                                ModelProvider.OPENAI,
+                                ModelProvider.DOUBAO,
+                                ModelProvider.MICROSOFT),
                         LLMTransformConfig.API_KEY)
                 .conditional(
                         LLMTransformConfig.MODEL_PROVIDER,
                         ModelProvider.QIANFAN,
                         LLMTransformConfig.API_KEY,
                         LLMTransformConfig.SECRET_KEY,
-                        ModelTransformConfig.OAUTH_PATH)
+                        LLMTransformConfig.OAUTH_PATH)
                 .conditional(
                         LLMTransformConfig.MODEL_PROVIDER,
                         ModelProvider.CUSTOM,
