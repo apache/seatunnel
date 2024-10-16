@@ -53,6 +53,7 @@
         <xugu.jdbc.version>12.2.0</xugu.jdbc.version>
         <iris.jdbc.version>3.0.0</iris.jdbc.version>
         <tikv.version>3.2.0</tikv.version>
+        <opengauss.jdbc.version>5.1.0-og</opengauss.jdbc.version>
     </properties>
 
     <dependencyManagement>
@@ -203,11 +204,15 @@
                 <version>${iris.jdbc.version}</version>
                 <scope>provided</scope>
             </dependency>
-
             <dependency>
                 <groupId>org.tikv</groupId>
                 <artifactId>tikv-client-java</artifactId>
                 <version>${tikv.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.opengauss</groupId>
+                <artifactId>opengauss-jdbc</artifactId>
+                <version>${opengauss.jdbc.version}</version>
                 <scope>provided</scope>
             </dependency>
         </dependencies>
@@ -316,10 +321,13 @@
             <groupId>com.intersystems</groupId>
             <artifactId>intersystems-jdbc</artifactId>
         </dependency>
-
         <dependency>
             <groupId>org.tikv</groupId>
             <artifactId>tikv-client-java</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.opengauss</groupId>
+            <artifactId>opengauss-jdbc</artifactId>
         </dependency>
     </dependencies>
 

@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkQueryInfo;
@@ -29,6 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkQueryInfo
 import com.google.auto.service.AutoService;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.PLUGIN_NAME;
 
@@ -57,5 +59,10 @@ public class Neo4jSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> 
     public SinkWriter<SeaTunnelRow, Void, Void> createWriter(SinkWriter.Context context)
             throws IOException {
         return new Neo4jSinkWriter(neo4JSinkQueryInfo, rowType);
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return SeaTunnelSink.super.getWriteCatalogTable();
     }
 }

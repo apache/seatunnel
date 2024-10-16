@@ -119,10 +119,19 @@ network:
     },
     "createTime": "",
     "jobDag": {
-      "vertices": [
+      "jobId": "",
+      "envOptions": [],
+      "vertexInfoMap": [
+        {
+          "vertexId": 1,
+          "type": "",
+          "vertexName": "",
+          "tablePaths": [
+            ""
+          ]
+        }
       ],
-      "edges": [
-      ]
+      "pipelineEdges": {}
     },
     "pluginJarsUrls": [
     ],
@@ -159,10 +168,19 @@ network:
   "jobStatus": "",
   "createTime": "",
   "jobDag": {
-    "vertices": [
+    "jobId": "",
+    "envOptions": [],
+    "vertexInfoMap": [
+      {
+        "vertexId": 1,
+        "type": "",
+        "vertexName": "",
+        "tablePaths": [
+          ""
+        ]
+      }
     ],
-    "edges": [
-    ]
+    "pipelineEdges": {}
   },
   "metrics": {
     "SourceReceivedCount": "",
@@ -230,10 +248,19 @@ network:
   "jobStatus": "",
   "createTime": "",
   "jobDag": {
-    "vertices": [
+    "jobId": "",
+    "envOptions": [],
+    "vertexInfoMap": [
+      {
+        "vertexId": 1,
+        "type": "",
+        "vertexName": "",
+        "tablePaths": [
+          ""
+        ]
+      }
     ],
-    "edges": [
-    ]
+    "pipelineEdges": {}
   },
   "metrics": {
     "sourceReceivedCount": "",
@@ -287,7 +314,21 @@ network:
     "errorMsg": null,
     "createTime": "",
     "finishTime": "",
-    "jobDag": "",
+    "jobDag": {
+      "jobId": "",
+      "envOptions": [],
+      "vertexInfoMap": [
+        {
+          "vertexId": 1,
+          "type": "",
+          "vertexName": "",
+          "tablePaths": [
+            ""
+          ]
+        }
+      ],
+      "pipelineEdges": {}
+    },
     "metrics": ""
   }
 ]

@@ -80,14 +80,21 @@ seatunnel:
     "jobId": "",
     "jobName": "",
     "jobStatus": "",
-    "envOptions": {
-    },
     "createTime": "",
     "jobDag": {
-      "vertices": [
+      "jobId": "",
+      "envOptions": [],
+      "vertexInfoMap": [
+        {
+          "vertexId": 1,
+          "type": "",
+          "vertexName": "",
+          "tablePaths": [
+            ""
+          ]
+        }
       ],
-      "edges": [
-      ]
+      "pipelineEdges": {}
     },
     "pluginJarsUrls": [
     ],
@@ -124,10 +131,19 @@ seatunnel:
   "jobStatus": "",
   "createTime": "",
   "jobDag": {
-    "vertices": [
+    "jobId": "",
+    "envOptions": [],
+    "vertexInfoMap": [
+      {
+        "vertexId": 1,
+        "type": "",
+        "vertexName": "",
+        "tablePaths": [
+          ""
+        ]
+      }
     ],
-    "edges": [
-    ]
+    "pipelineEdges": {}
   },
   "metrics": {
     "SourceReceivedCount": "",
@@ -195,10 +211,19 @@ seatunnel:
   "jobStatus": "",
   "createTime": "",
   "jobDag": {
-    "vertices": [
+    "jobId": "",
+    "envOptions": [],
+    "vertexInfoMap": [
+      {
+        "vertexId": 1,
+        "type": "",
+        "vertexName": "",
+        "tablePaths": [
+          ""
+        ]
+      }
     ],
-    "edges": [
-    ]
+    "pipelineEdges": {}
   },
   "metrics": {
     "sourceReceivedCount": "",
@@ -252,7 +277,21 @@ seatunnel:
     "errorMsg": null,
     "createTime": "",
     "finishTime": "",
-    "jobDag": "",
+    "jobDag": {
+      "jobId": "",
+      "envOptions": [],
+      "vertexInfoMap": [
+        {
+          "vertexId": 1,
+          "type": "",
+          "vertexName": "",
+          "tablePaths": [
+            ""
+          ]
+        }
+      ],
+      "pipelineEdges": {}
+    },
     "metrics": ""
   }
 ]

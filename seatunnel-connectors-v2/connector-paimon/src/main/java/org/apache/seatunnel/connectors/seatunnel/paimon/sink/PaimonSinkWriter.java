@@ -130,6 +130,7 @@ public class PaimonSinkWriter
             return;
         }
         this.commitUser = states.get(0).getCommitUser();
+        long checkpointId = states.get(0).getCheckpointId();
         try (TableCommit tableCommit = tableWriteBuilder.newCommit()) {
             List<CommitMessage> commitables =
                     states.stream()
@@ -142,7 +143,7 @@ public class PaimonSinkWriter
                 ((BatchTableCommit) tableCommit).commit(commitables);
             } else {
                 log.debug("Trying to recommit states streaming mode");
-                ((StreamTableCommit) tableCommit).commit(Objects.hash(commitables), commitables);
+                ((StreamTableCommit) tableCommit).commit(checkpointId, commitables);
             }
         } catch (Exception e) {
             throw new PaimonConnectorException(
@@ -174,16 +175,21 @@ public class PaimonSinkWriter
 
     @Override
     public Optional<PaimonCommitInfo> prepareCommit() throws IOException {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<PaimonCommitInfo> prepareCommit(long checkpointId) throws IOException {
         try {
             List<CommitMessage> fileCommittables;
             if (JobContextUtil.isBatchJob(jobContext)) {
                 fileCommittables = ((BatchTableWrite) tableWrite).prepareCommit();
             } else {
                 fileCommittables =
-                        ((StreamTableWrite) tableWrite).prepareCommit(false, committables.size());
+                        ((StreamTableWrite) tableWrite).prepareCommit(false, checkpointId);
             }
             committables.addAll(fileCommittables);
-            return Optional.of(new PaimonCommitInfo(fileCommittables));
+            return Optional.of(new PaimonCommitInfo(fileCommittables, checkpointId));
         } catch (Exception e) {
             throw new PaimonConnectorException(
                     PaimonConnectorErrorCode.TABLE_PRE_COMMIT_FAILED,

@@ -88,10 +88,19 @@ seatunnel:
     },
     "createTime": "",
     "jobDag": {
-      "vertices": [
+      "jobId": "",
+      "envOptions": [],
+      "vertexInfoMap": [
+        {
+          "vertexId": 1,
+          "type": "",
+          "vertexName": "",
+          "tablePaths": [
+            ""
+          ]
+        }
       ],
-      "edges": [
-      ]
+      "pipelineEdges": {}
     },
     "pluginJarsUrls": [
     ],
@@ -128,10 +137,19 @@ seatunnel:
   "jobStatus": "",
   "createTime": "",
   "jobDag": {
-    "vertices": [
+    "jobId": "",
+    "envOptions": [],
+    "vertexInfoMap": [
+      {
+        "vertexId": 1,
+        "type": "",
+        "vertexName": "",
+        "tablePaths": [
+          ""
+        ]
+      }
     ],
-    "edges": [
-    ]
+    "pipelineEdges": {}
   },
   "metrics": {
     "sourceReceivedCount": "",
@@ -185,10 +203,19 @@ This API has been deprecated, please use /job-info/:jobId instead
   "jobStatus": "",
   "createTime": "",
   "jobDag": {
-    "vertices": [
+    "jobId": "",
+    "envOptions": [],
+    "vertexInfoMap": [
+      {
+        "vertexId": 1,
+        "type": "",
+        "vertexName": "",
+        "tablePaths": [
+          ""
+        ]
+      }
     ],
-    "edges": [
-    ]
+    "pipelineEdges": {}
   },
   "metrics": {
     "SourceReceivedCount": "",
@@ -256,7 +283,21 @@ When we can't get the job info, the response will be:
     "errorMsg": null,
     "createTime": "",
     "finishTime": "",
-    "jobDag": "",
+    "jobDag": {
+      "jobId": "",
+      "envOptions": [],
+      "vertexInfoMap": [
+        {
+          "vertexId": 1,
+          "type": "",
+          "vertexName": "",
+          "tablePaths": [
+            ""
+          ]
+        }
+      ],
+      "pipelineEdges": {}
+    },
     "metrics": ""
   }
 ]

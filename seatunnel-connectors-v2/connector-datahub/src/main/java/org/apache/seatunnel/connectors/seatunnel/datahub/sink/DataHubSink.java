@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter.Context;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -35,6 +36,7 @@ import org.apache.seatunnel.connectors.seatunnel.datahub.exception.DataHubConnec
 import com.google.auto.service.AutoService;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.ACCESS_ID;
 import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.ACCESS_KEY;
@@ -92,5 +94,10 @@ public class DataHubSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
                 pluginConfig.getString(TOPIC.key()),
                 pluginConfig.getInt(TIMEOUT.key()),
                 pluginConfig.getInt(RETRY_TIMES.key()));
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return super.getWriteCatalogTable();
     }
 }

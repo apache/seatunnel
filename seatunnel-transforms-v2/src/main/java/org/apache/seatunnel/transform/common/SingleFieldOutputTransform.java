@@ -137,4 +137,12 @@ public abstract class SingleFieldOutputTransform extends AbstractCatalogSupportT
     }
 
     protected abstract Column getOutputColumn();
+
+    public int getFieldIndex() {
+        return fieldIndex;
+    }
+
+    public SeaTunnelRowContainerGenerator getRowContainerGenerator() {
+        return rowContainerGenerator;
+    }
 }

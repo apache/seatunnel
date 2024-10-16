@@ -79,7 +79,7 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
 
     @Override
     public WriterCommitMessage commit() throws IOException {
-        Optional<CommitInfoT> commitInfoTOptional = sinkWriter.prepareCommit();
+        Optional<CommitInfoT> commitInfoTOptional = sinkWriter.prepareCommit(epochId);
         commitInfoTOptional.ifPresent(commitInfoT -> latestCommitInfoT = commitInfoT);
         sinkWriter.snapshotState(epochId++);
         if (sinkCommitter != null) {

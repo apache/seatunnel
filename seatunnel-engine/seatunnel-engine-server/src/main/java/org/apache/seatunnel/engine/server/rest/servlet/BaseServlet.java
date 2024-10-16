@@ -26,7 +26,6 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
-import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -38,6 +37,7 @@ import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.dag.DAGUtils;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.operation.CancelJobOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
@@ -58,6 +58,7 @@ import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.json.JsonValue;
 import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.internal.util.JsonUtil;
 import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
@@ -75,7 +76,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import static com.hazelcast.internal.util.JsonUtil.toJsonObject;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES_PER_SECONDS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
@@ -183,19 +183,26 @@ public class BaseServlet extends HttpServlet {
             jobStatus = seaTunnelServer.getCoordinatorService().getJobStatus(jobId);
         }
 
+        JobDAGInfo jobDAGInfo =
+                DAGUtils.getJobDAGInfo(
+                        logicalDag,
+                        jobImmutableInformation,
+                        getSeaTunnelServer(false).getSeaTunnelConfig().getEngineConfig(),
+                        true);
+
         jobInfoJson
                 .add(RestConstant.JOB_ID, String.valueOf(jobId))
                 .add(RestConstant.JOB_NAME, logicalDag.getJobConfig().getName())
                 .add(RestConstant.JOB_STATUS, jobStatus.toString())
                 .add(
                         RestConstant.ENV_OPTIONS,
-                        toJsonObject(logicalDag.getJobConfig().getEnvOptions()))
+                        JsonUtil.toJsonObject(logicalDag.getJobConfig().getEnvOptions()))
                 .add(
                         RestConstant.CREATE_TIME,
                         DateTimeUtils.toString(
                                 jobImmutableInformation.getCreateTime(),
                                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
-                .add(RestConstant.JOB_DAG, logicalDag.getLogicalDagAsJson())
+                .add(RestConstant.JOB_DAG, jobDAGInfo.toJsonObject())
                 .add(
                         RestConstant.PLUGIN_JARS_URLS,
                         (JsonValue)
@@ -211,7 +218,7 @@ public class BaseServlet extends HttpServlet {
                 .add(
                         RestConstant.IS_START_WITH_SAVE_POINT,
                         jobImmutableInformation.isStartWithSavePoint())
-                .add(RestConstant.METRICS, toJsonObject(getJobMetrics(jobMetrics)));
+                .add(RestConstant.METRICS, metricsToJsonObject(getJobMetrics(jobMetrics)));
 
         return jobInfoJson;
     }
@@ -287,9 +294,9 @@ public class BaseServlet extends HttpServlet {
                         DateTimeUtils.toString(
                                 jobState.getFinishTime(),
                                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
-                .add(RestConstant.JOB_DAG, JsonUtils.toJsonString(jobDAGInfo))
+                .add(RestConstant.JOB_DAG, jobDAGInfo.toJsonObject())
                 .add(RestConstant.PLUGIN_JARS_URLS, new JsonArray())
-                .add(RestConstant.METRICS, toJsonObject(getJobMetrics(jobMetrics)));
+                .add(RestConstant.METRICS, metricsToJsonObject(getJobMetrics(jobMetrics)));
     }
 
     private Map<String, Object> getJobMetrics(String jobMetrics) {
@@ -575,5 +582,18 @@ public class BaseServlet extends HttpServlet {
                         data,
                         jobImmutableInformation.isStartWithSavePoint());
         voidPassiveCompletableFuture.join();
+    }
+
+    private JsonObject metricsToJsonObject(Map<String, Object> jobMetrics) {
+        JsonObject members = new JsonObject();
+        jobMetrics.forEach(
+                (key, value) -> {
+                    if (value instanceof Map) {
+                        members.add(key, metricsToJsonObject((Map<String, Object>) value));
+                    } else {
+                        members.add(key, value.toString());
+                    }
+                });
+        return members;
     }
 }
