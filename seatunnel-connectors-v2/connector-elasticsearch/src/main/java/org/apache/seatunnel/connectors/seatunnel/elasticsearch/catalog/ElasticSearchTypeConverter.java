@@ -22,13 +22,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.converter.BasicTypeConverter;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
-import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.MapType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.*;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType;
 
 import com.google.auto.service.AutoService;
@@ -116,7 +110,7 @@ public class ElasticSearchTypeConverter implements BasicTypeConverter<BasicTypeD
                 if (elementType.equals("byte")) {
                     builder.dataType(ArrayType.BYTE_ARRAY_TYPE);
                 } else {
-                    builder.dataType(ArrayType.FLOAT_ARRAY_TYPE);
+                    builder.dataType(VectorType.VECTOR_FLOAT_TYPE);
                 }
                 break;
             case BYTE:
