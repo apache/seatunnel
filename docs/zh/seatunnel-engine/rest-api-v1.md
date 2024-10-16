@@ -119,10 +119,19 @@ network:
     },
     "createTime": "",
     "jobDag": {
-      "vertices": [
+      "jobId": "",
+      "envOptions": [],
+      "vertexInfoMap": [
+        {
+          "vertexId": 1,
+          "type": "",
+          "vertexName": "",
+          "tablePaths": [
+            ""
+          ]
+        }
       ],
-      "edges": [
-      ]
+      "pipelineEdges": {}
     },
     "pluginJarsUrls": [
     ],
@@ -160,6 +169,7 @@ network:
   "createTime": "",
   "jobDag": {
     "jobId": "",
+    "envOptions": [],
     "vertexInfoMap": [
       {
         "vertexId": 1,
@@ -239,6 +249,7 @@ network:
   "createTime": "",
   "jobDag": {
     "jobId": "",
+    "envOptions": [],
     "vertexInfoMap": [
       {
         "vertexId": 1,
@@ -305,6 +316,7 @@ network:
     "finishTime": "",
     "jobDag": {
       "jobId": "",
+      "envOptions": [],
       "vertexInfoMap": [
         {
           "vertexId": 1,
@@ -316,7 +328,8 @@ network:
         }
       ],
       "pipelineEdges": {}
-    },    "metrics": ""
+    },
+    "metrics": ""
   }
 ]
 ```

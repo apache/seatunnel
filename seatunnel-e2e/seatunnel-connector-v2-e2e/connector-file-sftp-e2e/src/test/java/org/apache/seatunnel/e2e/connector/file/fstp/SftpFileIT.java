@@ -146,6 +146,15 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
         helper.execute("/xml/fake_to_sftp_file_xml.conf");
         // test read sftp xml file
         helper.execute("/xml/sftp_file_xml_to_assert.conf");
+        // test sftp source support multipleTable
+        String homePath = "/home/seatunnel";
+        String sink01 = "/tmp/multipleSource/seatunnel/json/fake01";
+        String sink02 = "/tmp/multipleSource/seatunnel/json/fake02";
+        deleteFileFromContainer(homePath + sink01);
+        deleteFileFromContainer(homePath + sink02);
+        helper.execute("/json/sftp_file_json_to_assert_with_multipletable.conf");
+        Assertions.assertEquals(getFileListFromContainer(homePath + sink01).size(), 1);
+        Assertions.assertEquals(getFileListFromContainer(homePath + sink02).size(), 1);
     }
 
     @TestTemplate
