@@ -24,6 +24,7 @@ import { useI18n } from 'vue-i18n'
 import { getRemainTime } from '@/utils/time'
 import { format, parse } from 'date-fns'
 import Main from '@/components/directed-acyclic-graph/main'
+import { getTypeFromStatus } from '@/utils/getTypeFromStatus'
 
 export default defineComponent({
   setup() {
@@ -50,7 +51,7 @@ export default defineComponent({
       <div class="w-full bg-white px-12 pt-6 pb-12 border border-gray-100 rounded-xl">
         <div class="font-bold text-xl">
           {job.jobName}
-          <NTag bordered={false} type="success" class="ml-3">
+          <NTag bordered={false} type={getTypeFromStatus(job.jobStatus)} class="ml-3">
             {job.jobStatus}
           </NTag>
         </div>

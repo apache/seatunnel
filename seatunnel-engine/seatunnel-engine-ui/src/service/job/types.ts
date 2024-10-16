@@ -51,7 +51,7 @@ export interface EnvOptions {
 export interface Job {
   jobId: string
   jobName: string
-  jobStatus: string
+  jobStatus: 'RUNNING' | 'FINISHED'
   errorMsg: string
   createTime: string
   finishTime: string

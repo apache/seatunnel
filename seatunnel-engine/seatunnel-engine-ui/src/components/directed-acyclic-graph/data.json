@@ -40,46 +40,6 @@
         ]
     },
     {
-        "id": "3",
-        "shape": "dag-node",
-        "x": 170,
-        "y": 350,
-        "data": {
-            "label": "模型预测",
-            "status": "success"
-        },
-        "ports": [
-            {
-                "id": "3-1",
-                "group": "top"
-            },
-            {
-                "id": "3-2",
-                "group": "bottom"
-            }
-        ]
-    },
-    {
-        "id": "4",
-        "shape": "dag-node",
-        "x": 450,
-        "y": 350,
-        "data": {
-            "label": "读取参数",
-            "status": "success"
-        },
-        "ports": [
-            {
-                "id": "4-1",
-                "group": "top"
-            },
-            {
-                "id": "4-2",
-                "group": "bottom"
-            }
-        ]
-    },
-    {
         "id": "5",
         "shape": "dag-edge",
         "source": {
@@ -89,32 +49,6 @@
         "target": {
             "cell": "2",
             "port": "2-1"
-        },
-        "zIndex": 0
-    },
-    {
-        "id": "6",
-        "shape": "dag-edge",
-        "source": {
-            "cell": "2",
-            "port": "2-2"
-        },
-        "target": {
-            "cell": "3",
-            "port": "3-1"
-        },
-        "zIndex": 0
-    },
-    {
-        "id": "7",
-        "shape": "dag-edge",
-        "source": {
-            "cell": "2",
-            "port": "2-3"
-        },
-        "target": {
-            "cell": "4",
-            "port": "4-1"
         },
         "zIndex": 0
     }

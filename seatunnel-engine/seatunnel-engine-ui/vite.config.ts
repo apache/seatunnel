@@ -23,7 +23,7 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: '/ui/',
+  base: '/',
   plugins: [vue(), vueJsx(), vueDevTools()],
   resolve: {
     alias: {
