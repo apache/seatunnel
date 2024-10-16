@@ -18,32 +18,22 @@
 
 package org.apache.seatunnel.format.compatible.debezium.json;
 
-import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
-import lombok.RequiredArgsConstructor;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-import static org.apache.seatunnel.format.compatible.debezium.json.CompatibleDebeziumJsonDeserializationSchema.FIELD_KEY;
-import static org.apache.seatunnel.format.compatible.debezium.json.CompatibleDebeziumJsonDeserializationSchema.FIELD_VALUE;
+public class TestCompatibleDebeziumJsonSerializationSchema {
 
-@RequiredArgsConstructor
-public class CompatibleDebeziumJsonSerializationSchema implements SerializationSchema {
+    @Test
+    public void testDebeziumSerializeKeyIsNull() {
+        SeaTunnelRowType rowType =
+                CompatibleDebeziumJsonDeserializationSchema.DEBEZIUM_DATA_ROW_TYPE;
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {"test_topic", null, "value"});
 
-    private final boolean isKey;
-    private final int index;
-
-    public CompatibleDebeziumJsonSerializationSchema(SeaTunnelRowType rowType, boolean isKey) {
-        this.isKey = isKey;
-        this.index = rowType.indexOf(isKey ? FIELD_KEY : FIELD_VALUE);
-    }
-
-    @Override
-    public byte[] serialize(SeaTunnelRow row) {
-        String field = (String) row.getField(index);
-        if (isKey && field == null) {
-            return null;
-        }
-        return field.getBytes();
+        CompatibleDebeziumJsonSerializationSchema serializationSchema =
+                new CompatibleDebeziumJsonSerializationSchema(rowType, true);
+        Assertions.assertNull(serializationSchema.serialize(row));
     }
 }
