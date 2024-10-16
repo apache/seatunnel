@@ -403,7 +403,7 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                         tableId);
             }
         } else {
-            log.warn(
+            log.info(
                     "Config snapshot.split.column not exists or not unique key for table {}",
                     tableId);
         }
