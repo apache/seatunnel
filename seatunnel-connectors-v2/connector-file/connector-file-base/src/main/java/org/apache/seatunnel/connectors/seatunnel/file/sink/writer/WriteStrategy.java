@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
@@ -56,11 +56,11 @@ public interface WriteStrategy extends Transaction, Serializable, Closeable {
     void write(SeaTunnelRow seaTunnelRow) throws FileConnectorException;
 
     /**
-     * set seaTunnelRowTypeInfo in writer
+     * set catalog table to write strategy
      *
-     * @param seaTunnelRowType seaTunnelRowType
+     * @param catalogTable catalogTable
      */
-    void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType);
+    void setCatalogTable(CatalogTable catalogTable);
 
     /**
      * use seaTunnelRow generate partition directory
