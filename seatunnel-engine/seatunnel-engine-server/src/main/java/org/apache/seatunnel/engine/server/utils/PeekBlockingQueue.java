@@ -23,6 +23,17 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+/**
+ * PeekBlockingQueue implements blocking when peeking. Queues like BlockingQueue only support
+ * blocking when take() is called. The original solution used sleep(2000) to check whether there was
+ * data in the pending queue. This solution still had performance drawbacks, so it was changed to
+ * use peek blocking, which allows tasks to be scheduled more efficiently.
+ *
+ * <p>Application scenario: In CoordinatorService, the following process needs to be executed: <br>
+ * 1. Peek data from the queue. <br>
+ * 2. Check if resources are sufficient. <br>
+ * 3. If resources are sufficient, take() the data; otherwise, do not take data from the queue.
+ */
 public class PeekBlockingQueue<E> {
 
     private final BlockingQueue<E> queue = new LinkedBlockingQueue<>();
