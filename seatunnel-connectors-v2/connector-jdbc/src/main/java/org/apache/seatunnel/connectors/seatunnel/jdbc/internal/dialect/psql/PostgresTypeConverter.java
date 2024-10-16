@@ -224,6 +224,7 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
             case PG_GEOGRAPHY:
             case PG_INET:
                 builder.dataType(BasicType.STRING_TYPE);
+                builder.sourceType(pgDataType);
                 break;
             case PG_CHAR_ARRAY:
             case PG_VARCHAR_ARRAY:
