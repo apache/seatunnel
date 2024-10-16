@@ -35,18 +35,22 @@ import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistExcepti
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.milvus.convert.MilvusConvertUtils;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectionErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.milvus.utils.MilvusConvertUtils;
 
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 
+import com.google.protobuf.ProtocolStringList;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.common.clientenum.ConsistencyLevelEnum;
 import io.milvus.grpc.DataType;
 import io.milvus.grpc.ListDatabasesResponse;
 import io.milvus.grpc.ShowCollectionsResponse;
+import io.milvus.grpc.ShowPartitionsResponse;
 import io.milvus.grpc.ShowType;
 import io.milvus.param.ConnectParam;
 import io.milvus.param.IndexType;
@@ -61,6 +65,8 @@ import io.milvus.param.collection.FieldType;
 import io.milvus.param.collection.HasCollectionParam;
 import io.milvus.param.collection.ShowCollectionsParam;
 import io.milvus.param.index.CreateIndexParam;
+import io.milvus.param.partition.CreatePartitionParam;
+import io.milvus.param.partition.ShowPartitionsParam;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -70,6 +76,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig.CREATE_INDEX;
 
 @Slf4j
 public class MilvusCatalog implements Catalog {
@@ -196,7 +203,8 @@ public class MilvusCatalog implements Catalog {
         checkNotNull(tableSchema, "tableSchema must not be null");
         createTableInternal(tablePath, catalogTable);
 
-        if (CollectionUtils.isNotEmpty(tableSchema.getConstraintKeys())) {
+        if (CollectionUtils.isNotEmpty(tableSchema.getConstraintKeys())
+                && config.get(CREATE_INDEX)) {
             for (ConstraintKey constraintKey : tableSchema.getConstraintKeys()) {
                 if (constraintKey
                         .getConstraintType()
@@ -231,27 +239,56 @@ public class MilvusCatalog implements Catalog {
 
     public void createTableInternal(TablePath tablePath, CatalogTable catalogTable) {
         try {
+            Map<String, String> options = catalogTable.getOptions();
+
+            // partition key logic
+            boolean existPartitionKeyField = options.containsKey(MilvusOptions.PARTITION_KEY_FIELD);
+            String partitionKeyField =
+                    existPartitionKeyField ? options.get(MilvusOptions.PARTITION_KEY_FIELD) : null;
+            // if options set, will overwrite aut read
+            if (StringUtils.isNotEmpty(config.get(MilvusSinkConfig.PARTITION_KEY))) {
+                existPartitionKeyField = true;
+                partitionKeyField = config.get(MilvusSinkConfig.PARTITION_KEY);
+            }
+
             TableSchema tableSchema = catalogTable.getTableSchema();
             List<FieldType> fieldTypes = new ArrayList<>();
             for (Column column : tableSchema.getColumns()) {
-                fieldTypes.add(convertToFieldType(column, tableSchema.getPrimaryKey()));
+                if (column.getOptions() != null
+                        && column.getOptions().containsKey(MilvusOptions.DYNAMIC_FIELD)
+                        && (Boolean) column.getOptions().get(MilvusOptions.DYNAMIC_FIELD)) {
+                    // skip dynamic field
+                    continue;
+                }
+                fieldTypes.add(
+                        convertToFieldType(column, tableSchema.getPrimaryKey(), partitionKeyField));
             }
 
-            Map<String, String> options = catalogTable.getOptions();
             Boolean enableDynamicField =
                     (options.containsKey(MilvusOptions.ENABLE_DYNAMIC_FIELD))
                             ? Boolean.valueOf(options.get(MilvusOptions.ENABLE_DYNAMIC_FIELD))
                             : config.get(MilvusSinkConfig.ENABLE_DYNAMIC_FIELD);
-
+            String collectionDescription = "";
+            if (config.get(MilvusSinkConfig.COLLECTION_DESCRIPTION) != null
+                    && config.get(MilvusSinkConfig.COLLECTION_DESCRIPTION)
+                            .containsKey(tablePath.getTableName())) {
+                // use description from config first
+                collectionDescription =
+                        config.get(MilvusSinkConfig.COLLECTION_DESCRIPTION)
+                                .get(tablePath.getTableName());
+            } else if (null != catalogTable.getComment()) {
+                collectionDescription = catalogTable.getComment();
+            }
             CreateCollectionParam.Builder builder =
                     CreateCollectionParam.newBuilder()
                             .withDatabaseName(tablePath.getDatabaseName())
                             .withCollectionName(tablePath.getTableName())
+                            .withDescription(collectionDescription)
                             .withFieldTypes(fieldTypes)
                             .withEnableDynamicField(enableDynamicField)
                             .withConsistencyLevel(ConsistencyLevelEnum.BOUNDED);
-            if (null != catalogTable.getComment()) {
-                builder.withDescription(catalogTable.getComment());
+            if (StringUtils.isNotEmpty(options.get(MilvusOptions.SHARDS_NUM))) {
+                builder.withShardsNum(Integer.parseInt(options.get(MilvusOptions.SHARDS_NUM)));
             }
 
             CreateCollectionParam createCollectionParam = builder.build();
@@ -260,13 +297,55 @@ public class MilvusCatalog implements Catalog {
                 throw new MilvusConnectorException(
                         MilvusConnectionErrorCode.CREATE_COLLECTION_ERROR, response.getMessage());
             }
+
+            // not exist partition key field, will read show partitions to create
+            if (!existPartitionKeyField && options.containsKey(MilvusOptions.PARTITION_KEY_FIELD)) {
+                createPartitionInternal(options.get(MilvusOptions.PARTITION_KEY_FIELD), tablePath);
+            }
+
         } catch (Exception e) {
             throw new MilvusConnectorException(
                     MilvusConnectionErrorCode.CREATE_COLLECTION_ERROR, e);
         }
     }
 
-    private FieldType convertToFieldType(Column column, PrimaryKey primaryKey) {
+    private void createPartitionInternal(String partitionNames, TablePath tablePath) {
+        R<ShowPartitionsResponse> showPartitionsResponseR =
+                this.client.showPartitions(
+                        ShowPartitionsParam.newBuilder()
+                                .withDatabaseName(tablePath.getDatabaseName())
+                                .withCollectionName(tablePath.getTableName())
+                                .build());
+        if (!Objects.equals(showPartitionsResponseR.getStatus(), R.success().getStatus())) {
+            throw new MilvusConnectorException(
+                    MilvusConnectionErrorCode.SHOW_PARTITION_ERROR,
+                    showPartitionsResponseR.getMessage());
+        }
+        ProtocolStringList existPartitionNames =
+                showPartitionsResponseR.getData().getPartitionNamesList();
+
+        // start to loop create partition
+        String[] partitionNameArray = partitionNames.split(",");
+        for (String partitionName : partitionNameArray) {
+            if (existPartitionNames.contains(partitionName)) {
+                continue;
+            }
+            R<RpcStatus> response =
+                    this.client.createPartition(
+                            CreatePartitionParam.newBuilder()
+                                    .withDatabaseName(tablePath.getDatabaseName())
+                                    .withCollectionName(tablePath.getTableName())
+                                    .withPartitionName(partitionName)
+                                    .build());
+            if (!R.success().getStatus().equals(response.getStatus())) {
+                throw new MilvusConnectorException(
+                        MilvusConnectionErrorCode.CREATE_PARTITION_ERROR, response.getMessage());
+            }
+        }
+    }
+
+    private FieldType convertToFieldType(
+            Column column, PrimaryKey primaryKey, String partitionKeyField) {
         SeaTunnelDataType<?> seaTunnelDataType = column.getDataType();
         FieldType.Builder build =
                 FieldType.newBuilder()
@@ -274,6 +353,9 @@ public class MilvusCatalog implements Catalog {
                         .withDataType(
                                 MilvusConvertUtils.convertSqlTypeToDataType(
                                         seaTunnelDataType.getSqlType()));
+        if (StringUtils.isNotEmpty(column.getComment())) {
+            build.withDescription(column.getComment());
+        }
         switch (seaTunnelDataType.getSqlType()) {
             case ROW:
                 build.withMaxLength(65535);
@@ -303,8 +385,8 @@ public class MilvusCatalog implements Catalog {
                 build.withDataType(DataType.Bool);
                 break;
             case STRING:
-                if (column.getColumnLength() == 0) {
-                    build.withMaxLength(512);
+                if (column.getColumnLength() == null || column.getColumnLength() == 0) {
+                    build.withMaxLength(65535);
                 } else {
                     build.withMaxLength((int) (column.getColumnLength() / 4));
                 }
@@ -317,8 +399,8 @@ public class MilvusCatalog implements Catalog {
                 build.withMaxCapacity(4095);
                 switch (elementType.getSqlType()) {
                     case STRING:
-                        if (column.getColumnLength() == 0) {
-                            build.withMaxLength(512);
+                        if (column.getColumnLength() == null || column.getColumnLength() == 0) {
+                            build.withMaxLength(65535);
                         } else {
                             build.withMaxLength((int) (column.getColumnLength() / 4));
                         }
@@ -333,13 +415,30 @@ public class MilvusCatalog implements Catalog {
                 break;
         }
 
+        // check is primaryKey
         if (null != primaryKey && primaryKey.getColumnNames().contains(column.getName())) {
             build.withPrimaryKey(true);
+            List<SqlType> integerTypes = new ArrayList<>();
+            integerTypes.add(SqlType.INT);
+            integerTypes.add(SqlType.SMALLINT);
+            integerTypes.add(SqlType.TINYINT);
+            integerTypes.add(SqlType.BIGINT);
+            if (integerTypes.contains(seaTunnelDataType.getSqlType())) {
+                build.withDataType(DataType.Int64);
+            } else {
+                build.withDataType(DataType.VarChar);
+                build.withMaxLength(65535);
+            }
             if (null != primaryKey.getEnableAutoId()) {
                 build.withAutoID(primaryKey.getEnableAutoId());
             } else {
                 build.withAutoID(config.get(MilvusSinkConfig.ENABLE_AUTO_ID));
             }
+        }
+
+        // check is partitionKey
+        if (column.getName().equals(partitionKeyField)) {
+            build.withPartitionKey(true);
         }
 
         return build.build();

@@ -1,20 +1,3 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package org.apache.seatunnel.connectors.seatunnel.milvus.exception;
 
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
@@ -35,7 +18,12 @@ public enum MilvusConnectionErrorCode implements SeaTunnelErrorCode {
     CREATE_DATABASE_ERROR("MILVUS-13", "Create database error"),
     CREATE_COLLECTION_ERROR("MILVUS-14", "Create collection error"),
     CREATE_INDEX_ERROR("MILVUS-15", "Create index error"),
-    ;
+    INIT_CLIENT_ERROR("MILVUS-16", "Init milvus client error"),
+    WRITE_DATA_FAIL("MILVUS-17", "Write milvus data fail"),
+    READ_DATA_FAIL("MILVUS-18", "Read milvus data fail"),
+    LIST_PARTITIONS_FAILED("MILVUS-19", "Failed to list milvus partition"),
+    SHOW_PARTITION_ERROR("MILVUS-20", "Desc partition error"),
+    CREATE_PARTITION_ERROR("MILVUS-21", "Create partition error");
 
     private final String code;
     private final String description;

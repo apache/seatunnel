@@ -84,6 +84,7 @@ public class FieldMapperTransform extends AbstractCatalogSupportTransform {
         SeaTunnelRow outputRow = new SeaTunnelRow(outputDataArray);
         outputRow.setRowKind(inputRow.getRowKind());
         outputRow.setTableId(inputRow.getTableId());
+        outputRow.setPartitionName(inputRow.getPartitionName());
         return outputRow;
     }
 
@@ -110,6 +111,7 @@ public class FieldMapperTransform extends AbstractCatalogSupportTransform {
                                     value,
                                     oldColumn.getDataType(),
                                     oldColumn.getColumnLength(),
+                                    oldColumn.getScale(),
                                     oldColumn.isNullable(),
                                     oldColumn.getDefaultValue(),
                                     oldColumn.getComment());
@@ -136,7 +138,7 @@ public class FieldMapperTransform extends AbstractCatalogSupportTransform {
         PrimaryKey copiedPrimaryKey = null;
         if (inputCatalogTable.getTableSchema().getPrimaryKey() != null
                 && outputFieldNames.containsAll(
-                        inputCatalogTable.getTableSchema().getPrimaryKey().getColumnNames())) {
+                inputCatalogTable.getTableSchema().getPrimaryKey().getColumnNames())) {
             copiedPrimaryKey = inputCatalogTable.getTableSchema().getPrimaryKey().copy();
         }
 

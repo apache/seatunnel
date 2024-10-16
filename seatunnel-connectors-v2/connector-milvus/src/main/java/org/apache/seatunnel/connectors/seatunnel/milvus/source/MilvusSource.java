@@ -28,7 +28,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.milvus.convert.MilvusConvertUtils;
+import org.apache.seatunnel.connectors.seatunnel.milvus.utils.MilvusConvertUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,9 +42,10 @@ public class MilvusSource
     private final ReadonlyConfig config;
     private final Map<TablePath, CatalogTable> sourceTables;
 
-    public MilvusSource(ReadonlyConfig sourceConfig) {
-        this.config = sourceConfig;
-        this.sourceTables = MilvusConvertUtils.getSourceTables(config);
+    public MilvusSource(ReadonlyConfig sourceConfing) {
+        this.config = sourceConfing;
+        MilvusConvertUtils milvusConvertUtils = new MilvusConvertUtils(sourceConfing);
+        this.sourceTables = milvusConvertUtils.getSourceTables();
     }
 
     @Override
