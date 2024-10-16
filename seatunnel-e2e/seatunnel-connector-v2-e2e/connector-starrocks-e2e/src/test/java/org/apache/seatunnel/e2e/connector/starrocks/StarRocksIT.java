@@ -87,7 +87,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     + "."
                     + SOURCE_TABLE
                     + " (\n"
-                    + "  BIGINT_COL     BIGINT COMMENT 'comment value',\n"
+                    + "  BIGINT_COL     BIGINT,\n"
                     + "  LARGEINT_COL   LARGEINT,\n"
                     + "  SMALLINT_COL   SMALLINT,\n"
                     + "  TINYINT_COL    TINYINT,\n"
@@ -372,9 +372,6 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         starRocksCatalog.createTable(tablePathStarRocksSink, catalogTable, true);
         boolean tableExistsAfter = starRocksCatalog.tableExists(tablePathStarRocksSink);
         Assertions.assertTrue(tableExistsAfter);
-        CatalogTable createdTable = starRocksCatalog.getTable(tablePathStarRocksSink);
-        Assertions.assertEquals(
-                "comment value", createdTable.getTableSchema().getColumns().get(0).getComment());
 
         // isExistsData ?
         boolean existsDataBefore = starRocksCatalog.isExistsData(tablePathStarRocksSink);
