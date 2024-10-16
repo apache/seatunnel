@@ -769,6 +769,14 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 });
     }
 
+    @TestTemplate
+    public void testKafkaExactlyOnce(TestContainer container) throws Exception {
+        container.executeJob("/kafka/fake_to_kafka_exactly_once.conf");
+        String topicName = "kafka_topic_exactly_once";
+        Map<String, String> data = getKafkaConsumerData(topicName);
+        Assertions.assertEquals(4, data.size());
+    }
+
     public static String getTestConfigFile(String configFile)
             throws FileNotFoundException, URISyntaxException {
         URL resource = KafkaIT.class.getResource(configFile);
