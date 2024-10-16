@@ -33,7 +33,7 @@ tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 sh bin/install-plugin.sh 2.3.9
 ```
 
-如果您需要指定的连接器版本，以2.3.7为例，您需要执行如下命令
+如果您需要指定的连接器版本，以2.3.9为例，您需要执行如下命令
 
 ```bash
 sh bin/install-plugin.sh 2.3.9
