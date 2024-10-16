@@ -32,9 +32,10 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/hazelcast/rest': {
+      '/api': {
         target: loadEnv('development', './').VITE_APP_API_SERVICE,
-        changeOrigin: true
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
       }
     }
   }

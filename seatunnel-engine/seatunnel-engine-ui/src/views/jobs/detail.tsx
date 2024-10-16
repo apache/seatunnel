@@ -23,6 +23,7 @@ import type { Job } from '@/service/job/types'
 import { useI18n } from 'vue-i18n'
 import { getRemainTime } from '@/utils/time'
 import { format, parse } from 'date-fns'
+import Main from '@/components/directed-acyclic-graph/main'
 
 export default defineComponent({
   setup() {
@@ -40,7 +41,7 @@ export default defineComponent({
       }, 1000)
     })
 
-    const select = ref('oasis')
+    const select = ref('Overview')
     const change = () => {
       console.log(select.value)
     }
@@ -64,14 +65,17 @@ export default defineComponent({
           <span class="font-bold">{duration.value}</span>
         </div>
         <NTabs v-model:value={select.value} type="line" animated>
-          <NTabPane name="oasis" tab="Oasis">
-            Wonderwall
+          <NTabPane name="Overview" tab="Overview">
+            <Main {...{ job: job }} />
           </NTabPane>
-          <NTabPane name="the beatles" tab="the Beatles">
-            Hey Jude
+          <NTabPane name="Logs" tab="Logs">
+            Logs
           </NTabPane>
-          <NTabPane name="jay chou" tab="周杰伦">
-            七里香
+          <NTabPane name="Exception" tab="Exception">
+            Exception
+          </NTabPane>
+          <NTabPane name="Metrics" tab="Metrics">
+            Metrics
           </NTabPane>
         </NTabs>
       </div>

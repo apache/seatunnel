@@ -14,24 +14,55 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+export type Path = string
+export interface Vertex {
+  vertexId: number
+  type: 'source' | 'sink'
+  vertexName: string
+  tablePaths: Path[]
+}
+export interface Edge {
+  inputVertexId: string
+  targetVertexId: string
+}
+export interface Metrics {
+  SinkWriteCount: string
+  SinkWriteBytesPerSeconds: string
+  SinkWriteQPS: string
+  SourceReceivedBytes: string
+  SourceReceivedBytesPerSeconds: string
+  SourceReceivedCount: string
+  SourceReceivedQPS: string
+  SinkWriteBytes: string
+  TableSourceReceivedBytes: Record<Path, string>
+  TableSourceReceivedCount: Record<Path, string>
+  TableSourceReceivedQPS: Record<Path, string>
+  TableSourceReceivedBytesPerSeconds: Record<Path, string>
+  TableSinkWriteBytes: Record<Path, string>
+  TableSinkWriteCount: Record<Path, string>
+  TableSinkWriteQPS: Record<Path, string>
+  TableSinkWriteBytesPerSeconds: Record<Path, string>
+}
+export interface EnvOptions {
+  'checkpoint.interval': string
+  'job.mode': string
+  parallelism: string
+}
 export interface Job {
   jobId: string
   jobName: string
   jobStatus: string
   errorMsg: string
-  envOptions: {}
   createTime: string
   finishTime: string
+  envOptions?: EnvOptions
   jobDag: {
-    vertices: []
-    edges: []
+    jobId: string
+    pipelineEdges: Record<string, Edge[]>
+    vertexInfoMap: Vertex[]
+    envOptions?: EnvOptions
   }
+  metrics: Metrics
   pluginJarsUrls: []
-  isStartWithSavePoint: boolean
-  metrics: {
-    sourceReceivedCount: string
-    sinkWriteCount: ''
-  }
 }
 export type JobFinishedState = 'FINISHED' | 'CANCELED' | 'FAILED' | 'UNKNOWABLE'

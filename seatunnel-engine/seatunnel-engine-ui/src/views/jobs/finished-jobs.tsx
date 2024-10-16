@@ -22,6 +22,7 @@ import { JobsService } from '@/service/job'
 import type { DataTableColumns } from 'naive-ui'
 import { NButton } from 'naive-ui'
 import type { Job } from '@/service/job/types'
+import { useRouter } from 'vue-router'
 
 export default defineComponent({
   setup() {
@@ -30,8 +31,12 @@ export default defineComponent({
     const jobs = ref([] as Job[])
 
     JobsService.getFinishedJobs().then((res) => (jobs.value = res))
+
+    const router = useRouter()
     function createColumns(): DataTableColumns<Job> {
-      const view = (job: Job) => {}
+      const view = (job: Job) => {
+        router.push({ name: 'detail', params: { jobId: job.jobId } })
+      }
       return [
         {
           title: 'No',
