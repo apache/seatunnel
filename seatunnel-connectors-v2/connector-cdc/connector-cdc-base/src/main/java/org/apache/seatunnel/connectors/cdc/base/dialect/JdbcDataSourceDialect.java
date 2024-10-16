@@ -122,7 +122,7 @@ public interface JdbcDataSourceDialect extends DataSourceDialect<JdbcSourceConfi
     default Boolean isUniqueKey(JdbcConnection jdbcConnection, TableId tableId, String columnName)
             throws SQLException {
         boolean isUnique = false;
-        if (null != columnName) {
+        if (StringUtils.isNotEmpty(columnName)) {
             DatabaseMetaData metaData = jdbcConnection.connection().getMetaData();
             ResultSet resultSet =
                     metaData.getIndexInfo(
