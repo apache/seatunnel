@@ -80,8 +80,7 @@ public class RestApiIT {
 
     private static Map<Integer, Integer> ports;
 
-    @BeforeEach
-    void beforeClass() throws Exception {
+    static {
         LoggerContext initialize =
                 Configurator.initialize(
                         null,
@@ -96,6 +95,10 @@ public class RestApiIT {
                 "-Dlog4j.configurationFile",
                 PROJECT_ROOT_PATH
                         + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/job-log-file/log4j2.properties");
+    }
+
+    @BeforeEach
+    void beforeClass() throws Exception {
 
         String testClusterName = TestUtils.getClusterName("RestApiIT");
         node1Config = ConfigProvider.locateAndGetSeaTunnelConfig();
