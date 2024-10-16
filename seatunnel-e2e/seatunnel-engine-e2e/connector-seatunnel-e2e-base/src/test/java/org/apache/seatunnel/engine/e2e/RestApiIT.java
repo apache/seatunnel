@@ -88,6 +88,15 @@ public class RestApiIT {
                         PROJECT_ROOT_PATH
                                 + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/job-log-file/log4j2.properties");
         initialize.start();
+        System.setProperty(
+                "log4j.configurationFile",
+                PROJECT_ROOT_PATH
+                        + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/job-log-file/log4j2.properties");
+        System.setProperty(
+                "-Dlog4j.configurationFile",
+                PROJECT_ROOT_PATH
+                        + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/job-log-file/log4j2.properties");
+
         String testClusterName = TestUtils.getClusterName("RestApiIT");
         node1Config = ConfigProvider.locateAndGetSeaTunnelConfig();
         node1Config.getEngineConfig().getHttpConfig().setPort(8080);
