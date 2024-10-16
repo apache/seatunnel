@@ -290,7 +290,7 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
     public void testOceanBaseToMilvus(TestContainer container) throws Exception {
         try {
             initOceanBaseTestData();
-            Container.ExecResult execResult = container.executeJob(configFile().get(2));
+            Container.ExecResult execResult = container.executeJob("/jdbc_oceanbase_source_and_milvus_sink.conf");
             Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         } finally {
             clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
