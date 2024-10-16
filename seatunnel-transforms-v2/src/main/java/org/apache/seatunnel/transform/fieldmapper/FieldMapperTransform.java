@@ -138,7 +138,7 @@ public class FieldMapperTransform extends AbstractCatalogSupportTransform {
         PrimaryKey copiedPrimaryKey = null;
         if (inputCatalogTable.getTableSchema().getPrimaryKey() != null
                 && outputFieldNames.containsAll(
-                inputCatalogTable.getTableSchema().getPrimaryKey().getColumnNames())) {
+                        inputCatalogTable.getTableSchema().getPrimaryKey().getColumnNames())) {
             copiedPrimaryKey = inputCatalogTable.getTableSchema().getPrimaryKey().copy();
         }
 

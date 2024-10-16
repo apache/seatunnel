@@ -35,7 +35,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
-
 /** MilvusSinkWriter is a sink writer that will write {@link SeaTunnelRow} to Milvus. */
 @Slf4j
 public class MilvusSinkWriter

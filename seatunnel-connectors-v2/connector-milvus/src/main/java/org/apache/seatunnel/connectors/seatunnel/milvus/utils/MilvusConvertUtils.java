@@ -17,11 +17,23 @@
 
 package org.apache.seatunnel.connectors.seatunnel.milvus.utils;
 
-import io.milvus.grpc.*;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.*;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.catalog.VectorIndex;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
-import org.apache.seatunnel.api.table.type.*;
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.common.utils.BufferUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.milvus.catalog.MilvusOptions;
@@ -38,6 +50,16 @@ import com.google.gson.JsonParser;
 import com.google.protobuf.ProtocolStringList;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.common.utils.JacksonUtils;
+import io.milvus.grpc.CollectionSchema;
+import io.milvus.grpc.DataType;
+import io.milvus.grpc.DescribeCollectionResponse;
+import io.milvus.grpc.DescribeIndexResponse;
+import io.milvus.grpc.FieldSchema;
+import io.milvus.grpc.IndexDescription;
+import io.milvus.grpc.KeyValuePair;
+import io.milvus.grpc.ShowCollectionsResponse;
+import io.milvus.grpc.ShowPartitionsResponse;
+import io.milvus.grpc.ShowType;
 import io.milvus.param.ConnectParam;
 import io.milvus.param.R;
 import io.milvus.param.collection.DescribeCollectionParam;
@@ -47,7 +69,11 @@ import io.milvus.param.partition.ShowPartitionsParam;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.table.type.BasicType.JSON_TYPE;
