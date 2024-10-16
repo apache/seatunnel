@@ -20,8 +20,16 @@ package org.apache.seatunnel.e2e.connector.easysearch;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistException;
+import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.easysearch.catalog.EasysearchCatalog;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.client.EasysearchClient;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.source.ScrollResult;
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -34,6 +42,7 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -57,7 +66,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -75,6 +83,10 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
     private GenericContainer<?> easysearchServer;
 
     private EasysearchClient easysearchClient;
+
+    private Config easysearchConfig;
+
+    private Catalog catalog;
 
     @BeforeEach
     @Override
@@ -107,17 +119,18 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
     private void initConnection() {
         String host = easysearchServer.getContainerIpAddress();
         String endpoint = String.format("https://%s:%d", host, PORT);
-        easysearchClient =
-                EasysearchClient.createInstance(
-                        Lists.newArrayList(endpoint),
-                        Optional.of("admin"),
-                        Optional.of("admin"),
-                        false,
-                        false,
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty());
+        Map<String, Object> config = new HashMap<>();
+        config.put("username", "admin");
+        config.put("password", "admin");
+        config.put("hosts", Lists.newArrayList(endpoint));
+        config.put("tls_verify_certificate", false);
+        config.put("tls_verify_hostname", false);
+
+        easysearchConfig = ConfigFactory.parseMap(config);
+
+        easysearchClient = EasysearchClient.createInstance(easysearchConfig);
+        catalog = new EasysearchCatalog("easysearch", "default", easysearchConfig);
+        catalog.open();
         createIndexDocs();
     }
 
@@ -146,6 +159,35 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
         List<String> sinkData = readSinkData();
         // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
         Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
+    }
+
+    @TestTemplate
+    @Disabled("Easysearch catalog not yet realized, see EasysearchCatalogFactory.class")
+    public void testCatalog(TestContainer container) {
+        // always exist
+        Exception exception =
+                Assertions.assertThrows(
+                        Exception.class,
+                        () -> catalog.createDatabase(TablePath.of("", "st_index"), false));
+        Assertions.assertTrue(
+                exception instanceof DatabaseAlreadyExistException
+                        || exception instanceof CatalogException);
+
+        Assertions.assertDoesNotThrow(
+                () -> catalog.createDatabase(TablePath.of("", "st_index"), true));
+
+        // create
+        Assertions.assertDoesNotThrow(
+                () -> catalog.createTable(TablePath.of("", "tmp_index"), null, false));
+        Assertions.assertDoesNotThrow(
+                () -> catalog.dropDatabase(TablePath.of("", "tmp_index"), false));
+        Exception tmpIndex =
+                Assertions.assertThrows(
+                        Exception.class,
+                        () -> catalog.dropDatabase(TablePath.of("", "tmp_index"), false));
+        Assertions.assertTrue(
+                tmpIndex instanceof DatabaseNotExistException
+                        || tmpIndex instanceof CatalogException);
     }
 
     private List<String> generateTestDataSet() throws JsonProcessingException {
@@ -274,6 +316,9 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
     public void tearDown() {
         if (Objects.nonNull(easysearchClient)) {
             easysearchClient.close();
+        }
+        if (Objects.nonNull(catalog)) {
+            catalog.close();
         }
         easysearchServer.close();
     }

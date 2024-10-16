@@ -92,6 +92,7 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | xml_use_attr_format       | boolean | no       | -                   | Specifies whether to process data using the tag attribute format, only used when file_format is xml.                                                                                                                                                                                                                                                                            |
 | schema                    | Config  | No       | -                   | Please check #schema below                                                                                                                                                                                                                                                                                                                                                      |
 | compress_codec            | String  | No       | None                | The compress codec of files and the details that supported as the following shown: <br/> - txt: `lzo` `None` <br/> - json: `lzo` `None` <br/> - csv: `lzo` `None` <br/> - orc: `lzo` `snappy` `lz4` `zlib` `None` <br/> - parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `None` <br/> Tips: excel type does Not support any compression format                            |
+| archive_compress_codec    | string  | no       | none                |
 | encoding                  | string  | no       | UTF-8               |
 | common-options            |         | No       | -                   | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                                                                                                                              |
 
@@ -176,6 +177,17 @@ The compress codec of files and the details that supported as the following show
 - orc/parquet:  
   automatically recognizes the compression type, no additional settings required.
 
+### archive_compress_codec [string]
+
+The compress codec of archive files and the details that supported as the following shown:
+
+| archive_compress_codec | file_format        | archive_compress_suffix |
+|------------------------|--------------------|-------------------------|
+| ZIP                    | txt,json,excel,xml | .zip                    |
+| TAR                    | txt,json,excel,xml | .tar                    |
+| TAR_GZ                 | txt,json,excel,xml | .tar.gz                 |
+| NONE                   | all                | .*                      |
+
 ### encoding [string]
 
 Only used when file_format_type is json,text,csv,xml.
@@ -251,5 +263,45 @@ sink {
     parallelism = 1
   }
 }
+```
+### Multiple Table
+
+```hocon
+
+SftpFile {
+  tables_configs = [
+    {
+      schema {
+        table = "student"
+        fields {
+          name = string
+          age = int
+        }
+      }
+      path = "/tmp/seatunnel/sink/text"
+      host = "192.168.31.48"
+      port = 21
+      user = tyrantlucifer
+      password = tianchao
+      file_format_type = "parquet"
+    },
+    {
+      schema {
+        table = "teacher"
+        fields {
+          name = string
+          age = int
+        }
+      }
+      path = "/tmp/seatunnel/sink/text"
+      host = "192.168.31.48"
+      port = 21
+      user = tyrantlucifer
+      password = tianchao
+      file_format_type = "parquet"
+    }
+  ]
+}
+
 ```
 

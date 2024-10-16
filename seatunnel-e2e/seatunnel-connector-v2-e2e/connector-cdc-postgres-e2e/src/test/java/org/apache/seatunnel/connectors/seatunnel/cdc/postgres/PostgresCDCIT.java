@@ -186,8 +186,8 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     @DisabledOnContainer(
             value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "Currently SPARK and FLINK do not support multi table")
+            type = {EngineType.SPARK},
+            disabledReason = "Currently SPARK do not support cdc")
     public void testPostgresCdcMultiTableE2e(TestContainer container) {
 
         try {
@@ -271,7 +271,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "Currently SPARK and FLINK do not support multi table")
+            disabledReason = "Currently SPARK and FLINK do not support restore")
     public void testMultiTableWithRestore(TestContainer container)
             throws IOException, InterruptedException {
         try {
@@ -379,7 +379,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "Currently SPARK and FLINK do not support multi table")
+            disabledReason = "Currently SPARK and FLINK do not support restore")
     public void testAddFiledWithRestore(TestContainer container)
             throws IOException, InterruptedException {
         try {

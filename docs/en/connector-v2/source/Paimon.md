@@ -9,7 +9,7 @@ Read data from Apache Paimon.
 ## Key features
 
 - [x] [batch](../../concept/connector-v2-features.md)
-- [ ] [stream](../../concept/connector-v2-features.md)
+- [x] [stream](../../concept/connector-v2-features.md)
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [ ] [column projection](../../concept/connector-v2-features.md)
 - [ ] [parallelism](../../concept/connector-v2-features.md)
@@ -157,9 +157,30 @@ source {
 ```
 
 ## Changelog
+If you want to read the changelog of this connector, your sink table of paimon which mast has the options named `changelog-producer=input`, then you can refer to [Paimon changelog](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/).
+Currently, we only support the `input` and `none` mode of changelog producer. If the changelog producer is `input`, the streaming read of the connector will generate -U,+U,+I,+D data. But if the changelog producer is `none`, the streaming read of the connector will generate +I,+U,+D data.
 
-### next version
+### Streaming read example
+```hocon
+env {
+  parallelism = 1
+  job.mode = "Streaming"
+}
 
-- Add Paimon Source Connector
-- Support projection for Paimon Source
+source {
+  Paimon {
+    warehouse = "/tmp/paimon"
+    database = "full_type"
+    table = "st_test"
+  }
+}
 
+sink {
+  Paimon {
+    warehouse = "/tmp/paimon"
+    database = "full_type"
+    table = "st_test_sink"
+    paimon.table.primary-keys = "c_tinyint"
+  }
+}
+```

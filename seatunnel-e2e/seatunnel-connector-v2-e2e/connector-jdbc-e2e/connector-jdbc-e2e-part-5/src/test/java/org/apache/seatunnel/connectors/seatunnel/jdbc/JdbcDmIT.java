@@ -132,9 +132,6 @@ public class JdbcDmIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult(String executeKey) {}
-
-    @Override
     String driverUrl() {
         return "https://repo1.maven.org/maven2/com/dameng/DmJdbcDriver18/8.1.1.193/DmJdbcDriver18-8.1.1.193.jar";
     }
@@ -221,6 +218,14 @@ public class JdbcDmIT extends AbstractJdbcIT {
         }
 
         return Pair.of(fieldNames, rows);
+    }
+
+    protected String buildTableInfoWithSchema(String database, String schema, String table) {
+        return buildTableInfoWithSchema(schema, table);
+    }
+
+    protected void clearTable(String database, String schema, String table) {
+        clearTable(schema, table);
     }
 
     @Override

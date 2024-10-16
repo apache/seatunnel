@@ -25,9 +25,9 @@
 
 想使用 Http 连接器，需要安装以下必要的依赖。可以通过运行 install-plugin.sh 脚本或者从 Maven 中央仓库下载这些依赖
 
-| 数据源  | 支持版本 |                                                  依赖                                                  |
-|------|------|------------------------------------------------------------------------------------------------------|
-| Http | 通用   | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-http) |
+| 数据源  | 支持版本 | 依赖                                                                           |
+|------|------|------------------------------------------------------------------------------|
+| Http | 通用   | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-http) |
 
 ## 接收器选项
 

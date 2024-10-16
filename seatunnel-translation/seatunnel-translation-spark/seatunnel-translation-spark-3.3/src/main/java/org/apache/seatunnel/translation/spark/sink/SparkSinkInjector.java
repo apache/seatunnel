@@ -35,28 +35,34 @@ public class SparkSinkInjector {
 
     public static final String JOB_ID = "jobId";
 
+    public static final String PARALLELISM = "parallelism";
+
     public static DataStreamWriter<Row> inject(
             DataStreamWriter<Row> dataset,
             SeaTunnelSink<?, ?, ?, ?> sink,
             CatalogTable[] catalogTables,
-            String applicationId) {
+            String applicationId,
+            int parallelism) {
         return dataset.format(SINK_NAME)
                 .outputMode(OutputMode.Append())
                 .option(Constants.SINK_SERIALIZATION, SerializationUtils.objectToString(sink))
                 // TODO this should require fetching the catalog table in sink
                 .option(SINK_CATALOG_TABLE, SerializationUtils.objectToString(catalogTables))
-                .option(JOB_ID, applicationId);
+                .option(JOB_ID, applicationId)
+                .option(PARALLELISM, parallelism);
     }
 
     public static DataFrameWriter<Row> inject(
             DataFrameWriter<Row> dataset,
             SeaTunnelSink<?, ?, ?, ?> sink,
             CatalogTable[] catalogTables,
-            String applicationId) {
+            String applicationId,
+            int parallelism) {
         return dataset.format(SINK_NAME)
                 .option(Constants.SINK_SERIALIZATION, SerializationUtils.objectToString(sink))
                 // TODO this should require fetching the catalog table in sink
                 .option(SINK_CATALOG_TABLE, SerializationUtils.objectToString(catalogTables))
-                .option(JOB_ID, applicationId);
+                .option(JOB_ID, applicationId)
+                .option(PARALLELISM, parallelism);
     }
 }

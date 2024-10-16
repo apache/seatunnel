@@ -508,6 +508,43 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, readResult4.getExitCode());
     }
 
+    @TestTemplate
+    public void testSinkPaimonTruncateTable(TestContainer container) throws Exception {
+        Container.ExecResult writeResult =
+                container.executeJob("/fake_sink_paimon_truncate_with_local_case1.conf");
+        Assertions.assertEquals(0, writeResult.getExitCode());
+        Container.ExecResult readResult =
+                container.executeJob("/fake_sink_paimon_truncate_with_local_case2.conf");
+        Assertions.assertEquals(0, readResult.getExitCode());
+        given().ignoreExceptions()
+                .await()
+                .atLeast(100L, TimeUnit.MILLISECONDS)
+                .atMost(30L, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            // copy paimon to local
+                            container.executeExtraCommands(containerExtendedFactory);
+                            List<PaimonRecord> paimonRecords =
+                                    loadPaimonData("seatunnel_namespace10", TARGET_TABLE);
+                            Assertions.assertEquals(2, paimonRecords.size());
+                            paimonRecords.forEach(
+                                    paimonRecord -> {
+                                        if (paimonRecord.getPkId() == 1) {
+                                            Assertions.assertEquals("Aa", paimonRecord.getName());
+                                        }
+                                        if (paimonRecord.getPkId() == 2) {
+                                            Assertions.assertEquals("Bb", paimonRecord.getName());
+                                        }
+                                        Assertions.assertEquals(200, paimonRecord.getScore());
+                                    });
+                            List<Long> ids =
+                                    paimonRecords.stream()
+                                            .map(PaimonRecord::getPkId)
+                                            .collect(Collectors.toList());
+                            Assertions.assertFalse(ids.contains(3L));
+                        });
+    }
+
     protected final ContainerExtendedFactory containerExtendedFactory =
             container -> {
                 if (isWindows) {
@@ -568,7 +605,7 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
     }
 
     private List<PaimonRecord> loadPaimonData(String dbName, String tbName) throws Exception {
-        Table table = getTable(dbName, tbName);
+        FileStoreTable table = (FileStoreTable) getTable(dbName, tbName);
         ReadBuilder readBuilder = table.newReadBuilder();
         TableScan.Plan plan = readBuilder.newScan().plan();
         TableRead tableRead = readBuilder.newRead();
@@ -582,7 +619,12 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
         try (RecordReader<InternalRow> reader = tableRead.createReader(plan)) {
             reader.forEachRemaining(
                     row -> {
-                        result.add(new PaimonRecord(row.getLong(0), row.getString(1).toString()));
+                        PaimonRecord paimonRecord =
+                                new PaimonRecord(row.getLong(0), row.getString(1).toString());
+                        if (table.schema().fieldNames().contains("score")) {
+                            paimonRecord.setScore(row.getInt(2));
+                        }
+                        result.add(paimonRecord);
                         log.info("key_id:" + row.getLong(0) + ", name:" + row.getString(1));
                     });
         }
@@ -595,7 +637,7 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
         return result;
     }
 
-    private Table getTable(String dbName, String tbName) {
+    protected Table getTable(String dbName, String tbName) {
         try {
             return getCatalog().getTable(getIdentifier(dbName, tbName));
         } catch (Catalog.TableNotExistException e) {
@@ -611,7 +653,7 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
     private Catalog getCatalog() {
         Options options = new Options();
         if (isWindows) {
-            options.set("warehouse", "file://" + CATALOG_DIR_WIN);
+            options.set("warehouse", CATALOG_DIR_WIN);
         } else {
             options.set("warehouse", "file://" + CATALOG_DIR);
         }

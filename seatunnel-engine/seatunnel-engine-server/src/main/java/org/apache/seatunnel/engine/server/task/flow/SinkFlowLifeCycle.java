@@ -23,12 +23,15 @@ import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SinkWriter.Context;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
 import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
@@ -53,7 +56,9 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -70,7 +75,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private final SinkAction<T, StateT, CommitInfoT, AggregatedCommitInfoT> sinkAction;
     private SinkWriter<T, CommitInfoT, StateT> writer;
-    private SinkWriter.Context writerContext;
+    private Context writerContext;
 
     private transient Optional<Serializer<CommitInfoT>> commitInfoSerializer;
     private transient Optional<Serializer<StateT>> writerStateSerializer;
@@ -97,6 +102,9 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private EventListener eventListener;
 
+    /** Mapping relationship between upstream tablepath and downstream tablepath. */
+    private final Map<TablePath, TablePath> tablesMaps = new HashMap<>();
+
     public SinkFlowLifeCycle(
             SinkAction<T, StateT, CommitInfoT, AggregatedCommitInfoT> sinkAction,
             TaskLocation taskLocation,
@@ -118,6 +126,21 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         boolean isMulti = sinkAction.getSink() instanceof MultiTableSink;
         if (isMulti) {
             sinkTables = ((MultiTableSink) sinkAction.getSink()).getSinkTables();
+            String[] upstreamTablePaths =
+                    ((MultiTableSink) sinkAction.getSink())
+                            .getSinks()
+                            .keySet()
+                            .toArray(new String[0]);
+            for (int i = 0; i < ((MultiTableSink) sinkAction.getSink()).getSinks().size(); i++) {
+                tablesMaps.put(TablePath.of(upstreamTablePaths[i]), sinkTables.get(i));
+            }
+        } else {
+            Optional<CatalogTable> catalogTable = sinkAction.getSink().getWriteCatalogTable();
+            if (catalogTable.isPresent()) {
+                sinkTables.add(catalogTable.get().getTablePath());
+            } else {
+                sinkTables.add(TablePath.DEFAULT);
+            }
         }
         this.taskMetricsCalcContext =
                 new TaskMetricsCalcContext(metricsContext, PluginType.SINK, isMulti, sinkTables);
@@ -185,7 +208,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 }
                 if (barrier.snapshot()) {
                     try {
-                        lastCommitInfo = writer.prepareCommit();
+                        lastCommitInfo = writer.prepareCommit(barrier.getId());
                     } catch (Exception e) {
                         writer.abortPrepare();
                         throw e;
@@ -246,8 +269,39 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 if (prepareClose) {
                     return;
                 }
+                String tableId = "";
                 writer.write((T) record.getData());
-                taskMetricsCalcContext.updateMetrics(record.getData());
+                if (record.getData() instanceof SeaTunnelRow) {
+                    if (this.sinkAction.getSink() instanceof MultiTableSink) {
+                        if (((SeaTunnelRow) record.getData()).getTableId() == null
+                                || ((SeaTunnelRow) record.getData()).getTableId().isEmpty()) {
+                            tableId = ((SeaTunnelRow) record.getData()).getTableId();
+                        } else {
+
+                            TablePath tablePath =
+                                    tablesMaps.get(
+                                            TablePath.of(
+                                                    ((SeaTunnelRow) record.getData())
+                                                            .getTableId()));
+                            tableId =
+                                    tablePath != null
+                                            ? tablePath.getFullName()
+                                            : TablePath.DEFAULT.getFullName();
+                        }
+
+                    } else {
+                        Optional<CatalogTable> writeCatalogTable =
+                                this.sinkAction.getSink().getWriteCatalogTable();
+                        tableId =
+                                writeCatalogTable
+                                        .map(
+                                                catalogTable ->
+                                                        catalogTable.getTablePath().getFullName())
+                                        .orElseGet(TablePath.DEFAULT::getFullName);
+                    }
+
+                    taskMetricsCalcContext.updateMetrics(record.getData(), tableId);
+                }
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -286,7 +340,9 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                                                                     .deserialize(bytes)))
                             .collect(Collectors.toList());
         }
-        this.writerContext = new SinkWriterContext(indexID, metricsContext, eventListener);
+        this.writerContext =
+                new SinkWriterContext(
+                        sinkAction.getParallelism(), indexID, metricsContext, eventListener);
         if (states.isEmpty()) {
             this.writer = sinkAction.getSink().createWriter(writerContext);
         } else {

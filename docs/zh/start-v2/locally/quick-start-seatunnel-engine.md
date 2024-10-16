@@ -2,7 +2,7 @@
 sidebar_position: 2
 ---
 
-# SeaTunnel Engine快速开始
+# SeaTunnel 引擎快速开始
 
 ## 步骤 1: 部署SeaTunnel及连接器
 

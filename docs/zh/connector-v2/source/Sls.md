@@ -26,9 +26,9 @@
 为了使用Sls连接器，需要以下依赖关系。
 它们可以通过install-plugin.sh或Maven中央存储库下载。
 
-| 数据源 |   支持的版本   |                                                   Maven                                                   |
-|-----|-----------|-----------------------------------------------------------------------------------------------------------|
-| Sls | Universal | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-sls) |
+| 数据源 | 支持的版本     | Maven                                                                             |
+|-----|-----------|-----------------------------------------------------------------------------------|
+| Sls | Universal | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-sls) |
 
 ## Source Options
 

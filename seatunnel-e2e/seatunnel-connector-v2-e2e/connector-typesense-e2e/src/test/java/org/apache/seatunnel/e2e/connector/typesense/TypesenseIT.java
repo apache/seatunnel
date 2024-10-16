@@ -20,7 +20,19 @@ package org.apache.seatunnel.e2e.connector.typesense;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
+import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.seatunnel.typesense.catalog.TypesenseCatalog;
 import org.apache.seatunnel.connectors.seatunnel.typesense.client.TypesenseClient;
+import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseConnectionConfig;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -68,6 +80,8 @@ public class TypesenseIT extends TestSuiteBase implements TestResource {
 
     private static final String sourceCollection = "typesense_test_collection_for_source";
 
+    private Catalog catalog;
+
     @BeforeEach
     @Override
     public void startUp() throws Exception {
@@ -95,8 +109,15 @@ public class TypesenseIT extends TestSuiteBase implements TestResource {
 
     private void initConnection() {
         String host = typesenseServer.getContainerIpAddress();
-        typesenseClient =
-                TypesenseClient.createInstance(Lists.newArrayList(host + ":8108"), "xyz", "http");
+        Map<String, Object> config = new HashMap<>();
+        config.put(TypesenseConnectionConfig.HOSTS.key(), Lists.newArrayList(host + ":8108"));
+        config.put(TypesenseConnectionConfig.APIKEY.key(), "xyz");
+        config.put(TypesenseConnectionConfig.PROTOCOL.key(), "http");
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(config);
+
+        typesenseClient = TypesenseClient.createInstance(readonlyConfig);
+        catalog = new TypesenseCatalog("ty", "", readonlyConfig);
+        catalog.open();
     }
 
     /** Test setting primary_keys parameter write Typesense */
@@ -257,9 +278,49 @@ public class TypesenseIT extends TestSuiteBase implements TestResource {
                 typesenseClient.search(typesenseToTypesenseSink, null, 0).getFound(), 2);
     }
 
+    @TestTemplate
+    public void testCatalog(TestContainer container) {
+        // Create table x 2
+        TablePath tablePath = TablePath.of("tmp.tmp_table");
+        TableIdentifier tableIdentifier = TableIdentifier.of("tmp_table", "tmp", "tmp_table");
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        tableIdentifier,
+                        CatalogTable.of(
+                                tableIdentifier,
+                                TableSchema.builder()
+                                        .column(
+                                                new PhysicalColumn(
+                                                        "id",
+                                                        BasicType.LONG_TYPE,
+                                                        null,
+                                                        null,
+                                                        false,
+                                                        null,
+                                                        ""))
+                                        .build(),
+                                new HashMap<>(),
+                                new ArrayList<>(),
+                                ""));
+        Assertions.assertDoesNotThrow(() -> catalog.createTable(tablePath, catalogTable, false));
+        Assertions.assertThrows(
+                TableAlreadyExistException.class,
+                () -> catalog.createTable(tablePath, catalogTable, false));
+        Assertions.assertDoesNotThrow(() -> catalog.createTable(tablePath, catalogTable, true));
+
+        // delete table
+        Assertions.assertDoesNotThrow(() -> catalog.dropTable(tablePath, false));
+        Assertions.assertThrows(
+                TableNotExistException.class, () -> catalog.dropTable(tablePath, false));
+        Assertions.assertDoesNotThrow(() -> catalog.dropTable(tablePath, true));
+    }
+
     @AfterEach
     @Override
     public void tearDown() {
         typesenseServer.close();
+        if (catalog != null) {
+            catalog.close();
+        }
     }
 }

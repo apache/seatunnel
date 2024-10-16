@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.catalog;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -33,11 +34,12 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -48,8 +50,8 @@ import static org.apache.seatunnel.api.table.type.LocalTimeType.LOCAL_DATE_TIME_
 import static org.apache.seatunnel.api.table.type.LocalTimeType.LOCAL_DATE_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HADOOP;
 
+@DisabledOnOs(OS.WINDOWS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-@Disabled
 class IcebergCatalogTest {
     private static final String CATALOG_NAME = "seatunnel";
     private static final IcebergCatalogType CATALOG_TYPE = HADOOP;
@@ -78,10 +80,11 @@ class IcebergCatalogTest {
         // hadoop config directory
         configs.put(CommonConfig.HADOOP_CONF_PATH_PROP.key(), "/tmp/hadoop/conf");
         // hadoop kerberos config
-        configs.put(CommonConfig.KERBEROS_PRINCIPAL.key(), "hive/xxxx@xxxx.COM");
-        configs.put(
-                CommonConfig.KERBEROS_KEYTAB_PATH.key(), "/tmp/hadoop/conf/hive.service.keytab");
-        configs.put(CommonConfig.KRB5_PATH.key(), "/tmp/hadoop/conf/krb5.conf");
+        //        configs.put(CommonConfig.KERBEROS_PRINCIPAL.key(), "hive/xxxx@xxxx.COM");
+        //        configs.put(
+        //                CommonConfig.KERBEROS_KEYTAB_PATH.key(),
+        // "/tmp/hadoop/conf/hive.service.keytab");
+        //        configs.put(CommonConfig.KRB5_PATH.key(), "/tmp/hadoop/conf/krb5.conf");
         icebergCatalog = new IcebergCatalog(CATALOG_NAME, ReadonlyConfig.fromMap(configs));
         icebergCatalog.open();
     }
@@ -149,7 +152,9 @@ class IcebergCatalogTest {
 
     CatalogTable buildAllTypesTable(TableIdentifier tableIdentifier) {
         TableSchema.Builder builder = TableSchema.builder();
-        builder.column(PhysicalColumn.of("id", BasicType.INT_TYPE, (Long) null, true, null, null));
+        builder.column(
+                PhysicalColumn.of(
+                        "id", BasicType.INT_TYPE, (Long) null, false, null, "id comment"));
         builder.column(
                 PhysicalColumn.of(
                         "boolean_col", BasicType.BOOLEAN_TYPE, (Long) null, true, null, null));
@@ -182,6 +187,9 @@ class IcebergCatalogTest {
                 PhysicalColumn.of(
                         "decimal_col", new DecimalType(38, 18), (Long) null, true, null, null));
         builder.column(PhysicalColumn.of("dt_col", STRING_TYPE, (Long) null, true, null, null));
+        builder.primaryKey(
+                PrimaryKey.of(
+                        tableIdentifier.getTableName() + "_pk", Collections.singletonList("id")));
 
         TableSchema schema = builder.build();
         HashMap<String, String> options = new HashMap<>();
