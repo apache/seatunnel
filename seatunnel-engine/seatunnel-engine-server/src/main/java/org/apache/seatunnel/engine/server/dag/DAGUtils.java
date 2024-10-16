@@ -86,7 +86,10 @@ public class DAGUtils {
                                         });
                     });
             return new JobDAGInfo(
-                    jobImmutableInformation.getJobId(), pipelineWithEdges, vertexInfoMap);
+                    jobImmutableInformation.getJobId(),
+                    logicalDag.getJobConfig().getEnvOptions(),
+                    pipelineWithEdges,
+                    vertexInfoMap);
         } else {
             // Generate LogicalPlan DAG
             List<Edge> edges =
@@ -130,7 +133,10 @@ public class DAGUtils {
                                             },
                                             Collectors.toList()));
             return new JobDAGInfo(
-                    jobImmutableInformation.getJobId(), pipelineWithEdges, vertexInfoMap);
+                    jobImmutableInformation.getJobId(),
+                    logicalDag.getJobConfig().getEnvOptions(),
+                    pipelineWithEdges,
+                    vertexInfoMap);
         }
     }
 

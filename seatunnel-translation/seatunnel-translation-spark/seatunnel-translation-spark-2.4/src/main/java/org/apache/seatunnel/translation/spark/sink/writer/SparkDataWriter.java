@@ -87,7 +87,7 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
         // 2. commit fails
         //   2.1. We have the commit info, we need to execute the sinkCommitter#abort to rollback
         // the transaction.
-        Optional<CommitInfoT> commitInfoTOptional = sinkWriter.prepareCommit();
+        Optional<CommitInfoT> commitInfoTOptional = sinkWriter.prepareCommit(epochId);
         commitInfoTOptional.ifPresent(commitInfoT -> latestCommitInfoT = commitInfoT);
         sinkWriter.snapshotState(epochId++);
         if (sinkCommitter != null) {
