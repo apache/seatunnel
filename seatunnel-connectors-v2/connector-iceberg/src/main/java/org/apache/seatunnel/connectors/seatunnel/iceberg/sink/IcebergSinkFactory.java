@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSink;
@@ -34,12 +35,6 @@ import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
 public class IcebergSinkFactory implements TableSinkFactory {
-
-    public static final String REPLACE_TABLE_NAME_KEY = "${table_name}";
-
-    public static final String REPLACE_SCHEMA_NAME_KEY = "${schema_name}";
-
-    public static final String REPLACE_DATABASE_NAME_KEY = "${database_name}";
 
     @Override
     public String factoryIdentifier() {
@@ -57,13 +52,17 @@ public class IcebergSinkFactory implements TableSinkFactory {
                 .optional(
                         SinkConfig.TABLE_PROPS,
                         SinkConfig.HADOOP_PROPS,
+                        SinkConfig.KERBEROS_PRINCIPAL,
+                        SinkConfig.KERBEROS_KEYTAB_PATH,
+                        SinkConfig.KRB5_PATH,
                         SinkConfig.WRITE_PROPS,
                         SinkConfig.AUTO_CREATE_PROPS,
                         SinkConfig.TABLE_PRIMARY_KEYS,
                         SinkConfig.TABLE_DEFAULT_PARTITION_KEYS,
                         SinkConfig.TABLE_UPSERT_MODE_ENABLED_PROP,
                         SinkConfig.TABLE_SCHEMA_EVOLUTION_ENABLED_PROP,
-                        SinkConfig.TABLES_DEFAULT_COMMIT_BRANCH)
+                        SinkConfig.TABLES_DEFAULT_COMMIT_BRANCH,
+                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
 
@@ -80,13 +79,13 @@ public class IcebergSinkFactory implements TableSinkFactory {
         String tableName;
         String namespace;
         if (StringUtils.isNotEmpty(sinkConfig.getTable())) {
-            tableName = replaceName(sinkConfig.getTable(), tableId);
+            tableName = sinkConfig.getTable();
         } else {
             tableName = tableId.getTableName();
         }
 
         if (StringUtils.isNotEmpty(sinkConfig.getNamespace())) {
-            namespace = replaceName(sinkConfig.getNamespace(), tableId);
+            namespace = sinkConfig.getNamespace();
         } else {
             namespace = tableId.getSchemaName();
         }
@@ -96,18 +95,5 @@ public class IcebergSinkFactory implements TableSinkFactory {
                         tableId.getCatalogName(), namespace, tableId.getSchemaName(), tableName);
 
         return CatalogTable.of(newTableId, catalogTable);
-    }
-
-    private String replaceName(String original, TableIdentifier tableId) {
-        if (tableId.getTableName() != null) {
-            original = original.replace(REPLACE_TABLE_NAME_KEY, tableId.getTableName());
-        }
-        if (tableId.getSchemaName() != null) {
-            original = original.replace(REPLACE_SCHEMA_NAME_KEY, tableId.getSchemaName());
-        }
-        if (tableId.getDatabaseName() != null) {
-            original = original.replace(REPLACE_DATABASE_NAME_KEY, tableId.getDatabaseName());
-        }
-        return original;
     }
 }

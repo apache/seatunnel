@@ -25,9 +25,9 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.druid.config.DruidConfig.BATCH_SIZE;
 import static org.apache.seatunnel.connectors.druid.config.DruidConfig.COORDINATOR_URL;
@@ -52,12 +52,16 @@ public class DruidSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
-            throws IOException {
+    public DruidWriter createWriter(SinkWriter.Context context) throws IOException {
         return new DruidWriter(
                 seaTunnelRowType,
                 config.get(COORDINATOR_URL),
                 config.get(DATASOURCE),
                 config.get(BATCH_SIZE));
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
     }
 }

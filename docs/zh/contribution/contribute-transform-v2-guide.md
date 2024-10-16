@@ -2,7 +2,7 @@
 
 本文描述了如何理解、开发和贡献一个 transform。
 
-我们也提供了 [transform e2e test](../../../seatunnel-e2e/seatunnel-transforms-v2-e2e)
+我们也提供了 [Transform E2E Test](../../../seatunnel-e2e/seatunnel-transforms-v2-e2e)
 来验证 transform 的数据输入和输出。
 
 ## 概念

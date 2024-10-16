@@ -30,6 +30,8 @@ import org.apache.seatunnel.connectors.seatunnel.starrocks.util.CreateTableParse
 
 import org.apache.commons.lang3.StringUtils;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +40,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+@Slf4j
 public class StarRocksSaveModeUtil {
 
     public static String getCreateTableSql(
@@ -86,8 +89,18 @@ public class StarRocksSaveModeUtil {
                         .filter(column -> !columnInTemplate.containsKey(column.getName()))
                         .map(StarRocksSaveModeUtil::columnToStarrocksType)
                         .collect(Collectors.joining(",\n"));
+
+        if (template.contains(SaveModePlaceHolder.TABLE_NAME.getPlaceHolder())) {
+            // TODO: Remove this compatibility config
+            template =
+                    template.replaceAll(
+                            SaveModePlaceHolder.TABLE_NAME.getReplacePlaceHolder(), table);
+            log.warn(
+                    "The variable placeholder `${table_name}` has been marked as deprecated and will be removed soon, please use `${table}`");
+        }
+
         return template.replaceAll(SaveModePlaceHolder.DATABASE.getReplacePlaceHolder(), database)
-                .replaceAll(SaveModePlaceHolder.TABLE_NAME.getReplacePlaceHolder(), table)
+                .replaceAll(SaveModePlaceHolder.TABLE.getReplacePlaceHolder(), table)
                 .replaceAll(
                         SaveModePlaceHolder.ROWTYPE_FIELDS.getReplacePlaceHolder(), rowTypeFields);
     }
@@ -95,12 +108,15 @@ public class StarRocksSaveModeUtil {
     private static String columnToStarrocksType(Column column) {
         checkNotNull(column, "The column is required.");
         return String.format(
-                "`%s` %s %s ",
+                "`%s` %s %s %s",
                 column.getName(),
                 dataTypeToStarrocksType(
                         column.getDataType(),
                         column.getColumnLength() == null ? 0 : column.getColumnLength()),
-                column.isNullable() ? "NULL" : "NOT NULL");
+                column.isNullable() ? "NULL" : "NOT NULL",
+                StringUtils.isEmpty(column.getComment())
+                        ? ""
+                        : "COMMENT '" + column.getComment() + "'");
     }
 
     private static String mergeColumnInTemplate(

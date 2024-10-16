@@ -68,7 +68,7 @@ public class InMemorySink
     @Override
     public Optional<SinkAggregatedCommitter<InMemoryCommitInfo, InMemoryAggregatedCommitInfo>>
             createAggregatedCommitter() throws IOException {
-        return Optional.of(new InMemoryAggregatedCommitter());
+        return Optional.of(new InMemoryAggregatedCommitter(config));
     }
 
     @Override
@@ -79,5 +79,10 @@ public class InMemorySink
     @Override
     public Optional<SaveModeHandler> getSaveModeHandler() {
         return Optional.of(new InMemorySaveModeHandler(catalogTable));
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
     }
 }

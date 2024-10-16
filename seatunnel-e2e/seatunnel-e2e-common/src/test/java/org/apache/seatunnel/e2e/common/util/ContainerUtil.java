@@ -195,13 +195,13 @@ public final class ContainerUtil {
                 MountableFile.forHostPath(startJarPath),
                 Paths.get(seatunnelHomeInContainer, "starter", startJarName).toString());
 
-        // copy lib
+        // copy transform
         String transformJar = "seatunnel-transforms-v2.jar";
         Path transformJarPath =
                 Paths.get(PROJECT_ROOT_PATH, "seatunnel-transforms-v2", "target", transformJar);
         container.withCopyFileToContainer(
                 MountableFile.forHostPath(transformJarPath),
-                Paths.get(seatunnelHomeInContainer, "lib", transformJar).toString());
+                Paths.get(seatunnelHomeInContainer, "connectors", transformJar).toString());
 
         // copy bin
         final String startBinPath = startModulePath + File.separator + "src/main/bin/";

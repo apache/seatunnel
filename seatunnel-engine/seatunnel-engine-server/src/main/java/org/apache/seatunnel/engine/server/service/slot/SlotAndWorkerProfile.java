@@ -31,6 +31,7 @@ public class SlotAndWorkerProfile implements IdentifiedDataSerializable {
 
     private WorkerProfile workerProfile;
 
+    // null value means the slot request failed, no suitable slot found
     private SlotProfile slotProfile;
 
     public SlotAndWorkerProfile() {}

@@ -28,6 +28,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import com.google.auto.service.AutoService;
 
+import java.util.List;
+
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
+
 @AutoService(Factory.class)
 public class InMemorySinkFactory
         implements TableSinkFactory<
@@ -41,6 +45,16 @@ public class InMemorySinkFactory
     public static final Option<Boolean> CHECKPOINT_SLEEP =
             Options.key("checkpoint_sleep").booleanType().defaultValue(false);
 
+    public static final Option<Boolean> THROW_EXCEPTION_OF_COMMITTER =
+            Options.key("throw_exception_of_committer").booleanType().defaultValue(false);
+    public static final Option<String> ASSERT_OPTIONS_KEY =
+            Options.key("assert_options_key").stringType().noDefaultValue();
+    public static final Option<String> ASSERT_OPTIONS_VALUE =
+            Options.key("assert_options_value").stringType().noDefaultValue();
+
+    public static final Option<List<String>> THROW_RUNTIME_EXCEPTION_LIST =
+            Options.key("throw_runtime_exception_list").listType().noDefaultValue();
+
     @Override
     public String factoryIdentifier() {
         return "InMemory";
@@ -49,13 +63,27 @@ public class InMemorySinkFactory
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(THROW_EXCEPTION, THROW_OUT_OF_MEMORY, CHECKPOINT_SLEEP)
+                .optional(
+                        THROW_EXCEPTION,
+                        THROW_OUT_OF_MEMORY,
+                        CHECKPOINT_SLEEP,
+                        THROW_EXCEPTION_OF_COMMITTER,
+                        ASSERT_OPTIONS_KEY,
+                        ASSERT_OPTIONS_VALUE)
                 .build();
     }
 
     @Override
     public TableSink<SeaTunnelRow, InMemoryState, InMemoryCommitInfo, InMemoryAggregatedCommitInfo>
             createSink(TableSinkFactoryContext context) {
+        if (context.getOptions().getOptional(ASSERT_OPTIONS_KEY).isPresent()) {
+            String key = context.getOptions().get(ASSERT_OPTIONS_KEY);
+            String value = context.getOptions().get(ASSERT_OPTIONS_VALUE);
+            checkArgument(
+                    key.equals(value),
+                    String.format(
+                            "assert key and value not match! key = %s, value = %s", key, value));
+        }
         return () -> new InMemorySink(context.getCatalogTable(), context.getOptions());
     }
 }

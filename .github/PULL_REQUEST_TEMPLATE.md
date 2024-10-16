@@ -7,13 +7,9 @@ remember to adjust the documentation.
 Feel free to ping committers for the review!
 
 ## Contribution Checklist
-
   - Make sure that the pull request corresponds to a [GITHUB issue](https://github.com/apache/seatunnel/issues).
-
   - Name the pull request in the form "[Feature] [component] Title of the pull request", where *Feature* can be replaced by `Hotfix`, `Bug`, etc.
-
   - Minor fixes should be named following this pattern: `[hotfix] [docs] Fix typo in README.md doc`.
-
 -->
 
 ### Purpose of this pull request
@@ -22,6 +18,7 @@ Feel free to ping committers for the review!
 
 
 ### Does this PR introduce _any_ user-facing change?
+
 <!--
 Note that it means *any* user-facing change including all aspects such as the documentation fix.
 If yes, please clarify the previous behavior and the change this PR proposes - provide the console output, description and/or an example to show the behavior difference if possible.
@@ -32,6 +29,7 @@ If you are adding/modifying connector documents, please follow our new specifica
 
 
 ### How was this patch tested?
+
 <!--
 If tests were added, say they were added here. Please make sure to add some test cases that check the changes thoroughly including negative and positive cases if possible.
 If it was tested in a way different from regular unit tests, please clarify how you tested step by step, ideally copy and paste-able, so that other reviewers can test and check, and descendants can verify in the future.
@@ -46,7 +44,9 @@ If you are adding E2E test cases, maybe refer to https://github.com/apache/seatu
   [New License Guide](https://github.com/apache/seatunnel/blob/dev/docs/en/contribution/new-license.md)
 * [ ] If necessary, please update the documentation to describe the new feature. https://github.com/apache/seatunnel/tree/dev/docs
 * [ ] If you are contributing the connector code, please check that the following files are updated:
-  1. Update change log that in connector document. For more details you can refer to [connector-v2](https://github.com/apache/seatunnel/tree/dev/docs/en/connector-v2)
-  2. Update [plugin-mapping.properties](https://github.com/apache/seatunnel/blob/dev/plugin-mapping.properties) and add new connector information in it
-  3. Update the pom file of [seatunnel-dist](https://github.com/apache/seatunnel/blob/dev/seatunnel-dist/pom.xml)
+  1. Update [plugin-mapping.properties](https://github.com/apache/seatunnel/blob/dev/plugin-mapping.properties) and add new connector information in it
+  2. Update the pom file of [seatunnel-dist](https://github.com/apache/seatunnel/blob/dev/seatunnel-dist/pom.xml)
+  3. Add ci label in [label-scope-conf](https://github.com/apache/seatunnel/blob/dev/.github/workflows/labeler/label-scope-conf.yml)
+  4. Add e2e testcase in [seatunnel-e2e](https://github.com/apache/seatunnel/tree/dev/seatunnel-e2e/seatunnel-connector-v2-e2e/)
+  5. Update connector [plugin_config](https://github.com/apache/seatunnel/blob/dev/config/plugin_config)
 * [ ] Update the [`release-note`](https://github.com/apache/seatunnel/blob/dev/release-note.md).

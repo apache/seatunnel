@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.redis.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -51,7 +52,8 @@ public class RedisSinkFactory implements TableSinkFactory {
                         RedisConfig.USER,
                         RedisConfig.KEY_PATTERN,
                         RedisConfig.FORMAT,
-                        RedisConfig.EXPIRE)
+                        RedisConfig.EXPIRE,
+                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .conditional(RedisConfig.MODE, RedisConfig.RedisMode.CLUSTER, RedisConfig.NODES)
                 .build();
     }

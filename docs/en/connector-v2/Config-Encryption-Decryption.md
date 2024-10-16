@@ -1,4 +1,4 @@
-# Config  File Encryption And Decryption
+# Config File Encryption And Decryption
 
 ## Introduction
 

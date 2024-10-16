@@ -27,6 +27,9 @@ set "CONF_DIR=%APP_DIR%\config"
 set "APP_JAR=%APP_DIR%\starter\seatunnel-starter.jar"
 set "APP_MAIN=org.apache.seatunnel.core.starter.seatunnel.SeaTunnelServer"
 set "OUT=%APP_DIR%\logs\seatunnel-server.out"
+set "MASTER_OUT=%APP_DIR%\logs\seatunnel-engine-master.out"
+set "WORKER_OUT=%APP_DIR%\logs\seatunnel-engine-worker.out"
+set "NODE_ROLE=master_and_worker"
 
 set "HELP=false"
 set "args="
@@ -37,29 +40,20 @@ for %%I in (%*) do (
     if "%%I"=="--daemon" set "DAEMON=true"
     if "%%I"=="-h" set "HELP=true"
     if "%%I"=="--help" set "HELP=true"
+    if "%%I"=="-r" set "NODE_ROLE=%%~nI"
 )
 
-REM SeaTunnel Engine Config
-set "HAZELCAST_CONFIG=%CONF_DIR%\hazelcast.yaml"
-set "SEATUNNEL_CONFIG=%CONF_DIR%\seatunnel.yaml"
 set "JAVA_OPTS=%JvmOption%"
+set "SEATUNNEL_CONFIG=%CONF_DIR%\seatunnel.yaml"
 
-for %%I in (%*) do (
-    set "arg=%%I"
-    if "!arg:~0,10!"=="JvmOption=" (
-        set "JAVA_OPTS=%JAVA_OPTS% !arg:~10!"
-    )
-)
-
-set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.config=%SEATUNNEL_CONFIG%"
-set "JAVA_OPTS=%JAVA_OPTS% -Dhazelcast.config=%HAZELCAST_CONFIG%"
 set "JAVA_OPTS=%JAVA_OPTS% -Dlog4j2.contextSelector=org.apache.logging.log4j.core.async.AsyncLoggerContextSelector"
+set "JAVA_OPTS=%JAVA_OPTS% -Dlog4j2.isThreadContextMapInheritable=true"
 
 REM Server Debug Config
 REM Usage instructions:
 REM If you need to debug your code in cluster mode, please enable this configuration option and listen to the specified
 REM port in your IDE. After that, you can happily debug your code.
-REM set "JAVA_OPTS=%JAVA_OPTS% -Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=5001,suspend=y"
+REM set "JAVA_OPTS=%JAVA_OPTS% -Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=5001,suspend=n"
 
 if exist "%CONF_DIR%\log4j2.properties" (
     set "JAVA_OPTS=%JAVA_OPTS% -Dhazelcast.logging.type=log4j2 -Dlog4j2.configurationFile=%CONF_DIR%\log4j2.properties"
@@ -67,14 +61,59 @@ if exist "%CONF_DIR%\log4j2.properties" (
     set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.logs.file_name=seatunnel-engine-server"
 )
 
-set "CLASS_PATH=%APP_DIR%\lib\*;%APP_JAR%"
+if "%NODE_ROLE%" == "master" (
+    set "OUT=%MASTER_OUT%"
+    set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.logs.file_name=seatunnel-engine-master"
+    for /f "usebackq delims=" %%I in ("%APP_DIR%\config\jvm_master_options") do (
+        set "line=%%I"
+        if not "!line:~0,1!"=="#" if "!line!" NEQ "" (
+            set "JAVA_OPTS=!JAVA_OPTS! !line!"
+        )
+    )
+    REM SeaTunnel Engine Config
+    set "HAZELCAST_CONFIG=%CONF_DIR%\hazelcast-master.yaml"
 
-for /f "usebackq delims=" %%I in ("%APP_DIR%\config\jvm_options") do (
-    set "line=%%I"
-    if not "!line:~0,1!"=="#" if "!line!" NEQ "" (
-        set "JAVA_OPTS=!JAVA_OPTS! !line!"
+) else if "%NODE_ROLE%" == "worker" (
+    set "OUT=%WORKER_OUT%"
+    set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.logs.file_name=seatunnel-engine-worker"
+    for /f "usebackq delims=" %%I in ("%APP_DIR%\config\jvm_worker_options") do (
+        set "line=%%I"
+        if not "!line:~0,1!"=="#" if "!line!" NEQ "" (
+            set "JAVA_OPTS=!JAVA_OPTS! !line!"
+        )
+    )
+    REM SeaTunnel Engine Config
+    set "HAZELCAST_CONFIG=%CONF_DIR%\hazelcast-worker.yaml"
+) else if "%NODE_ROLE%" == "master_and_worker" (
+    set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.logs.file_name=seatunnel-engine-server"
+    for /f "usebackq delims=" %%I in ("%APP_DIR%\config\jvm_options") do (
+        set "line=%%I"
+        if not "!line:~0,1!"=="#" if "!line!" NEQ "" (
+            set "JAVA_OPTS=!JAVA_OPTS! !line!"
+        )
+    )
+    REM SeaTunnel Engine Config
+    set "HAZELCAST_CONFIG=%CONF_DIR%\hazelcast.yaml"
+) else (
+    echo Unknown node role: %NODE_ROLE%
+    exit 1
+)
+
+REM Parse JvmOption from command line, it should be parsed after jvm_options
+for %%I in (%*) do (
+    set "arg=%%I"
+    if "!arg:~0,10!"=="JvmOption=" (
+        set "JAVA_OPTS=%JAVA_OPTS% !arg:~10!"
     )
 )
+
+IF NOT EXIST "%HAZELCAST_CONFIG%" (
+    echo Error: File %HAZELCAST_CONFIG% does not exist.
+    exit /b 1
+)
+set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.config=%SEATUNNEL_CONFIG%"
+set "JAVA_OPTS=%JAVA_OPTS% -Dhazelcast.config=%HAZELCAST_CONFIG%"
+set "CLASS_PATH=%APP_DIR%\lib\*;%APP_JAR%"
 
 if "%HELP%"=="false" (
     if not exist "%APP_DIR%\logs\" mkdir "%APP_DIR%\logs"

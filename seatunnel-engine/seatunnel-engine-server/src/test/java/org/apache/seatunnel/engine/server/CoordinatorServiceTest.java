@@ -18,6 +18,8 @@
 package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
@@ -27,6 +29,7 @@ import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junitpioneer.jupiter.SetEnvironmentVariable;
 
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.serialization.Data;
@@ -113,7 +116,9 @@ public class CoordinatorServiceTest {
         Data data =
                 coordinatorServiceTest.getSerializationService().toData(jobImmutableInformation);
 
-        coordinatorService.submitJob(jobId, data).join();
+        coordinatorService
+                .submitJob(jobId, data, jobImmutableInformation.isStartWithSavePoint())
+                .join();
 
         // waiting for job status turn to running
         await().atMost(10000, TimeUnit.MILLISECONDS)
@@ -174,7 +179,9 @@ public class CoordinatorServiceTest {
 
         Data data = instance1.getSerializationService().toData(jobImmutableInformation);
 
-        coordinatorService.submitJob(jobId, data).join();
+        coordinatorService
+                .submitJob(jobId, data, jobImmutableInformation.isStartWithSavePoint())
+                .join();
 
         // waiting for job status turn to running
         await().atMost(20000, TimeUnit.MILLISECONDS)
@@ -233,5 +240,29 @@ public class CoordinatorServiceTest {
                                         JobStatus.CANCELED,
                                         server2.getCoordinatorService().getJobStatus(jobId)));
         instance2.shutdown();
+    }
+
+    @Test
+    @SetEnvironmentVariable(
+            key = "ST_DOCKER_MEMBER_LIST",
+            value = "127.0.0.1,127.0.0.2,127.0.0.3,127.0.0.4")
+    public void testDockerEnvOverwrite() {
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        if (seaTunnelConfig
+                .getHazelcastConfig()
+                .getNetworkConfig()
+                .getJoin()
+                .getTcpIpConfig()
+                .isEnabled()) {
+            Assertions.assertEquals(
+                    4,
+                    seaTunnelConfig
+                            .getHazelcastConfig()
+                            .getNetworkConfig()
+                            .getJoin()
+                            .getTcpIpConfig()
+                            .getMembers()
+                            .size());
+        }
     }
 }

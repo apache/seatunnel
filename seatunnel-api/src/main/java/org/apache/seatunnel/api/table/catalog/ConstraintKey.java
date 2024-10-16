@@ -72,7 +72,8 @@ public class ConstraintKey implements Serializable {
     public enum ConstraintType {
         INDEX_KEY,
         UNIQUE_KEY,
-        FOREIGN_KEY
+        FOREIGN_KEY,
+        VECTOR_INDEX_KEY
     }
 
     public enum ColumnSortType {

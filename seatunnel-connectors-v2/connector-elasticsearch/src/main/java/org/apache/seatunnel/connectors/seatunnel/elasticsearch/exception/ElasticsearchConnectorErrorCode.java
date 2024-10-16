@@ -28,7 +28,12 @@ public enum ElasticsearchConnectorErrorCode implements SeaTunnelErrorCode {
     LIST_INDEX_FAILED("ELASTICSEARCH-05", "List elasticsearch index failed"),
     DROP_INDEX_FAILED("ELASTICSEARCH-06", "Drop elasticsearch index failed"),
     CREATE_INDEX_FAILED("ELASTICSEARCH-07", "Create elasticsearch index failed"),
-    ES_FIELD_TYPE_NOT_SUPPORT("ELASTICSEARCH-08", "Not support the elasticsearch field type");
+    ES_FIELD_TYPE_NOT_SUPPORT("ELASTICSEARCH-08", "Not support the elasticsearch field type"),
+    CLEAR_INDEX_DATA_FAILED("ELASTICSEARCH-09", "Clear elasticsearch index data failed"),
+    CHECK_INDEX_FAILED("ELASTICSEARCH-10", "Failed to check whether the index exists"),
+    SOURCE_CONFIG_ERROR_01(
+            "ELASTICSEARCH-11",
+            "'index' or 'index_list' must be configured, with at least one being required.");
     ;
 
     private final String code;

@@ -42,11 +42,11 @@ Used to launch Feishu web hooks using data.
 
 ## Sink Options
 
-|      Name      |  Type  | Required | Default |                                             Description                                             |
-|----------------|--------|----------|---------|-----------------------------------------------------------------------------------------------------|
-| url            | String | Yes      | -       | Feishu webhook url                                                                                  |
-| headers        | Map    | No       | -       | Http request headers                                                                                |
-| common-options |        | no       | -       | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details |
+|      Name      |  Type  | Required | Default |                                                 Description                                                 |
+|----------------|--------|----------|---------|-------------------------------------------------------------------------------------------------------------|
+| url            | String | Yes      | -       | Feishu webhook url                                                                                          |
+| headers        | Map    | No       | -       | Http request headers                                                                                        |
+| common-options |        | no       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details |
 
 ## Task Example
 

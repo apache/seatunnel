@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -150,11 +151,11 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     /**
      * set seaTunnelRowTypeInfo in writer
      *
-     * @param seaTunnelRowType seaTunnelRowType
+     * @param catalogTable seaTunnelRowType
      */
     @Override
-    public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
+    public void setCatalogTable(CatalogTable catalogTable) {
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
     }
 
     /**

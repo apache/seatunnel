@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -46,11 +47,13 @@ import org.apache.commons.lang3.StringUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.sql.Connection;
 import java.util.List;
 
 @Slf4j
-public abstract class AbstractJdbcSinkWriter
-        implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> {
+public abstract class AbstractJdbcSinkWriter<ResourceT>
+        implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState>,
+                SupportMultiTableSinkWriter<ResourceT> {
 
     protected JdbcDialect dialect;
     protected TablePath sinkTablePath;
@@ -64,22 +67,22 @@ public abstract class AbstractJdbcSinkWriter
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
         if (event instanceof AlterTableColumnsEvent) {
             AlterTableColumnsEvent alterTableColumnsEvent = (AlterTableColumnsEvent) event;
-            String sourceDialectName = alterTableColumnsEvent.getSourceDialectName();
-            if (StringUtils.isBlank(sourceDialectName)) {
-                throw new SeaTunnelException(
-                        "The sourceDialectName in AlterTableColumnEvent can not be empty");
-            }
             List<AlterTableColumnEvent> events = alterTableColumnsEvent.getEvents();
             for (AlterTableColumnEvent alterTableColumnEvent : events) {
-                processSchemaChangeEvent(alterTableColumnEvent, sourceDialectName);
+                String sourceDialectName = alterTableColumnEvent.getSourceDialectName();
+                if (StringUtils.isBlank(sourceDialectName)) {
+                    throw new SeaTunnelException(
+                            "The sourceDialectName in AlterTableColumnEvent can not be empty. event: "
+                                    + event);
+                }
+                processSchemaChangeEvent(alterTableColumnEvent);
             }
         } else {
             log.warn("We only support AlterTableColumnsEvent, but actual event is " + event);
         }
     }
 
-    protected void processSchemaChangeEvent(AlterTableColumnEvent event, String sourceDialectName)
-            throws IOException {
+    protected void processSchemaChangeEvent(AlterTableColumnEvent event) throws IOException {
         TableSchema newTableSchema = this.tableSchema.copy();
         List<Column> columns = newTableSchema.getColumns();
         switch (event.getEventType()) {
@@ -107,17 +110,16 @@ public abstract class AbstractJdbcSinkWriter
                         "Unsupported schemaChangeEvent for event type: " + event.getEventType());
         }
         this.tableSchema = newTableSchema;
-        reOpenOutputFormat(event, sourceDialectName);
+        reOpenOutputFormat(event);
     }
 
-    protected void reOpenOutputFormat(AlterTableColumnEvent event, String sourceDialectName)
-            throws IOException {
+    protected void reOpenOutputFormat(AlterTableColumnEvent event) throws IOException {
         this.prepareCommit();
-        try {
-            JdbcConnectionProvider refreshTableSchemaConnectionProvider =
-                    dialect.getJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
-            dialect.refreshTableSchemaBySchemaChangeEvent(
-                    sourceDialectName, event, refreshTableSchemaConnectionProvider, sinkTablePath);
+        JdbcConnectionProvider refreshTableSchemaConnectionProvider =
+                dialect.getJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
+        try (Connection connection =
+                refreshTableSchemaConnectionProvider.getOrEstablishConnection()) {
+            dialect.applySchemaChange(event, connection, sinkTablePath);
         } catch (Throwable e) {
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.REFRESH_PHYSICAL_TABLESCHEMA_BY_SCHEMA_CHANGE_EVENT, e);

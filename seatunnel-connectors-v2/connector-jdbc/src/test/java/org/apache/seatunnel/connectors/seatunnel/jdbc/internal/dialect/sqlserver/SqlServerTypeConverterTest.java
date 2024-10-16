@@ -748,14 +748,14 @@ public class SqlServerTypeConverterTest {
 
         BasicTypeDefine typeDefine = SqlServerTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(SqlServerTypeConverter.SQLSERVER_TEXT, typeDefine.getColumnType());
-        Assertions.assertEquals(SqlServerTypeConverter.SQLSERVER_TEXT, typeDefine.getDataType());
+        Assertions.assertEquals(SqlServerTypeConverter.MAX_NVARCHAR, typeDefine.getColumnType());
+        Assertions.assertEquals(SqlServerTypeConverter.MAX_NVARCHAR, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
                         .name("test")
                         .dataType(BasicType.STRING_TYPE)
-                        .columnLength(8000L)
+                        .columnLength(4000L)
                         .build();
 
         typeDefine = SqlServerTypeConverter.INSTANCE.reconvert(column);
@@ -763,21 +763,22 @@ public class SqlServerTypeConverterTest {
         Assertions.assertEquals(
                 String.format(
                         "%s(%s)",
-                        SqlServerTypeConverter.SQLSERVER_VARCHAR, column.getColumnLength()),
+                        SqlServerTypeConverter.SQLSERVER_NVARCHAR, column.getColumnLength()),
                 typeDefine.getColumnType());
-        Assertions.assertEquals(SqlServerTypeConverter.SQLSERVER_VARCHAR, typeDefine.getDataType());
+        Assertions.assertEquals(
+                SqlServerTypeConverter.SQLSERVER_NVARCHAR, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
                         .name("test")
                         .dataType(BasicType.STRING_TYPE)
-                        .columnLength(8001L)
+                        .columnLength(4001L)
                         .build();
 
         typeDefine = SqlServerTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(SqlServerTypeConverter.SQLSERVER_TEXT, typeDefine.getColumnType());
-        Assertions.assertEquals(SqlServerTypeConverter.SQLSERVER_TEXT, typeDefine.getDataType());
+        Assertions.assertEquals(SqlServerTypeConverter.MAX_NVARCHAR, typeDefine.getColumnType());
+        Assertions.assertEquals(SqlServerTypeConverter.MAX_NVARCHAR, typeDefine.getDataType());
     }
 
     @Test

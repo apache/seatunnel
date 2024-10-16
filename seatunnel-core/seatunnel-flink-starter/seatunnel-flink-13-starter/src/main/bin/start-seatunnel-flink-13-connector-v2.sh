@@ -43,6 +43,25 @@ if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
     . "${CONF_DIR}/seatunnel-env.sh"
 fi
 
+if [ ! -f "${APP_DIR}/runtime.tar.gz" ];then
+
+  directories=("connectors" "lib" "plugins")
+
+  existing_dirs=()
+
+  for dir in "${directories[@]}"; do
+      if [ -d "$dir" ]; then
+          existing_dirs+=("$dir")
+      fi
+  done
+
+  if [ ${#existing_dirs[@]} -eq 0 ]; then
+      echo "[connectors,lib,plugins] not existed, skip generate runtime.tar.gz"
+  else
+      tar -zcvf runtime.tar.gz "${existing_dirs[@]}"
+  fi
+fi
+
 if [ $# == 0 ]
 then
     args="-h"

@@ -62,9 +62,9 @@ public interface ResourceManager {
 
     void close();
 
-    List<SlotProfile> getUnassignedSlots();
+    List<SlotProfile> getUnassignedSlots(Map<String, String> tags);
 
-    List<SlotProfile> getAssignedSlots();
+    List<SlotProfile> getAssignedSlots(Map<String, String> tags);
 
-    int workerCount();
+    int workerCount(Map<String, String> tags);
 }

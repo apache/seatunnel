@@ -20,6 +20,7 @@ package org.apache.seatunnel.translation.spark.serialization;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -52,6 +53,7 @@ import scala.collection.immutable.HashMap.HashTrieMap;
 import scala.collection.mutable.WrappedArray;
 
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -63,17 +65,24 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.stream.IntStream;
 
 public final class InternalRowConverter extends RowConverter<InternalRow> {
+    private final int[] indexes;
 
     public InternalRowConverter(SeaTunnelDataType<?> dataType) {
         super(dataType);
+        indexes = IntStream.range(0, ((SeaTunnelRowType) dataType).getTotalFields()).toArray();
+    }
+
+    public InternalRowConverter(SeaTunnelDataType<?> dataType, int[] indexes) {
+        super(dataType);
+        this.indexes = indexes;
     }
 
     @Override
     public InternalRow convert(SeaTunnelRow seaTunnelRow) throws IOException {
-        validate(seaTunnelRow);
-        return (InternalRow) convert(seaTunnelRow, dataType);
+        return parcel(seaTunnelRow, (SeaTunnelRowType) dataType);
     }
 
     private static Object convert(Object field, SeaTunnelDataType<?> dataType) {
@@ -99,17 +108,23 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case DECIMAL:
                 return Decimal.apply((BigDecimal) field);
             case ARRAY:
+                Class<?> elementTypeClass =
+                        ((ArrayType<?, ?>) dataType).getElementType().getTypeClass();
                 // if string array, we need to covert every item in array from String to UTF8String
                 if (((ArrayType<?, ?>) dataType).getElementType().equals(BasicType.STRING_TYPE)) {
                     Object[] fields = (Object[]) field;
-                    Object[] objects =
+                    UTF8String[] objects =
                             Arrays.stream(fields)
                                     .map(v -> UTF8String.fromString((String) v))
-                                    .toArray();
+                                    .toArray(UTF8String[]::new);
                     return ArrayData.toArrayData(objects);
                 }
                 // except string, now only support convert boolean int tinyint smallint bigint float
                 // double, because SeaTunnel Array only support these types
+                Object array = Array.newInstance(elementTypeClass, ((Object[]) field).length);
+                for (int i = 0; i < ((Object[]) field).length; i++) {
+                    Array.set(array, i, ((Object[]) field)[i]);
+                }
                 return ArrayData.toArrayData(field);
             default:
                 if (field instanceof scala.Some) {
@@ -131,6 +146,30 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 if (fieldValue != null) {
                     values[i].update(fieldValue);
                 }
+            }
+        }
+        return new SpecificInternalRow(values);
+    }
+
+    private InternalRow parcel(SeaTunnelRow seaTunnelRow, SeaTunnelRowType rowType) {
+        // 0 -> row kind, 1 -> table id
+        int arity = rowType.getTotalFields();
+        MutableValue[] values = new MutableValue[arity + 2];
+        for (int i = 0; i < indexes.length; i++) {
+            values[indexes[i] + 2] = createMutableValue(rowType.getFieldType(indexes[i]));
+            Object fieldValue = convert(seaTunnelRow.getField(i), rowType.getFieldType(indexes[i]));
+            if (fieldValue != null) {
+                values[indexes[i] + 2].update(fieldValue);
+            }
+        }
+        values[0] = new MutableByte();
+        values[0].update(seaTunnelRow.getRowKind().toByteValue());
+        values[1] = new MutableAny();
+        values[1].update(UTF8String.fromString(seaTunnelRow.getTableId()));
+        // Fill any remaining null values with MutableAny
+        for (int i = 0; i < values.length; i++) {
+            if (values[i] == null) {
+                values[i] = new MutableAny();
             }
         }
         return new SpecificInternalRow(values);
@@ -213,9 +252,27 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         }
     }
 
+    public SeaTunnelRow unpack(InternalRow engineRow, SeaTunnelRowType rowType) throws IOException {
+        RowKind rowKind = RowKind.fromByteValue(engineRow.getByte(0));
+        String tableId = engineRow.getString(1);
+        Object[] fields = new Object[indexes.length];
+        for (int i = 0; i < indexes.length; i++) {
+            fields[i] =
+                    reconvert(
+                            engineRow.get(
+                                    indexes[i] + 2,
+                                    TypeConverterUtils.convert(rowType.getFieldType(indexes[i]))),
+                            rowType.getFieldType(indexes[i]));
+        }
+        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
+        seaTunnelRow.setRowKind(rowKind);
+        seaTunnelRow.setTableId(tableId);
+        return seaTunnelRow;
+    }
+
     @Override
     public SeaTunnelRow reconvert(InternalRow engineRow) throws IOException {
-        return (SeaTunnelRow) reconvert(engineRow, dataType);
+        return unpack(engineRow, (SeaTunnelRowType) dataType);
     }
 
     private static Object reconvert(Object field, SeaTunnelDataType<?> dataType) {
@@ -289,14 +346,17 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
     }
 
     private static Object reconvertArray(ArrayData arrayData, ArrayType<?, ?> arrayType) {
+        Class<?> elementTypeClass = arrayType.getElementType().getTypeClass();
         if (arrayData == null || arrayData.numElements() == 0) {
             return Collections.emptyList().toArray();
         }
-        Object[] newArray = new Object[arrayData.numElements()];
+        Object[] newArray = (Object[]) Array.newInstance(elementTypeClass, arrayData.numElements());
         Object[] values =
                 arrayData.toObjectArray(TypeConverterUtils.convert(arrayType.getElementType()));
         for (int i = 0; i < arrayData.numElements(); i++) {
-            newArray[i] = reconvert(values[i], arrayType.getElementType());
+            Object reconvert =
+                    elementTypeClass.cast(reconvert(values[i], arrayType.getElementType()));
+            newArray[i] = reconvert;
         }
         return newArray;
     }

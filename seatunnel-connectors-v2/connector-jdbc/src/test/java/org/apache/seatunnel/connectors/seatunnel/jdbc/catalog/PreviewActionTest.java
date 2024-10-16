@@ -109,7 +109,7 @@ public class PreviewActionTest {
         DamengCatalogFactory factory = new DamengCatalogFactory();
         Catalog catalog =
                 factory.createCatalog(
-                        "test",
+                        "Dameng",
                         ReadonlyConfig.fromMap(
                                 new HashMap<String, Object>() {
                                     {
@@ -124,7 +124,7 @@ public class PreviewActionTest {
                         assertPreviewResult(
                                 catalog,
                                 Catalog.ActionType.CREATE_DATABASE,
-                                "CREATE DATABASE `testddatabase`;",
+                                "CREATE DATABASE \"testddatabase\";",
                                 Optional.empty()));
         Assertions.assertThrows(
                 UnsupportedOperationException.class,
@@ -132,28 +132,24 @@ public class PreviewActionTest {
                         assertPreviewResult(
                                 catalog,
                                 Catalog.ActionType.DROP_DATABASE,
-                                "DROP DATABASE `testddatabase`;",
-                                Optional.empty()));
-        Assertions.assertThrows(
-                UnsupportedOperationException.class,
-                () ->
-                        assertPreviewResult(
-                                catalog,
-                                Catalog.ActionType.TRUNCATE_TABLE,
-                                "TRUNCATE TABLE `testddatabase`.`testtable`;",
+                                "DROP DATABASE \"testddatabase\";",
                                 Optional.empty()));
         assertPreviewResult(
-                catalog, Catalog.ActionType.DROP_TABLE, "DROP TABLE TESTTABLE", Optional.empty());
-        Assertions.assertThrows(
-                UnsupportedOperationException.class,
-                () ->
-                        assertPreviewResult(
-                                catalog,
-                                Catalog.ActionType.CREATE_TABLE,
-                                "CREATE TABLE `testtable` (\n"
-                                        + "\t`test` LONGTEXT NULL COMMENT ''\n"
-                                        + ") COMMENT = 'comment';",
-                                Optional.of(CATALOG_TABLE)));
+                catalog,
+                Catalog.ActionType.TRUNCATE_TABLE,
+                "TRUNCATE TABLE \"null\".\"testtable\"",
+                Optional.empty());
+        assertPreviewResult(
+                catalog,
+                Catalog.ActionType.DROP_TABLE,
+                "DROP TABLE \"testtable\"",
+                Optional.empty());
+
+        assertPreviewResult(
+                catalog,
+                Catalog.ActionType.CREATE_TABLE,
+                "CREATE TABLE \"testtable\" (\n" + "\"test\" TEXT\n" + ")",
+                Optional.of(CATALOG_TABLE));
     }
 
     @Test
@@ -375,7 +371,7 @@ public class PreviewActionTest {
                 "IF OBJECT_ID('[testddatabase].[testtable]', 'U') IS NULL \n"
                         + "BEGIN \n"
                         + "CREATE TABLE [testddatabase].[testtable] ( \n"
-                        + "\t[test] TEXT NULL\n"
+                        + "\t[test] NVARCHAR(MAX) NULL\n"
                         + ");\n"
                         + "EXEC testddatabase.sys.sp_addextendedproperty 'MS_Description', N'comment', 'schema', N'null', 'table', N'testtable';\n"
                         + "EXEC testddatabase.sys.sp_addextendedproperty 'MS_Description', N'', 'schema', N'null', 'table', N'testtable', 'column', N'test';\n"

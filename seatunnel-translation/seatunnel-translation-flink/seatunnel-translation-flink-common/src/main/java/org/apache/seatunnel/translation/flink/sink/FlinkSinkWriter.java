@@ -23,13 +23,11 @@ import org.apache.seatunnel.api.common.metrics.MetricNames;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.flink.serialization.FlinkRowConverter;
 
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.api.connector.sink.SinkWriter;
-import org.apache.flink.types.Row;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -54,7 +52,8 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
 
     private final org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT>
             sinkWriter;
-    private final FlinkRowConverter rowSerialization;
+
+    private final org.apache.seatunnel.api.sink.SinkWriter.Context context;
 
     private final Counter sinkWriteCount;
 
@@ -69,11 +68,11 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
     FlinkSinkWriter(
             org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter,
             long checkpointId,
-            SeaTunnelDataType<?> dataType,
-            MetricsContext metricsContext) {
+            org.apache.seatunnel.api.sink.SinkWriter.Context context) {
+        this.context = context;
         this.sinkWriter = sinkWriter;
         this.checkpointId = checkpointId;
-        this.rowSerialization = new FlinkRowConverter(dataType);
+        MetricsContext metricsContext = context.getMetricsContext();
         this.sinkWriteCount = metricsContext.counter(MetricNames.SINK_WRITE_COUNT);
         this.sinkWriteBytes = metricsContext.counter(MetricNames.SINK_WRITE_BYTES);
         this.sinkWriterQPS = metricsContext.meter(MetricNames.SINK_WRITE_QPS);
@@ -86,21 +85,23 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
 
     @Override
     public void write(InputT element, SinkWriter.Context context) throws IOException {
-        if (element instanceof Row) {
-            SeaTunnelRow seaTunnelRow = rowSerialization.reconvert((Row) element);
-            sinkWriter.write(seaTunnelRow);
+        if (element == null) {
+            return;
+        }
+        if (element instanceof SeaTunnelRow) {
+            sinkWriter.write((SeaTunnelRow) element);
             sinkWriteCount.inc();
-            sinkWriteBytes.inc(seaTunnelRow.getBytesSize());
+            sinkWriteBytes.inc(((SeaTunnelRow) element).getBytesSize());
             sinkWriterQPS.markEvent();
         } else {
             throw new InvalidClassException(
-                    "only support Flink Row at now, the element Class is " + element.getClass());
+                    "only support SeaTunnelRow at now, the element Class is " + element.getClass());
         }
     }
 
     @Override
     public List<CommitWrapper<CommT>> prepareCommit(boolean flush) throws IOException {
-        Optional<CommT> commTOptional = sinkWriter.prepareCommit();
+        Optional<CommT> commTOptional = sinkWriter.prepareCommit(checkpointId);
         return commTOptional
                 .map(CommitWrapper::new)
                 .map(Collections::singletonList)
@@ -120,6 +121,7 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
     @Override
     public void close() throws Exception {
         sinkWriter.close();
+        context.getEventListener().onEvent(new WriterCloseEvent());
         try {
             if (resourceManager != null) {
                 resourceManager.close();

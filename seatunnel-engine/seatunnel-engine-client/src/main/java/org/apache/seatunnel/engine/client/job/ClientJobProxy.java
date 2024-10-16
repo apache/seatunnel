@@ -73,7 +73,8 @@ public class ClientJobProxy implements Job {
                         jobImmutableInformation.getJobId(),
                         seaTunnelHazelcastClient
                                 .getSerializationService()
-                                .toData(jobImmutableInformation));
+                                .toData(jobImmutableInformation),
+                        jobImmutableInformation.isStartWithSavePoint());
         PassiveCompletableFuture<Void> submitJobFuture =
                 seaTunnelHazelcastClient.requestOnMasterAndGetCompletableFuture(request);
         submitJobFuture.join();

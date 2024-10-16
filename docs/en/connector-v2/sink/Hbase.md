@@ -102,7 +102,7 @@ Hbase writes data TTL time, the default is based on the TTL set in the table, un
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
 
 ## Example
 
@@ -117,6 +117,92 @@ Hbase {
   }
 }
 
+```
+
+### Multiple Table
+
+```hocon
+env {
+  # You can set engine configuration here
+  execution.parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    tables_configs = [
+       {
+        schema = {
+          table = "hbase_sink_1"
+         fields {
+                    name = STRING
+                    c_string = STRING
+                    c_double = DOUBLE
+                    c_bigint = BIGINT
+                    c_float = FLOAT
+                    c_int = INT
+                    c_smallint = SMALLINT
+                    c_boolean = BOOLEAN
+                    time = BIGINT
+           }
+        }
+            rows = [
+              {
+                kind = INSERT
+                fields = ["label_1", "sink_1", 4.3, 200, 2.5, 2, 5, true, 1627529632356]
+              }
+              ]
+       },
+       {
+       schema = {
+         table = "hbase_sink_2"
+              fields {
+                    name = STRING
+                    c_string = STRING
+                    c_double = DOUBLE
+                    c_bigint = BIGINT
+                    c_float = FLOAT
+                    c_int = INT
+                    c_smallint = SMALLINT
+                    c_boolean = BOOLEAN
+                    time = BIGINT
+              }
+       }
+           rows = [
+             {
+               kind = INSERT
+               fields = ["label_2", "sink_2", 4.3, 200, 2.5, 2, 5, true, 1627529632357]
+             }
+             ]
+      }
+    ]
+  }
+}
+
+sink {
+  Hbase {
+    zookeeper_quorum = "hadoop001:2181,hadoop002:2181,hadoop003:2181"
+    table = "${table_name}"
+    rowkey_column = ["name"]
+    family_name {
+      all_columns = info
+    }
+  }
+}
+```
+
+## Writes To The Specified Column Family
+
+```hocon
+Hbase {
+  zookeeper_quorum = "hbase_e2e:2181"
+  table = "assign_cf_table"
+  rowkey_column = ["id"]
+  family_name {
+    c_double = "cf1"
+    c_bigint = "cf2"
+  }
+}
 ```
 
 ## Changelog

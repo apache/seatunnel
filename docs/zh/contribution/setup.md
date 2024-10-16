@@ -3,7 +3,7 @@
 在这个章节， 我们会向你展示如何搭建 SeaTunnel 的开发环境， 然后用 JetBrains IntelliJ IDEA 跑一个简单的示例。
 
 > 你可以用任何你喜欢的开发环境进行开发和测试，我们只是用 [JetBrains IDEA](https://www.jetbrains.com/idea/)
-> 作为示例来展示如何一步步设置环境。
+> 作为示例来展示如何一步步完成设置。
 
 ## 准备
 
@@ -75,39 +75,47 @@ Apache SeaTunnel 使用 `Spotless` 来统一代码风格和格式检查。可以
 完成上面所有的工作后，环境搭建已经完成， 可以直接运行我们的示例了。 所有的示例在 `seatunnel-examples` 模块里， 你可以随意选择进行编译和调试，参考 [running or debugging
 it in IDEA](https://www.jetbrains.com/help/idea/run-debug-configuration.html)。
 
-我们使用 `seatunnel-examples/seatunnel-flink-connector-v2-example/src/main/java/org/apache/seatunnel/example/flink/v2/SeaTunnelApiExample.java`
+我们使用 `seatunnel-examples/seatunnel-engine-examples/src/main/java/org/apache/seatunnel/example/engine/SeaTunnelEngineExample.java`
 作为示例, 运行成功后的输出如下:
 
 ```log
-+I[Ricky Huo, 71]
-+I[Gary, 12]
-+I[Ricky Huo, 93]
-...
-...
-+I[Ricky Huo, 83]
+2024-08-10 11:45:32,839 INFO  org.apache.seatunnel.core.starter.seatunnel.command.ClientExecuteCommand - 
+***********************************************
+           Job Statistic Information
+***********************************************
+Start Time                : 2024-08-10 11:45:30
+End Time                  : 2024-08-10 11:45:32
+Total Time(s)             :                   2
+Total Read Count          :                   5
+Total Write Count         :                   5
+Total Failed Count        :                   0
+***********************************************
 ```
 
 ## 更多信息
 
 所有的实例都用了简单的 source 和 sink， 这样可以使得运行更独立和更简单。
 你可以修改 `resources/examples` 中的示例的配置。 例如下面的配置使用 PostgreSQL 作为源，并且输出到控制台。
+请注意引用FakeSource 和 Console 以外的连接器时，需要修改seatunnel-example对应子模块下的`pom.xml`文件中的依赖。
 
 ```conf
 env {
   parallelism = 1
+  job.mode = "BATCH"
 }
-
 source {
-  JdbcSource {
-    driver = org.postgresql.Driver
-    url = "jdbc:postgresql://host:port/database"
-    username = postgres
-    query = "select * from test"
-  }
+    Jdbc {
+        driver = org.postgresql.Driver
+        url = "jdbc:postgresql://host:port/database"
+        username = postgres
+        password = "123456"
+        query = "select * from test"
+        table_path = "database.test"
+    }
 }
 
 sink {
-  ConsoleSink {}
+  Console {}
 }
 ```
 

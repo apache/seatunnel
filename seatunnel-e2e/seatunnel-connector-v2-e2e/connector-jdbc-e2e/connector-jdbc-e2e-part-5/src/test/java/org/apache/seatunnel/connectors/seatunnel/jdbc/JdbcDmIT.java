@@ -127,11 +127,9 @@ public class JdbcDmIT extends AbstractJdbcIT {
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
+                .tablePathFullName(String.format("%s.%s", DM_DATABASE, DM_SOURCE))
                 .build();
     }
-
-    @Override
-    void compareResult(String executeKey) {}
 
     @Override
     String driverUrl() {
@@ -220,6 +218,14 @@ public class JdbcDmIT extends AbstractJdbcIT {
         }
 
         return Pair.of(fieldNames, rows);
+    }
+
+    protected String buildTableInfoWithSchema(String database, String schema, String table) {
+        return buildTableInfoWithSchema(schema, table);
+    }
+
+    protected void clearTable(String database, String schema, String table) {
+        clearTable(schema, table);
     }
 
     @Override

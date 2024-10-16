@@ -40,10 +40,10 @@ import java.util.Optional;
 public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         implements SupportSaveMode {
 
-    private SeaTunnelRowType seaTunnelRowType;
+    private final SeaTunnelRowType seaTunnelRowType;
     private final SinkConfig sinkConfig;
-    private DataSaveMode dataSaveMode;
-    private SchemaSaveMode schemaSaveMode;
+    private final DataSaveMode dataSaveMode;
+    private final SchemaSaveMode schemaSaveMode;
     private final CatalogTable catalogTable;
 
     public StarRocksSink(
@@ -79,7 +79,6 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
                         sinkConfig.getPassword(),
                         sinkConfig.getJdbcUrl(),
                         sinkConfig.getSaveModeCreateTemplate());
-        catalog.open();
         return Optional.of(
                 new DefaultSaveModeHandler(
                         schemaSaveMode,
@@ -88,5 +87,10 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
                         tablePath,
                         catalogTable,
                         sinkConfig.getCustomSql()));
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.of(catalogTable);
     }
 }

@@ -164,7 +164,7 @@
 
 ### 常见选项
 
-Sink 插件的常见参数，请参阅 [Sink 常见选项](common-options.md) 获取详细信息。
+Sink 插件的常见参数，请参阅 [Sink 常见选项](../sink-common-options.md) 获取详细信息。
 
 ### max_rows_in_memory [int]
 

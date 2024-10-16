@@ -53,18 +53,19 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 ### schema_save_mode[Enum]
 
 在开启同步任务之前，针对现有的表结构选择不同的处理方案。
-选项介绍：
+选项介绍：  
 `RECREATE_SCHEMA` ：表不存在时创建，表保存时删除并重建。
-`CREATE_SCHEMA_WHEN_NOT_EXIST` ：表不存在时会创建，表存在时跳过。
-`ERROR_WHEN_SCHEMA_NOT_EXIST` ：表不存在时会报错。
+`CREATE_SCHEMA_WHEN_NOT_EXIST` ：表不存在时会创建，表存在时跳过。  
+`ERROR_WHEN_SCHEMA_NOT_EXIST` ：表不存在时会报错。  
+`IGNORE` ：忽略对表的处理。
 
 ### data_save_mode[Enum]
 
 在开启同步任务之前，针对目标端已有的数据选择不同的处理方案。
-选项介绍：
-`DROP_DATA`： 保留数据库结构并删除数据。
-`APPEND_DATA`：保留数据库结构，保留数据。
-`CUSTOM_PROCESSING`：用户自定义处理。
+选项介绍：  
+`DROP_DATA`： 保留数据库结构并删除数据。  
+`APPEND_DATA`：保留数据库结构，保留数据。  
+`CUSTOM_PROCESSING`：用户自定义处理。  
 `ERROR_WHEN_DATA_EXISTS`：有数据时报错。
 
 ### save_mode_create_template
@@ -145,6 +146,15 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 #### 支持的导入数据格式
 
 支持的格式包括 CSV 和 JSON。
+
+## 调优指南
+适当增加`sink.buffer-size`和`doris.batch.size`的值可以提高写性能。
+
+在流模式下，如果`doris.batch.size`和`checkpoint.interval`都配置为较大的值，最后到达的数据可能会有较大的延迟(延迟的时间就是检查点间隔的时间)。
+
+这是因为最后到达的数据总量可能不会超过doris.batch.size指定的阈值。因此，在接收到数据的数据量没有超过该阈值之前只有检查点才会触发提交操作。因此，需要选择一个合适的检查点间隔。
+
+此外，如果你通过`sink.enable-2pc=true`属性启用2pc。`sink.buffer-size`将会失去作用，只有检查点才能触发提交。
 
 ## 任务示例
 

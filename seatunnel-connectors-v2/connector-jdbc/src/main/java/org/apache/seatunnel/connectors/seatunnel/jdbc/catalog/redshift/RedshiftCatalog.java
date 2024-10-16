@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
-import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
@@ -31,42 +30,19 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.redshift.RedshiftTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.redshift.RedshiftTypeMapper;
 
-import org.apache.commons.lang3.StringUtils;
-
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 public class RedshiftCatalog extends AbstractJdbcCatalog {
 
-    protected static final Set<String> EXCLUDED_SCHEMAS = new HashSet<>(4);
-
     private final String SELECT_COLUMNS =
             "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME ='%s' ORDER BY ordinal_position ASC";
-
-    static {
-        EXCLUDED_SCHEMAS.add("information_schema");
-        EXCLUDED_SCHEMAS.add("catalog_history");
-        EXCLUDED_SCHEMAS.add("pg_auto_copy");
-        EXCLUDED_SCHEMAS.add("pg_automv");
-        EXCLUDED_SCHEMAS.add("pg_catalog");
-        EXCLUDED_SCHEMAS.add("pg_internal");
-        EXCLUDED_SCHEMAS.add("pg_s3");
-    }
-
-    static {
-        SYS_DATABASES.add("template0");
-        SYS_DATABASES.add("template1");
-        SYS_DATABASES.add("awsdatacatalog");
-        SYS_DATABASES.add("padb_harvest");
-    }
 
     protected final Map<String, Connection> connectionMap;
 
@@ -78,6 +54,20 @@ public class RedshiftCatalog extends AbstractJdbcCatalog {
             String schema) {
         super(catalogName, username, pwd, urlInfo, schema);
         this.connectionMap = new ConcurrentHashMap<>();
+    }
+
+    @Override
+    protected String getDatabaseWithConditionSql(String databaseName) {
+        return String.format(getListDatabaseSql() + " where datname = '%s'", databaseName);
+    }
+
+    @Override
+    protected String getTableWithConditionSql(TablePath tablePath) {
+        return String.format(
+                getListTableSql(tablePath.getDatabaseName())
+                        + " where table_schema = '%s' and table_name = '%s'",
+                tablePath.getSchemaName(),
+                tablePath.getTableName());
     }
 
     @Override
@@ -95,12 +85,12 @@ public class RedshiftCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getListDatabaseSql() {
-        return "select datname from pg_database;";
+        return "select datname from pg_database";
     }
 
     @Override
     protected String getListTableSql(String databaseName) {
-        return "SELECT table_schema, table_name FROM information_schema.tables;";
+        return "SELECT table_schema, table_name FROM information_schema.tables";
     }
 
     @Override
@@ -115,9 +105,10 @@ public class RedshiftCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
+    protected String getCreateTableSql(
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
         String createTableSql =
-                new RedshiftCreateTableSqlBuilder(table)
+                new RedshiftCreateTableSqlBuilder(table, createIndex)
                         .build(tablePath, table.getOptions().get("fieldIde"));
         return CatalogUtils.getFieldIde(createTableSql, table.getOptions().get("fieldIde"));
     }
@@ -142,21 +133,6 @@ public class RedshiftCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getDropDatabaseSql(String databaseName) {
         return String.format("DROP DATABASE `%s`;", databaseName);
-    }
-
-    @Override
-    public boolean tableExists(TablePath tablePath) throws CatalogException {
-        try {
-            if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
-                return databaseExists(tablePath.getDatabaseName())
-                        && listTables(tablePath.getDatabaseName())
-                                .contains(tablePath.getSchemaAndTableName().toLowerCase());
-            }
-            return listTables(defaultDatabase)
-                    .contains(tablePath.getSchemaAndTableName().toLowerCase());
-        } catch (DatabaseNotExistException e) {
-            return false;
-        }
     }
 
     @Override

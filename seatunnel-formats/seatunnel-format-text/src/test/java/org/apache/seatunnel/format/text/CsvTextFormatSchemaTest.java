@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.DateTimeUtils.Formatter;
 import org.apache.seatunnel.format.text.splitor.CsvLineSplitor;
 
 import org.junit.jupiter.api.Assertions;
@@ -34,8 +35,11 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class CsvTextFormatSchemaTest {
     public String content =
@@ -149,5 +153,41 @@ public class CsvTextFormatSchemaTest {
         Assertions.assertEquals(LocalDate.of(2022, 9, 24), seaTunnelRow.getField(10));
         Assertions.assertEquals(((Map<?, ?>) (seaTunnelRow.getField(15))).get("tyrantlucifer"), 18);
         Assertions.assertEquals(((Map<?, ?>) (seaTunnelRow.getField(15))).get("Kris"), 21);
+    }
+
+    @Test
+    public void testSerializationWithTimestamp() {
+        String delimiter = ",";
+
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {"timestamp"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+        LocalDateTime timestamp = LocalDateTime.of(2022, 9, 24, 22, 45, 0, 123456000);
+        TextSerializationSchema textSerializationSchema =
+                TextSerializationSchema.builder()
+                        .seaTunnelRowType(schema)
+                        .dateTimeFormatter(Formatter.YYYY_MM_DD_HH_MM_SS_SSSSSS)
+                        .delimiter(delimiter)
+                        .build();
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {timestamp});
+
+        assertEquals(
+                "2022-09-24 22:45:00.123456", new String(textSerializationSchema.serialize(row)));
+
+        timestamp = LocalDateTime.of(2022, 9, 24, 22, 45, 0, 0);
+        row = new SeaTunnelRow(new Object[] {timestamp});
+        assertEquals(
+                "2022-09-24 22:45:00.000000", new String(textSerializationSchema.serialize(row)));
+
+        timestamp = LocalDateTime.of(2022, 9, 24, 22, 45, 0, 1000);
+        row = new SeaTunnelRow(new Object[] {timestamp});
+        assertEquals(
+                "2022-09-24 22:45:00.000001", new String(textSerializationSchema.serialize(row)));
+
+        timestamp = LocalDateTime.of(2022, 9, 24, 22, 45, 0, 123456);
+        row = new SeaTunnelRow(new Object[] {timestamp});
+        assertEquals(
+                "2022-09-24 22:45:00.000123", new String(textSerializationSchema.serialize(row)));
     }
 }

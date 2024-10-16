@@ -25,8 +25,10 @@ import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.api.table.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.event.AlterTableModifyColumnEvent;
+import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
@@ -40,14 +42,13 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.mysql.cj.MysqlType;
-
 import java.io.Serializable;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -440,72 +441,165 @@ public interface JdbcDialect extends Serializable {
     /**
      * Refresh physical table schema by schema change event
      *
-     * @param sourceDialectName source dialect name
      * @param event schema change event
-     * @param jdbcConnectionProvider jdbc connection provider
-     * @param sinkTablePath sink table path
+     * @param connection jdbc connection
+     * @param tablePath sink table path
      */
-    default void refreshTableSchemaBySchemaChangeEvent(
-            String sourceDialectName,
-            AlterTableColumnEvent event,
-            JdbcConnectionProvider jdbcConnectionProvider,
-            TablePath sinkTablePath) {}
+    default void applySchemaChange(
+            SchemaChangeEvent event, Connection connection, TablePath tablePath)
+            throws SQLException {
+        if (event instanceof AlterTableColumnsEvent) {
+            for (AlterTableColumnEvent columnEvent : ((AlterTableColumnsEvent) event).getEvents()) {
+                applySchemaChange(columnEvent, connection, tablePath);
+            }
+        } else {
+            if (event instanceof AlterTableChangeColumnEvent) {
+                AlterTableChangeColumnEvent changeColumnEvent = (AlterTableChangeColumnEvent) event;
+                if (!changeColumnEvent
+                        .getOldColumn()
+                        .equals(changeColumnEvent.getColumn().getName())) {
+                    if (!columnExists(connection, tablePath, changeColumnEvent.getOldColumn())
+                            && columnExists(
+                                    connection,
+                                    tablePath,
+                                    changeColumnEvent.getColumn().getName())) {
+                        log.warn(
+                                "Column {} already exists in table {}. Skipping change column operation. event: {}",
+                                changeColumnEvent.getColumn().getName(),
+                                tablePath.getFullName(),
+                                event);
+                        return;
+                    }
+                }
+                applySchemaChange(connection, tablePath, changeColumnEvent);
+            } else if (event instanceof AlterTableModifyColumnEvent) {
+                applySchemaChange(connection, tablePath, (AlterTableModifyColumnEvent) event);
+            } else if (event instanceof AlterTableAddColumnEvent) {
+                AlterTableAddColumnEvent addColumnEvent = (AlterTableAddColumnEvent) event;
+                if (columnExists(connection, tablePath, addColumnEvent.getColumn().getName())) {
+                    log.warn(
+                            "Column {} already exists in table {}. Skipping add column operation. event: {}",
+                            addColumnEvent.getColumn().getName(),
+                            tablePath.getFullName(),
+                            event);
+                    return;
+                }
+                applySchemaChange(connection, tablePath, addColumnEvent);
+            } else if (event instanceof AlterTableDropColumnEvent) {
+                AlterTableDropColumnEvent dropColumnEvent = (AlterTableDropColumnEvent) event;
+                if (!columnExists(connection, tablePath, dropColumnEvent.getColumn())) {
+                    log.warn(
+                            "Column {} does not exist in table {}. Skipping drop column operation. event: {}",
+                            dropColumnEvent.getColumn(),
+                            tablePath.getFullName(),
+                            event);
+                    return;
+                }
+                applySchemaChange(connection, tablePath, dropColumnEvent);
+            } else {
+                throw new SeaTunnelException(
+                        "Unsupported schemaChangeEvent : " + event.getEventType());
+            }
+        }
+    }
 
     /**
-     * generate alter table sql
+     * Check if the column exists in the table
      *
-     * @param sourceDialectName source dialect name
-     * @param event schema change event
-     * @param sinkTablePath sink table path
-     * @return alter table sql for sink table
+     * @param connection
+     * @param tablePath
+     * @param column
+     * @return
      */
-    default String generateAlterTableSql(
-            String sourceDialectName, AlterTableColumnEvent event, TablePath sinkTablePath) {
-        String tableIdentifierWithQuoted =
-                tableIdentifier(sinkTablePath.getDatabaseName(), sinkTablePath.getTableName());
-        switch (event.getEventType()) {
-            case SCHEMA_CHANGE_ADD_COLUMN:
-                Column addColumn = ((AlterTableAddColumnEvent) event).getColumn();
-                return buildAlterTableSql(
-                        sourceDialectName,
+    default boolean columnExists(Connection connection, TablePath tablePath, String column) {
+        String selectColumnSQL =
+                String.format(
+                        "SELECT %s FROM %s WHERE 1 != 1",
+                        quoteIdentifier(column), tableIdentifier(tablePath));
+        try (Statement statement = connection.createStatement()) {
+            return statement.execute(selectColumnSQL);
+        } catch (SQLException e) {
+            log.debug("Column {} does not exist in table {}", column, tablePath.getFullName(), e);
+            return false;
+        }
+    }
+
+    default void applySchemaChange(
+            Connection connection, TablePath tablePath, AlterTableAddColumnEvent event)
+            throws SQLException {
+        String tableIdentifierWithQuoted = tableIdentifier(tablePath);
+        Column addColumn = event.getColumn();
+        String addColumnSQL =
+                buildAlterTableSql(
+                        event.getSourceDialectName(),
                         addColumn.getSourceType(),
                         AlterType.ADD.name(),
                         addColumn,
                         tableIdentifierWithQuoted,
                         StringUtils.EMPTY);
-            case SCHEMA_CHANGE_DROP_COLUMN:
-                String dropColumn = ((AlterTableDropColumnEvent) event).getColumn();
-                return buildAlterTableSql(
-                        sourceDialectName,
-                        null,
-                        AlterType.DROP.name(),
-                        null,
-                        tableIdentifierWithQuoted,
-                        dropColumn);
-            case SCHEMA_CHANGE_MODIFY_COLUMN:
-                Column modifyColumn = ((AlterTableModifyColumnEvent) event).getColumn();
-                return buildAlterTableSql(
-                        sourceDialectName,
-                        modifyColumn.getSourceType(),
-                        AlterType.MODIFY.name(),
-                        modifyColumn,
-                        tableIdentifierWithQuoted,
-                        StringUtils.EMPTY);
-            case SCHEMA_CHANGE_CHANGE_COLUMN:
-                AlterTableChangeColumnEvent alterTableChangeColumnEvent =
-                        (AlterTableChangeColumnEvent) event;
-                Column changeColumn = alterTableChangeColumnEvent.getColumn();
-                String oldColumnName = alterTableChangeColumnEvent.getOldColumn();
-                return buildAlterTableSql(
-                        sourceDialectName,
+        try (Statement statement = connection.createStatement()) {
+            log.info("Executing add column SQL: " + addColumnSQL);
+            statement.execute(addColumnSQL);
+        }
+    }
+
+    default void applySchemaChange(
+            Connection connection, TablePath tablePath, AlterTableChangeColumnEvent event)
+            throws SQLException {
+        String tableIdentifierWithQuoted = tableIdentifier(tablePath);
+        Column changeColumn = event.getColumn();
+        String oldColumnName = event.getOldColumn();
+        String changeColumnSQL =
+                buildAlterTableSql(
+                        event.getSourceDialectName(),
                         changeColumn.getSourceType(),
                         AlterType.CHANGE.name(),
                         changeColumn,
                         tableIdentifierWithQuoted,
                         oldColumnName);
-            default:
-                throw new SeaTunnelException(
-                        "Unsupported schemaChangeEvent for event type: " + event.getEventType());
+
+        try (Statement statement = connection.createStatement()) {
+            log.info("Executing change column SQL: " + changeColumnSQL);
+            statement.execute(changeColumnSQL);
+        }
+    }
+
+    default void applySchemaChange(
+            Connection connection, TablePath tablePath, AlterTableModifyColumnEvent event)
+            throws SQLException {
+        String tableIdentifierWithQuoted = tableIdentifier(tablePath);
+        Column modifyColumn = event.getColumn();
+        String modifyColumnSQL =
+                buildAlterTableSql(
+                        event.getSourceDialectName(),
+                        modifyColumn.getSourceType(),
+                        AlterType.MODIFY.name(),
+                        modifyColumn,
+                        tableIdentifierWithQuoted,
+                        StringUtils.EMPTY);
+
+        try (Statement statement = connection.createStatement()) {
+            log.info("Executing modify column SQL: " + modifyColumnSQL);
+            statement.execute(modifyColumnSQL);
+        }
+    }
+
+    default void applySchemaChange(
+            Connection connection, TablePath tablePath, AlterTableDropColumnEvent event)
+            throws SQLException {
+        String tableIdentifierWithQuoted = tableIdentifier(tablePath);
+        String dropColumn = event.getColumn();
+        String dropColumnSQL =
+                buildAlterTableSql(
+                        event.getSourceDialectName(),
+                        null,
+                        AlterType.DROP.name(),
+                        null,
+                        tableIdentifierWithQuoted,
+                        dropColumn);
+        try (Statement statement = connection.createStatement()) {
+            log.info("Executing drop column SQL: " + dropColumnSQL);
+            statement.execute(dropColumnSQL);
         }
     }
 
@@ -532,8 +626,7 @@ public interface JdbcDialect extends Serializable {
                     "ALTER TABLE %s drop column %s", tableName, quoteIdentifier(oldColumnName));
         }
         TypeConverter<?> typeConverter = ConverterLoader.loadTypeConverter(dialectName());
-        BasicTypeDefine<MysqlType> typeBasicTypeDefine =
-                (BasicTypeDefine<MysqlType>) typeConverter.reconvert(newColumn);
+        BasicTypeDefine typeBasicTypeDefine = (BasicTypeDefine) typeConverter.reconvert(newColumn);
 
         String basicSql = buildAlterTableBasicSql(alterOperation, tableName);
         basicSql =
@@ -616,8 +709,7 @@ public interface JdbcDialect extends Serializable {
      * @param typeBasicTypeDefine type basic type define of new column
      * @return alter table sql with nullable for sink table
      */
-    default String decorateWithNullable(
-            String basicSql, BasicTypeDefine<MysqlType> typeBasicTypeDefine) {
+    default String decorateWithNullable(String basicSql, BasicTypeDefine typeBasicTypeDefine) {
         StringBuilder sql = new StringBuilder(basicSql);
         if (typeBasicTypeDefine.isNullable()) {
             sql.append("NULL ");
@@ -634,8 +726,7 @@ public interface JdbcDialect extends Serializable {
      * @param typeBasicTypeDefine type basic type define of new column
      * @return alter table sql with default value for sink table
      */
-    default String decorateWithDefaultValue(
-            String basicSql, BasicTypeDefine<MysqlType> typeBasicTypeDefine) {
+    default String decorateWithDefaultValue(String basicSql, BasicTypeDefine typeBasicTypeDefine) {
         Object defaultValue = typeBasicTypeDefine.getDefaultValue();
         if (Objects.nonNull(defaultValue)
                 && needsQuotesWithDefaultValue(typeBasicTypeDefine.getColumnType())
@@ -656,8 +747,7 @@ public interface JdbcDialect extends Serializable {
      * @param typeBasicTypeDefine type basic type define of new column
      * @return alter table sql with comment for sink table
      */
-    default String decorateWithComment(
-            String basicSql, BasicTypeDefine<MysqlType> typeBasicTypeDefine) {
+    default String decorateWithComment(String basicSql, BasicTypeDefine typeBasicTypeDefine) {
         String comment = typeBasicTypeDefine.getComment();
         StringBuilder sql = new StringBuilder(basicSql);
         if (StringUtils.isNotBlank(comment)) {

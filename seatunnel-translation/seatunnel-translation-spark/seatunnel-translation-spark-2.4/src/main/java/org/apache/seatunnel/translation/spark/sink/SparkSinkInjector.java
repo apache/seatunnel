@@ -34,27 +34,32 @@ public class SparkSinkInjector {
 
     public static final String SINK_CATALOG_TABLE = "sink.catalog.table";
     public static final String JOB_ID = "jobId";
+    public static final String PARALLELISM = "parallelism";
 
     public static DataStreamWriter<Row> inject(
             DataStreamWriter<Row> dataset,
             SeaTunnelSink<?, ?, ?, ?> sink,
-            CatalogTable catalogTable,
-            String applicationId) {
+            CatalogTable[] catalogTables,
+            String applicationId,
+            int parallelism) {
         return dataset.format(SPARK_SINK_CLASS_NAME)
                 .outputMode(OutputMode.Append())
                 .option(Constants.SINK_SERIALIZATION, SerializationUtils.objectToString(sink))
-                .option(SINK_CATALOG_TABLE, SerializationUtils.objectToString(catalogTable))
-                .option(JOB_ID, applicationId);
+                .option(SINK_CATALOG_TABLE, SerializationUtils.objectToString(catalogTables))
+                .option(JOB_ID, applicationId)
+                .option(PARALLELISM, parallelism);
     }
 
     public static DataFrameWriter<Row> inject(
             DataFrameWriter<Row> dataset,
             SeaTunnelSink<?, ?, ?, ?> sink,
-            CatalogTable catalogTable,
-            String applicationId) {
+            CatalogTable[] catalogTables,
+            String applicationId,
+            int parallelism) {
         return dataset.format(SPARK_SINK_CLASS_NAME)
                 .option(Constants.SINK_SERIALIZATION, SerializationUtils.objectToString(sink))
-                .option(SINK_CATALOG_TABLE, SerializationUtils.objectToString(catalogTable))
-                .option(JOB_ID, applicationId);
+                .option(SINK_CATALOG_TABLE, SerializationUtils.objectToString(catalogTables))
+                .option(JOB_ID, applicationId)
+                .option(PARALLELISM, parallelism);
     }
 }

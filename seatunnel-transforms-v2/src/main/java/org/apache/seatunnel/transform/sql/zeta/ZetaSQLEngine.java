@@ -50,6 +50,8 @@ import java.util.stream.Collectors;
 
 public class ZetaSQLEngine implements SQLEngine {
     private static final Logger log = LoggerFactory.getLogger(ZetaSQLEngine.class);
+    public static final String ESCAPE_IDENTIFIER = "`";
+
     private String inputTableName;
     @Nullable private String catalogTableName;
     private SeaTunnelRowType inputRowType;
@@ -193,9 +195,13 @@ public class ZetaSQLEngine implements SQLEngine {
             } else if (selectItem instanceof SelectExpressionItem) {
                 SelectExpressionItem expressionItem = (SelectExpressionItem) selectItem;
                 Expression expression = expressionItem.getExpression();
-
                 if (expressionItem.getAlias() != null) {
-                    fieldNames[idx] = expressionItem.getAlias().getName();
+                    String aliasName = expressionItem.getAlias().getName();
+                    if (aliasName.startsWith(ESCAPE_IDENTIFIER)
+                            && aliasName.endsWith(ESCAPE_IDENTIFIER)) {
+                        aliasName = aliasName.substring(1, aliasName.length() - 1);
+                    }
+                    fieldNames[idx] = aliasName;
                 } else {
                     if (expression instanceof Column) {
                         fieldNames[idx] = ((Column) expression).getColumnName();

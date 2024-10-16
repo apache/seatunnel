@@ -68,7 +68,7 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
             if (cacheMode()) {
                 Assertions.assertTrue(3 >= getClassLoaderCount());
             } else {
-                Assertions.assertTrue(2 + i >= getClassLoaderCount());
+                Assertions.assertTrue(3 + 2 * i >= getClassLoaderCount());
             }
         }
     }
@@ -135,6 +135,7 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
                                     + server.getHost()
                                     + colon
                                     + server.getFirstMappedPort()
+                                    + RestConstant.CONTEXT_PATH
                                     + RestConstant.SUBMIT_JOB_URL)
                     .then()
                     .statusCode(200);
@@ -148,6 +149,7 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
                                                             + server.getHost()
                                                             + colon
                                                             + server.getFirstMappedPort()
+                                                            + RestConstant.CONTEXT_PATH
                                                             + RestConstant.FINISHED_JOBS_INFO
                                                             + "/FINISHED")
                                             .then()

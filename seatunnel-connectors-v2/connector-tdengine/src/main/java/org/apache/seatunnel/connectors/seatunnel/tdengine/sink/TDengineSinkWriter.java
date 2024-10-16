@@ -71,10 +71,11 @@ public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         // check td driver whether exist and if not, try to register
         checkDriverExist(jdbcUrl);
         conn = DriverManager.getConnection(jdbcUrl);
-        try (Statement statement = conn.createStatement()) {
-            final ResultSet metaResultSet =
-                    statement.executeQuery(
-                            "desc " + config.getDatabase() + "." + config.getStable());
+        try (Statement statement = conn.createStatement();
+                final ResultSet metaResultSet =
+                        statement.executeQuery(
+                                "desc " + config.getDatabase() + "." + config.getStable())) {
+
             while (metaResultSet.next()) {
                 if (StringUtils.equals("TAG", metaResultSet.getString("note"))) {
                     tagsNum++;

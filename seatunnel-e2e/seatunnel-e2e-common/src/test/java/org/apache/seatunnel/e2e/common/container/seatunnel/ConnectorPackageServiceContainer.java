@@ -234,4 +234,10 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
     public String getServerLogs() {
         return server1.getLogs();
     }
+
+    @Override
+    public void copyFileToContainer(String path, String targetPath) {
+        ContainerUtil.copyFileIntoContainers(
+                ContainerUtil.getResourcesFile(path).toPath(), targetPath, server1);
+    }
 }

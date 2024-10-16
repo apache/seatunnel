@@ -22,6 +22,9 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import org.apache.kafka.common.TopicPartition;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.Objects;
 
 public class KafkaSourceSplit implements SourceSplit {
@@ -30,6 +33,7 @@ public class KafkaSourceSplit implements SourceSplit {
     private TopicPartition topicPartition;
     private long startOffset = -1L;
     private long endOffset = -1L;
+    @Setter @Getter private transient volatile boolean finish = false;
 
     public KafkaSourceSplit(TablePath tablePath, TopicPartition topicPartition) {
         this.tablePath = tablePath;

@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.CLICKHOUSE_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PASSWORD;
@@ -39,7 +40,10 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(HOST, DATABASE, SQL, USERNAME, PASSWORD).build();
+        return OptionRule.builder()
+                .required(HOST, DATABASE, SQL, USERNAME, PASSWORD)
+                .optional(CLICKHOUSE_CONFIG)
+                .build();
     }
 
     @Override

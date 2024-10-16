@@ -24,12 +24,14 @@ import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 @Getter
+@Slf4j
 public class PaimonSinkConfig extends PaimonConfig {
     public static final Option<SchemaSaveMode> SCHEMA_SAVE_MODE =
             Options.key("schema_save_mode")
@@ -77,5 +79,12 @@ public class PaimonSinkConfig extends PaimonConfig {
         this.primaryKeys = stringToList(readonlyConfig.get(PRIMARY_KEYS), ",");
         this.partitionKeys = stringToList(readonlyConfig.get(PARTITION_KEYS), ",");
         this.writeProps = readonlyConfig.get(WRITE_PROPS);
+        checkConfig();
+    }
+
+    private void checkConfig() {
+        if (this.primaryKeys.isEmpty() && "-1".equals(this.writeProps.get("bucket"))) {
+            log.warn("Append only table currently do not support dynamic bucket");
+        }
     }
 }

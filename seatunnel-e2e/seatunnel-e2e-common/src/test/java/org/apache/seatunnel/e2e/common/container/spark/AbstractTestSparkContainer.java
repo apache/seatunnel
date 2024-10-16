@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.common.container.spark;
 
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -117,5 +118,11 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
     @Override
     public String getServerLogs() {
         return master.getLogs();
+    }
+
+    @Override
+    public void copyFileToContainer(String path, String targetPath) {
+        ContainerUtil.copyFileIntoContainers(
+                ContainerUtil.getResourcesFile(path).toPath(), targetPath, master);
     }
 }

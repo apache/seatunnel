@@ -169,6 +169,7 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
         for (int i = 0; i < fieldNames.length; i++) {
             Object value = fields[i];
             if (value == null) {
+                doc.put(fieldNames[i], null);
             } else if (value instanceof SeaTunnelRow) {
                 doc.put(
                         fieldNames[i],

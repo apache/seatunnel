@@ -32,10 +32,13 @@ import org.junit.jupiter.api.condition.OS;
 import com.google.common.collect.Lists;
 
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @DisabledOnOs(OS.WINDOWS)
 class SeaTunnelSourcePluginDiscoveryTest {
@@ -47,7 +50,10 @@ class SeaTunnelSourcePluginDiscoveryTest {
     private static final List<Path> pluginJars =
             Lists.newArrayList(
                     Paths.get(seatunnelHome, "connectors", "connector-http-jira.jar"),
-                    Paths.get(seatunnelHome, "connectors", "connector-http.jar"));
+                    Paths.get(seatunnelHome, "connectors", "connector-http.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-kafka.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-kafka-alcs.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-kafka-blcs.jar"));
 
     @BeforeEach
     public void before() throws IOException {
@@ -67,12 +73,25 @@ class SeaTunnelSourcePluginDiscoveryTest {
         List<PluginIdentifier> pluginIdentifiers =
                 Lists.newArrayList(
                         PluginIdentifier.of("seatunnel", PluginType.SOURCE.getType(), "HttpJira"),
-                        PluginIdentifier.of("seatunnel", PluginType.SOURCE.getType(), "HttpBase"));
+                        PluginIdentifier.of("seatunnel", PluginType.SOURCE.getType(), "HttpBase"),
+                        PluginIdentifier.of("seatunnel", PluginType.SOURCE.getType(), "Kafka"),
+                        PluginIdentifier.of("seatunnel", PluginType.SINK.getType(), "Kafka-Blcs"));
         SeaTunnelSourcePluginDiscovery seaTunnelSourcePluginDiscovery =
                 new SeaTunnelSourcePluginDiscovery();
-        Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> seaTunnelSourcePluginDiscovery.getPluginJarPaths(pluginIdentifiers));
+        Assertions.assertIterableEquals(
+                Stream.of(
+                                Paths.get(seatunnelHome, "connectors", "connector-http-jira.jar")
+                                        .toString(),
+                                Paths.get(seatunnelHome, "connectors", "connector-http.jar")
+                                        .toString(),
+                                Paths.get(seatunnelHome, "connectors", "connector-kafka.jar")
+                                        .toString(),
+                                Paths.get(seatunnelHome, "connectors", "connector-kafka-blcs.jar")
+                                        .toString())
+                        .collect(Collectors.toList()),
+                seaTunnelSourcePluginDiscovery.getPluginJarPaths(pluginIdentifiers).stream()
+                        .map(URL::getPath)
+                        .collect(Collectors.toList()));
     }
 
     @AfterEach

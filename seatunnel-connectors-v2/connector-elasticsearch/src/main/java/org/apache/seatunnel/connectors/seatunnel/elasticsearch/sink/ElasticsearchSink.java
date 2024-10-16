@@ -71,8 +71,7 @@ public class ElasticsearchSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, ElasticsearchCommitInfo, ElasticsearchSinkState> createWriter(
-            SinkWriter.Context context) {
+    public ElasticsearchSinkWriter createWriter(SinkWriter.Context context) {
         return new ElasticsearchSinkWriter(
                 context, catalogTable, config, maxBatchSize, maxRetryCount);
     }
@@ -92,9 +91,13 @@ public class ElasticsearchSink
         DataSaveMode dataSaveMode = config.get(SinkConfig.DATA_SAVE_MODE);
 
         TablePath tablePath = TablePath.of("", catalogTable.getTableId().getTableName());
-        catalog.open();
         return Optional.of(
                 new DefaultSaveModeHandler(
                         schemaSaveMode, dataSaveMode, catalog, tablePath, null, null));
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
     }
 }

@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import lombok.extern.slf4j.Slf4j;
@@ -31,9 +32,19 @@ import java.util.Arrays;
 @Slf4j
 public class OracleTypeMapper implements JdbcDialectTypeMapper {
 
+    private final boolean decimalTypeNarrowing;
+
+    public OracleTypeMapper() {
+        this(JdbcOptions.DECIMAL_TYPE_NARROWING.defaultValue());
+    }
+
+    public OracleTypeMapper(boolean decimalTypeNarrowing) {
+        this.decimalTypeNarrowing = decimalTypeNarrowing;
+    }
+
     @Override
     public Column mappingColumn(BasicTypeDefine typeDefine) {
-        return OracleTypeConverter.INSTANCE.convert(typeDefine);
+        return new OracleTypeConverter(decimalTypeNarrowing).convert(typeDefine);
     }
 
     @Override
@@ -48,9 +59,6 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
         } else if (Arrays.asList("NVARCHAR2", "NCHAR").contains(nativeType)) {
             long doubleByteLength = TypeDefineUtils.charToDoubleByteLength(precision);
             precision = doubleByteLength;
-        } else if (Arrays.asList("CHAR", "VARCHAR", "VARCHAR2").contains(nativeType)) {
-            long octetByteLength = TypeDefineUtils.charTo4ByteLength(precision);
-            precision = octetByteLength;
         }
 
         BasicTypeDefine typeDefine =

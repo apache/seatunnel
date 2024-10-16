@@ -17,40 +17,47 @@
 
 package org.apache.seatunnel.connectors.seatunnel.email.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig;
+import org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkConfig;
 
-import com.google.auto.service.AutoService;
+import lombok.Getter;
 
-@AutoService(SeaTunnelSink.class)
-public class EmailSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+import java.util.Optional;
 
-    private Config pluginConfig;
-    private SeaTunnelRowType seaTunnelRowType;
+public class EmailSink extends AbstractSimpleSink<SeaTunnelRow, Void>
+        implements SupportMultiTableSink {
 
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
+    private final SeaTunnelRowType seaTunnelRowType;
+    @Getter private ReadonlyConfig readonlyConfig;
+    private final CatalogTable catalogTable;
+    private final EmailSinkConfig pluginConfig;
+
+    public EmailSink(ReadonlyConfig config, CatalogTable table) {
+        this.readonlyConfig = config;
+        this.catalogTable = table;
+        this.pluginConfig = new EmailSinkConfig(config);
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
+    public EmailSinkWriter createWriter(SinkWriter.Context context) {
         return new EmailSinkWriter(seaTunnelRowType, pluginConfig);
     }
 
     @Override
     public String getPluginName() {
-        return "EmailSink";
+        return EmailConfig.CONNECTOR_IDENTITY;
     }
 
     @Override
-    public void prepare(Config pluginConfig) {
-        this.pluginConfig = pluginConfig;
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.of(catalogTable);
     }
 }

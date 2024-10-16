@@ -227,6 +227,13 @@ public class ZetaSQLFunction {
             Column columnExp = (Column) expression;
             String columnName = columnExp.getColumnName();
             int index = inputRowType.indexOf(columnName, false);
+            if (index == -1
+                    && columnName.startsWith(ZetaSQLEngine.ESCAPE_IDENTIFIER)
+                    && columnName.endsWith(ZetaSQLEngine.ESCAPE_IDENTIFIER)) {
+                columnName = columnName.substring(1, columnName.length() - 1);
+                index = inputRowType.indexOf(columnName, false);
+            }
+
             if (index != -1) {
                 return inputFields[index];
             } else {
@@ -237,11 +244,26 @@ public class ZetaSQLFunction {
                 SeaTunnelRow parRowValues = new SeaTunnelRow(inputFields);
                 Object res = parRowValues;
                 for (int i = 0; i < deep; i++) {
+                    String key = columnNames[i];
                     if (parDataType instanceof MapType) {
-                        return ((Map) res).get(columnNames[i]);
+                        Map<String, Object> mapValue = ((Map) res);
+                        if (mapValue.containsKey(key)) {
+                            return mapValue.get(key);
+                        } else if (key.startsWith(ZetaSQLEngine.ESCAPE_IDENTIFIER)
+                                && key.endsWith(ZetaSQLEngine.ESCAPE_IDENTIFIER)) {
+                            key = key.substring(1, key.length() - 1);
+                            return mapValue.get(key);
+                        }
+                        return null;
                     }
                     parRowValues = (SeaTunnelRow) res;
-                    int idx = ((SeaTunnelRowType) parDataType).indexOf(columnNames[i], false);
+                    int idx = ((SeaTunnelRowType) parDataType).indexOf(key, false);
+                    if (idx == -1
+                            && key.startsWith(ZetaSQLEngine.ESCAPE_IDENTIFIER)
+                            && key.endsWith(ZetaSQLEngine.ESCAPE_IDENTIFIER)) {
+                        key = key.substring(1, key.length() - 1);
+                        idx = ((SeaTunnelRowType) parDataType).indexOf(key, false);
+                    }
                     if (idx == -1) {
                         throw new IllegalArgumentException(
                                 String.format("can't find field [%s]", fullyQualifiedName));

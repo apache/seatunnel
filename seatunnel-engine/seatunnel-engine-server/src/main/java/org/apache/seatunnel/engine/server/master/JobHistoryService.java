@@ -106,6 +106,16 @@ public class JobHistoryService {
 
     // Gets the status of a running and completed job.
     public String listAllJob() {
+        List<JobStatusData> status = getJobStatusData();
+        try {
+            return objectMapper.writeValueAsString(status);
+        } catch (JsonProcessingException e) {
+            logger.severe("Failed to list all job", e);
+            throw new SeaTunnelEngineException(e);
+        }
+    }
+
+    public List<JobStatusData> getJobStatusData() {
         List<JobStatusData> status = new ArrayList<>();
         final List<JobState> runningJobStateList =
                 runningJobMasterMap.values().stream()
@@ -128,12 +138,7 @@ public class JobHistoryService {
                                             jobState.getFinishTime());
                             status.add(jobStatusData);
                         });
-        try {
-            return objectMapper.writeValueAsString(status);
-        } catch (JsonProcessingException e) {
-            logger.severe("Failed to list all job", e);
-            throw new SeaTunnelEngineException(e);
-        }
+        return status;
     }
 
     // Get detailed status of a single job

@@ -23,6 +23,8 @@ import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.source.event.ReaderCloseEvent;
+import org.apache.seatunnel.api.source.event.ReaderOpenEvent;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
@@ -83,6 +85,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     private final MetricsContext metricsContext;
     private final EventListener eventListener;
+    private SourceReader.Context context;
 
     private final AtomicReference<SchemaChangePhase> schemaChangePhase = new AtomicReference<>();
 
@@ -111,21 +114,20 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     @Override
     public void init() throws Exception {
         this.splitSerializer = sourceAction.getSource().getSplitSerializer();
-        this.reader =
-                sourceAction
-                        .getSource()
-                        .createReader(
-                                new SourceReaderContext(
-                                        indexID,
-                                        sourceAction.getSource().getBoundedness(),
-                                        this,
-                                        metricsContext,
-                                        eventListener));
+        this.context =
+                new SourceReaderContext(
+                        indexID,
+                        sourceAction.getSource().getBoundedness(),
+                        this,
+                        metricsContext,
+                        eventListener);
+        this.reader = sourceAction.getSource().createReader(context);
         this.enumeratorTaskAddress = getEnumeratorTaskAddress();
     }
 
     @Override
     public void open() throws Exception {
+        context.getEventListener().onEvent(new ReaderOpenEvent());
         reader.open();
         register();
     }
@@ -140,6 +142,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     @Override
     public void close() throws IOException {
+        context.getEventListener().onEvent(new ReaderCloseEvent());
         reader.close();
         super.close();
     }

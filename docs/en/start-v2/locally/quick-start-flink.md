@@ -1,22 +1,20 @@
 ---
-
 sidebar_position: 3
--------------------
+---
 
 # Quick Start With Flink
 
-## Step 1: Deployment SeaTunnel And Connectors
+## Step 1: Deploy SeaTunnel And Connectors
 
-Before starting, make sure you have downloaded and deployed SeaTunnel as described in [deployment](deployment.md)
+Before starting, make sure you have downloaded and deployed SeaTunnel as described in [Deployment](deployment.md)
 
 ## Step 2: Deployment And Config Flink
 
-Please [download Flink](https://flink.apache.org/downloads.html) first(**required version >= 1.12.0**). For more information you could see [Getting Started: standalone](https://nightlies.apache.org/flink/flink-docs-release-1.14/docs/deployment/resource-providers/standalone/overview/)
+Please [Download Flink](https://flink.apache.org/downloads.html) first(**required version >= 1.12.0**). For more information you can see [Getting Started: Standalone](https://nightlies.apache.org/flink/flink-docs-release-1.14/docs/deployment/resource-providers/standalone/overview/)
 
-**Configure SeaTunnel**: Change the setting in `config/seatunnel-env.sh`, it is base on the path your engine install at [deployment](deployment.md).
-Change `FLINK_HOME` to the Flink deployment dir.
+**Configure SeaTunnel**: Change the setting in `${SEATUNNEL_HOME}/config/seatunnel-env.sh` and set `FLINK_HOME` to the Flink deployment dir.
 
-## Step 3: Add Job Config File to define a job
+## Step 3: Add Job Config File To Define A Job
 
 Edit `config/v2.streaming.conf.template`, which determines the way and logic of data input, processing, and output after seatunnel is started.
 The following is an example of the configuration file, which is the same as the example application mentioned above.
@@ -59,30 +57,30 @@ sink {
 
 ```
 
-More information about config please check [config concept](../../concept/config.md)
+More information about config please check [Config Concept](../../concept/config.md)
 
 ## Step 4: Run SeaTunnel Application
 
-You could start the application by the following commands
+You can start the application by the following commands:
 
-flink version between `1.12.x` and `1.14.x`
+Flink version between `1.12.x` and `1.14.x`
 
 ```shell
 cd "apache-seatunnel-${version}"
 ./bin/start-seatunnel-flink-13-connector-v2.sh --config ./config/v2.streaming.conf.template
 ```
 
-flink version between `1.15.x` and `1.16.x`
+Flink version between `1.15.x` and `1.18.x`
 
 ```shell
 cd "apache-seatunnel-${version}"
 ./bin/start-seatunnel-flink-15-connector-v2.sh --config ./config/v2.streaming.conf.template
 ```
 
-**See The Output**: When you run the command, you could see its output in your console. You can think this
-is a sign that the command ran successfully or not.
+**See The Output**: When you run the command, you can see its output in your console. This
+is a sign to determine whether the command ran successfully or not.
 
-The SeaTunnel console will prints some logs as below:
+The SeaTunnel console will print some logs as below:
 
 ```shell
 fields : name, age
@@ -107,7 +105,7 @@ row=16 : SGZCr, 94186144
 
 ## What's More
 
-For now, you are already take a quick look about SeaTunnel with Flink, you could see [connector](/docs/category/connector-v2) to find all
-source and sink SeaTunnel supported. Or see [SeaTunnel With Flink](../../other-engine/flink.md) if you want to know more about SeaTunnel Run With Flink.
+- Start write your own config file now, choose the [connector](../../connector-v2/source) you want to use, and configure the parameters according to the connector's documentation.
+- See [SeaTunnel With Flink](../../other-engine/flink.md) if you want to know more about SeaTunnel With Flink.
+- SeaTunnel have a builtin engine named `Zeta`, and it's the default engine of SeaTunnel. You can follow [Quick Start](quick-start-seatunnel-engine.md) to configure and run a data synchronization job.
 
-SeaTunnel have an own engine named `Zeta` and `Zeta` is the default engine of SeaTunnel. You can follow [Quick Start](quick-start-seatunnel-engine.md) to configure and run a data synchronization job.

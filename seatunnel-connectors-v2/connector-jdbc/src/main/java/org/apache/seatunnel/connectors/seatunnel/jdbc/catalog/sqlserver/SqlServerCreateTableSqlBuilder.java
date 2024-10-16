@@ -55,21 +55,23 @@ public class SqlServerCreateTableSqlBuilder {
     private List<ConstraintKey> constraintKeys;
 
     private String fieldIde;
+    private boolean createIndex;
 
-    private SqlServerCreateTableSqlBuilder(String tableName) {
+    private SqlServerCreateTableSqlBuilder(String tableName, boolean createIndex) {
         checkNotNull(tableName, "tableName must not be null");
         this.tableName = tableName;
+        this.createIndex = createIndex;
     }
 
     public static SqlServerCreateTableSqlBuilder builder(
-            TablePath tablePath, CatalogTable catalogTable) {
+            TablePath tablePath, CatalogTable catalogTable, boolean createIndex) {
         checkNotNull(tablePath, "tablePath must not be null");
         checkNotNull(catalogTable, "catalogTable must not be null");
 
         TableSchema tableSchema = catalogTable.getTableSchema();
         checkNotNull(tableSchema, "tableSchema must not be null");
 
-        return new SqlServerCreateTableSqlBuilder(tablePath.getTableName())
+        return new SqlServerCreateTableSqlBuilder(tablePath.getTableName(), createIndex)
                 .comment(catalogTable.getComment())
                 // todo: set charset and collate
                 .engine(null)
@@ -176,10 +178,10 @@ public class SqlServerCreateTableSqlBuilder {
         for (Column column : columns) {
             columnSqls.add("\t" + buildColumnIdentifySql(column, catalogName, columnComments));
         }
-        if (primaryKey != null) {
+        if (createIndex && primaryKey != null) {
             columnSqls.add("\t" + buildPrimaryKeySql());
         }
-        if (CollectionUtils.isNotEmpty(constraintKeys)) {
+        if (createIndex && CollectionUtils.isNotEmpty(constraintKeys)) {
             for (ConstraintKey constraintKey : constraintKeys) {
                 if (StringUtils.isBlank(constraintKey.getConstraintName())) {
                     continue;

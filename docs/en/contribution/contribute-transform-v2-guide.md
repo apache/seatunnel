@@ -2,7 +2,7 @@
 
 This document describes how to understand, develop and contribute a transform.
 
-We also provide the [transform e2e test](../../../seatunnel-e2e/seatunnel-transforms-v2-e2e)
+We also provide the [Transform E2E Test](../../../seatunnel-e2e/seatunnel-transforms-v2-e2e)
 to verify the data input and output by the transform.
 
 ## Concepts
@@ -13,7 +13,7 @@ process your data after reading or before writing, then need to use transform.
 Use transform to make simple edits to your data rows or fields, such as split field,
 change field values, add or remove field.
 
-### DataType transform
+### DataType Transform
 
 Transform receives datatype input from upstream(source or transform) and outputs new datatype to
 downstream(sink or transform), this process is datatype transform.
@@ -68,16 +68,16 @@ Example 4：Add new fields
 | STRING    | INT       | BOOLEAN   | DOUBLE    |
 ```
 
-### Data transform
+### Data Transform
 
-After datatype transformed, Transform will receives data-row input from upstream(source or transform),
-edit into data-row with [new datatype](#DataType transform) and outputs to downstream (sink or transform).
-This process is data transform.
+After datatype transformed, Transform will receive data-row input from upstream(source or transform),
+edit into data-row with [New Datatype](#DataType transform) and output to downstream (sink or transform).
+This process is called data transform.
 
 ### Translation
 
 Transform is decoupled from the execution engine, any transform implement can run into all engines
-without change the code & config, which requires the translation layer to adapt transform and execution engine.
+without changing the code & config, which requires the translation layer to adapt transform and execution engine.
 
 Example：Translation datatype & data
 
@@ -245,7 +245,7 @@ protected abstract SeaTunnelRowType transformRowType(SeaTunnelRowType inputRowTy
 protected abstract SeaTunnelRow transformRow(SeaTunnelRow inputRow);
 ```
 
-## Develop a Transform
+## Develop A Transform
 
 It must implement one of the following APIs:
 - SeaTunnelTransform
@@ -325,5 +325,5 @@ public class TestCopyFieldTransformIT extends TestSuiteBase {
 ```
 
 Once your testcase implements the `TestSuiteBase` interface and use `@TestTemplate` annotation startup,
-it will running job to all engines, and you just need to execute the executeJob method with your SeaTunnel configuration file,
+it will run job to all engines, and you just need to execute the executeJob method with your SeaTunnel configuration file,
 it will submit the SeaTunnel job.

@@ -31,12 +31,15 @@ import java.io.IOException;
 
 public class SubmitJobOperation extends AbstractJobAsyncOperation {
     private Data jobImmutableInformation;
+    private boolean isStartWithSavePoint;
 
     public SubmitJobOperation() {}
 
-    public SubmitJobOperation(long jobId, @NonNull Data jobImmutableInformation) {
+    public SubmitJobOperation(
+            long jobId, @NonNull Data jobImmutableInformation, boolean isStartWithSavePoint) {
         super(jobId);
         this.jobImmutableInformation = jobImmutableInformation;
+        this.isStartWithSavePoint = isStartWithSavePoint;
     }
 
     @Override
@@ -48,17 +51,21 @@ public class SubmitJobOperation extends AbstractJobAsyncOperation {
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
         IOUtil.writeData(out, jobImmutableInformation);
+        out.writeBoolean(isStartWithSavePoint);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
         jobImmutableInformation = IOUtil.readData(in);
+        isStartWithSavePoint = in.readBoolean();
     }
 
     @Override
     protected PassiveCompletableFuture<?> doRun() throws Exception {
         SeaTunnelServer seaTunnelServer = getService();
-        return seaTunnelServer.getCoordinatorService().submitJob(jobId, jobImmutableInformation);
+        return seaTunnelServer
+                .getCoordinatorService()
+                .submitJob(jobId, jobImmutableInformation, isStartWithSavePoint);
     }
 }

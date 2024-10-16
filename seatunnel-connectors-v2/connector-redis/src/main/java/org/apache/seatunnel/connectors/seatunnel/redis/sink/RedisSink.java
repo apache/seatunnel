@@ -24,18 +24,18 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 
 import java.io.IOException;
+import java.util.Optional;
 
 public class RedisSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         implements SupportMultiTableSink {
     private final RedisParameters redisParameters = new RedisParameters();
-    private SeaTunnelRowType seaTunnelRowType;
-    private ReadonlyConfig readonlyConfig;
-    private CatalogTable catalogTable;
+    private final SeaTunnelRowType seaTunnelRowType;
+    private final ReadonlyConfig readonlyConfig;
+    private final CatalogTable catalogTable;
 
     public RedisSink(ReadonlyConfig config, CatalogTable table) {
         this.readonlyConfig = config;
@@ -50,8 +50,12 @@ public class RedisSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
-            throws IOException {
+    public RedisSinkWriter createWriter(SinkWriter.Context context) throws IOException {
         return new RedisSinkWriter(seaTunnelRowType, redisParameters);
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
     }
 }

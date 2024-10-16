@@ -29,7 +29,7 @@ if you use phoenix (thick) driver the value is `jdbc:phoenix:localhost:2182/hbas
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
 
 ## Example
 

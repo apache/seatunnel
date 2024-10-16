@@ -22,8 +22,7 @@ seatunnel:
     queue-type: blockingqueue
     print-execution-info-interval: 10
     slot-service:
-      dynamic-slot: false
-      slot-num: 20
+      dynamic-slot: true
     checkpoint:
       interval: 300000
       timeout: 100000
@@ -32,3 +31,7 @@ seatunnel:
         max-retained: 3
         plugin-config:
           namespace: /tmp/seatunnel/checkpoint_snapshot/
+    http:
+        enable-http: false
+        port: 8080
+        context-path: /seatunnel

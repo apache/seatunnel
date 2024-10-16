@@ -42,7 +42,7 @@ import java.util.Set;
 public abstract class AbstractSplitEnumerator
         implements SourceSplitEnumerator<IcebergFileScanTaskSplit, IcebergSplitEnumeratorState> {
 
-    protected final SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> context;
+    protected final Context<IcebergFileScanTaskSplit> context;
     protected final SourceConfig sourceConfig;
     protected final Map<Integer, List<IcebergFileScanTaskSplit>> pendingSplits;
 

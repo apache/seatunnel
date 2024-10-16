@@ -9,6 +9,7 @@ Write data to Druid
 ## Key features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
 
 ## Data Type Mapping
 
@@ -48,14 +49,29 @@ The number of rows flushed to Druid per batch. Default value is `1024`.
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
 
 ## Example
 
+Simple example:
+
 ```hocon
-Druid {
-  coordinatorUrl = "testHost:8888"
-  datasource = "seatunnel"
+sink {
+  Druid {
+    coordinatorUrl = "testHost:8888"
+    datasource = "seatunnel"
+  }
+}
+```
+
+Use placeholders get upstream table metadata example:
+
+```hocon
+sink {
+  Druid {
+    coordinatorUrl = "testHost:8888"
+    datasource = "${table_name}_test"
+  }
 }
 ```
 

@@ -31,12 +31,17 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 
 import org.apache.commons.lang3.StringUtils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.google.auto.service.AutoService;
 
 import java.util.Optional;
 
 @AutoService(Factory.class)
 public class OceanBaseCatalogFactory implements CatalogFactory {
+
+    private static final Logger log = LoggerFactory.getLogger(OceanBaseCatalogFactory.class);
 
     @Override
     public String factoryIdentifier() {

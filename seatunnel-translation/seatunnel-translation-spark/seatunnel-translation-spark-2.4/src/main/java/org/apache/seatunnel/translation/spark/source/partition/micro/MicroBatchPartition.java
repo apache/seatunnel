@@ -20,6 +20,7 @@ package org.apache.seatunnel.translation.spark.source.partition.micro;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 import org.apache.seatunnel.translation.spark.source.reader.SeaTunnelInputPartitionReader;
 import org.apache.seatunnel.translation.spark.source.reader.batch.ParallelBatchPartitionReader;
 import org.apache.seatunnel.translation.spark.source.reader.micro.CoordinatedMicroBatchPartitionReader;
@@ -43,6 +44,8 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
     protected final String hdfsUser;
     private Map<String, String> envOptions;
 
+    protected final MultiTableManager multiTableManager;
+
     public MicroBatchPartition(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
             Integer parallelism,
@@ -53,7 +56,8 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
             String checkpointPath,
             String hdfsRoot,
             String hdfsUser,
-            Map<String, String> envOptions) {
+            Map<String, String> envOptions,
+            MultiTableManager multiTableManager) {
         this.source = source;
         this.parallelism = parallelism;
         this.jobId = jobId;
@@ -64,6 +68,7 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
         this.hdfsRoot = hdfsRoot;
         this.hdfsUser = hdfsUser;
         this.envOptions = envOptions;
+        this.multiTableManager = multiTableManager;
     }
 
     @Override
@@ -81,7 +86,8 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
                             checkpointPath,
                             hdfsRoot,
                             hdfsUser,
-                            envOptions);
+                            envOptions,
+                            multiTableManager);
         } else {
             partitionReader =
                     new ParallelMicroBatchPartitionReader(
@@ -94,7 +100,8 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
                             checkpointPath,
                             hdfsRoot,
                             hdfsUser,
-                            envOptions);
+                            envOptions,
+                            multiTableManager);
         }
         return new SeaTunnelInputPartitionReader(partitionReader);
     }

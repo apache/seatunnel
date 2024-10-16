@@ -27,6 +27,7 @@ import java.util.List;
 
 @Data
 @AllArgsConstructor
+@SuppressWarnings("rawtypes")
 public class SourceTableInfo {
 
     private SeaTunnelSource source;

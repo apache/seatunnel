@@ -19,9 +19,16 @@ package org.apache.seatunnel.connectors.seatunnel.hbase.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+
+import static org.apache.seatunnel.api.sink.DataSaveMode.APPEND_DATA;
+import static org.apache.seatunnel.api.sink.DataSaveMode.DROP_DATA;
+import static org.apache.seatunnel.api.sink.DataSaveMode.ERROR_WHEN_DATA_EXISTS;
 
 public class HbaseConfig {
 
@@ -41,12 +48,6 @@ public class HbaseConfig {
                     .listType()
                     .noDefaultValue()
                     .withDescription("Hbase rowkey column");
-
-    public static final Option<List<String>> QUERY_COLUMNS =
-            Options.key("query_columns")
-                    .listType()
-                    .noDefaultValue()
-                    .withDescription("query Hbase columns");
 
     public static final Option<String> ROWKEY_DELIMITER =
             Options.key("rowkey_delimiter")
@@ -103,6 +104,41 @@ public class HbaseConfig {
                     .defaultValue(-1L)
                     .withDescription(
                             "The expiration time configuration for writing hbase data. The default value is -1, indicating no expiration time.");
+
+    public static final Option<Boolean> HBASE_CACHE_BLOCKS_CONFIG =
+            Options.key("cache_blocks")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "When it is false, data blocks are not cached. When it is true, data blocks are cached. This value should be set to false when scanning a large amount of data to reduce memory consumption. The default value is false");
+
+    public static final Option<Integer> HBASE_CACHING_CONFIG =
+            Options.key("caching")
+                    .intType()
+                    .defaultValue(-1)
+                    .withDescription(
+                            "Set the number of rows read from the server each time can reduce the number of round trips between the client and the server, thereby improving performance. The default value is -1.");
+
+    public static final Option<Integer> HBASE_BATCH_CONFIG =
+            Options.key("batch")
+                    .intType()
+                    .defaultValue(-1)
+                    .withDescription(
+                            "Set the batch size to control the maximum number of cells returned each time, thereby controlling the amount of data returned by a single RPC call. The default value is -1.");
+
+    public static final Option<SchemaSaveMode> SCHEMA_SAVE_MODE =
+            Options.key("schema_save_mode")
+                    .enumType(SchemaSaveMode.class)
+                    .defaultValue(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST)
+                    .withDescription("schema_save_mode");
+
+    public static final Option<DataSaveMode> DATA_SAVE_MODE =
+            Options.key("data_save_mode")
+                    .singleChoice(
+                            DataSaveMode.class,
+                            Arrays.asList(DROP_DATA, APPEND_DATA, ERROR_WHEN_DATA_EXISTS))
+                    .defaultValue(APPEND_DATA)
+                    .withDescription("data_save_mode");
 
     public enum NullMode {
         SKIP,

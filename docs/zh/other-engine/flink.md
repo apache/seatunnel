@@ -1,10 +1,10 @@
-# Seatunnel runs on Flink
+# Flink引擎方式运行SeaTunnel
 
-Flink是一个强大的高性能分布式流处理引擎，更多关于它的信息，你可以搜索 `Apache Flink`。
+Flink是一个强大的高性能分布式流处理引擎。你可以搜索 `Apache Flink`获取更多关于它的信息。
 
 ### 在Job中设置Flink的配置信息
 
-从 `flink` 开始：
+以 `flink.` 开始：
 
 例子: 我对这个项目设置一个精确的检查点
 
@@ -15,10 +15,10 @@ env {
 }
 ```
 
-枚举类型当前还不支持，你需要在Flink的配置文件中指定它们，暂时只有这些类型的设置受支持：<br/>
+枚举类型当前还不支持，你需要在Flink的配置文件中指定它们。暂时只有这些类型的设置受支持：<br/>
 Integer/Boolean/String/Duration
 
-### 如何设置一个简单的Flink job
+### 如何设置一个简单的Flink Job
 
 这是一个运行在Flink中随机生成数据打印到控制台的简单job
 
@@ -78,6 +78,6 @@ sink{
 }
 ```
 
-### 如何在项目中运行job
+### 如何在项目中运行Job
 
-当你将代码拉到本地后，转到 `seatunnel-examples/seatunnel-flink-connector-v2-example` 模块，查找 `org.apache.seatunnel.example.flink.v2.SeaTunnelApiExample` 即可完成job的操作
+当你将代码拉到本地后，转到 `seatunnel-examples/seatunnel-flink-connector-v2-example` 模块，查找 `org.apache.seatunnel.example.flink.v2.SeaTunnelApiExample` 即可完成job的操作。

@@ -92,8 +92,7 @@ public class PaimonSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, PaimonCommitInfo, PaimonSinkState> createWriter(
-            SinkWriter.Context context) throws IOException {
+    public PaimonSinkWriter createWriter(SinkWriter.Context context) throws IOException {
         return new PaimonSinkWriter(
                 context, table, seaTunnelRowType, jobContext, paimonHadoopConfiguration);
     }
@@ -145,7 +144,6 @@ public class PaimonSink
         }
         org.apache.seatunnel.api.table.catalog.Catalog catalog =
                 catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), readonlyConfig);
-        catalog.open();
         return Optional.of(
                 new PaimonSaveModeHandler(
                         this,
@@ -159,5 +157,10 @@ public class PaimonSink
     @Override
     public void setLoadTable(Table table) {
         this.table = table;
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
     }
 }

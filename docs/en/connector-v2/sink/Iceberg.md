@@ -16,6 +16,10 @@
 
 Sink connector for Apache Iceberg. It can support cdc mode 、auto create table and table schema evolution.
 
+## Key features
+
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
+
 ## Supported DataSource Info
 
 | Datasource | Dependent |                                   Maven                                   |
@@ -171,6 +175,77 @@ sink {
   }
 }
 
+```
+
+### Multiple table
+
+#### example1
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    
+    table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  Iceberg {
+    ...
+    namespace = "${database_name}_test"
+    table = "${table_name}_test"
+  }
+}
+```
+
+#### example2
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = oracle.jdbc.driver.OracleDriver
+    url = "jdbc:oracle:thin:@localhost:1521/XE"
+    user = testUser
+    password = testPassword
+
+    table_list = [
+      {
+        table_path = "TESTSCHEMA.TABLE_1"
+      },
+      {
+        table_path = "TESTSCHEMA.TABLE_2"
+      }
+    ]
+  }
+}
+
+transform {
+}
+
+sink {
+  Iceberg {
+    ...
+    namespace = "${schema_name}_test"
+    table = "${table_name}_test"
+  }
+}
 ```
 
 ## Changelog

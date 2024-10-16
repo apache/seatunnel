@@ -1,0 +1,295 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the 'License'); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an 'AS IS' BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+CI&CD:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**
+Zeta:
+  - changed-files:
+      - any-glob-to-any-file: seatunnel-engine/**
+e2e:
+  - changed-files:
+      - any-glob-to-any-file: seatunnel-e2e/**
+document:
+  - changed-files:
+      - any-glob-to-any-file: docs/**
+flink:
+  - changed-files:
+      - any-glob-to-any-file:
+          - seatunnel-translation/seatunnel-translation-flink/**
+spark:
+  - changed-files:
+      - any-glob-to-any-file:
+          - seatunnel-translation/seatunnel-translation-spark/**
+connectors-v2:
+  - changed-files:
+      - any-glob-to-any-file: seatunnel-connectors-v2/**
+transform-v2:
+  - changed-files:
+      - any-glob-to-any-file: seatunnel-transforms-v2/**
+amazondynamodb:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-amazondynamodb/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(amazondynamodb)/**'
+amazonsqs:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-amazonsqs/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(amazonsqs)/**'
+cassandra:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-cassandra/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(cassandra)/**'
+cdc:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-cdc/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(cdc)/**'
+clickhouse:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-clickhouse/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(clickhouse)/**'
+datahub:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-datahub/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(datahub)/**'
+dingtalk:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-dingtalk/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(dingtalk)/**'
+doris:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-doris/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(doris)/**'
+druid:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-druid/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(druid)/**'
+easysearch:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-easysearch/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(easysearch)/**'
+elasticsearch:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-elasticsearch/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(elasticsearch)/**'
+email:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-email/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(email)/**'
+file:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-file/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(file)/**'
+google-firestore:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-google-firestore/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(google-firestore)/**'
+google-sheets:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-google-sheets/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(google-sheets)/**'
+hbase:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-hbase/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(hbase)/**'
+hive:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-hive/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(hive)/**'
+http:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-http/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(http)/**'
+hudi:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-hudi/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(hudi)/**'
+iceberg:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-iceberg/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(iceberg)/**'
+influxdb:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-influxdb/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(influxdb)/**'
+iotdb:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-iotdb/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(iotdb)/**'
+jdbc:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-jdbc/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(jdbc)/**'
+kafka:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-kafka/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(kafka)/**'
+maxcompute:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-maxcompute/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(maxcompute)/**'
+mongodb:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-mongodb/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(mongodb)/**'
+neo4j:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-neo4j/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(neo4j)/**'
+openmldb:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-openmldb/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(openmldb)/**'
+paimon:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-paimon/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(paimon)/**'
+pulsar:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-pulsar/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(pulsar)/**'
+rabbitmq:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-rabbitmq/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(rabbitmq)/**'
+redis:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-redis/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(redis)/**'
+rocketmq:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-rocketmq/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(rocketmq)/**'
+s3-redshift:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-s3-redshift/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(s3-redshift)/**'
+selectdb-cloud:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-selectdb-cloud/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(selectdb-cloud)/**'
+sentry:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-sentry/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(sentry)/**'
+socket:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-socket/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(socket)/**'
+starrocks:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-starrocks/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(starrocks)/**'
+tablestore:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-tablestore/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(tablestore)/**'
+tdengine:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-tdengine/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(tdengine)/**'
+web3j:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-web3j/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(web3j)/**'
+Milvus:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-milvus/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(milvus)/**'
+activemq:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-activemq/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(activemq)/**'
+
+qdrant:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-qdrant/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(qdrant)/**'
+
+typesense:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-typesense/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(typesense)/**'
+
+Zeta Rest API:
+  - changed-files:
+      - any-glob-to-any-file: seatunnel-engine/**/server/rest/**
+api:
+  - changed-files:
+      - any-glob-to-any-file:
+          - seatunnel-api/**
+          - seatunnel-common/**
+core:
+  - changed-files:
+      - any-glob-to-any-file:
+          - seatunnel-core/**
+format:
+  - changed-files:
+      - any-glob-to-any-file: seatunnel-formats/**
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file: tools/dependencies/**
+sls:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-sls/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(sls)/**'

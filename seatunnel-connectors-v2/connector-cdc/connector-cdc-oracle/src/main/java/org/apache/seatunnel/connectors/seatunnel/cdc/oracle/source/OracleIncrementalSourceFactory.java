@@ -61,6 +61,8 @@ public class OracleIncrementalSourceFactory implements TableSourceFactory {
                         JdbcCatalogOptions.BASE_URL,
                         JdbcSourceOptions.DATABASE_NAMES,
                         OracleSourceOptions.SCHEMA_NAMES,
+                        OracleSourceOptions.USE_SELECT_COUNT,
+                        OracleSourceOptions.SKIP_ANALYZE,
                         JdbcSourceOptions.SERVER_TIME_ZONE,
                         JdbcSourceOptions.CONNECT_TIMEOUT_MS,
                         JdbcSourceOptions.CONNECT_MAX_RETRIES,

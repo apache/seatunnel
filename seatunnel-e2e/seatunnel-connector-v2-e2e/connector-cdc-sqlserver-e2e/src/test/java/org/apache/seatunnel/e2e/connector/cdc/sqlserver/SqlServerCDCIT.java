@@ -113,7 +113,8 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                     + "  val_smalldatetime,\n"
                     + "  val_xml,\n"
                     + "  val_datetimeoffset,\n"
-                    + "  CONVERT(varchar(100), val_varbinary) as val_varbinary\n"
+                    + "  CONVERT(varchar(100), val_varbinary) as val_varbinary,\n"
+                    + "  val_udtdecimal\n"
                     + "from %s order by id asc";
     private static final String SELECT_SINK_SQL =
             "select\n"
@@ -142,7 +143,8 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                     + "  val_smalldatetime,\n"
                     + "  val_xml,\n"
                     + "  val_datetimeoffset,\n"
-                    + "  CONVERT(varchar(100), val_varbinary) as val_varbinary\n"
+                    + "  CONVERT(varchar(100), val_varbinary) as val_varbinary,\n"
+                    + "  val_udtdecimal\n"
                     + "from %s order by id asc";
 
     public static final MSSQLServerContainer MSSQL_SERVER_CONTAINER =
@@ -347,7 +349,7 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                         + "                               1.123, 2, 3.323, 4.323, 5.323, 6.323,\n"
                         + "                               1, 22, 333, 4444, 55555,\n"
                         + "                               '2018-07-13', '10:23:45', '2018-07-13 11:23:45.34', '2018-07-13 13:23:45.78', '2018-07-13 14:23:45',\n"
-                        + "                               '<a>b</a>',SYSDATETIMEOFFSET(),CAST('test_varbinary' AS varbinary(100)));");
+                        + "                               '<a>b</a>',SYSDATETIMEOFFSET(),CAST('test_varbinary' AS varbinary(100)), 5.32);");
         executeSql(
                 "INSERT INTO "
                         + table
@@ -356,7 +358,7 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                         + "                               1.123, 2, 3.323, 4.323, 5.323, 6.323,\n"
                         + "                               1, 22, 333, 4444, 55555,\n"
                         + "                               '2018-07-13', '10:23:45', '2018-07-13 11:23:45.34', '2018-07-13 13:23:45.78', '2018-07-13 14:23:45',\n"
-                        + "                               '<a>b</a>',SYSDATETIMEOFFSET(),CAST('test_varbinary' AS varbinary(100)));");
+                        + "                               '<a>b</a>',SYSDATETIMEOFFSET(),CAST('test_varbinary' AS varbinary(100)), 5.32);");
 
         executeSql("DELETE FROM " + table + " where id = 2");
 
@@ -375,8 +377,9 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     }
 
     private List<List<Object>> querySql(String sql) {
-        try (Connection connection = getJdbcConnection()) {
-            ResultSet resultSet = connection.createStatement().executeQuery(sql);
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
             List<List<Object>> result = new ArrayList<>();
             int columnCount = resultSet.getMetaData().getColumnCount();
             while (resultSet.next()) {

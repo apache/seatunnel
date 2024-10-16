@@ -64,6 +64,15 @@ public class JobClientJobProxyIT extends SeaTunnelContainer {
     }
 
     @Test
+    public void testNoDuplicatedReleaseSlot() throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                executeJob(server, "/savemode/fake_to_inmemory_savemode.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertFalse(
+                server.getLogs().contains("wrong target release operation with job"));
+    }
+
+    @Test
     public void testMultiTableSinkFailedWithThrowable() throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 executeJob(server, "/stream_fake_to_inmemory_with_throwable_error.conf");

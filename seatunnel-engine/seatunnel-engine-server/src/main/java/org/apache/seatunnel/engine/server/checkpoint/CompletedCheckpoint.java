@@ -46,7 +46,7 @@ public class CompletedCheckpoint implements Checkpoint, Serializable {
 
     private final Map<Long, TaskStatistics> taskStatistics;
 
-    @Getter @Setter private boolean isRestored = false;
+    @Getter @Setter private volatile boolean isRestored = false;
 
     public CompletedCheckpoint(
             long jobId,

@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.translation.spark.sink;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -131,6 +133,8 @@ public class SparkSinkTest {
         GenericRow row1WithRow =
                 new GenericRow(
                         new Object[] {
+                            (byte) 1,
+                            "test.test.test",
                             42,
                             "string1",
                             true,
@@ -196,6 +200,8 @@ public class SparkSinkTest {
         GenericRow row2WithRow =
                 new GenericRow(
                         new Object[] {
+                            (byte) 1,
+                            "test.test.test",
                             12,
                             "string2",
                             false,
@@ -261,6 +267,8 @@ public class SparkSinkTest {
         GenericRow row3WithRow =
                 new GenericRow(
                         new Object[] {
+                            (byte) 1,
+                            "test.test.test",
                             233,
                             "string3",
                             true,
@@ -397,16 +405,20 @@ public class SparkSinkTest {
                                                 BasicType.STRING_TYPE, BasicType.STRING_TYPE)
                                     })
                         });
-
+        structType.add("row", structType);
+        StructType parcelStructType = (StructType) TypeConverterUtils.parcel(rowType);
         Dataset<Row> dataset =
                 spark.createDataFrame(
-                        Arrays.asList(row1WithRow, row2WithRow, row3WithRow),
-                        structType.add("row", structType));
+                        Arrays.asList(row1WithRow, row2WithRow, row3WithRow), parcelStructType);
         SparkSinkInjector.inject(
                         dataset.write(),
                         new SeaTunnelSinkWithBuffer(),
-                        CatalogTableUtil.getCatalogTable("test", "test", "test", "test", rowType),
-                        spark.sparkContext().applicationId())
+                        new CatalogTable[] {
+                            CatalogTableUtil.getCatalogTable(
+                                    "test", "test", "test", "test", rowType)
+                        },
+                        spark.sparkContext().applicationId(),
+                        spark.sparkContext().defaultParallelism())
                 .option("checkpointLocation", "/tmp")
                 .mode(SaveMode.Append)
                 .save();

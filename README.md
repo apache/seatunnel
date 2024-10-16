@@ -57,7 +57,7 @@ SeaTunnel addresses common data integration challenges:
   
 - **Real-Time Monitoring**: Offers detailed insights during synchronization.
   
-- **Two Job Development Methods**: Supports coding and visual job management with the [SeaTunnel web project](https://github.com/apache/seatunnel-web).
+- **Two Job Development Methods**: Supports coding and visual job management with the [SeaTunnel Web Project](https://github.com/apache/seatunnel-web).
 
 ## SeaTunnel Workflow
 
@@ -67,15 +67,13 @@ Configure jobs, select execution engines, and parallelize data using Source Conn
 
 ## Supported Connectors
 
-- [Source Connectors](https://seatunnel.apache.org/docs/category/source-v2)
-- [Sink Connectors](https://seatunnel.apache.org/docs/category/sink-v2)
+- [Source Connectors](https://seatunnel.apache.org/docs/connector-v2/source)
+- [Sink Connectors](https://seatunnel.apache.org/docs/connector-v2/sink)
 - [Transform Connectors](docs/en/transform-v2)
-
-For a list of connectors and their health status, visit the [Connector Status](docs/en/Connector-v2-release-state.md).
 
 ## Getting Started
 
-Download SeaTunnel from the [official website](https://seatunnel.apache.org/download).
+Download SeaTunnel from the [Official Website](https://seatunnel.apache.org/download).
 
 Choose your runtime execution engine:
 - [SeaTunnel Zeta Engine](https://seatunnel.apache.org/docs/start-v2/locally/quick-start-seatunnel-engine/)
@@ -84,19 +82,19 @@ Choose your runtime execution engine:
 
 ## Use Cases
 
-Explore real-world use cases of SeaTunnel, such as Weibo, Tencent Cloud, Sina, Sogou, and Yonghui Superstores. More use cases can be found on the [SeaTunnel blog](https://seatunnel.apache.org/blog).
+Explore real-world use cases of SeaTunnel, such as Weibo, Tencent Cloud, Sina, Sogou, and Yonghui Superstores. More use cases can be found on the [SeaTunnel Blog](https://seatunnel.apache.org/blog).
 
 ## Code of Conduct
 
-Participate in this project following the Contributor Covenant [Code of Conduct](https://www.apache.org/foundation/policies/conduct).
+Participate in this project in accordance with the Contributor Covenant [Code of Conduct](https://www.apache.org/foundation/policies/conduct).
 
 ## Contributors
 
-We appreciate all developers for their contributions. See the [list of contributors](https://github.com/apache/seatunnel/graphs/contributors).
+We appreciate all developers for their contributions. See the [List Of Contributors](https://github.com/apache/seatunnel/graphs/contributors).
 
 ## How to Compile
 
-Refer to this [document](docs/en/contribution/setup.md) for compilation instructions.
+Refer to this [Setup](docs/en/contribution/setup.md) for compilation instructions.
 
 ## Contact Us
 
@@ -117,7 +115,7 @@ For more information, please refer to [SeaTunnel Web](https://github.com/apache/
 
 ## Our Users
 
-Companies and organizations worldwide use SeaTunnel for research, production, and commercial products. Visit our [user page](https://seatunnel.apache.org/user) for more information.
+Companies and organizations worldwide use SeaTunnel for research, production, and commercial products. Visit our [Users](https://seatunnel.apache.org/user) for more information.
 
 ## License
 
@@ -127,7 +125,8 @@ Companies and organizations worldwide use SeaTunnel for research, production, an
 
 ### 1. How do I install SeaTunnel?
 
-Follow the [installation guide](https://seatunnel.apache.org/docs/2.3.3/start-v2/locally/deployment/) on our website to get started.
+Follow the [Installation Guide](https://seatunnel.apache.org/docs/start-v2/locally/deployment/) on our website to get
+started.
 
 ### 2. How can I contribute to SeaTunnel?
 
@@ -135,7 +134,7 @@ We welcome contributions! Please refer to our [Contribution Guidelines](https://
 
 ### 3. How do I report issues or request features?
 
-You can report issues or request features on our [GitHub repository](https://github.com/apache/seatunnel/issues).
+You can report issues or request features on our [GitHub Repository](https://github.com/apache/seatunnel/issues).
 
 ### 4. Can I use SeaTunnel for commercial purposes?
 
@@ -143,7 +142,7 @@ Yes, SeaTunnel is available under the Apache 2.0 License, allowing commercial us
 
 ### 5. Where can I find documentation and tutorials?
 
-Our [official documentation](https://seatunnel.apache.org/docs) includes detailed guides and tutorials to help you get started.
+Our [Official Documentation](https://seatunnel.apache.org/docs) includes detailed guides and tutorials to help you get started.
 
 ### 7. Is there a community or support channel?
 

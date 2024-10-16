@@ -19,6 +19,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
@@ -36,6 +37,7 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
 import com.google.common.collect.Lists;
+import lombok.SneakyThrows;
 
 import java.math.BigDecimal;
 import java.sql.Date;
@@ -65,6 +67,24 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
     private static final List<String> CONFIG_FILE = Lists.newArrayList();
 
     private static final String CREATE_SQL =
+            "create table %s\n"
+                    + "(\n"
+                    + "    VARCHAR_10_COL                varchar2(10),\n"
+                    + "    CHAR_10_COL                   char(10),\n"
+                    + "    CLOB_COL                      clob,\n"
+                    + "    NUMBER_3_SF_2_DP              number(3, 2),\n"
+                    + "    INTEGER_COL                   integer,\n"
+                    + "    FLOAT_COL                     float(10),\n"
+                    + "    REAL_COL                      real,\n"
+                    + "    BINARY_FLOAT_COL              binary_float,\n"
+                    + "    BINARY_DOUBLE_COL             binary_double,\n"
+                    + "    DATE_COL                      date,\n"
+                    + "    TIMESTAMP_WITH_3_FRAC_SEC_COL timestamp(3),\n"
+                    + "    TIMESTAMP_WITH_LOCAL_TZ       timestamp with local time zone,\n"
+                    + "    constraint PK_T_COL1 primary key (INTEGER_COL)"
+                    + ")";
+
+    private static final String SINK_CREATE_SQL =
             "create table %s\n"
                     + "(\n"
                     + "    VARCHAR_10_COL                varchar2(10),\n"
@@ -113,14 +133,12 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
                 .catalogSchema(SCHEMA)
                 .catalogTable(CATALOG_TABLE)
                 .createSql(CREATE_SQL)
+                .sinkCreateSql(SINK_CREATE_SQL)
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
                 .build();
     }
-
-    @Override
-    void compareResult(String executeKey) {}
 
     @Override
     String driverUrl() {
@@ -256,6 +274,16 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
         Assertions.assertEquals(
                 table.getTableSchema().getColumns().get(1).getComment(),
                 "\"#¥%……&*（）;;',,..``````//'@特殊注释'\\'\"");
+        testTableOfQuery(oracleCatalog);
         oracleCatalog.close();
+    }
+
+    @SneakyThrows
+    private void testTableOfQuery(OracleCatalog oracleCatalog) {
+        String querySql = "select * from TESTUSER.E2E_TABLE_SOURCE_LOWER";
+        CatalogTable tableOfQuery = oracleCatalog.getTable(querySql);
+        final List<Column> columns = tableOfQuery.getTableSchema().getColumns();
+        Assertions.assertEquals(columns.get(0).getColumnLength(), 40);
+        Assertions.assertEquals(columns.get(1).getColumnLength(), 40);
     }
 }

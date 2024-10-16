@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager.thirdparty.kubernetes;
 
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.server.resourcemanager.AbstractResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.CreateWorkerResult;
@@ -29,8 +30,8 @@ import java.util.concurrent.CompletableFuture;
 public class KubernetesResourceManager extends AbstractResourceManager
         implements ThirdPartyResourceManager {
 
-    public KubernetesResourceManager(NodeEngine nodeEngine) {
-        super(nodeEngine);
+    public KubernetesResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
+        super(nodeEngine, engineConfig);
     }
 
     @Override

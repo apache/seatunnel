@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbas
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleDialect;
 
 import com.google.auto.service.AutoService;
@@ -44,6 +43,6 @@ public class OceanBaseDialectFactory implements JdbcDialectFactory {
         if ("oracle".equalsIgnoreCase(compatibleMode)) {
             return new OracleDialect();
         }
-        return new MysqlDialect();
+        return new OceanBaseMysqlDialect();
     }
 }

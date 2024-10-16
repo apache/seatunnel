@@ -35,6 +35,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -180,34 +181,47 @@ public class OracleDialect implements JdbcDialect {
     public Long approximateRowCntStatement(Connection connection, JdbcSourceTable table)
             throws SQLException {
 
-        // 1. If no query is configured, use TABLE STATUS.
-        // 2. If a query is configured but does not contain a WHERE clause and tablePath is
+        // 1. Use select count
+        // 2. If no query is configured, use TABLE STATUS.
+        // 3. If a query is configured but does not contain a WHERE clause and tablePath is
         // configured, use TABLE STATUS.
-        // 3. If a query is configured with a WHERE clause, or a query statement is configured but
+        // 4. If a query is configured with a WHERE clause, or a query statement is configured but
         // tablePath is TablePath.DEFAULT, use COUNT(*).
 
+        String query = table.getQuery();
+
         boolean useTableStats =
-                StringUtils.isBlank(table.getQuery())
-                        || (!table.getQuery().toLowerCase().contains("where")
+                StringUtils.isBlank(query)
+                        || (!query.toLowerCase().contains("where")
                                 && table.getTablePath() != null
                                 && !TablePath.DEFAULT
                                         .getFullName()
                                         .equals(table.getTablePath().getFullName()));
 
+        if (table.getUseSelectCount()) {
+            useTableStats = false;
+            if (StringUtils.isBlank(query)) {
+                query = "SELECT * FROM " + tableIdentifier(table.getTablePath());
+            }
+        }
+
         if (useTableStats) {
             TablePath tablePath = table.getTablePath();
-            String analyzeTable =
-                    String.format(
-                            "analyze table %s compute statistics for table",
-                            tableIdentifier(tablePath));
             String rowCountQuery =
                     String.format(
                             "select NUM_ROWS from all_tables where OWNER = '%s' AND TABLE_NAME = '%s' ",
                             tablePath.getSchemaName(), tablePath.getTableName());
-
             try (Statement stmt = connection.createStatement()) {
-                log.info("Split Chunk, approximateRowCntStatement: {}", analyzeTable);
-                stmt.execute(analyzeTable);
+                String analyzeTable =
+                        String.format(
+                                "analyze table %s compute statistics for table",
+                                tableIdentifier(tablePath));
+                if (!table.getSkipAnalyze()) {
+                    log.info("Split Chunk, approximateRowCntStatement: {}", analyzeTable);
+                    stmt.execute(analyzeTable);
+                } else {
+                    log.warn("Skip analyze, approximateRowCntStatement: {}", analyzeTable);
+                }
                 log.info("Split Chunk, approximateRowCntStatement: {}", rowCountQuery);
                 try (ResultSet rs = stmt.executeQuery(rowCountQuery)) {
                     if (!rs.next()) {
@@ -220,7 +234,7 @@ public class OracleDialect implements JdbcDialect {
                 }
             }
         }
-        return SQLUtils.countForSubquery(connection, table.getQuery());
+        return SQLUtils.countForSubquery(connection, query);
     }
 
     @Override
@@ -268,6 +282,47 @@ public class OracleDialect implements JdbcDialect {
                             String.format("No result returned after running query [%s]", sqlQuery));
                 }
                 return rs.getObject(1);
+            }
+        }
+    }
+
+    @Override
+    public Object[] sampleDataFromColumn(
+            Connection connection,
+            JdbcSourceTable table,
+            String columnName,
+            int samplingRate,
+            int fetchSize)
+            throws Exception {
+        String sampleQuery;
+        if (StringUtils.isNotBlank(table.getQuery())) {
+            sampleQuery =
+                    String.format(
+                            "SELECT %s FROM (%s) T", quoteIdentifier(columnName), table.getQuery());
+        } else {
+            sampleQuery =
+                    String.format(
+                            "SELECT %s FROM %s",
+                            quoteIdentifier(columnName), tableIdentifier(table.getTablePath()));
+        }
+
+        try (PreparedStatement stmt = creatPreparedStatement(connection, sampleQuery, fetchSize)) {
+            try (ResultSet rs = stmt.executeQuery()) {
+                int count = 0;
+                List<Object> results = new ArrayList<>();
+
+                while (rs.next()) {
+                    count++;
+                    if (count % samplingRate == 0) {
+                        results.add(rs.getObject(1));
+                    }
+                    if (Thread.currentThread().isInterrupted()) {
+                        throw new InterruptedException("Thread interrupted");
+                    }
+                }
+                Object[] resultsArray = results.toArray();
+                Arrays.sort(resultsArray);
+                return resultsArray;
             }
         }
     }

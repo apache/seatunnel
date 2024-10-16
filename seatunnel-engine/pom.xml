@@ -36,7 +36,6 @@
 
     <properties>
         <!--  SeaTunnel Engine use     -->
-        <hazelcast.version>5.1</hazelcast.version>
         <disruptor.version>3.4.4</disruptor.version>
     </properties>
 
@@ -44,23 +43,15 @@
         <dependencies>
             <!-- SeaTunnel engine use begin -->
             <dependency>
-                <groupId>com.hazelcast</groupId>
-                <artifactId>hazelcast</artifactId>
-                <version>${hazelcast.version}</version>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-hazelcast-shade</artifactId>
+                <version>${project.version}</version>
+                <classifier>optional</classifier>
             </dependency>
             <dependency>
                 <groupId>com.lmax</groupId>
                 <artifactId>disruptor</artifactId>
                 <version>${disruptor.version}</version>
-            </dependency>
-
-            <!-- test dependencies -->
-            <dependency>
-                <groupId>com.hazelcast</groupId>
-                <artifactId>hazelcast</artifactId>
-                <version>${hazelcast.version}</version>
-                <classifier>tests</classifier>
-                <scope>test</scope>
             </dependency>
             <!-- SeaTunnel engine use end -->
         </dependencies>
