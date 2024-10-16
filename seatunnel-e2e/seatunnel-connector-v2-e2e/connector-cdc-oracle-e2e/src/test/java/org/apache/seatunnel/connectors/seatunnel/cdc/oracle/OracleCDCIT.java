@@ -133,32 +133,66 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
         Startables.deepStart(Stream.of(ORACLE_CONTAINER)).join();
         log.info("Containers are started.");
         createAndInitialize(ORACLE_CONTAINER, "column_type_test");
+        createAndInitialize(ORACLE_CONTAINER, "column_type_test_lowercase");
     }
 
     @TestTemplate
     public void testOracleCdcCheckDataE2e(TestContainer container) throws Exception {
-        checkDataForTheJob(container, "/oraclecdc_to_oracle.conf", false);
+        checkDataForTheJob(
+                container,
+                "/oraclecdc_to_oracle.conf",
+                false,
+                DATABASE,
+                SOURCE_TABLE1,
+                SINK_TABLE1);
     }
 
     @TestTemplate
     public void testOracleCdcCheckDataE2eForUseSelectCount(TestContainer container)
             throws Exception {
-        checkDataForTheJob(container, "/oraclecdc_to_oracle_use_select_count.conf", false);
+        checkDataForTheJob(
+                container,
+                "/oraclecdc_to_oracle_use_select_count.conf",
+                false,
+                DATABASE,
+                SOURCE_TABLE1,
+                SINK_TABLE1);
     }
 
     @TestTemplate
     public void testOracleCdcCheckDataE2eForSkipAnalysis(TestContainer container) throws Exception {
-        checkDataForTheJob(container, "/oraclecdc_to_oracle_skip_analysis.conf", true);
+        checkDataForTheJob(
+                container,
+                "/oraclecdc_to_oracle_skip_analysis.conf",
+                true,
+                DATABASE,
+                SOURCE_TABLE1,
+                SINK_TABLE1);
+    }
+
+    @TestTemplate
+    public void testOracleCdcCheckDataWithLowercaseTable(TestContainer container) throws Exception {
+        checkDataForTheJob(
+                container,
+                "/oraclecdc_to_oracle_lowercase.conf",
+                true,
+                "debezium_lowercase",
+                "full_types_lowercase",
+                "sink_full_types_lowercase");
     }
 
     private void checkDataForTheJob(
-            TestContainer container, String jobConfPath, Boolean skipAnalysis) throws Exception {
-        clearTable(DATABASE, SOURCE_TABLE1);
-        clearTable(DATABASE, SOURCE_TABLE2);
-        clearTable(DATABASE, SINK_TABLE1);
-        clearTable(DATABASE, SINK_TABLE2);
+            TestContainer container,
+            String jobConfPath,
+            Boolean skipAnalysis,
+            String database,
+            String source,
+            String sink)
+            throws Exception {
+        clearTable(database, source);
+        clearTable(database, sink);
 
-        insertSourceTable(DATABASE, SOURCE_TABLE1);
+        insertSourceTable(database, source);
 
         if (skipAnalysis) {
             // analyzeTable before execute job
@@ -190,20 +224,20 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(
                         () -> {
                             Assertions.assertIterableEquals(
-                                    querySql(getSourceQuerySQL(DATABASE, SOURCE_TABLE1)),
-                                    querySql(getSourceQuerySQL(DATABASE, SINK_TABLE1)));
+                                    querySql(getSourceQuerySQL(database, source)),
+                                    querySql(getSourceQuerySQL(database, sink)));
                         });
 
         // insert update delete
-        updateSourceTable(DATABASE, SOURCE_TABLE1);
+        updateSourceTable(database, source);
 
         // stream stage
         await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertIterableEquals(
-                                    querySql(getSourceQuerySQL(DATABASE, SOURCE_TABLE1)),
-                                    querySql(getSourceQuerySQL(DATABASE, SINK_TABLE1)));
+                                    querySql(getSourceQuerySQL(database, source)),
+                                    querySql(getSourceQuerySQL(database, sink)));
                         });
     }
 
