@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.cdc.base.dialect;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
