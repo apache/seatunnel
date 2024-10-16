@@ -131,7 +131,7 @@ public interface JdbcDataSourceDialect extends DataSourceDialect<JdbcSourceConfi
 
             while (resultSet.next()) {
                 if (columnName.equalsIgnoreCase(resultSet.getString("COLUMN_NAME"))
-                        && resultSet.getBoolean("NON_UNIQUE") == false) {
+                        && !resultSet.getBoolean("NON_UNIQUE")) {
                     isUnique = true;
                     break;
                 }
