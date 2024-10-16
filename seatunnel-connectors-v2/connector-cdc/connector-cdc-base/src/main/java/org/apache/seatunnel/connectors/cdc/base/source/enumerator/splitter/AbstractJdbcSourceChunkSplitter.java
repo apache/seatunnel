@@ -392,7 +392,7 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
         }
         String tableSc =
                 (String) splitColumnProperties.get(tableId.catalog() + "." + tableId.table());
-        Boolean isUniqueKey = dialect.isUniqueKey(jdbc, tableId, tableSc);
+        boolean isUniqueKey = dialect.isUniqueKey(jdbc, tableId, tableSc);
         if (isUniqueKey) {
             Column column = table.columnWithName(tableSc);
             if (isEvenlySplitColumn(column)) {
