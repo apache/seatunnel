@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.cdc.base.dialect;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
@@ -27,6 +26,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.reader.external.JdbcSourc
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 import io.debezium.jdbc.JdbcConnection;
