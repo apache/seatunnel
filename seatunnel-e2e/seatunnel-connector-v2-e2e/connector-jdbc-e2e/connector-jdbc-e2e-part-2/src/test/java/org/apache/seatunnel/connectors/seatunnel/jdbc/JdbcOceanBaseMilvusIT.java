@@ -46,7 +46,6 @@ import org.testcontainers.milvus.MilvusContainer;
 import org.testcontainers.oceanbase.OceanBaseCEContainer;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.google.common.collect.Lists;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import io.milvus.client.MilvusServiceClient;
@@ -268,7 +267,8 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
     @TestTemplate
     public void testMilvusToOceanBase(TestContainer container) throws Exception {
         try {
-            Container.ExecResult execResult = container.executeJob(configFile().get(0));
+            Container.ExecResult execResult =
+                    container.executeJob("/jdbc_milvus_source_and_oceanbase_sink.conf");
             Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         } finally {
             clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
@@ -279,7 +279,8 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
     public void testFakeToOceanBase(TestContainer container)
             throws IOException, InterruptedException {
         try {
-            Container.ExecResult execResult = container.executeJob(configFile().get(1));
+            Container.ExecResult execResult =
+                    container.executeJob("/jdbc_fake_to_oceanbase_sink.conf");
             Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         } finally {
             clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
@@ -290,7 +291,8 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
     public void testOceanBaseToMilvus(TestContainer container) throws Exception {
         try {
             initOceanBaseTestData();
-            Container.ExecResult execResult = container.executeJob("/jdbc_oceanbase_source_and_milvus_sink.conf");
+            Container.ExecResult execResult =
+                    container.executeJob("/jdbc_oceanbase_source_and_milvus_sink.conf");
             Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         } finally {
             clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
@@ -382,13 +384,6 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
                 .sinkTable(OCEANBASE_SINK)
                 .createSql(createSqlTemplate())
                 .build();
-    }
-
-    List<String> configFile() {
-        return Lists.newArrayList(
-                "/jdbc_milvus_source_and_oceanbase_sink.conf",
-                "/jdbc_fake_to_oceanbase_sink.conf",
-                "/jdbc_oceanbase_source_and_milvus_sink.conf");
     }
 
     private void initializeJdbcConnection(String jdbcUrl)
