@@ -119,7 +119,7 @@ public interface JdbcDataSourceDialect extends DataSourceDialect<JdbcSourceConfi
                 .collect(Collectors.toList());
     }
 
-    default Boolean isUniqueKey(JdbcConnection jdbcConnection, TableId tableId, String columnName)
+    default boolean isUniqueKey(JdbcConnection jdbcConnection, TableId tableId, String columnName)
             throws SQLException {
         boolean isUnique = false;
         if (StringUtils.isNotEmpty(columnName)) {
