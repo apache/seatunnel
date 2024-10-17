@@ -2,22 +2,14 @@ import { Graph, Path, Cell } from '@antv/x6'
 import { Selection } from '@antv/x6-plugin-selection'
 import { register } from '@antv/x6-vue-shape'
 import { computed, defineComponent, onMounted, type PropType } from 'vue'
-import './main.scss'
-import JsonData from './data.json'
+import './index.scss'
 import type { Job, Metrics, Vertex } from '@/service/job/types'
 import { NDataTable, NTag, type DataTableColumns } from 'naive-ui'
 
 interface NodeStatus {
   id: string
-  status: 'default' | 'success' | 'failed' | 'running'
+  status: Job['jobStatus'] | 'default'
   label?: string
-}
-
-const image = {
-  logo: 'https://gw.alipayobjects.com/mdn/rms_43231b/afts/img/A*evDjT5vjkX0AAAAAAAAAAAAAARQnAQ',
-  success: 'https://gw.alipayobjects.com/mdn/rms_43231b/afts/img/A*6l60T6h8TTQAAAAAAAAAAAAAARQnAQ',
-  failed: 'https://gw.alipayobjects.com/mdn/rms_43231b/afts/img/A*SEISQ6My-HoAAAAAAAAAAAAAARQnAQ',
-  running: 'https://gw.alipayobjects.com/mdn/rms_43231b/afts/img/A*t8fURKfgSOgAAAAAAAAAAAAAARQnAQ'
 }
 
 const AlgoNode = (props: any) => {
@@ -27,26 +19,22 @@ const AlgoNode = (props: any) => {
 
   return (
     <div class={`node ${status}`}>
-      <img src={image.logo} alt="logo" />
       <span class="label">{label}</span>
-      <span class="status">
-        {status === 'success' && <img src={image.success} alt="success" />}
-        {status === 'failed' && <img src={image.failed} alt="failed" />}
-        {status === 'running' && <img src={image.running} alt="running" />}
-      </span>
+      <span class="status">{status}</span>
     </div>
   )
 }
 
+const nodeWidth = 300
 register({
   shape: 'dag-node',
-  width: 180,
+  width: nodeWidth,
   height: 36,
   component: AlgoNode,
   ports: {
     groups: {
-      top: {
-        position: 'top',
+      left: {
+        position: 'left',
         attrs: {
           circle: {
             r: 4,
@@ -57,8 +45,8 @@ register({
           }
         }
       },
-      bottom: {
-        position: 'bottom',
+      right: {
+        position: 'right',
         attrs: {
           circle: {
             r: 4,
@@ -92,65 +80,22 @@ Graph.registerConnector(
   'algo-connector',
   (s, e) => {
     const offset = 4
-    const deltaY = Math.abs(e.y - s.y)
-    const control = Math.floor((deltaY / 3) * 2)
+    const delta = Math.abs(e.x - s.x)
+    const control = Math.floor((delta / 3) * 2)
 
-    const v1 = { x: s.x, y: s.y + offset + control }
-    const v2 = { x: e.x, y: e.y - offset - control }
+    const v1 = { y: s.y, x: s.x + offset + control }
+    const v2 = { y: e.y, x: e.x - offset - control }
 
     return Path.normalize(
       `M ${s.x} ${s.y}
-       L ${s.x} ${s.y + offset}
-       C ${v1.x} ${v1.y} ${v2.x} ${v2.y} ${e.x} ${e.y - offset}
+       L ${s.x + offset} ${s.y}
+       C ${v1.x} ${v1.y} ${v2.x} ${v2.y} ${e.x - offset} ${e.y}
        L ${e.x} ${e.y}
       `
     )
   },
   true
 )
-
-const nodeStatusList: NodeStatus[][] = [
-  [
-    {
-      id: '1',
-      status: 'running'
-    },
-    {
-      id: '2',
-      status: 'default'
-    }
-  ],
-  [
-    {
-      id: '1',
-      status: 'success'
-    },
-    {
-      id: '2',
-      status: 'running'
-    }
-  ],
-  [
-    {
-      id: '1',
-      status: 'success'
-    },
-    {
-      id: '2',
-      status: 'success'
-    }
-  ],
-  [
-    {
-      id: '1',
-      status: 'success'
-    },
-    {
-      id: '2',
-      status: 'failed'
-    }
-  ]
-]
 
 export default defineComponent({
   props: {
@@ -160,9 +105,6 @@ export default defineComponent({
     }
   },
   setup(props) {
-    const vertexs = computed(() => props?.job?.jobDag?.vertexInfoMap || [])
-    const metrics = computed(() => props?.job?.metrics || {})
-
     onMounted(() => {
       const graph: Graph = new Graph({
         container: document.getElementById('container')!,
@@ -198,7 +140,7 @@ export default defineComponent({
           connectionPoint: 'anchor',
           anchor: 'center',
           validateMagnet({ magnet }) {
-            return magnet.getAttribute('port-group') !== 'top'
+            return magnet.getAttribute('port-group') !== 'left'
           },
           createEdge() {
             return graph.createEdge({
@@ -235,7 +177,7 @@ export default defineComponent({
         const edges = graph.getIncomingEdges(node)
         const { status } = node.getData() as NodeStatus
         edges?.forEach((edge) => {
-          if (status === 'running') {
+          if (status === 'RUNNING') {
             edge.attr('line/strokeDasharray', 5)
             edge.attr('line/style/animation', 'running-line 30s infinite linear')
           } else {
@@ -245,10 +187,112 @@ export default defineComponent({
         })
       })
 
-      // 初始化节点/边
-      const init = (data: Cell.Metadata[]) => {
+      type Port = { id: string; group: string }
+      type Point = Vertex & { next: Vertex[]; row?: Point[]; ports?: Port[] }
+      const isConnected = (source: Point, target: Point) => {
+        const edgeMap = props?.job.jobDag.pipelineEdges || {}
+        for (const key of Object.keys(edgeMap)) {
+          for (const { inputVertexId, targetVertexId } of edgeMap[key]) {
+            if (
+              inputVertexId === String(source.vertexId) &&
+              targetVertexId === String(target.vertexId)
+            ) {
+              return true
+            }
+          }
+        }
+        return false
+      }
+      const init = () => {
+        const matrix = [] as Point[][]
+
+        const findPrevious = (item: Point) => {
+          for (const row of matrix) {
+            for (const point of row) {
+              if (isConnected(point, item)) {
+                return point
+              }
+            }
+          }
+        }
+        const points =
+          props?.job?.jobDag?.vertexInfoMap?.map((item) => ({ ...item, next: [] }) as Point) || []
+        points.forEach((point) => {
+          const prevous = findPrevious(point)
+          if (!prevous) {
+            point.row = [point]
+            matrix.push(point.row)
+            return
+          }
+          if (prevous.next.length) {
+            prevous.next.push(point)
+            point.row = [point]
+            matrix.push(point.row)
+          } else {
+            point.row = prevous.row
+            prevous.next = [point]
+            prevous.row!.push(point)
+          }
+        })
+
+        const items: Cell.Metadata[] = []
+
+        const offsetY = 100
+        const offsetX = nodeWidth + 100
+        matrix.forEach((row, rowNumber) => {
+          row.forEach((item, colNumber) => {
+            const id = 'node-' + String(item.vertexId)
+            const data: NodeStatus = {
+              id: String(item.vertexId),
+              label: item.vertexName,
+              status: props?.job?.jobStatus || 'default'
+            }
+            const ports = [] as Port[]
+            if (colNumber !== 0) {
+              ports.push({
+                id: `${id}-left`,
+                group: 'left'
+              })
+            }
+            if (colNumber !== row.length - 1) {
+              ports.push({
+                id: `${id}-right`,
+                group: 'right'
+              })
+            }
+            items.push({
+              id,
+              shape: 'dag-node',
+              x: colNumber * offsetX,
+              y: rowNumber * offsetY,
+              data,
+              ports
+            })
+          })
+        })
+
+        const edgeMap = props?.job.jobDag.pipelineEdges || {}
+        let zIndex = 0
+        for (const id of Object.keys(edgeMap)) {
+          const edges = edgeMap[id]
+          for (const edge of edges) {
+            items.push({
+              id: `edge-${id}`,
+              shape: 'dag-edge',
+              source: {
+                cell: `node-${edge.inputVertexId}`,
+                port: `node-${edge.inputVertexId}-right`
+              },
+              target: {
+                cell: `node-${edge.targetVertexId}`,
+                port: `node-${edge.targetVertexId}-left`
+              },
+              zIndex: zIndex++
+            })
+          }
+        }
         const cells: Cell[] = []
-        data.forEach((item) => {
+        items.forEach((item) => {
           if (item.shape === 'dag-node') {
             cells.push(graph.createNode(item))
           } else {
@@ -260,7 +304,7 @@ export default defineComponent({
 
       // 显示节点状态
       const showNodeStatus = async (statusList: NodeStatus[][]) => {
-        const status = statusList.shift()
+        const status = statusList[Math.floor(Math.random() * statusList.length)]
         status?.forEach((item) => {
           const { id, status } = item
           const node = graph.getCellById(id)
@@ -273,22 +317,17 @@ export default defineComponent({
         if (!status) return
         setTimeout(() => {
           showNodeStatus(statusList)
-        }, 3000)
+        }, 5000)
       }
-      // fetch('/data/dag.json')
-      //   .then((response) => response.json())
-      //   .then((data) => {
-      //     init(data)
-      //     showNodeStatus(nodeStatusList)
-      //     graph.centerContent()
-      //   })
+
       setTimeout(() => {
-        const data = JsonData
-        init(data)
-        showNodeStatus(nodeStatusList)
+        init()
         graph.centerContent()
-      }, 3000)
+      }, 2000)
     })
+
+    const vertexs = computed(() => props?.job?.jobDag?.vertexInfoMap || [])
+    const metrics = computed(() => props?.job?.metrics || {})
 
     const sourceCell = (
       row: Vertex,

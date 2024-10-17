@@ -9,32 +9,33 @@
   border-left: 4px solid #5F95FF;
   border-radius: 4px;
   box-shadow: 0 2px 5px 1px rgba(0, 0, 0, 0.06);
-}
-.node img {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-  margin-left: 8px;
-}
-.node .label {
-  display: inline-block;
-  flex-shrink: 0;
-  width: 104px;
-  margin-left: 8px;
-  color: #666;
-  font-size: 12px;
-}
-.node .status {
-  flex-shrink: 0;
-}
-.node.success {
-  border-left: 4px solid #52c41a;
-}
-.node.failed {
-  border-left: 4px solid #ff4d4f;
-}
-.node.running .status img {
-  animation: spin 1s linear infinite;
+  .label {
+    display: inline-block;
+    flex-shrink: 0;
+    width: 180px;
+    margin-left: 8px;
+    margin-right: 8px;
+    color: #666;
+    font-size: 12px;
+  }
+  .status {
+    flex-shrink: 0;
+    width: 60px;
+    text-align: center;
+    color: #5F95FF;
+  }
+  &.success {
+    border-left: 4px solid #52c41a;
+    .status {
+      color: #52c41a;
+    }
+  }
+  &.FINISHED {
+    border-left: 4px solid #ff4d4f;
+    .status {
+      color: #ff4d4f;
+    }
+  }
 }
 .x6-node-selected .node {
   border-color: #1890ff;
@@ -46,7 +47,7 @@
   border-radius: 2px;
   box-shadow: 0 0 0 4px #ccecc0;
 }
-.x6-node-selected .node.failed {
+.x6-node-selected .node.FINISHED {
   border-color: #ff4d4f;
   border-radius: 2px;
   box-shadow: 0 0 0 4px #fedcdc;

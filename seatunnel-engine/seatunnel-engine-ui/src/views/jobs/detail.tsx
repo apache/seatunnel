@@ -23,7 +23,7 @@ import type { Job } from '@/service/job/types'
 import { useI18n } from 'vue-i18n'
 import { getRemainTime } from '@/utils/time'
 import { format, parse } from 'date-fns'
-import Main from '@/components/directed-acyclic-graph/main'
+import DAG from '@/components/directed-acyclic-graph'
 import { getTypeFromStatus } from '@/utils/getTypeFromStatus'
 
 export default defineComponent({
@@ -67,7 +67,7 @@ export default defineComponent({
         </div>
         <NTabs v-model:value={select.value} type="line" animated>
           <NTabPane name="Overview" tab="Overview">
-            <Main {...{ job: job }} />
+            <DAG {...{ job: job }} />
           </NTabPane>
           <NTabPane name="Logs" tab="Logs">
             Logs
