@@ -62,7 +62,8 @@ public class TestUtils {
         return System.getProperty("user.dir") + "/src/test/resources/" + confFile;
     }
 
-    public static LogicalDag getTestLogicalDag(JobContext jobContext) throws MalformedURLException {
+    public static LogicalDag getTestLogicalDag(JobContext jobContext, JobConfig config)
+            throws MalformedURLException {
         IdGenerator idGenerator = new IdGenerator();
         Config fakeSourceConfig =
                 ConfigFactory.parseMap(
@@ -109,7 +110,7 @@ public class TestUtils {
 
         LogicalEdge edge = new LogicalEdge(fakeVertex, consoleVertex);
 
-        LogicalDag logicalDag = new LogicalDag();
+        LogicalDag logicalDag = new LogicalDag(config, idGenerator);
         logicalDag.addLogicalVertex(fakeVertex);
         logicalDag.addLogicalVertex(consoleVertex);
         logicalDag.addEdge(edge);

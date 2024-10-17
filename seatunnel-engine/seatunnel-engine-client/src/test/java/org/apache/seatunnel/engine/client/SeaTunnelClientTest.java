@@ -435,8 +435,11 @@ public class SeaTunnelClientTest {
             CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
             long jobId = clientJobProxy.getJobId();
 
-            // Running
-            Assertions.assertNotNull(jobClient.getJobInfo(jobId));
+            await().atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertNotNull(jobClient.getJobInfo(jobId));
+                            });
 
             await().atMost(180000, TimeUnit.MILLISECONDS)
                     .untilAsserted(

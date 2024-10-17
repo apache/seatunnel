@@ -95,7 +95,7 @@ public class SavePointTest extends AbstractSeaTunnelServerTest<SavePointTest> {
     public void testSavePointWithMultiTimeRequest() throws InterruptedException {
         long jobId = System.currentTimeMillis();
         startJob(jobId, STREAM_CONF_WITH_SLEEP_PATH, false);
-        Thread.sleep(2000L);
+        Thread.sleep(5000L);
         PassiveCompletableFuture<Void> savepoint1 = server.getCoordinatorService().savePoint(jobId);
         Thread.sleep(1000L);
         PendingCheckpoint pendingCheckpoint1 =

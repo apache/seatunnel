@@ -29,6 +29,9 @@ public enum JobStatus {
     /** Job is newly created, no task has started to run. */
     CREATED(EndState.NOT_END),
 
+    /** The job is waiting for resources. */
+    PENDING(EndState.NOT_END),
+
     /**
      * Job will scheduler every pipeline, each PhysicalVertex in the pipeline will be scheduler and
      * deploying
@@ -78,5 +81,9 @@ public enum JobStatus {
 
     public boolean isEndState() {
         return endState != EndState.NOT_END;
+    }
+
+    public static JobStatus fromString(String status) {
+        return JobStatus.valueOf(status.toUpperCase());
     }
 }
