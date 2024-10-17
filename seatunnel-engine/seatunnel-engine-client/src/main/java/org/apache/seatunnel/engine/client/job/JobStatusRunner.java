@@ -27,6 +27,7 @@ public class JobStatusRunner implements Runnable {
 
     private final JobClient jobClient;
     private final Long jobId;
+    private boolean isEnterPending = false;
 
     public JobStatusRunner(JobClient jobClient, Long jobId) {
         this.jobClient = jobClient;
@@ -49,7 +50,11 @@ public class JobStatusRunner implements Runnable {
         boolean isPrint = true;
         switch (JobStatus.fromString(jobStatus)) {
             case PENDING:
-                this.log(jobStatus);
+                isEnterPending = true;
+                log.info(
+                        "Job Id : {} enter pending queue, current status:{} ,please wait task schedule",
+                        jobId,
+                        jobStatus);
                 break;
             case RUNNING:
             case SCHEDULED:
@@ -61,15 +66,17 @@ public class JobStatusRunner implements Runnable {
             case CANCELED:
             case FINISHED:
             case UNKNOWABLE:
-                this.log(jobStatus);
+                if (isEnterPending) {
+                    // Log only if it transitioned from the PENDING state
+                    log.info(
+                            "Job ID: {} has been scheduled and entered the next state. Current status: {}",
+                            jobId,
+                            jobStatus);
+                }
                 isPrint = false;
             default:
                 break;
         }
         return isPrint;
-    }
-
-    private void log(String jobStatus) {
-        log.info("Job status: {}", jobStatus);
     }
 }
