@@ -30,6 +30,11 @@ public class EsClusterConnectionConfig {
                     .noDefaultValue()
                     .withDescription(
                             "Elasticsearch cluster http address, the format is host:port, allowing multiple hosts to be specified. Such as [\"host1:9200\", \"host2:9200\"]");
+    public static final Option<String> CLOUD_ID =
+            Options.key("cloud_id")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Elasticsearch cloud id");
 
     public static final Option<String> USERNAME =
             Options.key("username")
@@ -42,6 +47,9 @@ public class EsClusterConnectionConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("x-pack password");
+
+    public static final Option<String> API_KEY =
+            Options.key("api_key").stringType().noDefaultValue().withDescription("api key");
 
     public static final Option<Boolean> TLS_VERIFY_CERTIFICATE =
             Options.key("tls_verify_certificate")

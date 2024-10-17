@@ -22,8 +22,19 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectionErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
 
+import io.milvus.client.MilvusClient;
+import io.milvus.client.MilvusServiceClient;
+import io.milvus.grpc.DescribeCollectionResponse;
+import io.milvus.grpc.FieldSchema;
+import io.milvus.grpc.ShowPartitionsResponse;
+import io.milvus.param.ConnectParam;
+import io.milvus.param.R;
+import io.milvus.param.collection.DescribeCollectionParam;
+import io.milvus.param.partition.ShowPartitionsParam;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -92,17 +103,62 @@ public class MilvusSourceSplitEnumertor
     }
 
     private Collection<MilvusSourceSplit> generateSplits(CatalogTable table) {
-        log.info("Start splitting table {} into chunks...", table.getTablePath());
-        MilvusSourceSplit milvusSourceSplit =
-                MilvusSourceSplit.builder()
-                        .splitId(createSplitId(table.getTablePath(), 0))
-                        .tablePath(table.getTablePath())
+        log.info("Start splitting table {} into chunks by partition...", table.getTablePath());
+        ConnectParam connectParam =
+                ConnectParam.newBuilder()
+                        .withUri(config.get(MilvusSourceConfig.URL))
+                        .withToken(config.get(MilvusSourceConfig.TOKEN))
                         .build();
-
-        return Collections.singletonList(milvusSourceSplit);
+        MilvusClient client = new MilvusServiceClient(connectParam);
+        String database = table.getTablePath().getDatabaseName();
+        String collection = table.getTablePath().getTableName();
+        R<DescribeCollectionResponse> describeCollectionResponseR =
+                client.describeCollection(
+                        DescribeCollectionParam.newBuilder()
+                                .withDatabaseName(database)
+                                .withCollectionName(collection)
+                                .build());
+        boolean hasPartitionKey =
+                describeCollectionResponseR.getData().getSchema().getFieldsList().stream()
+                        .anyMatch(FieldSchema::getIsPartitionKey);
+        List<MilvusSourceSplit> milvusSourceSplits = new ArrayList<>();
+        if (!hasPartitionKey) {
+            ShowPartitionsParam showPartitionsParam =
+                    ShowPartitionsParam.newBuilder()
+                            .withDatabaseName(database)
+                            .withCollectionName(collection)
+                            .build();
+            R<ShowPartitionsResponse> showPartitionsResponseR =
+                    client.showPartitions(showPartitionsParam);
+            if (showPartitionsResponseR.getStatus() != R.Status.Success.getCode()) {
+                throw new MilvusConnectorException(
+                        MilvusConnectionErrorCode.LIST_PARTITIONS_FAILED,
+                        "Failed to show partitions: " + showPartitionsResponseR.getMessage());
+            }
+            List<String> partitionList = showPartitionsResponseR.getData().getPartitionNamesList();
+            for (String partitionName : partitionList) {
+                MilvusSourceSplit milvusSourceSplit =
+                        MilvusSourceSplit.builder()
+                                .tablePath(table.getTablePath())
+                                .splitId(createSplitId(table.getTablePath(), partitionName))
+                                .partitionName(partitionName)
+                                .build();
+                log.info("Generated split: {}", milvusSourceSplit);
+                milvusSourceSplits.add(milvusSourceSplit);
+            }
+        } else {
+            MilvusSourceSplit milvusSourceSplit =
+                    MilvusSourceSplit.builder()
+                            .tablePath(table.getTablePath())
+                            .splitId(createSplitId(table.getTablePath(), "0"))
+                            .build();
+            log.info("Generated split: {}", milvusSourceSplit);
+            milvusSourceSplits.add(milvusSourceSplit);
+        }
+        return milvusSourceSplits;
     }
 
-    protected String createSplitId(TablePath tablePath, int index) {
+    protected String createSplitId(TablePath tablePath, String index) {
         return String.format("%s-%s", tablePath, index);
     }
 

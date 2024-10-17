@@ -33,7 +33,8 @@ public enum ElasticsearchConnectorErrorCode implements SeaTunnelErrorCode {
     CHECK_INDEX_FAILED("ELASTICSEARCH-10", "Failed to check whether the index exists"),
     SOURCE_CONFIG_ERROR_01(
             "ELASTICSEARCH-11",
-            "'index' or 'index_list' must be configured, with at least one being required.");
+            "'index' or 'index_list' must be configured, with at least one being required."),
+    FAILED_CONNECT_ES("ELASTICSEARCH-12", "Failed to connect to elasticsearch"),
     ;
 
     private final String code;

@@ -38,10 +38,13 @@ import org.apache.seatunnel.connectors.seatunnel.milvus.state.MilvusAggregatedCo
 import org.apache.seatunnel.connectors.seatunnel.milvus.state.MilvusCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.milvus.state.MilvusSinkState;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 public class MilvusSink
         implements SeaTunnelSink<
                         SeaTunnelRow,
@@ -61,7 +64,6 @@ public class MilvusSink
     @Override
     public SinkWriter<SeaTunnelRow, MilvusCommitInfo, MilvusSinkState> createWriter(
             SinkWriter.Context context) {
-
         return new MilvusSinkWriter(context, catalogTable, config, Collections.emptyList());
     }
 
@@ -103,6 +105,7 @@ public class MilvusSink
         SchemaSaveMode schemaSaveMode = config.get(MilvusSinkConfig.SCHEMA_SAVE_MODE);
         DataSaveMode dataSaveMode = config.get(MilvusSinkConfig.DATA_SAVE_MODE);
 
+        catalog.open();
         return Optional.of(
                 new DefaultSaveModeHandler(
                         schemaSaveMode,
@@ -111,10 +114,5 @@ public class MilvusSink
                         catalogTable.getTablePath(),
                         catalogTable,
                         null));
-    }
-
-    @Override
-    public Optional<CatalogTable> getWriteCatalogTable() {
-        return Optional.ofNullable(catalogTable);
     }
 }

@@ -33,6 +33,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.BufferUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
 
@@ -56,6 +57,7 @@ import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.SHORT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.VOID_TYPE;
+import static org.apache.seatunnel.api.table.type.VectorType.VECTOR_FLOAT_TYPE;
 
 public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer {
 
@@ -222,6 +224,11 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                 return Base64.getDecoder().decode(fieldValue);
             } else if (VOID_TYPE.equals(fieldType) || fieldType == null) {
                 return null;
+            } else if (VECTOR_FLOAT_TYPE.equals(fieldType)) {
+                List<Float> list = JsonUtils.toList(fieldValue, Float.class);
+                Float[] vectorArray = new Float[list.size()];
+                list.toArray(vectorArray);
+                return BufferUtils.toByteBuffer(vectorArray);
             } else {
                 throw new ElasticsearchConnectorException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,

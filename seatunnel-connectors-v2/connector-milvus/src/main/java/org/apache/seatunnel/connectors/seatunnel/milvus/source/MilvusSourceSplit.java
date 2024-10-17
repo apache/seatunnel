@@ -29,6 +29,7 @@ public class MilvusSourceSplit implements SourceSplit {
 
     private TablePath tablePath;
     private String splitId;
+    private String partitionName;
 
     @Override
     public String splitId() {

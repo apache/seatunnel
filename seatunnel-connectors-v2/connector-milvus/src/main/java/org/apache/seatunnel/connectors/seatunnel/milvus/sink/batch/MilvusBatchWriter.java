@@ -25,7 +25,7 @@ public interface MilvusBatchWriter {
 
     boolean needFlush();
 
-    boolean flush();
+    void flush() throws Exception;
 
-    void close();
+    void close() throws Exception;
 }

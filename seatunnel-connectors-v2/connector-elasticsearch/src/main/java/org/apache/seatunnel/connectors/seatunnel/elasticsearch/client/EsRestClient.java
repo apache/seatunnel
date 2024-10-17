@@ -37,7 +37,9 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.util.SSLUtils;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.http.Header;
 import org.apache.http.HttpHost;
+import org.apache.http.HttpRequestInterceptor;
 import org.apache.http.HttpStatus;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -45,6 +47,7 @@ import org.apache.http.client.CredentialsProvider;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.ssl.TrustAllStrategy;
 import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.message.BasicHeader;
 import org.apache.http.ssl.SSLContexts;
 import org.apache.http.util.Asserts;
 import org.apache.http.util.EntityUtils;
@@ -91,8 +94,10 @@ public class EsRestClient implements Closeable {
 
     public static EsRestClient createInstance(ReadonlyConfig config) {
         List<String> hosts = config.get(EsClusterConnectionConfig.HOSTS);
+        Optional<String> cloudId = config.getOptional(EsClusterConnectionConfig.CLOUD_ID);
         Optional<String> username = config.getOptional(EsClusterConnectionConfig.USERNAME);
         Optional<String> password = config.getOptional(EsClusterConnectionConfig.PASSWORD);
+        Optional<String> apiKey = config.getOptional(EsClusterConnectionConfig.API_KEY);
         Optional<String> keystorePath = Optional.empty();
         Optional<String> keystorePassword = Optional.empty();
         Optional<String> truststorePath = Optional.empty();
@@ -109,8 +114,10 @@ public class EsRestClient implements Closeable {
         boolean tlsVerifyHostnames = config.get(EsClusterConnectionConfig.TLS_VERIFY_HOSTNAME);
         return createInstance(
                 hosts,
+                cloudId,
                 username,
                 password,
+                apiKey,
                 tlsVerifyCertificate,
                 tlsVerifyHostnames,
                 keystorePath,
@@ -121,8 +128,10 @@ public class EsRestClient implements Closeable {
 
     public static EsRestClient createInstance(
             List<String> hosts,
+            Optional<String> cloudId,
             Optional<String> username,
             Optional<String> password,
+            Optional<String> apiKey,
             boolean tlsVerifyCertificate,
             boolean tlsVerifyHostnames,
             Optional<String> keystorePath,
@@ -132,8 +141,10 @@ public class EsRestClient implements Closeable {
         RestClientBuilder restClientBuilder =
                 getRestClientBuilder(
                         hosts,
+                        cloudId,
                         username,
                         password,
+                        apiKey,
                         tlsVerifyCertificate,
                         tlsVerifyHostnames,
                         keystorePath,
@@ -145,27 +156,36 @@ public class EsRestClient implements Closeable {
 
     private static RestClientBuilder getRestClientBuilder(
             List<String> hosts,
+            Optional<String> cloudId,
             Optional<String> username,
             Optional<String> password,
+            Optional<String> apiKey,
             boolean tlsVerifyCertificate,
             boolean tlsVerifyHostnames,
             Optional<String> keystorePath,
             Optional<String> keystorePassword,
             Optional<String> truststorePath,
             Optional<String> truststorePassword) {
-        HttpHost[] httpHosts = new HttpHost[hosts.size()];
-        for (int i = 0; i < hosts.size(); i++) {
-            httpHosts[i] = HttpHost.create(hosts.get(i));
+        RestClientBuilder restClientBuilder;
+        if (StringUtils.isNotEmpty(cloudId.orElse(null))) {
+            restClientBuilder =
+                    RestClient.builder(cloudId.get())
+                            .setRequestConfigCallback(
+                                    requestConfigBuilder ->
+                                            requestConfigBuilder
+                                                    .setConnectionRequestTimeout(
+                                                            CONNECTION_REQUEST_TIMEOUT)
+                                                    .setSocketTimeout(SOCKET_TIMEOUT));
+        } else {
+            restClientBuilder =
+                    RestClient.builder(buildHttpHosts(hosts))
+                            .setRequestConfigCallback(
+                                    requestConfigBuilder ->
+                                            requestConfigBuilder
+                                                    .setConnectionRequestTimeout(
+                                                            CONNECTION_REQUEST_TIMEOUT)
+                                                    .setSocketTimeout(SOCKET_TIMEOUT));
         }
-
-        RestClientBuilder restClientBuilder =
-                RestClient.builder(httpHosts)
-                        .setRequestConfigCallback(
-                                requestConfigBuilder ->
-                                        requestConfigBuilder
-                                                .setConnectionRequestTimeout(
-                                                        CONNECTION_REQUEST_TIMEOUT)
-                                                .setSocketTimeout(SOCKET_TIMEOUT));
 
         restClientBuilder.setHttpClientConfigCallback(
                 httpClientBuilder -> {
@@ -175,6 +195,14 @@ public class EsRestClient implements Closeable {
                                 AuthScope.ANY,
                                 new UsernamePasswordCredentials(username.get(), password.get()));
                         httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
+                    } else if (apiKey.isPresent()) {
+                        Header apiKeyHeader =
+                                new BasicHeader("Authorization", "ApiKey " + apiKey.get());
+                        httpClientBuilder.addInterceptorFirst(
+                                (HttpRequestInterceptor)
+                                        (request, context) -> {
+                                            request.addHeader(apiKeyHeader);
+                                        });
                     }
 
                     try {
@@ -202,6 +230,18 @@ public class EsRestClient implements Closeable {
                     return httpClientBuilder;
                 });
         return restClientBuilder;
+    }
+
+    private static HttpHost[] buildHttpHosts(List<String> hosts) {
+        if (hosts == null || hosts.isEmpty()) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.FAILED_CONNECT_ES, "es hosts is empty");
+        }
+        HttpHost[] httpHosts = new HttpHost[hosts.size()];
+        for (int i = 0; i < hosts.size(); i++) {
+            httpHosts[i] = HttpHost.create(hosts.get(i));
+        }
+        return httpHosts;
     }
 
     public BulkResponse bulk(String requestBody) {
@@ -626,6 +666,10 @@ public class EsRestClient implements Closeable {
                                     Map<String, Object> options = new HashMap<>();
                                     options.put("element_type", elementType);
                                     typeDefine.nativeType(new EsType(type, options));
+
+                                    // es dense_vector dim
+                                    typeDefine.scale(fieldProperty.get("dims").asInt());
+
                                 } else if (type.equalsIgnoreCase(DATE)
                                         || type.equalsIgnoreCase(DATE_NANOS)) {
                                     String format =
@@ -679,17 +723,24 @@ public class EsRestClient implements Closeable {
                                 fieldName -> {
                                     BasicTypeDefine<EsType> fieldType =
                                             allElasticSearchFieldTypeInfoMap.get(fieldName);
-                                    if (fieldType == null) {
-                                        log.warn(
-                                                "fail to get elasticsearch field {} mapping type,so give a default type text",
-                                                fieldName);
+                                    if (fieldType != null) {
+                                        return fieldType;
+                                    }
+                                    if (fieldName.equals("_id")) {
                                         return BasicTypeDefine.<EsType>builder()
                                                 .name(fieldName)
-                                                .columnType("text")
-                                                .dataType("text")
+                                                .columnType("string")
+                                                .dataType("string")
                                                 .build();
                                     }
-                                    return fieldType;
+                                    log.warn(
+                                            "fail to get elasticsearch field {} mapping type,so give a default type text",
+                                            fieldName);
+                                    return BasicTypeDefine.<EsType>builder()
+                                            .name(fieldName)
+                                            .columnType("text")
+                                            .dataType("text")
+                                            .build();
                                 }));
     }
 }
