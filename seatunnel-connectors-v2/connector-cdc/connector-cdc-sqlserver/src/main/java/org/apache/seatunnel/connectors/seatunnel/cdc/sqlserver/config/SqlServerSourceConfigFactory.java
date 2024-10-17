@@ -83,6 +83,7 @@ public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
                 databaseList,
                 tableList,
                 splitSize,
+                splitColumn,
                 distributionFactorUpper,
                 distributionFactorLower,
                 sampleShardingThreshold,

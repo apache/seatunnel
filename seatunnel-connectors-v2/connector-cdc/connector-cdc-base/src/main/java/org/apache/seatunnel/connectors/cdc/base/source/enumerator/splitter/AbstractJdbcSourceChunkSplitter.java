@@ -39,6 +39,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Properties;
 
 import static java.math.BigDecimal.ROUND_CEILING;
 import static org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils.doubleCompare;
@@ -379,12 +380,38 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
     protected Column getSplitColumn(
             JdbcConnection jdbc, JdbcDataSourceDialect dialect, TableId tableId)
             throws SQLException {
-        Optional<PrimaryKey> primaryKey = dialect.getPrimaryKey(jdbc, tableId);
         Column splitColumn = null;
+        Table table = dialect.queryTableSchema(jdbc, tableId).getTable();
+
+        // first , compare user defined split column is in the primary key or unique key
+        Properties splitColumnProperties = new Properties();
+        try {
+            splitColumnProperties = sourceConfig.getSplitColumn();
+        } catch (Exception e) {
+            log.error("Config snapshot.split.column get exception in {}:{}", tableId, e);
+        }
+        String tableSc =
+                (String) splitColumnProperties.get(tableId.catalog() + "." + tableId.table());
+        boolean isUniqueKey = dialect.isUniqueKey(jdbc, tableId, tableSc);
+        if (isUniqueKey) {
+            Column column = table.columnWithName(tableSc);
+            if (isEvenlySplitColumn(column)) {
+                return column;
+            } else {
+                log.warn(
+                        "Config snapshot.split.column type in {} is not TINYINT、SMALLINT、INT、BIGINT、DECIMAL、STRING",
+                        tableId);
+            }
+        } else {
+            log.info(
+                    "Config snapshot.split.column not exists or not unique key for table {}",
+                    tableId);
+        }
+
+        Optional<PrimaryKey> primaryKey = dialect.getPrimaryKey(jdbc, tableId);
         if (primaryKey.isPresent()) {
             List<String> pkColumns = primaryKey.get().getColumnNames();
 
-            Table table = dialect.queryTableSchema(jdbc, tableId).getTable();
             for (String pkColumn : pkColumns) {
                 Column column = table.columnWithName(pkColumn);
                 if (isEvenlySplitColumn(column)) {
@@ -400,7 +427,6 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
 
         List<ConstraintKey> uniqueKeys = dialect.getUniqueKeys(jdbc, tableId);
         if (!uniqueKeys.isEmpty()) {
-            Table table = dialect.queryTableSchema(jdbc, tableId).getTable();
             for (ConstraintKey uniqueKey : uniqueKeys) {
                 List<ConstraintKey.ConstraintKeyColumn> uniqueKeyColumns =
                         uniqueKey.getColumnNames();

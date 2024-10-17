@@ -115,6 +115,7 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
                 databaseList,
                 tableList,
                 splitSize,
+                splitColumn,
                 distributionFactorUpper,
                 distributionFactorLower,
                 sampleShardingThreshold,
