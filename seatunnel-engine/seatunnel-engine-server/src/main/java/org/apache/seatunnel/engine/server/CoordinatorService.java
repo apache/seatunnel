@@ -57,6 +57,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
+import org.apache.seatunnel.engine.server.telemetry.log.TaskLogManagerService;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.JobCounter;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolStatus;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
@@ -164,6 +165,8 @@ public class CoordinatorService {
     private final SeaTunnelServer seaTunnelServer;
 
     private final ScheduledExecutorService masterActiveListener;
+
+    private TaskLogManagerService taskLogManagerService;
 
     private final EngineConfig engineConfig;
 
@@ -436,6 +439,10 @@ public class CoordinatorService {
 
         if (resourceManager != null) {
             resourceManager.close();
+        }
+
+        if (taskLogManagerService != null) {
+            taskLogManagerService.close();
         }
 
         try {
