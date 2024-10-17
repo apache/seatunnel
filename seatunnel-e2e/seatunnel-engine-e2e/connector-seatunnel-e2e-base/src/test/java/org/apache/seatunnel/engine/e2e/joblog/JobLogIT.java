@@ -129,6 +129,7 @@ public class JobLogIT extends SeaTunnelContainer {
                         Tuple2.tuple2(true, "job-" + CUSTOM_JOB_ID + ".log"),
                         Tuple2.tuple2(false, "job-" + CUSTOM_JOB_ID2 + ".log"),
                         Tuple2.tuple2(false, "job-" + CUSTOM_JOB_ID3 + ".log"));
+        soutServerLog();
         assertFileLogClean(after);
     }
 
@@ -193,6 +194,21 @@ public class JobLogIT extends SeaTunnelContainer {
                                             || pattern.matcher(apiSecondExecResult.getStdout())
                                                     .find());
                         });
+    }
+
+    private void soutServerLog() throws IOException, InterruptedException {
+
+        Container.ExecResult execResult =
+                server.execInContainer(
+                        "sh", "-c", "cat /tmp/seatunnel/logs/seatunnel-engine-server.log");
+        String serverLogs1 = execResult.getStdout();
+        System.out.println(serverLogs1);
+
+        execResult =
+                secondServer.execInContainer(
+                        "sh", "-c", "cat /tmp/seatunnel/logs/seatunnel-engine-server.log");
+        String secondServerLogs1 = execResult.getStdout();
+        System.out.println(secondServerLogs1);
     }
 
     private void assertFileLogClean(List<Tuple2<Boolean, String>> tuple2s)

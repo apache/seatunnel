@@ -185,7 +185,7 @@ public class TaskLogCleanService {
         private boolean checkTaskStatus(String logFileName) {
             Pattern pattern = Pattern.compile("\\b(\\d{18})\\b");
             Matcher matcher = pattern.matcher(logFileName);
-            boolean isEnd = true;
+            boolean isRuning = true;
 
             if (matcher.find()) {
                 JobStatus jobStateWithRunMap = null;
@@ -204,14 +204,23 @@ public class TaskLogCleanService {
                 if (status != null) {
                     jobStateWithRunMap = (JobStatus) status;
                 }
-                isEnd =
-                        status != null
-                                && jobStateWithFinishedMap != null
-                                && !jobStateWithFinishedMap.isEndState()
-                                && !jobStateWithRunMap.isEndState();
-                log.info("Job {} is running: {}", jobId, isEnd);
+                log.info(
+                        "jobId {} jobStateWithRunMap {} jobStateWithFinishedMap {}",
+                        jobId,
+                        jobStateWithRunMap,
+                        jobStateWithFinishedMap);
+                isRuning =
+                        (jobStateWithRunMap != null)
+                                ? !jobStateWithRunMap.isEndState()
+                                : (jobStateWithFinishedMap != null
+                                        && !jobStateWithFinishedMap.isEndState());
+                log.info("Job {} is running: {}", jobId, isRuning);
             }
-            return isEnd;
+            return isRuning;
         }
+    }
+
+    public static void main(String[] args) {
+        System.out.println();
     }
 }
