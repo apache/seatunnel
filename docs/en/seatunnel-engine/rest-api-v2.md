@@ -742,30 +742,52 @@ If the parameter is an empty `Map` object, it means that the tags of the current
 
 ------------------------------------------------------------------------------------------
 
-### Get Log Content from All Nodes
+### Get Logs from All Nodes
 
 <details>
  <summary><code>GET</code> <code><b>/logs/:jobId</b></code> <code>(Returns a list of logs.)</code></summary>
 
 #### Request Parameters
 
-#### Parameters (Add in the `params` field of the request body)
+#### Parameters (to be added in the `params` field of the request body)
 
-> |         Parameter Name        | Required |  Type  |               Description                |
-> |------------------------------|----------|--------|-----------------------------------------|
-> | jobId                        | optional | string | The job ID                              |
+> |    Parameter Name     |   Required   |  Type   |            Description            |
+> |-----------------------|--------------|---------|------------------------------------|
+> | jobId                 |   optional   | string  | job id                            |
 
-When `jobId` is empty, it returns log information for all nodes. Otherwise, it returns a list of logs for the specified `jobId` across all nodes.
+If `jobId` is empty, the request will return logs from all nodes. Otherwise, it will return the list of logs for the specified `jobId` from all nodes.
 
 #### Response
 
-Returns a list and content of logs from the requested nodes.
+Returns a list of logs from the requested nodes along with their content.
+
+#### Return List of All Log Files
+
+If you want to view the log list first, you can retrieve it via a `GET` request: `http://localhost:8080/seatunnel/logs?format=json`
+
+```json
+[
+  {
+    "node": "localhost:8080",
+    "logLink": "http://localhost:8080/seatunnel/logs/job-899485770241277953.log",
+    "logName": "job-899485770241277953.log"
+  },
+  {
+    "node": "localhost:8080",
+    "logLink": "http://localhost:8080/seatunnel/logs/job-899470314109468673.log",
+    "logName": "job-899470314109468673.log"
+  }
+]
+```
+
+Supported formats are `json` and `text`, with `html` as the default.
 
 #### Examples
 
-To get log information for `jobId` `733584788375666689` from all nodes: `http://localhost:5801/logs/733584788375666689`
-To get a list of logs from all nodes: `http://localhost:5801/logs`
-To get the content of a log file: `http://localhost:5801/logs/job-898380162133917698.log`
+Retrieve logs for `jobId` `733584788375666689` across all nodes: `http://localhost:8080/logs/733584788375666689`
+Retrieve the list of logs from all nodes: `http://localhost:8080/logs`
+Retrieve the list of logs in JSON format: `http://localhost:8080/logs?format=json`
+Retrieve the content of a specific log file: `http://localhost:8080/logs/job-898380162133917698.log`
 
 </details>
 

@@ -40,6 +40,7 @@ import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.NodeExtension;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.dag.DAGUtils;
+import org.apache.seatunnel.engine.server.log.FormatType;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpGetCommandProcessor;
 import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
 import org.apache.seatunnel.engine.server.operation.GetClusterHealthMetricsOperation;
@@ -70,7 +71,7 @@ import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.json.JsonValue;
 import com.hazelcast.internal.util.JsonUtil;
 import com.hazelcast.internal.util.StringUtil;
-import com.hazelcast.jet.datamodel.Tuple2;
+import com.hazelcast.jet.datamodel.Tuple3;
 import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
@@ -826,7 +827,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
 
         if (StringUtils.isBlank(logName)) {
             StringBuffer logLink = new StringBuffer();
-            ArrayList<Tuple2<String, String>> allLogNameList = new ArrayList<>();
+            ArrayList<Tuple3<String, String, String>> allLogNameList = new ArrayList<>();
 
             systemMonitoringInformationJsonValues.forEach(
                     systemMonitoringInformation -> {
@@ -850,19 +851,54 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                                         return;
                                     }
                                     allLogNameList.add(
-                                            Tuple2.tuple2(
-                                                    host + ":" + port + "-" + fileName,
-                                                    url + GET_LOGS + "/" + fileName));
+                                            Tuple3.tuple3(
+                                                    host + ":" + port,
+                                                    url + GET_LOGS + "/" + fileName,
+                                                    fileName));
                                 });
                     });
-
-            allLogNameList.forEach(
-                    tuple2 -> logLink.append(buildLogLink(tuple2.f1(), tuple2.f0())));
-            String logContent = buildWebSiteContent(logLink);
-            this.prepareResponse(httpGetCommand, getRestValue(logContent));
+            FormatType formatType = getFormatType(uri);
+            switch (formatType) {
+                case JSON:
+                    JsonArray jsonArray =
+                            allLogNameList.stream()
+                                    .map(
+                                            tuple -> {
+                                                JsonObject jsonObject = new JsonObject();
+                                                jsonObject.add("node", tuple.f0());
+                                                jsonObject.add("logLink", tuple.f1());
+                                                jsonObject.add("logName", tuple.f2());
+                                                return jsonObject;
+                                            })
+                                    .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+                    this.prepareResponse(httpGetCommand, jsonArray);
+                    return;
+                case HTML:
+                default:
+                    allLogNameList.forEach(
+                            tuple ->
+                                    logLink.append(
+                                            buildLogLink(
+                                                    tuple.f1(), tuple.f0() + "-" + tuple.f2())));
+                    String logContent = buildWebSiteContent(logLink);
+                    this.prepareResponse(httpGetCommand, getRestValue(logContent));
+            }
         } else {
             prepareLogResponse(httpGetCommand, logPath, logName);
         }
+    }
+
+    private FormatType getFormatType(String uri) {
+        Map<String, String> uriParam = getUriParam(uri);
+        return FormatType.fromString(uriParam.get("format"));
+    }
+
+    private Map<String, String> getUriParam(String uri) {
+        String queryString = uri.contains("?") ? uri.substring(uri.indexOf("?") + 1) : "";
+        return Arrays.stream(queryString.split("&"))
+                .map(param -> param.split("=", 2))
+                .filter(pair -> pair.length == 2)
+                .collect(Collectors.toMap(pair -> pair[0], pair -> pair[1]));
     }
 
     private String getParam(String uri) {

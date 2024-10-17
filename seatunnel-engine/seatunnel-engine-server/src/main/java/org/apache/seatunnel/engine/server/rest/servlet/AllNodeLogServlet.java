@@ -22,11 +22,13 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.log.FormatType;
 
 import org.apache.commons.lang3.StringUtils;
 
 import com.hazelcast.internal.json.JsonArray;
-import com.hazelcast.jet.datamodel.Tuple2;
+import com.hazelcast.internal.json.JsonObject;
+import com.hazelcast.jet.datamodel.Tuple3;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
@@ -57,6 +59,7 @@ public class AllNodeLogServlet extends LogBaseServlet {
         String contextPath = httpConfig.getContextPath();
         int port = httpConfig.getPort();
         String uri = req.getRequestURI();
+
         // Analysis uri, get logName and jobId param
         String param = getLogParam(uri, contextPath);
         boolean isLogFile = param.contains(".log");
@@ -69,7 +72,7 @@ public class AllNodeLogServlet extends LogBaseServlet {
 
         if (StringUtils.isBlank(logName)) {
             StringBuffer logLink = new StringBuffer();
-            ArrayList<Tuple2<String, String>> allLogNameList = new ArrayList<>();
+            ArrayList<Tuple3<String, String, String>> allLogNameList = new ArrayList<>();
 
             systemMonitoringInformationJsonValues.forEach(
                     systemMonitoringInformation -> {
@@ -87,16 +90,39 @@ public class AllNodeLogServlet extends LogBaseServlet {
                                         return;
                                     }
                                     allLogNameList.add(
-                                            Tuple2.tuple2(
-                                                    host + ":" + port + "-" + fileName,
-                                                    url + GET_LOGS + "/" + fileName));
+                                            Tuple3.tuple3(
+                                                    host + ":" + port,
+                                                    url + GET_LOGS + "/" + fileName,
+                                                    fileName));
                                 });
                     });
 
-            allLogNameList.forEach(
-                    tuple2 -> logLink.append(buildLogLink(tuple2.f1(), tuple2.f0())));
-            String logContent = buildWebSiteContent(logLink);
-            writeHtml(resp, logContent);
+            FormatType formatType = FormatType.fromString(req.getParameter("format"));
+            switch (formatType) {
+                case JSON:
+                    JsonArray jsonArray =
+                            allLogNameList.stream()
+                                    .map(
+                                            tuple -> {
+                                                JsonObject jsonObject = new JsonObject();
+                                                jsonObject.add("node", tuple.f0());
+                                                jsonObject.add("logLink", tuple.f1());
+                                                jsonObject.add("logName", tuple.f2());
+                                                return jsonObject;
+                                            })
+                                    .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+                    writeJson(resp, jsonArray);
+                    return;
+                case HTML:
+                default:
+                    allLogNameList.forEach(
+                            tuple ->
+                                    logLink.append(
+                                            buildLogLink(
+                                                    tuple.f1(), tuple.f0() + "-" + tuple.f2())));
+                    String logContent = buildWebSiteContent(logLink);
+                    writeHtml(resp, logContent);
+            }
         } else {
             prepareLogResponse(resp, logPath, logName);
         }

@@ -802,10 +802,32 @@ network:
 
 返回请求节点的日志列表、内容
 
+#### 返回所有日志文件列表
+
+如果你想先查看日志列表，可以通过`GET`请求获取日志列表，`http://localhost:5801/hazelcast/rest/maps/logs?format=json`
+
+```json
+[
+  {
+    "node": "localhost:5801",
+    "logLink": "http://localhost:5801/hazelcast/rest/maps/logs/job-899485770241277953.log",
+    "logName": "job-899485770241277953.log"
+  },
+  {
+    "node": "localhost:5801",
+    "logLink": "http://localhost:5801/hazelcast/rest/maps/logs/job-899470314109468673.log",
+    "logName": "job-899470314109468673.log"
+  }
+]
+```
+
+当前支持的格式有`json`和`text`，默认为`html`。
+
 #### 例子
 
 获取所有节点jobId为`733584788375666689`的日志信息：`http://localhost:5801/hazelcast/rest/maps/logs/733584788375666689`
 获取所有节点日志列表：`http://localhost:5801/hazelcast/rest/maps/logs`
+获取所有节点日志列表以JSON格式返回：`http://localhost:5801/hazelcast/rest/maps/logs?format=json`
 获取日志文件内容：`http://localhost:5801/hazelcast/rest/maps/logs/job-898380162133917698.log``
 
 
