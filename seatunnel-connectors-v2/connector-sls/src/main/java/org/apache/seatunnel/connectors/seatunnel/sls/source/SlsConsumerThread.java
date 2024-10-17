@@ -55,7 +55,7 @@ public class SlsConsumerThread implements Runnable {
         } finally {
             try {
                 if (client != null) {
-                    /** now do nothine, do not need close */
+                    client.shutdown();
                 }
             } catch (Throwable t) {
                 throw new RuntimeException(t);

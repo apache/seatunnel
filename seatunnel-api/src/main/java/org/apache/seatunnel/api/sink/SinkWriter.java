@@ -62,7 +62,22 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
      *
      * @return the commit info need to commit
      */
+    @Deprecated
     Optional<CommitInfoT> prepareCommit() throws IOException;
+
+    /**
+     * prepare the commit, will be called before {@link #snapshotState(long checkpointId)}. If you
+     * need to use 2pc, you can return the commit info in this method, and receive the commit info
+     * in {@link SinkCommitter#commit(List)}. If this method failed (by throw exception), **Only**
+     * Spark engine will call {@link #abortPrepare()}
+     *
+     * @param checkpointId checkpointId
+     * @return the commit info need to commit
+     * @throws IOException If fail to prepareCommit
+     */
+    default Optional<CommitInfoT> prepareCommit(long checkpointId) throws IOException {
+        return prepareCommit();
+    }
 
     /**
      * @return The writer's state.

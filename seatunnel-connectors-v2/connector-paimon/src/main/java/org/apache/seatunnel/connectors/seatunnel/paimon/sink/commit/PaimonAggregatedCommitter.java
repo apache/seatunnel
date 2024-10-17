@@ -36,10 +36,11 @@ import org.apache.paimon.table.sink.WriteBuilder;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 /** Paimon connector aggregated committer class */
@@ -70,21 +71,32 @@ public class PaimonAggregatedCommitter
     public List<PaimonAggregatedCommitInfo> commit(
             List<PaimonAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
         try (TableCommit tableCommit = tableWriteBuilder.newCommit()) {
-            List<CommitMessage> fileCommittables =
-                    aggregatedCommitInfo.stream()
-                            .map(PaimonAggregatedCommitInfo::getCommittables)
-                            .flatMap(List::stream)
-                            .flatMap(List::stream)
-                            .collect(Collectors.toList());
             PaimonSecurityContext.runSecured(
                     () -> {
                         if (JobContextUtil.isBatchJob(jobContext)) {
                             log.debug("Trying to commit states batch mode");
+                            List<CommitMessage> fileCommittables =
+                                    aggregatedCommitInfo.stream()
+                                            .flatMap(
+                                                    info ->
+                                                            info.getCommittablesMap().values()
+                                                                    .stream())
+                                            .flatMap(List::stream)
+                                            .collect(Collectors.toList());
                             ((BatchTableCommit) tableCommit).commit(fileCommittables);
                         } else {
                             log.debug("Trying to commit states streaming mode");
-                            ((StreamTableCommit) tableCommit)
-                                    .commit(Objects.hash(fileCommittables), fileCommittables);
+                            aggregatedCommitInfo.stream()
+                                    .flatMap(
+                                            paimonAggregatedCommitInfo ->
+                                                    paimonAggregatedCommitInfo.getCommittablesMap()
+                                                            .entrySet().stream())
+                                    .forEach(
+                                            entry ->
+                                                    ((StreamTableCommit) tableCommit)
+                                                            .commit(
+                                                                    entry.getKey(),
+                                                                    entry.getValue()));
                         }
                         return null;
                     });
@@ -99,8 +111,14 @@ public class PaimonAggregatedCommitter
 
     @Override
     public PaimonAggregatedCommitInfo combine(List<PaimonCommitInfo> commitInfos) {
-        List<List<CommitMessage>> committables = new ArrayList<>();
-        commitInfos.forEach(commitInfo -> committables.add(commitInfo.getCommittables()));
+        Map<Long, List<CommitMessage>> committables = new HashMap<>();
+        commitInfos.forEach(
+                commitInfo ->
+                        committables
+                                .computeIfAbsent(
+                                        commitInfo.getCheckpointId(),
+                                        id -> new CopyOnWriteArrayList<>())
+                                .addAll(commitInfo.getCommittables()));
         return new PaimonAggregatedCommitInfo(committables);
     }
 

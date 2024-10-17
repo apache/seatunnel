@@ -57,7 +57,7 @@ public class MultiTableSinkWriterTest {
         DefaultSerializer<Serializable> defaultSerializer = new DefaultSerializer<>();
 
         for (int i = 0; i < 100; i++) {
-            byte[] bytes = defaultSerializer.serialize(multiTableSinkWriter.prepareCommit().get());
+            byte[] bytes = defaultSerializer.serialize(multiTableSinkWriter.prepareCommit(i).get());
             defaultSerializer.deserialize(bytes);
         }
     }

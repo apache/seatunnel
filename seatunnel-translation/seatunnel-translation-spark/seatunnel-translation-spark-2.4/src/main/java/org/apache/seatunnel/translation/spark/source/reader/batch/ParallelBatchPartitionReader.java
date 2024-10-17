@@ -84,7 +84,7 @@ public class ParallelBatchPartitionReader {
         return String.format("parallel-split-enumerator-executor-%s", subtaskId);
     }
 
-    public boolean next() throws IOException {
+    public boolean next() throws Exception {
         prepare();
         while (running && handover.isEmpty()) {
             try {

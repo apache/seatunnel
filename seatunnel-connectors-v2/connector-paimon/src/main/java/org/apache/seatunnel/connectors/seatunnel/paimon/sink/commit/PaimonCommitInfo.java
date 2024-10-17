@@ -32,4 +32,6 @@ public class PaimonCommitInfo implements Serializable {
     private static final long serialVersionUID = 1L;
 
     List<CommitMessage> committables;
+
+    Long checkpointId;
 }

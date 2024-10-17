@@ -252,9 +252,12 @@ public class DorisCatalogUtil {
             Column column, TypeConverter<BasicTypeDefine> typeConverter) {
         checkNotNull(column, "The column is required.");
         return String.format(
-                "`%s` %s %s ",
+                "`%s` %s %s %s",
                 column.getName(),
                 typeConverter.reconvert(column).getColumnType(),
-                column.isNullable() ? "NULL" : "NOT NULL");
+                column.isNullable() ? "NULL" : "NOT NULL",
+                StringUtils.isEmpty(column.getComment())
+                        ? ""
+                        : "COMMENT '" + column.getComment() + "'");
     }
 }

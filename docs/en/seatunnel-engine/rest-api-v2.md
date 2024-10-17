@@ -88,10 +88,19 @@ seatunnel:
     },
     "createTime": "",
     "jobDag": {
-      "vertices": [
+      "jobId": "",
+      "envOptions": [],
+      "vertexInfoMap": [
+        {
+          "vertexId": 1,
+          "type": "",
+          "vertexName": "",
+          "tablePaths": [
+            ""
+          ]
+        }
       ],
-      "edges": [
-      ]
+      "pipelineEdges": {}
     },
     "pluginJarsUrls": [
     ],
@@ -129,6 +138,7 @@ seatunnel:
   "createTime": "",
   "jobDag": {
     "jobId": "",
+    "envOptions": [],
     "vertexInfoMap": [
       {
         "vertexId": 1,
@@ -194,6 +204,7 @@ This API has been deprecated, please use /job-info/:jobId instead
   "createTime": "",
   "jobDag": {
     "jobId": "",
+    "envOptions": [],
     "vertexInfoMap": [
       {
         "vertexId": 1,
@@ -274,6 +285,7 @@ When we can't get the job info, the response will be:
     "finishTime": "",
     "jobDag": {
       "jobId": "",
+      "envOptions": [],
       "vertexInfoMap": [
         {
           "vertexId": 1,
