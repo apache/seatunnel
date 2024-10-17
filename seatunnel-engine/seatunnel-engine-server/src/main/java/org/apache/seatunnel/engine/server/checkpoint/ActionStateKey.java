@@ -21,6 +21,7 @@ import org.apache.seatunnel.engine.core.dag.actions.Action;
 
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
@@ -29,6 +30,7 @@ import java.io.Serializable;
 
 @ToString
 @Setter
+@Getter
 @AllArgsConstructor
 @NoArgsConstructor
 @EqualsAndHashCode

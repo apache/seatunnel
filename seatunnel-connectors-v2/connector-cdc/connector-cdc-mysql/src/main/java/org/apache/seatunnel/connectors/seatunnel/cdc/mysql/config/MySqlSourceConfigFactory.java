@@ -30,6 +30,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 /** A factory to initialize {@link MySqlSourceConfig}. */
 public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
+    public static final String SCHEMA_CHANGE_KEY = "include.schema.changes";
+    public static final Boolean SCHEMA_CHANGE_DEFAULT = true;
 
     private ServerIdRange serverIdRange;
 
@@ -77,8 +79,8 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
         // only DataStream API program need to emit the schema record, the Table API need not
 
         // Some scenarios do not require automatic capture of table structure changes, so the
-        // default setting is false.
-        props.setProperty("include.schema.changes", String.valueOf(false));
+        // default setting is true.
+        props.setProperty(SCHEMA_CHANGE_KEY, SCHEMA_CHANGE_DEFAULT.toString());
         // disable the offset flush totally
         props.setProperty("offset.flush.interval.ms", String.valueOf(Long.MAX_VALUE));
         // disable tombstones

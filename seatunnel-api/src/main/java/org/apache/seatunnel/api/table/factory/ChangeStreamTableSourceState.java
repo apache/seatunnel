@@ -15,15 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.event;
+package org.apache.seatunnel.api.table.factory;
 
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.source.SourceSplit;
 
-import lombok.ToString;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-@ToString(callSuper = true)
-public abstract class AlterTableEvent extends TableEvent {
-    public AlterTableEvent(TableIdentifier tableIdentifier) {
-        super(tableIdentifier);
-    }
+import java.io.Serializable;
+import java.util.List;
+
+@Data
+@AllArgsConstructor
+public class ChangeStreamTableSourceState<StateT extends Serializable, SplitT extends SourceSplit> {
+    private StateT enumeratorState;
+    public List<List<SplitT>> splits;
 }

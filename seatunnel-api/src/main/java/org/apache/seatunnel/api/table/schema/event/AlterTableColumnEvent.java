@@ -15,39 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.event;
+package org.apache.seatunnel.api.table.schema.event;
 
-import org.apache.seatunnel.api.event.EventType;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 
-import lombok.Getter;
 import lombok.ToString;
 
-import java.util.ArrayList;
-import java.util.List;
-
-@Getter
 @ToString(callSuper = true)
-public class AlterTableColumnsEvent extends AlterTableEvent {
-    private final List<AlterTableColumnEvent> events;
+public abstract class AlterTableColumnEvent extends AlterTableEvent {
 
-    public AlterTableColumnsEvent(TableIdentifier tableIdentifier) {
-        this(tableIdentifier, new ArrayList<>());
-    }
-
-    public AlterTableColumnsEvent(
-            TableIdentifier tableIdentifier, List<AlterTableColumnEvent> events) {
+    public AlterTableColumnEvent(TableIdentifier tableIdentifier) {
         super(tableIdentifier);
-        this.events = events;
-    }
-
-    public AlterTableColumnsEvent addEvent(AlterTableColumnEvent event) {
-        events.add(event);
-        return this;
-    }
-
-    @Override
-    public EventType getEventType() {
-        return EventType.SCHEMA_CHANGE_UPDATE_COLUMNS;
     }
 }
