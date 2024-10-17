@@ -14,8 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-package org.apache.seatunnel.engine.e2e;
+package org.apache.seatunnel.engine.e2e.telemetry;
 
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
@@ -25,61 +41,41 @@ import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
-import org.apache.seatunnel.engine.common.config.server.TelemetryConfig;
-import org.apache.seatunnel.engine.common.config.server.TelemetryMetricConfig;
 import org.apache.seatunnel.engine.core.job.JobStatus;
-import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.e2e.TestUtils;
 
 import org.awaitility.Awaitility;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
-import lombok.extern.slf4j.Slf4j;
+import io.restassured.response.Response;
 
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.Matchers.matchesRegex;
 
-@Slf4j
-public class TelemetryApiIT {
+public class TelemetryTestUtils {
 
     private static final String HOST = "http://localhost:";
 
-    private static ClientJobProxy clientJobProxy;
-
-    private static HazelcastInstanceImpl hazelcastInstance;
-
-    private static String testClusterName;
-
-    @BeforeAll
-    static void beforeClass() throws Exception {
-        testClusterName = TestUtils.getClusterName("TelemetryApiIT");
-        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
-        seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
-        TelemetryMetricConfig telemetryMetricConfig = new TelemetryMetricConfig();
-        telemetryMetricConfig.setEnabled(true);
-        TelemetryConfig telemetryConfig = new TelemetryConfig();
-        telemetryConfig.setMetric(telemetryMetricConfig);
-        seaTunnelConfig.getEngineConfig().setTelemetryConfig(telemetryConfig);
-        hazelcastInstance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+    public static void runJob(SeaTunnelConfig seaTunnelConfig, String clusterName)
+            throws ExecutionException, InterruptedException {
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("stream_fakesource_to_file.conf");
+        String filePath = TestUtils.getResource("stream_fakesource_to_console.conf");
         JobConfig jobConfig = new JobConfig();
-        jobConfig.setName("fake_to_file");
+        jobConfig.setName("fake_to_console");
 
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        clientConfig.setClusterName(testClusterName);
+        clientConfig.setClusterName(clusterName);
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         ClientJobExecutionEnvironment jobExecutionEnv =
                 engineClient.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
 
-        clientJobProxy = jobExecutionEnv.execute();
+        final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
         Awaitility.await()
                 .atMost(2, TimeUnit.MINUTES)
@@ -89,17 +85,19 @@ public class TelemetryApiIT {
                                         JobStatus.RUNNING, clientJobProxy.getJobStatus()));
     }
 
-    @Test
-    public void testGetMetrics() throws InterruptedException {
-        given().get(
-                        HOST
-                                + hazelcastInstance
-                                        .getCluster()
-                                        .getLocalMember()
-                                        .getAddress()
-                                        .getPort()
-                                + "/hazelcast/rest/instance/metrics")
-                .then()
+    public static void testGetMetrics(
+            HazelcastInstanceImpl hazelcastInstance, String testClusterName)
+            throws InterruptedException {
+        Response response =
+                given().get(
+                                HOST
+                                        + hazelcastInstance
+                                                .getCluster()
+                                                .getLocalMember()
+                                                .getAddress()
+                                                .getPort()
+                                        + "/hazelcast/rest/instance/metrics");
+        response.then()
                 .statusCode(200)
                 // Use regular expressions to verify whether the response body is the indicator data
                 // of Prometheus
@@ -526,12 +524,5 @@ public class TelemetryApiIT {
                                 "(?s)^.*hazelcast_partition_isLocalMemberSafe\\{cluster=\""
                                         + testClusterName
                                         + "\",address=.*$"));
-    }
-
-    @AfterAll
-    static void afterClass() {
-        if (hazelcastInstance != null) {
-            hazelcastInstance.shutdown();
-        }
     }
 }
