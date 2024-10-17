@@ -1,13 +1,29 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { Graph, Path, Cell } from '@antv/x6'
 import { Selection } from '@antv/x6-plugin-selection'
 import { register } from '@antv/x6-vue-shape'
-import { computed, defineComponent, onMounted, type PropType } from 'vue'
+import { defineComponent, onMounted, type PropType } from 'vue'
 import './index.scss'
-import type { Job, Metrics, Vertex } from '@/service/job/types'
-import { NDataTable, NTag, type DataTableColumns } from 'naive-ui'
+import type { Job, Vertex } from '@/service/job/types'
 
 interface NodeStatus {
-  id: string
+  id: number
   status: Job['jobStatus'] | 'default'
   label?: string
 }
@@ -29,7 +45,7 @@ const nodeWidth = 300
 register({
   shape: 'dag-node',
   width: nodeWidth,
-  height: 36,
+  height: 48,
   component: AlgoNode,
   ports: {
     groups: {
@@ -101,6 +117,10 @@ export default defineComponent({
   props: {
     job: {
       type: Object as PropType<Job>,
+      required: true
+    },
+    onNodeClick: {
+      type: Function as PropType<(id: number) => void>,
       required: true
     }
   },
@@ -186,6 +206,13 @@ export default defineComponent({
           }
         })
       })
+      graph.on('node:click', ({ node }) => {
+        const { id } = node.getData() as NodeStatus
+        props.onNodeClick(id)
+      })
+      graph.on('blank:click', () => {
+        props.onNodeClick(0)
+      })
 
       type Port = { id: string; group: string }
       type Point = Vertex & { next: Vertex[]; row?: Point[]; ports?: Port[] }
@@ -237,16 +264,16 @@ export default defineComponent({
 
         const items: Cell.Metadata[] = []
 
-        const offsetY = 100
-        const offsetX = nodeWidth + 100
+        const offsetY = 140
+        const offsetX = nodeWidth + 240
         matrix.forEach((row, rowNumber) => {
           row.forEach((item, colNumber) => {
-            const id = 'node-' + String(item.vertexId)
             const data: NodeStatus = {
-              id: String(item.vertexId),
+              id: item.vertexId,
               label: item.vertexName,
               status: props?.job?.jobStatus || 'default'
             }
+            const id = 'node-' + String(item.vertexId)
             const ports = [] as Port[]
             if (colNumber !== 0) {
               ports.push({
@@ -307,7 +334,7 @@ export default defineComponent({
         const status = statusList[Math.floor(Math.random() * statusList.length)]
         status?.forEach((item) => {
           const { id, status } = item
-          const node = graph.getCellById(id)
+          const node = graph.getCellById(`node-${id}`)
           const data = node.getData() as NodeStatus
           node.setData({
             ...data,
@@ -323,91 +350,9 @@ export default defineComponent({
       setTimeout(() => {
         init()
         graph.centerContent()
-      }, 2000)
+      }, 500)
     })
 
-    const vertexs = computed(() => props?.job?.jobDag?.vertexInfoMap || [])
-    const metrics = computed(() => props?.job?.metrics || {})
-
-    const sourceCell = (
-      row: Vertex,
-      key:
-        | 'TableSourceReceivedBytes'
-        | 'TableSourceReceivedCount'
-        | 'TableSourceReceivedQPS'
-        | 'TableSourceReceivedBytesPerSeconds'
-    ) =>
-      row.type === 'source' &&
-      row.tablePaths.reduce((s, path) => s + Number(metrics.value[key][path]), 0)
-    const sinkCell = (
-      row: Vertex,
-      key:
-        | 'TableSinkWriteBytes'
-        | 'TableSinkWriteCount'
-        | 'TableSinkWriteQPS'
-        | 'TableSinkWriteBytesPerSeconds'
-    ) =>
-      row.type === 'sink' &&
-      row.tablePaths.reduce((s, path) => s + Number(metrics.value[key][path]), 0)
-    const columns: DataTableColumns<Vertex> = [
-      {
-        title: 'Name',
-        key: 'vertexName'
-      },
-      {
-        title: 'Received Bytes',
-        key: 'key',
-        render: (row) => sourceCell(row, 'TableSourceReceivedBytes')
-      },
-      {
-        title: 'Write Bytes',
-        key: 'key',
-        render: (row) => sinkCell(row, 'TableSinkWriteBytes')
-      },
-      {
-        title: 'Received Count',
-        key: 'key',
-        render: (row) => sourceCell(row, 'TableSourceReceivedCount')
-      },
-      {
-        title: 'Write Count',
-        key: 'key',
-        render: (row) => sinkCell(row, 'TableSinkWriteCount')
-      },
-      {
-        title: 'Received QPS',
-        key: 'key',
-        render: (row) => sourceCell(row, 'TableSourceReceivedQPS')
-      },
-      {
-        title: 'Write QPS',
-        key: 'key',
-        render: (row) => sinkCell(row, 'TableSinkWriteQPS')
-      },
-      {
-        title: 'Received Bytes PerSecond',
-        key: 'key',
-        render: (row) => sourceCell(row, 'TableSourceReceivedBytesPerSeconds')
-      },
-      {
-        title: 'Write Bytes PerSecond',
-        key: 'key',
-        render: (row) => sinkCell(row, 'TableSinkWriteBytesPerSeconds')
-      }
-    ]
-
-    return () => (
-      <div>
-        <div id="container" style="height: 500px"></div>
-        <NDataTable
-          columns={columns}
-          data={vertexs.value}
-          pagination={false}
-          scrollX="auto"
-          bordered
-          striped
-        />
-      </div>
-    )
+    return () => <div id="container" style="height: 500px" />
   }
 })

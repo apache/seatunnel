@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-import { NTabs, NTabPane, NDivider, NTag } from 'naive-ui'
+import { NTabs, NTabPane, NDivider, NTag, NDataTable, type DataTableColumns } from 'naive-ui'
 import { defineComponent, getCurrentInstance, h, reactive, ref, watch } from 'vue'
 import { getJobInfo } from '@/service/job'
 import { useRoute } from 'vue-router'
-import type { Job } from '@/service/job/types'
+import type { Job, Vertex } from '@/service/job/types'
 import { useI18n } from 'vue-i18n'
 import { getRemainTime } from '@/utils/time'
-import { format, parse } from 'date-fns'
+import { parse } from 'date-fns'
 import DAG from '@/components/directed-acyclic-graph'
 import { getTypeFromStatus } from '@/utils/getTypeFromStatus'
+import './detail.scss'
 
 export default defineComponent({
   setup() {
@@ -37,6 +38,10 @@ export default defineComponent({
     getJobInfo(jobId).then((res) => {
       Object.assign(job, res)
       const d = parse(res.createTime, 'yyyy-MM-dd HH:mm:ss', new Date())
+      duration.value = getRemainTime(Math.abs(Date.now() - d.getTime()))
+      if (job.jobStatus !== 'RUNNING') {
+        return
+      }
       setInterval(() => {
         duration.value = getRemainTime(Math.abs(Date.now() - d.getTime()))
       }, 1000)
@@ -47,6 +52,90 @@ export default defineComponent({
       console.log(select.value)
     }
     watch(() => select.value, change)
+
+    const sourceCell = (
+      row: Vertex,
+      key:
+        | 'TableSourceReceivedBytes'
+        | 'TableSourceReceivedCount'
+        | 'TableSourceReceivedQPS'
+        | 'TableSourceReceivedBytesPerSeconds'
+    ) => {
+      if (row.type === 'source') {
+        return row.tablePaths.reduce((s, path) => s + Number(job.metrics?.[key][path]), 0)
+      }
+      return 0
+    }
+    const sinkCell = (
+      row: Vertex,
+      key:
+        | 'TableSinkWriteBytes'
+        | 'TableSinkWriteCount'
+        | 'TableSinkWriteQPS'
+        | 'TableSinkWriteBytesPerSeconds'
+    ) => {
+      if (row.type === 'sink') {
+        return row.tablePaths.reduce((s, path) => s + Number(job.metrics?.[key][path]), 0)
+      }
+      return 0
+    }
+    const columns: DataTableColumns<Vertex> = [
+      {
+        title: 'Name',
+        key: 'vertexName'
+      },
+      {
+        title: 'Received Bytes',
+        key: 'key',
+        render: (row) => sourceCell(row, 'TableSourceReceivedBytes')
+      },
+      {
+        title: 'Write Bytes',
+        key: 'key',
+        render: (row) => sinkCell(row, 'TableSinkWriteBytes')
+      },
+      {
+        title: 'Received Count',
+        key: 'key',
+        render: (row) => sourceCell(row, 'TableSourceReceivedCount')
+      },
+      {
+        title: 'Write Count',
+        key: 'key',
+        render: (row) => sinkCell(row, 'TableSinkWriteCount')
+      },
+      {
+        title: 'Received QPS',
+        key: 'key',
+        render: (row) => sourceCell(row, 'TableSourceReceivedQPS')
+      },
+      {
+        title: 'Write QPS',
+        key: 'key',
+        render: (row) => sinkCell(row, 'TableSinkWriteQPS')
+      },
+      {
+        title: 'Received Bytes PerSecond',
+        key: 'key',
+        render: (row) => sourceCell(row, 'TableSourceReceivedBytesPerSeconds')
+      },
+      {
+        title: 'Write Bytes PerSecond',
+        key: 'key',
+        render: (row) => sinkCell(row, 'TableSinkWriteBytesPerSeconds')
+      }
+    ]
+
+    const focusedId = ref(0)
+    const onNodeClick = (id: number) => {
+      focusedId.value = id
+    }
+    const rowClassName = (row: Vertex) => {
+      if (row.vertexId === focusedId.value) {
+        return 'focused-row'
+      }
+      return ''
+    }
     return () => (
       <div class="w-full bg-white px-12 pt-6 pb-12 border border-gray-100 rounded-xl">
         <div class="font-bold text-xl">
@@ -67,16 +156,18 @@ export default defineComponent({
         </div>
         <NTabs v-model:value={select.value} type="line" animated>
           <NTabPane name="Overview" tab="Overview">
-            <DAG {...{ job: job }} />
-          </NTabPane>
-          <NTabPane name="Logs" tab="Logs">
-            Logs
+            <DAG job={job} onNodeClick={onNodeClick} />
+            <NDataTable
+              columns={columns}
+              data={job.jobDag?.vertexInfoMap || []}
+              pagination={false}
+              scrollX="auto"
+              bordered
+              rowClassName={rowClassName}
+            />
           </NTabPane>
           <NTabPane name="Exception" tab="Exception">
-            Exception
-          </NTabPane>
-          <NTabPane name="Metrics" tab="Metrics">
-            Metrics
+            {job.errorMsg}
           </NTabPane>
         </NTabs>
       </div>

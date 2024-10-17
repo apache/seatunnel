@@ -24,6 +24,9 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 // https://vitejs.dev/config/
 export default defineConfig({
   base: '/',
+  build: {
+    outDir: '../seatunnel-engine-server/src/main/resources/ui'
+  },
   plugins: [vue(), vueJsx(), vueDevTools()],
   resolve: {
     alias: {
