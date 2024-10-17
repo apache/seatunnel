@@ -51,8 +51,8 @@ public class TypesenseSink
                 SupportMultiTableSink,
                 SupportSaveMode {
 
-    private ReadonlyConfig config;
-    private CatalogTable catalogTable;
+    private final ReadonlyConfig config;
+    private final CatalogTable catalogTable;
     private final int maxBatchSize;
     private final int maxRetryCount;
 
@@ -92,5 +92,10 @@ public class TypesenseSink
         return Optional.of(
                 new DefaultSaveModeHandler(
                         schemaSaveMode, dataSaveMode, catalog, tablePath, null, null));
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.of(catalogTable);
     }
 }

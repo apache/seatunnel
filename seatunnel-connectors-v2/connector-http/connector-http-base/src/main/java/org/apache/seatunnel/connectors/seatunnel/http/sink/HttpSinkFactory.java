@@ -38,8 +38,7 @@ public class HttpSinkFactory implements TableSinkFactory {
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         CatalogTable catalogTable = context.getCatalogTable();
-        return () ->
-                new HttpSink(context.getOptions().toConfig(), catalogTable.getSeaTunnelRowType());
+        return () -> new HttpSink(context.getOptions().toConfig(), catalogTable);
     }
 
     @Override

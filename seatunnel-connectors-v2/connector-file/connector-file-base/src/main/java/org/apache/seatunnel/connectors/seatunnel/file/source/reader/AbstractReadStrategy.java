@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -92,10 +93,10 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     }
 
     @Override
-    public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
+    public void setCatalogTable(CatalogTable catalogTable) {
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         this.seaTunnelRowTypeWithPartition =
-                mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
+                mergePartitionTypes(fileNames.get(0), catalogTable.getSeaTunnelRowType());
     }
 
     boolean checkFileType(String path) {

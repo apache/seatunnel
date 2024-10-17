@@ -30,7 +30,10 @@ public final class Handover<T> implements Closeable {
             new LinkedBlockingQueue<>(DEFAULT_QUEUE_SIZE);
     private Throwable error;
 
-    public boolean isEmpty() {
+    public boolean isEmpty() throws Exception {
+        if (error != null) {
+            rethrowException(error, error.getMessage());
+        }
         return blockingQueue.isEmpty();
     }
 

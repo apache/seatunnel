@@ -279,7 +279,9 @@ public class HiveSourceConfig implements Serializable {
         }
 
         SeaTunnelRowType seaTunnelRowType = new SeaTunnelRowType(fieldNames, fieldTypes);
-        readStrategy.setSeaTunnelRowTypeInfo(seaTunnelRowType);
+        readStrategy.setCatalogTable(
+                CatalogTableUtil.getCatalogTable(
+                        "hive", table.getDbName(), null, table.getTableName(), seaTunnelRowType));
         final SeaTunnelRowType finalSeatunnelRowType = readStrategy.getActualSeaTunnelRowTypeInfo();
 
         CatalogTable catalogTable = buildEmptyCatalogTable(readonlyConfig, table);
