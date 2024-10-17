@@ -780,7 +780,7 @@ If you want to view the log list first, you can retrieve it via a `GET` request:
 ]
 ```
 
-Supported formats are `json` and `text`, with `html` as the default.
+Supported formats are `json` and `html`, with `html` as the default.
 
 #### Examples
 

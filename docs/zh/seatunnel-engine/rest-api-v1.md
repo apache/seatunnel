@@ -821,7 +821,7 @@ network:
 ]
 ```
 
-当前支持的格式有`json`和`text`，默认为`html`。
+当前支持的格式有`json`和`html`，默认为`html`。
 
 #### 例子
 
