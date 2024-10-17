@@ -15,21 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.state;
+package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
 
-import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhouseSourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+import lombok.Data;
 
 import java.io.Serializable;
-import java.util.List;
-import java.util.Map;
 
-@AllArgsConstructor
-@Getter
-public class ClickhouseSourceState implements Serializable {
-    private List<TablePath> pendingTables;
-    private Map<Integer, List<ClickhouseSourceSplit>> pendingSplits;
+@Data
+public class ClickhouseCatalogConfig implements Serializable {
+
+    private String sql;
+    private CatalogTable catalogTable;
 }

@@ -27,7 +27,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.awaitility.Awaitility;
@@ -81,6 +83,8 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private static final String DRIVER_CLASS = "com.clickhouse.jdbc.ClickHouseDriver";
     private static final String INIT_CLICKHOUSE_PATH = "/init/clickhouse_init.conf";
     private static final String CLICKHOUSE_JOB_CONFIG = "/clickhouse_to_clickhouse.conf";
+    private static final String CLICKHOUSE_MULTI_LIST_TABLE_CONFIG =
+            "/multi_source_clickhouse.conf";
     private static final String DATABASE = "default";
     private static final String SOURCE_TABLE = "source_table";
     private static final String SINK_TABLE = "sink_table";
@@ -99,6 +103,16 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         assertHasData(SINK_TABLE);
         compareResult();
         clearSinkTable();
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "The multi-catalog does not currently support the Spark Flink engine")
+    public void testClickhouseMultiSource(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob(CLICKHOUSE_MULTI_LIST_TABLE_CONFIG);
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @BeforeAll
@@ -125,7 +139,11 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private void initializeClickhouseTable() {
         try {
             Statement statement = this.connection.createStatement();
-            statement.execute(CONFIG.getString(SOURCE_TABLE));
+            for (String sourceSql : CONFIG.getString(SOURCE_TABLE).split(";")) {
+                if (!sourceSql.trim().isEmpty() && sourceSql != null) {
+                    statement.execute(sourceSql);
+                }
+            }
             statement.execute(CONFIG.getString(SINK_TABLE));
         } catch (SQLException e) {
             throw new RuntimeException("Initializing Clickhouse table failed!", e);
