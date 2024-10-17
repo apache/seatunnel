@@ -49,9 +49,14 @@
         </dependency>
 
         <!--   seatunnel connectors   -->
+<!--        <dependency>-->
+<!--            <groupId>org.apache.seatunnel</groupId>-->
+<!--            <artifactId>connector-fake</artifactId>-->
+<!--            <version>${project.version}</version>-->
+<!--        </dependency>-->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-fake</artifactId>
+            <artifactId>connector-file-hadoop</artifactId>
             <version>${project.version}</version>
         </dependency>
 
