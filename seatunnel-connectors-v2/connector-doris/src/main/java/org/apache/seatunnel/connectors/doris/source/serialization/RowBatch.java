@@ -62,8 +62,10 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -363,10 +365,7 @@ public class RowBatch {
                                 if (timestampVector.isNull(rowIndex)) {
                                     return null;
                                 }
-                                String stringValue = timestampVector.getObject(rowIndex).toString();
-                                stringValue = completeMilliseconds(stringValue);
-
-                                return DateTimeUtils.parse(stringValue);
+                                return getDateTimeFromVector(rowIndex, fieldVector);
                             });
                     break;
                 }
@@ -689,6 +688,26 @@ public class RowBatch {
             Object fieldValue = function.apply(rowIndex);
             addValueToRow(rowIndex, col, fieldValue);
         }
+    }
+
+    public LocalDateTime getDateTimeFromVector(int rowIndex, FieldVector fieldVector) {
+        TimeStampMicroVector vector = (TimeStampMicroVector) fieldVector;
+        if (vector.isNull(rowIndex)) {
+            return null;
+        }
+        long time = vector.get(rowIndex);
+        Instant instant;
+        // Check if it's a second-level timestamp
+        if (time / 10_000_000_000L == 0) {
+            instant = Instant.ofEpochSecond(time);
+            // Check if it's a millisecond-level
+        } else if (time / 10_000_000_000_000L == 0) {
+            instant = Instant.ofEpochMilli(time);
+            // Doris supports up to 6 decimal places (microseconds)
+        } else {
+            instant = Instant.ofEpochSecond(time / 1000_000L, time % 1000_000L * 1000L);
+        }
+        return LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
     }
 
     private String completeMilliseconds(String stringValue) {
