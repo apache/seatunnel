@@ -42,5 +42,5 @@ seatunnel:
             metric:
                 enabled: false
         http:
+            enable-http: true
             port: 8080
-            context-path: /seatunnel
