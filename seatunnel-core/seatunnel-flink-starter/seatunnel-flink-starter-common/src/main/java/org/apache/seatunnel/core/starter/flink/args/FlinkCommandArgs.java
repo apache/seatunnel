@@ -23,6 +23,7 @@ import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.command.ConfDecryptCommand;
 import org.apache.seatunnel.core.starter.command.ConfEncryptCommand;
+import org.apache.seatunnel.core.starter.enums.DiscoveryType;
 import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.flink.command.FlinkConfValidateCommand;
 import org.apache.seatunnel.core.starter.flink.command.FlinkTaskExecuteCommand;
@@ -52,6 +53,18 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
                     "Flink job submitted target master, support [local, remote, yarn-session, yarn-per-job, "
                             + "kubernetes-session, yarn-application, kubernetes-application]")
     private MasterType masterType;
+
+    @Parameter(
+            names = {"-s", "--connectors"},
+            description =
+                    "A semicolon-separated list of the classpaths to package with the job jars to be sent to the cluster. These have to be valid URLs.")
+    private String connectors = "";
+
+    @Parameter(
+            names = {"-y", "--discovery"},
+            converter = FlinkPluginDiscoverTypeConverter.class,
+            description = "SeaTunnel discovery extend plugin library type.")
+    private DiscoveryType discoveryType = DiscoveryType.LOCAL;
 
     @Override
     public Command<?> buildCommand() {
@@ -132,6 +145,28 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
                 throw new IllegalArgumentException(
                         "SeaTunnel job on flink engine deploy mode only "
                                 + "support these options: [run, run-application]");
+            }
+        }
+    }
+
+    public static class FlinkPluginDiscoverTypeConverter
+            implements IStringConverter<DiscoveryType> {
+        private static final List<DiscoveryType> DISCOVER_TYPE_LIST = new ArrayList<>();
+
+        static {
+            DISCOVER_TYPE_LIST.add(DiscoveryType.LOCAL);
+            DISCOVER_TYPE_LIST.add(DiscoveryType.REMOTE);
+        }
+
+        @Override
+        public DiscoveryType convert(String value) {
+            DiscoveryType discoveryType = DiscoveryType.valueOf(value.toUpperCase());
+            if (DISCOVER_TYPE_LIST.contains(discoveryType)) {
+                return discoveryType;
+            } else {
+                throw new IllegalArgumentException(
+                        "SeaTunnel job load plugin type only "
+                                + "support these options: [local, remote]");
             }
         }
     }

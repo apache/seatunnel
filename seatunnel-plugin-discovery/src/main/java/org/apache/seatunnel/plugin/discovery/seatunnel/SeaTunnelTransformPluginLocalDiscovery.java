@@ -19,26 +19,23 @@ package org.apache.seatunnel.plugin.discovery.seatunnel;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.table.factory.FactoryUtil;
-import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableTransformFactory;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.AbstractPluginLocalDiscovery;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
-import java.net.URL;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.function.BiConsumer;
 
-public class SeaTunnelSinkPluginDiscovery extends AbstractPluginDiscovery<SeaTunnelSink> {
+public class SeaTunnelTransformPluginLocalDiscovery
+        extends AbstractPluginLocalDiscovery<SeaTunnelTransform> {
 
-    private static final String MULTITABLESINK_FACTORYIDENTIFIER = "MultiTableSink";
-
-    public SeaTunnelSinkPluginDiscovery() {
-        super();
+    public SeaTunnelTransformPluginLocalDiscovery() {
+        super(Common.connectorDir());
     }
 
     @Override
@@ -49,33 +46,24 @@ public class SeaTunnelSinkPluginDiscovery extends AbstractPluginDiscovery<SeaTun
 
     @Override
     public LinkedHashMap<PluginIdentifier, OptionRule> getPlugins() {
-
         LinkedHashMap<PluginIdentifier, OptionRule> plugins = new LinkedHashMap<>();
         getPluginFactories().stream()
                 .filter(
                         pluginFactory ->
-                                !pluginFactory
-                                                .factoryIdentifier()
-                                                .equals(MULTITABLESINK_FACTORYIDENTIFIER)
-                                        && TableSinkFactory.class.isAssignableFrom(
-                                                pluginFactory.getClass()))
+                                TableTransformFactory.class.isAssignableFrom(
+                                        pluginFactory.getClass()))
                 .forEach(
                         pluginFactory ->
                                 getPluginsByFactoryIdentifier(
                                         plugins,
-                                        PluginType.SINK,
+                                        PluginType.TRANSFORM,
                                         pluginFactory.factoryIdentifier(),
-                                        FactoryUtil.sinkFullOptionRule(
-                                                (TableSinkFactory) pluginFactory)));
+                                        pluginFactory.optionRule()));
         return plugins;
     }
 
-    public SeaTunnelSinkPluginDiscovery(BiConsumer<ClassLoader, URL> addURLToClassLoader) {
-        super(addURLToClassLoader);
-    }
-
     @Override
-    protected Class<SeaTunnelSink> getPluginBaseClass() {
-        return SeaTunnelSink.class;
+    protected Class<SeaTunnelTransform> getPluginBaseClass() {
+        return SeaTunnelTransform.class;
     }
 }

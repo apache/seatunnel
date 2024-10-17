@@ -19,14 +19,21 @@ package org.apache.seatunnel.core.starter.flink;
 
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.core.starter.Starter;
+import org.apache.seatunnel.core.starter.enums.DiscoveryType;
 import org.apache.seatunnel.core.starter.enums.EngineType;
 import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+
+import static org.apache.seatunnel.core.starter.flink.utils.ResourceUtils.attachLocalResource;
+import static org.apache.seatunnel.core.starter.flink.utils.ResourceUtils.getPluginMappingConfigPath;
 
 /** The SeaTunnel flink starter, used to generate the final flink job execute command. */
 public class FlinkStarter implements Starter {
@@ -62,6 +69,11 @@ public class FlinkStarter implements Starter {
         if (flinkCommandArgs.getMasterType() != null) {
             command.add("--target");
             command.add(flinkCommandArgs.getMasterType().getMaster());
+            attachLocalResource(
+                    flinkCommandArgs.getMasterType(),
+                    Arrays.asList(flinkCommandArgs.getConfigFile(), getPluginMappingConfigPath()),
+                    flinkCommandArgs.getConnectors(),
+                    command);
         }
         // set yarn application mode parameters
         if (flinkCommandArgs.getMasterType() == MasterType.YARN_APPLICATION) {
@@ -82,9 +94,21 @@ public class FlinkStarter implements Starter {
         command.add(APP_NAME);
         // set main jar name
         command.add(appJar);
+        // set master
+        if (flinkCommandArgs.getMasterType() != null) {
+            command.add("--master");
+            command.add(flinkCommandArgs.getMasterType().getMaster());
+        }
         // set config file path
         command.add("--config");
         command.add(flinkCommandArgs.getConfigFile());
+        // set library
+        if (StringUtils.isNoneEmpty(flinkCommandArgs.getConnectors())) {
+            command.add("--connectors");
+            command.add(flinkCommandArgs.getConnectors());
+            command.add("--discovery");
+            command.add(DiscoveryType.REMOTE.getType());
+        }
         // set check config flag
         if (flinkCommandArgs.isCheckConfig()) {
             command.add("--check");
