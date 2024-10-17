@@ -29,6 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.HudiRecordCon
 
 import org.apache.avro.Schema;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.hudi.avro.AvroSchemaUtils;
 import org.apache.hudi.client.HoodieJavaWriteClient;
 import org.apache.hudi.common.model.HoodieAvroPayload;
 import org.apache.hudi.common.model.HoodieKey;
@@ -91,7 +92,14 @@ public class HudiRecordWriter implements Serializable {
     }
 
     public void open() {
-        this.schema = new Schema.Parser().parse(convertToSchema(seaTunnelRowType).toString());
+        this.schema =
+                new Schema.Parser()
+                        .parse(
+                                convertToSchema(
+                                                seaTunnelRowType,
+                                                AvroSchemaUtils.getAvroRecordQualifiedName(
+                                                        hudiTableConfig.getTableName()))
+                                        .toString());
         try {
             clientProvider.getOrCreateClient();
         } catch (Exception e) {

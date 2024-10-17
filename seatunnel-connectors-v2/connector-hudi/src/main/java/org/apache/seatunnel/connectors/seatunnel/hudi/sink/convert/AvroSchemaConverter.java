@@ -36,8 +36,6 @@ import java.util.List;
 /** Converts an Avro schema into Seatunnel's type information. */
 public class AvroSchemaConverter implements Serializable {
 
-    public static final String ROW_NAME = "org.apache.seatunnel.avro.generated.record";
-
     private AvroSchemaConverter() {
         // private
     }
@@ -52,13 +50,13 @@ public class AvroSchemaConverter implements Serializable {
      * @return Avro's {@link Schema} matching this logical type.
      */
     public static Schema convertToSchema(SeaTunnelDataType<?> schema) {
-        return convertToSchema(schema, ROW_NAME);
+        return convertToSchema(schema, "record");
     }
 
     /**
      * Converts Seatunnel {@link SeaTunnelDataType} (can be nested) into an Avro schema.
      *
-     * <p>The "{rowName}_" is used as the nested row type name prefix in order to generate the right
+     * <p>The "{rowName}." is used as the nested row type name prefix in order to generate the right
      * schema. Nested record type that only differs with type name is still compatible.
      *
      * @param dataType logical type
@@ -128,7 +126,7 @@ public class AvroSchemaConverter implements Serializable {
                     SeaTunnelDataType<?> fieldType = rowType.getFieldType(i);
                     SchemaBuilder.GenericDefault<Schema> fieldBuilder =
                             builder.name(fieldName)
-                                    .type(convertToSchema(fieldType, rowName + "_" + fieldName));
+                                    .type(convertToSchema(fieldType, rowName + "." + fieldName));
 
                     builder = fieldBuilder.withDefault(null);
                 }

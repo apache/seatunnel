@@ -35,6 +35,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hudi.avro.AvroSchemaUtils;
 import org.apache.hudi.common.model.HoodieAvroPayload;
 import org.apache.hudi.common.model.HoodieTableType;
 import org.apache.hudi.common.table.HoodieTableConfig;
@@ -220,7 +221,11 @@ public class HudiCatalog implements Catalog {
                         .setTableType(table.getOptions().get(TABLE_TYPE.key()))
                         .setRecordKeyFields(table.getOptions().get(RECORD_KEY_FIELDS.key()))
                         .setTableCreateSchema(
-                                convertToSchema(table.getSeaTunnelRowType()).toString())
+                                convertToSchema(
+                                                table.getSeaTunnelRowType(),
+                                                AvroSchemaUtils.getAvroRecordQualifiedName(
+                                                        table.getTableId().getTableName()))
+                                        .toString())
                         .setTableName(tablePath.getTableName())
                         .setPartitionFields(String.join(",", table.getPartitionKeys()))
                         .setPayloadClassName(HoodieAvroPayload.class.getName())

@@ -31,6 +31,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hudi.avro.AvroSchemaUtils;
 import org.apache.hudi.client.HoodieJavaWriteClient;
 import org.apache.hudi.client.common.HoodieJavaEngineContext;
 import org.apache.hudi.common.config.HoodieStorageConfig;
@@ -173,7 +174,12 @@ public class HudiUtil {
                                         hudiSinkConfig.getTableDfsPath(),
                                         hudiTable.getDatabase(),
                                         hudiTable.getTableName()))
-                        .withSchema(convertToSchema(seaTunnelRowType).toString())
+                        .withSchema(
+                                convertToSchema(
+                                                seaTunnelRowType,
+                                                AvroSchemaUtils.getAvroRecordQualifiedName(
+                                                        tableName))
+                                        .toString())
                         .withParallelism(
                                 hudiTable.getInsertShuffleParallelism(),
                                 hudiTable.getUpsertShuffleParallelism())
