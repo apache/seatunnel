@@ -18,8 +18,10 @@
 package org.apache.seatunnel.engine.server.rest.servlet;
 
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.FileUtils;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.config.builder.api.Component;
@@ -62,20 +64,33 @@ public class LogBaseServlet extends BaseServlet {
     /** Get configuration log path */
     protected String getLogPath() {
         try {
+            String routingAppender = "routingAppender";
+            String fileAppender = "fileAppender";
             PropertiesConfiguration config = getLogConfiguration();
             // Get routingAppender log file path
             String routingLogFilePath = getRoutingLogFilePath(config);
 
             // Get fileAppender log file path
             String fileLogPath = getFileLogPath(config);
-            String logRef = config.getLoggerConfig("").getAppenderRefs().get(0).getRef();
-            if (logRef.equals("routingAppender")) {
+            String logRef =
+                    config.getLoggerConfig(StringUtils.EMPTY).getAppenderRefs().stream()
+                            .map(Object::toString)
+                            .filter(
+                                    ref ->
+                                            ref.contains(routingAppender)
+                                                    || ref.contains(fileAppender))
+                            .findFirst()
+                            .orElse(StringUtils.EMPTY);
+            if (logRef.equals(routingAppender)) {
                 return routingLogFilePath.substring(0, routingLogFilePath.lastIndexOf("/"));
-            } else {
+            } else if (logRef.equals(fileAppender)) {
                 return fileLogPath.substring(0, routingLogFilePath.lastIndexOf("/"));
+            } else {
+                log.warn(String.format("Log file path is empty, get logRef : %s", logRef));
+                return null;
             }
         } catch (NoSuchFieldException | IllegalAccessException e) {
-            log.error("Get log path error", e);
+            log.error("Get log path error", ExceptionUtils.getMessage(e));
             return null;
         }
     }
@@ -116,7 +131,7 @@ public class LogBaseServlet extends BaseServlet {
         return (PropertiesConfiguration) context.getConfiguration();
     }
 
-    private String sendGet(String urlString) {
+    protected String sendGet(String urlString) {
         try {
             HttpURLConnection connection = (HttpURLConnection) new URL(urlString).openConnection();
             connection.setRequestMethod("GET");
@@ -136,7 +151,7 @@ public class LogBaseServlet extends BaseServlet {
                 }
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("Send get Fail.", ExceptionUtils.getMessage(e));
         }
         return null;
     }
@@ -157,6 +172,12 @@ public class LogBaseServlet extends BaseServlet {
 
     /** Prepare Log Response */
     protected void prepareLogResponse(HttpServletResponse resp, String logPath, String logName) {
+        if (StringUtils.isBlank(logPath)) {
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            log.warn(
+                    "Log file path is empty, no log file path configured in the current configuration file");
+            return;
+        }
         String logFilePath = logPath + "/" + logName;
         try {
             String logContent = FileUtils.readFileToStr(new File(logFilePath).toPath());

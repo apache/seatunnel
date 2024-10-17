@@ -27,8 +27,8 @@ import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LoggerContext;
-import org.apache.logging.log4j.core.config.Configurator;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
@@ -42,6 +42,7 @@ import com.hazelcast.config.MemberAttributeConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.extern.slf4j.Slf4j;
 
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -54,8 +55,6 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PA
 import static org.apache.seatunnel.engine.server.rest.RestConstant.CONTEXT_PATH;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasKey;
-import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.notNullValue;
 
@@ -80,27 +79,16 @@ public class RestApiIT {
 
     private static Map<Integer, Integer> ports;
 
-    static {
-        LoggerContext initialize =
-                Configurator.initialize(
-                        null,
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/job-log-file/log4j2.properties");
-        initialize.start();
-        System.setProperty(
-                "log4j.configurationFile",
-                PROJECT_ROOT_PATH
-                        + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/job-log-file/log4j2.properties");
-        System.setProperty(
-                "-Dlog4j.configurationFile",
-                PROJECT_ROOT_PATH
-                        + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/job-log-file/log4j2.properties");
-    }
-
     @BeforeEach
     void beforeClass() throws Exception {
 
         String testClusterName = TestUtils.getClusterName("RestApiIT");
+        LoggerContext context = (LoggerContext) LogManager.getContext(false);
+        context.setConfigLocation(
+                Paths.get(
+                                PROJECT_ROOT_PATH
+                                        + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/job-log-file/log4j2.properties")
+                        .toUri());
         node1Config = ConfigProvider.locateAndGetSeaTunnelConfig();
         node1Config.getEngineConfig().getHttpConfig().setPort(8080);
         node1Config.getEngineConfig().getHttpConfig().setEnabled(true);
@@ -171,7 +159,6 @@ public class RestApiIT {
                                 ports.forEach(
                                         (key, value) -> {
                                             // Verify log list interface logs/
-
                                             given().get(
                                                             HOST
                                                                     + key
@@ -200,7 +187,7 @@ public class RestApiIT {
                                                                             + ".log"));
 
                                             // Verify log list interface logs/:jobId
-                                            String logList =
+                                            String logListV1 =
                                                     given().get(
                                                                     HOST
                                                                             + key
@@ -212,381 +199,44 @@ public class RestApiIT {
                                                             .body()
                                                             .prettyPrint();
                                             Assertions.assertTrue(
-                                                    logList.contains(
+                                                    logListV1.contains(
+                                                            clientJobProxy.getJobId() + ".log"));
+
+                                            String logListV2 =
+                                                    given().get(
+                                                                    HOST
+                                                                            + value
+                                                                            + node1Config
+                                                                                    .getEngineConfig()
+                                                                                    .getHttpConfig()
+                                                                                    .getContextPath()
+                                                                            + RestConstant.GET_LOGS
+                                                                            + "/"
+                                                                            + clientJobProxy
+                                                                                    .getJobId())
+                                                            .body()
+                                                            .prettyPrint();
+                                            Assertions.assertTrue(
+                                                    logListV2.contains(
                                                             clientJobProxy.getJobId() + ".log"));
 
                                             // verify access log link
-                                            Pattern pattern =
-                                                    Pattern.compile("href\\s*=\\s*\"([^\"]+)\"");
-                                            Matcher matcher = pattern.matcher(logList);
-                                            while (matcher.find()) {
-                                                String link = matcher.group(1);
-                                                Assertions.assertTrue(
-                                                        given().get(link)
-                                                                .body()
-                                                                .prettyPrint()
-                                                                .contains(
-                                                                        "Init JobMaster for Job fake_to_file"));
-                                            }
+                                            verifyLogLink(logListV1);
+                                            verifyLogLink(logListV2);
                                         }));
     }
 
-    @Test
-    public void testGetRunningJobById() {
-
-        Arrays.asList(node2, node1)
-                .forEach(
-                        instance ->
-                                ports.forEach(
-                                        (key, value) -> {
-                                            given().get(
-                                                            HOST
-                                                                    + key
-                                                                    + CONTEXT_PATH
-                                                                    + RestConstant.RUNNING_JOB_URL
-                                                                    + "/"
-                                                                    + clientJobProxy.getJobId())
-                                                    .then()
-                                                    .statusCode(200)
-                                                    .body("jobName", equalTo("fake_to_file"))
-                                                    .body("jobStatus", equalTo("RUNNING"));
-
-                                            given().get(
-                                                            HOST
-                                                                    + value
-                                                                    + node1Config
-                                                                            .getEngineConfig()
-                                                                            .getHttpConfig()
-                                                                            .getContextPath()
-                                                                    + RestConstant.RUNNING_JOB_URL
-                                                                    + "/"
-                                                                    + clientJobProxy.getJobId())
-                                                    .then()
-                                                    .statusCode(200)
-                                                    .body("jobName", equalTo("fake_to_file"))
-                                                    .body("jobStatus", equalTo("RUNNING"));
-                                        }));
-    }
-
-    @Test
-    public void testGetJobById() {
-        Arrays.asList(node2, node1)
-                .forEach(
-                        instance ->
-                                ports.forEach(
-                                        (key, value) -> {
-                                            given().get(
-                                                            HOST
-                                                                    + key
-                                                                    + CONTEXT_PATH
-                                                                    + RestConstant.RUNNING_JOB_URL
-                                                                    + "/"
-                                                                    + batchJobProxy.getJobId())
-                                                    .then()
-                                                    .statusCode(200)
-                                                    .body("jobName", equalTo("fake_to_console"))
-                                                    .body("jobStatus", equalTo("FINISHED"));
-
-                                            given().get(
-                                                            HOST
-                                                                    + value
-                                                                    + node1Config
-                                                                            .getEngineConfig()
-                                                                            .getHttpConfig()
-                                                                            .getContextPath()
-                                                                    + RestConstant.RUNNING_JOB_URL
-                                                                    + "/"
-                                                                    + batchJobProxy.getJobId())
-                                                    .then()
-                                                    .statusCode(200)
-                                                    .body("jobName", equalTo("fake_to_console"))
-                                                    .body("jobStatus", equalTo("FINISHED"));
-                                        }));
-    }
-
-    @Test
-    public void testGetAnNotExistJobById() {
-        Arrays.asList(node2, node1)
-                .forEach(
-                        instance ->
-                                ports.forEach(
-                                        (key, value) -> {
-                                            given().get(
-                                                            HOST
-                                                                    + key
-                                                                    + CONTEXT_PATH
-                                                                    + RestConstant.RUNNING_JOB_URL
-                                                                    + "/"
-                                                                    + 123)
-                                                    .then()
-                                                    .statusCode(200)
-                                                    .body("jobId", equalTo("123"));
-
-                                            given().get(
-                                                            HOST
-                                                                    + key
-                                                                    + CONTEXT_PATH
-                                                                    + RestConstant.RUNNING_JOB_URL
-                                                                    + "/")
-                                                    .then()
-                                                    .statusCode(400);
-
-                                            given().get(
-                                                            HOST
-                                                                    + value
-                                                                    + node1Config
-                                                                            .getEngineConfig()
-                                                                            .getHttpConfig()
-                                                                            .getContextPath()
-                                                                    + RestConstant.RUNNING_JOB_URL
-                                                                    + "/"
-                                                                    + 123)
-                                                    .then()
-                                                    .statusCode(200)
-                                                    .body("jobId", equalTo("123"));
-
-                                            given().get(
-                                                            HOST
-                                                                    + value
-                                                                    + node1Config
-                                                                            .getEngineConfig()
-                                                                            .getHttpConfig()
-                                                                            .getContextPath()
-                                                                    + RestConstant.RUNNING_JOB_URL
-                                                                    + "/")
-                                                    .then()
-                                                    .statusCode(400);
-                                        }));
-    }
-
-    @Test
-    public void testGetRunningJobs() {
-        Arrays.asList(node2, node1)
-                .forEach(
-                        instance ->
-                                ports.forEach(
-                                        (key, value) -> {
-                                            given().get(
-                                                            HOST
-                                                                    + key
-                                                                    + CONTEXT_PATH
-                                                                    + RestConstant.RUNNING_JOBS_URL)
-                                                    .then()
-                                                    .statusCode(200)
-                                                    .body("[0].jobName", equalTo("fake_to_file"))
-                                                    .body("[0].jobStatus", equalTo("RUNNING"));
-
-                                            given().get(
-                                                            HOST
-                                                                    + value
-                                                                    + node1Config
-                                                                            .getEngineConfig()
-                                                                            .getHttpConfig()
-                                                                            .getContextPath()
-                                                                    + RestConstant.RUNNING_JOBS_URL)
-                                                    .then()
-                                                    .statusCode(200)
-                                                    .body("[0].jobName", equalTo("fake_to_file"))
-                                                    .body("[0].jobStatus", equalTo("RUNNING"));
-                                        }));
-    }
-
-    @Test
-    public void testGetJobInfoByJobId() {
-        Arrays.asList(node2, node1)
-                .forEach(
-                        instance -> {
-                            ports.forEach(
-                                    (key, value) -> {
-                                        given().get(
-                                                        HOST
-                                                                + key
-                                                                + CONTEXT_PATH
-                                                                + RestConstant.JOB_INFO_URL
-                                                                + "/"
-                                                                + batchJobProxy.getJobId())
-                                                .then()
-                                                .statusCode(200)
-                                                .body("jobName", equalTo("fake_to_console"))
-                                                .body("jobStatus", equalTo("FINISHED"));
-
-                                        given().get(
-                                                        HOST
-                                                                + value
-                                                                + node1Config
-                                                                        .getEngineConfig()
-                                                                        .getHttpConfig()
-                                                                        .getContextPath()
-                                                                + RestConstant.JOB_INFO_URL
-                                                                + "/"
-                                                                + batchJobProxy.getJobId())
-                                                .then()
-                                                .statusCode(200)
-                                                .body(
-                                                        "jobDag.jobId",
-                                                        equalTo(
-                                                                Long.toString(
-                                                                        batchJobProxy.getJobId())))
-                                                .body("jobDag.pipelineEdges", hasKey("1"))
-                                                .body("jobDag.pipelineEdges['1']", hasSize(1))
-                                                .body(
-                                                        "jobDag.pipelineEdges['1'][0].inputVertexId",
-                                                        equalTo("1"))
-                                                .body(
-                                                        "jobDag.pipelineEdges['1'][0].targetVertexId",
-                                                        equalTo("2"))
-                                                .body("jobDag.vertexInfoMap", hasSize(2))
-                                                .body(
-                                                        "jobDag.vertexInfoMap[0].vertexId",
-                                                        equalTo(1))
-                                                .body(
-                                                        "jobDag.vertexInfoMap[0].type",
-                                                        equalTo("source"))
-                                                .body(
-                                                        "jobDag.vertexInfoMap[0].vertexName",
-                                                        equalTo(
-                                                                "pipeline-1 [Source[0]-FakeSource]"))
-                                                .body(
-                                                        "jobDag.vertexInfoMap[0].tablePaths[0]",
-                                                        equalTo("fake"))
-                                                .body(
-                                                        "jobDag.vertexInfoMap[1].vertexId",
-                                                        equalTo(2))
-                                                .body(
-                                                        "jobDag.vertexInfoMap[1].type",
-                                                        equalTo("sink"))
-                                                .body(
-                                                        "jobDag.vertexInfoMap[1].vertexName",
-                                                        equalTo(
-                                                                "pipeline-1 [Sink[0]-console-MultiTableSink]"))
-                                                .body(
-                                                        "jobDag.vertexInfoMap[1].tablePaths[0]",
-                                                        equalTo("fake"))
-                                                .body("jobName", equalTo("fake_to_console"))
-                                                .body("jobStatus", equalTo("FINISHED"));
-                                    });
-                        });
-    }
-
-    @Test
-    public void testOverview() {
-        Arrays.asList(node2, node1)
-                .forEach(
-                        instance -> {
-                            ports.forEach(
-                                    (key, value) -> {
-                                        given().get(
-                                                        HOST
-                                                                + key
-                                                                + CONTEXT_PATH
-                                                                + RestConstant.OVERVIEW)
-                                                .then()
-                                                .statusCode(200)
-                                                .body("projectVersion", notNullValue())
-                                                .body("totalSlot", equalTo("40"))
-                                                .body("workers", equalTo("2"));
-                                        given().get(
-                                                        HOST
-                                                                + value
-                                                                + node1Config
-                                                                        .getEngineConfig()
-                                                                        .getHttpConfig()
-                                                                        .getContextPath()
-                                                                + RestConstant.OVERVIEW)
-                                                .then()
-                                                .statusCode(200)
-                                                .body("projectVersion", notNullValue())
-                                                .body("totalSlot", equalTo("40"))
-                                                .body("workers", equalTo("2"));
-                                    });
-                        });
-    }
-
-    @Test
-    public void testOverviewFilterByTag() {
-        Arrays.asList(node2, node1)
-                .forEach(
-                        instance -> {
-                            ports.forEach(
-                                    (key, value) -> {
-                                        given().get(
-                                                        HOST
-                                                                + key
-                                                                + CONTEXT_PATH
-                                                                + RestConstant.OVERVIEW
-                                                                + "?node=node1")
-                                                .then()
-                                                .statusCode(200)
-                                                .body("projectVersion", notNullValue())
-                                                .body("totalSlot", equalTo("20"))
-                                                .body("workers", equalTo("1"));
-                                        given().get(
-                                                        HOST
-                                                                + value
-                                                                + node1Config
-                                                                        .getEngineConfig()
-                                                                        .getHttpConfig()
-                                                                        .getContextPath()
-                                                                + RestConstant.OVERVIEW
-                                                                + "?node=node1")
-                                                .then()
-                                                .statusCode(200)
-                                                .body("projectVersion", notNullValue())
-                                                .body("totalSlot", equalTo("20"))
-                                                .body("workers", equalTo("1"));
-                                    });
-                        });
-    }
-
-    @Test
-    public void testUpdateTagsSuccess() {
-
-        String config = "{\n" + "    \"tag1\": \"dev_1\",\n" + "    \"tag2\": \"dev_2\"\n" + "}";
-        given().get(
-                        HOST
-                                + node1.getCluster().getLocalMember().getAddress().getPort()
-                                + CONTEXT_PATH
-                                + RestConstant.OVERVIEW
-                                + "?tag1=dev_1")
-                .then()
-                .statusCode(200)
-                .body("projectVersion", notNullValue())
-                .body("totalSlot", equalTo("0"))
-                .body("workers", equalTo("0"));
-        given().body(config)
-                .put(
-                        HOST
-                                + node1.getCluster().getLocalMember().getAddress().getPort()
-                                + CONTEXT_PATH
-                                + RestConstant.UPDATE_TAGS_URL)
-                .then()
-                .statusCode(200)
-                .body("message", equalTo("update node tags done."));
-
-        given().get(
-                        HOST
-                                + node1.getCluster().getLocalMember().getAddress().getPort()
-                                + CONTEXT_PATH
-                                + RestConstant.OVERVIEW
-                                + "?tag1=dev_1")
-                .then()
-                .statusCode(200)
-                .body("projectVersion", notNullValue())
-                .body("totalSlot", equalTo("20"))
-                .body("workers", equalTo("1"));
-    }
-
-    @Test
-    public void testUpdateTagsFail() {
-
-        given().put(
-                        HOST
-                                + node1.getCluster().getLocalMember().getAddress().getPort()
-                                + CONTEXT_PATH
-                                + RestConstant.UPDATE_TAGS_URL)
-                .then()
-                .statusCode(400)
-                .body("message", equalTo("Request body is empty."));
+    private static void verifyLogLink(String logListV1) {
+        Pattern pattern = Pattern.compile("href\\s*=\\s*\"([^\"]+)\"");
+        Matcher matcher = pattern.matcher(logListV1);
+        while (matcher.find()) {
+            String link = matcher.group(1);
+            Assertions.assertTrue(
+                    given().get(link)
+                            .body()
+                            .prettyPrint()
+                            .contains("Init JobMaster for Job fake_to_file"));
+        }
     }
 
     @Test

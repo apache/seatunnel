@@ -806,10 +806,16 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         // Analysis uri, get logName and jobId param
         String param = getParam(uri);
         boolean isLogFile = param.contains(".log");
-        String logName = isLogFile ? param : "";
-        String jobId = !isLogFile ? param : "";
+        String logName = isLogFile ? param : StringUtils.EMPTY;
+        String jobId = !isLogFile ? param : StringUtils.EMPTY;
 
         String logPath = getLogPath();
+        if (StringUtils.isBlank(logPath)) {
+            logger.warning(
+                    "Log file path is empty, no log file path configured in the current configuration file");
+            httpGetCommand.send400();
+            return;
+        }
         JsonArray systemMonitoringInformationJsonValues =
                 getSystemMonitoringInformationJsonValues();
 
@@ -862,7 +868,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
             logger.fine(String.format("Request: %s , Param: %s", uri, param));
             return param;
         }
-        return "";
+        return StringUtils.EMPTY;
     }
 
     private static RestValue getRestValue(String logContent) {
@@ -897,17 +903,27 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
 
     /** Get configuration log path */
     private String getLogPath() throws NoSuchFieldException, IllegalAccessException {
+        String routingAppender = "routingAppender";
+        String fileAppender = "fileAppender";
         PropertiesConfiguration config = getLogConfiguration();
         // Get routingAppender log file path
         String routingLogFilePath = getRoutingLogFilePath(config);
 
         // Get fileAppender log file path
         String fileLogPath = getFileLogPath(config);
-        String logRef = config.getLoggerConfig("").getAppenderRefs().get(0).getRef();
-        if (logRef.equals("routingAppender")) {
+        String logRef =
+                config.getLoggerConfig(StringUtils.EMPTY).getAppenderRefs().stream()
+                        .map(Object::toString)
+                        .filter(ref -> ref.contains(routingAppender) || ref.contains(fileAppender))
+                        .findFirst()
+                        .orElse(StringUtils.EMPTY);
+        if (logRef.equals(routingAppender)) {
             return routingLogFilePath.substring(0, routingLogFilePath.lastIndexOf("/"));
-        } else {
+        } else if (logRef.equals(fileAppender)) {
             return fileLogPath.substring(0, routingLogFilePath.lastIndexOf("/"));
+        } else {
+            logger.warning(String.format("Log file path is empty, get logRef : %s", logRef));
+            return null;
         }
     }
 

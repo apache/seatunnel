@@ -34,11 +34,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.ArrayList;
 
 import static org.apache.seatunnel.engine.server.rest.RestConstant.GET_ALL_LOG_NAME;
@@ -64,8 +60,8 @@ public class AllNodeLogServlet extends LogBaseServlet {
         // Analysis uri, get logName and jobId param
         String param = getLogParam(uri, contextPath);
         boolean isLogFile = param.contains(".log");
-        String logName = isLogFile ? param : "";
-        String jobId = !isLogFile ? param : "";
+        String logName = isLogFile ? param : StringUtils.EMPTY;
+        String jobId = !isLogFile ? param : StringUtils.EMPTY;
 
         String logPath = getLogPath();
         JsonArray systemMonitoringInformationJsonValues =
@@ -104,30 +100,5 @@ public class AllNodeLogServlet extends LogBaseServlet {
         } else {
             prepareLogResponse(resp, logPath, logName);
         }
-    }
-
-    private String sendGet(String urlString) {
-        try {
-            HttpURLConnection connection = (HttpURLConnection) new URL(urlString).openConnection();
-            connection.setRequestMethod("GET");
-            connection.setConnectTimeout(5000);
-            connection.setReadTimeout(5000);
-            connection.connect();
-
-            if (connection.getResponseCode() == 200) {
-                try (InputStream is = connection.getInputStream();
-                        ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-                    byte[] buffer = new byte[1024];
-                    int len;
-                    while ((len = is.read(buffer)) != -1) {
-                        baos.write(buffer, 0, len);
-                    }
-                    return baos.toString();
-                }
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return null;
     }
 }
