@@ -50,13 +50,13 @@ public class AvroSchemaConverter implements Serializable {
      * @return Avro's {@link Schema} matching this logical type.
      */
     public static Schema convertToSchema(SeaTunnelDataType<?> schema) {
-        return convertToSchema(schema, "org.apache.seatunnel.avro.generated.record");
+        return convertToSchema(schema, "record");
     }
 
     /**
      * Converts Seatunnel {@link SeaTunnelDataType} (can be nested) into an Avro schema.
      *
-     * <p>The "{rowName}_" is used as the nested row type name prefix in order to generate the right
+     * <p>The "{rowName}." is used as the nested row type name prefix in order to generate the right
      * schema. Nested record type that only differs with type name is still compatible.
      *
      * @param dataType logical type
@@ -105,10 +105,15 @@ public class AvroSchemaConverter implements Serializable {
                 return nullableSchema(time);
             case DECIMAL:
                 DecimalType decimalType = (DecimalType) dataType;
-                // store BigDecimal as byte[]
+                // store BigDecimal as Fixed
+                // for spark compatibility.
                 Schema decimal =
                         LogicalTypes.decimal(decimalType.getPrecision(), decimalType.getScale())
-                                .addToSchema(SchemaBuilder.builder().bytesType());
+                                .addToSchema(
+                                        SchemaBuilder.fixed(String.format("%s.fixed", rowName))
+                                                .size(
+                                                        computeMinBytesForDecimalPrecision(
+                                                                decimalType.getPrecision())));
                 return nullableSchema(decimal);
             case ROW:
                 SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
@@ -121,7 +126,7 @@ public class AvroSchemaConverter implements Serializable {
                     SeaTunnelDataType<?> fieldType = rowType.getFieldType(i);
                     SchemaBuilder.GenericDefault<Schema> fieldBuilder =
                             builder.name(fieldName)
-                                    .type(convertToSchema(fieldType, rowName + "_" + fieldName));
+                                    .type(convertToSchema(fieldType, rowName + "." + fieldName));
 
                     builder = fieldBuilder.withDefault(null);
                 }
@@ -165,5 +170,13 @@ public class AvroSchemaConverter implements Serializable {
     /** Returns schema with nullable true. */
     private static Schema nullableSchema(Schema schema) {
         return Schema.createUnion(SchemaBuilder.builder().nullType(), schema);
+    }
+
+    private static int computeMinBytesForDecimalPrecision(int precision) {
+        int numBytes = 1;
+        while (Math.pow(2.0, 8 * numBytes - 1) < Math.pow(10.0, precision)) {
+            numBytes += 1;
+        }
+        return numBytes;
     }
 }

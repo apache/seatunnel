@@ -44,12 +44,6 @@ public interface HudiOptions {
                     .noDefaultValue()
                     .withDescription("table_list");
 
-    Option<Boolean> AUTO_COMMIT =
-            Options.key("auto_commit")
-                    .booleanType()
-                    .defaultValue(true)
-                    .withDescription("auto commit");
-
     Option<SchemaSaveMode> SCHEMA_SAVE_MODE =
             Options.key("schema_save_mode")
                     .enumType(SchemaSaveMode.class)

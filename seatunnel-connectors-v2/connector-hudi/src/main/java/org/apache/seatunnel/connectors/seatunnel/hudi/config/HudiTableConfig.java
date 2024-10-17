@@ -40,6 +40,7 @@ import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.BATCH_INTERVAL_MS;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.BATCH_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.CDC_ENABLED;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.INDEX_CLASS_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.INDEX_TYPE;
@@ -108,6 +109,9 @@ public class HudiTableConfig implements Serializable {
     @JsonProperty("max_commits_to_keep")
     private int maxCommitsToKeep;
 
+    @JsonProperty("cdc_enabled")
+    private boolean cdcEnabled;
+
     public static List<HudiTableConfig> of(ReadonlyConfig connectorConfig) {
         List<HudiTableConfig> tableList;
         if (connectorConfig.getOptional(HudiOptions.TABLE_LIST).isPresent()) {
@@ -132,6 +136,7 @@ public class HudiTableConfig implements Serializable {
                                     connectorConfig.get(UPSERT_SHUFFLE_PARALLELISM))
                             .minCommitsToKeep(connectorConfig.get(MIN_COMMITS_TO_KEEP))
                             .maxCommitsToKeep(connectorConfig.get(MAX_COMMITS_TO_KEEP))
+                            .cdcEnabled(connectorConfig.get(CDC_ENABLED))
                             .build();
             tableList = Collections.singletonList(hudiTableConfig);
         }

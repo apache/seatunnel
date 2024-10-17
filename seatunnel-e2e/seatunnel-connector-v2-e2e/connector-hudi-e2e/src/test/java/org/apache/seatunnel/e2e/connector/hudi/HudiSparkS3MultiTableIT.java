@@ -115,8 +115,8 @@ public class HudiSparkS3MultiTableIT extends TestSuiteBase implements TestResour
             disabledReason =
                     "The hadoop version in current flink image is not compatible with the aws version and default container of seatunnel not support s3.")
     public void testS3MultiWrite(TestContainer container) throws IOException, InterruptedException {
-        container.copyFileToContainer("/core-site.xml", "/tmp/seatunnel/config/core-site.xml");
-        Container.ExecResult textWriteResult = container.executeJob("/s3_fake_to_hudi.conf");
+        container.copyFileToContainer("/hudi/core-site.xml", "/tmp/seatunnel/config/core-site.xml");
+        Container.ExecResult textWriteResult = container.executeJob("/hudi/s3_fake_to_hudi.conf");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
         Configuration configuration = new Configuration();
         configuration.set("fs.defaultFS", LocalFileSystem.DEFAULT_FS);
