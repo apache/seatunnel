@@ -82,7 +82,11 @@ public class JettyService {
         FilterHolder filterHolder = new FilterHolder(new ExceptionHandlingFilter());
         context.addFilter(filterHolder, "/*", EnumSet.of(DispatcherType.REQUEST));
 
-        context.addServlet(new ServletHolder("default", new DefaultServlet()), "/");
+        ServletHolder defaultServlet = new ServletHolder("default", DefaultServlet.class);
+        defaultServlet.setInitParameter(
+                "resourceBase",
+                JettyService.class.getClassLoader().getResource("dist").toExternalForm());
+        context.addServlet(defaultServlet, "/");
 
         ServletHolder overviewHolder = new ServletHolder(new OverviewServlet(nodeEngine));
         ServletHolder runningJobsHolder = new ServletHolder(new RunningJobsServlet(nodeEngine));

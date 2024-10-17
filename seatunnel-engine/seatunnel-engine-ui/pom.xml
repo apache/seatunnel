@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Licensed to the Apache Software Foundation (ASF) under one
+  ~ or more contributor license agreements.  See the NOTICE file
+  ~ distributed with this work for additional information
+  ~ regarding copyright ownership.  The ASF licenses this file
+  ~ to you under the Apache License, Version 2.0 (the
+  ~ "License"); you may not use this file except in compliance
+  ~ with the License.  You may obtain a copy of the License at
+  ~
+  ~   http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing,
+  ~ software distributed under the License is distributed on an
+  ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  ~ KIND, either express or implied.  See the License for the
+  ~ specific language governing permissions and limitations
+  ~ under the License.
+  ~
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.apache.seatunnel</groupId>
+        <artifactId>seatunnel-engine</artifactId>
+        <version>${revision}</version>
+    </parent>
+    <artifactId>seatunnel-engine-ui</artifactId>
+    <packaging>pom</packaging>
+    <name>SeaTunnel : Engine : UI</name>
+
+    <properties>
+        <build.node.version>v16.13.2</build.node.version>
+        <build.npm.version>8.1.2</build.npm.version>
+        <nodemodules.dir>node_modules</nodemodules.dir>
+        <dist.dir>dist</dist.dir>
+        <deployed.dir>.deployed</deployed.dir>
+    </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>clean-rmdir</id>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <phase>clean</phase>
+                        <configuration>
+                            <executable>${executable.rmdir}</executable>
+                            <workingDirectory>${basedir}</workingDirectory>
+                            <commandlineArgs>${args.rm.clean} ${dist.dir} ${nodemodules.dir} ${deployed.dir}</commandlineArgs>
+                            <successCodes>
+                                <successCode>0</successCode>
+                                <successCode>1</successCode>
+                                <successCode>2</successCode>
+                            </successCodes>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>com.github.eirslett</groupId>
+                <artifactId>frontend-maven-plugin</artifactId>
+                <version>1.10.3</version>
+                <configuration>
+                    <nodeVersion>${build.node.version}</nodeVersion>
+                    <npmVersion>${build.npm.version}</npmVersion>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>install node and npm</id>
+                        <goals>
+                            <goal>install-node-and-npm</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                    </execution>
+                    <execution>
+                        <id>npm install</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <arguments>install</arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>npm run build</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <phase>install</phase>
+                        <configuration>
+                            <arguments>run build</arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>windows</id>
+            <activation>
+                <os>
+                    <family>win</family>
+                </os>
+            </activation>
+            <properties>
+                <envClassifier>win</envClassifier>
+                <dirsep>\</dirsep>
+                <executable.brunch>cmd</executable.brunch>
+                <executable.gzip>${basedir}\gzip-content.cmd</executable.gzip>
+                <args.brunch>/C brunch</args.brunch>
+                <node.executable>node.exe</node.executable>
+                <executable.mkdir>cmd</executable.mkdir>
+                <args.mkdir>/C mkdir</args.mkdir>
+                <executable.npm>cmd</executable.npm>
+                <args.npm>/C npm</args.npm>
+                <executable.rmdir>cmd</executable.rmdir>
+                <args.rm.clean>/C rmdir /S /Q</args.rm.clean>
+                <executable.shell>cmd</executable.shell>
+                <fileextension.shell>cmd</fileextension.shell>
+                <args.shell>/C</args.shell>
+            </properties>
+        </profile>
+        <profile>
+            <id>linux</id>
+            <activation>
+                <os>
+                    <family>unix</family>
+                </os>
+            </activation>
+            <properties>
+                <envClassifier>linux</envClassifier>
+                <dirsep>/</dirsep>
+                <executable.brunch>brunch</executable.brunch>
+                <executable.gzip>gzip</executable.gzip>
+                <args.brunch />
+                <node.executable>node</node.executable>
+                <executable.mkdir>mkdir</executable.mkdir>
+                <args.mkdir />
+                <executable.npm>npm</executable.npm>
+                <args.npm />
+                <executable.rmdir>rm</executable.rmdir>
+                <args.rm.clean>-rf</args.rm.clean>
+                <executable.shell>sh</executable.shell>
+                <fileextension.shell>sh</fileextension.shell>
+                <args.shell />
+            </properties>
+        </profile>
+    </profiles>
+</project>
