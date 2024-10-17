@@ -1,4 +1,4 @@
-///*
+/// *
 // * Licensed to the Apache Software Foundation (ASF) under one or more
 // * contributor license agreements.  See the NOTICE file distributed with
 // * this work for additional information regarding copyright ownership.
@@ -15,42 +15,43 @@
 // * limitations under the License.
 // */
 //
-//package org.apache.seatunnel.connectors.seatunnel.clickhouse;
+// package org.apache.seatunnel.connectors.seatunnel.clickhouse;
 //
-//import org.apache.seatunnel.e2e.common.TestResource;
-//import org.apache.seatunnel.e2e.common.TestSuiteBase;
-//import org.apache.seatunnel.e2e.common.container.TestContainer;
+// import org.apache.seatunnel.e2e.common.TestResource;
+// import org.apache.seatunnel.e2e.common.TestSuiteBase;
+// import org.apache.seatunnel.e2e.common.container.TestContainer;
 //
-//import org.awaitility.Awaitility;
-//import org.junit.jupiter.api.AfterAll;
-//import org.junit.jupiter.api.Assertions;
-//import org.junit.jupiter.api.BeforeAll;
-//import org.junit.jupiter.api.TestTemplate;
-//import org.testcontainers.containers.ClickHouseContainer;
-//import org.testcontainers.containers.Container;
-//import org.testcontainers.containers.output.Slf4jLogConsumer;
-//import org.testcontainers.lifecycle.Startables;
-//import org.testcontainers.utility.DockerLoggerFactory;
+// import org.awaitility.Awaitility;
+// import org.junit.jupiter.api.AfterAll;
+// import org.junit.jupiter.api.Assertions;
+// import org.junit.jupiter.api.BeforeAll;
+// import org.junit.jupiter.api.TestTemplate;
+// import org.testcontainers.containers.ClickHouseContainer;
+// import org.testcontainers.containers.Container;
+// import org.testcontainers.containers.output.Slf4jLogConsumer;
+// import org.testcontainers.lifecycle.Startables;
+// import org.testcontainers.utility.DockerLoggerFactory;
 //
-//import lombok.extern.slf4j.Slf4j;
+// import lombok.extern.slf4j.Slf4j;
 //
-//import java.sql.Connection;
-//import java.sql.Driver;
-//import java.sql.ResultSet;
-//import java.sql.SQLException;
-//import java.sql.Statement;
-//import java.util.Arrays;
-//import java.util.HashSet;
-//import java.util.List;
-//import java.util.Properties;
-//import java.util.Set;
-//import java.util.concurrent.TimeUnit;
-//import java.util.stream.Collectors;
-//import java.util.stream.Stream;
+// import java.sql.Connection;
+// import java.sql.Driver;
+// import java.sql.ResultSet;
+// import java.sql.SQLException;
+// import java.sql.Statement;
+// import java.util.Arrays;
+// import java.util.HashSet;
+// import java.util.List;
+// import java.util.Properties;
+// import java.util.Set;
+// import java.util.concurrent.TimeUnit;
+// import java.util.stream.Collectors;
+// import java.util.stream.Stream;
 //
-//@Slf4j
-//public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestResource {
-//    private static final String CLICKHOUSE_DOCKER_IMAGE = "clickhouse/clickhouse-server:23.3.13.6";
+// @Slf4j
+// public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestResource {
+//    private static final String CLICKHOUSE_DOCKER_IMAGE =
+// "clickhouse/clickhouse-server:23.3.13.6";
 //    private static final String HOST = "clickhouse";
 //    private static final String DRIVER_CLASS = "com.clickhouse.jdbc.ClickHouseDriver";
 //    private static final String DATABASE = "default";
@@ -179,7 +180,8 @@
 //                                    + "    `pk_id`         Int64,\n"
 //                                    + "    `name`          String,\n"
 //                                    + "    `score`         Int32\n"
-//                                    + ")engine=ReplacingMergeTree ORDER BY(pk_id) PRIMARY KEY(pk_id)",
+//                                    + ")engine=ReplacingMergeTree ORDER BY(pk_id) PRIMARY
+// KEY(pk_id)",
 //                            DATABASE, SINK_TABLE);
 //            statement.execute(sql);
 //        } catch (SQLException e) {
@@ -203,7 +205,8 @@
 //            }
 //        }
 //        Set<List<Object>> expected =
-//                Stream.<List<Object>>of(Arrays.asList(1L, "A_1", 100), Arrays.asList(3L, "C", 100))
+//                Stream.<List<Object>>of(Arrays.asList(1L, "A_1", 100), Arrays.asList(3L, "C",
+// 100))
 //                        .collect(Collectors.toSet());
 //        if (!Arrays.equals(actual.toArray(), expected.toArray())) {
 //            throw new IllegalStateException(
@@ -222,4 +225,4 @@
 //            throw new RuntimeException("Test clickhouse server image error", e);
 //        }
 //    }
-//}
+// }
