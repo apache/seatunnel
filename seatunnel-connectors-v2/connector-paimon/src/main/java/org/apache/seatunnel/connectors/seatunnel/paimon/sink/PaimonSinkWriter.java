@@ -101,7 +101,8 @@ public class PaimonSinkWriter
         this.table = (FileStoreTable) table;
         CoreOptions.ChangelogProducer changelogProducer =
                 this.table.coreOptions().changelogProducer();
-        if (changelogProducer != paimonSinkConfig.getChangelogProducer()) {
+        if (Objects.nonNull(paimonSinkConfig.getChangelogProducer())
+                && changelogProducer != paimonSinkConfig.getChangelogProducer()) {
             log.warn(
                     "configured the props named 'changelog-producer' which is not compatible with the options in table , so it will use the table's 'changelog-producer'");
         }
