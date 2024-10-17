@@ -26,7 +26,7 @@ import lombok.ToString;
 
 @Getter
 @ToString(callSuper = true)
-public class AlterTableNameEvent extends AlterTableColumnEvent {
+public class AlterTableNameEvent extends AlterTableEvent {
     private final TableIdentifier newTableIdentifier;
 
     public AlterTableNameEvent(
