@@ -662,7 +662,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                         + tableName
                         + " VALUES (2, '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,\n"
                         + "        'Hello World', 'a', 'abc', 'abcd..xyz', '2020-07-17 18:00:22.123', '2020-07-17 18:00:22.123456',\n"
-                        + "        '2020-07-17', '18:00:22', 500);");
+                        + "        '2020-07-17', '18:00:22', 500,'192.168.1.1');");
 
         executeSql(
                 "INSERT INTO "
@@ -671,7 +671,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                         + tableName
                         + " VALUES (3, '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,\n"
                         + "        'Hello World', 'a', 'abc', 'abcd..xyz', '2020-07-17 18:00:22.123', '2020-07-17 18:00:22.123456',\n"
-                        + "        '2020-07-17', '18:00:22', 500);");
+                        + "        '2020-07-17', '18:00:22', 500,'192.168.1.1');");
 
         executeSql("DELETE FROM " + database + "." + tableName + " where id = 2;");
 
