@@ -55,6 +55,8 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PA
 import static org.apache.seatunnel.engine.server.rest.RestConstant.CONTEXT_PATH;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.notNullValue;
 
@@ -81,14 +83,13 @@ public class RestApiIT {
 
     @BeforeEach
     void beforeClass() throws Exception {
-
-        String testClusterName = TestUtils.getClusterName("RestApiIT");
         LoggerContext context = (LoggerContext) LogManager.getContext(false);
         context.setConfigLocation(
                 Paths.get(
                                 PROJECT_ROOT_PATH
                                         + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/job-log-file/log4j2.properties")
                         .toUri());
+        String testClusterName = TestUtils.getClusterName("RestApiIT");
         node1Config = ConfigProvider.locateAndGetSeaTunnelConfig();
         node1Config.getEngineConfig().getHttpConfig().setPort(8080);
         node1Config.getEngineConfig().getHttpConfig().setEnabled(true);
@@ -186,43 +187,6 @@ public class RestApiIT {
                                                                     clientJobProxy.getJobId()
                                                                             + ".log"));
 
-    @Test
-    public void testGetRunningJobById() {
-
-        Arrays.asList(node2, node1)
-                .forEach(
-                        instance ->
-                                ports.forEach(
-                                        (key, value) -> {
-                                            given().get(
-                                                            HOST
-                                                                    + key
-                                                                    + CONTEXT_PATH
-                                                                    + RestConstant.RUNNING_JOB_URL
-                                                                    + "/"
-                                                                    + clientJobProxy.getJobId())
-                                                    .then()
-                                                    .statusCode(200)
-                                                    .body("jobName", equalTo("fake_to_file"))
-                                                    .body("jobStatus", equalTo("RUNNING"));
-
-                                            given().get(
-                                                            HOST
-                                                                    + value
-                                                                    + node1Config
-                                                                    .getEngineConfig()
-                                                                    .getHttpConfig()
-                                                                    .getContextPath()
-                                                                    + RestConstant.RUNNING_JOB_URL
-                                                                    + "/"
-                                                                    + clientJobProxy.getJobId())
-                                                    .then()
-                                                    .statusCode(200)
-                                                    .body("jobName", equalTo("fake_to_file"))
-                                                    .body("jobStatus", equalTo("RUNNING"));
-                                        }));
-    }
-
                                             // Verify log list interface logs/:jobId
                                             String logListV1 =
                                                     given().get(
@@ -274,6 +238,81 @@ public class RestApiIT {
                             .prettyPrint()
                             .contains("Init JobMaster for Job fake_to_file"));
         }
+    }
+
+    @Test
+    public void testGetRunningJobById() {
+
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance ->
+                                ports.forEach(
+                                        (key, value) -> {
+                                            given().get(
+                                                            HOST
+                                                                    + key
+                                                                    + CONTEXT_PATH
+                                                                    + RestConstant.RUNNING_JOB_URL
+                                                                    + "/"
+                                                                    + clientJobProxy.getJobId())
+                                                    .then()
+                                                    .statusCode(200)
+                                                    .body("jobName", equalTo("fake_to_file"))
+                                                    .body("jobStatus", equalTo("RUNNING"));
+
+                                            given().get(
+                                                            HOST
+                                                                    + value
+                                                                    + node1Config
+                                                                            .getEngineConfig()
+                                                                            .getHttpConfig()
+                                                                            .getContextPath()
+                                                                    + RestConstant.RUNNING_JOB_URL
+                                                                    + "/"
+                                                                    + clientJobProxy.getJobId())
+                                                    .then()
+                                                    .statusCode(200)
+                                                    .body("jobName", equalTo("fake_to_file"))
+                                                    .body("jobStatus", equalTo("RUNNING"));
+                                        }));
+    }
+
+    @Test
+    public void testGetJobById() {
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance ->
+                                ports.forEach(
+                                        (key, value) -> {
+                                            given().get(
+                                                            HOST
+                                                                    + key
+                                                                    + CONTEXT_PATH
+                                                                    + RestConstant.RUNNING_JOB_URL
+                                                                    + "/"
+                                                                    + batchJobProxy.getJobId())
+                                                    .then()
+                                                    .statusCode(200)
+                                                    .body("jobName", equalTo("fake_to_console"))
+                                                    .body("jobStatus", equalTo("FINISHED"));
+
+                                            given().get(
+                                                            HOST
+                                                                    + value
+                                                                    + node1Config
+                                                                            .getEngineConfig()
+                                                                            .getHttpConfig()
+                                                                            .getContextPath()
+                                                                    + RestConstant.RUNNING_JOB_URL
+                                                                    + "/"
+                                                                    + batchJobProxy.getJobId())
+                                                    .then()
+                                                    .statusCode(200)
+                                                    .body("jobName", equalTo("fake_to_console"))
+                                                    .body("jobStatus", equalTo("FINISHED"));
+                                        }));
+    }
+
     @Test
     public void testGetAnNotExistJobById() {
         Arrays.asList(node2, node1)
