@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.CustomMySqlConnectionConfiguration;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlVersion;
 
 import com.github.shyiko.mysql.binlog.BinaryLogClient;
 import io.debezium.config.Configuration;
@@ -74,7 +75,11 @@ public class MySqlConnectionUtils {
 
     /** Fetch earliest binlog offsets in MySql Server. */
     public static BinlogOffset earliestBinlogOffset(JdbcConnection jdbc) {
-        final String showMasterStmt = "SHOW MASTER LOGS";
+        String showMasterStmt = "SHOW MASTER LOGS";
+        MySqlVersion mySqlVersion = MySqlVersion.parse(getMysqlVersion(jdbc));
+        if (mySqlVersion != null && mySqlVersion.isAtOrAfter(MySqlVersion.V_8_4)) {
+            showMasterStmt = "SHOW BINARY LOGS";
+        }
         JdbcConnection.ResultSetMapper<BinlogOffset> getCurrentBinlogOffset =
                 rs -> {
                     final String binlogFilename = rs.getString(1);
@@ -87,7 +92,11 @@ public class MySqlConnectionUtils {
 
     /** Fetch current binlog offsets in MySql Server. */
     public static BinlogOffset currentBinlogOffset(JdbcConnection jdbc) {
-        final String showMasterStmt = "SHOW MASTER STATUS";
+        String showMasterStmt = "SHOW MASTER STATUS";
+        MySqlVersion mySqlVersion = MySqlVersion.parse(getMysqlVersion(jdbc));
+        if (mySqlVersion != null && mySqlVersion.isAtOrAfter(MySqlVersion.V_8_4)) {
+            showMasterStmt = "SHOW BINARY LOG STATUS";
+        }
         JdbcConnection.ResultSetMapper<BinlogOffset> getCurrentBinlogOffset =
                 rs -> {
                     final String binlogFilename = rs.getString(1);
@@ -98,6 +107,26 @@ public class MySqlConnectionUtils {
                             binlogFilename, binlogPosition, 0L, 0, 0, gtidSet, null);
                 };
         return getBinlogOffset(jdbc, showMasterStmt, getCurrentBinlogOffset);
+    }
+
+    private static String getMysqlVersion(JdbcConnection jdbc) {
+        final String sql = "SELECT VERSION()";
+        try {
+            return jdbc.queryAndMap(
+                    sql,
+                    rs -> {
+                        if (rs.next()) {
+                            return rs.getString(1);
+                        }
+                        return null;
+                    });
+        } catch (SQLException e) {
+            throw new SeaTunnelException(
+                    "Unable to obtain MySQL version '"
+                            + sql
+                            + "'.Make sure your server is correctly configured",
+                    e);
+        }
     }
 
     private static BinlogOffset getBinlogOffset(
