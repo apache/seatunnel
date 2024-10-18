@@ -18,11 +18,11 @@
 package org.apache.seatunnel.transform.dynamiccompile;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -47,12 +47,15 @@ public class DynamicCompileTransformFactory implements TableTransformFactory {
                         DynamicCompileTransformConfig.COMPILE_PATTERN,
                         CompilePattern.ABSOLUTE_PATH,
                         DynamicCompileTransformConfig.ABSOLUTE_PATH)
+                .optional(TransformCommonOptions.MULTI_TABLES)
+                .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
                 .build();
     }
 
     @Override
     public TableTransform createTransform(TableTransformFactoryContext context) {
-        CatalogTable catalogTable = context.getCatalogTables().get(0);
-        return () -> new DynamicCompileTransform(context.getOptions(), catalogTable);
+        return () ->
+                new DynamicCompileMultiCatalogTransform(
+                        context.getCatalogTables(), context.getOptions());
     }
 }
