@@ -37,6 +37,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -70,10 +71,13 @@ public class KafkaSourceSplitEnumerator
 
     private final Map<String, TablePath> topicMappingTablePathMap = new HashMap<>();
 
+    private boolean isStreamingMode;
+
     KafkaSourceSplitEnumerator(
             KafkaSourceConfig kafkaSourceConfig,
             Context<KafkaSourceSplit> context,
-            KafkaSourceState sourceState) {
+            KafkaSourceState sourceState,
+            boolean isStreamingMode) {
         this.kafkaSourceConfig = kafkaSourceConfig;
         this.tablePathMetadataMap = kafkaSourceConfig.getMapMetadata();
         this.context = context;
@@ -81,6 +85,7 @@ public class KafkaSourceSplitEnumerator
         this.pendingSplit = new HashMap<>();
         this.adminClient = initAdminClient(this.kafkaSourceConfig.getProperties());
         this.discoveryIntervalMillis = kafkaSourceConfig.getDiscoveryIntervalMillis();
+        this.isStreamingMode = isStreamingMode;
     }
 
     @VisibleForTesting
@@ -305,7 +310,9 @@ public class KafkaSourceSplitEnumerator
                             // Obtain the corresponding topic TablePath from kafka topic
                             TablePath tablePath = topicMappingTablePathMap.get(partition.topic());
                             KafkaSourceSplit split = new KafkaSourceSplit(tablePath, partition);
-                            split.setEndOffset(latestOffsets.get(split.getTopicPartition()));
+                            split.setEndOffset(
+                                    latestOffsets.getOrDefault(
+                                            split.getTopicPartition(), Long.MAX_VALUE));
                             return split;
                         })
                 .collect(Collectors.toSet());
@@ -344,6 +351,11 @@ public class KafkaSourceSplitEnumerator
     private Map<TopicPartition, Long> listOffsets(
             Collection<TopicPartition> partitions, OffsetSpec offsetSpec)
             throws ExecutionException, InterruptedException {
+
+        if (isStreamingMode) {
+            return Collections.emptyMap();
+        }
+
         Map<TopicPartition, OffsetSpec> topicPartitionOffsets =
                 partitions.stream()
                         .collect(Collectors.toMap(partition -> partition, __ -> offsetSpec));
