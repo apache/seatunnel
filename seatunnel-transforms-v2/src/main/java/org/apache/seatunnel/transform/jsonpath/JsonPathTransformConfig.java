@@ -21,10 +21,14 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.SeaTunnelDataTypeConvertorUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.transform.common.CommonOptions;
 import org.apache.seatunnel.transform.common.ErrorHandleWay;
+import org.apache.seatunnel.transform.exception.TransformCommonError;
 import org.apache.seatunnel.transform.exception.TransformException;
 
 import org.apache.commons.lang3.StringUtils;
@@ -87,7 +91,7 @@ public class JsonPathTransformConfig implements Serializable {
         this.errorHandleWay = errorHandleWay;
     }
 
-    public static JsonPathTransformConfig of(ReadonlyConfig config) {
+    public static JsonPathTransformConfig of(ReadonlyConfig config, CatalogTable table) {
         if (!config.toConfig().hasPath(COLUMNS.key())) {
             throw new TransformException(
                     COLUMNS_MUST_NOT_EMPTY, COLUMNS_MUST_NOT_EMPTY.getErrorMessage());
@@ -106,10 +110,23 @@ public class JsonPathTransformConfig implements Serializable {
                             .map(ErrorHandleWay::valueOf)
                             .orElse(null);
 
-            SeaTunnelDataType<?> dataType =
+            SeaTunnelDataType<?> srcFieldDataType =
                     SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(srcField, type);
+            if (!table.getTableSchema().contains(srcField)) {
+                throw TransformCommonError.cannotFindInputFieldError("JsonPath", srcField);
+            }
+            Column srcFieldColumn = table.getTableSchema().getColumn(srcField);
+            Column destFieldColumn =
+                    PhysicalColumn.of(
+                            destField,
+                            srcFieldDataType,
+                            srcFieldColumn.getColumnLength(),
+                            true,
+                            null,
+                            null);
             ColumnConfig columnConfig =
-                    new ColumnConfig(path, srcField, destField, dataType, columnErrorHandleWay);
+                    new ColumnConfig(
+                            path, srcField, destField, destFieldColumn, columnErrorHandleWay);
             configs.add(columnConfig);
         }
         return new JsonPathTransformConfig(configs, rowErrorHandleWay);
