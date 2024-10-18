@@ -30,10 +30,10 @@ MDC 由 slf4j 传播到日志后端，后者通常会自动将其添加到日志
 
 Log4j2 使用属性文件进行控制。
 
-SeaTunnel Engine 发行版在 `confing` 目录中附带以下 log4j 属性文件，如果启用了 Log4j2，则会自动使用这些文件：
+SeaTunnel Engine 发行版在 `config` 目录中附带以下 log4j 属性文件，如果启用了 Log4j2，则会自动使用这些文件：
 
-- `log4j2_client.properties`: 由命令行客户端使用 (e.g., `seatunnel.sh`)
-- `log4j2.properties`: 由 SeaTunnel 引擎服务使用 (e.g., `seatunnel-cluster.sh`)
+- `log4j2_client.properties`: 由命令行客户端使用 (例如, `seatunnel.sh`)
+- `log4j2.properties`: 由 SeaTunnel 引擎服务使用 (例如, `seatunnel-cluster.sh`)
 
 默认情况下，日志文件输出到 `logs` 目录。
 

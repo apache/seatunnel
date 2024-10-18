@@ -30,7 +30,7 @@ The MDC is propagated by slf4j to the logging backend which usually adds it to t
 
 Log4j 2 is controlled using property files.
 
-The SeaTunnel Engine distribution ships with the following log4j properties files in the `confing` directory, which are used automatically if Log4j 2 is enabled:
+The SeaTunnel Engine distribution ships with the following log4j properties files in the `config` directory, which are used automatically if Log4j 2 is enabled:
 
 - `log4j2_client.properties`: used by the command line client (e.g., `seatunnel.sh`)
 - `log4j2.properties`: used for SeaTunnel Engine server processes (e.g., `seatunnel-cluster.sh`)
