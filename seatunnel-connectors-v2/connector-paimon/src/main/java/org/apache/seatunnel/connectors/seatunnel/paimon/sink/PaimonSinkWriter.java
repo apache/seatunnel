@@ -64,6 +64,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import static org.apache.paimon.disk.IOManagerImpl.splitPaths;
+
 @Slf4j
 public class PaimonSinkWriter
         implements SinkWriter<SeaTunnelRow, PaimonCommitInfo, PaimonSinkState>,
@@ -256,11 +258,5 @@ public class PaimonSinkWriter
                 this.table.coreOptions().changelogProducer();
         return changelogProducer == CoreOptions.ChangelogProducer.LOOKUP
                 || changelogProducer == CoreOptions.ChangelogProducer.FULL_COMPACTION;
-    }
-
-    public static String[] splitPaths(@Nonnull String separatedPaths) {
-        return separatedPaths.length() > 0
-                ? separatedPaths.split(",|" + File.pathSeparator)
-                : new String[0];
     }
 }
