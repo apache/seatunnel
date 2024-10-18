@@ -19,16 +19,23 @@ package org.apache.seatunnel.connectors.seatunnel.feishu.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.http.sink.HttpSink;
 
+import java.util.Optional;
+
 public class FeishuSink extends HttpSink {
-    public FeishuSink(Config pluginConfig, SeaTunnelRowType rowType) {
-        super(pluginConfig, rowType);
+    public FeishuSink(Config pluginConfig, CatalogTable catalogTable) {
+        super(pluginConfig, catalogTable);
     }
 
     @Override
     public String getPluginName() {
         return "Feishu";
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return super.getWriteCatalogTable();
     }
 }

@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -34,15 +35,17 @@ import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorExc
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class HttpSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         implements SupportMultiTableSink {
     protected final HttpParameter httpParameter = new HttpParameter();
+    protected CatalogTable catalogTable;
     protected SeaTunnelRowType seaTunnelRowType;
     protected Config pluginConfig;
 
-    public HttpSink(Config pluginConfig, SeaTunnelRowType rowType) {
+    public HttpSink(Config pluginConfig, CatalogTable catalogTable) {
         this.pluginConfig = pluginConfig;
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HttpConfig.URL.key());
         if (!result.isSuccess()) {
@@ -71,7 +74,8 @@ public class HttpSink extends AbstractSimpleSink<SeaTunnelRow, Void>
                                             entry -> String.valueOf(entry.getValue().unwrapped()),
                                             (v1, v2) -> v2)));
         }
-        this.seaTunnelRowType = rowType;
+        this.catalogTable = catalogTable;
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
     }
 
     @Override
@@ -82,5 +86,10 @@ public class HttpSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     @Override
     public HttpSinkWriter createWriter(SinkWriter.Context context) throws IOException {
         return new HttpSinkWriter(seaTunnelRowType, httpParameter);
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
     }
 }

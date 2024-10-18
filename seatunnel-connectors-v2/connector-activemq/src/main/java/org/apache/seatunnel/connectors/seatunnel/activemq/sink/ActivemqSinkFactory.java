@@ -75,9 +75,6 @@ public class ActivemqSinkFactory implements TableSinkFactory {
 
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
-        return () ->
-                new ActivemqSink(
-                        context.getOptions(),
-                        context.getCatalogTable().getTableSchema().toPhysicalRowDataType());
+        return () -> new ActivemqSink(context.getOptions(), context.getCatalogTable());
     }
 }

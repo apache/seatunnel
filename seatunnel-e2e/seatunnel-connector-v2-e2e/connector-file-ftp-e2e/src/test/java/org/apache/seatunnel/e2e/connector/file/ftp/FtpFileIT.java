@@ -158,13 +158,19 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         helper.execute("/orc/fake_to_ftp_file_orc.conf");
         // test write ftp root path excel file
         helper.execute("/excel/fake_source_to_ftp_root_path_excel.conf");
+        // test ftp source support multipleTable
+
+        String homePath = "/home/vsftpd/seatunnel";
+        String sink01 = "/tmp/seatunnel/json/sink/multiplesource/fake01";
+        String sink02 = "/tmp/seatunnel/json/sink/multiplesource/fake02";
+        deleteFileFromContainer(homePath + sink01);
+        deleteFileFromContainer(homePath + sink02);
+        helper.execute("/json/ftp_file_json_to_assert_with_multipletable.conf");
+        Assertions.assertEquals(getFileListFromContainer(homePath + sink01).size(), 1);
+        Assertions.assertEquals(getFileListFromContainer(homePath + sink02).size(), 1);
     }
 
     @TestTemplate
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.FLINK},
-            disabledReason = "Flink dosen't support multi-table at now")
     public void testMultipleTableAndSaveMode(TestContainer container)
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
@@ -172,6 +178,8 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         String homePath = "/home/vsftpd/seatunnel";
         String path1 = "/tmp/seatunnel_mult/text/source_1";
         String path2 = "/tmp/seatunnel_mult/text/source_2";
+        deleteFileFromContainer(homePath + path1);
+        deleteFileFromContainer(homePath + path2);
         Assertions.assertEquals(getFileListFromContainer(homePath + path1).size(), 0);
         Assertions.assertEquals(getFileListFromContainer(homePath + path2).size(), 0);
         helper.execute("/text/multiple_table_fake_to_ftp_file_text.conf");
@@ -183,6 +191,8 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         // test mult table and save_mode:CREATE_SCHEMA_WHEN_NOT_EXIST APPEND_DATA
         String path3 = "/tmp/seatunnel_mult2/text/source_1";
         String path4 = "/tmp/seatunnel_mult2/text/source_2";
+        deleteFileFromContainer(homePath + path3);
+        deleteFileFromContainer(homePath + path4);
         Assertions.assertEquals(getFileListFromContainer(homePath + path3).size(), 0);
         Assertions.assertEquals(getFileListFromContainer(homePath + path4).size(), 0);
         helper.execute("/text/multiple_table_fake_to_ftp_file_text_2.conf");
@@ -221,6 +231,24 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
             }
         }
         return fileList;
+    }
+
+    @SneakyThrows
+    private void deleteFileFromContainer(String path) {
+        String command = "rm -rf " + path;
+        ExecCreateCmdResponse execCreateCmdResponse =
+                dockerClient
+                        .execCreateCmd(ftpContainer.getContainerId())
+                        .withCmd("sh", "-c", command)
+                        .withAttachStdout(true)
+                        .withAttachStderr(true)
+                        .exec();
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        dockerClient
+                .execStartCmd(execCreateCmdResponse.getId())
+                .exec(new ExecStartResultCallback(outputStream, System.err))
+                .awaitCompletion();
     }
 
     @AfterAll

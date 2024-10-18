@@ -94,7 +94,6 @@ public class DorisCatalogIT extends AbstractDorisIT {
     private void initCatalog() {
         String catalogName = "doris";
         String frontEndNodes = container.getHost() + ":" + HTTP_PORT;
-
         factory = new DorisCatalogFactory();
 
         Map<String, Object> map = new HashMap<>();
@@ -106,6 +105,7 @@ public class DorisCatalogIT extends AbstractDorisIT {
         catalog = (DorisCatalog) factory.createCatalog(catalogName, ReadonlyConfig.fromMap(map));
 
         catalog.open();
+        catalog.createDatabase(tablePath, false);
     }
 
     @Test
@@ -260,6 +260,9 @@ public class DorisCatalogIT extends AbstractDorisIT {
                 createdTable.getTableSchema().getColumns().stream()
                         .map(Column::getName)
                         .collect(Collectors.toList()));
+        Assertions.assertEquals(
+                "k1", createdTable.getTableSchema().getColumns().get(0).getComment());
+        ;
         return createdTable;
     }
 

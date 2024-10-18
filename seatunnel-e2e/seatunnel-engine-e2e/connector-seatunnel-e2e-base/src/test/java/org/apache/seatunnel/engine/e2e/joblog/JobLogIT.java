@@ -214,11 +214,13 @@ public class JobLogIT extends SeaTunnelContainer {
                                                 + container.getHost()
                                                 + ":"
                                                 + container.getFirstMappedPort()
+                                                + RestConstant.CONTEXT_PATH
                                                 + RestConstant.SUBMIT_JOB_URL
                                         : "http://"
                                                 + container.getHost()
                                                 + ":"
                                                 + container.getFirstMappedPort()
+                                                + RestConstant.CONTEXT_PATH
                                                 + RestConstant.SUBMIT_JOB_URL
                                                 + "?"
                                                 + parameters);

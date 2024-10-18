@@ -35,6 +35,7 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.dag.DAGUtils;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpGetCommandProcessor;
 import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
 import org.apache.seatunnel.engine.server.operation.GetClusterHealthMetricsOperation;
@@ -75,6 +76,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_400;
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES_PER_SECONDS;
@@ -84,6 +86,7 @@ import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVE
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_BYTES_PER_SECONDS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_QPS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.CONTEXT_PATH;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.FINISHED_JOBS_INFO;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.JOB_INFO_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.OVERVIEW;
@@ -91,22 +94,19 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOBS_
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOB_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_THREADS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.SYSTEM_MONITORING_INFORMATION;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SINK_WRITE_BYTES;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SINK_WRITE_BYTES_PER_SECONDS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SINK_WRITE_COUNT;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SINK_WRITE_QPS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SOURCE_RECEIVED_BYTES;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SOURCE_RECEIVED_BYTES_PER_SECONDS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SOURCE_RECEIVED_COUNT;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SOURCE_RECEIVED_QPS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.TELEMETRY_METRICS_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.TELEMETRY_OPEN_METRICS_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.THREAD_DUMP;
 
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
-
-    private static final String TABLE_SOURCE_RECEIVED_COUNT = "TableSourceReceivedCount";
-    private static final String TABLE_SINK_WRITE_COUNT = "TableSinkWriteCount";
-    private static final String TABLE_SOURCE_RECEIVED_QPS = "TableSourceReceivedQPS";
-    private static final String TABLE_SINK_WRITE_QPS = "TableSinkWriteQPS";
-    private static final String TABLE_SOURCE_RECEIVED_BYTES = "TableSourceReceivedBytes";
-    private static final String TABLE_SINK_WRITE_BYTES = "TableSinkWriteBytes";
-    private static final String TABLE_SOURCE_RECEIVED_BYTES_PER_SECONDS =
-            "TableSourceReceivedBytesPerSeconds";
-    private static final String TABLE_SINK_WRITE_BYTES_PER_SECONDS =
-            "TableSinkWriteBytesPerSeconds";
 
     private final Log4j2HttpGetCommandProcessor original;
     private NodeEngine nodeEngine;
@@ -129,29 +129,32 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     public void handle(HttpGetCommand httpGetCommand) {
         String uri = httpGetCommand.getURI();
         try {
-            if (uri.startsWith(RUNNING_JOBS_URL)) {
+            if (uri.startsWith(CONTEXT_PATH + RUNNING_JOBS_URL)) {
                 handleRunningJobsInfo(httpGetCommand);
-            } else if (uri.startsWith(FINISHED_JOBS_INFO)) {
+            } else if (uri.startsWith(CONTEXT_PATH + FINISHED_JOBS_INFO)) {
                 handleFinishedJobsInfo(httpGetCommand, uri);
-            } else if (uri.startsWith(RUNNING_JOB_URL) || uri.startsWith(JOB_INFO_URL)) {
+            } else if (uri.startsWith(CONTEXT_PATH + RUNNING_JOB_URL)
+                    || uri.startsWith(CONTEXT_PATH + JOB_INFO_URL)) {
                 handleJobInfoById(httpGetCommand, uri);
-            } else if (uri.startsWith(SYSTEM_MONITORING_INFORMATION)) {
+            } else if (uri.startsWith(CONTEXT_PATH + SYSTEM_MONITORING_INFORMATION)) {
                 getSystemMonitoringInformation(httpGetCommand);
-            } else if (uri.startsWith(RUNNING_THREADS)) {
+            } else if (uri.startsWith(CONTEXT_PATH + RUNNING_THREADS)) {
                 getRunningThread(httpGetCommand);
-            } else if (uri.startsWith(OVERVIEW)) {
+            } else if (uri.startsWith(CONTEXT_PATH + OVERVIEW)) {
                 overView(httpGetCommand, uri);
             } else if (uri.equals(TELEMETRY_METRICS_URL)) {
                 handleMetrics(httpGetCommand, TextFormat.CONTENT_TYPE_004);
             } else if (uri.equals(TELEMETRY_OPEN_METRICS_URL)) {
                 handleMetrics(httpGetCommand, TextFormat.CONTENT_TYPE_OPENMETRICS_100);
-            } else if (uri.startsWith(THREAD_DUMP)) {
+            } else if (uri.startsWith(CONTEXT_PATH + THREAD_DUMP)) {
                 getThreadDump(httpGetCommand);
             } else {
                 original.handle(httpGetCommand);
             }
         } catch (IndexOutOfBoundsException e) {
             httpGetCommand.send400();
+        } catch (IllegalArgumentException e) {
+            prepareResponse(SC_400, httpGetCommand, exceptionResponse(e));
         } catch (Throwable e) {
             logger.warning("An error occurred while handling request " + httpGetCommand, e);
             prepareResponse(SC_500, httpGetCommand, exceptionResponse(e));
@@ -577,7 +580,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         }
     }
 
-    public static Map<String, Object> aggregateMap(Map<String, JsonNode> inputMap, boolean isRate) {
+    private Map<String, Object> aggregateMap(Map<String, JsonNode> inputMap, boolean isRate) {
         return isRate
                 ? inputMap.entrySet().stream()
                         .collect(
@@ -690,19 +693,23 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
             jobStatus = seaTunnelServer.getCoordinatorService().getJobStatus(jobId);
         }
 
+        JobDAGInfo jobDAGInfo =
+                DAGUtils.getJobDAGInfo(
+                        logicalDag,
+                        jobImmutableInformation,
+                        getSeaTunnelServer(false).getSeaTunnelConfig().getEngineConfig(),
+                        true);
+
         jobInfoJson
                 .add(RestConstant.JOB_ID, String.valueOf(jobId))
                 .add(RestConstant.JOB_NAME, logicalDag.getJobConfig().getName())
                 .add(RestConstant.JOB_STATUS, jobStatus.toString())
                 .add(
-                        RestConstant.ENV_OPTIONS,
-                        JsonUtil.toJsonObject(logicalDag.getJobConfig().getEnvOptions()))
-                .add(
                         RestConstant.CREATE_TIME,
                         DateTimeUtils.toString(
                                 jobImmutableInformation.getCreateTime(),
                                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
-                .add(RestConstant.JOB_DAG, logicalDag.getLogicalDagAsJson())
+                .add(RestConstant.JOB_DAG, jobDAGInfo.toJsonObject())
                 .add(
                         RestConstant.PLUGIN_JARS_URLS,
                         (JsonValue)
@@ -752,7 +759,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                         DateTimeUtils.toString(
                                 jobState.getFinishTime(),
                                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
-                .add(RestConstant.JOB_DAG, JsonUtils.toJsonString(jobDAGInfo))
+                .add(RestConstant.JOB_DAG, jobDAGInfo.toJsonObject())
                 .add(RestConstant.PLUGIN_JARS_URLS, new JsonArray())
                 .add(RestConstant.METRICS, toJsonObject(getJobMetrics(jobMetrics)));
     }
