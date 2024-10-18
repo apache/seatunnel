@@ -211,6 +211,39 @@ public class ServerConfigOptions {
                     .withDescription(
                             "Whether to use classloader cache mode. With cache mode, all jobs share the same classloader if the jars are the same");
 
+    public static final Option<Boolean> TELEMETRY_LOGS_SCHEDULED_DELETION_ENABLE =
+            Options.key("scheduled-deletion-enable")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Enable scheduled deletion of telemetry logs");
+
+    public static final Option<Long> TELEMETRY_LOGS_SCHEDULED_DELETION_KEEP_TIME =
+            Options.key("keep-time")
+                    .longType()
+                    .defaultValue(2592000000L)
+                    .withDescription("The number of time to keep telemetry logs");
+
+    public static final Option<String> TELEMETRY_LOGS_SCHEDULED_DELETION_CRON =
+            Options.key("cron")
+                    .stringType()
+                    .defaultValue("0 0 * * *")
+                    .withDescription("Logs deletion time");
+
+    public static final Option<String> TELEMETRY_LOGS_PATH =
+            Options.key("path").stringType().noDefaultValue().withDescription("Logs path");
+
+    public static final Option<String> TELEMETRY_LOGS_PREFIX =
+            Options.key("prefix")
+                    .stringType()
+                    .defaultValue("job")
+                    .withDescription("Whether open job log.");
+
+    public static final Option<TelemetryLogsConfig> TELEMETRY_LOGS =
+            Options.key("logs")
+                    .type(new TypeReference<TelemetryLogsConfig>() {})
+                    .defaultValue(new TelemetryLogsConfig())
+                    .withDescription("The telemetry logs configuration.");
+
     public static final Option<Boolean> TELEMETRY_METRIC_ENABLED =
             Options.key("enabled")
                     .booleanType()

@@ -80,6 +80,28 @@ appender.file.layout.pattern = [%X{ST-JID}] %d{yyyy-MM-dd HH:mm:ss,SSS} %-5p [%-
 
 SeaTunnel Engine 自动集成了大多数 Log 桥接器，允许针对 Log4j1/Logback 类工作的现有应用程序继续工作。
 
+## SeaTunnel 日志配置
+
+### 定时删除旧日志
+
+SeaTunnel 支持定时删除旧日志文件，以避免磁盘空间不足。您可以在 `seatunnel.yml` 文件中添加以下配置：
+
+```yaml
+    telemetry:
+      logs:
+        scheduled-deletion-enable: false
+        cron: "0 0 * * *"
+        keep-time: 2592000000
+        prefix: job
+        path: /tmp/seatunnel/logs
+```
+
+- `scheduled-deletion-enable`: 是否启用定时删除日志
+- `cron`: 定时任务的 cron 表达式
+- `keep-time`: 保留日志的时间（单位：毫秒）
+- `prefix`: 日志文件的前缀
+- `path`: 日志文件的路径,默认与启动脚日志文件路径相同
+
 ## 开发人员最佳实践
 
 您可以通过调用 `org.slf4j.LoggerFactory#LoggerFactory.getLogger` 并以您的类的类作为参数来创建 SLF4J 记录器。
