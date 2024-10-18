@@ -24,6 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggreg
 import org.apache.seatunnel.connectors.seatunnel.hive.sink.HiveSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
 
+import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
 
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +39,7 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
     private final String dbName;
     private final String tableName;
     private final boolean abortDropPartitionMetadata;
+    private final boolean overwrite;
 
     private final ReadonlyConfig readonlyConfig;
 
@@ -49,11 +51,21 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
         this.tableName = tableName;
         this.abortDropPartitionMetadata =
                 readonlyConfig.get(HiveSinkOptions.ABORT_DROP_PARTITION_METADATA);
+        this.overwrite = readonlyConfig.get(HiveSinkOptions.OVERWRITE);
     }
 
     @Override
     public List<FileAggregatedCommitInfo> commit(
             List<FileAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
+        log.info("Aggregated commit infos size: {}", aggregatedCommitInfos.size());
+        for (FileAggregatedCommitInfo info : aggregatedCommitInfos) {
+            log.info("Commit info: {}", info);
+        }
+        log.info("overwrite: {}", overwrite);
+        // delete if overwrite
+        if (overwrite) {
+            deleteDirectories(aggregatedCommitInfos);
+        }
 
         List<FileAggregatedCommitInfo> errorCommitInfos = super.commit(aggregatedCommitInfos);
         if (errorCommitInfos.isEmpty()) {
@@ -101,6 +113,46 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
                 }
             }
             hiveMetaStore.close();
+        }
+    }
+
+    /**
+     * Deletes the partition directories based on the partition paths stored in the aggregated
+     * commit information.
+     *
+     * <p>This method is invoked during the commit phase when the overwrite option is enabled. It
+     * iterates over the partition directories specified in the commit information and deletes the
+     * directories from the Hadoop file system.
+     *
+     * @param aggregatedCommitInfos
+     */
+    private void deleteDirectories(List<FileAggregatedCommitInfo> aggregatedCommitInfos)
+            throws IOException {
+        if (!aggregatedCommitInfos.isEmpty()) {
+            HiveMetaStoreProxy hiveMetaStore = HiveMetaStoreProxy.getInstance(readonlyConfig);
+            Table table = hiveMetaStore.getTable(dbName, tableName);
+            String tableLocation = table.getSd().getLocation();
+            try {
+                for (FileAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
+                    Map<String, List<String>> partitionDirAndValuesMap =
+                            aggregatedCommitInfo.getPartitionDirAndValuesMap();
+                    if (partitionDirAndValuesMap.isEmpty()) {
+                        // If partitionDirAndValuesMap is empty, it is a non-partitioned table
+                        hadoopFileSystemProxy.deleteFile(tableLocation);
+                        log.info("Deleted table directory: {}", tableLocation);
+                    } else {
+                        for (String partitionDir : partitionDirAndValuesMap.keySet()) {
+                            String fullPartitionPath =
+                                    tableLocation.replaceAll("/+$", "") + "/" + partitionDir;
+                            hadoopFileSystemProxy.deleteFile(fullPartitionPath);
+                            log.info("deleted partition directory: {}", partitionDir);
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                log.error("Failed to delete directories", e);
+                throw e;
+            }
         }
     }
 }
