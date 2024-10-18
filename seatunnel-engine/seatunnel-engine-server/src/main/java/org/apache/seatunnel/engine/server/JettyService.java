@@ -85,7 +85,7 @@ public class JettyService {
         ServletHolder defaultServlet = new ServletHolder("default", DefaultServlet.class);
         defaultServlet.setInitParameter(
                 "resourceBase",
-                JettyService.class.getClassLoader().getResource("dist").toExternalForm());
+                JettyService.class.getClassLoader().getResource("ui").toExternalForm());
         context.addServlet(defaultServlet, "/");
 
         ServletHolder overviewHolder = new ServletHolder(new OverviewServlet(nodeEngine));
