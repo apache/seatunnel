@@ -15,29 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.rest.servlet;
+package org.apache.seatunnel.engine.server.log;
 
-import com.hazelcast.internal.json.JsonArray;
-import com.hazelcast.spi.impl.NodeEngineImpl;
-import lombok.extern.slf4j.Slf4j;
+/** Log interface return format */
+public enum FormatType {
+    JSON,
+    // html is default format
+    HTML;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import java.io.IOException;
-
-@Slf4j
-public class SystemMonitoringServlet extends BaseServlet {
-    public SystemMonitoringServlet(NodeEngineImpl nodeEngine) {
-        super(nodeEngine);
-    }
-
-    @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp)
-            throws ServletException, IOException {
-
-        JsonArray jsonValues = getSystemMonitoringInformationJsonValues();
-        writeJson(resp, jsonValues);
+    public static FormatType fromString(String formatType) {
+        try {
+            return Enum.valueOf(FormatType.class, formatType.toUpperCase());
+        } catch (Exception e) {
+            // if formatType is not valid, return default format
+            return HTML;
+        }
     }
 }
