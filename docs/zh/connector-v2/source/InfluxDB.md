@@ -4,7 +4,7 @@
 
 ## Description
 
-Read external data source data through InfluxDB.
+通过InfluxDB读取外部数据源数据。
 
 ## Support InfluxDB Version
 
@@ -20,11 +20,11 @@ Read external data source data through InfluxDB.
 
 ### For Spark/Flink Engine
 
-> 1. You need to ensure that the [influxDB connector jar package](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-influxdb) has been placed in directory `${SEATUNNEL_HOME}/connectors/`.
+> 1. 需要确保连接器Jar包 [influxDB connector jar package](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-influxdb) 被放在目录 `${SEATUNNEL_HOME}/connectors/`.
 
 ### For SeaTunnel Zeta Engine
 
-> 1. You need to ensure that the [influxDB connector jar package](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-influxdb) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
+> 1. 需要确保连接器Jar包 [influxDB connector jar package](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-influxdb) 被放在目录 `${SEATUNNEL_HOME}/lib/`.
 
 ## Key features
 
@@ -71,7 +71,7 @@ Read external data source data through InfluxDB.
 
 ### url
 
-the url to connect to influxDB e.g.
+连接到InfluxDB的url，例如：
 
 ```
 http://influxdb-host:8086
@@ -79,7 +79,7 @@ http://influxdb-host:8086
 
 ### sql [string]
 
-The query sql used to search data
+用于查询数据的SQL
 
 ```
 select name,age from test
@@ -89,8 +89,7 @@ select name,age from test
 
 #### fields [Config]
 
-The schema information of upstream data.
-e.g.
+上游数据的schema信息，例如：
 
 ```
 schema {
@@ -103,76 +102,75 @@ schema {
 
 ### database [string]
 
-The `influxDB` database
+influxDB 库
 
 ### username [string]
 
-the username of the influxDB when you select
+InfluxDB 用户名
 
 ### password [string]
 
-the password of the influxDB when you select
+InfluxDB 密码
 
 ### split_column [string]
 
-the `split_column` of the influxDB when you select
+InfluxDB 分片列
 
 > Tips:
-> - influxDB tags is not supported as a segmented primary key because the type of tags can only be a string
-> - influxDB time is not supported as a segmented primary key because the time field cannot participate in mathematical calculation
-> - Currently, `split_column` only supports integer data segmentation, and does not support `float`, `string`, `date` and other types.
+> - InfluxDB的标签不支持作为分片主键，因为标签类型只能是字符串
+> - InfluxDB的时间不支持作为分片主键，因为时间字段不能参与数学计算
+> - 目前，split_column仅支持Integer类型分片，并不支持float、string、date等类型。
 
 ### upper_bound [long]
 
-upper bound of the `split_column`column
+分片字段数据的上限
 
 ### lower_bound [long]
 
-lower bound of the `split_column` column
+分片字段数据的下限
 
 ```
-     split the $split_column range into $partition_num parts
-     if partition_num is 1, use the whole `split_column` range
-     if partition_num < (upper_bound - lower_bound), use (upper_bound - lower_bound) partitions
+     将$split_column范围分片成$partition_num部分
+     如果partition_num为1，则使用整个`split_column`范围
+     如果partition_num < (upper_bound - lower_bound)，则使用(upper_bound - lower_bound)分片
      
-     eg: lower_bound = 1, upper_bound = 10, partition_num = 2
+     例如: lower_bound = 1, upper_bound = 10, partition_num = 2
      sql = "select * from test where age > 0 and age < 10"
      
-     split result
+     分片结果
 
-     split 1: select * from test where ($split_column >= 1 and $split_column < 6)  and (  age > 0 and age < 10 )
+     分片1: select * from test where ($split_column >= 1 and $split_column < 6)  and (  age > 0 and age < 10 )
      
-     split 2: select * from test where ($split_column >= 6 and $split_column < 11) and (  age > 0 and age < 10 )
-
+     分片2: select * from test where ($split_column >= 6 and $split_column < 11) and (  age > 0 and age < 10 )
 ```
 
 ### partition_num [int]
 
-the `partition_num` of the InfluxDB when you select
+分片数量
 
-> Tips: Ensure that `upper_bound` minus `lower_bound` is divided `bypartition_num`, otherwise the query results will overlap
+> 提示: 确保upper_bound减lower_bound能被partition_num整除，否则查询结果会重叠
 
 ### epoch [string]
 
-returned time precision
-- Optional values: H, m, s, MS, u, n
-- default value: n
+返回的时间精度
+可选值: H, m, s, MS, u, n
+默认值: n
 
 ### query_timeout_sec [int]
 
-the `query_timeout` of the InfluxDB when you select, in seconds
+InfluxDB的查询超时时间，单位为秒
 
 ### connect_timeout_ms [long]
 
-the timeout for connecting to InfluxDB, in milliseconds
+连接InfluxDB的超时时间，单位为毫秒
 
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details
+插件公共参数，请参考 [公共选项](common-options.md)
 
 ## Examples
 
-Example of multi parallelism and multi partition scanning
+多分片查询的示例
 
 ```hocon
 source {
@@ -198,7 +196,7 @@ source {
 
 ```
 
-Example of not using partition scan
+不使用分片查询的示例
 
 ```hocon
 source {
@@ -219,7 +217,7 @@ source {
 }
 ```
 
-Example of using chunked query
+使用分块查询的示例
 
 ```hocon
 source {
@@ -240,11 +238,11 @@ source {
 ```
 
 > Tips:
-> - Chunked queries are used to address situations where no suitable split column can be found for partitioned querying, yet the data volume is large. Therefore, if a split_column is configured or chunk_size = 0, chunked queries will not be performed.
-> - When using partitioned queries, the parallelism of the source can only be set to 1, yet the speed remains fast, which will put pressure on the downstream. It is recommended to increase the parallelism of the downstream, or increase the output rate, to reduce backpressure and improve performance.
-> - When using chunked queries, pressure will be applied to the InfluxDB database itself, which is proportional to the data volume. In tests, when Seatunnel synchronized more than 20GB of data, the memory usage of InfluxDB increased by over 10GB.
+> - 分块查询是为了解决没有办法找到合适的分片列进行分片查询，但同时数据量又大的情况。所以如果配置了split_column或者chunk_size = 0则不进行分块查询。
+> - 使用分块查询时，source并行度只能为1，但速度仍然很快，将对下游造成压力，建议将下游的并行度调大，或者输出速率调大，减少反压，提高性能。
+> - 使用分块查询时，会对influxDB数据库本身造成压力，与数据量成正比。实测，seatunnel同步了20多G数据时，influxdb的内存上升10多G。
 
-## Changelog
+## 更新日志
 
 ### 2.2.0-beta 2022-09-26
 

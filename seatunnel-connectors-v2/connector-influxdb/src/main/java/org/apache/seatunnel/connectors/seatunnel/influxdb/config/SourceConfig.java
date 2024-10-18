@@ -65,12 +65,19 @@ public class SourceConfig extends InfluxDBConfig {
                     .noDefaultValue()
                     .withDescription("the influxdb server lower bound");
 
+    public static final Option<Integer> CHUNK_SIZE =
+            Options.key("chunk_size")
+                    .intType()
+                    .defaultValue(0)
+                    .withDescription("the influxdb client query chunk_size");
+
     public static final String DEFAULT_PARTITIONS = PARTITION_NUM.defaultValue();
     private String sql;
     private int partitionNum = 0;
     private String splitKey;
     private long lowerBound;
     private long upperBound;
+    private int chunkSize = CHUNK_SIZE.defaultValue();
 
     List<Integer> columnsIndex;
 
@@ -94,6 +101,9 @@ public class SourceConfig extends InfluxDBConfig {
         }
         if (config.hasPath(SPLIT_COLUMN.key())) {
             sourceConfig.splitKey = config.getString(SPLIT_COLUMN.key());
+        }
+        if (config.hasPath(CHUNK_SIZE.key())) {
+            sourceConfig.chunkSize = config.getInt(CHUNK_SIZE.key());
         }
         return sourceConfig;
     }
