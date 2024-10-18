@@ -193,7 +193,7 @@ public class PaimonSinkWriter
         } catch (Exception e) {
             throw new PaimonConnectorException(
                     PaimonConnectorErrorCode.TABLE_PRE_COMMIT_FAILED,
-                    "Flink table store failed to prepare commit",
+                    "Paimon pre-commit failed.",
                     e);
         }
     }
