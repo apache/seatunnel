@@ -21,13 +21,10 @@ import Logo from './logo'
 import Info from './info'
 
 const Header = defineComponent({
-  setup() { },
-  render() {
-    return (
-      <NSpace justify='space-between' class='h-16 border-gray-200'>
-        <NSpace>
-          <Logo />
-        </NSpace>
+  setup() {
+    return () => (
+      <NSpace justify="space-between" class="h-16 border-gray-200">
+        <Logo />
         <Info />
       </NSpace>
     )
