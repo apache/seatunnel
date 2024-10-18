@@ -763,18 +763,18 @@ Returns a list of logs from the requested nodes along with their content.
 
 #### Return List of All Log Files
 
-If you want to view the log list first, you can retrieve it via a `GET` request: `http://localhost:8080/seatunnel/logs?format=json`
+If you want to view the log list first, you can retrieve it via a `GET` request: `http://localhost:8080/logs?format=json`
 
 ```json
 [
   {
     "node": "localhost:8080",
-    "logLink": "http://localhost:8080/seatunnel/logs/job-899485770241277953.log",
+    "logLink": "http://localhost:8080/logs/job-899485770241277953.log",
     "logName": "job-899485770241277953.log"
   },
   {
     "node": "localhost:8080",
-    "logLink": "http://localhost:8080/seatunnel/logs/job-899470314109468673.log",
+    "logLink": "http://localhost:8080/logs/job-899470314109468673.log",
     "logName": "job-899470314109468673.log"
   }
 ]
@@ -794,7 +794,7 @@ Retrieve the content of a specific log file: `http://localhost:8080/logs/job-898
 ### Get Log Content from a Single Node
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/log</b></code> <code>(Returns a list of logs.)</code></summary>
+ <summary><code>GET</code> <code><b>/log</b></code> <code>(Returns a list of logs.)</code></summary>
 
 #### Response
 

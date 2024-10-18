@@ -50,7 +50,7 @@ public class AllLogNameServlet extends LogBaseServlet {
         try {
             writeJson(resp, fileNameList);
         } catch (SeaTunnelRuntimeException e) {
-            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
             log.warn(String.format("Log file name get failed, get log path: %s", logPath));
         }
     }

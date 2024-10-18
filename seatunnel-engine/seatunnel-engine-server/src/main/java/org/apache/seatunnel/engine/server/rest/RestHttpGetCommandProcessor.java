@@ -819,7 +819,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         if (StringUtils.isBlank(logPath)) {
             logger.warning(
                     "Log file path is empty, no log file path configured in the current configuration file");
-            httpGetCommand.send400();
+            httpGetCommand.send404();
             return;
         }
         JsonArray systemMonitoringInformationJsonValues =

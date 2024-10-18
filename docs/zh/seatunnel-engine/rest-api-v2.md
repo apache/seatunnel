@@ -764,18 +764,18 @@ seatunnel:
 
 #### 返回所有日志文件列表
 
-如果你想先查看日志列表，可以通过`GET`请求获取日志列表，`http://localhost:8080/seatunnel/logs?format=json`
+如果你想先查看日志列表，可以通过`GET`请求获取日志列表，`http://localhost:8080/logs?format=json`
 
 ```json
 [
   {
     "node": "localhost:8080",
-    "logLink": "http://localhost:8080/seatunnel/logs/job-899485770241277953.log",
+    "logLink": "http://localhost:8080/logs/job-899485770241277953.log",
     "logName": "job-899485770241277953.log"
   },
   {
     "node": "localhost:8080",
-    "logLink": "http://localhost:8080/seatunnel/logs/job-899470314109468673.log",
+    "logLink": "http://localhost:8080/logs/job-899470314109468673.log",
     "logName": "job-899470314109468673.log"
   }
 ]
@@ -798,7 +798,7 @@ seatunnel:
 ### 获取单节点日志内容
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/log</b></code> <code>(返回日志列表。)</code></summary></summary>
+ <summary><code>GET</code> <code><b>/log</b></code> <code>(返回日志列表。)</code></summary></summary>
 
 #### 响应
 
@@ -806,7 +806,7 @@ seatunnel:
 
 #### 例子
 
-获取当前节点的日志列表：`http://localhost:5801/hazelcast/rest/maps/log`
-获取日志文件内容：`http://localhost:5801/hazelcast/rest/maps/log/job-898380162133917698.log``
+获取当前节点的日志列表：`http://localhost:5801/log`
+获取日志文件内容：`http://localhost:5801/log/job-898380162133917698.log``
 
 </details>

@@ -135,8 +135,7 @@ public class JobLogIT extends SeaTunnelContainer {
 
     private void assertFileLog() throws IOException, InterruptedException {
         String catLog = "cat /tmp/seatunnel/logs/job-862969647010611201.log";
-        String apiGetLog =
-                "curl http://localhost:5801/hazelcast/rest/maps/log/job-862969647010611201.log";
+        String apiGetLog = "curl http://localhost:8080/log/job-862969647010611201.log";
         Container.ExecResult execResult = server.execInContainer("sh", "-c", catLog);
         String serverLogs = execResult.getStdout();
 

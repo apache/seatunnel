@@ -85,10 +85,10 @@ SeaTunnel Engine automatically integrates Log framework bridge, allowing existin
 SeaTunnel provides an API for querying logs.
 
 **Usage examples:**
-- Retrieve logs for all nodes with `jobId` of `733584788375666689`: `http://localhost:5801/hazelcast/rest/maps/logs/733584788375666689`
-- Retrieve the log list for all nodes: `http://localhost:5801/hazelcast/rest/maps/logs`
-- Retrieve the log list for all nodes in JSON format: `http://localhost:5801/hazelcast/rest/maps/logs?format=json`
-- Retrieve log file content: `http://localhost:5801/hazelcast/rest/maps/logs/job-898380162133917698.log`
+- Retrieve logs for all nodes with `jobId` of `733584788375666689`: `http://localhost:8080/logs/733584788375666689`
+- Retrieve the log list for all nodes: `http://localhost:8080/logs`
+- Retrieve the log list for all nodes in JSON format: `http://localhost:8080/logs?format=json`
+- Retrieve log file content: `http://localhost:8080/logs/job-898380162133917698.log`
 
 For more details, please refer to the [REST-API](rest-api-v2.md).
 
