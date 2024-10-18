@@ -58,9 +58,9 @@ import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformAction;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginLocalDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginLocalDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginLocalDiscovery;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -274,7 +274,7 @@ public class MultipleTableJobConfigParser {
                                                                 CollectionConstants.SINK_PLUGIN,
                                                                 factory)))
                         .collect(Collectors.toList());
-        return new SeaTunnelSinkPluginDiscovery().getPluginJarPaths(factoryIds);
+        return new SeaTunnelSinkPluginLocalDiscovery().getPluginJarPaths(factoryIds);
     }
 
     private void fillUsedFactoryUrls(List<Action> actions, Set<URL> result) {
@@ -698,7 +698,6 @@ public class MultipleTableJobConfigParser {
                 Optional<SaveModeHandler> saveModeHandler = saveModeSink.getSaveModeHandler();
                 if (saveModeHandler.isPresent()) {
                     try (SaveModeHandler handler = saveModeHandler.get()) {
-                        handler.open();
                         new SaveModeExecuteWrapper(handler).execute();
                     } catch (Exception e) {
                         throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);
@@ -709,7 +708,8 @@ public class MultipleTableJobConfigParser {
     }
 
     private List<URL> getSourcePluginJarPaths(Config sourceConfig) {
-        SeaTunnelSourcePluginDiscovery sourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery();
+        SeaTunnelSourcePluginLocalDiscovery sourcePluginDiscovery =
+                new SeaTunnelSourcePluginLocalDiscovery();
         PluginIdentifier pluginIdentifier =
                 PluginIdentifier.of(
                         CollectionConstants.SEATUNNEL_PLUGIN,
@@ -721,8 +721,8 @@ public class MultipleTableJobConfigParser {
     }
 
     private List<URL> getTransformPluginJarPaths(Config transformConfig) {
-        SeaTunnelTransformPluginDiscovery transformPluginDiscovery =
-                new SeaTunnelTransformPluginDiscovery();
+        SeaTunnelTransformPluginLocalDiscovery transformPluginDiscovery =
+                new SeaTunnelTransformPluginLocalDiscovery();
         PluginIdentifier pluginIdentifier =
                 PluginIdentifier.of(
                         CollectionConstants.SEATUNNEL_PLUGIN,
@@ -734,7 +734,8 @@ public class MultipleTableJobConfigParser {
     }
 
     private List<URL> getSinkPluginJarPaths(Config sinkConfig) {
-        SeaTunnelSinkPluginDiscovery sinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery();
+        SeaTunnelSinkPluginLocalDiscovery sinkPluginDiscovery =
+                new SeaTunnelSinkPluginLocalDiscovery();
         PluginIdentifier pluginIdentifier =
                 PluginIdentifier.of(
                         CollectionConstants.SEATUNNEL_PLUGIN,

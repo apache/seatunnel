@@ -26,9 +26,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginLocalDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginLocalDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginLocalDiscovery;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
@@ -47,7 +47,8 @@ public class ConnectorInstanceLoader {
 
     public static ImmutablePair<SeaTunnelSource, Set<URL>> loadSourceInstance(
             Config sourceConfig, JobContext jobContext, List<URL> pluginJars) {
-        SeaTunnelSourcePluginDiscovery sourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery();
+        SeaTunnelSourcePluginLocalDiscovery sourcePluginDiscovery =
+                new SeaTunnelSourcePluginLocalDiscovery();
         PluginIdentifier pluginIdentifier =
                 PluginIdentifier.of(
                         CollectionConstants.SEATUNNEL_PLUGIN,
@@ -65,7 +66,8 @@ public class ConnectorInstanceLoader {
     public static ImmutablePair<
                     SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>, Set<URL>>
             loadSinkInstance(Config sinkConfig, JobContext jobContext, List<URL> pluginJars) {
-        SeaTunnelSinkPluginDiscovery sinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery();
+        SeaTunnelSinkPluginLocalDiscovery sinkPluginDiscovery =
+                new SeaTunnelSinkPluginLocalDiscovery();
         PluginIdentifier pluginIdentifier =
                 PluginIdentifier.of(
                         CollectionConstants.SEATUNNEL_PLUGIN,
@@ -80,8 +82,8 @@ public class ConnectorInstanceLoader {
 
     public static ImmutablePair<SeaTunnelTransform<?>, Set<URL>> loadTransformInstance(
             Config transformConfig, JobContext jobContext, List<URL> pluginJars) {
-        SeaTunnelTransformPluginDiscovery transformPluginDiscovery =
-                new SeaTunnelTransformPluginDiscovery();
+        SeaTunnelTransformPluginLocalDiscovery transformPluginDiscovery =
+                new SeaTunnelTransformPluginLocalDiscovery();
         PluginIdentifier pluginIdentifier =
                 PluginIdentifier.of(
                         CollectionConstants.SEATUNNEL_PLUGIN,
