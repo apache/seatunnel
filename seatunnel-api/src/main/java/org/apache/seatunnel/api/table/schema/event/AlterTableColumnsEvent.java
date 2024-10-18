@@ -15,37 +15,39 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.event;
+package org.apache.seatunnel.api.table.schema.event;
 
+import org.apache.seatunnel.api.event.EventType;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.Setter;
 import lombok.ToString;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Getter
-@ToString
-@RequiredArgsConstructor
-public abstract class TableEvent implements SchemaChangeEvent {
-    private long createdTime = System.currentTimeMillis();
-    protected final TableIdentifier tableIdentifier;
-    @Getter @Setter private String jobId;
-    @Getter @Setter private String statement;
-    @Getter @Setter protected String sourceDialectName;
+@ToString(callSuper = true)
+public class AlterTableColumnsEvent extends AlterTableEvent {
+    private final List<AlterTableColumnEvent> events;
 
-    @Override
-    public TableIdentifier tableIdentifier() {
-        return tableIdentifier;
+    public AlterTableColumnsEvent(TableIdentifier tableIdentifier) {
+        this(tableIdentifier, new ArrayList<>());
     }
 
-    public TablePath getTablePath() {
-        return tablePath();
+    public AlterTableColumnsEvent(
+            TableIdentifier tableIdentifier, List<AlterTableColumnEvent> events) {
+        super(tableIdentifier);
+        this.events = events;
+    }
+
+    public AlterTableColumnsEvent addEvent(AlterTableColumnEvent event) {
+        events.add(event);
+        return this;
     }
 
     @Override
-    public long getCreatedTime() {
-        return createdTime;
+    public EventType getEventType() {
+        return EventType.SCHEMA_CHANGE_UPDATE_COLUMNS;
     }
 }

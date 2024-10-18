@@ -15,13 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.event.handler;
+package org.apache.seatunnel.api.source;
 
-import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 
-import java.io.Serializable;
+import java.util.List;
 
-public interface SchemaChangeEventHandler<T> extends Serializable {
+public interface SupportSchemaEvolution {
 
-    T handle(SchemaChangeEvent event);
+    /**
+     * Whether the source connector supports schema evolution.
+     *
+     * @return the supported schema change types
+     */
+    List<SchemaChangeType> supports();
 }

@@ -15,16 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.event;
+package org.apache.seatunnel.api.table.schema.event;
 
+import org.apache.seatunnel.api.event.EventType;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 
+import lombok.Getter;
 import lombok.ToString;
 
+@Getter
 @ToString(callSuper = true)
-public abstract class AlterTableColumnEvent extends AlterTableEvent {
+public class AlterTableNameEvent extends AlterTableEvent {
+    private final TableIdentifier newTableIdentifier;
 
-    public AlterTableColumnEvent(TableIdentifier tableIdentifier) {
+    public AlterTableNameEvent(
+            TableIdentifier tableIdentifier, TableIdentifier newTableIdentifier) {
         super(tableIdentifier);
+        this.newTableIdentifier = newTableIdentifier;
+    }
+
+    public TablePath getNewTablePath() {
+        return newTableIdentifier.toTablePath();
+    }
+
+    @Override
+    public EventType getEventType() {
+        return EventType.SCHEMA_CHANGE_RENAME_TABLE;
     }
 }
