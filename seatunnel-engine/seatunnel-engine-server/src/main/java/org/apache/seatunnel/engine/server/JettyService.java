@@ -44,6 +44,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import javax.servlet.DispatcherType;
 
+import java.net.URL;
 import java.util.EnumSet;
 
 import static org.apache.seatunnel.engine.server.rest.RestConstant.ENCRYPT_CONFIG;
@@ -83,9 +84,15 @@ public class JettyService {
         context.addFilter(filterHolder, "/*", EnumSet.of(DispatcherType.REQUEST));
 
         ServletHolder defaultServlet = new ServletHolder("default", DefaultServlet.class);
-        defaultServlet.setInitParameter(
-                "resourceBase",
-                JettyService.class.getClassLoader().getResource("ui").toExternalForm());
+        URL uiResource = JettyService.class.getClassLoader().getResource("ui");
+        if (uiResource != null) {
+            defaultServlet.setInitParameter(
+                    "resourceBase",
+                    uiResource.toExternalForm());
+        } else {
+           log.warn("UI resources not found in classpath");
+        }
+
         context.addServlet(defaultServlet, "/");
 
         ServletHolder overviewHolder = new ServletHolder(new OverviewServlet(nodeEngine));
