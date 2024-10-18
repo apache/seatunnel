@@ -20,21 +20,24 @@ import { Selection } from '@antv/x6-plugin-selection'
 import { register } from '@antv/x6-vue-shape'
 import { defineComponent, onMounted, type PropType } from 'vue'
 import './index.scss'
-import type { Job, Vertex } from '@/service/job/types'
+import type { Job, JobStatus, Vertex } from '@/service/job/types'
+import { NGradientText, NTag } from 'naive-ui'
+import { getColorFromStatus } from '@/utils/getTypeFromStatus'
 
 interface NodeStatus {
   id: number
-  status: Job['jobStatus'] | 'default'
+  status: JobStatus
   label?: string
 }
 
 const AlgoNode = (props: any) => {
   const { node } = props
   const data = node?.getData() as NodeStatus
-  const { label, status = 'default' } = data
-
+  const { label, status } = data
+  const color = getColorFromStatus(status)
+  const style = `--node-color:${getColorFromStatus(status)?.textColor};`
   return (
-    <div class={`node ${status}`}>
+    <div class={`node ${status}`} style={style}>
       <span class="label">{label}</span>
       <span class="status">{status}</span>
     </div>

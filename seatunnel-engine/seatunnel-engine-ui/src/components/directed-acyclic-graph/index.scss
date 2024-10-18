@@ -19,53 +19,28 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0 6px;
   width: 100%;
   height: 100%;
   background-color: #fff;
   border: 1px solid #c2c8d5;
-  border-left: 4px solid #5F95FF;
+  border-left: 4px solid var(--node-color);
   border-radius: 4px;
   box-shadow: 0 2px 5px 1px rgba(0, 0, 0, 0.06);
   padding: 6px 8px;
   .label {
-    display: inline-block;
-    flex-shrink: 0;
-    width: 180px;
+    flex: 1;
     color: #666;
     font-size: 12px;
   }
   .status {
-    flex-shrink: 0;
-    text-align: center;
-    color: #5F95FF;
-  }
-  &.success {
-    border-left: 4px solid #52c41a;
-    .status {
-      color: #52c41a;
-    }
-  }
-  &.FINISHED {
-    border-left: 4px solid #ff4d4f;
-    .status {
-      color: #ff4d4f;
-    }
+    color: var(--node-color);
   }
 }
 .x6-node-selected .node {
-  border-color: #1890ff;
+  border-color: var(--node-color);
   border-radius: 2px;
   box-shadow: 0 0 0 4px #d4e8fe;
-}
-.x6-node-selected .node.success {
-  border-color: #52c41a;
-  border-radius: 2px;
-  box-shadow: 0 0 0 4px #ccecc0;
-}
-.x6-node-selected .node.FINISHED {
-  border-color: #ff4d4f;
-  border-radius: 2px;
-  box-shadow: 0 0 0 4px #fedcdc;
 }
 .x6-edge:hover path:nth-child(2){
   stroke: #1890ff;

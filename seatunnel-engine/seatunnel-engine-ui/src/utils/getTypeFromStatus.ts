@@ -15,14 +15,28 @@
  * limitations under the License.
  */
 
-import type { Job } from '@/service/job/types'
+import type { JobStatus } from '@/service/job/types'
+import { useThemeVars } from 'naive-ui'
 
-export const getTypeFromStatus = (status: Job['jobStatus']) => {
+export const getColorFromStatus = (status: JobStatus) => {
+  const colors = useThemeVars().value
   switch (status) {
     case 'RUNNING':
-      return 'success'
+      return { textColor: colors.successColor, color: colors.successColor + '1a' }
+    case 'INITIALIZING':
+    case 'CREATED':
+    case 'SCHEDULED':
+    case 'DOING_SAVEPOINT':
+    case 'SAVEPOINT_DONE':
+      return { textColor: colors.infoColor + '8c', color: colors.infoColor + '0f' }
     case 'FINISHED':
-      return 'error'
+      return { textColor: colors.infoColor, color: colors.infoColor + '1a' }
+    case 'CANCELING':
+    case 'CANCELED':
+      return { textColor: colors.warningColor, color: colors.warningColor + '1a' }
+    case 'FAILING':
+    case 'FAILED':
+      return { textColor: colors.errorColor, color: colors.errorColor + '1a' }
     default:
       return undefined
   }
