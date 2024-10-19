@@ -23,12 +23,13 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.client.InfluxDBClient;
-import org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig;
+import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.converter.InfluxDBRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorException;
 
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import org.influxdb.InfluxDB;
 import org.influxdb.dto.Query;
@@ -41,11 +42,13 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.CountDownLatch;
 
 @Slf4j
 public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDBSourceSplit> {
     private InfluxDB influxdb;
-    InfluxDBConfig config;
+
+    SourceConfig config;
 
     private final SourceReader.Context context;
 
@@ -56,8 +59,10 @@ public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDB
 
     private volatile boolean noMoreSplitsAssignment;
 
+    private final CountDownLatch latch = new CountDownLatch(1);
+
     InfluxdbSourceReader(
-            InfluxDBConfig config,
+            SourceConfig config,
             Context readerContext,
             SeaTunnelRowType seaTunnelRowType,
             List<Integer> columnsIndexList) {
@@ -97,11 +102,26 @@ public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDB
     }
 
     @Override
-    public void pollNext(Collector<SeaTunnelRow> output) {
-        while (!pendingSplits.isEmpty()) {
-            synchronized (output.getCheckpointLock()) {
-                InfluxDBSourceSplit split = pendingSplits.poll();
-                read(split, output);
+    public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException {
+        // reader influxDB By chunk
+        if (StringUtils.isEmpty(config.getSplitKey()) && config.getChunkSize() > 0) {
+            while (!pendingSplits.isEmpty()) {
+                synchronized (output.getCheckpointLock()) {
+                    InfluxDBSourceSplit split = pendingSplits.poll();
+                    readByChunkSize(split, output);
+                }
+                try {
+                    latch.await();
+                } catch (InterruptedException e) {
+                    throw new InterruptedException("query influxdb by chunkSize await failed");
+                }
+            }
+        } else {
+            while (!pendingSplits.isEmpty()) {
+                synchronized (output.getCheckpointLock()) {
+                    InfluxDBSourceSplit split = pendingSplits.poll();
+                    read(split, output);
+                }
             }
         }
 
@@ -150,5 +170,50 @@ public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDB
                 log.debug("split[{}] reader influxDB series is empty.", split.splitId());
             }
         }
+    }
+
+    private void readByChunkSize(InfluxDBSourceSplit split, Collector<SeaTunnelRow> output) {
+        influxdb.query(
+                new Query(split.getQuery(), config.getDatabase()),
+                config.getChunkSize(),
+                (cancellable, queryResult) -> {
+                    if (cancellable.isCanceled()) {
+                        log.info("this chunk reader influxDB is canceled");
+                        latch.countDown();
+                        return;
+                    }
+                    if (queryResult.hasError()) {
+                        log.error(
+                                "this chunk reader influxDB result has error [{}]",
+                                queryResult.getError());
+                        latch.countDown();
+                        return;
+                    }
+                    for (QueryResult.Result result : queryResult.getResults()) {
+                        List<QueryResult.Series> serieList = result.getSeries();
+                        if (CollectionUtils.isNotEmpty(serieList)) {
+                            for (QueryResult.Series series : serieList) {
+                                for (List<Object> values : series.getValues()) {
+                                    SeaTunnelRow row =
+                                            InfluxDBRowConverter.convert(
+                                                    values, seaTunnelRowType, columnsIndexList);
+                                    output.collect(row);
+                                }
+                            }
+                        } else {
+                            log.info("this chunk reader influxDB series is empty");
+                        }
+                    }
+                },
+                () -> {
+                    log.error("this chunk reader influxDB complete");
+                    latch.countDown();
+                },
+                throwable -> {
+                    log.error(
+                            "this chunk reader influxDB result has error [{}]",
+                            throwable.getMessage());
+                    latch.countDown();
+                });
     }
 }
