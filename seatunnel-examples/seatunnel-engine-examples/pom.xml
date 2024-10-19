@@ -67,11 +67,5 @@
             <version>${project.version}</version>
         </dependency>
 
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-paimon</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
     </dependencies>
 </project>
