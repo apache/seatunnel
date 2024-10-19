@@ -505,11 +505,11 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
                                                                 getSourceQuerySQL(
                                                                         DATABASE, SINK_TABLE2)))));
 
-        System.out.println("****************** container logs start ******************");
+        log.info("****************** container logs start ******************");
         String containerLogs = container.getServerLogs();
-        System.out.println(containerLogs);
+        log.info(containerLogs);
         Assertions.assertFalse(containerLogs.contains("ERROR"));
-        System.out.println("****************** container logs end ******************");
+        log.info("****************** container logs end ******************");
 
         clearTable(DATABASE, SOURCE_TABLE1);
         clearTable(DATABASE, SOURCE_TABLE2);

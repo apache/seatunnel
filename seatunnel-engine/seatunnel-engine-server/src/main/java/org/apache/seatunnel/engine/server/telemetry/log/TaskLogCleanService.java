@@ -143,7 +143,9 @@ public class TaskLogCleanService {
 
             File logDir = new File(path);
             if (!logDir.exists() || !logDir.isDirectory()) {
-                log.error("Invalid job log directory: {}", path);
+                log.warn(
+                        "Skipping deletion: Log directory '{}' either does not exist or is not a valid directory. Please verify the path and ensure the logs are being written correctly.",
+                        path);
                 return;
             }
 
@@ -204,11 +206,6 @@ public class TaskLogCleanService {
                 if (status != null) {
                     jobStateWithRunMap = (JobStatus) status;
                 }
-                log.info(
-                        "jobId {} jobStateWithRunMap {} jobStateWithFinishedMap {}",
-                        jobId,
-                        jobStateWithRunMap,
-                        jobStateWithFinishedMap);
                 isRuning =
                         (jobStateWithRunMap != null)
                                 ? !jobStateWithRunMap.isEndState()
@@ -218,9 +215,5 @@ public class TaskLogCleanService {
             }
             return isRuning;
         }
-    }
-
-    public static void main(String[] args) {
-        System.out.println();
     }
 }
