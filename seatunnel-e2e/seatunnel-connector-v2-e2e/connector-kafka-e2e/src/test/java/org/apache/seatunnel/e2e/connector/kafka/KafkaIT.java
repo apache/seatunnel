@@ -770,11 +770,22 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testKafkaExactlyOnce(TestContainer container) throws Exception {
+    public void testKafkaToKafkaExactlyOnce(TestContainer container) throws Exception {
+        TextSerializationSchema serializer =
+                TextSerializationSchema.builder()
+                        .seaTunnelRowType(SEATUNNEL_ROW_TYPE)
+                        .delimiter(",")
+                        .build();
+        generateTestData(
+                row ->
+                        new ProducerRecord<>(
+                                "kafka_topic_exactly_once", null, serializer.serialize(row)),
+                0,
+                10);
         container.executeJob("/kafka/fake_to_kafka_exactly_once.conf");
         String topicName = "kafka_topic_exactly_once";
         Map<String, String> data = getKafkaConsumerData(topicName);
-        Assertions.assertEquals(4, data.size());
+        Assertions.assertEquals(10, data.size());
     }
 
     public static String getTestConfigFile(String configFile)

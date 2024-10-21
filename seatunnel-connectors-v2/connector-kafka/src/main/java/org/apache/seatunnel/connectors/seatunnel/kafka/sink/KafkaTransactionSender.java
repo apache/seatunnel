@@ -56,6 +56,7 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     @Override
     public void send(ProducerRecord<K, V> producerRecord) {
         kafkaProducer.send(producerRecord);
+        recordNumInTransaction++;
     }
 
     @Override
