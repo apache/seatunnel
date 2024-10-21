@@ -28,6 +28,7 @@ import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.client.job.JobMetricsRunner;
+import org.apache.seatunnel.engine.client.job.JobStatusRunner;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
@@ -187,7 +188,8 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 long jobId = clientJobProxy.getJobId();
                 JobMetricsRunner jobMetricsRunner = new JobMetricsRunner(engineClient, jobId);
                 executorService =
-                        Executors.newSingleThreadScheduledExecutor(
+                        Executors.newScheduledThreadPool(
+                                2,
                                 new ThreadFactoryBuilder()
                                         .setNameFormat("job-metrics-runner-%d")
                                         .setDaemon(true)
@@ -197,6 +199,12 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                         0,
                         seaTunnelConfig.getEngineConfig().getPrintJobMetricsInfoInterval(),
                         TimeUnit.SECONDS);
+
+                executorService.schedule(
+                        new JobStatusRunner(engineClient.getJobClient(), jobId),
+                        0,
+                        TimeUnit.SECONDS);
+
                 // wait for job complete
                 JobResult jobResult = clientJobProxy.waitForJobCompleteV2();
                 jobStatus = jobResult.getStatus();

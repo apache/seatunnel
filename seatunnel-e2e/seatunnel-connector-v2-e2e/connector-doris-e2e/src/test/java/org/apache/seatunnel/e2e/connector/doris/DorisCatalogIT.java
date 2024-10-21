@@ -260,6 +260,9 @@ public class DorisCatalogIT extends AbstractDorisIT {
                 createdTable.getTableSchema().getColumns().stream()
                         .map(Column::getName)
                         .collect(Collectors.toList()));
+        Assertions.assertEquals(
+                "k1", createdTable.getTableSchema().getColumns().get(0).getComment());
+        ;
         return createdTable;
     }
 

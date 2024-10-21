@@ -240,7 +240,7 @@ public class HiveSink
     private WriteStrategy getWriteStrategy() {
         if (writeStrategy == null) {
             writeStrategy = WriteStrategyFactory.of(fileSinkConfig.getFileFormat(), fileSinkConfig);
-            writeStrategy.setSeaTunnelRowTypeInfo(catalogTable.getSeaTunnelRowType());
+            writeStrategy.setCatalogTable(catalogTable);
         }
         return writeStrategy;
     }

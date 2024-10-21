@@ -94,12 +94,7 @@ public class DmdbDialect implements JdbcDialect {
         // If there is a schema in the sql of dm, an error will be reported.
         // This is compatible with the case that the schema is written or not written in the conf
         // configuration file
-        String databaseName =
-                database == null
-                        ? quoteIdentifier(tableName)
-                        : (tableName.contains(".")
-                                ? quoteIdentifier(tableName)
-                                : tableIdentifier(database, tableName));
+        String databaseName = tableIdentifier(database, tableName);
         String upsertSQL =
                 String.format(
                         " MERGE INTO %s TARGET"
@@ -137,6 +132,9 @@ public class DmdbDialect implements JdbcDialect {
     // Compatibility Both database = mode and table-names = schema.tableName are configured
     @Override
     public String tableIdentifier(String database, String tableName) {
+        if (database == null) {
+            return quoteIdentifier(tableName);
+        }
         if (tableName.contains(".")) {
             return quoteIdentifier(tableName);
         }

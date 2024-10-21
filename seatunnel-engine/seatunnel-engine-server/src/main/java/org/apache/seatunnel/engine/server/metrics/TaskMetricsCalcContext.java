@@ -122,14 +122,13 @@ public class TaskMetricsCalcContext {
         }
     }
 
-    public void updateMetrics(Object data) {
+    public void updateMetrics(Object data, String tableId) {
         count.inc();
         QPS.markEvent();
         if (data instanceof SeaTunnelRow) {
             SeaTunnelRow row = (SeaTunnelRow) data;
             bytes.inc(row.getBytesSize());
             bytesPerSeconds.markEvent(row.getBytesSize());
-            String tableId = row.getTableId();
 
             if (StringUtils.isNotBlank(tableId)) {
                 String tableName = TablePath.of(tableId).getFullName();

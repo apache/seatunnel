@@ -105,7 +105,8 @@ public class HudiMultiTableIT extends TestSuiteBase {
             type = {EngineType.FLINK},
             disabledReason = "FLINK do not support local file catalog in hudi.")
     public void testMultiWrite(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult textWriteResult = container.executeJob("/multi_fake_to_hudi.conf");
+        Container.ExecResult textWriteResult =
+                container.executeJob("/hudi/multi_fake_to_hudi.conf");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
         Configuration configuration = new Configuration();
         configuration.set("fs.defaultFS", LocalFileSystem.DEFAULT_FS);

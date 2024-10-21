@@ -32,6 +32,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.Abstrac
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.Date;
@@ -89,12 +91,16 @@ public class OceanBaseMysqlJdbcRowConverter extends AbstractJdbcRowConverter {
                     fields[fieldIndex] = JdbcFieldTypeUtils.getFloat(rs, resultSetIndex);
                     break;
                 case FLOAT_VECTOR:
-                    Object[] objects = (Object[]) rs.getObject(fieldIndex);
-                    Float[] arrays = new Float[objects.length];
-                    for (int i = 0; i < objects.length; i++) {
-                        arrays[i] = Float.parseFloat(objects[i].toString());
+                    String result = JdbcFieldTypeUtils.getString(rs, resultSetIndex);
+                    if (StringUtils.isNotBlank(result)) {
+                        result = result.replace("[", "").replace("]", "");
+                        String[] stringArray = result.split(",");
+                        Float[] arrays = new Float[stringArray.length];
+                        for (int i = 0; i < stringArray.length; i++) {
+                            arrays[i] = Float.parseFloat(stringArray[i]);
+                        }
+                        fields[fieldIndex] = BufferUtils.toByteBuffer(arrays);
                     }
-                    fields[fieldIndex] = BufferUtils.toByteBuffer(arrays);
                     break;
                 case DOUBLE:
                     fields[fieldIndex] = JdbcFieldTypeUtils.getDouble(rs, resultSetIndex);

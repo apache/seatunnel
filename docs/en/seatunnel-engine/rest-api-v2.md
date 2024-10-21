@@ -88,10 +88,19 @@ seatunnel:
     },
     "createTime": "",
     "jobDag": {
-      "vertices": [
+      "jobId": "",
+      "envOptions": [],
+      "vertexInfoMap": [
+        {
+          "vertexId": 1,
+          "type": "",
+          "vertexName": "",
+          "tablePaths": [
+            ""
+          ]
+        }
       ],
-      "edges": [
-      ]
+      "pipelineEdges": {}
     },
     "pluginJarsUrls": [
     ],
@@ -129,6 +138,7 @@ seatunnel:
   "createTime": "",
   "jobDag": {
     "jobId": "",
+    "envOptions": [],
     "vertexInfoMap": [
       {
         "vertexId": 1,
@@ -194,6 +204,7 @@ This API has been deprecated, please use /job-info/:jobId instead
   "createTime": "",
   "jobDag": {
     "jobId": "",
+    "envOptions": [],
     "vertexInfoMap": [
       {
         "vertexId": 1,
@@ -274,6 +285,7 @@ When we can't get the job info, the response will be:
     "finishTime": "",
     "jobDag": {
       "jobId": "",
+      "envOptions": [],
       "vertexInfoMap": [
         {
           "vertexId": 1,
@@ -728,3 +740,69 @@ If the parameter is an empty `Map` object, it means that the tags of the current
 ```
 </details>
 
+------------------------------------------------------------------------------------------
+
+### Get Logs from All Nodes
+
+<details>
+ <summary><code>GET</code> <code><b>/logs/:jobId</b></code> <code>(Returns a list of logs.)</code></summary>
+
+#### Request Parameters
+
+#### Parameters (to be added in the `params` field of the request body)
+
+> |    Parameter Name     |   Required   |  Type   |            Description            |
+> |-----------------------|--------------|---------|------------------------------------|
+> | jobId                 |   optional   | string  | job id                            |
+
+If `jobId` is empty, the request will return logs from all nodes. Otherwise, it will return the list of logs for the specified `jobId` from all nodes.
+
+#### Response
+
+Returns a list of logs from the requested nodes along with their content.
+
+#### Return List of All Log Files
+
+If you want to view the log list first, you can retrieve it via a `GET` request: `http://localhost:8080/logs?format=json`
+
+```json
+[
+  {
+    "node": "localhost:8080",
+    "logLink": "http://localhost:8080/logs/job-899485770241277953.log",
+    "logName": "job-899485770241277953.log"
+  },
+  {
+    "node": "localhost:8080",
+    "logLink": "http://localhost:8080/logs/job-899470314109468673.log",
+    "logName": "job-899470314109468673.log"
+  }
+]
+```
+
+Supported formats are `json` and `html`, with `html` as the default.
+
+#### Examples
+
+Retrieve logs for `jobId` `733584788375666689` across all nodes: `http://localhost:8080/logs/733584788375666689`
+Retrieve the list of logs from all nodes: `http://localhost:8080/logs`
+Retrieve the list of logs in JSON format: `http://localhost:8080/logs?format=json`
+Retrieve the content of a specific log file: `http://localhost:8080/logs/job-898380162133917698.log`
+
+</details>
+
+### Get Log Content from a Single Node
+
+<details>
+ <summary><code>GET</code> <code><b>/log</b></code> <code>(Returns a list of logs.)</code></summary>
+
+#### Response
+
+Returns a list of logs from the requested node.
+
+#### Examples
+
+To get a list of logs from the current node: `http://localhost:5801/log`
+To get the content of a log file: `http://localhost:5801/log/job-898380162133917698.log`
+
+</details>

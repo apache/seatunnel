@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.data.PaimonTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 
+import org.apache.paimon.CoreOptions;
 import org.apache.paimon.schema.Schema;
 import org.apache.paimon.types.DataField;
 import org.apache.paimon.types.DataType;
@@ -61,6 +62,10 @@ public class SchemaUtil {
             paiSchemaBuilder.partitionKeys(partitionKeys);
         }
         Map<String, String> writeProps = paimonSinkConfig.getWriteProps();
+        CoreOptions.ChangelogProducer changelogProducer = paimonSinkConfig.getChangelogProducer();
+        if (changelogProducer != null) {
+            writeProps.remove(PaimonSinkConfig.CHANGELOG_TMP_PATH);
+        }
         if (!writeProps.isEmpty()) {
             paiSchemaBuilder.options(writeProps);
         }

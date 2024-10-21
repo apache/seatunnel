@@ -50,7 +50,7 @@ jobs:
   dead-link:
     name: Dead links
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v2
       - run: sudo npm install -g markdown-link-check@3.8.7
@@ -330,7 +330,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 120
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.java }}
@@ -351,7 +351,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
 
   updated-modules-integration-test-part-3:
     needs: [ changes, sanity-check ]
@@ -392,7 +392,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 120
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.java }}
@@ -413,7 +413,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
   updated-modules-integration-test-part-5:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
@@ -683,7 +683,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 150
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.java }}
