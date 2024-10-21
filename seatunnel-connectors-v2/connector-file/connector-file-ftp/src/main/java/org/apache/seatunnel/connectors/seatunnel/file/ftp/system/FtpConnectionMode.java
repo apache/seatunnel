@@ -21,10 +21,10 @@ package org.apache.seatunnel.connectors.seatunnel.file.ftp.system;
 public enum FtpConnectionMode {
 
     /** ACTIVE_LOCAL_DATA_CONNECTION_MODE */
-    ACTIVE_LOCAL_DATA_CONNECTION_MODE("active_local"),
+    ACTIVE_LOCAL("active_local"),
 
     /** PASSIVE_LOCAL_DATA_CONNECTION_MODE */
-    PASSIVE_LOCAL_DATA_CONNECTION_MODE("passive_local");
+    PASSIVE_LOCAL("passive_local");
 
     private final String mode;
 
@@ -38,7 +38,7 @@ public enum FtpConnectionMode {
 
     public static FtpConnectionMode fromMode(String mode) {
         for (FtpConnectionMode ftpConnectionModeEnum : FtpConnectionMode.values()) {
-            if (ftpConnectionModeEnum.getMode().equals(mode)) {
+            if (ftpConnectionModeEnum.getMode().equals(mode.toLowerCase())) {
                 return ftpConnectionModeEnum;
             }
         }
