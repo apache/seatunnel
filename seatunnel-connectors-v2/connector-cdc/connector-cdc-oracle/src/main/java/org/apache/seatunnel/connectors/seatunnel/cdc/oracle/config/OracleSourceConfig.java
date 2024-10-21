@@ -27,6 +27,7 @@ import io.debezium.relational.RelationalTableFilters;
 import lombok.Getter;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 /**
@@ -49,7 +50,7 @@ public class OracleSourceConfig extends JdbcSourceConfig {
             List<String> databaseList,
             List<String> tableList,
             int splitSize,
-            Properties splitColumn,
+            Map<String, String> splitColumn,
             double distributionFactorUpper,
             double distributionFactorLower,
             int sampleShardingThreshold,

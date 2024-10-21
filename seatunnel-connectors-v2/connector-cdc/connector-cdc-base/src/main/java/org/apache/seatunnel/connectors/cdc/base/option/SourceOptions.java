@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @SuppressWarnings("MagicNumber")
@@ -40,7 +41,7 @@ public class SourceOptions {
     public static final Option<Map<String, String>> SNAPSHOT_SPLIT_COLUMN =
             Options.key("snapshot.split.column")
                     .mapType()
-                    .noDefaultValue()
+                    .defaultValue(new HashMap<>())
                     .withDescription(
                             "The split column of table snapshot, captured tables are split into multiple splits when read the snapshot of table.");
 

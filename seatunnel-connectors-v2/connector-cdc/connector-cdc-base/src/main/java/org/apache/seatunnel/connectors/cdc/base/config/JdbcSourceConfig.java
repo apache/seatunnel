@@ -22,6 +22,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 import io.debezium.relational.RelationalDatabaseConnectorConfig;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 /**
@@ -49,7 +50,7 @@ public abstract class JdbcSourceConfig extends BaseSourceConfig {
             List<String> databaseList,
             List<String> tableList,
             int splitSize,
-            Properties splitColumn,
+            Map<String, String> splitColumn,
             double distributionFactorUpper,
             double distributionFactorLower,
             int sampleShardingThreshold,

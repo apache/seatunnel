@@ -25,6 +25,8 @@ import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils;
 
+import org.apache.commons.lang3.StringUtils;
+
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;
 import io.debezium.relational.Table;
@@ -36,10 +38,11 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Properties;
 
 import static java.math.BigDecimal.ROUND_CEILING;
 import static org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils.doubleCompare;
@@ -384,28 +387,31 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
         Table table = dialect.queryTableSchema(jdbc, tableId).getTable();
 
         // first , compare user defined split column is in the primary key or unique key
-        Properties splitColumnProperties = new Properties();
+        Map<String, String> splitColumnsConfig = new HashMap<>();
         try {
-            splitColumnProperties = sourceConfig.getSplitColumn();
+            splitColumnsConfig = sourceConfig.getSplitColumn();
         } catch (Exception e) {
             log.error("Config snapshot.split.column get exception in {}:{}", tableId, e);
         }
         String tableSc =
-                (String) splitColumnProperties.get(tableId.catalog() + "." + tableId.table());
-        boolean isUniqueKey = dialect.isUniqueKey(jdbc, tableId, tableSc);
-        if (isUniqueKey) {
-            Column column = table.columnWithName(tableSc);
-            if (isEvenlySplitColumn(column)) {
-                return column;
+                splitColumnsConfig.getOrDefault(tableId.catalog() + "." + tableId.table(), null);
+
+        if (StringUtils.isNotEmpty(tableSc)) {
+            boolean isUniqueKey = dialect.isUniqueKey(jdbc, tableId, tableSc);
+            if (isUniqueKey) {
+                Column column = table.columnWithName(tableSc);
+                if (isEvenlySplitColumn(column)) {
+                    return column;
+                } else {
+                    log.warn(
+                            "Config snapshot.split.column type in {} is not TINYINT、SMALLINT、INT、BIGINT、DECIMAL、STRING",
+                            tableId);
+                }
             } else {
-                log.warn(
-                        "Config snapshot.split.column type in {} is not TINYINT、SMALLINT、INT、BIGINT、DECIMAL、STRING",
-                        tableId);
+                log.warn("Config snapshot.split.column not unique key for table {}", tableId);
             }
         } else {
-            log.info(
-                    "Config snapshot.split.column not exists or not unique key for table {}",
-                    tableId);
+            log.info("Config snapshot.split.column not exists for table {}", tableId);
         }
 
         Optional<PrimaryKey> primaryKey = dialect.getPrimaryKey(jdbc, tableId);
