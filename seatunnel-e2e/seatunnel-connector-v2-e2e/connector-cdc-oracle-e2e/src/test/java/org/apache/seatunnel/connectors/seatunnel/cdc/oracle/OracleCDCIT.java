@@ -23,6 +23,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -390,11 +391,12 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
         insertSourceTable(DATABASE, SOURCE_TABLE1);
         insertSourceTable(DATABASE, SOURCE_TABLE2);
 
+        String jobId = JobIdGenerator.newJobId();
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
                         return container.executeJob(
-                                "/oraclecdc_to_oracle_with_multi_table_mode_one_table.conf");
+                                "/oraclecdc_to_oracle_with_multi_table_mode_one_table.conf", jobId);
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
@@ -431,18 +433,6 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
                                                         querySql(
                                                                 getSourceQuerySQL(
                                                                         DATABASE, SINK_TABLE1)))));
-
-        Pattern jobIdPattern =
-                Pattern.compile(
-                        ".*Init JobMaster for Job oraclecdc_to_oracle_with_multi_table_mode_one_table.conf \\(([0-9]*)\\).*",
-                        Pattern.DOTALL);
-        Matcher matcher = jobIdPattern.matcher(container.getServerLogs());
-        String jobId;
-        if (matcher.matches()) {
-            jobId = matcher.group(1);
-        } else {
-            throw new RuntimeException("Can not find jobId");
-        }
 
         Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
 

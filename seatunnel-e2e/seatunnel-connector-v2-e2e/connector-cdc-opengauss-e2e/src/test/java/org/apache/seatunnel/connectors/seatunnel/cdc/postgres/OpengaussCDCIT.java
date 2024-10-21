@@ -24,6 +24,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -288,12 +289,14 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
             disabledReason = "Currently SPARK and FLINK do not support restore")
     public void testMultiTableWithRestore(TestContainer container)
             throws IOException, InterruptedException {
+        String jobId = JobIdGenerator.newJobId();
         try {
             CompletableFuture.supplyAsync(
                     () -> {
                         try {
                             return container.executeJob(
-                                    "/opengausscdc_to_opengauss_with_multi_table_mode_one_table.conf");
+                                    "/opengausscdc_to_opengauss_with_multi_table_mode_one_table.conf",
+                                    jobId);
                         } catch (Exception e) {
                             log.error("Commit task exception :" + e.getMessage());
                             throw new RuntimeException(e);
@@ -318,18 +321,6 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
                                                                     getQuerySQL(
                                                                             OPENGAUSS_SCHEMA,
                                                                             SINK_TABLE_1)))));
-
-            Pattern jobIdPattern =
-                    Pattern.compile(
-                            ".*Init JobMaster for Job opengausscdc_to_opengauss_with_multi_table_mode_one_table.conf \\(([0-9]*)\\).*",
-                            Pattern.DOTALL);
-            Matcher matcher = jobIdPattern.matcher(container.getServerLogs());
-            String jobId;
-            if (matcher.matches()) {
-                jobId = matcher.group(1);
-            } else {
-                throw new RuntimeException("Can not find jobId");
-            }
 
             Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
 
@@ -397,12 +388,13 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
             disabledReason = "Currently SPARK and FLINK do not support restore")
     public void testAddFiledWithRestore(TestContainer container)
             throws IOException, InterruptedException {
+        String jobId = JobIdGenerator.newJobId();
         try {
             CompletableFuture.supplyAsync(
                     () -> {
                         try {
                             return container.executeJob(
-                                    "/opengausscdc_to_opengauss_test_add_Filed.conf");
+                                    "/opengausscdc_to_opengauss_test_add_Filed.conf", jobId);
                         } catch (Exception e) {
                             log.error("Commit task exception :" + e.getMessage());
                             throw new RuntimeException(e);
@@ -424,18 +416,6 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
                                                                     getQuerySQL(
                                                                             OPENGAUSS_SCHEMA,
                                                                             SINK_TABLE_3)))));
-
-            Pattern jobIdPattern =
-                    Pattern.compile(
-                            ".*Init JobMaster for Job opengausscdc_to_opengauss_test_add_Filed.conf \\(([0-9]*)\\).*",
-                            Pattern.DOTALL);
-            Matcher matcher = jobIdPattern.matcher(container.getServerLogs());
-            String jobId;
-            if (matcher.matches()) {
-                jobId = matcher.group(1);
-            } else {
-                throw new RuntimeException("Can not find jobId");
-            }
 
             Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
 
