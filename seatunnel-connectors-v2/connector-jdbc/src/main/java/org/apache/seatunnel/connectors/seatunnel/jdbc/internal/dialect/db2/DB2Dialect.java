@@ -22,7 +22,9 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
+import java.util.Arrays;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public class DB2Dialect implements JdbcDialect {
 
@@ -44,6 +46,56 @@ public class DB2Dialect implements JdbcDialect {
     @Override
     public Optional<String> getUpsertStatement(
             String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
-        return Optional.empty();
+        // Generate field list for USING and INSERT clauses
+        String fieldList = String.join(", ", fieldNames);
+
+        // Generate placeholder list for VALUES clause
+        String placeholderList =
+                Arrays.stream(fieldNames).map(field -> "?").collect(Collectors.joining(", "));
+
+        // Generate ON clause
+        String onClause =
+                Arrays.stream(uniqueKeyFields)
+                        .map(field -> "target." + field + " = source." + field)
+                        .collect(Collectors.joining(" AND "));
+
+        // Generate WHEN MATCHED clause
+        String whenMatchedClause =
+                Arrays.stream(fieldNames)
+                        .map(field -> "target." + field + " <> source." + field)
+                        .collect(Collectors.joining(" OR "));
+
+        // Generate UPDATE SET clause
+        String updateSetClause =
+                Arrays.stream(fieldNames)
+                        .map(field -> "target." + field + " = source." + field)
+                        .collect(Collectors.joining(", "));
+
+        // Generate WHEN NOT MATCHED clause
+        String insertClause =
+                "INSERT ("
+                        + fieldList
+                        + ") VALUES ("
+                        + Arrays.stream(fieldNames)
+                                .map(field -> "source." + field)
+                                .collect(Collectors.joining(", "))
+                        + ")";
+
+        // Combine all parts to form the final SQL statement
+        String mergeStatement =
+                String.format(
+                        "MERGE INTO %s.%s AS target USING (VALUES (%s)) AS source (%s) ON %s "
+                                + "WHEN MATCHED AND (%s) THEN UPDATE SET %s "
+                                + "WHEN NOT MATCHED THEN %s;",
+                        database,
+                        tableName,
+                        placeholderList,
+                        fieldList,
+                        onClause,
+                        whenMatchedClause,
+                        updateSetClause,
+                        insertClause);
+
+        return Optional.of(mergeStatement);
     }
 }

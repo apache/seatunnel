@@ -209,6 +209,17 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                                     jdbcCase.getSourceTable()));
             statement.execute(createSource);
 
+            if (jdbcCase.getAdditionalSqlOnSource() != null) {
+                String additionalSql =
+                        String.format(
+                                jdbcCase.getAdditionalSqlOnSource(),
+                                buildTableInfoWithSchema(
+                                        jdbcCase.getDatabase(),
+                                        jdbcCase.getSchema(),
+                                        jdbcCase.getSourceTable()));
+                statement.execute(additionalSql);
+            }
+
             if (!jdbcCase.isUseSaveModeCreateTable()) {
                 if (jdbcCase.getSinkCreateSql() != null) {
                     createTemplate = jdbcCase.getSinkCreateSql();
@@ -221,6 +232,17 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                                         jdbcCase.getSchema(),
                                         jdbcCase.getSinkTable()));
                 statement.execute(createSink);
+            }
+
+            if (jdbcCase.getAdditionalSqlOnSink() != null) {
+                String additionalSql =
+                        String.format(
+                                jdbcCase.getAdditionalSqlOnSink(),
+                                buildTableInfoWithSchema(
+                                        jdbcCase.getDatabase(),
+                                        jdbcCase.getSchema(),
+                                        jdbcCase.getSinkTable()));
+                statement.execute(additionalSql);
             }
 
             connection.commit();
