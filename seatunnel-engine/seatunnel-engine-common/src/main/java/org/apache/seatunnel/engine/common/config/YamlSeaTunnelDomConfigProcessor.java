@@ -28,6 +28,7 @@ import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.common.config.server.TelemetryConfig;
+import org.apache.seatunnel.engine.common.config.server.TelemetryLogsConfig;
 import org.apache.seatunnel.engine.common.config.server.TelemetryMetricConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 
@@ -330,17 +331,19 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
     }
 
     private TelemetryConfig parseTelemetryConfig(Node telemetryNode) {
-        TelemetryConfig metricConfig = new TelemetryConfig();
+        TelemetryConfig telemetryConfig = new TelemetryConfig();
         for (Node node : childElements(telemetryNode)) {
             String name = cleanNodeName(node);
             if (ServerConfigOptions.TELEMETRY_METRIC.key().equals(name)) {
-                metricConfig.setMetric(parseTelemetryMetricConfig(node));
+                telemetryConfig.setMetric(parseTelemetryMetricConfig(node));
+            } else if (ServerConfigOptions.TELEMETRY_LOGS.key().equals(name)) {
+                telemetryConfig.setLogs(parseTelemetryLogsConfig(node));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }
         }
 
-        return metricConfig;
+        return telemetryConfig;
     }
 
     private TelemetryMetricConfig parseTelemetryMetricConfig(Node metricNode) {
@@ -355,6 +358,24 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         }
 
         return metricConfig;
+    }
+
+    private TelemetryLogsConfig parseTelemetryLogsConfig(Node logsNode) {
+        TelemetryLogsConfig logsConfig = new TelemetryLogsConfig();
+        for (Node node : childElements(logsNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.TELEMETRY_LOGS_SCHEDULED_DELETION_ENABLE.key().equals(name)) {
+                logsConfig.setEnabled(getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.TELEMETRY_LOGS_PREFIX.key().equals(name)) {
+                logsConfig.setPrefix(getTextContent(node));
+            } else if (ServerConfigOptions.TELEMETRY_LOGS_PATH.key().equals(name)) {
+                logsConfig.setPath(getTextContent(node));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+
+        return logsConfig;
     }
 
     private HttpConfig parseHttpConfig(Node httpNode) {

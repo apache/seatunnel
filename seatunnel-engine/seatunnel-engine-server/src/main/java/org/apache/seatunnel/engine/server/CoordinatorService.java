@@ -60,6 +60,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
+import org.apache.seatunnel.engine.server.telemetry.log.TaskLogManagerService;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.JobCounter;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolStatus;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
@@ -152,6 +153,12 @@ public class CoordinatorService {
     private final Map<Long, JobMaster> runningJobMasterMap = new ConcurrentHashMap<>();
 
     /**
+     * key : job id; <br>
+     * value : job master;
+     */
+    private final Map<Long, JobMaster> finshedJobMasterMap = new ConcurrentHashMap<>();
+
+    /**
      * key: job id; <br>
      * value: job master;
      */
@@ -178,6 +185,8 @@ public class CoordinatorService {
     private final SeaTunnelServer seaTunnelServer;
 
     private final ScheduledExecutorService masterActiveListener;
+
+    private TaskLogManagerService taskLogManagerService;
 
     private final EngineConfig engineConfig;
 
@@ -306,6 +315,7 @@ public class CoordinatorService {
                     } finally {
                         if (jobMasterCompletedSuccessfully(jobMaster, pendingSourceState)) {
                             runningJobMasterMap.remove(jobId);
+                            finshedJobMasterMap.put(jobId, jobMaster);
                         }
                     }
                 });
@@ -398,10 +408,12 @@ public class CoordinatorService {
 
         jobHistoryService =
                 new JobHistoryService(
+                        nodeEngine,
                         runningJobStateIMap,
                         logger,
                         pendingJobMasterMap,
                         runningJobMasterMap,
+                        finshedJobMasterMap,
                         nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE),
                         nodeEngine
                                 .getHazelcastInstance()
@@ -663,6 +675,7 @@ public class CoordinatorService {
                     } else {
                         runningJobInfoIMap.remove(jobId);
                         runningJobMasterMap.remove(jobId);
+                        finshedJobMasterMap.put(jobId, jobMaster);
                     }
                 });
         return new PassiveCompletableFuture<>(jobSubmitFuture);
