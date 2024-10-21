@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.event.MessageDelayedEvent;
-import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPhaseEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
@@ -141,6 +141,8 @@ public class IncrementalSourceRecordEmitter<T>
                 emitElement(element, output);
             }
         } else if (isSchemaChangeEvent(element) && splitState.isIncrementalSplitState()) {
+            Offset position = getOffsetPosition(element);
+            splitState.asIncrementalSplitState().setStartupOffset(position);
             emitElement(element, output);
         } else if (isDataChangeRecord(element)) {
             if (splitState.isIncrementalSplitState()) {

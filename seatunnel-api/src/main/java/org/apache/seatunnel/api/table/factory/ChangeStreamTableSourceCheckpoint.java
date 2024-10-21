@@ -15,26 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.event;
+package org.apache.seatunnel.api.table.factory;
 
-import org.apache.seatunnel.api.event.EventType;
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-import lombok.Getter;
-import lombok.ToString;
+import java.io.Serializable;
+import java.util.List;
 
-@Getter
-@ToString(callSuper = true)
-public class AlterTableDropColumnEvent extends AlterTableColumnEvent {
-    private final String column;
-
-    public AlterTableDropColumnEvent(TableIdentifier tableIdentifier, String column) {
-        super(tableIdentifier);
-        this.column = column;
-    }
-
-    @Override
-    public EventType getEventType() {
-        return EventType.SCHEMA_CHANGE_DROP_COLUMN;
-    }
+@Data
+@AllArgsConstructor
+public class ChangeStreamTableSourceCheckpoint implements Serializable {
+    private byte[] enumeratorState;
+    public List<List<byte[]>> splits;
 }
