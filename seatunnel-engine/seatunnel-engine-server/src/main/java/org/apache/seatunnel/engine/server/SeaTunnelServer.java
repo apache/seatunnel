@@ -352,6 +352,10 @@ public class SeaTunnelServer
         return getCoordinatorService().getConnectorPackageService();
     }
 
+    public TaskLogManagerService getTaskLogManagerService() {
+        return taskLogManagerService;
+    }
+
     public ThreadPoolStatus getThreadPoolStatusMetrics() {
         return coordinatorService.getThreadPoolStatusMetrics();
     }

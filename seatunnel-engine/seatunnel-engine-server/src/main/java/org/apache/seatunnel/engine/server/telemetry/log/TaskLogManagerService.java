@@ -18,32 +18,27 @@
 package org.apache.seatunnel.engine.server.telemetry.log;
 
 import org.apache.seatunnel.engine.common.config.server.TelemetryLogsConfig;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 
-import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.concurrent.CompletableFuture;
 
 @Slf4j
-public class TaskLogManagerService implements AutoCloseable {
+public class TaskLogManagerService {
 
-    private final String cron;
-    private final long keepTime;
     private final String prefix;
     private String path;
-    private final NodeEngine nodeEngine;
-    private TaskLogCleanService taskLogCleanService;
 
     public TaskLogManagerService(TelemetryLogsConfig log, NodeEngineImpl nodeEngine) {
-        this.cron = log.getCron();
-        this.keepTime = log.getKeepTime();
         this.prefix = log.getPrefix();
         this.path = log.getPath();
-        this.nodeEngine = nodeEngine;
     }
 
     public void initClean() {
@@ -68,7 +63,6 @@ public class TaskLogManagerService implements AutoCloseable {
         } catch (Exception e) {
             throw new RuntimeException("Failed to get current path", e);
         }
-        taskLogCleanService = new TaskLogCleanService(cron, keepTime, prefix, path, nodeEngine);
     }
 
     private static Path resolveSymlink(Path path) throws IOException {
@@ -83,10 +77,38 @@ public class TaskLogManagerService implements AutoCloseable {
         return path;
     }
 
-    @Override
-    public void close() {
-        if (taskLogCleanService != null) {
-            taskLogCleanService.shutdown();
+    public PassiveCompletableFuture<?> clean(long jobId) {
+        String[] logFiles = getLogFiles(jobId, path);
+
+        return new PassiveCompletableFuture<>(
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            for (String logFile : logFiles) {
+                                try {
+                                    Files.delete(Paths.get(path + "/" + logFile));
+                                } catch (IOException e) {
+                                    log.warn("Failed to delete log file: {}", logFile, e);
+                                }
+                            }
+                            return new PassiveCompletableFuture<>(null);
+                        }));
+    }
+
+    private String[] getLogFiles(long jobId, String path) {
+        File logDir = new File(path);
+        if (!logDir.exists() || !logDir.isDirectory()) {
+            log.warn(
+                    "Skipping deletion: Log directory '{}' either does not exist or is not a valid directory. Please verify the path and ensure the logs are being written correctly.",
+                    path);
+            return new String[0];
         }
+
+        return logDir.list(
+                (dir, name) -> {
+                    if (name.startsWith(prefix) && name.contains(String.valueOf(jobId))) {
+                        return true;
+                    }
+                    return false;
+                });
     }
 }

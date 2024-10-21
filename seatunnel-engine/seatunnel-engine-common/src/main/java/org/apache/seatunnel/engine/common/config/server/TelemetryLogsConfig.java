@@ -26,9 +26,6 @@ public class TelemetryLogsConfig implements Serializable {
 
     private boolean enabled =
             ServerConfigOptions.TELEMETRY_LOGS_SCHEDULED_DELETION_ENABLE.defaultValue();
-    private long keepTime =
-            ServerConfigOptions.TELEMETRY_LOGS_SCHEDULED_DELETION_KEEP_TIME.defaultValue();
-    private String cron = ServerConfigOptions.TELEMETRY_LOGS_SCHEDULED_DELETION_CRON.defaultValue();
     private String path = ServerConfigOptions.TELEMETRY_LOGS_PATH.defaultValue();
     private String prefix = ServerConfigOptions.TELEMETRY_LOGS_PREFIX.defaultValue();
 }

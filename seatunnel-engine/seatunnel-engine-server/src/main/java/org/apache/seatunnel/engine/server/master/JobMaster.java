@@ -89,13 +89,16 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -155,6 +158,8 @@ public class JobMaster {
     private final Map<Integer, List<SlotProfile>> releasedSlotWhenTaskGroupFinished;
 
     private final IMap<Long, JobInfo> runningJobInfoIMap;
+
+    @Getter private final Set<Address> historyExecutionPlan = new HashSet<>();
 
     private final IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap;
 
@@ -400,6 +405,14 @@ public class JobMaster {
                         == preApplyResourceFutures.size();
 
         if (enoughResource) {
+            for (Map.Entry<TaskGroupLocation, CompletableFuture<SlotProfile>> entry :
+                    preApplyResourceFutures.entrySet()) {
+                try {
+                    historyExecutionPlan.add(entry.getValue().get().getWorker());
+                } catch (InterruptedException | ExecutionException e) {
+                    throw new RuntimeException(e);
+                }
+            }
             // Adequate resources, pass on resources to the plan
             physicalPlan.setPreApplyResourceFutures(preApplyResourceFutures);
         } else {

@@ -153,6 +153,12 @@ public class CoordinatorService {
     private final Map<Long, JobMaster> runningJobMasterMap = new ConcurrentHashMap<>();
 
     /**
+     * key : job id; <br>
+     * value : job master;
+     */
+    private final Map<Long, JobMaster> finshedJobMasterMap = new ConcurrentHashMap<>();
+
+    /**
      * key: job id; <br>
      * value: job master;
      */
@@ -309,6 +315,7 @@ public class CoordinatorService {
                     } finally {
                         if (jobMasterCompletedSuccessfully(jobMaster, pendingSourceState)) {
                             runningJobMasterMap.remove(jobId);
+                            finshedJobMasterMap.put(jobId, jobMaster);
                         }
                     }
                 });
@@ -401,10 +408,12 @@ public class CoordinatorService {
 
         jobHistoryService =
                 new JobHistoryService(
+                        nodeEngine,
                         runningJobStateIMap,
                         logger,
                         pendingJobMasterMap,
                         runningJobMasterMap,
+                        finshedJobMasterMap,
                         nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE),
                         nodeEngine
                                 .getHazelcastInstance()
@@ -574,10 +583,6 @@ public class CoordinatorService {
             resourceManager.close();
         }
 
-        if (taskLogManagerService != null) {
-            taskLogManagerService.close();
-        }
-
         try {
             if (eventProcessor != null) {
                 eventProcessor.close();
@@ -670,6 +675,7 @@ public class CoordinatorService {
                     } else {
                         runningJobInfoIMap.remove(jobId);
                         runningJobMasterMap.remove(jobId);
+                        finshedJobMasterMap.put(jobId, jobMaster);
                     }
                 });
         return new PassiveCompletableFuture<>(jobSubmitFuture);

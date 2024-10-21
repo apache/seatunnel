@@ -217,18 +217,6 @@ public class ServerConfigOptions {
                     .defaultValue(false)
                     .withDescription("Enable scheduled deletion of telemetry logs");
 
-    public static final Option<Long> TELEMETRY_LOGS_SCHEDULED_DELETION_KEEP_TIME =
-            Options.key("keep-time")
-                    .longType()
-                    .defaultValue(2592000000L)
-                    .withDescription("The number of time to keep telemetry logs");
-
-    public static final Option<String> TELEMETRY_LOGS_SCHEDULED_DELETION_CRON =
-            Options.key("cron")
-                    .stringType()
-                    .defaultValue("0 0 * * *")
-                    .withDescription("Logs deletion time");
-
     public static final Option<String> TELEMETRY_LOGS_PATH =
             Options.key("path").stringType().noDefaultValue().withDescription("Logs path");
 

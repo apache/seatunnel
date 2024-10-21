@@ -33,9 +33,15 @@ import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.PendingSourceState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.operation.CleanLogOperation;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
+import com.hazelcast.cluster.Address;
+import com.hazelcast.core.EntryEvent;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
+import com.hazelcast.map.listener.EntryExpiredListener;
+import com.hazelcast.spi.impl.NodeEngine;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Getter;
@@ -52,6 +58,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class JobHistoryService {
+
+    private final NodeEngine nodeEngine;
+
     /**
      * IMap key is one of jobId {@link
      * org.apache.seatunnel.engine.server.dag.physical.PipelineLocation} and {@link
@@ -73,6 +82,8 @@ public class JobHistoryService {
      */
     private final Map<Long, JobMaster> runningJobMasterMap;
 
+    private final Map<Long, JobMaster> finishedJobMasterMap;
+
     private final Map<Long, Tuple2<PendingSourceState, JobMaster>> pendingJobMasterMap;
 
     /** finishedJobVertexInfoImap key is jobId and value is JobDAGInfo */
@@ -91,21 +102,26 @@ public class JobHistoryService {
     private final int finishedJobExpireTime;
 
     public JobHistoryService(
+            NodeEngine nodeEngine,
             IMap<Object, Object> runningJobStateIMap,
             ILogger logger,
             Map<Long, Tuple2<PendingSourceState, JobMaster>> pendingJobMasterMap,
             Map<Long, JobMaster> runningJobMasterMap,
+            Map<Long, JobMaster> finishedJobMasterMap,
             IMap<Long, JobState> finishedJobStateImap,
             IMap<Long, JobMetrics> finishedJobMetricsImap,
             IMap<Long, JobDAGInfo> finishedJobVertexInfoImap,
             int finishedJobExpireTime) {
+        this.nodeEngine = nodeEngine;
         this.runningJobStateIMap = runningJobStateIMap;
         this.logger = logger;
         this.pendingJobMasterMap = pendingJobMasterMap;
         this.runningJobMasterMap = runningJobMasterMap;
         this.finishedJobStateImap = finishedJobStateImap;
+        this.finishedJobMasterMap = finishedJobMasterMap;
         this.finishedJobMetricsImap = finishedJobMetricsImap;
         this.finishedJobDAGInfoImap = finishedJobVertexInfoImap;
+        this.finishedJobDAGInfoImap.addEntryListener(new JobInfoExpiredListener(), true);
         this.objectMapper = new ObjectMapper();
         this.objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
         this.finishedJobExpireTime = finishedJobExpireTime;
@@ -265,6 +281,7 @@ public class JobHistoryService {
 
     public void storeJobInfo(long jobId, JobDAGInfo jobInfo) {
         finishedJobDAGInfoImap.put(jobId, jobInfo, finishedJobExpireTime, TimeUnit.MINUTES);
+        System.out.println();
     }
 
     @AllArgsConstructor
@@ -286,5 +303,24 @@ public class JobHistoryService {
         private static final long serialVersionUID = -7875004875757861958L;
         private PipelineStatus pipelineStatus;
         private Map<TaskGroupLocation, ExecutionState> executionStateMap;
+    }
+
+    private class JobInfoExpiredListener implements EntryExpiredListener<Long, JobDAGInfo> {
+        @Override
+        public void entryExpired(EntryEvent<Long, JobDAGInfo> event) {
+            Long jobId = event.getKey();
+            try {
+                JobMaster jobMaster = finishedJobMasterMap.get(jobId);
+                Set<Address> historyExecutionPlan = jobMaster.getHistoryExecutionPlan();
+
+                historyExecutionPlan.forEach(
+                        address -> {
+                            NodeEngineUtil.sendOperationToMemberNode(
+                                    nodeEngine, new CleanLogOperation(jobId), address);
+                        });
+            } finally {
+                finishedJobMasterMap.remove(jobId);
+            }
+        }
     }
 }
