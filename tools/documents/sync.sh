@@ -76,6 +76,36 @@ function rm_exists_files() {
 }
 
 ##############################################################
+#
+# Replace images path in markdown documents, the source path
+# in repo `apache/seatunnel` is like `images/<name>.png`
+# and we should replace it to `images_en/<name>.png`
+#
+# Arguments:
+#
+#   replace_dir: The directory to replace the img path
+#
+##############################################################
+function replace_images_path(){
+  replace_dir=$1
+  target=$2
+  for file_path in "${replace_dir}"/*; do
+    if test -f "${file_path}"; then
+      if [ "${file_path##*.}"x = "md"x ] || [ "${file_path##*.}"x = "mdx"x ]; then
+        echo "  ---> Replace images path to /doc/${target} in ${file_path}"
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+          sed -E -i '' "s/(\.\.\/)*images/\/${target}/g" "${file_path}"
+        else
+          sed -E -i "s/(\.\.\/)*images/\/${target}/g" "${file_path}"
+        fi
+      fi
+    else
+      replace_images_path "${file_path}" "${target}"
+    fi
+  done
+}
+
+##############################################################
 # Try build the updated document in the PR
 ##############################################################
 function prepare_docs() {
@@ -106,6 +136,12 @@ function prepare_docs() {
 
     echo "===>>>: Rsync zh documents to ${WEBSITE_ZH_DOC_DIR}"
     rsync -av "${PR_ZH_DOC_DIR}"/ "${WEBSITE_ZH_DOC_DIR}"
+
+    echo "===>>>: Replace images path in ${WEBSITE_DOC_DIR}"
+    replace_images_path "${WEBSITE_DOC_DIR}" "image_en"
+
+    echo "===>>>: Replace images path in ${WEBSITE_ZH_DOC_DIR}"
+    replace_images_path "${WEBSITE_ZH_DOC_DIR}" "image_zh"
 
     echo "===>>>: End documents sync"
 }
