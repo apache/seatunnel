@@ -27,6 +27,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -49,8 +50,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
@@ -329,11 +328,12 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
         clearTable(MYSQL_DATABASE2, SOURCE_TABLE_1);
         clearTable(MYSQL_DATABASE2, SOURCE_TABLE_2);
 
+        String jobId = JobIdGenerator.newJobId();
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
                         return container.executeJob(
-                                "/mysqlcdc_to_mysql_with_multi_table_mode_one_table.conf");
+                                "/mysqlcdc_to_mysql_with_multi_table_mode_one_table.conf", jobId);
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
@@ -364,18 +364,6 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .pollInterval(1000, TimeUnit.MILLISECONDS)
                 .until(() -> getConnectionStatus("st_user_sink").size() == 1);
-
-        Pattern jobIdPattern =
-                Pattern.compile(
-                        ".*Init JobMaster for Job mysqlcdc_to_mysql_with_multi_table_mode_one_table.conf \\(([0-9]*)\\).*",
-                        Pattern.DOTALL);
-        Matcher matcher = jobIdPattern.matcher(container.getServerLogs());
-        String jobId;
-        if (matcher.matches()) {
-            jobId = matcher.group(1);
-        } else {
-            throw new RuntimeException("Can not find jobId");
-        }
 
         Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
 
