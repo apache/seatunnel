@@ -24,6 +24,7 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 
 /** Paimon connector aggregate commit information class. */
 @Data
@@ -32,5 +33,6 @@ public class PaimonAggregatedCommitInfo implements Serializable {
 
     private static final long serialVersionUID = 1;
 
-    private List<List<CommitMessage>> committables;
+    // key: checkpointId value: Paimon commit message List
+    private Map<Long, List<CommitMessage>> committablesMap;
 }

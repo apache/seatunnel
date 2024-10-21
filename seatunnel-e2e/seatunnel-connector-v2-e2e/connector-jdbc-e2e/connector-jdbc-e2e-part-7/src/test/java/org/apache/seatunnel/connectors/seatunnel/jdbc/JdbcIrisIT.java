@@ -424,7 +424,7 @@ public class JdbcIrisIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult(String executeKey) throws SQLException, IOException {
+    void checkResult(String executeKey, TestContainer container, Container.ExecResult execResult) {
         defaultCompare(executeKey, fieldNames, "BIGINT_COL");
     }
 

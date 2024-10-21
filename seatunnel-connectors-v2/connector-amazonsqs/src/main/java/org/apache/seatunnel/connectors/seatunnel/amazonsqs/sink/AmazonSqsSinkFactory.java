@@ -41,8 +41,7 @@ public class AmazonSqsSinkFactory implements TableSinkFactory {
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
         CatalogTable catalogTable = context.getCatalogTable();
-        return () ->
-                new AmazonSqsSink(config, catalogTable.getTableSchema().toPhysicalRowDataType());
+        return () -> new AmazonSqsSink(config, catalogTable);
     }
 
     @Override

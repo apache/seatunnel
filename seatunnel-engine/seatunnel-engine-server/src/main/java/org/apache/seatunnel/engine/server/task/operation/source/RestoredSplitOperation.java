@@ -81,7 +81,7 @@ public class RestoredSplitOperation extends TaskOperation {
     }
 
     @Override
-    public void run() throws Exception {
+    public void runInternal() throws Exception {
         SeaTunnelServer server = getService();
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
         RetryUtils.retryWithException(
@@ -91,7 +91,7 @@ public class RestoredSplitOperation extends TaskOperation {
                     ClassLoader taskClassLoader =
                             taskExecutionService
                                     .getExecutionContext(taskLocation.getTaskGroupLocation())
-                                    .getClassLoader();
+                                    .getClassLoader(task.getTaskID());
                     ClassLoader mainClassLoader = Thread.currentThread().getContextClassLoader();
 
                     List<SourceSplit> deserializeSplits = new ArrayList<>();

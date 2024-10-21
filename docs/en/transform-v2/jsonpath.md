@@ -8,24 +8,33 @@
 
 ## Options
 
-|  name   | type  | required | default value |
-|---------|-------|----------|---------------|
-| Columns | Array | Yes      |               |
+| name                 | type  | required | default value |
+|----------------------|-------|----------|---------------|
+| columns              | Array | Yes      |               |
+| row_error_handle_way | Enum  | No       | FAIL          |
 
 ### common options [string]
 
 Transform plugin common parameters, please refer to [Transform Plugin](common-options.md) for details
 
-### fields[array]
+### row_error_handle_way [Enum]
+
+This option is used to specify the processing method when an error occurs in the row, the default value is `FAIL`.
+
+- FAIL: When `FAIL` is selected, data format error will block and an exception will be thrown.
+- SKIP: When `SKIP` is selected, data format error will skip this row data.
+
+### columns[array]
 
 #### option
 
-|    name    |  type  | required | default value |
-|------------|--------|----------|---------------|
-| src_field  | String | Yes      |               |
-| dest_field | String | Yes      |               |
-| path       | String | Yes      |               |
-| dest_type  | String | No       | String        |
+| name                    | type   | required | default value |
+|-------------------------|--------|----------|---------------|
+| src_field               | String | Yes      |               |
+| dest_field              | String | Yes      |               |
+| path                    | String | Yes      |               |
+| dest_type               | String | No       | String        |
+| column_error_handle_way | Enum   | No       |               |
 
 #### src_field
 
@@ -50,6 +59,14 @@ Support SeatunnelDateType
 #### path
 
 > Jsonpath
+
+#### column_error_handle_way [Enum]
+
+This option is used to specify the processing method when an error occurs in the column.
+
+- FAIL: When `FAIL` is selected, data format error will block and an exception will be thrown.
+- SKIP: When `SKIP` is selected, data format error will skip this column data.
+- SKIP_ROW: When `SKIP_ROW` is selected, data format error will skip this row data.
 
 ## Read Json Example
 
@@ -155,23 +172,25 @@ Suppose a column in a row of data is of type SeatunnelRow and that the name of t
 
 The JsonPath transform converts the values of seatunnel into an array,
 
-```json
+```hocon
 transform {
   JsonPath {
     source_table_name = "fake"
     result_table_name = "fake1"
+  
+    row_error_handle_way = FAIL
     columns = [
      {
         "src_field" = "col"
         "path" = "$[0]"
         "dest_field" = "name"
-  			"dest_type" = "string"
+        "dest_type" = "string"
      },
-		{
+     {
         "src_field" = "col"
         "path" = "$[1]"
         "dest_field" = "age"
-  			"dest_type" = "int"
+        "dest_type" = "int"
      }
     ]
   }
@@ -183,6 +202,97 @@ Then the data result table `fake1` will like this
 | name | age |   col    | other |
 |------|-----|----------|-------|
 | a    | 18  | ["a",18] | ...   |
+
+
+## Configure error data handle way
+
+You can configure `row_error_handle_way` and `column_error_handle_way` to handle abnormal data. Both are optional.
+
+`row_error_handle_way` is used to handle all data anomalies in the row data, while `column_error_handle_way` is used to handle data anomalies in a column. It has a higher priority than `row_error_handle_way`.
+
+### Skip error data rows
+
+Configure to skip row data with exceptions in any column
+
+```hocon
+transform {
+  JsonPath {
+
+    row_error_handle_way = SKIP
+    
+    columns = [
+     {
+        "src_field" = "json_data"
+        "path" = "$.f1"
+        "dest_field" = "json_data_f1"
+     },
+     {
+        "src_field" = "json_data"
+        "path" = "$.f2"
+        "dest_field" = "json_data_f2"
+     }
+    ]
+  }
+}
+```
+
+### Skip error data column
+
+Configure only `json_data_f1` column data exceptions to skip and fill in null values, other column data exceptions will continue to throw exception interrupt handlers
+
+
+```hocon
+transform {
+  JsonPath {
+
+    row_error_handle_way = FAIL
+    
+    columns = [
+     {
+        "src_field" = "json_data"
+        "path" = "$.f1"
+        "dest_field" = "json_data_f1"
+        
+        "column_error_handle_way" = "SKIP"
+     },
+     {
+        "src_field" = "json_data"
+        "path" = "$.f2"
+        "dest_field" = "json_data_f2"
+     }
+    ]
+  }
+}
+```
+
+### Skip the row for specified column error
+
+Configure to skip the row of data only for `json_data_f1` column data exceptions, and continue to throw exceptions to interrupt the handler for other column data exceptions
+
+
+```hocon
+transform {
+  JsonPath {
+
+    row_error_handle_way = FAIL
+    
+    columns = [
+     {
+        "src_field" = "json_data"
+        "path" = "$.f1"
+        "dest_field" = "json_data_f1"
+        
+        "column_error_handle_way" = "SKIP_ROW"
+     },
+     {
+        "src_field" = "json_data"
+        "path" = "$.f2"
+        "dest_field" = "json_data_f2"
+     }
+    ]
+  }
+}
+```
 
 ## Changelog
 

@@ -19,24 +19,29 @@ package org.apache.seatunnel.engine.server.execution;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 
-import com.hazelcast.logging.ILogger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import lombok.NonNull;
 
+import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /** For test use, only print logs */
 public class TestTask implements Task {
 
-    AtomicBoolean stop;
-    long sleep;
-    private final ILogger logger;
-    boolean isThreadsShare;
+    private static final Logger logger = LoggerFactory.getLogger(TestTask.class);
 
-    public TestTask(AtomicBoolean stop, ILogger logger, long sleep, boolean isThreadsShare) {
+    private final AtomicBoolean stop;
+    private final long sleep;
+    private final boolean isThreadsShare;
+    private final long taskId;
+
+    public TestTask(AtomicBoolean stop, long sleep, boolean isThreadsShare) {
         this.stop = stop;
-        this.logger = logger;
         this.sleep = sleep;
         this.isThreadsShare = isThreadsShare;
+        this.taskId = new Random().nextInt();
     }
 
     @NonNull @Override
@@ -47,7 +52,7 @@ public class TestTask implements Task {
             try {
                 Thread.sleep(sleep);
             } catch (InterruptedException e) {
-                logger.severe(ExceptionUtils.getMessage(e));
+                logger.error(ExceptionUtils.getMessage(e));
             }
             progressState = ProgressState.MADE_PROGRESS;
         } else {
@@ -58,7 +63,7 @@ public class TestTask implements Task {
 
     @NonNull @Override
     public Long getTaskID() {
-        return (long) this.hashCode();
+        return taskId;
     }
 
     @Override

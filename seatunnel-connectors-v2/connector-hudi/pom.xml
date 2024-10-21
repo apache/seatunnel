@@ -32,9 +32,11 @@
     <properties>
         <hudi.version>0.15.0</hudi.version>
         <commons.lang3.version>3.4</commons.lang3.version>
-        <parquet.version>1.14.1</parquet.version>
+        <parquet.version>1.12.2</parquet.version>
         <snappy.version>1.1.10.4</snappy.version>
         <kryo.shaded.version>4.0.2</kryo.shaded.version>
+        <hadoop-aws.version>3.1.4</hadoop-aws.version>
+        <connector.name>connector-hudi</connector.name>
     </properties>
 
     <dependencies>
@@ -43,12 +45,24 @@
             <groupId>org.apache.hudi</groupId>
             <artifactId>hudi-java-client</artifactId>
             <version>${hudi.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-hdfs</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>org.apache.hudi</groupId>
             <artifactId>hudi-client-common</artifactId>
             <version>${hudi.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-hdfs</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -87,4 +101,28 @@
         </dependency>
 
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <phase>package</phase>
+                        <configuration>
+                            <relocations>
+                                <relocation>
+                                    <pattern>org.apache.avro</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.${connector.name}.org.apache.avro</shadedPattern>
+                                </relocation>
+                            </relocations>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>

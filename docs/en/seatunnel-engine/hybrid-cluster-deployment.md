@@ -136,6 +136,24 @@ seatunnel:
     classloader-cache-mode: true
 ```
 
+### 4.6 Job Scheduling Strategy
+
+When resources are insufficient, the job scheduling strategy can be configured in the following two modes:
+
+1. `WAIT`: Wait for resources to be available.
+
+2. `REJECT`: Reject the job, default value.
+
+Example
+
+```yaml
+seatunnel:
+  engine:
+    job-schedule-strategy: WAIT
+```
+
+When `dynamic-slot: true` is used, the `job-schedule-strategy: WAIT` configuration will become invalid and will be forcibly changed to `job-schedule-strategy: REJECT`, because this parameter is meaningless in dynamic slots.
+
 ## 5. Configure The SeaTunnel Engine Network Service
 
 All SeaTunnel Engine network-related configurations are in the `hazelcast.yaml` file.
@@ -305,10 +323,18 @@ mkdir -p $SEATUNNEL_HOME/logs
 
 The logs will be written to `$SEATUNNEL_HOME/logs/seatunnel-engine-server.log`
 
-## 8. Install The SeaTunnel Engine Client
+## 8. Submit And Manage Jobs
+
+### 8.1 Submit Jobs With The SeaTunnel Engine Client 
+
+#### Install The SeaTunnel Engine Client
 
 You only need to copy the `$SEATUNNEL_HOME` directory on the SeaTunnel Engine node to the client node and configure `SEATUNNEL_HOME` in the same way as the SeaTunnel Engine server node.
 
-## 9. Submit And Manage Jobs
+#### Submitting And Managing Jobs
 
 Now that the cluster is deployed, you can complete the submission and management of jobs through the following tutorials: [Submit And Manage Jobs](user-command.md)
+
+### 8.2 Submit Jobs With The REST API
+
+The SeaTunnel Engine provides a REST API for submitting and managing jobs. For more information, please refer to [REST API V2](rest-api-v2.md)

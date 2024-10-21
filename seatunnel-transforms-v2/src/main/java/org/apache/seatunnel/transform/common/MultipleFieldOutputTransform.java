@@ -45,6 +45,11 @@ public abstract class MultipleFieldOutputTransform extends AbstractCatalogSuppor
         super(inputCatalogTable);
     }
 
+    public MultipleFieldOutputTransform(
+            @NonNull CatalogTable inputCatalogTable, ErrorHandleWay errorHandleWay) {
+        super(inputCatalogTable, errorHandleWay);
+    }
+
     @Override
     protected SeaTunnelRow transformRow(SeaTunnelRow inputRow) {
         Object[] fieldValues = getOutputFieldValues(new SeaTunnelRowAccessor(inputRow));

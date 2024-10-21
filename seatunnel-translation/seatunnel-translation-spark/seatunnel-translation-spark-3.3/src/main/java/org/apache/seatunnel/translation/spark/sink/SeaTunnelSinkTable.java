@@ -36,6 +36,7 @@ import org.apache.spark.sql.types.StructType;
 import com.google.common.collect.Sets;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 public class SeaTunnelSinkTable implements Table, SupportsWrite {
@@ -48,6 +49,7 @@ public class SeaTunnelSinkTable implements Table, SupportsWrite {
 
     private final CatalogTable[] catalogTables;
     private final String jobId;
+    private final int parallelism;
 
     public SeaTunnelSinkTable(Map<String, String> properties) {
         this.properties = properties;
@@ -64,11 +66,19 @@ public class SeaTunnelSinkTable implements Table, SupportsWrite {
         }
         this.catalogTables = SerializationUtils.stringToObject(sinkCatalogTableSerialization);
         this.jobId = properties.getOrDefault(SparkSinkInjector.JOB_ID, null);
+        this.parallelism =
+                Optional.of(properties.getOrDefault(SparkSinkInjector.PARALLELISM, null))
+                        .map(Integer::parseInt)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                SparkSinkInjector.PARALLELISM
+                                                        + " must be specified"));
     }
 
     @Override
     public WriteBuilder newWriteBuilder(LogicalWriteInfo info) {
-        return new SeaTunnelWriteBuilder<>(sink, catalogTables, jobId);
+        return new SeaTunnelWriteBuilder<>(sink, catalogTables, jobId, parallelism);
     }
 
     @Override

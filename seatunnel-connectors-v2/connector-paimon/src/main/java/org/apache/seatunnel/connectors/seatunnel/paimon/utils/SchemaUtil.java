@@ -22,7 +22,10 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.data.PaimonTypeMapper;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 
+import org.apache.paimon.CoreOptions;
 import org.apache.paimon.schema.Schema;
 import org.apache.paimon.types.DataField;
 import org.apache.paimon.types.DataType;
@@ -30,6 +33,7 @@ import org.apache.paimon.types.DataType;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 /** The util seatunnel schema to paimon schema */
 public class SchemaUtil {
@@ -58,6 +62,10 @@ public class SchemaUtil {
             paiSchemaBuilder.partitionKeys(partitionKeys);
         }
         Map<String, String> writeProps = paimonSinkConfig.getWriteProps();
+        CoreOptions.ChangelogProducer changelogProducer = paimonSinkConfig.getChangelogProducer();
+        if (changelogProducer != null) {
+            writeProps.remove(PaimonSinkConfig.CHANGELOG_TMP_PATH);
+        }
         if (!writeProps.isEmpty()) {
             paiSchemaBuilder.options(writeProps);
         }
@@ -69,9 +77,13 @@ public class SchemaUtil {
     }
 
     public static DataField getDataField(List<DataField> fields, String fieldName) {
-        return fields.parallelStream()
-                .filter(field -> field.name().equals(fieldName))
-                .findFirst()
-                .get();
+        Optional<DataField> firstField =
+                fields.stream().filter(field -> field.name().equals(fieldName)).findFirst();
+        if (!firstField.isPresent()) {
+            throw new PaimonConnectorException(
+                    PaimonConnectorErrorCode.GET_FILED_FAILED,
+                    "Can not get the filed [" + fieldName + "] from source table");
+        }
+        return firstField.get();
     }
 }

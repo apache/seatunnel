@@ -25,9 +25,11 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
 import org.apache.seatunnel.api.configuration.ConfigShade;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junitpioneer.jupiter.SetEnvironmentVariable;
 
 import com.beust.jcommander.internal.Lists;
 import lombok.extern.slf4j.Slf4j;
@@ -179,6 +181,74 @@ public class ConfigShadeTest {
             Assertions.assertEquals(sinkConfig.getString("password"), password);
             Assertions.assertEquals(sinkConfig.getString("blankSpace"), blankSpace);
         }
+    }
+
+    // Set the system environment variables through SetEnvironmentVariable to verify whether the
+    // parameters set by the system environment variables are effective
+    @SetEnvironmentVariable(key = "jobName", value = "seatunnel variable test job")
+    @Test
+    public void testVariableReplacementWithDefaultValue() throws URISyntaxException {
+        String jobName = "seatunnel variable test job";
+        Assertions.assertEquals(System.getenv("jobName"), jobName);
+        String sourceTableName = "sql";
+        String containSpaceString = "f h";
+        List<String> variables = new ArrayList<>();
+        variables.add("strTemplate=[abc,de~," + containSpaceString + "]");
+        // Set the environment variable value nameVal to `f h` to verify whether setting the space
+        // through the environment variable is effective
+        System.setProperty("nameValForEnv", containSpaceString);
+        variables.add("sourceTableName=" + sourceTableName);
+        URL resource =
+                ConfigShadeTest.class.getResource("/config_variables_with_default_value.conf");
+        Assertions.assertNotNull(resource);
+        Config config = ConfigBuilder.of(Paths.get(resource.toURI()), variables);
+        Config envConfig = config.getConfig("env");
+        Assertions.assertEquals(envConfig.getString("job.name"), jobName);
+        List<? extends ConfigObject> sourceConfigs = config.getObjectList("source");
+        for (ConfigObject configObject : sourceConfigs) {
+            Config sourceConfig = configObject.toConfig();
+            List<String> list1 = sourceConfig.getStringList("string.template");
+            Assertions.assertEquals(list1.get(0), "abc");
+            Assertions.assertEquals(list1.get(1), "de~");
+            Assertions.assertEquals(list1.get(2), containSpaceString);
+            Assertions.assertEquals(sourceConfig.getInt("row.num"), 50);
+            // Verify when verifying without setting variables, ${xxx} should be retained
+            Assertions.assertEquals(
+                    sourceConfig.getConfig("schema").getConfig("fields").getString("age"),
+                    "${ageType}");
+            Assertions.assertEquals(sourceConfig.getString("result_table_name"), "fake_test_table");
+        }
+        List<? extends ConfigObject> transformConfigs = config.getObjectList("transform");
+        for (ConfigObject configObject : transformConfigs) {
+            Config transformConfig = configObject.toConfig();
+            Assertions.assertEquals(
+                    transformConfig.getString("query"),
+                    "select * from fake_test_table where name = 'f h' ");
+        }
+        List<? extends ConfigObject> sinkConfigs = config.getObjectList("sink");
+        for (ConfigObject sinkObject : sinkConfigs) {
+            Config sinkConfig = sinkObject.toConfig();
+            Assertions.assertEquals(sinkConfig.getString("source_table_name"), sourceTableName);
+        }
+    }
+
+    @Test
+    public void testVariableReplacementWithReservedPlaceholder() {
+        List<String> variables = new ArrayList<>();
+        variables.add("strTemplate=[abc,de~,f h]");
+        // Set up a reserved placeholder
+        variables.add("table_name=sql");
+        URL resource =
+                ConfigShadeTest.class.getResource(
+                        "/config_variables_with_reserved_placeholder.conf");
+        Assertions.assertNotNull(resource);
+        ConfigCheckException configCheckException =
+                Assertions.assertThrows(
+                        ConfigCheckException.class,
+                        () -> ConfigBuilder.of(Paths.get(resource.toURI()), variables));
+        Assertions.assertEquals(
+                "System placeholders cannot be used. Incorrect config parameter: table_name",
+                configCheckException.getMessage());
     }
 
     @Test

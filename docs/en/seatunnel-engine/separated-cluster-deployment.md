@@ -280,6 +280,23 @@ netty-common-4.1.89.Final.jar
 seatunnel-hadoop3-3.1.4-uber.jar
 ```
 
+### 4.7 Job Scheduling Strategy
+
+When resources are insufficient, the job scheduling strategy can be configured in the following two modes:
+
+1. `WAIT`: Wait for resources to be available.
+
+2. `REJECT`: Reject the job, default value.
+
+Example
+
+```yaml
+seatunnel:
+  engine:
+    job-schedule-strategy: WAIT
+```
+When `dynamic-slot: true` is used, the `job-schedule-strategy: WAIT` configuration will become invalid and will be forcibly changed to `job-schedule-strategy: REJECT`, because this parameter is meaningless in dynamic slots.
+
 ## 5. Configuring SeaTunnel Engine Network Services
 
 All network-related configurations of the SeaTunnel Engine are in the `hazelcast-master.yaml` and `hazelcast-worker.yaml` files.
@@ -387,9 +404,13 @@ mkdir -p $SEATUNNEL_HOME/logs
 
 The logs will be written to `$SEATUNNEL_HOME/logs/seatunnel-engine-worker.log`.
 
-## 8. Installing The SeaTunnel Engine Client
+## 8. Submit And Manage Jobs
 
-### 8.1 Setting the `SEATUNNEL_HOME` the same as the server
+### 8.1 Submit Jobs With The SeaTunnel Engine Client
+
+#### Installing The SeaTunnel Engine Client
+
+##### Setting the `SEATUNNEL_HOME` the same as the server
 
 You can configure the `SEATUNNEL_HOME` by adding the `/etc/profile.d/seatunnel.sh` file. The content of `/etc/profile.d/seatunnel.sh` is as follows:
 
@@ -398,7 +419,7 @@ export SEATUNNEL_HOME=${seatunnel install path}
 export PATH=$PATH:$SEATUNNEL_HOME/bin
 ```
 
-### 8.2 Configuring The SeaTunnel Engine Client
+##### Configuring The SeaTunnel Engine Client
 
 All configurations of the SeaTunnel Engine client are in the `hazelcast-client.yaml`.
 
@@ -421,6 +442,10 @@ hazelcast-client:
       - master-node-2:5801
 ```
 
-# 9 Submitting And Managing Jobs
+#### Submitting And Managing Jobs
 
 Now that the cluster has been deployed, you can complete the job submission and management through the following tutorial: [Submitting And Managing Jobs](user-command.md).
+
+### 8.2 Submit Jobs With The REST API
+
+The SeaTunnel Engine provides a REST API for submitting and managing jobs. For more information, please refer to [REST API V2](rest-api-v2.md)

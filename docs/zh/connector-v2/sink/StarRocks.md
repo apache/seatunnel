@@ -186,6 +186,7 @@ source {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
     username = root
     password = ""
     database = "test"
@@ -205,6 +206,7 @@ sink {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
     username = root
     password = ""
     database = "test"
@@ -223,6 +225,7 @@ sink {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
     username = root
     password = ""
     database = "test"
@@ -243,6 +246,7 @@ sink {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
     username = root
     password = ""
     database = "test"
@@ -263,6 +267,7 @@ sink {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
     username = root
     password = ""
     database = "test"

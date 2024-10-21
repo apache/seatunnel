@@ -24,6 +24,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
+import org.apache.commons.compress.utils.Lists;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -86,9 +87,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 new GenericContainer<>(getDockerImage())
                         .withNetwork(NETWORK)
                         .withEnv("TZ", "UTC")
-                        .withCommand(
-                                ContainerUtil.adaptPathForWin(
-                                        Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString()))
+                        .withCommand(buildStartCommand())
                         .withNetworkAliases("server")
                         .withExposedPorts()
                         .withLogConsumer(
@@ -115,6 +114,12 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         server.start();
 
         return server;
+    }
+
+    protected String[] buildStartCommand() {
+        return new String[] {
+            ContainerUtil.adaptPathForWin(Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString())
+        };
     }
 
     protected GenericContainer<?> createSeaTunnelContainerWithFakeSourceAndInMemorySink(
@@ -238,6 +243,11 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     @Override
+    protected String getCancelJobCommand() {
+        return "-can";
+    }
+
+    @Override
     protected String getRestoreCommand() {
         return "-r";
     }
@@ -265,19 +275,39 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         return executeCommand(server, command);
     }
 
+    public Container.ExecResult executeBaseCommand(String[] args)
+            throws IOException, InterruptedException {
+        final List<String> command = new ArrayList<>();
+        String binPath = Paths.get(SEATUNNEL_HOME, "bin", getStartShellName()).toString();
+        command.add(adaptPathForWin(binPath));
+        Arrays.stream(args).forEach(arg -> command.add(arg));
+        return executeCommand(server, command);
+    }
+
     @Override
     public Container.ExecResult executeJob(String confFile)
             throws IOException, InterruptedException {
-        return executeJob(confFile, null);
+        return executeJob(confFile, Lists.newArrayList());
     }
 
     @Override
     public Container.ExecResult executeJob(String confFile, List<String> variables)
             throws IOException, InterruptedException {
+        return executeJob(confFile, null, variables);
+    }
+
+    @Override
+    public Container.ExecResult executeJob(String confFile, String jobId)
+            throws IOException, InterruptedException {
+        return executeJob(confFile, jobId, null);
+    }
+
+    private Container.ExecResult executeJob(String confFile, String jobId, List<String> variables)
+            throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
         List<String> beforeThreads = ContainerUtil.getJVMThreadNames(server);
         runningCount.incrementAndGet();
-        Container.ExecResult result = executeJob(server, confFile, variables);
+        Container.ExecResult result = executeJob(server, confFile, jobId, variables);
         if (runningCount.decrementAndGet() > 0) {
             // only check thread when job all finished.
             return result;
@@ -309,7 +339,6 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                                                         .collect(Collectors.joining()));
                             });
         }
-        //        classLoaderObjectCheck(1);
         return result;
     }
 
@@ -363,7 +392,8 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 // The renewed background thread of the hdfs client
                 || s.startsWith("LeaseRenewer")
                 // The read of hdfs which has the thread that is all in running status
-                || s.startsWith("org.apache.hadoop.hdfs.PeerCache");
+                || s.startsWith("org.apache.hadoop.hdfs.PeerCache")
+                || s.startsWith("java-sdk-progress-listener-callback-thread");
     }
 
     private void classLoaderObjectCheck(Integer maxSize) throws IOException, InterruptedException {
@@ -451,6 +481,11 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         Container.ExecResult result = restoreJob(server, confFile, jobId);
         runningCount.decrementAndGet();
         return result;
+    }
+
+    @Override
+    public Container.ExecResult cancelJob(String jobId) throws IOException, InterruptedException {
+        return cancelJob(server, jobId);
     }
 
     @Override

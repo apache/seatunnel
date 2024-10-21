@@ -190,6 +190,11 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
     }
 
     @Override
+    protected String getCancelJobCommand() {
+        return "-can";
+    }
+
+    @Override
     protected String getRestoreCommand() {
         return "-r";
     }
@@ -220,14 +225,14 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
     @Override
     public Container.ExecResult executeJob(String confFile)
             throws IOException, InterruptedException {
-        return executeJob(confFile, null);
+        return executeJob(confFile, Collections.emptyList());
     }
 
     @Override
     public Container.ExecResult executeJob(String confFile, List<String> variables)
             throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
-        return executeJob(server1, confFile, variables);
+        return executeJob(server1, confFile, null, variables);
     }
 
     @Override

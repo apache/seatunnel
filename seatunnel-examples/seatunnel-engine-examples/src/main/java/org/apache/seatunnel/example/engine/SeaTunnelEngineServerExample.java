@@ -22,6 +22,12 @@ import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ServerCommandArgs;
 
 public class SeaTunnelEngineServerExample {
+
+    static {
+        // https://logging.apache.org/log4j/2.x/manual/simple-logger.html#isThreadContextMapInheritable
+        System.setProperty("log4j2.isThreadContextMapInheritable", "true");
+    }
+
     public static void main(String[] args) throws CommandException {
         ServerCommandArgs serverCommandArgs = new ServerCommandArgs();
         SeaTunnel.run(serverCommandArgs.buildCommand());

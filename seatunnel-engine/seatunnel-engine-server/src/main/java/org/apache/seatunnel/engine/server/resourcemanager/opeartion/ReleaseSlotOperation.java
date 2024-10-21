@@ -23,17 +23,17 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 import org.apache.seatunnel.engine.server.serializable.ResourceDataSerializerHook;
 import org.apache.seatunnel.engine.server.service.slot.WrongTargetSlotException;
+import org.apache.seatunnel.engine.server.task.operation.TracingOperation;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
-import com.hazelcast.spi.impl.operationservice.Operation;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 
 @Slf4j
-public class ReleaseSlotOperation extends Operation implements IdentifiedDataSerializable {
+public class ReleaseSlotOperation extends TracingOperation implements IdentifiedDataSerializable {
 
     private long jobID;
     private SlotProfile slotProfile;
@@ -47,7 +47,7 @@ public class ReleaseSlotOperation extends Operation implements IdentifiedDataSer
     }
 
     @Override
-    public void run() throws Exception {
+    public void runInternal() throws Exception {
         SeaTunnelServer server = getService();
         try {
             server.getSlotService().releaseSlot(jobID, slotProfile);
@@ -68,12 +68,14 @@ public class ReleaseSlotOperation extends Operation implements IdentifiedDataSer
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
+        super.writeInternal(out);
         out.writeObject(slotProfile);
         out.writeLong(jobID);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
+        super.readInternal(in);
         slotProfile = in.readObject();
         jobID = in.readLong();
     }

@@ -134,10 +134,12 @@ public class SeaTunnelChildFirstClassLoader extends SeaTunnelBaseClassLoader {
         return new Enumeration<URL>() {
             final Iterator<URL> iter = result.iterator();
 
+            @Override
             public boolean hasMoreElements() {
                 return iter.hasNext();
             }
 
+            @Override
             public URL nextElement() {
                 return iter.next();
             }

@@ -21,8 +21,17 @@ package org.apache.seatunnel.connectors.seatunnel.hbase.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum HbaseConnectorErrorCode implements SeaTunnelErrorCode {
-    CONNECTION_FAILED("Hbase-01", "Build Hbase connection failed");
-
+    CONNECTION_FAILED("Hbase-01", "Build Hbase connection failed"),
+    CONNECTION_FAILED_FOR_ADMIN("Hbase-02", "Build Hbase Admin failed"),
+    DATABASE_QUERY_EXCEPTION("Hbase-03", "Hbase namespace query failed"),
+    TABLE_QUERY_EXCEPTION("Hbase-04", "Hbase table query failed"),
+    TABLE_CREATE_EXCEPTION("Hbase-05", "Hbase table create failed"),
+    TABLE_DELETE_EXCEPTION("Hbase-06", "Hbase table delete failed"),
+    TABLE_EXISTS_EXCEPTION("Hbase-07", "Hbase table exists failed"),
+    NAMESPACE_CREATE_EXCEPTION("Hbase-08", "Hbase namespace create failed"),
+    NAMESPACE_DELETE_EXCEPTION("Hbase-09", "Hbase namespace delete failed"),
+    TABLE_TRUNCATE_EXCEPTION("Hbase-10", "Hbase table truncate failed"),
+    ;
     private final String code;
     private final String description;
 

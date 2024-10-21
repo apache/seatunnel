@@ -25,11 +25,13 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
+import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.JobStatusData;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.PendingSourceState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 
 import com.hazelcast.logging.ILogger;
@@ -37,6 +39,7 @@ import com.hazelcast.map.IMap;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Getter;
+import scala.Tuple2;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -70,6 +73,8 @@ public class JobHistoryService {
      */
     private final Map<Long, JobMaster> runningJobMasterMap;
 
+    private final Map<Long, Tuple2<PendingSourceState, JobMaster>> pendingJobMasterMap;
+
     /** finishedJobVertexInfoImap key is jobId and value is JobDAGInfo */
     private final IMap<Long, JobDAGInfo> finishedJobDAGInfoImap;
 
@@ -88,6 +93,7 @@ public class JobHistoryService {
     public JobHistoryService(
             IMap<Object, Object> runningJobStateIMap,
             ILogger logger,
+            Map<Long, Tuple2<PendingSourceState, JobMaster>> pendingJobMasterMap,
             Map<Long, JobMaster> runningJobMasterMap,
             IMap<Long, JobState> finishedJobStateImap,
             IMap<Long, JobMetrics> finishedJobMetricsImap,
@@ -95,6 +101,7 @@ public class JobHistoryService {
             int finishedJobExpireTime) {
         this.runningJobStateIMap = runningJobStateIMap;
         this.logger = logger;
+        this.pendingJobMasterMap = pendingJobMasterMap;
         this.runningJobMasterMap = runningJobMasterMap;
         this.finishedJobStateImap = finishedJobStateImap;
         this.finishedJobMetricsImap = finishedJobMetricsImap;
@@ -106,6 +113,16 @@ public class JobHistoryService {
 
     // Gets the status of a running and completed job.
     public String listAllJob() {
+        List<JobStatusData> status = getJobStatusData();
+        try {
+            return objectMapper.writeValueAsString(status);
+        } catch (JsonProcessingException e) {
+            logger.severe("Failed to list all job", e);
+            throw new SeaTunnelEngineException(e);
+        }
+    }
+
+    public List<JobStatusData> getJobStatusData() {
         List<JobStatusData> status = new ArrayList<>();
         final List<JobState> runningJobStateList =
                 runningJobMasterMap.values().stream()
@@ -128,16 +145,24 @@ public class JobHistoryService {
                                             jobState.getFinishTime());
                             status.add(jobStatusData);
                         });
-        try {
-            return objectMapper.writeValueAsString(status);
-        } catch (JsonProcessingException e) {
-            logger.severe("Failed to list all job", e);
-            throw new SeaTunnelEngineException(e);
-        }
+        return status;
     }
 
     // Get detailed status of a single job
     public JobState getJobDetailState(Long jobId) {
+        if (pendingJobMasterMap.containsKey(jobId)) {
+            // return pending job state
+            JobImmutableInformation jobImmutableInformation =
+                    pendingJobMasterMap.get(jobId)._2.getJobImmutableInformation();
+            return new JobState(
+                    jobId,
+                    jobImmutableInformation.getJobName(),
+                    JobStatus.PENDING,
+                    jobImmutableInformation.getCreateTime(),
+                    null,
+                    null,
+                    null);
+        }
         return runningJobMasterMap.containsKey(jobId)
                 ? toJobStateMapper(runningJobMasterMap.get(jobId), false)
                 : finishedJobStateImap.getOrDefault(jobId, null);

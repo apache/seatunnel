@@ -24,16 +24,21 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonHadoopConfiguration;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.security.PaimonSecurityContext;
+import org.apache.seatunnel.connectors.seatunnel.paimon.sink.bucket.PaimonBucketAssigner;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.state.PaimonSinkState;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.JobContextUtil;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowConverter;
 
+import org.apache.paimon.CoreOptions;
 import org.apache.paimon.data.InternalRow;
+import org.apache.paimon.disk.IOManager;
 import org.apache.paimon.schema.TableSchema;
+import org.apache.paimon.table.BucketMode;
 import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.table.sink.BatchTableCommit;
@@ -56,6 +61,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import static org.apache.paimon.disk.IOManagerImpl.splitPaths;
+
 @Slf4j
 public class PaimonSinkWriter
         implements SinkWriter<SeaTunnelRow, PaimonCommitInfo, PaimonSinkState>,
@@ -63,15 +70,13 @@ public class PaimonSinkWriter
 
     private String commitUser = UUID.randomUUID().toString();
 
+    private final FileStoreTable table;
+
     private final WriteBuilder tableWriteBuilder;
 
     private final TableWrite tableWrite;
 
-    private long checkpointId = 0;
-
     private List<CommitMessage> committables = new ArrayList<>();
-
-    private final Table table;
 
     private final SeaTunnelRowType seaTunnelRowType;
 
@@ -79,24 +84,54 @@ public class PaimonSinkWriter
 
     private final JobContext jobContext;
 
-    private TableSchema tableSchema;
+    private final TableSchema tableSchema;
+
+    private PaimonBucketAssigner bucketAssigner;
+
+    private final boolean dynamicBucket;
 
     public PaimonSinkWriter(
             Context context,
             Table table,
             SeaTunnelRowType seaTunnelRowType,
             JobContext jobContext,
+            PaimonSinkConfig paimonSinkConfig,
             PaimonHadoopConfiguration paimonHadoopConfiguration) {
-        this.table = table;
+        this.table = (FileStoreTable) table;
+        CoreOptions.ChangelogProducer changelogProducer =
+                this.table.coreOptions().changelogProducer();
+        if (Objects.nonNull(paimonSinkConfig.getChangelogProducer())
+                && changelogProducer != paimonSinkConfig.getChangelogProducer()) {
+            log.warn(
+                    "configured the props named 'changelog-producer' which is not compatible with the options in table , so it will use the table's 'changelog-producer'");
+        }
+        String changelogTmpPath = paimonSinkConfig.getChangelogTmpPath();
         this.tableWriteBuilder =
                 JobContextUtil.isBatchJob(jobContext)
                         ? this.table.newBatchWriteBuilder()
                         : this.table.newStreamWriteBuilder();
-        this.tableWrite = tableWriteBuilder.newWrite();
+        this.tableWrite =
+                tableWriteBuilder
+                        .newWrite()
+                        .withIOManager(IOManager.create(splitPaths(changelogTmpPath)));
         this.seaTunnelRowType = seaTunnelRowType;
         this.context = context;
         this.jobContext = jobContext;
-        this.tableSchema = ((FileStoreTable) table).schema();
+        this.tableSchema = this.table.schema();
+        BucketMode bucketMode = this.table.bucketMode();
+        this.dynamicBucket =
+                BucketMode.DYNAMIC == bucketMode || BucketMode.GLOBAL_DYNAMIC == bucketMode;
+        int bucket = ((FileStoreTable) table).coreOptions().bucket();
+        if (bucket == -1 && BucketMode.UNAWARE == bucketMode) {
+            log.warn("Append only table currently do not support dynamic bucket");
+        }
+        if (dynamicBucket) {
+            this.bucketAssigner =
+                    new PaimonBucketAssigner(
+                            table,
+                            this.context.getNumberOfParallelSubtasks(),
+                            this.context.getIndexOfSubtask());
+        }
         PaimonSecurityContext.shouldEnableKerberos(paimonHadoopConfiguration);
     }
 
@@ -106,13 +141,20 @@ public class PaimonSinkWriter
             SeaTunnelRowType seaTunnelRowType,
             List<PaimonSinkState> states,
             JobContext jobContext,
+            PaimonSinkConfig paimonSinkConfig,
             PaimonHadoopConfiguration paimonHadoopConfiguration) {
-        this(context, table, seaTunnelRowType, jobContext, paimonHadoopConfiguration);
+        this(
+                context,
+                table,
+                seaTunnelRowType,
+                jobContext,
+                paimonSinkConfig,
+                paimonHadoopConfiguration);
         if (Objects.isNull(states) || states.isEmpty()) {
             return;
         }
         this.commitUser = states.get(0).getCommitUser();
-        this.checkpointId = states.get(0).getCheckpointId();
+        long checkpointId = states.get(0).getCheckpointId();
         try (TableCommit tableCommit = tableWriteBuilder.newCommit()) {
             List<CommitMessage> commitables =
                     states.stream()
@@ -125,7 +167,7 @@ public class PaimonSinkWriter
                 ((BatchTableCommit) tableCommit).commit(commitables);
             } else {
                 log.debug("Trying to recommit states streaming mode");
-                ((StreamTableCommit) tableCommit).commit(Objects.hash(commitables), commitables);
+                ((StreamTableCommit) tableCommit).commit(checkpointId, commitables);
             }
         } catch (Exception e) {
             throw new PaimonConnectorException(
@@ -139,7 +181,12 @@ public class PaimonSinkWriter
         try {
             PaimonSecurityContext.runSecured(
                     () -> {
-                        tableWrite.write(rowData);
+                        if (dynamicBucket) {
+                            int bucket = bucketAssigner.assign(rowData);
+                            tableWrite.write(rowData, bucket);
+                        } else {
+                            tableWrite.write(rowData);
+                        }
                         return null;
                     });
         } catch (Exception e) {
@@ -152,27 +199,32 @@ public class PaimonSinkWriter
 
     @Override
     public Optional<PaimonCommitInfo> prepareCommit() throws IOException {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<PaimonCommitInfo> prepareCommit(long checkpointId) throws IOException {
         try {
             List<CommitMessage> fileCommittables;
             if (JobContextUtil.isBatchJob(jobContext)) {
                 fileCommittables = ((BatchTableWrite) tableWrite).prepareCommit();
             } else {
                 fileCommittables =
-                        ((StreamTableWrite) tableWrite).prepareCommit(false, committables.size());
+                        ((StreamTableWrite) tableWrite)
+                                .prepareCommit(waitCompaction(), checkpointId);
             }
             committables.addAll(fileCommittables);
-            return Optional.of(new PaimonCommitInfo(fileCommittables));
+            return Optional.of(new PaimonCommitInfo(fileCommittables, checkpointId));
         } catch (Exception e) {
             throw new PaimonConnectorException(
                     PaimonConnectorErrorCode.TABLE_PRE_COMMIT_FAILED,
-                    "Flink table store failed to prepare commit",
+                    "Paimon pre-commit failed.",
                     e);
         }
     }
 
     @Override
     public List<PaimonSinkState> snapshotState(long checkpointId) throws IOException {
-        this.checkpointId = checkpointId;
         PaimonSinkState paimonSinkState =
                 new PaimonSinkState(new ArrayList<>(committables), commitUser, checkpointId);
         committables.clear();
@@ -184,13 +236,24 @@ public class PaimonSinkWriter
 
     @Override
     public void close() throws IOException {
-        if (Objects.nonNull(tableWrite)) {
-            try {
-                tableWrite.close();
-            } catch (Exception e) {
-                log.error("Failed to close table writer in paimon sink writer.", e);
-                throw new SeaTunnelException(e);
+        try {
+            if (Objects.nonNull(tableWrite)) {
+                try {
+                    tableWrite.close();
+                } catch (Exception e) {
+                    log.error("Failed to close table writer in paimon sink writer.", e);
+                    throw new SeaTunnelException(e);
+                }
             }
+        } finally {
+            committables.clear();
         }
+    }
+
+    private boolean waitCompaction() {
+        CoreOptions.ChangelogProducer changelogProducer =
+                this.table.coreOptions().changelogProducer();
+        return changelogProducer == CoreOptions.ChangelogProducer.LOOKUP
+                || changelogProducer == CoreOptions.ChangelogProducer.FULL_COMPACTION;
     }
 }

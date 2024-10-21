@@ -44,9 +44,9 @@ public class JdbcDb2IT extends AbstractJdbcIT {
 
     private static final String DB2_CONTAINER_HOST = "db2-e2e";
 
-    private static final String DB2_DATABASE = "E2E";
-    private static final String DB2_SOURCE = "SOURCE";
-    private static final String DB2_SINK = "SINK";
+    protected static final String DB2_DATABASE = "E2E";
+    protected static final String DB2_SOURCE = "SOURCE";
+    protected static final String DB2_SINK = "SINK";
 
     private static final String DB2_URL = "jdbc:db2://" + HOST + ":%s/%s";
 
@@ -116,9 +116,6 @@ public class JdbcDb2IT extends AbstractJdbcIT {
                 .testData(testDataSet)
                 .build();
     }
-
-    @Override
-    void compareResult(String executeKey) {}
 
     @Override
     String driverUrl() {

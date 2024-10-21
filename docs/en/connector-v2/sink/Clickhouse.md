@@ -24,9 +24,9 @@ Used to write data to Clickhouse.
 In order to use the Clickhouse connector, the following dependencies are required.
 They can be downloaded via install-plugin.sh or from the Maven central repository.
 
-| Datasource | Supported Versions |                                                    Dependency                                                    |
-|------------|--------------------|------------------------------------------------------------------------------------------------------------------|
-| Clickhouse | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-clickhouse) |
+| Datasource | Supported Versions | Dependency                                                                               |
+|------------|--------------------|------------------------------------------------------------------------------------------|
+| Clickhouse | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-clickhouse) |
 
 ## Data Type Mapping
 

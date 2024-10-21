@@ -165,7 +165,7 @@ public class OptionRule {
                 @NonNull Option<?>... requiredOptions) {
             verifyConditionalExists(conditionalOption);
 
-            if (expectValues.size() == 0) {
+            if (expectValues.isEmpty()) {
                 throw new OptionValidationException(
                         String.format(
                                 "conditional option '%s' must have expect values .",
@@ -187,7 +187,7 @@ public class OptionRule {
             RequiredOption.ConditionalRequiredOptions option =
                     RequiredOption.ConditionalRequiredOptions.of(
                             expression, new ArrayList<>(Arrays.asList(requiredOptions)));
-            verifyRequiredOptionDuplicate(option);
+            verifyRequiredOptionDuplicate(option, true);
             this.requiredOptions.add(option);
             return this;
         }
@@ -204,7 +204,7 @@ public class OptionRule {
                     RequiredOption.ConditionalRequiredOptions.of(
                             expression, new ArrayList<>(Arrays.asList(requiredOptions)));
 
-            verifyRequiredOptionDuplicate(conditionalRequiredOption);
+            verifyRequiredOptionDuplicate(conditionalRequiredOption, true);
             this.requiredOptions.add(conditionalRequiredOption);
             return this;
         }
@@ -242,12 +242,30 @@ public class OptionRule {
         }
 
         private void verifyRequiredOptionDuplicate(@NonNull RequiredOption requiredOption) {
+            verifyRequiredOptionDuplicate(requiredOption, false);
+        }
+
+        /**
+         * Verifies if there are duplicate options within the required options.
+         *
+         * @param requiredOption The required option to be verified
+         * @param ignoreVerifyDuplicateOptions Whether to ignore duplicate option verification If
+         *     the value is true, the existing items in OptionOptions are ignored Currently, it
+         *     applies only to conditional
+         * @throws OptionValidationException If duplicate options are found
+         */
+        private void verifyRequiredOptionDuplicate(
+                @NonNull RequiredOption requiredOption,
+                @NonNull Boolean ignoreVerifyDuplicateOptions) {
             requiredOption
                     .getOptions()
                     .forEach(
                             option -> {
-                                verifyDuplicateWithOptionOptions(
-                                        option, requiredOption.getClass().getSimpleName());
+                                if (!ignoreVerifyDuplicateOptions) {
+                                    // Check if required option that duplicate with option options
+                                    verifyDuplicateWithOptionOptions(
+                                            option, requiredOption.getClass().getSimpleName());
+                                }
                                 requiredOptions.forEach(
                                         ro -> {
                                             if (ro

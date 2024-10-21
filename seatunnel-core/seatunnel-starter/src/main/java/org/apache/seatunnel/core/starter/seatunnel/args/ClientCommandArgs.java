@@ -70,8 +70,9 @@ public class ClientCommandArgs extends AbstractCommandArgs {
 
     @Parameter(
             names = {"-can", "--cancel-job"},
+            variableArity = true,
             description = "Cancel job by JobId")
-    private String cancelJobId;
+    private List<String> cancelJobId;
 
     @Parameter(
             names = {"--metrics"},

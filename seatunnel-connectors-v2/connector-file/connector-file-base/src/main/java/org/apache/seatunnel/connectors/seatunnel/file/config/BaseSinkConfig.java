@@ -54,6 +54,13 @@ public class BaseSinkConfig extends KerberosConfig {
                     .defaultValue(CompressFormat.NONE)
                     .withDescription("Compression codec");
 
+    // TODO：Compression is supported during write
+    public static final Option<ArchiveCompressFormat> ARCHIVE_COMPRESS_CODEC =
+            Options.key("archive_compress_codec")
+                    .enumType(ArchiveCompressFormat.class)
+                    .defaultValue(ArchiveCompressFormat.NONE)
+                    .withDescription("Archive compression codec");
+
     public static final Option<CompressFormat> TXT_COMPRESS =
             Options.key("compress_codec")
                     .singleChoice(

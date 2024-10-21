@@ -18,14 +18,15 @@
 package org.apache.seatunnel.connectors.seatunnel.hudi.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-
-import org.apache.hudi.common.model.HoodieTableType;
-import org.apache.hudi.common.model.WriteOperationType;
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
 import lombok.Builder;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
+import java.util.Optional;
 
 @Data
 @Builder(builderClassName = "Builder")
@@ -33,50 +34,31 @@ public class HudiSinkConfig implements Serializable {
 
     private static final long serialVersionUID = 2L;
 
-    private String tableName;
-
     private String tableDfsPath;
 
-    private int insertShuffleParallelism;
-
-    private int upsertShuffleParallelism;
-
-    private int minCommitsToKeep;
-
-    private int maxCommitsToKeep;
-
-    private HoodieTableType tableType;
-
-    private WriteOperationType opType;
+    private List<HudiTableConfig> tableList;
 
     private String confFilesPath;
 
-    private int batchIntervalMs;
+    private SchemaSaveMode schemaSaveMode;
 
-    private String recordKeyFields;
-
-    private String partitionFields;
+    private DataSaveMode dataSaveMode;
 
     public static HudiSinkConfig of(ReadonlyConfig config) {
-        HudiSinkConfig.Builder builder = HudiSinkConfig.builder();
-        builder.confFilesPath(config.get(HudiOptions.CONF_FILES_PATH));
-        builder.tableName(config.get(HudiOptions.TABLE_NAME));
+        Builder builder = HudiSinkConfig.builder();
+        Optional<SchemaSaveMode> optionalSchemaSaveMode =
+                config.getOptional(HudiOptions.SCHEMA_SAVE_MODE);
+        Optional<DataSaveMode> optionalDataSaveMode =
+                config.getOptional(HudiOptions.DATA_SAVE_MODE);
+
         builder.tableDfsPath(config.get(HudiOptions.TABLE_DFS_PATH));
-        builder.tableType(config.get(HudiOptions.TABLE_TYPE));
-        builder.opType(config.get(HudiOptions.OP_TYPE));
+        builder.confFilesPath(config.get(HudiOptions.CONF_FILES_PATH));
+        builder.tableList(HudiTableConfig.of(config));
 
-        builder.batchIntervalMs(config.get(HudiOptions.BATCH_INTERVAL_MS));
-
-        builder.partitionFields(config.get(HudiOptions.PARTITION_FIELDS));
-
-        builder.recordKeyFields(config.get(HudiOptions.RECORD_KEY_FIELDS));
-
-        builder.insertShuffleParallelism(config.get(HudiOptions.INSERT_SHUFFLE_PARALLELISM));
-
-        builder.upsertShuffleParallelism(config.get(HudiOptions.UPSERT_SHUFFLE_PARALLELISM));
-
-        builder.minCommitsToKeep(config.get(HudiOptions.MIN_COMMITS_TO_KEEP));
-        builder.maxCommitsToKeep(config.get(HudiOptions.MAX_COMMITS_TO_KEEP));
+        builder.schemaSaveMode(
+                optionalSchemaSaveMode.orElseGet(HudiOptions.SCHEMA_SAVE_MODE::defaultValue));
+        builder.dataSaveMode(
+                optionalDataSaveMode.orElseGet(HudiOptions.DATA_SAVE_MODE::defaultValue));
         return builder.build();
     }
 }

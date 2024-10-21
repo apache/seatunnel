@@ -138,6 +138,13 @@ public class ServerConfigOptions {
                     .defaultValue(1440)
                     .withDescription("The expire time of history jobs.time unit minute");
 
+    public static final Option<ScheduleStrategy> JOB_SCHEDULE_STRATEGY =
+            Options.key("job-schedule-strategy")
+                    .enumType(ScheduleStrategy.class)
+                    .defaultValue(ScheduleStrategy.REJECT)
+                    .withDescription(
+                            "When the policy is REJECT, when the task queue is full, the task will be rejected; when the policy is WAIT, when the task queue is full, the task will wait");
+
     public static final Option<Boolean> ENABLE_CONNECTOR_JAR_STORAGE =
             Options.key("enable")
                     .booleanType()
@@ -203,6 +210,48 @@ public class ServerConfigOptions {
                     .defaultValue(false)
                     .withDescription(
                             "Whether to use classloader cache mode. With cache mode, all jobs share the same classloader if the jars are the same");
+
+    public static final Option<Boolean> TELEMETRY_METRIC_ENABLED =
+            Options.key("enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Whether open metrics export.");
+
+    public static final Option<TelemetryMetricConfig> TELEMETRY_METRIC =
+            Options.key("metric")
+                    .type(new TypeReference<TelemetryMetricConfig>() {})
+                    .defaultValue(new TelemetryMetricConfig())
+                    .withDescription("The telemetry metric configuration.");
+
+    public static final Option<TelemetryConfig> TELEMETRY =
+            Options.key("telemetry")
+                    .type(new TypeReference<TelemetryConfig>() {})
+                    .defaultValue(new TelemetryConfig())
+                    .withDescription("The telemetry configuration.");
+
+    public static final Option<Integer> PORT =
+            Options.key("port")
+                    .intType()
+                    .defaultValue(8080)
+                    .withDescription("The port of the http server.");
+
+    public static final Option<Boolean> ENABLE_HTTP =
+            Options.key("enable-http")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Whether to enable the http server.");
+
+    public static final Option<String> CONTEXT_PATH =
+            Options.key("context-path")
+                    .stringType()
+                    .defaultValue("")
+                    .withDescription("The context path of the http server.");
+
+    public static final Option<HttpConfig> HTTP =
+            Options.key("http")
+                    .type(new TypeReference<HttpConfig>() {})
+                    .defaultValue(new HttpConfig())
+                    .withDescription("The http configuration.");
 
     public static final String EVENT_REPORT_HTTP = "event-report-http";
     public static final String EVENT_REPORT_HTTP_URL = "url";

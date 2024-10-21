@@ -39,6 +39,8 @@ import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
 
 public class Common {
 
+    private static final String FLINK_YARN_APPLICATION_PATH = "runtime.tar.gz";
+
     private Common() {
         throw new IllegalStateException("Utility class");
     }
@@ -113,8 +115,10 @@ public class Common {
             } catch (URISyntaxException e) {
                 throw new RuntimeException(e);
             }
-        } else if (DeployMode.CLUSTER == MODE || DeployMode.RUN_APPLICATION == MODE) {
+        } else if (DeployMode.CLUSTER == MODE) {
             return Paths.get("");
+        } else if (DeployMode.RUN_APPLICATION == MODE) {
+            return Paths.get(FLINK_YARN_APPLICATION_PATH);
         } else {
             throw new IllegalStateException("deploy mode not support : " + MODE);
         }

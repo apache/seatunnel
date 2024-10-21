@@ -23,9 +23,9 @@
 
 为了使用 Clickhouse 连接器，需要以下依赖项。它们可以通过 install-plugin.sh 或从 Maven 中央存储库下载。
 
-|    数据源     |   支持的版本   |                                                     依赖                                                     |
-|------------|-----------|------------------------------------------------------------------------------------------------------------|
-| Clickhouse | universal | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-clickhouse) |
+| 数据源        | 支持的版本     | 依赖                                                                                 |
+|------------|-----------|------------------------------------------------------------------------------------|
+| Clickhouse | universal | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-clickhouse) |
 
 ## 数据类型映射
 

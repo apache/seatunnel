@@ -19,24 +19,27 @@ support version >= 2.x and <= 8.x.
 
 ## Options
 
-|          name           |  type   | required |   default value   |
-|-------------------------|---------|----------|-------------------|
-| hosts                   | array   | yes      | -                 |
-| username                | string  | no       | -                 |
-| password                | string  | no       | -                 |
-| index                   | string  | yes      | -                 |
-| source                  | array   | no       | -                 |
-| query                   | json    | no       | {"match_all": {}} |
-| scroll_time             | string  | no       | 1m                |
-| scroll_size             | int     | no       | 100               |
-| tls_verify_certificate  | boolean | no       | true              |
-| tls_verify_hostnames    | boolean | no       | true              |
-| array_column            | map     | no       |                   |
-| tls_keystore_path       | string  | no       | -                 |
-| tls_keystore_password   | string  | no       | -                 |
-| tls_truststore_path     | string  | no       | -                 |
-| tls_truststore_password | string  | no       | -                 |
-| common-options          |         | no       | -                 |
+| name                    | type    | required | default value                                                  |
+|-------------------------|---------|----------|----------------------------------------------------------------|
+| hosts                   | array   | yes      | -                                                              |
+| username                | string  | no       | -                                                              |
+| password                | string  | no       | -                                                              |
+| index                   | string  | no       | If the index list does not exist, the index must be configured |
+| index_list              | array   | no       | used to define a multiple table task                           |
+| source                  | array   | no       | -                                                              |
+| query                   | json    | no       | {"match_all": {}}                                              |
+| scroll_time             | string  | no       | 1m                                                             |
+| scroll_size             | int     | no       | 100                                                            |
+| tls_verify_certificate  | boolean | no       | true                                                           |
+| tls_verify_hostnames    | boolean | no       | true                                                           |
+| array_column            | map     | no       |                                                                |
+| tls_keystore_path       | string  | no       | -                                                              |
+| tls_keystore_password   | string  | no       | -                                                              |
+| tls_truststore_path     | string  | no       | -                                                              |
+| tls_truststore_password | string  | no       | -                                                              |
+| common-options          |         | no       | -                                                              |
+
+
 
 ### hosts [array]
 
@@ -78,6 +81,10 @@ Amount of time Elasticsearch will keep the search context alive for scroll reque
 
 Maximum number of hits to be returned with each Elasticsearch scroll request.
 
+### index_list [array]
+
+The `index_list` is used to define multi-index synchronization tasks. It is an array that contains the parameters required for single-table synchronization, such as `query`, `source/schema`, `scroll_size`, and `scroll_time`. It is recommended that `index_list` and `query` should not be configured at the same level simultaneously. Please refer to the upcoming multi-table synchronization example for more details.
+
 ### tls_verify_certificate [boolean]
 
 Enable certificates validation for HTTPS endpoints
@@ -108,46 +115,94 @@ Source plugin common parameters, please refer to [Source Common Options](../sour
 
 ## Examples
 
-simple
+Demo 1
+
+> This case will read data from indices matching the seatunnel-* pattern based on a query. The query will only return documents containing the id, name, age, tags, and phones fields. In this example, the source field configuration is used to specify which fields should be read, and the array_column is used to indicate that tags and phones should be treated as arrays.
 
 ```hocon
 Elasticsearch {
     hosts = ["localhost:9200"]
     index = "seatunnel-*"
-    source = ["_id","name","age"]
+    array_column = {tags = "array<string>",phones = "array<string>"}
+    source = ["_id","name","age","tags","phones"]
     query = {"range":{"firstPacket":{"gte":1669225429990,"lte":1669225429990}}}
 }
 ```
 
-complex
+Demo 2 : Multi-table synchronization
+
+> This example demonstrates how to read different data from ``read_index1`` and ``read_index2`` and write separately to ``read_index1_copy``,``read_index2_copy``.
+> in `read_index1`,I used source to specify the fields to be read and  specify which fields are array fields using the 'array_column'.
 
 ```hocon
-Elasticsearch {
-    hosts = ["elasticsearch:9200"]
-    index = "st_index"
-    schema = {
-        fields {
-            c_map = "map<string, tinyint>"
-            c_array = "array<tinyint>"
-            c_string = string
-            c_boolean = boolean
-            c_tinyint = tinyint
-            c_smallint = smallint
-            c_int = int
-            c_bigint = bigint
-            c_float = float
-            c_double = double
-            c_decimal = "decimal(2, 1)"
-            c_bytes = bytes
-            c_date = date
-            c_timestamp = timestamp
-        }
-    }
-    query = {"range":{"firstPacket":{"gte":1669225429990,"lte":1669225429990}}}
+source {
+  Elasticsearch {
+    hosts = ["https://elasticsearch:9200"]
+    username = "elastic"
+    password = "elasticsearch"
+    tls_verify_certificate = false
+    tls_verify_hostname = false
+    index_list = [
+       {
+           index = "read_index1"
+           query = {"range": {"c_int": {"gte": 10, "lte": 20}}}
+           source = [
+           c_map,
+           c_array,
+           c_string,
+           c_boolean,
+           c_tinyint,
+           c_smallint,
+           c_bigint,
+           c_float,
+           c_double,
+           c_decimal,
+           c_bytes,
+           c_int,
+           c_date,
+           c_timestamp]
+           array_column = {
+           c_array = "array<tinyint>"
+           }
+       }
+       {
+           index = "read_index2"
+           query = {"match_all": {}}
+           source = [
+           c_int2,
+           c_date2,
+           c_null
+           ]
+           
+       }
+
+    ]
+
+  }
+}
+
+transform {
+}
+
+sink {
+  Elasticsearch {
+    hosts = ["https://elasticsearch:9200"]
+    username = "elastic"
+    password = "elasticsearch"
+    tls_verify_certificate = false
+    tls_verify_hostname = false
+
+    index = "${table_name}_copy"
+    index_type = "st"
+    "schema_save_mode"="CREATE_SCHEMA_WHEN_NOT_EXIST"
+    "data_save_mode"="APPEND_DATA"
+  }
 }
 ```
 
-SSL (Disable certificates validation)
+
+
+Demo 3 : SSL (Disable certificates validation)
 
 ```hocon
 source {
@@ -161,7 +216,7 @@ source {
 }
 ```
 
-SSL (Disable hostname validation)
+Demo 4 :SSL (Disable hostname validation)
 
 ```hocon
 source {
@@ -175,7 +230,7 @@ source {
 }
 ```
 
-SSL (Enable certificates validation)
+Demo 5 :SSL (Enable certificates validation)
 
 ```hocon
 source {
@@ -197,4 +252,3 @@ source {
 - Add Elasticsearch Source Connector
 - [Feature] Support https protocol & compatible with opensearch ([3997](https://github.com/apache/seatunnel/pull/3997))
 - [Feature] Support DSL
-

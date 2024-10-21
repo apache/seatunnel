@@ -102,12 +102,6 @@ public class PluginUtil {
             catalogTables =
                     CatalogTableUtil.convertDataTypeToCatalogTables(seaTunnelDataType, tableId);
         }
-
-        //  if (catalogTables.size() != 1) {
-        //      throw new SeaTunnelException(
-        //              String.format("Unsupported table number: %d on flink",
-        // catalogTables.size()));
-        //  }
         return new SourceTableInfo(source, catalogTables);
     }
 

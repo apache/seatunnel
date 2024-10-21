@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi;
 
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -27,6 +28,7 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hudi.avro.AvroSchemaUtils;
 import org.apache.hudi.client.HoodieJavaWriteClient;
 import org.apache.hudi.client.WriteStatus;
 import org.apache.hudi.client.common.HoodieJavaEngineContext;
@@ -52,6 +54,7 @@ import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -67,8 +70,8 @@ import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer.AvroSchemaConverter.convertToSchema;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer.RowDataToAvroConverters.createConverter;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.AvroSchemaConverter.convertToSchema;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.RowDataToAvroConverters.createConverter;
 
 public class HudiTest {
 
@@ -95,7 +98,8 @@ public class HudiTest {
                         "date",
                         "time",
                         "timestamp3",
-                        "map"
+                        "map",
+                        "decimal"
                     },
                     new SeaTunnelDataType[] {
                         BOOLEAN_TYPE,
@@ -107,16 +111,19 @@ public class HudiTest {
                         LocalTimeType.LOCAL_TIME_TYPE,
                         LocalTimeType.LOCAL_DATE_TIME_TYPE,
                         new MapType(STRING_TYPE, LONG_TYPE),
+                        new DecimalType(10, 5),
                     });
 
     private String getSchema() {
-        return convertToSchema(seaTunnelRowType).toString();
+        return convertToSchema(
+                        seaTunnelRowType, AvroSchemaUtils.getAvroRecordQualifiedName(tableName))
+                .toString();
     }
 
     @Test
     void testSchema() {
         Assertions.assertEquals(
-                "{\"type\":\"record\",\"name\":\"record\",\"namespace\":\"org.apache.seatunnel.avro.generated\",\"fields\":[{\"name\":\"bool\",\"type\":[\"null\",\"boolean\"],\"default\":null},{\"name\":\"int\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"longValue\",\"type\":[\"null\",\"long\"],\"default\":null},{\"name\":\"float\",\"type\":[\"null\",\"float\"],\"default\":null},{\"name\":\"name\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"date\",\"type\":[\"null\",{\"type\":\"int\",\"logicalType\":\"date\"}],\"default\":null},{\"name\":\"time\",\"type\":[\"null\",{\"type\":\"int\",\"logicalType\":\"time-millis\"}],\"default\":null},{\"name\":\"timestamp3\",\"type\":[\"null\",{\"type\":\"long\",\"logicalType\":\"timestamp-millis\"}],\"default\":null},{\"name\":\"map\",\"type\":[\"null\",{\"type\":\"map\",\"values\":[\"null\",\"long\"]}],\"default\":null}]}",
+                "{\"type\":\"record\",\"name\":\"hudi_record\",\"namespace\":\"hoodie.hudi\",\"fields\":[{\"name\":\"bool\",\"type\":[\"null\",\"boolean\"],\"default\":null},{\"name\":\"int\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"longValue\",\"type\":[\"null\",\"long\"],\"default\":null},{\"name\":\"float\",\"type\":[\"null\",\"float\"],\"default\":null},{\"name\":\"name\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"date\",\"type\":[\"null\",{\"type\":\"int\",\"logicalType\":\"date\"}],\"default\":null},{\"name\":\"time\",\"type\":[\"null\",{\"type\":\"int\",\"logicalType\":\"time-millis\"}],\"default\":null},{\"name\":\"timestamp3\",\"type\":[\"null\",{\"type\":\"long\",\"logicalType\":\"timestamp-millis\"}],\"default\":null},{\"name\":\"map\",\"type\":[\"null\",{\"type\":\"map\",\"values\":[\"null\",\"long\"]}],\"default\":null},{\"name\":\"decimal\",\"type\":[\"null\",{\"type\":\"fixed\",\"name\":\"fixed\",\"namespace\":\"hoodie.hudi.hudi_record.decimal\",\"size\":5,\"logicalType\":\"decimal\",\"precision\":10,\"scale\":5}],\"default\":null}]}",
                 getSchema());
     }
 
@@ -165,7 +172,8 @@ public class HudiTest {
             expected.setField(7, timestamp3.toLocalDateTime());
             Map<String, Long> map = new HashMap<>();
             map.put("element", 123L);
-            expected.setField(9, map);
+            expected.setField(8, map);
+            expected.setField(9, BigDecimal.valueOf(10.121));
             String instantTime = javaWriteClient.startCommit();
             List<HoodieRecord<HoodieAvroPayload>> hoodieRecords = new ArrayList<>();
             hoodieRecords.add(convertRow(expected));
@@ -178,13 +186,23 @@ public class HudiTest {
     private HoodieRecord<HoodieAvroPayload> convertRow(SeaTunnelRow element) {
         GenericRecord rec =
                 new GenericData.Record(
-                        new Schema.Parser().parse(convertToSchema(seaTunnelRowType).toString()));
+                        new Schema.Parser()
+                                .parse(
+                                        convertToSchema(
+                                                        seaTunnelRowType,
+                                                        AvroSchemaUtils.getAvroRecordQualifiedName(
+                                                                tableName))
+                                                .toString()));
         for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
             rec.put(
                     seaTunnelRowType.getFieldNames()[i],
                     createConverter(seaTunnelRowType.getFieldType(i))
                             .convert(
-                                    convertToSchema(seaTunnelRowType.getFieldType(i)),
+                                    convertToSchema(
+                                            seaTunnelRowType.getFieldType(i),
+                                            AvroSchemaUtils.getAvroRecordQualifiedName(tableName)
+                                                    + "."
+                                                    + seaTunnelRowType.getFieldNames()[i]),
                                     element.getField(i)));
         }
 

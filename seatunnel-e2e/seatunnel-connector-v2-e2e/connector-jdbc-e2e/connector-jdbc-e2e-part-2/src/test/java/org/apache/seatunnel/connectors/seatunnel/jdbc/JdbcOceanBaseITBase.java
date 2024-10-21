@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.e2e.common.container.TestContainer;
+
 import org.junit.jupiter.api.Assertions;
+import org.testcontainers.containers.Container;
 import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 
 import java.io.InputStream;
@@ -46,7 +49,7 @@ public abstract class JdbcOceanBaseITBase extends AbstractJdbcIT {
     abstract String getFullTableName(String tableName);
 
     @Override
-    void compareResult(String executeKey) {
+    void checkResult(String executeKey, TestContainer container, Container.ExecResult execResult) {
         String sourceSql =
                 String.format("select * from %s order by 1", getFullTableName(OCEANBASE_SOURCE));
         String sinkSql =
@@ -84,6 +87,6 @@ public abstract class JdbcOceanBaseITBase extends AbstractJdbcIT {
 
     @Override
     String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.11/oceanbase-client-2.4.11.jar";
+        return "https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.12/oceanbase-client-2.4.12.jar";
     }
 }

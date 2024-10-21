@@ -37,6 +37,7 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 
 import org.apache.commons.lang3.StringUtils;
@@ -177,30 +178,37 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             DatabaseMetaData metaData = conn.getMetaData();
             Optional<PrimaryKey> primaryKey = getPrimaryKey(metaData, tablePath);
             List<ConstraintKey> constraintKeys = getConstraintKeys(metaData, tablePath);
-            try (PreparedStatement ps = conn.prepareStatement(getSelectColumnsSql(tablePath));
-                    ResultSet resultSet = ps.executeQuery()) {
+            TableSchema.Builder tableSchemaBuilder =
+                    buildColumnsReturnTablaSchemaBuilder(tablePath, conn);
+            // add primary key
+            primaryKey.ifPresent(tableSchemaBuilder::primaryKey);
+            // add constraint key
+            constraintKeys.forEach(tableSchemaBuilder::constraintKey);
+            TableIdentifier tableIdentifier = getTableIdentifier(tablePath);
+            return CatalogTable.of(
+                    tableIdentifier,
+                    tableSchemaBuilder.build(),
+                    buildConnectorOptions(tablePath),
+                    Collections.emptyList(),
+                    "",
+                    catalogName);
 
-                TableSchema.Builder builder = TableSchema.builder();
-                buildColumnsWithErrorCheck(tablePath, resultSet, builder);
-                // add primary key
-                primaryKey.ifPresent(builder::primaryKey);
-                // add constraint key
-                constraintKeys.forEach(builder::constraintKey);
-                TableIdentifier tableIdentifier = getTableIdentifier(tablePath);
-                return CatalogTable.of(
-                        tableIdentifier,
-                        builder.build(),
-                        buildConnectorOptions(tablePath),
-                        Collections.emptyList(),
-                        "",
-                        catalogName);
-            }
         } catch (SeaTunnelRuntimeException e) {
             throw e;
         } catch (Exception e) {
             throw new CatalogException(
                     String.format("Failed getting table %s", tablePath.getFullName()), e);
         }
+    }
+
+    protected TableSchema.Builder buildColumnsReturnTablaSchemaBuilder(
+            TablePath tablePath, Connection conn) throws SQLException {
+        TableSchema.Builder columnsBuilder = TableSchema.builder();
+        try (PreparedStatement ps = conn.prepareStatement(getSelectColumnsSql(tablePath));
+                ResultSet resultSet = ps.executeQuery()) {
+            buildColumnsWithErrorCheck(tablePath, resultSet, columnsBuilder);
+        }
+        return columnsBuilder;
     }
 
     protected void buildColumnsWithErrorCheck(
@@ -259,6 +267,14 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         throw new UnsupportedOperationException();
     }
 
+    protected String getListViewSql(String databaseName) {
+        throw new UnsupportedOperationException();
+    }
+
+    protected String getListSynonymSql(String databaseName) {
+        throw new UnsupportedOperationException();
+    }
+
     protected String getDatabaseWithConditionSql(String databaseName) {
         throw CommonError.unsupportedMethod(this.catalogName, "getDatabaseWithConditionSql");
     }
@@ -279,9 +295,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             return false;
         }
         try {
-            return querySQLResultExists(
-                    getUrlFromDatabaseName(databaseName),
-                    getDatabaseWithConditionSql(databaseName));
+            return querySQLResultExists(defaultUrl, getDatabaseWithConditionSql(databaseName));
         } catch (SeaTunnelRuntimeException e) {
             if (e.getSeaTunnelErrorCode().getCode().equals(UNSUPPORTED_METHOD.getCode())) {
                 log.warn(
@@ -290,6 +304,8 @@ public abstract class AbstractJdbcCatalog implements Catalog {
                 return listDatabases().contains(databaseName);
             }
             throw e;
+        } catch (SQLException e) {
+            throw new SeaTunnelException("Failed to querySQLResult", e);
         }
     }
 
@@ -330,6 +346,34 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         }
     }
 
+    public List<String> listViews(String databaseName)
+            throws CatalogException, DatabaseNotExistException {
+        if (!databaseExists(databaseName)) {
+            throw new DatabaseNotExistException(this.catalogName, databaseName);
+        }
+        String dbUrl = getUrlFromDatabaseName(databaseName);
+        try {
+            return queryString(dbUrl, getListViewSql(databaseName), this::getTableName);
+        } catch (Exception e) {
+            throw new CatalogException(
+                    String.format("Failed listing database in catalog %s", catalogName), e);
+        }
+    }
+
+    public List<String> listSynonym(String databaseName)
+            throws CatalogException, DatabaseNotExistException {
+        if (!databaseExists(databaseName)) {
+            throw new DatabaseNotExistException(this.catalogName, databaseName);
+        }
+        String dbUrl = getUrlFromDatabaseName(databaseName);
+        try {
+            return queryString(dbUrl, getListSynonymSql(databaseName), this::getTableName);
+        } catch (Exception e) {
+            throw new CatalogException(
+                    String.format("Failed listing database in catalog %s", catalogName), e);
+        }
+    }
+
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
         String databaseName = tablePath.getDatabaseName();
@@ -350,6 +394,8 @@ public abstract class AbstractJdbcCatalog implements Catalog {
                 }
             }
             throw e1;
+        } catch (SQLException e) {
+            throw new SeaTunnelException("Failed to querySQLResult", e);
         }
     }
 
@@ -488,11 +534,11 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists)
             throws TableNotExistException, CatalogException {
         checkNotNull(tablePath, "Table path cannot be null");
-        if (!databaseExists(tablePath.getDatabaseName())) {
+        if (!tableExists(tablePath)) {
             if (ignoreIfNotExists) {
                 return;
             }
-            throw new DatabaseNotExistException(catalogName, tablePath.getDatabaseName());
+            throw new TableNotExistException(catalogName, tablePath);
         }
         truncateTableInternal(tablePath);
     }
@@ -566,14 +612,10 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         }
     }
 
-    protected boolean querySQLResultExists(String dbUrl, String sql) {
-        try (PreparedStatement stmt = getConnection(dbUrl).prepareStatement(sql)) {
-            try (ResultSet rs = stmt.executeQuery()) {
-                return rs.next();
-            }
-        } catch (Exception e) {
-            log.info("query exists error", e);
-            return false;
+    protected boolean querySQLResultExists(String dbUrl, String sql) throws SQLException {
+        try (PreparedStatement stmt = getConnection(dbUrl).prepareStatement(sql);
+                ResultSet rs = stmt.executeQuery()) {
+            return rs.next();
         }
     }
 

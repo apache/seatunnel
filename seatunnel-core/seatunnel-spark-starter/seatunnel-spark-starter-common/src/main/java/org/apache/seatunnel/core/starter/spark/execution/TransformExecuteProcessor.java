@@ -50,7 +50,9 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -102,11 +104,23 @@ public class TransformExecuteProcessor
         }
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         DatasetTableInfo input = upstreamDataStreams.get(0);
+
+        Map<String, DatasetTableInfo> outputTables =
+                upstreamDataStreams.stream()
+                        .collect(
+                                Collectors.toMap(
+                                        DatasetTableInfo::getTableName,
+                                        e -> e,
+                                        (a, b) -> b,
+                                        LinkedHashMap::new));
         for (int i = 0; i < plugins.size(); i++) {
             try {
                 Config pluginConfig = pluginConfigs.get(i);
                 DatasetTableInfo dataset =
-                        fromSourceTable(pluginConfig, sparkRuntimeEnvironment, upstreamDataStreams)
+                        fromSourceTable(
+                                        pluginConfig,
+                                        sparkRuntimeEnvironment,
+                                        new ArrayList<>(outputTables.values()))
                                 .orElse(input);
                 TableTransformFactory factory = plugins.get(i);
                 TableTransformFactoryContext context =
@@ -119,13 +133,16 @@ public class TransformExecuteProcessor
 
                 Dataset<Row> inputDataset = sparkTransform(transform, dataset);
                 registerInputTempView(pluginConfig, inputDataset);
-                upstreamDataStreams.add(
+                String resultTableName =
+                        pluginConfig.hasPath(RESULT_TABLE_NAME.key())
+                                ? pluginConfig.getString(RESULT_TABLE_NAME.key())
+                                : null;
+                outputTables.put(
+                        resultTableName,
                         new DatasetTableInfo(
                                 inputDataset,
                                 Collections.singletonList(transform.getProducedCatalogTable()),
-                                pluginConfig.hasPath(RESULT_TABLE_NAME.key())
-                                        ? pluginConfig.getString(RESULT_TABLE_NAME.key())
-                                        : null));
+                                resultTableName));
             } catch (Exception e) {
                 throw new TaskExecuteException(
                         String.format(
@@ -134,7 +151,7 @@ public class TransformExecuteProcessor
                         e);
             }
         }
-        return upstreamDataStreams;
+        return new ArrayList<>(outputTables.values());
     }
 
     private Dataset<Row> sparkTransform(SeaTunnelTransform transform, DatasetTableInfo tableInfo) {

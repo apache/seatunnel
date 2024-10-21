@@ -31,7 +31,7 @@ libfb303-xxx.jar
 
 ## Options
 
-|            name             |  type  | required |        default value         | Description                                                                                                                                                      |
+|            name             | type   | required | default value                | Description                                                                                                                                                      |
 |-----------------------------|--------|----------|------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | warehouse                   | String | Yes      | -                            | Paimon warehouse path                                                                                                                                            |
 | catalog_type                | String | No       | filesystem                   | Catalog type of Paimon, support filesystem and hive                                                                                                              |
@@ -46,6 +46,20 @@ libfb303-xxx.jar
 | paimon.table.write-props    | Map    | No       | -                            | Properties passed through to paimon table initialization, [reference](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions).            |
 | paimon.hadoop.conf          | Map    | No       | -                            | Properties in hadoop conf                                                                                                                                        |
 | paimon.hadoop.conf-path     | String | No       | -                            | The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files                                                                       |
+
+## Changelog
+You must configure the `changelog-producer=input` option to enable the changelog producer mode of the paimon table. If you use the auto-create table function of paimon sink, you can configure this property in `paimon.table.write-props`.
+
+The changelog producer mode of the paimon table has [four mode](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/) which is `none`、`input`、`lookup` and `full-compaction`.
+
+All `changelog-producer` modes are currently supported. The default is `none`.
+
+* [`none`](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/#none)
+* [`input`](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/#input)
+* [`lookup`](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/#lookup)
+* [`full-compaction`](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/#full-compaction)
+> note： 
+> When you use a streaming mode to read paimon table，different mode will produce [different results](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/source/Paimon.md#changelog)。
 
 ## Examples
 
@@ -234,6 +248,83 @@ sink {
     paimon.table.write-props = {
         bucket = 2
         file.format = "parquet"
+    }
+    paimon.table.partition-keys = "dt"
+    paimon.table.primary-keys = "pk_id,dt"
+  }
+}
+```
+
+#### Write with the `changelog-producer` attribute
+
+```hocon
+env {
+ parallelism = 1
+ job.mode = "STREAMING"
+ checkpoint.interval = 5000
+}
+
+source {
+ Mysql-CDC {
+  base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+  username = "root"
+  password = "******"
+  table-names = ["seatunnel.role"]
+ }
+}
+
+sink {
+ Paimon {
+  catalog_name = "seatunnel_test"
+  warehouse = "file:///tmp/seatunnel/paimon/hadoop-sink/"
+  database = "seatunnel"
+  table = "role"
+  paimon.table.write-props = {
+   changelog-producer = full-compaction
+   changelog-tmp-path = /tmp/paimon/changelog
+  }
+ }
+}
+```
+
+### Write to dynamic bucket table 
+
+Single dynamic bucket table with write props of paimon，operates on the primary key table and bucket is -1.
+
+#### core options
+
+Please [reference](https://paimon.apache.org/docs/master/primary-key-table/data-distribution/#dynamic-bucket)
+
+|              name              | type | required | default values |                  Description                   |
+|--------------------------------|------|----------|----------------|------------------------------------------------|
+| dynamic-bucket.target-row-num  | long | yes      | 2000000L       | controls the target row number for one bucket. |
+| dynamic-bucket.initial-buckets | int  | no       |                | controls the number of initialized bucket.     |
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    table-names = ["seatunnel.role"]
+  }
+}
+
+sink {
+  Paimon {
+    catalog_name="seatunnel_test"
+    warehouse="file:///tmp/seatunnel/paimon/hadoop-sink/"
+    database="seatunnel"
+    table="role"
+    paimon.table.write-props = {
+        bucket = -1
+        dynamic-bucket.target-row-num = 50000
     }
     paimon.table.partition-keys = "dt"
     paimon.table.primary-keys = "pk_id,dt"

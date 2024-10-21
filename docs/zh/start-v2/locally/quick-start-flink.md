@@ -2,7 +2,7 @@
 sidebar_position: 3
 ---
 
-# Flink Engine快速开始
+# Flink 引擎快速开始
 
 ## 步骤 1: 部署SeaTunnel及连接器
 
@@ -70,7 +70,7 @@ cd "apache-seatunnel-${version}"
 ./bin/start-seatunnel-flink-13-connector-v2.sh --config ./config/v2.streaming.conf.template
 ```
 
-Flink版本`1.15.x`到`1.16.x`
+Flink版本`1.15.x`到`1.18.x`
 
 ```shell
 cd "apache-seatunnel-${version}"

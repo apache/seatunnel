@@ -22,9 +22,13 @@ import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarHAStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageMode;
+import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
+import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
+import org.apache.seatunnel.engine.common.config.server.TelemetryConfig;
+import org.apache.seatunnel.engine.common.config.server.TelemetryMetricConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 
 import org.apache.commons.lang3.StringUtils;
@@ -165,9 +169,22 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                         engineConfig.setEventReportHttpHeaders(headers);
                     }
                 }
+            } else if (ServerConfigOptions.TELEMETRY.key().equals(name)) {
+                engineConfig.setTelemetryConfig(parseTelemetryConfig(node));
+            } else if (ServerConfigOptions.JOB_SCHEDULE_STRATEGY.key().equals(name)) {
+                engineConfig.setScheduleStrategy(
+                        ScheduleStrategy.valueOf(getTextContent(node).toUpperCase(Locale.ROOT)));
+            } else if (ServerConfigOptions.HTTP.key().equals(name)) {
+                engineConfig.setHttpConfig(parseHttpConfig(node));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }
+        }
+
+        if (engineConfig.getSlotServiceConfig().isDynamicSlot()) {
+            // If dynamic slot is enabled, the schedule strategy must be REJECT
+            LOGGER.info("Dynamic slot is enabled, the schedule strategy is set to REJECT");
+            engineConfig.setScheduleStrategy(ScheduleStrategy.REJECT);
         }
     }
 
@@ -310,5 +327,51 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             connectorJarHAStoragePluginConfig.put(name, getTextContent(node));
         }
         return connectorJarHAStoragePluginConfig;
+    }
+
+    private TelemetryConfig parseTelemetryConfig(Node telemetryNode) {
+        TelemetryConfig metricConfig = new TelemetryConfig();
+        for (Node node : childElements(telemetryNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.TELEMETRY_METRIC.key().equals(name)) {
+                metricConfig.setMetric(parseTelemetryMetricConfig(node));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+
+        return metricConfig;
+    }
+
+    private TelemetryMetricConfig parseTelemetryMetricConfig(Node metricNode) {
+        TelemetryMetricConfig metricConfig = new TelemetryMetricConfig();
+        for (Node node : childElements(metricNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.TELEMETRY_METRIC_ENABLED.key().equals(name)) {
+                metricConfig.setEnabled(getBooleanValue(getTextContent(node)));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+
+        return metricConfig;
+    }
+
+    private HttpConfig parseHttpConfig(Node httpNode) {
+        HttpConfig httpConfig = new HttpConfig();
+        for (Node node : childElements(httpNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.PORT.key().equals(name)) {
+                httpConfig.setPort(
+                        getIntegerValue(ServerConfigOptions.PORT.key(), getTextContent(node)));
+            } else if (ServerConfigOptions.CONTEXT_PATH.key().equals(name)) {
+                httpConfig.setContextPath(getTextContent(node));
+            } else if (ServerConfigOptions.ENABLE_HTTP.key().equals(name)) {
+                httpConfig.setEnabled(getBooleanValue(getTextContent(node)));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+        return httpConfig;
     }
 }
