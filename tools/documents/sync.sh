@@ -24,11 +24,14 @@ PR_IMG_DIR="${PR_DIR}/docs/images"
 PR_IMG_ICON_DIR="${PR_DIR}/docs/images/icons"
 PR_DOC_DIR="${PR_DIR}/docs/en"
 PR_SIDEBAR_PATH="${PR_DIR}/docs/sidebars.js"
+PR_ZH_DOC_DIR="${PR_DIR}/docs/zh"
 
 WEBSITE_DIR=$2
 WEBSITE_IMG_DIR="${WEBSITE_DIR}/static/image_en"
+WEBSITE_ZH_IMG_DIR="${WEBSITE_DIR}/static/image_zh"
 WEBSITE_DOC_DIR="${WEBSITE_DIR}/docs"
 WEBSITE_ICON_DIR="${WEBSITE_DIR}/docs/images/icons"
+WEBSITE_ZH_DOC_DIR="${WEBSITE_DIR}/i18n/zh-CN/docusaurus-plugin-content-docs/current"
 
 DOCUSAURUS_DOC_SIDEBARS_FILE="${WEBSITE_DIR}/sidebars.js"
 
@@ -85,18 +88,19 @@ function rm_exists_files() {
 ##############################################################
 function replace_images_path(){
   replace_dir=$1
+  target=$2
   for file_path in "${replace_dir}"/*; do
     if test -f "${file_path}"; then
       if [ "${file_path##*.}"x = "md"x ] || [ "${file_path##*.}"x = "mdx"x ]; then
-        echo "  ---> Replace images path to /doc/image_en in ${file_path}"
+        echo "  ---> Replace images path to /doc/${target} in ${file_path}"
         if [[ "$OSTYPE" == "darwin"* ]]; then
-          sed -E -i '' "s/(\.\.\/)*images/\/image_en/g" "${file_path}"
+          sed -E -i '' "s/(\.\.\/)*images/\/${target}/g" "${file_path}"
         else
-          sed -E -i "s/(\.\.\/)*images/\/image_en/g" "${file_path}"
+          sed -E -i "s/(\.\.\/)*images/\/${target}/g" "${file_path}"
         fi
       fi
     else
-      replace_images_path "${file_path}"
+      replace_images_path "${file_path}" "${target}"
     fi
   done
 }
@@ -107,8 +111,9 @@ function replace_images_path(){
 function prepare_docs() {
     echo "===>>>: Start documents sync."
 
-    echo "===>>>: Rebuild directory docs, static/image_en."
+    echo "===>>>: Rebuild directory docs, static/image_en(zh)."
     rebuild_dirs "${WEBSITE_DOC_DIR}" "${WEBSITE_IMG_DIR}"
+    rebuild_dirs "${WEBSITE_DOC_DIR}" "${WEBSITE_ZH_IMG_DIR}"
 
     echo "===>>>: Remove exists file sidebars.js."
     rm_exists_files "${DOCUSAURUS_DOC_SIDEBARS_FILE}"
@@ -119,15 +124,24 @@ function prepare_docs() {
     echo "===>>>: Rsync images to ${WEBSITE_IMG_DIR}"
     rsync -av --exclude='/icons' "${PR_IMG_DIR}"/ "${WEBSITE_IMG_DIR}"
 
+    echo "===>>>: Rsync images to ${WEBSITE_ZH_IMG_DIR}"
+    rsync -av --exclude='/icons' "${PR_IMG_DIR}"/ "${WEBSITE_ZH_IMG_DIR}"
+
     mkdir -p ${WEBSITE_ICON_DIR}
     echo "===>>>: Rsync icons to ${WEBSITE_ICON_DIR}"
     rsync -av "${PR_IMG_ICON_DIR}"/ "${WEBSITE_ICON_DIR}"
 
-    echo "===>>>: Rsync documents to ${WEBSITE_DOC_DIR}"
+    echo "===>>>: Rsync en documents to ${WEBSITE_DOC_DIR}"
     rsync -av "${PR_DOC_DIR}"/ "${WEBSITE_DOC_DIR}"
 
+    echo "===>>>: Rsync zh documents to ${WEBSITE_ZH_DOC_DIR}"
+    rsync -av "${PR_ZH_DOC_DIR}"/ "${WEBSITE_ZH_DOC_DIR}"
+
     echo "===>>>: Replace images path in ${WEBSITE_DOC_DIR}"
-    replace_images_path "${WEBSITE_DOC_DIR}"
+    replace_images_path "${WEBSITE_DOC_DIR}" "image_en"
+
+    echo "===>>>: Replace images path in ${WEBSITE_ZH_DOC_DIR}"
+    replace_images_path "${WEBSITE_ZH_DOC_DIR}" "image_zh"
 
     echo "===>>>: End documents sync"
 }

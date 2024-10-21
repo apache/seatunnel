@@ -786,7 +786,7 @@ network:
 ### 获取所有节点日志内容
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/logs/:jobId</b></code> <code>(返回日志列表。)</code></summary></summary>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/logs/:jobId</b></code> <code>(返回日志列表。)</code></summary>
 
 #### 请求参数
 
@@ -837,7 +837,7 @@ network:
 ### 获取单节点日志内容
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/log</b></code> <code>(返回日志列表。)</code></summary></summary>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/log</b></code> <code>(返回日志列表。)</code></summary>
 
 #### 响应
 
