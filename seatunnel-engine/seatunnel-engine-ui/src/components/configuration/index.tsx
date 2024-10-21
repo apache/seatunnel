@@ -15,8 +15,31 @@
  * limitations under the License.
  */
 
-@use './style.scss';
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-@tailwind screens;
+import { NCard, NDescriptions, NDescriptionsItem, NSpace } from 'naive-ui'
+import { defineComponent, type PropType } from 'vue'
+
+export default defineComponent({
+  props: {
+    data: {
+      type: Object as PropType<Record<string, any>>,
+      default: () => ({})
+    }
+  },
+  setup(props) {
+    const format = (value: any) => {
+      value = JSON.stringify(value)
+      if (value) {
+        value = value.replace(/^"(.*)"$/, '$1')
+      }
+      return value || ''
+    }
+    return () => (
+      <NDescriptions label-placement="left" bordered column={1}>
+        {props.data &&
+          Object.entries(props.data).map(([key, value]) => (
+            <NDescriptionsItem label={key}>{format(value)}</NDescriptionsItem>
+          ))}
+      </NDescriptions>
+    )
+  }
+})

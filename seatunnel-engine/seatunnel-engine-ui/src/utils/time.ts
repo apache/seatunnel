@@ -20,10 +20,10 @@ const { t } = i18n.global
 export const getRemainTime = (milliseconds: number): string => {
     if (!milliseconds) return ''
     milliseconds = milliseconds / 1000
-    let d = parseInt(milliseconds / 60 / 60 / 24 + '')
-    let h = parseInt(milliseconds / 60 / 60 % 24 + '')
-    let m = parseInt(milliseconds / 60 % 60 + '')
-    let s = parseInt(milliseconds % 60 + '')
+    const d = parseInt(milliseconds / 60 / 60 / 24 + '')
+    const h = parseInt(milliseconds / 60 / 60 % 24 + '')
+    const m = parseInt(milliseconds / 60 % 60 + '')
+    const s = parseInt(milliseconds % 60 + '')
     const dText = d > 0 ? `${d}${t('common.date')} ` : ''
     const hText = h > 0 ? `${h}${t('common.hour')} ` : ''
     const mText = m > 0 ? `${m}${t('common.min')} ` : ''

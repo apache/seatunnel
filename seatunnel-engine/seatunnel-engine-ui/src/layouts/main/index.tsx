@@ -25,7 +25,7 @@ const Main = defineComponent({
   setup() {
     const route = useRoute()
     const routeKey = ref(route.fullPath)
-    let showSide = ref(false)
+    const showSide = ref(false)
 
     const menuKey = ref(route.meta.activeMenu as string)
 

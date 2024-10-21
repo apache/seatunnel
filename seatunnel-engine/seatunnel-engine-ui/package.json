@@ -19,6 +19,7 @@
     "@antv/x6": "^2.18.1",
     "@antv/x6-plugin-selection": "^2.2.2",
     "@antv/x6-vue-shape": "^2.1.2",
+    "@vicons/ionicons5": "^0.12.0",
     "autoprefixer": "^10.4.20",
     "axios": "^1.7.7",
     "date-fns": "^3.6.0",

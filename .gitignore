@@ -55,3 +55,9 @@ seatunnel-examples
 
 /lib/*
 version.properties
+node/
+package-lock.json
+
+dist/
+
+ui/

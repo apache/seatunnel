@@ -17,7 +17,7 @@
 export type Path = string
 export interface Vertex {
   vertexId: number
-  type: 'source' | 'sink'
+  type: 'source' | 'sink' | 'transform'
   vertexName: string
   tablePaths: Path[]
 }
@@ -48,10 +48,23 @@ export interface EnvOptions {
   'job.mode': string
   parallelism: string
 }
+export type JobStatus =
+  | 'INITIALIZING'
+  | 'CREATED'
+  | 'SCHEDULED'
+  | 'RUNNING'
+  | 'FAILING'
+  | 'FAILED'
+  | 'DOING_SAVEPOINT'
+  | 'SAVEPOINT_DONE'
+  | 'CANCELING'
+  | 'CANCELED'
+  | 'FINISHED'
+  | 'UNKNOWABLE'
 export interface Job {
   jobId: string
   jobName: string
-  jobStatus: 'RUNNING' | 'FINISHED'
+  jobStatus: JobStatus
   errorMsg: string
   createTime: string
   finishTime: string
@@ -65,4 +78,3 @@ export interface Job {
   metrics: Metrics
   pluginJarsUrls: []
 }
-export type JobFinishedState = 'FINISHED' | 'CANCELED' | 'FAILED' | 'UNKNOWABLE'

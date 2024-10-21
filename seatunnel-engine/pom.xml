@@ -32,6 +32,7 @@
         <module>seatunnel-engine-core</module>
         <module>seatunnel-engine-storage</module>
         <module>seatunnel-engine-serializer</module>
+        <module>seatunnel-engine-ui</module>
     </modules>
 
     <properties>

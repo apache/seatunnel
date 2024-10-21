@@ -15,8 +15,11 @@
  * limitations under the License.
  */
 
-@use './style.scss';
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-@tailwind screens;
+ .n-data-table .n-data-table-tr.focused-row {
+  &,
+  &:hover {
+    td.n-data-table-td {
+      background-color: #e6f7ff;
+    }
+  }
+ }

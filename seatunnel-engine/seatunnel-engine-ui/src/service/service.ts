@@ -39,8 +39,8 @@ const baseRequestConfig: AxiosRequestConfig = {
 const service = axios.create(baseRequestConfig)
 
 const err = (err: AxiosError): Promise<AxiosError> => {
-  if (err.response?.status === 401) {
-  }
+  // if (err.response?.status === 401) {
+  // }
   return Promise.reject(err)
 }
 

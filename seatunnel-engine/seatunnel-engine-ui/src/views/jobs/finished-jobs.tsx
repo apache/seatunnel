@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import { defineComponent, getCurrentInstance, h, ref } from 'vue'
+import { defineComponent, h, reactive } from 'vue'
 import { useMessage, NDataTable, NTag } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { JobsService } from '@/service/job'
@@ -23,15 +23,15 @@ import type { DataTableColumns } from 'naive-ui'
 import { NButton } from 'naive-ui'
 import type { Job } from '@/service/job/types'
 import { useRouter } from 'vue-router'
-import { getTypeFromStatus } from '@/utils/getTypeFromStatus'
+import { getColorFromStatus } from '@/utils/getTypeFromStatus'
 
 export default defineComponent({
   setup() {
     const { t } = useI18n()
 
-    const jobs = ref([] as Job[])
+    const jobs = reactive([] as Job[])
 
-    JobsService.getFinishedJobs().then((res) => (jobs.value = res))
+    JobsService.getFinishedJobs().then((res) => jobs.push(...res))
 
     const router = useRouter()
     function createColumns(): DataTableColumns<Job> {
@@ -60,10 +60,10 @@ export default defineComponent({
           title: 'Status',
           key: 'jobStatus',
           render(row) {
-            return h(
-              NTag,
-              { bordered: false, type: getTypeFromStatus(row.jobStatus) },
-              { default: () => row.jobStatus }
+            return (
+              <NTag bordered={false} color={getColorFromStatus(row.jobStatus)}>
+                {row.jobStatus}
+              </NTag>
             )
           }
         },
@@ -90,7 +90,7 @@ export default defineComponent({
     return () => (
       <div class="w-full bg-white p-6 border border-gray-100 rounded-xl">
         <h2 class="font-bold text-2xl pb-6">{t('jobs.finishedJobs')}</h2>
-        <NDataTable columns={columns} data={jobs.value} pagination={false} bordered={false} />
+        <NDataTable columns={columns} data={jobs} pagination={false} bordered={false} />
       </div>
     )
   }

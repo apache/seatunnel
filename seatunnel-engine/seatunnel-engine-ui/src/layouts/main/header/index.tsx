@@ -16,18 +16,20 @@
  */
 
 import { defineComponent } from 'vue'
-import { NSpace } from 'naive-ui'
+import { NSpace, useThemeVars } from 'naive-ui'
 import Logo from './logo'
 import Info from './info'
 
 const Header = defineComponent({
-  setup() { },
-  render() {
-    return (
-      <NSpace justify='space-between' class='h-16 border-gray-200'>
-        <NSpace>
-          <Logo />
-        </NSpace>
+  setup() {
+    const color = useThemeVars().value.primaryColor
+    return () => (
+      <NSpace
+        justify="space-between"
+        class="h-16 border-gray-200 text-white"
+        style={`background-color:${color}`}
+      >
+        <Logo />
         <Info />
       </NSpace>
     )

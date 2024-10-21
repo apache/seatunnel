@@ -3,48 +3,44 @@
 ## Development Environment Dependencies
 
 - Node 18+/20+ required
-- pnpm (or npm 7+)
-
-```sh
-npm install -g pnpm
-```
+- npm 7+
 
 - modify `VITE_APP_API_SERVICE` and `VITE_APP_API_BASE` in `.env.development`
 - quick start
 
 ```sh
-pnpm install
-pnpm dev
+npm install
+npm run dev
 ```
 
 ## Project Setup
 
 ```sh
-pnpm install
+npm install
 ```
 
 ### Compile and Hot-Reload for Development
 
 ```sh
-pnpm dev
+npm run dev
 ```
 
 ### Type-Check, Compile and Minify for Production
 
 ```sh
-pnpm build
+npm run build
 ```
 
 ### Run Unit Tests with [Vitest]
 
 ```sh
-pnpm test:unit
+npm run test:unit
 ```
 
 ### Run End-to-End Tests with [Cypress]
 
 ```sh
-pnpm test:e2e:dev
+npm run test:e2e:dev
 ```
 
 This runs the end-to-end tests against the Vite development server.
@@ -53,12 +49,12 @@ It is much faster than the production build.
 But it's still recommended to test the production build with `test:e2e` before deploying (e.g. in CI environments):
 
 ```sh
-pnpm build
-pnpm test:e2e
+npm run build
+npm run test:e2e
 ```
 
 ### Lint with [ESLint]
 
 ```sh
-pnpm lint
+npm run lint
 ```

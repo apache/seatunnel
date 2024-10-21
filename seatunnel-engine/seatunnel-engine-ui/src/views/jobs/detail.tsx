@@ -15,16 +15,29 @@
  * limitations under the License.
  */
 
-import { NTabs, NTabPane, NDivider, NTag } from 'naive-ui'
-import { defineComponent, getCurrentInstance, h, reactive, ref, watch } from 'vue'
+import {
+  NTabs,
+  NTabPane,
+  NDivider,
+  NTag,
+  NDataTable,
+  type DataTableColumns,
+  NDrawer,
+  NSpace,
+  NCard,
+  NDrawerContent
+} from 'naive-ui'
+import { computed, defineComponent, getCurrentInstance, h, reactive, ref, watch } from 'vue'
 import { getJobInfo } from '@/service/job'
 import { useRoute } from 'vue-router'
-import type { Job } from '@/service/job/types'
+import type { Job, Vertex } from '@/service/job/types'
 import { useI18n } from 'vue-i18n'
 import { getRemainTime } from '@/utils/time'
-import { format, parse } from 'date-fns'
-import Main from '@/components/directed-acyclic-graph/main'
-import { getTypeFromStatus } from '@/utils/getTypeFromStatus'
+import { parse } from 'date-fns'
+import DAG from '@/components/directed-acyclic-graph'
+import { getColorFromStatus } from '@/utils/getTypeFromStatus'
+import './detail.scss'
+import Configuration from '@/components/configuration'
 
 export default defineComponent({
   setup() {
@@ -37,6 +50,10 @@ export default defineComponent({
     getJobInfo(jobId).then((res) => {
       Object.assign(job, res)
       const d = parse(res.createTime, 'yyyy-MM-dd HH:mm:ss', new Date())
+      duration.value = getRemainTime(Math.abs(Date.now() - d.getTime()))
+      if (job.jobStatus !== 'RUNNING') {
+        return
+      }
       setInterval(() => {
         duration.value = getRemainTime(Math.abs(Date.now() - d.getTime()))
       }, 1000)
@@ -47,11 +64,110 @@ export default defineComponent({
       console.log(select.value)
     }
     watch(() => select.value, change)
+
+    const tableData = computed(() => {
+      return job.jobDag?.vertexInfoMap?.filter((v) => v.type !== 'transform') || []
+    })
+    const sourceCell = (
+      row: Vertex,
+      key:
+        | 'TableSourceReceivedBytes'
+        | 'TableSourceReceivedCount'
+        | 'TableSourceReceivedQPS'
+        | 'TableSourceReceivedBytesPerSeconds'
+    ) => {
+      if (row.type === 'source') {
+        return row.tablePaths.reduce((s, path) => s + Number(job.metrics?.[key][path]), 0)
+      }
+      return 0
+    }
+    const sinkCell = (
+      row: Vertex,
+      key:
+        | 'TableSinkWriteBytes'
+        | 'TableSinkWriteCount'
+        | 'TableSinkWriteQPS'
+        | 'TableSinkWriteBytesPerSeconds'
+    ) => {
+      if (row.type === 'sink') {
+        return row.tablePaths.reduce((s, path) => s + Number(job.metrics?.[key][path]), 0)
+      }
+      return 0
+    }
+    const columns: DataTableColumns<Vertex> = [
+      {
+        title: 'Name',
+        key: 'vertexName'
+      },
+      {
+        title: 'Received Bytes',
+        key: 'key',
+        render: (row) => sourceCell(row, 'TableSourceReceivedBytes')
+      },
+      {
+        title: 'Write Bytes',
+        key: 'key',
+        render: (row) => sinkCell(row, 'TableSinkWriteBytes')
+      },
+      {
+        title: 'Received Count',
+        key: 'key',
+        render: (row) => sourceCell(row, 'TableSourceReceivedCount')
+      },
+      {
+        title: 'Write Count',
+        key: 'key',
+        render: (row) => sinkCell(row, 'TableSinkWriteCount')
+      },
+      {
+        title: 'Received QPS',
+        key: 'key',
+        render: (row) => sourceCell(row, 'TableSourceReceivedQPS')
+      },
+      {
+        title: 'Write QPS',
+        key: 'key',
+        render: (row) => sinkCell(row, 'TableSinkWriteQPS')
+      },
+      {
+        title: 'Received Bytes PerSecond',
+        key: 'key',
+        render: (row) => sourceCell(row, 'TableSourceReceivedBytesPerSeconds')
+      },
+      {
+        title: 'Write Bytes PerSecond',
+        key: 'key',
+        render: (row) => sinkCell(row, 'TableSinkWriteBytesPerSeconds')
+      }
+    ]
+
+    const focusedId = ref(0)
+    const drawerShow = ref(false)
+    const onFocus = (id: number) => {
+      drawerShow.value = true
+      focusedId.value = id
+    }
+    const onDrawerClose = () => {
+      drawerShow.value = false
+    }
+    const focusedVertex = computed(() => {
+      const vertex = job.jobDag?.vertexInfoMap?.find((v) => v.vertexId === focusedId.value)
+      return Object.assign({}, vertex, job.metrics)
+    })
+    const rowClassName = (row: Vertex) => {
+      if (row.vertexId === focusedId.value) {
+        return 'focused-row'
+      }
+      return ''
+    }
+    const rowProps = (row: Vertex) => {
+      return { onClick: () => onFocus(row.vertexId) }
+    }
     return () => (
       <div class="w-full bg-white px-12 pt-6 pb-12 border border-gray-100 rounded-xl">
         <div class="font-bold text-xl">
           {job.jobName}
-          <NTag bordered={false} type={getTypeFromStatus(job.jobStatus)} class="ml-3">
+          <NTag bordered={false} color={getColorFromStatus(job.jobStatus)} class="ml-3">
             {job.jobStatus}
           </NTag>
         </div>
@@ -65,20 +181,42 @@ export default defineComponent({
           <span>{t('detail.duration')}:</span>
           <span class="font-bold">{duration.value}</span>
         </div>
-        <NTabs v-model:value={select.value} type="line" animated>
-          <NTabPane name="Overview" tab="Overview">
-            <Main {...{ job: job }} />
-          </NTabPane>
-          <NTabPane name="Logs" tab="Logs">
-            Logs
-          </NTabPane>
-          <NTabPane name="Exception" tab="Exception">
-            Exception
-          </NTabPane>
-          <NTabPane name="Metrics" tab="Metrics">
-            Metrics
-          </NTabPane>
-        </NTabs>
+        <div class="tab-wrap relative">
+          <NTabs v-model:value={select.value} type="line" animated>
+            <NTabPane name="Overview" tab="Overview">
+              <DAG job={job} focusedId={focusedId.value} onNodeClick={onFocus} />
+              <NDataTable
+                columns={columns}
+                data={tableData.value}
+                pagination={false}
+                scrollX="auto"
+                bordered
+                rowClassName={rowClassName}
+                rowProps={rowProps}
+              />
+            </NTabPane>
+            <NTabPane name="Exception" tab="Exception">
+              {job.errorMsg}
+            </NTabPane>
+            <NTabPane name="Configuration" tab="Configuration">
+              <Configuration data={job.envOptions}></Configuration>
+            </NTabPane>
+          </NTabs>
+          <NDrawer
+            show={select.value === 'Overview' && !!focusedId.value && drawerShow.value}
+            showMask={false}
+            width={'40%'}
+            to=".tab-wrap"
+            style="top:42px"
+            closeOnEsc={false}
+            mask-closable={false}
+            onUpdateShow={onDrawerClose}
+          >
+            <NDrawerContent title={focusedVertex.value?.vertexName} closable>
+              <Configuration data={focusedVertex.value}></Configuration>
+            </NDrawerContent>
+          </NDrawer>
+        </div>
       </div>
     )
   }

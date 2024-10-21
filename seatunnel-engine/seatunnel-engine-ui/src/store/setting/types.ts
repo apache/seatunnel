@@ -23,4 +23,5 @@ export interface SettingStore {
   fillet: number
   requestTime: number
   locales: Locales
+  primaryColor: string
 }

@@ -27,14 +27,13 @@
         <version>${revision}</version>
     </parent>
     <artifactId>seatunnel-engine-ui</artifactId>
-    <packaging>pom</packaging>
     <name>SeaTunnel : Engine : UI</name>
 
     <properties>
         <build.node.version>v16.13.2</build.node.version>
         <build.npm.version>8.1.2</build.npm.version>
         <nodemodules.dir>node_modules</nodemodules.dir>
-        <dist.dir>dist</dist.dir>
+        <dist.dir>../seatunnel-engine-server/src/main/resources/ui</dist.dir>
         <deployed.dir>.deployed</deployed.dir>
     </properties>
 
@@ -95,7 +94,7 @@
                         <goals>
                             <goal>npm</goal>
                         </goals>
-                        <phase>install</phase>
+                        <phase>package</phase>
                         <configuration>
                             <arguments>run build</arguments>
                         </configuration>

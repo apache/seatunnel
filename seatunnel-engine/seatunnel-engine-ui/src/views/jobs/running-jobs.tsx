@@ -23,7 +23,7 @@ import type { DataTableColumns } from 'naive-ui'
 import { NButton } from 'naive-ui'
 import type { Job } from '@/service/job/types'
 import { useRouter } from 'vue-router'
-import { getTypeFromStatus } from '@/utils/getTypeFromStatus'
+import { getColorFromStatus } from '@/utils/getTypeFromStatus'
 
 export default defineComponent({
   setup() {
@@ -61,10 +61,10 @@ export default defineComponent({
           title: 'Status',
           key: 'jobStatus',
           render(row) {
-            return h(
-              NTag,
-              { bordered: false, type: getTypeFromStatus(row.jobStatus) },
-              { default: () => row.jobStatus }
+            return (
+              <NTag bordered={false} color={getColorFromStatus(row.jobStatus)}>
+                {row.jobStatus}
+              </NTag>
             )
           }
         },

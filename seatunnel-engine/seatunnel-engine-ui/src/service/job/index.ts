@@ -16,11 +16,10 @@
  */
 
 import { get } from '@/service/service'
-import type { Job, JobFinishedState } from './types'
+import type { Job } from './types'
 
 export const getRunningJobs = () => get<Job[]>('/running-jobs')
-export const getFinishedJobs = (state: JobFinishedState = 'FINISHED') =>
-  get<Job[]>(`/finished-jobs/${state}`)
+export const getFinishedJobs = () => get<Job[]>(`/finished-jobs`)
 export const getJobInfo = (jobId: string) => get<Job>(`/job-info/${jobId}`)
 export const getRunningJobInfo = (jobId: string) => get<Job>(`/running-job/${jobId}`)
 

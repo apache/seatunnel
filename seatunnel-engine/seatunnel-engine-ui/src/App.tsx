@@ -37,8 +37,14 @@ const App = defineComponent({
       locale.value = settingStore.getLocales
     }
 
+    const themeOverrides = {
+      common: {
+        primaryColor: settingStore.primaryColor
+      }
+    }
     return {
-      settingStore
+      settingStore,
+      themeOverrides
     }
   },
   render() {
@@ -46,6 +52,7 @@ const App = defineComponent({
       <NConfigProvider
         date-locale={this.settingStore.getLocales === 'zh_CN' ? dateZhCN : dateEnUS}
         locale={this.settingStore.getLocales === 'zh_CN' ? zhCN : enUS}
+        themeOverrides={this.themeOverrides}
       >
         <NMessageProvider>
           <NDialogProvider>

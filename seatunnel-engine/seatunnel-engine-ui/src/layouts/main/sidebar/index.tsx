@@ -15,18 +15,15 @@
  * limitations under the License.
  */
 
-import { defineComponent, ref, type PropType, onMounted, h } from 'vue'
-import { NLayoutSider, NMenu } from 'naive-ui'
+import { defineComponent, ref, type PropType, onMounted, h, type Component } from 'vue'
+import { NIcon, NLayoutSider, NMenu } from 'naive-ui'
 import { useRoute, RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { DesktopOutline, ListOutline, PeopleOutline, PersonOutline } from '@vicons/ionicons5'
 
 const Sidebar = defineComponent({
   name: 'Sidebar',
   props: {
-    sideMenuOptions: {
-      type: Array as PropType<any>,
-      default: []
-    },
     sideKey: {
       type: String as PropType<string>,
       default: ''
@@ -39,6 +36,10 @@ const Sidebar = defineComponent({
     const { t } = useI18n()
 
     const showDrop = ref(false)
+
+    function renderIcon(icon: Component) {
+      return () => h(NIcon, null, { default: () => h(icon) })
+    }
 
     const sideMenuOptions = ref([
       {
@@ -53,7 +54,8 @@ const Sidebar = defineComponent({
             },
             { default: () => t('menu.overview') }
           ),
-        key: 'overview'
+        key: 'overview',
+        icon: renderIcon(DesktopOutline)
       },
       {
         label: () =>
@@ -67,7 +69,8 @@ const Sidebar = defineComponent({
             },
             { default: () => t('menu.jobs') }
           ),
-        key: 'jobs'
+        key: 'jobs',
+        icon: renderIcon(ListOutline)
       },
       {
         label: () =>
@@ -81,7 +84,8 @@ const Sidebar = defineComponent({
             },
             { default: () => t('menu.managers.workers') }
           ),
-        key: 'workers'
+        key: 'workers',
+        icon: renderIcon(PeopleOutline)
       },
       {
         label: () =>
@@ -95,7 +99,8 @@ const Sidebar = defineComponent({
             },
             { default: () => t('menu.managers.master') }
           ),
-        key: 'master'
+        key: 'master',
+        icon: renderIcon(PersonOutline)
       }
     ])
 
