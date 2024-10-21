@@ -184,6 +184,8 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 ftpContainer.execInContainer("sh", "-c", "awk 'END {print NR}' " + homePath + "/*");
         Assertions.assertEquals("15", execResult.getStdout().trim());
+
+        deleteFileFromContainer(homePath);
     }
 
     private void assertJobExecution(TestContainer container, String configPath, List<String> params)
