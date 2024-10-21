@@ -42,9 +42,9 @@ import java.util.Set;
 
 @Slf4j
 public class StarRocksQueryPlanReadClient {
-    private RetryUtils.RetryMaterial retryMaterial;
-    private SourceConfig sourceConfig;
-    private SeaTunnelRowType seaTunnelRowType;
+    private final RetryUtils.RetryMaterial retryMaterial;
+    private final SourceConfig sourceConfig;
+    private final SeaTunnelRowType seaTunnelRowType;
     private final HttpHelper httpHelper = new HttpHelper();
 
     private static final long DEFAULT_SLEEP_TIME_MS = 1000L;
@@ -139,17 +139,16 @@ public class StarRocksQueryPlanReadClient {
         Map<String, Object> bodyMap = new HashMap<>();
         bodyMap.put("sql", querySQL);
         String body = JsonUtils.toJsonString(bodyMap);
-        String respString = "";
+        String respString;
         for (String feNode : nodeUrls) {
             String url =
-                    new StringBuilder("http://")
-                            .append(feNode)
-                            .append("/api/")
-                            .append(sourceConfig.getDatabase())
-                            .append("/")
-                            .append(sourceConfig.getTable())
-                            .append("/_query_plan")
-                            .toString();
+                    "http://"
+                            + feNode
+                            + "/api/"
+                            + sourceConfig.getDatabase()
+                            + "/"
+                            + sourceConfig.getTable()
+                            + "/_query_plan";
             try {
                 respString =
                         RetryUtils.retryWithException(
@@ -171,7 +170,7 @@ public class StarRocksQueryPlanReadClient {
     private String getBasicAuthHeader(String username, String password) {
         String auth = username + ":" + password;
         byte[] encodedAuth = Base64.encodeBase64(auth.getBytes(StandardCharsets.UTF_8));
-        return new StringBuilder("Basic ").append(new String(encodedAuth)).toString();
+        return "Basic " + new String(encodedAuth);
     }
 
     private Map<String, String> getQueryPlanHttpHeader() {

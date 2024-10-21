@@ -32,8 +32,8 @@ import java.util.List;
 public class StarRocksSource
         implements SeaTunnelSource<SeaTunnelRow, StarRocksSourceSplit, StarRocksSourceState> {
 
-    private CatalogTable catalogTable;
-    private SourceConfig sourceConfig;
+    private final CatalogTable catalogTable;
+    private final SourceConfig sourceConfig;
 
     @Override
     public String getPluginName() {

@@ -182,10 +182,9 @@ public class StartRocksSourceSplitEnumerator
     List<StarRocksSourceSplit> getStarRocksSourceSplit() {
         List<StarRocksSourceSplit> sourceSplits = new ArrayList<>();
         List<QueryPartition> partitions = starRocksQueryPlanReadClient.findPartitions();
-        for (int i = 0; i < partitions.size(); i++) {
+        for (QueryPartition partition : partitions) {
             sourceSplits.add(
-                    new StarRocksSourceSplit(
-                            partitions.get(i), String.valueOf(partitions.get(i).hashCode())));
+                    new StarRocksSourceSplit(partition, String.valueOf(partition.hashCode())));
         }
         return sourceSplits;
     }
