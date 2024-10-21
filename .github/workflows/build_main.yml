@@ -30,3 +30,8 @@ jobs:
       packages: write
     name: Run
     uses: ./.github/workflows/backend.yml
+  call-ui:
+    name: Run UI Workflow
+    uses: ./.github/workflows/ui.yml
+    permissions:
+      packages: write
