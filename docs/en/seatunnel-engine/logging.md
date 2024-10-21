@@ -80,6 +80,18 @@ appender.file.layout.pattern = [%X{ST-JID}] %d{yyyy-MM-dd HH:mm:ss,SSS} %-5p [%-
 
 SeaTunnel Engine automatically integrates Log framework bridge, allowing existing applications that work against Log4j1/Logback classes to continue working.
 
+### Query Logs via REST API
+
+SeaTunnel provides an API for querying logs.
+
+**Usage examples:**
+- Retrieve logs for all nodes with `jobId` of `733584788375666689`: `http://localhost:8080/logs/733584788375666689`
+- Retrieve the log list for all nodes: `http://localhost:8080/logs`
+- Retrieve the log list for all nodes in JSON format: `http://localhost:8080/logs?format=json`
+- Retrieve log file content: `http://localhost:8080/logs/job-898380162133917698.log`
+
+For more details, please refer to the [REST-API](rest-api-v2.md).
+
 ## Best practices for developers
 
 You can create an SLF4J logger by calling `org.slf4j.LoggerFactory#LoggerFactory.getLogger` with the Class of your class as an argument.

@@ -80,6 +80,18 @@ appender.file.layout.pattern = [%X{ST-JID}] %d{yyyy-MM-dd HH:mm:ss,SSS} %-5p [%-
 
 SeaTunnel Engine 自动集成了大多数 Log 桥接器，允许针对 Log4j1/Logback 类工作的现有应用程序继续工作。
 
+### REST-API方式查询日志
+
+SeaTunnel 提供了一个 API，用于查询日志。
+
+**使用样例：**
+- 获取所有节点jobId为`733584788375666689`的日志信息：`http://localhost:8080/logs/733584788375666689`
+- 获取所有节点日志列表：`http://localhost:8080/logs`
+- 获取所有节点日志列表以JSON格式返回：`http://localhost:8080/logs?format=json`
+- 获取日志文件内容：`http://localhost:8080/logs/job-898380162133917698.log`
+
+有关详细信息，请参阅 [REST-API](rest-api-v2.md)。
+
 ## 开发人员最佳实践
 
 您可以通过调用 `org.slf4j.LoggerFactory#LoggerFactory.getLogger` 并以您的类的类作为参数来创建 SLF4J 记录器。

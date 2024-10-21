@@ -37,6 +37,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -192,6 +193,33 @@ public class FileUtils {
 
         } catch (Exception e) {
             throw CommonError.fileOperationFailed("SeaTunnel", "delete", file.toString(), e);
+        }
+    }
+
+    public static List<File> listFile(String dirPath) {
+        try {
+            File file = new File(dirPath);
+            if (file.isDirectory()) {
+                File[] files = file.listFiles();
+                if (files == null) {
+                    return null;
+                }
+                return Arrays.stream(files)
+                        .map(
+                                currFile -> {
+                                    if (currFile.isDirectory()) {
+                                        return null;
+                                    } else {
+                                        return Arrays.asList(currFile);
+                                    }
+                                })
+                        .filter(Objects::nonNull)
+                        .flatMap(List::stream)
+                        .collect(Collectors.toList());
+            }
+            return Arrays.asList(file);
+        } catch (Exception e) {
+            throw CommonError.fileOperationFailed("SeaTunnel", "list", dirPath, e);
         }
     }
 }

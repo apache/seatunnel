@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.engine.server.rest.servlet;
 
-import com.hazelcast.internal.json.JsonArray;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.FileUtils;
+
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
@@ -25,11 +27,15 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
-public class SystemMonitoringServlet extends BaseServlet {
-    public SystemMonitoringServlet(NodeEngineImpl nodeEngine) {
+public class AllLogNameServlet extends LogBaseServlet {
+
+    public AllLogNameServlet(NodeEngineImpl nodeEngine) {
         super(nodeEngine);
     }
 
@@ -37,7 +43,15 @@ public class SystemMonitoringServlet extends BaseServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        JsonArray jsonValues = getSystemMonitoringInformationJsonValues();
-        writeJson(resp, jsonValues);
+        String logPath = getLogPath();
+        List<File> logFileList = FileUtils.listFile(logPath);
+        List<String> fileNameList =
+                logFileList.stream().map(File::getName).collect(Collectors.toList());
+        try {
+            writeJson(resp, fileNameList);
+        } catch (SeaTunnelRuntimeException e) {
+            resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            log.warn(String.format("Log file name get failed, get log path: %s", logPath));
+        }
     }
 }

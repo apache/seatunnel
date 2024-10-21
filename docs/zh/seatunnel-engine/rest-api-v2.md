@@ -739,3 +739,74 @@ seatunnel:
 }
 ```
 </details>
+
+
+------------------------------------------------------------------------------------------
+
+### 获取所有节点日志内容
+
+<details>
+ <summary><code>GET</code> <code><b>/logs/:jobId</b></code> <code>(返回日志列表。)</code></summary></summary>
+
+#### 请求参数
+
+#### 参数(在请求体中params字段中添加)
+
+> |         参数名称         |   是否必传   |  参数类型  |               参数描述                |
+> |----------------------|----------|--------|-----------------------------------|
+> | jobId                | optional | string | job id                            |
+
+当`jobId`为空时，返回所有节点的日志信息，否则返回指定`jobId`在所有节点的的日志列表。
+
+#### 响应
+
+返回请求节点的日志列表、内容
+
+#### 返回所有日志文件列表
+
+如果你想先查看日志列表，可以通过`GET`请求获取日志列表，`http://localhost:8080/logs?format=json`
+
+```json
+[
+  {
+    "node": "localhost:8080",
+    "logLink": "http://localhost:8080/logs/job-899485770241277953.log",
+    "logName": "job-899485770241277953.log"
+  },
+  {
+    "node": "localhost:8080",
+    "logLink": "http://localhost:8080/logs/job-899470314109468673.log",
+    "logName": "job-899470314109468673.log"
+  }
+]
+```
+
+当前支持的格式有`json`和`html`，默认为`html`。
+
+
+#### 例子
+
+获取所有节点jobId为`733584788375666689`的日志信息：`http://localhost:8080/logs/733584788375666689`
+获取所有节点日志列表：`http://localhost:8080/logs`
+获取所有节点日志列表以JSON格式返回：`http://localhost:8080/logs?format=json`
+获取日志文件内容：`http://localhost:8080/logs/job-898380162133917698.log`
+
+
+</details>
+
+
+### 获取单节点日志内容
+
+<details>
+ <summary><code>GET</code> <code><b>/log</b></code> <code>(返回日志列表。)</code></summary></summary>
+
+#### 响应
+
+返回请求节点的日志列表
+
+#### 例子
+
+获取当前节点的日志列表：`http://localhost:5801/log`
+获取日志文件内容：`http://localhost:5801/log/job-898380162133917698.log``
+
+</details>
