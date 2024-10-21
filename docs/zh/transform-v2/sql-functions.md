@@ -964,3 +964,14 @@ from
 示例:
 
 case when c_string in ('c_string') then 1 else 0 end
+
+### UUID
+
+```UUID()```
+
+java.util.UUID.randomUUID().toString()
+
+示例:
+
+select UUID() as seatunnel_uuid
+

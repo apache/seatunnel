@@ -384,6 +384,7 @@ public class ZetaSQLType {
             case ZetaSQLFunction.MONTHNAME:
             case ZetaSQLFunction.FORMATDATETIME:
             case ZetaSQLFunction.FROM_UNIXTIME:
+            case ZetaSQLFunction.UUID:
                 return BasicType.STRING_TYPE;
             case ZetaSQLFunction.ASCII:
             case ZetaSQLFunction.LOCATE:
