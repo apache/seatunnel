@@ -30,30 +30,35 @@ libfb303-xxx.jar
 
 ## 连接器选项
 
-| 名称                        | 类型  | 是否必须 | 默认值                        | 描述                                                                                                |
-|-----------------------------|-------|----------|------------------------------|---------------------------------------------------------------------------------------------------|
-| warehouse                   | 字符串 | 是       | -                            | Paimon warehouse路径                                                                                |
-| catalog_type                | 字符串 | 否       | filesystem                   | Paimon的catalog类型，目前支持filesystem和hive                                                              |
-| catalog_uri                 | 字符串 | 否       | -                            | Paimon catalog的uri，仅当catalog_type为hive时需要配置                                                       |
-| database                    | 字符串 | 是       | -                            | 数据库名称                                                                                             |
-| table                       | 字符串 | 是       | -                            | 表名                                                                                                |
-| hdfs_site_path              | 字符串 | 否       | -                            | hdfs-site.xml文件路径                                                                                 |
-| schema_save_mode            | 枚举   | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema保存模式                                                                                        |
-| data_save_mode              | 枚举   | 否       | APPEND_DATA                  | 数据保存模式                                                                                            |
-| paimon.table.primary-keys   | 字符串 | 否       | -                            | 主键字段列表，联合主键使用逗号分隔(注意：分区字段需要包含在主键字段中)                                                              |
-| paimon.table.partition-keys | 字符串 | 否       | -                            | 分区字段列表，多字段使用逗号分隔                                                                                  |
-| paimon.table.write-props    | Map    | 否       | -                            | Paimon表初始化指定的属性, [参考](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions) |
-| paimon.hadoop.conf          | Map    | 否       | -                            | Hadoop配置文件属性信息                                                                                    |
-| paimon.hadoop.conf-path     | 字符串 | 否       | -                            | Hadoop配置文件目录，用于加载'core-site.xml', 'hdfs-site.xml', 'hive-site.xml'文件配置                            |
+| 名称                          | 类型   | 是否必须 | 默认值                          | 描述                                                                                                    |
+|-----------------------------|------|------|------------------------------|-------------------------------------------------------------------------------------------------------|
+| warehouse                   | 字符串  | 是    | -                            | Paimon warehouse路径                                                                                    |
+| catalog_type                | 字符串  | 否    | filesystem                   | Paimon的catalog类型，目前支持filesystem和hive                                                                  |
+| catalog_uri                 | 字符串  | 否    | -                            | Paimon catalog的uri，仅当catalog_type为hive时需要配置                                                           |
+| database                    | 字符串  | 是    | -                            | 数据库名称                                                                                                 |
+| table                       | 字符串  | 是    | -                            | 表名                                                                                                    |
+| hdfs_site_path              | 字符串  | 否    | -                            | hdfs-site.xml文件路径                                                                                     |
+| schema_save_mode            | 枚举   | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema保存模式                                                                                            |
+| data_save_mode              | 枚举   | 否    | APPEND_DATA                  | 数据保存模式                                                                                                |
+| paimon.table.primary-keys   | 字符串  | 否    | -                            | 主键字段列表，联合主键使用逗号分隔(注意：分区字段需要包含在主键字段中)                                                                  |
+| paimon.table.partition-keys | 字符串  | 否    | -                            | 分区字段列表，多字段使用逗号分隔                                                                                      |
+| paimon.table.write-props    | Map  | 否    | -                            | Paimon表初始化指定的属性, [参考](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions)  |
+| paimon.hadoop.conf          | Map  | 否    | -                            | Hadoop配置文件属性信息                                                                                        |
+| paimon.hadoop.conf-path     | 字符串  | 否    | -                            | Hadoop配置文件目录，用于加载'core-site.xml', 'hdfs-site.xml', 'hive-site.xml'文件配置                                |
 
 ## 更新日志
 你必须配置`changelog-producer=input`来启用paimon表的changelog产生模式。如果你使用了paimon sink的自动建表功能，你可以在`paimon.table.write-props`中指定这个属性。
 
 Paimon表的changelog产生模式有[四种](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/)，分别是`none`、`input`、`lookup` 和 `full-compaction`。
 
-目前，我们只支持`none`和`input`模式。默认是`none`,这种模式将不会产生changelog文件。`input`模式将会在Paimon表下产生changelog文件。
+目前支持全部`changelog-producer`模式。默认是`none`模式。
 
-当你使用流模式去读paimon表的数据时，这两种模式将会产生[不同的结果](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/source/Paimon.md#changelog)。
+* [`none`](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/#none)
+* [`input`](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/#input)
+* [`lookup`](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/#lookup)
+* [`full-compaction`](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/#full-compaction)
+> 注意：
+ > 当你使用流模式去读paimon表的数据时，不同模式将会产生[不同的结果](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/source/Paimon.md#changelog)。
 
 ## 示例
 
@@ -246,6 +251,37 @@ sink {
     paimon.table.partition-keys = "dt"
     paimon.table.primary-keys = "pk_id,dt"
   }
+}
+```
+#### 使用`changelog-producer`属性写入
+
+```hocon
+env {
+ parallelism = 1
+ job.mode = "STREAMING"
+ checkpoint.interval = 5000
+}
+
+source {
+ Mysql-CDC {
+  base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+  username = "root"
+  password = "******"
+  table-names = ["seatunnel.role"]
+ }
+}
+
+sink {
+ Paimon {
+  catalog_name = "seatunnel_test"
+  warehouse = "file:///tmp/seatunnel/paimon/hadoop-sink/"
+  database = "seatunnel"
+  table = "role"
+  paimon.table.write-props = {
+   changelog-producer = full-compaction
+   changelog-tmp-path = /tmp/paimon/changelog
+  }
+ }
 }
 ```
 
