@@ -276,6 +276,7 @@ jobs:
 
   document:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.docs == 'true'
+    needs: [ changes, sanity-check ]
     name: Build website
     runs-on: ubuntu-latest
     timeout-minutes: 60
