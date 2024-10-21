@@ -30,8 +30,8 @@ import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 import org.apache.seatunnel.core.starter.utils.CompressionUtils;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginLocalDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginLocalDiscovery;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -147,10 +147,10 @@ public class SparkStarter implements Starter {
         }
         Config config = ConfigBuilder.of(commandArgs.getConfigFile(), commandArgs.getVariables());
         Set<URL> pluginJars = new HashSet<>();
-        SeaTunnelSourcePluginDiscovery seaTunnelSourcePluginDiscovery =
-                new SeaTunnelSourcePluginDiscovery();
-        SeaTunnelSinkPluginDiscovery seaTunnelSinkPluginDiscovery =
-                new SeaTunnelSinkPluginDiscovery();
+        SeaTunnelSourcePluginLocalDiscovery seaTunnelSourcePluginDiscovery =
+                new SeaTunnelSourcePluginLocalDiscovery();
+        SeaTunnelSinkPluginLocalDiscovery seaTunnelSinkPluginDiscovery =
+                new SeaTunnelSinkPluginLocalDiscovery();
         pluginJars.addAll(
                 seaTunnelSourcePluginDiscovery.getPluginJarPaths(
                         getPluginIdentifiers(config, PluginType.SOURCE)));

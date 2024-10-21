@@ -34,8 +34,8 @@ import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.core.starter.execution.PluginUtil;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryLocalDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginLocalDiscovery;
 import org.apache.seatunnel.translation.spark.execution.DatasetTableInfo;
 import org.apache.seatunnel.translation.spark.sink.SparkSinkInjector;
 
@@ -66,9 +66,10 @@ public class SinkExecuteProcessor
     @Override
     protected List<Optional<? extends Factory>> initializePlugins(
             List<? extends Config> pluginConfigs) {
-        SeaTunnelFactoryDiscovery factoryDiscovery =
-                new SeaTunnelFactoryDiscovery(TableSinkFactory.class);
-        SeaTunnelSinkPluginDiscovery sinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery();
+        SeaTunnelFactoryLocalDiscovery factoryDiscovery =
+                new SeaTunnelFactoryLocalDiscovery(TableSinkFactory.class);
+        SeaTunnelSinkPluginLocalDiscovery sinkPluginDiscovery =
+                new SeaTunnelSinkPluginLocalDiscovery();
         List<URL> pluginJars = new ArrayList<>();
         List<Optional<? extends Factory>> sinks =
                 pluginConfigs.stream()
@@ -88,7 +89,8 @@ public class SinkExecuteProcessor
     @Override
     public List<DatasetTableInfo> execute(List<DatasetTableInfo> upstreamDataStreams)
             throws TaskExecuteException {
-        SeaTunnelSinkPluginDiscovery sinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery();
+        SeaTunnelSinkPluginLocalDiscovery sinkPluginDiscovery =
+                new SeaTunnelSinkPluginLocalDiscovery();
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         DatasetTableInfo input = upstreamDataStreams.get(0);
         for (int i = 0; i < plugins.size(); i++) {
@@ -120,6 +122,7 @@ public class SinkExecuteProcessor
                             classLoader);
             // TODO modify checkpoint location
             handleSaveMode(sink);
+
             String applicationId =
                     sparkRuntimeEnvironment.getStreamingContext().sparkContext().applicationId();
             CatalogTable[] catalogTables =
@@ -148,7 +151,7 @@ public class SinkExecuteProcessor
     }
 
     public SeaTunnelSink fallbackCreateSink(
-            SeaTunnelSinkPluginDiscovery sinkPluginDiscovery,
+            SeaTunnelSinkPluginLocalDiscovery sinkPluginDiscovery,
             PluginIdentifier pluginIdentifier,
             Config pluginConfig) {
         SeaTunnelSink source = sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
