@@ -17,8 +17,9 @@ The v2 version of the api uses jetty support. It is the same as the interface sp
 
 seatunnel:
   engine:
-    enable-http: true
-    port: 8080
+    http:
+      enable-http: true
+      port: 8080
 ```
 
 Context-path can also be configured as follows:
@@ -27,9 +28,10 @@ Context-path can also be configured as follows:
 
 seatunnel:
   engine:
-    enable-http: true
-    port: 8080
-    context-path: /seatunnel
+    http:
+      enable-http: true
+      port: 8080
+      context-path: /seatunnel
 ```
 
 ## API reference
