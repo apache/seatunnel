@@ -264,4 +264,44 @@ sink {
   }
 }
 ```
+### Multiple Table
+
+```hocon
+
+SftpFile {
+  tables_configs = [
+    {
+      schema {
+        table = "student"
+        fields {
+          name = string
+          age = int
+        }
+      }
+      path = "/tmp/seatunnel/sink/text"
+      host = "192.168.31.48"
+      port = 21
+      user = tyrantlucifer
+      password = tianchao
+      file_format_type = "parquet"
+    },
+    {
+      schema {
+        table = "teacher"
+        fields {
+          name = string
+          age = int
+        }
+      }
+      path = "/tmp/seatunnel/sink/text"
+      host = "192.168.31.48"
+      port = 21
+      user = tyrantlucifer
+      password = tianchao
+      file_format_type = "parquet"
+    }
+  ]
+}
+
+```
 

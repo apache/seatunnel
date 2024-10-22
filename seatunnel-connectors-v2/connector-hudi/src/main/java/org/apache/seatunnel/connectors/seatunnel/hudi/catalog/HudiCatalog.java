@@ -35,6 +35,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hudi.avro.AvroSchemaUtils;
 import org.apache.hudi.common.model.HoodieAvroPayload;
 import org.apache.hudi.common.model.HoodieTableType;
 import org.apache.hudi.common.table.HoodieTableConfig;
@@ -53,6 +54,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.hbase.thirdparty.com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.CDC_ENABLED;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.RECORD_KEY_FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.TABLE_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.AvroSchemaConverter.convertToSchema;
@@ -195,6 +197,7 @@ public class HudiCatalog implements Catalog {
                     String.join(",", tableConfig.getRecordKeyFields().get()));
         }
         options.put(TABLE_TYPE.key(), tableType.name());
+        options.put(CDC_ENABLED.key(), String.valueOf(tableConfig.isCDCEnabled()));
         return CatalogTable.of(
                 TableIdentifier.of(
                         catalogName, tablePath.getDatabaseName(), tablePath.getTableName()),
@@ -218,10 +221,16 @@ public class HudiCatalog implements Catalog {
                         .setTableType(table.getOptions().get(TABLE_TYPE.key()))
                         .setRecordKeyFields(table.getOptions().get(RECORD_KEY_FIELDS.key()))
                         .setTableCreateSchema(
-                                convertToSchema(table.getSeaTunnelRowType()).toString())
+                                convertToSchema(
+                                                table.getSeaTunnelRowType(),
+                                                AvroSchemaUtils.getAvroRecordQualifiedName(
+                                                        table.getTableId().getTableName()))
+                                        .toString())
                         .setTableName(tablePath.getTableName())
                         .setPartitionFields(String.join(",", table.getPartitionKeys()))
                         .setPayloadClassName(HoodieAvroPayload.class.getName())
+                        .setCDCEnabled(
+                                Boolean.parseBoolean(table.getOptions().get(CDC_ENABLED.key())))
                         .initTable(new HadoopStorageConfiguration(hadoopConf), tablePathStr);
             }
         } catch (IOException e) {

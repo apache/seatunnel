@@ -23,13 +23,24 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.sftp.config.SftpConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseMultipleTableFileSink;
 
+import java.util.Optional;
+
 public class SftpFileSink extends BaseMultipleTableFileSink {
+
+    private final CatalogTable catalogTable;
+
     public SftpFileSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
         super(SftpConf.buildWithConfig(readonlyConfig), readonlyConfig, catalogTable);
+        this.catalogTable = catalogTable;
     }
 
     @Override
     public String getPluginName() {
         return FileSystemType.SFTP.getFileSystemPluginName();
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
     }
 }

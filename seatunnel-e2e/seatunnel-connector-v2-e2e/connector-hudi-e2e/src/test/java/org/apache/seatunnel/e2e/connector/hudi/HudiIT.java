@@ -108,7 +108,7 @@ public class HudiIT extends TestSuiteBase {
             disabledReason = "FLINK do not support local file catalog in hudi.")
     public void testWriteHudi(TestContainer container)
             throws IOException, InterruptedException, URISyntaxException {
-        Container.ExecResult textWriteResult = container.executeJob("/fake_to_hudi.conf");
+        Container.ExecResult textWriteResult = container.executeJob("/hudi/fake_to_hudi.conf");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
         Configuration configuration = new Configuration();
         configuration.set("fs.defaultFS", LocalFileSystem.DEFAULT_FS);
@@ -146,7 +146,7 @@ public class HudiIT extends TestSuiteBase {
     public void testWriteHudiWithOmitConfigItem(TestContainer container)
             throws IOException, InterruptedException, URISyntaxException {
         Container.ExecResult textWriteResult =
-                container.executeJob("/fake_to_hudi_with_omit_config_item.conf");
+                container.executeJob("/hudi/fake_to_hudi_with_omit_config_item.conf");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
         Configuration configuration = new Configuration();
         configuration.set("fs.defaultFS", LocalFileSystem.DEFAULT_FS);

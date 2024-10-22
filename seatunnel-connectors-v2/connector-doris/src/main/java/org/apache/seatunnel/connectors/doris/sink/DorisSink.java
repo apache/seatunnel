@@ -133,4 +133,9 @@ public class DorisSink
                         catalogTable,
                         config.get(DorisOptions.CUSTOM_SQL)));
     }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.of(catalogTable);
+    }
 }

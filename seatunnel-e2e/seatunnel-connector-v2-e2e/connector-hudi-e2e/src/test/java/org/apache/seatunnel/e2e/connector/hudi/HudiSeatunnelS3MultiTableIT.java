@@ -134,8 +134,8 @@ public class HudiSeatunnelS3MultiTableIT extends SeaTunnelContainer {
 
     @Test
     public void testS3MultiWrite() throws IOException, InterruptedException {
-        copyFileToContainer("/core-site.xml", "/tmp/seatunnel/config/core-site.xml");
-        Container.ExecResult textWriteResult = executeSeaTunnelJob("/s3_fake_to_hudi.conf");
+        copyFileToContainer("/hudi/core-site.xml", "/tmp/seatunnel/config/core-site.xml");
+        Container.ExecResult textWriteResult = executeSeaTunnelJob("/hudi/s3_fake_to_hudi.conf");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
         Configuration configuration = new Configuration();
         configuration.set("fs.defaultFS", LocalFileSystem.DEFAULT_FS);

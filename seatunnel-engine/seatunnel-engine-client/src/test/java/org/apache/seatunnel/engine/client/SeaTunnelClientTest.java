@@ -44,6 +44,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.junitpioneer.jupiter.SetEnvironmentVariable;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.core.HazelcastInstance;
@@ -434,8 +435,11 @@ public class SeaTunnelClientTest {
             CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
             long jobId = clientJobProxy.getJobId();
 
-            // Running
-            Assertions.assertNotNull(jobClient.getJobInfo(jobId));
+            await().atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertNotNull(jobClient.getJobInfo(jobId));
+                            });
 
             await().atMost(180000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
@@ -743,6 +747,15 @@ public class SeaTunnelClientTest {
         } finally {
             seaTunnelClient.close();
         }
+    }
+
+    @Test
+    @SetEnvironmentVariable(
+            key = "ST_DOCKER_MEMBER_LIST",
+            value = "127.0.0.1,127.0.0.2,127.0.0.3,127.0.0.4")
+    public void testDockerEnvOverwrite() {
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        Assertions.assertEquals(4, clientConfig.getNetworkConfig().getAddresses().size());
     }
 
     @AfterAll

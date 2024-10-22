@@ -62,9 +62,6 @@ public class ConsoleSinkFactory implements TableSinkFactory {
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig options = context.getOptions();
-        return () ->
-                new ConsoleSink(
-                        context.getCatalogTable().getTableSchema().toPhysicalRowDataType(),
-                        options);
+        return () -> new ConsoleSink(context.getCatalogTable(), options);
     }
 }

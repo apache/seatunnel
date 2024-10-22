@@ -57,7 +57,9 @@ public class DorisCreateTableTest {
 
         columns.add(PhysicalColumn.of("id", BasicType.LONG_TYPE, (Long) null, true, null, ""));
         columns.add(PhysicalColumn.of("name", BasicType.STRING_TYPE, (Long) null, true, null, ""));
-        columns.add(PhysicalColumn.of("age", BasicType.INT_TYPE, (Long) null, true, null, ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "age", BasicType.INT_TYPE, (Long) null, true, null, "test comment"));
         columns.add(PhysicalColumn.of("score", BasicType.INT_TYPE, (Long) null, true, null, ""));
         columns.add(PhysicalColumn.of("gender", BasicType.BYTE_TYPE, (Long) null, true, null, ""));
         columns.add(
@@ -122,7 +124,7 @@ public class DorisCreateTableTest {
         Assertions.assertEquals(
                 result,
                 "CREATE TABLE IF NOT EXISTS `test1`.`test2` (                                                                                                                                                   \n"
-                        + "`id` BIGINT NULL ,`age` INT NULL   ,       \n"
+                        + "`id` BIGINT NULL ,`age` INT NULL COMMENT 'test comment'  ,       \n"
                         + "`name` STRING NULL ,`score` INT NULL  , \n"
                         + "`create_time` DATETIME NOT NULL ,  \n"
                         + "`gender` TINYINT NULL   \n"

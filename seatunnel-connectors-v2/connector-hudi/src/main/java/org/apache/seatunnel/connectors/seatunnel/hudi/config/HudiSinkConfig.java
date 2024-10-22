@@ -40,15 +40,12 @@ public class HudiSinkConfig implements Serializable {
 
     private String confFilesPath;
 
-    private boolean autoCommit;
-
     private SchemaSaveMode schemaSaveMode;
 
     private DataSaveMode dataSaveMode;
 
     public static HudiSinkConfig of(ReadonlyConfig config) {
         Builder builder = HudiSinkConfig.builder();
-        Optional<Boolean> optionalAutoCommit = config.getOptional(HudiOptions.AUTO_COMMIT);
         Optional<SchemaSaveMode> optionalSchemaSaveMode =
                 config.getOptional(HudiOptions.SCHEMA_SAVE_MODE);
         Optional<DataSaveMode> optionalDataSaveMode =
@@ -58,7 +55,6 @@ public class HudiSinkConfig implements Serializable {
         builder.confFilesPath(config.get(HudiOptions.CONF_FILES_PATH));
         builder.tableList(HudiTableConfig.of(config));
 
-        builder.autoCommit(optionalAutoCommit.orElseGet(HudiOptions.AUTO_COMMIT::defaultValue));
         builder.schemaSaveMode(
                 optionalSchemaSaveMode.orElseGet(HudiOptions.SCHEMA_SAVE_MODE::defaultValue));
         builder.dataSaveMode(

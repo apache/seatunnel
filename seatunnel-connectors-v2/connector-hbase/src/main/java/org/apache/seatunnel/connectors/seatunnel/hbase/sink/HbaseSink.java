@@ -52,15 +52,15 @@ public class HbaseSink
                 SupportMultiTableSink,
                 SupportSaveMode {
 
-    private ReadonlyConfig config;
+    private final ReadonlyConfig config;
 
-    private CatalogTable catalogTable;
+    private final CatalogTable catalogTable;
 
     private final HbaseParameters hbaseParameters;
 
-    private SeaTunnelRowType seaTunnelRowType;
+    private final SeaTunnelRowType seaTunnelRowType;
 
-    private List<Integer> rowkeyColumnIndexes = new ArrayList<>();
+    private final List<Integer> rowkeyColumnIndexes = new ArrayList<>();
 
     private int versionColumnIndex = -1;
 
@@ -109,5 +109,10 @@ public class HbaseSink
         return Optional.of(
                 new DefaultSaveModeHandler(
                         schemaSaveMode, dataSaveMode, catalog, tablePath, null, null));
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
     }
 }

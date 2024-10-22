@@ -1,5 +1,5 @@
 ---
-sidebar_position: 11
+sidebar_position: 12
 ---
 
 # RESTful API
@@ -8,27 +8,26 @@ SeaTunnel有一个用于监控的API，可用于查询运行作业的状态和�
 
 ## 概述
 
-监控API是由运行的web服务提供的，它是节点运行的一部分，每个节点成员都可以提供rest API功能。
-默认情况下，该服务监听端口为5801，该端口可以在hazelcast.yaml中配置，如下所示：
+v2版本的api使用jetty支持，与v1版本的接口规范相同 ,可以通过修改`seatunnel.yaml`中的配置项来指定端口和context-path
+```yaml
+
+seatunnel:
+  engine:
+    http:
+      enable-http: true
+      port: 8080
+```
+
+同时也可以配置context-path,配置如下：
 
 ```yaml
-network:
-    rest-api:
-      enabled: true
-      endpoint-groups:
-        CLUSTER_WRITE:
-          enabled: true
-        DATA:
-          enabled: true
-    join:
-      tcp-ip:
-        enabled: true
-        member-list:
-          - localhost
-    port:
-      auto-increment: true
-      port-count: 100
-      port: 5801
+
+seatunnel:
+  engine:
+    http:
+      enable-http: true
+      port: 8080
+      context-path: /seatunnel
 ```
 
 ## API参考
@@ -36,7 +35,7 @@ network:
 ### 返回Zeta集群的概览
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/overview?tag1=value1&tag2=value2</b></code> <code>(Returns an overview over the Zeta engine cluster.)</code></summary>
+ <summary><code>GET</code> <code><b>/overview?tag1=value1&tag2=value2</b></code> <code>(Returns an overview over the Zeta engine cluster.)</code></summary>
 
 #### 参数
 
@@ -68,36 +67,10 @@ network:
 
 ------------------------------------------------------------------------------------------
 
-###  返回当前节点的线程堆栈信息。
-
-<details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/thread-dump</b></code> <code>(返回当前节点的线程堆栈信息。)</code></summary>
-
-#### Parameters
-
-
-#### Responses
-
-```json
-[
-  {
-    "threadName": "",
-    "threadId": 0,
-    "threadState": "",
-    "stackTrace": ""
-  }
-]
-```
-
-</details>
-
-------------------------------------------------------------------------------------------
-
-
 ### 返回所有作业及其当前状态的概览
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-jobs</b></code> <code>(返回所有作业及其当前状态的概览。)</code></summary>
+ <summary><code>GET</code> <code><b>/running-jobs</b></code> <code>(返回所有作业及其当前状态的概览。)</code></summary>
 
 #### 参数
 
@@ -109,14 +82,21 @@ network:
     "jobId": "",
     "jobName": "",
     "jobStatus": "",
-    "envOptions": {
-    },
     "createTime": "",
     "jobDag": {
-      "vertices": [
+      "jobId": "",
+      "envOptions": [],
+      "vertexInfoMap": [
+        {
+          "vertexId": 1,
+          "type": "",
+          "vertexName": "",
+          "tablePaths": [
+            ""
+          ]
+        }
       ],
-      "edges": [
-      ]
+      "pipelineEdges": {}
     },
     "pluginJarsUrls": [
     ],
@@ -136,7 +116,7 @@ network:
 ### 返回作业的详细信息
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/job-info/:jobId</b></code> <code>(返回作业的详细信息。)</code></summary>
+ <summary><code>GET</code> <code><b>/job-info/:jobId</b></code> <code>(返回作业的详细信息。)</code></summary>
 
 #### 参数
 
@@ -153,10 +133,19 @@ network:
   "jobStatus": "",
   "createTime": "",
   "jobDag": {
-    "vertices": [
+    "jobId": "",
+    "envOptions": [],
+    "vertexInfoMap": [
+      {
+        "vertexId": 1,
+        "type": "",
+        "vertexName": "",
+        "tablePaths": [
+          ""
+        ]
+      }
     ],
-    "edges": [
-    ]
+    "pipelineEdges": {}
   },
   "metrics": {
     "SourceReceivedCount": "",
@@ -204,10 +193,10 @@ network:
 
 ### 返回作业的详细信息
 
-此API已经弃用，请使用/hazelcast/rest/maps/job-info/:jobId替代。
+此API已经弃用，请使用/job-info/:jobId替代。
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-job/:jobId</b></code> <code>(返回作业的详细信息。)</code></summary>
+ <summary><code>GET</code> <code><b>/running-job/:jobId</b></code> <code>(返回作业的详细信息。)</code></summary>
 
 #### 参数
 
@@ -224,10 +213,19 @@ network:
   "jobStatus": "",
   "createTime": "",
   "jobDag": {
-    "vertices": [
+    "jobId": "",
+    "envOptions": [],
+    "vertexInfoMap": [
+      {
+        "vertexId": 1,
+        "type": "",
+        "vertexName": "",
+        "tablePaths": [
+          ""
+        ]
+      }
     ],
-    "edges": [
-    ]
+    "pipelineEdges": {}
   },
   "metrics": {
     "sourceReceivedCount": "",
@@ -262,7 +260,7 @@ network:
 ### 返回所有已完成的作业信息
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/finished-jobs/:state</b></code> <code>(返回所有已完成的作业信息。)</code></summary>
+ <summary><code>GET</code> <code><b>/finished-jobs/:state</b></code> <code>(返回所有已完成的作业信息。)</code></summary>
 
 #### 参数
 
@@ -281,7 +279,21 @@ network:
     "errorMsg": null,
     "createTime": "",
     "finishTime": "",
-    "jobDag": "",
+    "jobDag": {
+      "jobId": "",
+      "envOptions": [],
+      "vertexInfoMap": [
+        {
+          "vertexId": 1,
+          "type": "",
+          "vertexName": "",
+          "tablePaths": [
+            ""
+          ]
+        }
+      ],
+      "pipelineEdges": {}
+    },
     "metrics": ""
   }
 ]
@@ -294,7 +306,7 @@ network:
 ### 返回系统监控信息
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/system-monitoring-information</b></code> <code>(返回系统监控信息。)</code></summary>
+ <summary><code>GET</code> <code><b>/system-monitoring-information</b></code> <code>(返回系统监控信息。)</code></summary>
 
 #### 参数
 
@@ -303,9 +315,6 @@ network:
 ```json
 [
   {
-    "isMaster": "true",
-    "host": "localhost",
-    "port": "5801",
     "processors":"8",
     "physical.memory.total":"16.0G",
     "physical.memory.free":"16.3M",
@@ -362,7 +371,7 @@ network:
 ### 提交作业
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/submit-job</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
+<summary><code>POST</code> <code><b>/submit-job</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
 
 #### 参数
 
@@ -421,7 +430,7 @@ network:
 ### 批量提交作业
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/submit-jobs</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
+<summary><code>POST</code> <code><b>/submit-jobs</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
 
 #### 参数(在请求体中params字段中添加)
 
@@ -523,7 +532,7 @@ network:
 ### 停止作业
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/stop-job</b></code> <code>(如果作业成功停止，返回jobId。)</code></summary>
+<summary><code>POST</code> <code><b>/stop-job</b></code> <code>(如果作业成功停止，返回jobId。)</code></summary>
 
 #### 请求体
 
@@ -550,7 +559,7 @@ network:
 ### 批量停止作业
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/stop-jobs</b></code> <code>(如果作业成功停止，返回jobId。)</code></summary>
+<summary><code>POST</code> <code><b>/stop-jobs</b></code> <code>(如果作业成功停止，返回jobId。)</code></summary>
 
 #### 请求体
 
@@ -587,7 +596,7 @@ network:
 ### 加密配置
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/encrypt-config</b></code> <code>(如果配置加密成功，则返回加密后的配置。)</code></summary>
+<summary><code>POST</code> <code><b>/encrypt-config</b></code> <code>(如果配置加密成功，则返回加密后的配置。)</code></summary>
 有关自定义加密的更多信息，请参阅文档[配置-加密-解密](../connector-v2/Config-Encryption-Decryption.md).
 
 #### 请求体
@@ -676,7 +685,7 @@ network:
 ### 更新运行节点的tags
 
 <details>
-<summary><code>POST</code><code><b>/hazelcast/rest/maps/update-tags</b></code><code>因为更新只能针对于某个节点，因此需要用当前节点ip:port用于更新</code><code>(如果更新成功，则返回"success"信息)</code></summary>
+<summary><code>POST</code><code><b>/update-tags</b></code><code>因为更新只能针对于某个节点，因此需要用当前节点ip:port用于更新</code><code>(如果更新成功，则返回"success"信息)</code></summary>
 
 
 #### 更新节点tags
@@ -731,4 +740,75 @@ network:
   "message": "Invalid JSON format in request body."
 }
 ```
+</details>
+
+
+------------------------------------------------------------------------------------------
+
+### 获取所有节点日志内容
+
+<details>
+ <summary><code>GET</code> <code><b>/logs/:jobId</b></code> <code>(返回日志列表。)</code></summary>
+
+#### 请求参数
+
+#### 参数(在请求体中params字段中添加)
+
+> |         参数名称         |   是否必传   |  参数类型  |               参数描述                |
+> |----------------------|----------|--------|-----------------------------------|
+> | jobId                | optional | string | job id                            |
+
+当`jobId`为空时，返回所有节点的日志信息，否则返回指定`jobId`在所有节点的的日志列表。
+
+#### 响应
+
+返回请求节点的日志列表、内容
+
+#### 返回所有日志文件列表
+
+如果你想先查看日志列表，可以通过`GET`请求获取日志列表，`http://localhost:8080/logs?format=json`
+
+```json
+[
+  {
+    "node": "localhost:8080",
+    "logLink": "http://localhost:8080/logs/job-899485770241277953.log",
+    "logName": "job-899485770241277953.log"
+  },
+  {
+    "node": "localhost:8080",
+    "logLink": "http://localhost:8080/logs/job-899470314109468673.log",
+    "logName": "job-899470314109468673.log"
+  }
+]
+```
+
+当前支持的格式有`json`和`html`，默认为`html`。
+
+
+#### 例子
+
+获取所有节点jobId为`733584788375666689`的日志信息：`http://localhost:8080/logs/733584788375666689`
+获取所有节点日志列表：`http://localhost:8080/logs`
+获取所有节点日志列表以JSON格式返回：`http://localhost:8080/logs?format=json`
+获取日志文件内容：`http://localhost:8080/logs/job-898380162133917698.log`
+
+
+</details>
+
+
+### 获取单节点日志内容
+
+<details>
+ <summary><code>GET</code> <code><b>/log</b></code> <code>(返回日志列表。)</code></summary>
+
+#### 响应
+
+返回请求节点的日志列表
+
+#### 例子
+
+获取当前节点的日志列表：`http://localhost:5801/log`
+获取日志文件内容：`http://localhost:5801/log/job-898380162133917698.log``
+
 </details>

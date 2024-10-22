@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarClientConfig;
@@ -47,13 +48,15 @@ public class PulsarSink
         implements SeaTunnelSink<
                 SeaTunnelRow, PulsarSinkState, PulsarCommitInfo, PulsarAggregatedCommitInfo> {
 
-    private SeaTunnelRowType seaTunnelRowType;
-    private PulsarClientConfig clientConfig;
-    private ReadonlyConfig readonlyConfig;
+    private final SeaTunnelRowType seaTunnelRowType;
+    private final PulsarClientConfig clientConfig;
+    private final ReadonlyConfig readonlyConfig;
+    private final CatalogTable catalogTable;
 
-    public PulsarSink(ReadonlyConfig readonlyConfig, SeaTunnelRowType seaTunnelRowType) {
+    public PulsarSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
         this.readonlyConfig = readonlyConfig;
-        this.seaTunnelRowType = seaTunnelRowType;
+        this.seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
+        this.catalogTable = catalogTable;
 
         /** client config */
         PulsarClientConfig.Builder clientConfigBuilder =
@@ -95,5 +98,10 @@ public class PulsarSink
     @Override
     public String getPluginName() {
         return PulsarConfigUtil.IDENTIFIER;
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
     }
 }
