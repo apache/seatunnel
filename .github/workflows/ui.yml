@@ -70,5 +70,5 @@ jobs:
           npm install
       - name: Run Unit Tests
         run: |
-          cd ./seatunnel-engine/seatunnel-ui
+          cd ./seatunnel-engine/seatunnel-engine-ui
           npm run test:unit
