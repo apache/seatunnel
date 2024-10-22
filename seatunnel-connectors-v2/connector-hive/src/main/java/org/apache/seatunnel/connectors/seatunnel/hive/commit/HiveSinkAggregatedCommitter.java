@@ -29,8 +29,10 @@ import org.apache.thrift.TException;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -38,6 +40,7 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
     private final String dbName;
     private final String tableName;
     private final boolean abortDropPartitionMetadata;
+    private final boolean overwrite;
 
     private final ReadonlyConfig readonlyConfig;
 
@@ -49,11 +52,21 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
         this.tableName = tableName;
         this.abortDropPartitionMetadata =
                 readonlyConfig.get(HiveSinkOptions.ABORT_DROP_PARTITION_METADATA);
+        this.overwrite = readonlyConfig.get(HiveSinkOptions.OVERWRITE);
     }
 
     @Override
     public List<FileAggregatedCommitInfo> commit(
             List<FileAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
+        log.info("Aggregated commit infos size: {}", aggregatedCommitInfos.size());
+        for (FileAggregatedCommitInfo info : aggregatedCommitInfos) {
+            log.info("Commit info: {}", info);
+        }
+        log.info("overwrite: {}", overwrite);
+        // delete if overwrite
+        if (overwrite) {
+            deleteDirectories(aggregatedCommitInfos);
+        }
 
         List<FileAggregatedCommitInfo> errorCommitInfos = super.commit(aggregatedCommitInfos);
         if (errorCommitInfos.isEmpty()) {
@@ -101,6 +114,68 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
                 }
             }
             hiveMetaStore.close();
+        }
+    }
+
+    /**
+     * Deletes the partition directories based on the partition paths stored in the aggregated
+     * commit information.
+     *
+     * <p>This method is invoked during the commit phase when the overwrite option is enabled. It
+     * iterates over the partition directories specified in the commit information and deletes the
+     * directories from the Hadoop file system.
+     *
+     * @param aggregatedCommitInfos
+     */
+    private void deleteDirectories(List<FileAggregatedCommitInfo> aggregatedCommitInfos)
+            throws IOException {
+        if (aggregatedCommitInfos.isEmpty()) {
+            return;
+        }
+
+        for (FileAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
+            LinkedHashMap<String, LinkedHashMap<String, String>> transactionMap =
+                    aggregatedCommitInfo.getTransactionMap();
+
+            // Do not delete if source data is empty
+            if (transactionMap.values().stream().allMatch(Map::isEmpty)) {
+                log.info("Data source is empty, no directories will be deleted.");
+                continue;
+            }
+
+            try {
+                // Get the first target path from transactionMap
+                String targetPath =
+                        transactionMap.values().stream()
+                                .flatMap(m -> m.values().stream())
+                                .findFirst()
+                                .orElseThrow(
+                                        () -> new IllegalStateException("No target paths found"));
+
+                if (aggregatedCommitInfo.getPartitionDirAndValuesMap().isEmpty()) {
+                    // For non-partitioned table, extract and delete table directory
+                    // Example: hdfs://hadoop-master1:8020/warehouse/test_overwrite_1/
+                    String tableDir = targetPath.substring(0, targetPath.lastIndexOf('/'));
+                    hadoopFileSystemProxy.deleteFile(tableDir);
+                    log.info("Deleted table directory: {}", tableDir);
+                } else {
+                    // For partitioned table, extract and delete partition directories
+                    // Example: hdfs://hadoop-master1:8020/warehouse/test_overwrite_partition/age=26/
+                    Set<String> partitionDirs =
+                            transactionMap.values().stream()
+                                    .flatMap(m -> m.values().stream())
+                                    .map(path -> path.substring(0, path.lastIndexOf('/')))
+                                    .collect(Collectors.toSet());
+
+                    for (String partitionDir : partitionDirs) {
+                        hadoopFileSystemProxy.deleteFile(partitionDir);
+                        log.info("Deleted partition directory: {}", partitionDir);
+                    }
+                }
+            } catch (IOException e) {
+                log.error("Failed to delete directories", e);
+                throw e;
+            }
         }
     }
 }

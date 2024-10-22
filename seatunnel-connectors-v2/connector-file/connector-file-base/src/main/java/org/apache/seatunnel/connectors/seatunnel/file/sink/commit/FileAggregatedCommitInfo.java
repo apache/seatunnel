@@ -44,4 +44,43 @@ public class FileAggregatedCommitInfo implements Serializable {
      * <p>V is the list of partition column's values.
      */
     private final LinkedHashMap<String, List<String>> partitionDirAndValuesMap;
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("FileAggregatedCommitInfo{");
+
+        // Print transactionMap
+        sb.append("transactionMap={");
+        transactionMap.forEach(
+                (sourcePath, targetMap) -> {
+                    sb.append("\n  ").append(sourcePath).append("={");
+                    targetMap.forEach(
+                            (targetPath, value) -> {
+                                sb.append("\n    ")
+                                        .append(targetPath)
+                                        .append("=")
+                                        .append(value)
+                                        .append(",");
+                            });
+                    sb.append("\n  },");
+                });
+        sb.append("\n},");
+
+        // Print partitionDirAndValuesMap
+        sb.append("partitionDirAndValuesMap={");
+        partitionDirAndValuesMap.forEach(
+                (partitionColumn, values) -> {
+                    sb.append("\n  ").append(partitionColumn).append("=[");
+                    values.forEach(
+                            value -> {
+                                sb.append("\n    ").append(value).append(",");
+                            });
+                    sb.append("\n  ],");
+                });
+        sb.append("\n}");
+
+        sb.append("}");
+        return sb.toString();
+    }
 }
