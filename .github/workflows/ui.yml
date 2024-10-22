@@ -63,12 +63,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node-version }}
-          cache: "npm"
-      - name: Install Dependencies
         run: |
           cd seatunnel-engine/seatunnel-engine-ui/
           npm install
-      - name: Run Unit Tests
-        run: |
-          cd seatunnel-engine/seatunnel-engine-ui/
           npm run test:unit
