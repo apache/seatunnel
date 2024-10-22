@@ -57,6 +57,9 @@ public class RedisParameters implements Serializable {
     private List<String> redisNodes = Collections.emptyList();
     private long expire = RedisConfig.EXPIRE.defaultValue();
     private int batchSize = RedisConfig.BATCH_SIZE.defaultValue();
+    private String valueColumn;
+    private String hashKeyColumn;
+    private String hashValueColumn;
 
     private int redisVersion;
 
@@ -97,6 +100,18 @@ public class RedisParameters implements Serializable {
         this.redisDataType = config.get(RedisConfig.DATA_TYPE);
         // Indicates the number of keys to attempt to return per iteration.default 10
         this.batchSize = config.get(RedisConfig.BATCH_SIZE);
+        // set value column
+        if (config.getOptional(RedisConfig.VALUE_COLUMN).isPresent()) {
+            this.valueColumn = config.get(RedisConfig.VALUE_COLUMN);
+        }
+        // set hash key column
+        if (config.getOptional(RedisConfig.HASH_KEY_COLUMN).isPresent()) {
+            this.hashKeyColumn = config.get(RedisConfig.HASH_KEY_COLUMN);
+        }
+        // set hash value column
+        if (config.getOptional(RedisConfig.HASH_VALUE_COLUMN).isPresent()) {
+            this.hashValueColumn = config.get(RedisConfig.HASH_VALUE_COLUMN);
+        }
     }
 
     public RedisClient buildRedisClient() {
