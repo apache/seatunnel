@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tdengine.source;
 
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorErrorCode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
@@ -49,6 +51,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
 
@@ -128,6 +131,7 @@ public class TDengineSource
         List<String> subTableNames = new ArrayList<>();
         List<String> fieldNames = new ArrayList<>();
         List<SeaTunnelDataType<?>> fieldTypes = new ArrayList<>();
+        List<String> fields = config.getFields();
 
         String jdbcUrl = String.join("", config.getUrl(), config.getDatabase());
 
@@ -152,8 +156,16 @@ public class TDengineSource
                 if (timestampFieldName == null) {
                     timestampFieldName = metaResultSet.getString(1);
                 }
-                fieldNames.add(metaResultSet.getString(1));
-                fieldTypes.add(TDengineTypeMapper.mapping(metaResultSet.getString(2)));
+                String fieldName = metaResultSet.getString(1);
+                if (CollectionUtils.isNotEmpty(fields)) {
+                    if (fields.contains(fieldName)) {
+                        fieldNames.add(fieldName);
+                        fieldTypes.add(TDengineTypeMapper.mapping(metaResultSet.getString(2)));
+                    }
+                } else {
+                    fieldNames.add(fieldName);
+                    fieldTypes.add(TDengineTypeMapper.mapping(metaResultSet.getString(2)));
+                }
             }
 
             while (subTableNameResultSet.next()) {
