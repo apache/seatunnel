@@ -124,7 +124,7 @@ export default defineComponent({
       required: true
     },
     onNodeClick: {
-      type: Function as PropType<(id: number) => void>,
+      type: Function as PropType<(vertex?: Vertex) => void>,
       required: true
     }
   },
@@ -230,10 +230,12 @@ export default defineComponent({
       })
       graph.on('node:click', ({ node }) => {
         const { id } = node.getData() as NodeStatus
-        props.onNodeClick((focusedId = id))
+        focusedId = id
+        const vertex = props?.job?.jobDag?.vertexInfoMap?.find((item) => item.vertexId === id)
+        props.onNodeClick(vertex)
       })
       graph.on('blank:click', () => {
-        props.onNodeClick((focusedId = 0))
+        props.onNodeClick()
       })
 
       const init = () => {

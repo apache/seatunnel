@@ -143,9 +143,14 @@ export default defineComponent({
 
     const focusedId = ref(0)
     const drawerShow = ref(false)
-    const onFocus = (id: number) => {
-      drawerShow.value = true
-      focusedId.value = id
+    const onFocus = (vertex?: Vertex) => {
+      if (vertex && vertex.type !== 'transform') {
+        drawerShow.value = true
+        focusedId.value = vertex.vertexId
+      } else {
+        drawerShow.value = false
+        focusedId.value = 0
+      }
     }
     const onDrawerClose = () => {
       drawerShow.value = false
@@ -161,7 +166,7 @@ export default defineComponent({
       return ''
     }
     const rowProps = (row: Vertex) => {
-      return { onClick: () => onFocus(row.vertexId) }
+      return { onClick: () => onFocus(row) }
     }
     return () => (
       <div class="w-full bg-white px-12 pt-6 pb-12 border border-gray-100 rounded-xl">

@@ -63,7 +63,14 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node-version }}
-          cache: "npm"
+          cache: false
+      - name: Cache npm dependencies
+        uses: actions/cache@v3
+        with:
+          path: seatunnel-engine/seatunnel-engine-ui/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('seatunnel-engine/seatunnel-engine-ui/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
       - name: Install Dependencies
         run: |
           cd seatunnel-engine/seatunnel-engine-ui/
