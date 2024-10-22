@@ -157,7 +157,38 @@ export default defineComponent({
     }
     const focusedVertex = computed(() => {
       const vertex = job.jobDag?.vertexInfoMap?.find((v) => v.vertexId === focusedId.value)
-      return Object.assign({}, vertex, job.metrics)
+      const metrics = {} as any
+      if (vertex?.type === 'source') {
+        Object.keys(job.metrics?.TableSourceReceivedBytes || {}).forEach((key) => {
+          metrics[`TableSourceReceivedBytes.${key}`] = job.metrics?.TableSourceReceivedBytes[key]
+        })
+        Object.keys(job.metrics?.TableSourceReceivedCount || {}).forEach((key) => {
+          metrics[`TableSourceReceivedCount.${key}`] = job.metrics?.TableSourceReceivedCount[key]
+        })
+        Object.keys(job.metrics?.TableSourceReceivedQPS || {}).forEach((key) => {
+          metrics[`TableSourceReceivedQPS.${key}`] = job.metrics?.TableSourceReceivedQPS[key]
+        })
+        Object.keys(job.metrics?.TableSourceReceivedBytesPerSeconds || {}).forEach((key) => {
+          metrics[`TableSourceReceivedBytesPerSeconds.${key}`] =
+            job.metrics?.TableSourceReceivedBytesPerSeconds[key]
+        })
+      }
+      if (vertex?.type === 'sink') {
+        Object.keys(job.metrics?.TableSinkWriteBytes || {}).forEach((key) => {
+          metrics[`TableSinkWriteBytes.${key}`] = job.metrics?.TableSinkWriteBytes[key]
+        })
+        Object.keys(job.metrics?.TableSinkWriteCount || {}).forEach((key) => {
+          metrics[`TableSinkWriteCount.${key}`] = job.metrics?.TableSinkWriteCount[key]
+        })
+        Object.keys(job.metrics?.TableSinkWriteQPS || {}).forEach((key) => {
+          metrics[`TableSinkWriteQPS.${key}`] = job.metrics?.TableSinkWriteQPS[key]
+        })
+        Object.keys(job.metrics?.TableSinkWriteBytesPerSeconds || {}).forEach((key) => {
+          metrics[`TableSinkWriteBytesPerSeconds.${key}`] =
+            job.metrics?.TableSinkWriteBytesPerSeconds[key]
+        })
+      }
+      return Object.assign({}, vertex, metrics)
     })
     const rowClassName = (row: Vertex) => {
       if (row.vertexId === focusedId.value) {
