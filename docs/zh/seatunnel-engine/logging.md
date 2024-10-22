@@ -99,18 +99,17 @@ SeaTunnel 提供了一个 API，用于查询日志。
 SeaTunnel 支持定时删除旧日志文件，以避免磁盘空间不足。您可以在 `seatunnel.yml` 文件中添加以下配置：
 
 ```yaml
+seatunnel:
+  engine:
+    history-job-expire-minutes: 1440
     telemetry:
       logs:
         scheduled-deletion-enable: false
-        cron: "0 0 * * *"
-        keep-time: 2592000000
         prefix: job
         path: /tmp/seatunnel/logs
 ```
-
+- `history-job-expire-minutes`: 历史作业保留时间，单位为分钟,同时也是日志保留时间
 - `scheduled-deletion-enable`: 是否启用定时删除日志
-- `cron`: 定时任务的 cron 表达式
-- `keep-time`: 保留日志的时间（单位：毫秒）
 - `prefix`: 日志文件的前缀
 - `path`: 日志文件的路径,默认与启动脚日志文件路径相同
 
