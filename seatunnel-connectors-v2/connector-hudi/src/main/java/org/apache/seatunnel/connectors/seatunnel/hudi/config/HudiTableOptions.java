@@ -46,6 +46,13 @@ public interface HudiTableOptions {
                     .defaultValue(HoodieTableType.COPY_ON_WRITE)
                     .withDescription("hudi table type");
 
+    Option<Boolean> CDC_ENABLED =
+            Options.key("cdc_enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "When enable, persist the change data if necessary, and can be queried as a CDC query mode.");
+
     Option<String> RECORD_KEY_FIELDS =
             Options.key("record_key_fields")
                     .stringType()
@@ -76,7 +83,7 @@ public interface HudiTableOptions {
             Options.key("record_byte_size")
                     .intType()
                     .defaultValue(1024)
-                    .withDescription("auto commit");
+                    .withDescription("The byte size of each record");
 
     Option<WriteOperationType> OP_TYPE =
             Options.key("op_type")

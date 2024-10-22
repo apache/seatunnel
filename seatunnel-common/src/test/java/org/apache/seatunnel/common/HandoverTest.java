@@ -15,15 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.example.engine;
+package org.apache.seatunnel.common;
 
-import org.apache.seatunnel.core.starter.SeaTunnel;
-import org.apache.seatunnel.core.starter.exception.CommandException;
-import org.apache.seatunnel.core.starter.seatunnel.args.ServerCommandArgs;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-public class SeaTunnelEngineServerExample {
-    public static void main(String[] args) throws CommandException {
-        ServerCommandArgs serverCommandArgs = new ServerCommandArgs();
-        SeaTunnel.run(serverCommandArgs.buildCommand());
+public class HandoverTest {
+
+    @Test
+    public void testThrowExceptionWhenQueueIsEmtpy() {
+        Handover<Object> handover = new Handover<>();
+        handover.reportError(new RuntimeException("test"));
+        Assertions.assertThrows(RuntimeException.class, handover::isEmpty);
     }
 }

@@ -19,6 +19,8 @@ package org.apache.seatunnel.e2e.common.container;
 
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
+import org.apache.commons.lang3.StringUtils;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
@@ -68,6 +70,8 @@ public abstract class AbstractTestContainer implements TestContainer {
 
     protected abstract String getSavePointCommand();
 
+    protected abstract String getCancelJobCommand();
+
     protected abstract String getRestoreCommand();
 
     protected abstract String getConnectorNamePrefix();
@@ -95,11 +99,11 @@ public abstract class AbstractTestContainer implements TestContainer {
 
     protected Container.ExecResult executeJob(GenericContainer<?> container, String confFile)
             throws IOException, InterruptedException {
-        return executeJob(container, confFile, null);
+        return executeJob(container, confFile, null, null);
     }
 
     protected Container.ExecResult executeJob(
-            GenericContainer<?> container, String confFile, List<String> variables)
+            GenericContainer<?> container, String confFile, String jobId, List<String> variables)
             throws IOException, InterruptedException {
         final String confInContainerPath = copyConfigFileToContainer(container, confFile);
         // copy connectors
@@ -118,6 +122,10 @@ public abstract class AbstractTestContainer implements TestContainer {
         command.add(adaptPathForWin(confInContainerPath));
         command.add("--name");
         command.add(new File(confInContainerPath).getName());
+        if (StringUtils.isNoneEmpty(jobId)) {
+            command.add("--set-job-id");
+            command.add(jobId);
+        }
         List<String> extraStartShellCommands = new ArrayList<>(getExtraStartShellCommands());
         if (variables != null && !variables.isEmpty()) {
             variables.forEach(
@@ -137,6 +145,18 @@ public abstract class AbstractTestContainer implements TestContainer {
         // base command
         command.add(adaptPathForWin(binPath));
         command.add(getSavePointCommand());
+        command.add(jobId);
+        command.addAll(getExtraStartShellCommands());
+        return executeCommand(container, command);
+    }
+
+    protected Container.ExecResult cancelJob(GenericContainer<?> container, String jobId)
+            throws IOException, InterruptedException {
+        final List<String> command = new ArrayList<>();
+        String binPath = Paths.get(SEATUNNEL_HOME, "bin", getStartShellName()).toString();
+        // base command
+        command.add(adaptPathForWin(binPath));
+        command.add(getCancelJobCommand());
         command.add(jobId);
         command.addAll(getExtraStartShellCommands());
         return executeCommand(container, command);

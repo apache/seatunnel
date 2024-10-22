@@ -31,7 +31,6 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.Map;
 
 public class KafkaRecordEmitter
@@ -71,13 +70,14 @@ public class KafkaRecordEmitter
             // consumerRecord.offset + 1 is the offset commit to Kafka and also the start offset
             // for the next run
             splitState.setCurrentOffset(consumerRecord.offset() + 1);
-        } catch (IOException e) {
+        } catch (Exception e) {
             if (this.messageFormatErrorHandleWay == MessageFormatErrorHandleWay.SKIP) {
                 logger.warn(
                         "Deserialize message failed, skip this message, message: {}",
                         new String(consumerRecord.value()));
+            } else {
+                throw e;
             }
-            throw e;
         }
     }
 

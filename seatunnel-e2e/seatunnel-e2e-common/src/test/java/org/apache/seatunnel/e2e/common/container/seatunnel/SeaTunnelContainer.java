@@ -24,6 +24,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
+import org.apache.commons.compress.utils.Lists;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -242,6 +243,11 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     @Override
+    protected String getCancelJobCommand() {
+        return "-can";
+    }
+
+    @Override
     protected String getRestoreCommand() {
         return "-r";
     }
@@ -281,16 +287,27 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     @Override
     public Container.ExecResult executeJob(String confFile)
             throws IOException, InterruptedException {
-        return executeJob(confFile, null);
+        return executeJob(confFile, Lists.newArrayList());
     }
 
     @Override
     public Container.ExecResult executeJob(String confFile, List<String> variables)
             throws IOException, InterruptedException {
+        return executeJob(confFile, null, variables);
+    }
+
+    @Override
+    public Container.ExecResult executeJob(String confFile, String jobId)
+            throws IOException, InterruptedException {
+        return executeJob(confFile, jobId, null);
+    }
+
+    private Container.ExecResult executeJob(String confFile, String jobId, List<String> variables)
+            throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
         List<String> beforeThreads = ContainerUtil.getJVMThreadNames(server);
         runningCount.incrementAndGet();
-        Container.ExecResult result = executeJob(server, confFile, variables);
+        Container.ExecResult result = executeJob(server, confFile, jobId, variables);
         if (runningCount.decrementAndGet() > 0) {
             // only check thread when job all finished.
             return result;
@@ -322,7 +339,6 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                                                         .collect(Collectors.joining()));
                             });
         }
-        //        classLoaderObjectCheck(1);
         return result;
     }
 
@@ -465,6 +481,11 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         Container.ExecResult result = restoreJob(server, confFile, jobId);
         runningCount.decrementAndGet();
         return result;
+    }
+
+    @Override
+    public Container.ExecResult cancelJob(String jobId) throws IOException, InterruptedException {
+        return cancelJob(server, jobId);
     }
 
     @Override

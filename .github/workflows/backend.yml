@@ -125,6 +125,12 @@ jobs:
           echo "deleted-poms=$true_or_false" >> $GITHUB_OUTPUT
           echo "deleted-poms_files=$file_list" >> $GITHUB_OUTPUT
           
+          doc_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "docs/**"`
+          true_or_false=${doc_files%%$'\n'*}
+          file_list=${doc_files#*$'\n'}
+          echo "docs=$true_or_false" >> $GITHUB_OUTPUT
+          echo "docs_files=$file_list" >> $GITHUB_OUTPUT
+          
           engine_e2e_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-e2e/seatunnel-engine-e2e/**"`
           true_or_false=${engine_e2e_files%%$'\n'*}
           file_list=${engine_e2e_files#*$'\n'}
@@ -268,6 +274,38 @@ jobs:
       - name: Check Dependencies Licenses
         run: tools/dependencies/checkLicense.sh
 
+  document:
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.docs == 'true'
+    needs: [ changes, sanity-check ]
+    name: Build website
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v3
+        with:
+          path: seatunnel-pr
+
+      - name: Checkout website repo
+        uses: actions/checkout@v3
+        with:
+          repository: apache/seatunnel-website
+          path: seatunnel-website
+
+      - name: Sync PR changes to website
+        run: |
+          bash seatunnel-pr/tools/documents/sync.sh seatunnel-pr seatunnel-website
+
+      - uses: actions/setup-node@v2
+        with:
+          node-version: 16.19.0
+
+      - name: Run docusaurus build
+        run: |
+          cd seatunnel-website
+          npm set strict-ssl false
+          npm install
+          npm run build
   unit-test:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || (needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != '')

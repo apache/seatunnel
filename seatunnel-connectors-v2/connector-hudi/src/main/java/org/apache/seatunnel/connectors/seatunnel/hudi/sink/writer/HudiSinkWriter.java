@@ -35,8 +35,6 @@ import org.apache.seatunnel.connectors.seatunnel.hudi.sink.state.HudiSinkState;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
 import java.util.Optional;
 
 @Slf4j
@@ -60,27 +58,15 @@ public class HudiSinkWriter
             Context context,
             SeaTunnelRowType seaTunnelRowType,
             HudiSinkConfig sinkConfig,
-            HudiTableConfig tableConfig,
-            List<HudiSinkState> hudiSinkState) {
+            HudiTableConfig tableConfig) {
         this.sinkConfig = sinkConfig;
         this.tableConfig = tableConfig;
         this.seaTunnelRowType = seaTunnelRowType;
         this.writeClientProvider =
                 new HudiWriteClientProvider(
                         sinkConfig, tableConfig.getTableName(), seaTunnelRowType);
-        if (!hudiSinkState.isEmpty()) {
-            this.hudiRecordWriter =
-                    new HudiRecordWriter(
-                            sinkConfig,
-                            tableConfig,
-                            writeClientProvider,
-                            seaTunnelRowType,
-                            hudiSinkState.get(0).getHudiCommitInfo());
-        } else {
-            this.hudiRecordWriter =
-                    new HudiRecordWriter(
-                            sinkConfig, tableConfig, writeClientProvider, seaTunnelRowType);
-        }
+        this.hudiRecordWriter =
+                new HudiRecordWriter(tableConfig, writeClientProvider, seaTunnelRowType);
     }
 
     @Override
@@ -90,15 +76,10 @@ public class HudiSinkWriter
     }
 
     @Override
-    public List<HudiSinkState> snapshotState(long checkpointId) throws IOException {
-        return Collections.singletonList(
-                new HudiSinkState(checkpointId, hudiRecordWriter.snapshotState()));
-    }
-
-    @Override
     public Optional<HudiCommitInfo> prepareCommit() throws IOException {
         tryOpen();
-        return hudiRecordWriter.prepareCommit();
+        hudiRecordWriter.flush();
+        return Optional.empty();
     }
 
     @Override
@@ -128,8 +109,7 @@ public class HudiSinkWriter
                         queueIndex,
                         tableConfig.getTableName());
         this.hudiRecordWriter =
-                new HudiRecordWriter(
-                        sinkConfig, tableConfig, writeClientProvider, seaTunnelRowType);
+                new HudiRecordWriter(tableConfig, writeClientProvider, seaTunnelRowType);
     }
 
     private void tryOpen() {

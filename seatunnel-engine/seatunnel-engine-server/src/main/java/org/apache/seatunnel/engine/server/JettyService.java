@@ -25,6 +25,9 @@ import org.apache.seatunnel.shade.org.eclipse.jetty.servlet.ServletHolder;
 
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.server.rest.filter.ExceptionHandlingFilter;
+import org.apache.seatunnel.engine.server.rest.servlet.AllLogNameServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.AllNodeLogServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.CurrentNodeLogServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.EncryptConfigServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.FinishedJobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.JobInfoServlet;
@@ -49,6 +52,9 @@ import java.util.EnumSet;
 
 import static org.apache.seatunnel.engine.server.rest.RestConstant.ENCRYPT_CONFIG;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.FINISHED_JOBS_INFO;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.GET_ALL_LOG_NAME;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.GET_LOG;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.GET_LOGS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.JOB_INFO_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.OVERVIEW;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOBS_URL;
@@ -111,6 +117,12 @@ public class JettyService {
         ServletHolder runningThreadsHolder =
                 new ServletHolder(new RunningThreadsServlet(nodeEngine));
 
+        ServletHolder allNodeLogServletHolder =
+                new ServletHolder(new AllNodeLogServlet(nodeEngine));
+        ServletHolder currentNodeLogServlet =
+                new ServletHolder(new CurrentNodeLogServlet(nodeEngine));
+        ServletHolder allLogNameServlet = new ServletHolder(new AllLogNameServlet(nodeEngine));
+
         context.addServlet(overviewHolder, convertUrlToPath(OVERVIEW));
         context.addServlet(runningJobsHolder, convertUrlToPath(RUNNING_JOBS_URL));
         context.addServlet(finishedJobsHolder, convertUrlToPath(FINISHED_JOBS_INFO));
@@ -127,6 +139,10 @@ public class JettyService {
         context.addServlet(updateTagsHandler, convertUrlToPath(UPDATE_TAGS_URL));
 
         context.addServlet(runningThreadsHolder, convertUrlToPath(RUNNING_THREADS));
+
+        context.addServlet(allNodeLogServletHolder, convertUrlToPath(GET_LOGS));
+        context.addServlet(currentNodeLogServlet, convertUrlToPath(GET_LOG));
+        context.addServlet(allLogNameServlet, convertUrlToPath(GET_ALL_LOG_NAME));
 
         server.setHandler(context);
 

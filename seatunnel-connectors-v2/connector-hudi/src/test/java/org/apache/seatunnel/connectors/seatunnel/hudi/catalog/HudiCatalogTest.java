@@ -168,6 +168,7 @@ class HudiCatalogTest {
         TableSchema schema = builder.build();
         HashMap<String, String> options = new HashMap<>();
         options.put("record_key_fields", "id,boolean_col");
+        options.put("cdc_enabled", "false");
         options.put("table_type", "MERGE_ON_READ");
         return CatalogTable.of(
                 tableIdentifier, schema, options, Collections.singletonList("dt_col"), "null");

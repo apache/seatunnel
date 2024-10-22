@@ -134,15 +134,17 @@ public class JobLogIT extends SeaTunnelContainer {
     }
 
     private void assertFileLog() throws IOException, InterruptedException {
-        Container.ExecResult execResult =
-                server.execInContainer(
-                        "sh", "-c", "cat /tmp/seatunnel/logs/job-862969647010611201.log");
+        String catLog = "cat /tmp/seatunnel/logs/job-862969647010611201.log";
+        String apiGetLog = "curl http://localhost:8080/log/job-862969647010611201.log";
+        Container.ExecResult execResult = server.execInContainer("sh", "-c", catLog);
         String serverLogs = execResult.getStdout();
 
-        execResult =
-                secondServer.execInContainer(
-                        "sh", "-c", "cat /tmp/seatunnel/logs/job-862969647010611201.log");
+        Container.ExecResult apiExecResult = server.execInContainer("sh", "-c", apiGetLog);
+
+        execResult = secondServer.execInContainer("sh", "-c", catLog);
         String secondServerLogs = execResult.getStdout();
+        Container.ExecResult apiSecondExecResult =
+                secondServer.execInContainer("sh", "-c", apiGetLog);
 
         Stream.of(
                         // 2024-09-21 16:37:44,503 INFO  [.f.s.FakeSourceSplitEnumerator]
@@ -159,6 +161,10 @@ public class JobLogIT extends SeaTunnelContainer {
                             Assertions.assertTrue(
                                     pattern.matcher(serverLogs).find()
                                             || pattern.matcher(secondServerLogs).find());
+                            Assertions.assertTrue(
+                                    pattern.matcher(apiExecResult.getStdout()).find()
+                                            || pattern.matcher(apiSecondExecResult.getStdout())
+                                                    .find());
                         });
     }
 
