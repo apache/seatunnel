@@ -58,24 +58,31 @@ jobs:
         node-version: [16.x, 18.x]
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+
       - name: Set up Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node-version }}
-          cache: npm
+          cache: "npm"
+
       - name: Cache npm dependencies
         uses: actions/cache@v3
         with:
-          path: seatunnel-engine/seatunnel-engine-ui/node_modules
+          path: |
+            seatunnel-engine/seatunnel-engine-ui/node_modules
+            ~/.npm
           key: ${{ runner.os }}-node-${{ hashFiles('seatunnel-engine/seatunnel-engine-ui/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
+
       - name: Install Dependencies
-        run: |
-          cd seatunnel-engine/seatunnel-engine-ui/
-          npm install
+        working-directory: seatunnel-engine/seatunnel-engine-ui/
+        run: npm install
+
       - name: Run Unit Tests
-        run: |
-          cd seatunnel-engine/seatunnel-engine-ui/
-          npm run test:unit
+        working-directory: seatunnel-engine/seatunnel-engine-ui/
+        run: npm run test:unit
