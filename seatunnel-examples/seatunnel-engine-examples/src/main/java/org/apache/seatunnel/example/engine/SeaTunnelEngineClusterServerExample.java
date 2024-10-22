@@ -21,7 +21,7 @@ import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ServerCommandArgs;
 
-public class SeaTunnelEngineServerExample {
+public class SeaTunnelEngineClusterServerExample {
 
     static {
         // https://logging.apache.org/log4j/2.x/manual/simple-logger.html#isThreadContextMapInheritable
