@@ -119,25 +119,25 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     }
 
     private String handleHashType(SeaTunnelRow element, List<String> fields) {
-        String hashKeyColumn = redisParameters.getHashKeyColumn();
-        String hashValueColumn = redisParameters.getHashValueColumn();
-        if (StringUtils.isEmpty(hashKeyColumn)) {
+        String hashKeyField = redisParameters.getHashKeyField();
+        String hashValueField = redisParameters.getHashValueField();
+        if (StringUtils.isEmpty(hashKeyField)) {
             return "";
         }
         String hashKey;
-        if (fields.contains(hashKeyColumn)) {
-            hashKey = element.getField(fields.indexOf(hashKeyColumn)).toString();
+        if (fields.contains(hashKeyField)) {
+            hashKey = element.getField(fields.indexOf(hashKeyField)).toString();
         } else {
-            hashKey = hashKeyColumn;
+            hashKey = hashKeyField;
         }
         String hashValue;
-        if (StringUtils.isEmpty(hashValueColumn)) {
+        if (StringUtils.isEmpty(hashValueField)) {
             hashValue = new String(serializationSchema.serialize(element));
         } else {
-            if (fields.contains(hashValueColumn)) {
-                hashValue = element.getField(fields.indexOf(hashValueColumn)).toString();
+            if (fields.contains(hashValueField)) {
+                hashValue = element.getField(fields.indexOf(hashValueField)).toString();
             } else {
-                hashValue = hashValueColumn;
+                hashValue = hashValueField;
             }
         }
         Map<String, String> kvMap = new HashMap<>();
@@ -146,14 +146,14 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     }
 
     private String handleOtherTypes(SeaTunnelRow element, List<String> fields) {
-        String valueColumn = redisParameters.getValueColumn();
-        if (StringUtils.isEmpty(valueColumn)) {
+        String valueField = redisParameters.getValueField();
+        if (StringUtils.isEmpty(valueField)) {
             return "";
         }
-        if (fields.contains(valueColumn)) {
-            return element.getField(fields.indexOf(valueColumn)).toString();
+        if (fields.contains(valueField)) {
+            return element.getField(fields.indexOf(valueField)).toString();
         }
-        return valueColumn;
+        return valueField;
     }
 
     private void clearBuffer() {
