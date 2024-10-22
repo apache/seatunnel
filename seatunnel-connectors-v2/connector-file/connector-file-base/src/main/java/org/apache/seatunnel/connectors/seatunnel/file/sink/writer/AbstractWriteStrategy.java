@@ -82,6 +82,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     protected int partId = 0;
     protected int batchSize;
     protected int currentBatchSize = 0;
+    protected String defaultPartitionValue = "__DEFAULT_PARTITION__";
 
     public AbstractWriteStrategy(FileSinkConfig fileSinkConfig) {
         this.fileSinkConfig = fileSinkConfig;
@@ -185,24 +186,29 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         if (StringUtils.isBlank(partitionDirExpression)) {
             StringBuilder stringBuilder = new StringBuilder();
             for (int i = 0; i < partitionFieldsIndexInRow.size(); i++) {
-                stringBuilder
-                        .append(partitionFieldList.get(i))
-                        .append("=")
-                        .append(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)]);
+                String partitionValue =
+                        seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)] == null
+                                ? defaultPartitionValue
+                                : seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)]
+                                        .toString();
+                stringBuilder.append(partitionFieldList.get(i)).append("=").append(partitionValue);
                 if (i < partitionFieldsIndexInRow.size() - 1) {
                     stringBuilder.append("/");
                 }
-                vals.add(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)].toString());
+                vals.add(partitionValue);
             }
             partitionDir = stringBuilder.toString();
         } else {
             Map<String, String> valueMap = new HashMap<>(partitionFieldList.size() * 2);
             for (int i = 0; i < partitionFieldsIndexInRow.size(); i++) {
+                String partitionValue =
+                        seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)] == null
+                                ? defaultPartitionValue
+                                : seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)]
+                                        .toString();
                 valueMap.put(keys[i], partitionFieldList.get(i));
-                valueMap.put(
-                        values[i],
-                        seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)].toString());
-                vals.add(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)].toString());
+                valueMap.put(values[i], partitionValue);
+                vals.add(partitionValue);
             }
             partitionDir = VariablesSubstitute.substitute(partitionDirExpression, valueMap);
         }
