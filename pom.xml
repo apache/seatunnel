@@ -131,6 +131,7 @@
         <log4j-core.version>2.17.1</log4j-core.version>
         <docker-maven-plugin.version>0.38.0</docker-maven-plugin.version>
         <maven-dependency-plugin.version>3.1.1</maven-dependency-plugin.version>
+        <versions-maven-plugin.version>2.14.1</versions-maven-plugin.version>
         <p3c-pmd.version>1.3.0</p3c-pmd.version>
         <maven-scm-provider-jgit.version>2.0.0</maven-scm-provider-jgit.version>
         <testcontainer.version>1.17.6</testcontainer.version>
@@ -739,6 +740,12 @@
                     <groupId>pl.project13.maven</groupId>
                     <artifactId>git-commit-id-plugin</artifactId>
                     <version>${maven-git-commit-id-plugin.version}</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>versions-maven-plugin</artifactId>
+                    <version>${versions-maven-plugin.version}</version>
                 </plugin>
 
                 <plugin>
