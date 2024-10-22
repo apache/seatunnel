@@ -127,23 +127,23 @@ public class RedisConfig {
                             "batch_size is used to control the size of a batch of data during read and write operations"
                                     + ",default 10");
 
-    public static final Option<String> VALUE_COLUMN =
-            Options.key("value_column")
+    public static final Option<String> VALUE_FIELD =
+            Options.key("value_field")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("key, list, set, zset use value of a specific column");
+                    .withDescription("key, list, set, zset use value of a specific field");
 
-    public static final Option<String> HASH_KEY_COLUMN =
-            Options.key("hash_key_column")
+    public static final Option<String> HASH_KEY_FIELD =
+            Options.key("hash_key_field")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("The column of hash key you want to write to redis");
+                    .withDescription("The field of hash key you want to write to redis");
 
-    public static final Option<String> HASH_VALUE_COLUMN =
-            Options.key("hash_value_column")
+    public static final Option<String> HASH_VALUE_FIELD =
+            Options.key("hash_value_field")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("The column of hash value you want to write to redis");
+                    .withDescription("The field of hash value you want to write to redis");
 
     public enum Format {
         JSON,
