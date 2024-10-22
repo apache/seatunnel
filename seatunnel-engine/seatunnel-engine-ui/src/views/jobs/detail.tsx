@@ -23,11 +23,9 @@ import {
   NDataTable,
   type DataTableColumns,
   NDrawer,
-  NSpace,
-  NCard,
   NDrawerContent
 } from 'naive-ui'
-import { computed, defineComponent, getCurrentInstance, h, reactive, ref, watch } from 'vue'
+import { computed, defineComponent, reactive, ref, watch } from 'vue'
 import { getJobInfo } from '@/service/job'
 import { useRoute } from 'vue-router'
 import type { Job, Vertex } from '@/service/job/types'
@@ -38,6 +36,7 @@ import DAG from '@/components/directed-acyclic-graph'
 import { getColorFromStatus } from '@/utils/getTypeFromStatus'
 import './detail.scss'
 import Configuration from '@/components/configuration'
+import JobLog from '@/components/job-log'
 
 export default defineComponent({
   setup() {
@@ -236,6 +235,9 @@ export default defineComponent({
             </NTabPane>
             <NTabPane name="Configuration" tab="Configuration">
               <Configuration data={job.envOptions}></Configuration>
+            </NTabPane>
+            <NTabPane name="Log" tab="Log">
+              <JobLog jobId={job.jobId}></JobLog>
             </NTabPane>
           </NTabs>
           <NDrawer
