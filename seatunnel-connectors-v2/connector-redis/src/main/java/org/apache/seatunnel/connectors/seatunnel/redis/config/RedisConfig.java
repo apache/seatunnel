@@ -131,7 +131,7 @@ public class RedisConfig {
             Options.key("value_field")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("key, list, set, zset use value of a specific field");
+                    .withDescription("The field of value you want to write to redis, support string list set zset");
 
     public static final Option<String> HASH_KEY_FIELD =
             Options.key("hash_key_field")
