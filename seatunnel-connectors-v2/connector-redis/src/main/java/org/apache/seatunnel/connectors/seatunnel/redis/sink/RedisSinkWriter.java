@@ -60,21 +60,92 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        String data = new String(serializationSchema.serialize(element));
-        String keyField = redisParameters.getKeyField();
         List<String> fields = Arrays.asList(seaTunnelRowType.getFieldNames());
-        String key;
-        if (fields.contains(keyField)) {
-            key = element.getField(fields.indexOf(keyField)).toString();
-        } else {
-            key = keyField;
-        }
+        String key = getKey(element, fields);
         keyBuffer.add(key);
-        valueBuffer.add(data);
+        String value = getValue(element, fields);
+        valueBuffer.add(value);
         if (keyBuffer.size() >= batchSize) {
             doBatchWrite();
             clearBuffer();
         }
+    }
+
+    private String getKey(SeaTunnelRow element, List<String> fields) {
+        String keyField = redisParameters.getKeyField();
+        String[] keyFieldSegments = keyField.split(REDIS_GROUP_DELIMITER);
+        StringBuilder key = new StringBuilder();
+        for (int i = 0; i < keyFieldSegments.length; i++) {
+            String keyFieldSegment = keyFieldSegments[i];
+            if (keyFieldSegment.startsWith(LEFT_PLACEHOLDER_MARKER)
+                    && keyFieldSegment.endsWith(RIGHT_PLACEHOLDER_MARKER)) {
+                String realKeyField = keyFieldSegment.substring(1, keyFieldSegment.length() - 1);
+                if (fields.contains(realKeyField)) {
+                    key.append(element.getField(fields.indexOf(realKeyField)).toString());
+                } else {
+                    key.append(keyFieldSegment);
+                }
+            } else {
+                key.append(keyFieldSegment);
+            }
+            if (i != keyFieldSegments.length - 1) {
+                key.append(REDIS_GROUP_DELIMITER);
+            }
+        }
+        return key.toString();
+    }
+
+    private String getValue(SeaTunnelRow element, List<String> fields) {
+        String value;
+        RedisDataType redisDataType = redisParameters.getRedisDataType();
+        if (RedisDataType.HASH.equals(redisDataType)) {
+            value = handleHashType(element, fields);
+        } else {
+            value = handleOtherTypes(element, fields);
+        }
+        if (StringUtils.isEmpty(value)) {
+            byte[] serialize = serializationSchema.serialize(element);
+            value = new String(serialize);
+        }
+        return value;
+    }
+
+    private String handleHashType(SeaTunnelRow element, List<String> fields) {
+        String hashKeyColumn = redisParameters.getHashKeyColumn();
+        String hashValueColumn = redisParameters.getHashValueColumn();
+        if (StringUtils.isEmpty(hashKeyColumn)) {
+            return "";
+        }
+        String hashKey;
+        if (fields.contains(hashKeyColumn)) {
+            hashKey = element.getField(fields.indexOf(hashKeyColumn)).toString();
+        } else {
+            hashKey = hashKeyColumn;
+        }
+        String hashValue;
+        if (StringUtils.isEmpty(hashValueColumn)) {
+            hashValue = new String(serializationSchema.serialize(element));
+        } else {
+            if (fields.contains(hashValueColumn)) {
+                hashValue = element.getField(fields.indexOf(hashValueColumn)).toString();
+            } else {
+                hashValue = hashValueColumn;
+            }
+        }
+        Map<String, String> kvMap = new HashMap<>();
+        kvMap.put(hashKey, hashValue);
+        return JsonUtils.toJsonString(kvMap);
+    }
+
+    private String handleOtherTypes(SeaTunnelRow element, List<String> fields) {
+        String valueColumn = redisParameters.getValueColumn();
+        if (StringUtils.isEmpty(valueColumn)) {
+            return "";
+        }
+        if (fields.contains(valueColumn)) {
+            return element.getField(fields.indexOf(valueColumn)).toString();
+        }
+        return valueColumn;
     }
 
     private void clearBuffer() {
