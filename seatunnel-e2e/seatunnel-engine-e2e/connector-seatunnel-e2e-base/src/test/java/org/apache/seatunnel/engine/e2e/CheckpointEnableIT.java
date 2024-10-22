@@ -97,14 +97,14 @@ public class CheckpointEnableIT extends TestSuiteBase {
     public void testZetaStreamingCheckpointInterval(TestContainer container)
             throws IOException, InterruptedException, ExecutionException {
         // start job
-        String jobId = JobIdGenerator.newJobId();
+        Long jobId = JobIdGenerator.newJobId();
         CompletableFuture<Container.ExecResult> startFuture =
                 CompletableFuture.supplyAsync(
                         () -> {
                             try {
                                 return container.executeJob(
                                         "/checkpoint-streaming-enable-test-resources/stream_fakesource_to_localfile_interval.conf",
-                                        jobId);
+                                        String.valueOf(jobId));
                             } catch (Exception e) {
                                 log.error("Commit task exception :" + e.getMessage());
                                 throw new RuntimeException(e);
@@ -114,7 +114,7 @@ public class CheckpointEnableIT extends TestSuiteBase {
         // wait obtain job id
         Thread.sleep(15000);
         Assertions.assertTrue(container.getServerLogs().contains("checkpoint is enabled"));
-        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+        Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
         Assertions.assertEquals(0, startFuture.get().getExitCode());
         // restore job
         CompletableFuture.supplyAsync(
@@ -122,7 +122,7 @@ public class CheckpointEnableIT extends TestSuiteBase {
                     try {
                         return container.restoreJob(
                                 "/checkpoint-streaming-enable-test-resources/stream_fakesource_to_localfile_interval.conf",
-                                jobId);
+                                String.valueOf(jobId));
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
@@ -152,13 +152,13 @@ public class CheckpointEnableIT extends TestSuiteBase {
     public void testZetaStreamingCheckpointNoInterval(TestContainer container)
             throws IOException, InterruptedException {
         // start job
-        String jobId = JobIdGenerator.newJobId();
+        Long jobId = JobIdGenerator.newJobId();
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
                         return container.executeJob(
                                 "/checkpoint-streaming-enable-test-resources/stream_fakesource_to_localfile.conf",
-                                jobId);
+                                String.valueOf(jobId));
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
@@ -167,7 +167,7 @@ public class CheckpointEnableIT extends TestSuiteBase {
 
         Thread.sleep(15000);
         Assertions.assertTrue(container.getServerLogs().contains("checkpoint is enabled"));
-        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+        Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
 
         // restore job
         CompletableFuture.supplyAsync(
@@ -176,7 +176,7 @@ public class CheckpointEnableIT extends TestSuiteBase {
                         return container
                                 .restoreJob(
                                         "/checkpoint-streaming-enable-test-resources/stream_fakesource_to_localfile.conf",
-                                        jobId)
+                                        String.valueOf(jobId))
                                 .getExitCode();
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());

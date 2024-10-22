@@ -391,12 +391,13 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
         insertSourceTable(DATABASE, SOURCE_TABLE1);
         insertSourceTable(DATABASE, SOURCE_TABLE2);
 
-        String jobId = JobIdGenerator.newJobId();
+        Long jobId = JobIdGenerator.newJobId();
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
                         return container.executeJob(
-                                "/oraclecdc_to_oracle_with_multi_table_mode_one_table.conf", jobId);
+                                "/oraclecdc_to_oracle_with_multi_table_mode_one_table.conf",
+                                String.valueOf(jobId));
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
@@ -434,14 +435,15 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
                                                                 getSourceQuerySQL(
                                                                         DATABASE, SINK_TABLE1)))));
 
-        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+        Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
 
         // Restore job with add a new table
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
                         container.restoreJob(
-                                "/oraclecdc_to_oracle_with_multi_table_mode_two_table.conf", jobId);
+                                "/oraclecdc_to_oracle_with_multi_table_mode_two_table.conf",
+                                String.valueOf(jobId));
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);

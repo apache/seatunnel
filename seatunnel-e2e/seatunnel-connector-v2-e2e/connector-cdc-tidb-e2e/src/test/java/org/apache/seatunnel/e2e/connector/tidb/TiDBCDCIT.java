@@ -166,11 +166,11 @@ public class TiDBCDCIT extends TiDBTestBase implements TestResource {
         // Clear related content to ensure that multiple operations are not affected
         clearTable(TIDB_DATABASE, SOURCE_TABLE);
         clearTable(TIDB_DATABASE, SINK_TABLE);
-        String jobId = JobIdGenerator.newJobId();
+        Long jobId = JobIdGenerator.newJobId();
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
-                        container.executeJob("/tidb/tidbcdc_to_tidb.conf", jobId);
+                        container.executeJob("/tidb/tidbcdc_to_tidb.conf", String.valueOf(jobId));
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
@@ -191,13 +191,13 @@ public class TiDBCDCIT extends TiDBTestBase implements TestResource {
                                             query(getSinkQuerySQL(TIDB_DATABASE, SINK_TABLE))));
                         });
 
-        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+        Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
 
         // Restore job
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
-                        container.restoreJob("/tidb/tidbcdc_to_tidb.conf", jobId);
+                        container.restoreJob("/tidb/tidbcdc_to_tidb.conf", String.valueOf(jobId));
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);

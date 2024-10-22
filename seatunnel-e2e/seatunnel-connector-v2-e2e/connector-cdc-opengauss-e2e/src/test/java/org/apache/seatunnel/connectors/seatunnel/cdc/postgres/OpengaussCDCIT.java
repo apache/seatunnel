@@ -289,14 +289,14 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
             disabledReason = "Currently SPARK and FLINK do not support restore")
     public void testMultiTableWithRestore(TestContainer container)
             throws IOException, InterruptedException {
-        String jobId = JobIdGenerator.newJobId();
+        Long jobId = JobIdGenerator.newJobId();
         try {
             CompletableFuture.supplyAsync(
                     () -> {
                         try {
                             return container.executeJob(
                                     "/opengausscdc_to_opengauss_with_multi_table_mode_one_table.conf",
-                                    jobId);
+                                    String.valueOf(jobId));
                         } catch (Exception e) {
                             log.error("Commit task exception :" + e.getMessage());
                             throw new RuntimeException(e);
@@ -322,7 +322,7 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
                                                                             OPENGAUSS_SCHEMA,
                                                                             SINK_TABLE_1)))));
 
-            Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+            Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
 
             // Restore job with add a new table
             CompletableFuture.supplyAsync(
@@ -330,7 +330,7 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
                         try {
                             container.restoreJob(
                                     "/opengausscdc_to_opengauss_with_multi_table_mode_two_table.conf",
-                                    jobId);
+                                    String.valueOf(jobId));
                         } catch (Exception e) {
                             log.error("Commit task exception :" + e.getMessage());
                             throw new RuntimeException(e);
@@ -388,13 +388,14 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
             disabledReason = "Currently SPARK and FLINK do not support restore")
     public void testAddFiledWithRestore(TestContainer container)
             throws IOException, InterruptedException {
-        String jobId = JobIdGenerator.newJobId();
+        Long jobId = JobIdGenerator.newJobId();
         try {
             CompletableFuture.supplyAsync(
                     () -> {
                         try {
                             return container.executeJob(
-                                    "/opengausscdc_to_opengauss_test_add_Filed.conf", jobId);
+                                    "/opengausscdc_to_opengauss_test_add_Filed.conf",
+                                    String.valueOf(jobId));
                         } catch (Exception e) {
                             log.error("Commit task exception :" + e.getMessage());
                             throw new RuntimeException(e);
@@ -417,7 +418,7 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
                                                                             OPENGAUSS_SCHEMA,
                                                                             SINK_TABLE_3)))));
 
-            Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+            Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
 
             // add filed add insert source table data
             addFieldsForTable(OPENGAUSS_SCHEMA, SOURCE_TABLE_3);
@@ -429,7 +430,8 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
                     () -> {
                         try {
                             container.restoreJob(
-                                    "/opengausscdc_to_opengauss_test_add_Filed.conf", jobId);
+                                    "/opengausscdc_to_opengauss_test_add_Filed.conf",
+                                    String.valueOf(jobId));
                         } catch (Exception e) {
                             log.error("Commit task exception :" + e.getMessage());
                             throw new RuntimeException(e);

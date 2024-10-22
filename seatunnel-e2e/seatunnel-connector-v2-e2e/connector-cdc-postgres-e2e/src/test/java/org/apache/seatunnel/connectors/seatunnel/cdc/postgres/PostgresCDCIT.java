@@ -275,13 +275,14 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             disabledReason = "Currently SPARK and FLINK do not support restore")
     public void testMultiTableWithRestore(TestContainer container)
             throws IOException, InterruptedException {
-        String jobId = JobIdGenerator.newJobId();
+        Long jobId = JobIdGenerator.newJobId();
         try {
             CompletableFuture.supplyAsync(
                     () -> {
                         try {
                             return container.executeJob(
-                                    "/pgcdc_to_pg_with_multi_table_mode_one_table.conf", jobId);
+                                    "/pgcdc_to_pg_with_multi_table_mode_one_table.conf",
+                                    String.valueOf(jobId));
                         } catch (Exception e) {
                             log.error("Commit task exception :" + e.getMessage());
                             throw new RuntimeException(e);
@@ -307,14 +308,15 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                                                             POSTGRESQL_SCHEMA,
                                                                             SINK_TABLE_1)))));
 
-            Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+            Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
 
             // Restore job with add a new table
             CompletableFuture.supplyAsync(
                     () -> {
                         try {
                             container.restoreJob(
-                                    "/pgcdc_to_pg_with_multi_table_mode_two_table.conf", jobId);
+                                    "/pgcdc_to_pg_with_multi_table_mode_two_table.conf",
+                                    String.valueOf(jobId));
                         } catch (Exception e) {
                             log.error("Commit task exception :" + e.getMessage());
                             throw new RuntimeException(e);
@@ -372,13 +374,14 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             disabledReason = "Currently SPARK and FLINK do not support restore")
     public void testAddFiledWithRestore(TestContainer container)
             throws IOException, InterruptedException {
-        String jobId = JobIdGenerator.newJobId();
+        Long jobId = JobIdGenerator.newJobId();
         try {
             CompletableFuture.supplyAsync(
                     () -> {
                         try {
                             return container.executeJob(
-                                    "/postgrescdc_to_postgres_test_add_Filed.conf", jobId);
+                                    "/postgrescdc_to_postgres_test_add_Filed.conf",
+                                    String.valueOf(jobId));
                         } catch (Exception e) {
                             log.error("Commit task exception :" + e.getMessage());
                             throw new RuntimeException(e);
@@ -401,7 +404,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                                                             POSTGRESQL_SCHEMA,
                                                                             SINK_TABLE_3)))));
 
-            Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+            Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
 
             // add filed add insert source table data
             addFieldsForTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_3);
@@ -413,7 +416,8 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                     () -> {
                         try {
                             container.restoreJob(
-                                    "/postgrescdc_to_postgres_test_add_Filed.conf", jobId);
+                                    "/postgrescdc_to_postgres_test_add_Filed.conf",
+                                    String.valueOf(jobId));
                         } catch (Exception e) {
                             log.error("Commit task exception :" + e.getMessage());
                             throw new RuntimeException(e);

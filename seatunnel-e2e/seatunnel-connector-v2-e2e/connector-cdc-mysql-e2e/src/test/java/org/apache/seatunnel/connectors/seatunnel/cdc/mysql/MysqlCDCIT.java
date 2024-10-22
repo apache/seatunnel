@@ -328,12 +328,13 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
         clearTable(MYSQL_DATABASE2, SOURCE_TABLE_1);
         clearTable(MYSQL_DATABASE2, SOURCE_TABLE_2);
 
-        String jobId = JobIdGenerator.newJobId();
+        Long jobId = JobIdGenerator.newJobId();
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
                         return container.executeJob(
-                                "/mysqlcdc_to_mysql_with_multi_table_mode_one_table.conf", jobId);
+                                "/mysqlcdc_to_mysql_with_multi_table_mode_one_table.conf",
+                                String.valueOf(jobId));
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
@@ -365,14 +366,15 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                 .pollInterval(1000, TimeUnit.MILLISECONDS)
                 .until(() -> getConnectionStatus("st_user_sink").size() == 1);
 
-        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+        Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
 
         // Restore job with add a new table
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
                         container.restoreJob(
-                                "/mysqlcdc_to_mysql_with_multi_table_mode_two_table.conf", jobId);
+                                "/mysqlcdc_to_mysql_with_multi_table_mode_two_table.conf",
+                                String.valueOf(jobId));
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
