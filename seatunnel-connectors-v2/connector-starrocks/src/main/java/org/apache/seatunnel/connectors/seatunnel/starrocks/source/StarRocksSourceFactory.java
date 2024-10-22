@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.starrocks.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -32,10 +31,13 @@ import org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SourceConfig;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 
+@Slf4j
 @AutoService(Factory.class)
+@SuppressWarnings({"unchecked", "rawtypes"})
 public class StarRocksSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
@@ -72,11 +74,11 @@ public class StarRocksSourceFactory implements TableSourceFactory {
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
-        ReadonlyConfig config = context.getOptions();
-        SourceConfig starRocksSourceConfig = new SourceConfig(config);
-        CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(config);
+        ReadonlyConfig options = context.getOptions();
+        SourceConfig starRocksSourceConfig = new SourceConfig(options);
+        CatalogTable finalTable = CatalogTableUtil.buildWithConfig("starrocks", options);
         return () ->
                 (SeaTunnelSource<T, SplitT, StateT>)
-                        new StarRocksSource(starRocksSourceConfig, catalogTable);
+                        new StarRocksSource(starRocksSourceConfig, finalTable);
     }
 }
