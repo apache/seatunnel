@@ -57,9 +57,9 @@ public class RedisParameters implements Serializable {
     private List<String> redisNodes = Collections.emptyList();
     private long expire = RedisConfig.EXPIRE.defaultValue();
     private int batchSize = RedisConfig.BATCH_SIZE.defaultValue();
-    private String valueColumn;
-    private String hashKeyColumn;
-    private String hashValueColumn;
+    private String valueField;
+    private String hashKeyField;
+    private String hashValueField;
 
     private int redisVersion;
 
@@ -100,17 +100,17 @@ public class RedisParameters implements Serializable {
         this.redisDataType = config.get(RedisConfig.DATA_TYPE);
         // Indicates the number of keys to attempt to return per iteration.default 10
         this.batchSize = config.get(RedisConfig.BATCH_SIZE);
-        // set value column
-        if (config.getOptional(RedisConfig.VALUE_COLUMN).isPresent()) {
-            this.valueColumn = config.get(RedisConfig.VALUE_COLUMN);
+        // set value field
+        if (config.getOptional(RedisConfig.VALUE_FIELD).isPresent()) {
+            this.valueField = config.get(RedisConfig.VALUE_FIELD);
         }
-        // set hash key column
-        if (config.getOptional(RedisConfig.HASH_KEY_COLUMN).isPresent()) {
-            this.hashKeyColumn = config.get(RedisConfig.HASH_KEY_COLUMN);
+        // set hash key field
+        if (config.getOptional(RedisConfig.HASH_KEY_FIELD).isPresent()) {
+            this.hashKeyField = config.get(RedisConfig.HASH_KEY_FIELD);
         }
-        // set hash value column
-        if (config.getOptional(RedisConfig.HASH_VALUE_COLUMN).isPresent()) {
-            this.hashValueColumn = config.get(RedisConfig.HASH_VALUE_COLUMN);
+        // set hash value field
+        if (config.getOptional(RedisConfig.HASH_VALUE_FIELD).isPresent()) {
+            this.hashValueField = config.get(RedisConfig.HASH_VALUE_FIELD);
         }
     }
 
