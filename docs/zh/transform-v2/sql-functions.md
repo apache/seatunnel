@@ -969,7 +969,7 @@ case when c_string in ('c_string') then 1 else 0 end
 
 ```UUID()```
 
-java.util.UUID.randomUUID().toString()
+通过java函数生成uuid
 
 示例:
 

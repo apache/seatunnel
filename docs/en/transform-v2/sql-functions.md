@@ -978,7 +978,7 @@ case when c_string in ('c_string') then 1 else 0 end
 
 ```UUID()```
 
-java.util.UUID.randomUUID().toString()
+Generate a uuid through java function.
 
 Example:
 
