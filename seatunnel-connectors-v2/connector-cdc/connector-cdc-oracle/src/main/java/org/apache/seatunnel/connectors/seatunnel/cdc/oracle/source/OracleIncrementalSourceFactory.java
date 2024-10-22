@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -30,6 +31,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
@@ -37,13 +39,18 @@ import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLParser;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @AutoService(Factory.class)
 public class OracleIncrementalSourceFactory implements TableSourceFactory {
     @Override
@@ -104,11 +111,28 @@ public class OracleIncrementalSourceFactory implements TableSourceFactory {
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         return () -> {
-            List<CatalogTable> catalogTables =
-                    CatalogTableUtil.getCatalogTables(
-                            context.getOptions(), context.getClassLoader());
+            ReadonlyConfig options = context.getOptions();
+            List<CatalogTable> catalogTables = new ArrayList<>();
+            try (OracleCatalog catalog =
+                    new OracleCatalog(
+                            OracleIncrementalSource.IDENTIFIER,
+                            options.get(JdbcCatalogOptions.USERNAME),
+                            options.get(JdbcCatalogOptions.PASSWORD),
+                            OracleURLParser.parse(options.get(JdbcCatalogOptions.BASE_URL)),
+                            options.get(JdbcCatalogOptions.SCHEMA))) {
+                catalog.open();
+                List<CatalogTable> tables = catalog.getTables(options);
+                if (tables.isEmpty()) {
+                    throw new SeaTunnelException(
+                            String.format(
+                                    "Can not find catalog table in [%s]",
+                                    OracleIncrementalSource.IDENTIFIER));
+                }
+                catalogTables.addAll(tables);
+            }
+
             Optional<List<JdbcSourceTableConfig>> tableConfigs =
-                    context.getOptions().getOptional(JdbcSourceOptions.TABLE_NAMES_CONFIG);
+                    options.getOptional(JdbcSourceOptions.TABLE_NAMES_CONFIG);
             if (tableConfigs.isPresent()) {
                 catalogTables =
                         CatalogTableUtils.mergeCatalogTableConfig(
@@ -116,7 +140,7 @@ public class OracleIncrementalSourceFactory implements TableSourceFactory {
             }
             SeaTunnelDataType<SeaTunnelRow> dataType =
                     CatalogTableUtil.convertToMultipleRowType(catalogTables);
-            return new OracleIncrementalSource(context.getOptions(), dataType, catalogTables);
+            return new OracleIncrementalSource(options, dataType, catalogTables);
         };
     }
 }
