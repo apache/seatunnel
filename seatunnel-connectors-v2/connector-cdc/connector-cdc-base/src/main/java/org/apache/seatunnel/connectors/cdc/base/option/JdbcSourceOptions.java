@@ -152,7 +152,8 @@ public class JdbcSourceOptions extends SourceOptions {
                                     + "["
                                     + "   {"
                                     + "       \"table\": \"db1.schema1.table1\","
-                                    + "       \"primaryKeys\": [\"key1\",\"key2\"]"
+                                    + "       \"primaryKeys\": [\"key1\",\"key2\"],"
+                                    + "       \"snapshot.split.column\": \"key1\""
                                     + "   }"
                                     + "]");
 }

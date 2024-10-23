@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import lombok.Setter;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -246,7 +247,17 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.sampleShardingThreshold = config.get(JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD);
         this.inverseSamplingRate = config.get(JdbcSourceOptions.INVERSE_SAMPLING_RATE);
         this.splitSize = config.get(SourceOptions.SNAPSHOT_SPLIT_SIZE);
-        this.splitColumn = config.get(SourceOptions.SNAPSHOT_SPLIT_COLUMN);
+        this.splitColumn = new HashMap<>();
+        config.getOptional(JdbcSourceOptions.TABLE_NAMES_CONFIG)
+                .ifPresent(
+                        jtcs -> {
+                            jtcs.forEach(
+                                    jtc -> {
+                                        this.splitColumn.put(
+                                                jtc.getTable(), jtc.getSnapshotSplitColumn());
+                                    });
+                        });
+
         this.fetchSize = config.get(SourceOptions.SNAPSHOT_FETCH_SIZE);
         this.serverTimeZone = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
         this.connectTimeoutMillis = config.get(JdbcSourceOptions.CONNECT_TIMEOUT_MS);

@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 
-import java.util.HashMap;
 import java.util.Map;
 
 @SuppressWarnings("MagicNumber")
@@ -37,14 +36,6 @@ public class SourceOptions {
                     .defaultValue(8096)
                     .withDescription(
                             "The split size (number of rows) of table snapshot, captured tables are split into multiple splits when read the snapshot of table.");
-
-    public static final Option<Map<String, String>> SNAPSHOT_SPLIT_COLUMN =
-            Options.key("snapshot.split.column")
-                    .mapType()
-                    .defaultValue(new HashMap<>())
-                    .withDescription(
-                            "The split column of table snapshot, captured tables are split into multiple splits when read the snapshot of table.");
-
     public static final Option<Integer> SNAPSHOT_FETCH_SIZE =
             Options.key("snapshot.fetch.size")
                     .intType()
@@ -119,7 +110,7 @@ public class SourceOptions {
     public static OptionRule.Builder getBaseRule() {
         return OptionRule.builder()
                 .optional(FORMAT)
-                .optional(SNAPSHOT_SPLIT_SIZE, SNAPSHOT_FETCH_SIZE, SNAPSHOT_SPLIT_COLUMN)
+                .optional(SNAPSHOT_SPLIT_SIZE, SNAPSHOT_FETCH_SIZE)
                 .optional(INCREMENTAL_PARALLELISM)
                 .optional(DEBEZIUM_PROPERTIES);
     }
