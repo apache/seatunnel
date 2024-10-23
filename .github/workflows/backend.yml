@@ -308,7 +308,7 @@ jobs:
           npm run build
 
   seatunnel-ui:
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.docs == 'true'
+    if: needs.changes.outputs.api == 'true'
     needs: [ changes, sanity-check ]
     name: Build SeaTunnel UI
     runs-on: ubuntu-latest
