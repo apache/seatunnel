@@ -60,8 +60,6 @@ simpleclient_httpserver-0.16.0.jar
 simpleclient_tracer_common-0.16.0.jar
 simpleclient_tracer_otel-0.16.0.jar
 simpleclient_tracer_otel_agent-0.16.0.jar
-cron-utils-9.2.0.jar
-jakarta.el-3.0.4.jar
 jetty-http-9.4.56.v20240826.jar
 jetty-io-9.4.56.v20240826.jar
 jetty-security-9.4.56.v20240826.jar

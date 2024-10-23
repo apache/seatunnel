@@ -39,7 +39,6 @@ seatunnel:
         enabled: false
       log:
         scheduled-deletion-enable: false
-        cron: "0 0 * * *"
         prefix: job
     http:
       enable-http: true

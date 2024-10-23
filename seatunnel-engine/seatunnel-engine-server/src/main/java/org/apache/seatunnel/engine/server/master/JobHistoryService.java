@@ -281,7 +281,6 @@ public class JobHistoryService {
 
     public void storeJobInfo(long jobId, JobDAGInfo jobInfo) {
         finishedJobDAGInfoImap.put(jobId, jobInfo, finishedJobExpireTime, TimeUnit.MINUTES);
-        System.out.println();
     }
 
     @AllArgsConstructor

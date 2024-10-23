@@ -40,6 +40,4 @@ seatunnel:
          enabled: false
       logs:
          scheduled-deletion-enable: true
-         cron: "* * * * *"
-         keep-time: 30000
          prefix: job
