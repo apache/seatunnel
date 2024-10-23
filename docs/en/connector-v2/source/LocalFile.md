@@ -254,6 +254,12 @@ Specifies Whether to process data using the tag attribute format.
 
 Filter pattern, which used for filtering files.
 
+The filtering format is similar to wildcard matching file names in Linux.
+
+However, it should be noted that unlike Linux wildcard characters, when encountering file suffixes, the middle dot cannot be omitted.
+
+For example, `abc20241022.csv`, the normal Linux wildcard `abc*` is sufficient, but here we need to use `abc*.*` , Pay attention to a point in the middle.
+
 ### compress_codec [string]
 
 The compress codec of files and the details that supported as the following shown:
@@ -404,6 +410,29 @@ sink {
   }
 }
 
+```
+
+### Filter File
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  LocalFile {
+    path = "/seatunnel/read/"
+    file_format_type = "csv"
+    skip_header_row_number = 1
+    // file example abcD2024.csv
+    file_filter_pattern = "abc[DX]*.*"
+  }
+}
+sink {
+  Console {
+  }
+}
 ```
 
 ## Changelog
