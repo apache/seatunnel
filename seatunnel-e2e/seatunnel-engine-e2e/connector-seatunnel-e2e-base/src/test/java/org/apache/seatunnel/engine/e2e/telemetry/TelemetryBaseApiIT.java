@@ -17,59 +17,46 @@
 
 package org.apache.seatunnel.engine.e2e.telemetry;
 
-import org.apache.seatunnel.engine.client.job.ClientJobProxy;
-import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
-import org.apache.seatunnel.engine.common.config.server.TelemetryConfig;
-import org.apache.seatunnel.engine.common.config.server.TelemetryMetricConfig;
 import org.apache.seatunnel.engine.e2e.TestUtils;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
-import lombok.extern.slf4j.Slf4j;
 
-import java.util.concurrent.ExecutionException;
-
-@Slf4j
-public class TelemetryBaseApiIT {
-
-    private static ClientJobProxy clientJobProxy;
+public class TelemetryBaseApiIT extends AbstractTelemetryBaseIT {
 
     private static HazelcastInstanceImpl hazelcastInstance;
 
     private static String testClusterName = "TelemetryApiIT";
 
-    @BeforeAll
-    static void beforeClass() throws Exception {
-        createBaseTestNode();
+    private void createBaseTestNode(SeaTunnelConfig[] seaTunnelConfigs) {
+        hazelcastInstance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfigs[0]);
     }
 
-    private static void createBaseTestNode() throws ExecutionException, InterruptedException {
-        testClusterName = TestUtils.getClusterName(testClusterName);
-        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
-        seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
-        TelemetryMetricConfig telemetryMetricConfig = new TelemetryMetricConfig();
-        telemetryMetricConfig.setEnabled(true);
-        TelemetryConfig telemetryConfig = new TelemetryConfig();
-        telemetryConfig.setMetric(telemetryMetricConfig);
-        seaTunnelConfig.getEngineConfig().setTelemetryConfig(telemetryConfig);
-        hazelcastInstance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
-        TelemetryTestUtils.runJob(seaTunnelConfig, testClusterName);
+    @Override
+    public void open(SeaTunnelConfig... seaTunnelConfigs) {
+        createBaseTestNode(seaTunnelConfigs);
     }
 
-    @Test
-    public void testGetMetrics() throws InterruptedException {
-        TelemetryTestUtils.testGetMetrics(hazelcastInstance, testClusterName);
-    }
-
-    @AfterAll
-    static void afterClass() {
+    @Override
+    public void close() throws Exception {
         if (hazelcastInstance != null) {
             hazelcastInstance.shutdown();
         }
+    }
+
+    @Override
+    public HazelcastInstanceImpl getHazelcastInstance() throws Exception {
+        return hazelcastInstance;
+    }
+
+    @Override
+    public int getNodeCount() {
+        return 1;
+    }
+
+    @Override
+    public String getClusterName() {
+        return TestUtils.getClusterName(testClusterName);
     }
 }

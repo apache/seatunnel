@@ -79,25 +79,13 @@ public class SeaTunnelServerStarter {
         seaTunnelConfig
                 .getEngineConfig()
                 .setClusterRole(EngineConfig.ClusterRole.MASTER_AND_WORKER);
-        return ((HazelcastInstanceProxy)
-                        HazelcastInstanceFactory.newHazelcastInstance(
-                                seaTunnelConfig.getHazelcastConfig(),
-                                HazelcastInstanceFactory.createInstanceName(
-                                        seaTunnelConfig.getHazelcastConfig()),
-                                new SeaTunnelNodeContext(seaTunnelConfig)))
-                .getOriginal();
+        return initializeHazelcastInstance(seaTunnelConfig, null);
     }
 
     public static HazelcastInstanceImpl createMasterHazelcastInstance(
             @NonNull SeaTunnelConfig seaTunnelConfig) {
         seaTunnelConfig.getEngineConfig().setClusterRole(EngineConfig.ClusterRole.MASTER);
-        return ((HazelcastInstanceProxy)
-                        HazelcastInstanceFactory.newHazelcastInstance(
-                                seaTunnelConfig.getHazelcastConfig(),
-                                HazelcastInstanceFactory.createInstanceName(
-                                        seaTunnelConfig.getHazelcastConfig()),
-                                new SeaTunnelNodeContext(seaTunnelConfig)))
-                .getOriginal();
+        return initializeHazelcastInstance(seaTunnelConfig, null);
     }
 
     public static HazelcastInstanceImpl createWorkerHazelcastInstance(
@@ -105,13 +93,7 @@ public class SeaTunnelServerStarter {
         seaTunnelConfig.getEngineConfig().setClusterRole(EngineConfig.ClusterRole.WORKER);
         // in hazelcast lite node will not store IMap data.
         seaTunnelConfig.getHazelcastConfig().setLiteMember(true);
-        return ((HazelcastInstanceProxy)
-                        HazelcastInstanceFactory.newHazelcastInstance(
-                                seaTunnelConfig.getHazelcastConfig(),
-                                HazelcastInstanceFactory.createInstanceName(
-                                        seaTunnelConfig.getHazelcastConfig()),
-                                new SeaTunnelNodeContext(seaTunnelConfig)))
-                .getOriginal();
+        return initializeHazelcastInstance(seaTunnelConfig, null);
     }
 
     public static HazelcastInstanceImpl createHazelcastInstance() {
