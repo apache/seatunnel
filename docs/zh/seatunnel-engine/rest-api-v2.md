@@ -13,8 +13,9 @@ v2版本的api使用jetty支持，与v1版本的接口规范相同 ,可以通过
 
 seatunnel:
   engine:
-    enable-http: true
-    port: 8080
+    http:
+      enable-http: true
+      port: 8080
 ```
 
 同时也可以配置context-path,配置如下：
@@ -23,9 +24,10 @@ seatunnel:
 
 seatunnel:
   engine:
-    enable-http: true
-    port: 8080
-    context-path: /seatunnel
+    http:
+      enable-http: true
+      port: 8080
+      context-path: /seatunnel
 ```
 
 ## API参考
@@ -746,7 +748,7 @@ seatunnel:
 ### 获取所有节点日志内容
 
 <details>
- <summary><code>GET</code> <code><b>/logs/:jobId</b></code> <code>(返回日志列表。)</code></summary></summary>
+ <summary><code>GET</code> <code><b>/logs/:jobId</b></code> <code>(返回日志列表。)</code></summary>
 
 #### 请求参数
 
@@ -798,7 +800,7 @@ seatunnel:
 ### 获取单节点日志内容
 
 <details>
- <summary><code>GET</code> <code><b>/log</b></code> <code>(返回日志列表。)</code></summary></summary>
+ <summary><code>GET</code> <code><b>/log</b></code> <code>(返回日志列表。)</code></summary>
 
 #### 响应
 

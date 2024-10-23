@@ -21,7 +21,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class JobIdGenerator {
 
-    public static String newJobId() {
-        return String.valueOf(Math.abs(ThreadLocalRandom.current().nextLong()));
+    public static Long newJobId() {
+        return Math.abs(ThreadLocalRandom.current().nextLong());
     }
 }
