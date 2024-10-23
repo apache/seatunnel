@@ -46,16 +46,14 @@ export default defineComponent({
     const jobId = route.params.jobId as string
     const job = reactive({} as Job)
     const duration = ref('')
+    let timer: NodeJS.Timeout
     const fetch = async () => {
       const res = await getJobInfo(jobId)
       Object.assign(job, res)
+      clearInterval(timer)
       const d = parse(res.createTime, 'yyyy-MM-dd HH:mm:ss', new Date())
       duration.value = getRemainTime(Math.abs(Date.now() - d.getTime()))
-      let timer: NodeJS.Timeout
-      setTimeout(() => {
-        clearInterval(timer)
-        fetch()
-      }, 5000)
+      setTimeout(fetch, 5000)
       if (job.jobStatus !== 'RUNNING') {
         return
       }
