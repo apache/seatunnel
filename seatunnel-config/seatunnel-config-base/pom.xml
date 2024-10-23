@@ -69,11 +69,29 @@
                                 <exclude>com/typesafe/config/ConfigParseOptions.class</exclude>
                                 <exclude>com/typesafe/config/ConfigMergeable.class</exclude>
                                 <exclude>com/typesafe/config/impl/ConfigParser.class</exclude>
+                                <exclude>com/typesafe/config/impl/ConfigParser$1.class</exclude>
+                                <exclude>com/typesafe/config/impl/ConfigParser$ParseContext.class</exclude>
                                 <exclude>com/typesafe/config/impl/ConfigNodePath.class</exclude>
                                 <exclude>com/typesafe/config/impl/PathParser.class</exclude>
+                                <exclude>com/typesafe/config/impl/PathParser$Element.class</exclude>
                                 <exclude>com/typesafe/config/impl/Path.class</exclude>
                                 <exclude>com/typesafe/config/impl/SimpleConfigObject.class</exclude>
+                                <exclude>com/typesafe/config/impl/SimpleConfigObject$1.class</exclude>
+                                <exclude>com/typesafe/config/impl/SimpleConfigObject$RenderComparator.class</exclude>
+                                <exclude>com/typesafe/config/impl/SimpleConfigObject$ResolveModifier.class</exclude>
                                 <exclude>com/typesafe/config/impl/PropertiesParser.class</exclude>
+                                <exclude>com/typesafe/config/impl/PropertiesParser$1.class</exclude>
+                                <exclude>com/typesafe/config/impl/ConfigImpl.class</exclude>
+                                <exclude>com/typesafe/config/impl/ConfigImpl$1.class</exclude>
+                                <exclude>com/typesafe/config/impl/ConfigImpl$ClasspathNameSource.class</exclude>
+                                <exclude>com/typesafe/config/impl/ConfigImpl$ClasspathNameSourceWithClass.class</exclude>
+                                <exclude>com/typesafe/config/impl/ConfigImpl$DebugHolder.class</exclude>
+                                <exclude>com/typesafe/config/impl/ConfigImpl$DefaultIncluderHolder.class</exclude>
+                                <exclude>com/typesafe/config/impl/ConfigImpl$EnvVariablesHolder.class</exclude>
+                                <exclude>com/typesafe/config/impl/ConfigImpl$FileNameSource.class</exclude>
+                                <exclude>com/typesafe/config/impl/ConfigImpl$LoaderCache.class</exclude>
+                                <exclude>com/typesafe/config/impl/ConfigImpl$LoaderCacheHolder.class</exclude>
+                                <exclude>com/typesafe/config/impl/ConfigImpl$SystemPropertiesHolder.class</exclude>
                             </excludes>
                         </filter>
                     </filters>
