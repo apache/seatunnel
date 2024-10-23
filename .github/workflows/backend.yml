@@ -319,7 +319,7 @@ jobs:
 
       - uses: actions/setup-node@v2
         with:
-          node-version: 20.1.4
+          node-version: 20.x
 
       - name: Install Dependencies and Check Code Style
         run: |
