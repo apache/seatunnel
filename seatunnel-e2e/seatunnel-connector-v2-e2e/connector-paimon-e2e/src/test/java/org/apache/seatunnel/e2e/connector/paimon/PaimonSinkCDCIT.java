@@ -559,7 +559,9 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
         TimeUnit.SECONDS.sleep(20);
         String[] jobIds =
                 new String[] {
-                    JobIdGenerator.newJobId(), JobIdGenerator.newJobId(), JobIdGenerator.newJobId()
+                    String.valueOf(JobIdGenerator.newJobId()),
+                    String.valueOf(JobIdGenerator.newJobId()),
+                    String.valueOf(JobIdGenerator.newJobId())
                 };
         log.info("jobIds: {}", Arrays.toString(jobIds));
         List<CompletableFuture<Void>> futures = new ArrayList<>();
@@ -641,14 +643,15 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testChangelogFullCompaction(TestContainer container) throws Exception {
-        String jobId = JobIdGenerator.newJobId();
+        Long jobId = JobIdGenerator.newJobId();
         log.info("jobId: {}", jobId);
         CompletableFuture<Void> voidCompletableFuture =
                 CompletableFuture.runAsync(
                         () -> {
                             try {
                                 container.executeJob(
-                                        "/changelog_fake_cdc_sink_paimon_case2.conf", jobId);
+                                        "/changelog_fake_cdc_sink_paimon_case2.conf",
+                                        String.valueOf(jobId));
                             } catch (Exception e) {
                                 throw new SeaTunnelException(e);
                             }
@@ -657,7 +660,7 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
         TimeUnit.SECONDS.sleep(20);
         changeLogEnabled = true;
         // cancel stream job
-        container.cancelJob(jobId);
+        container.cancelJob(String.valueOf(jobId));
         TimeUnit.SECONDS.sleep(5);
         // copy paimon to local
         container.executeExtraCommands(containerExtendedFactory);
