@@ -51,18 +51,17 @@ export default defineComponent({
       Object.assign(job, res)
       const d = parse(res.createTime, 'yyyy-MM-dd HH:mm:ss', new Date())
       duration.value = getRemainTime(Math.abs(Date.now() - d.getTime()))
+      let timer: NodeJS.Timeout
+      setTimeout(() => {
+        clearInterval(timer)
+        fetch()
+      }, 5000)
       if (job.jobStatus !== 'RUNNING') {
         return
       }
-      let count = 0
-      const timer = setInterval(() => {
+      timer = setInterval(() => {
         duration.value = getRemainTime(Math.abs(Date.now() - d.getTime()))
-        count++
-        if (count > 5) {
-          clearInterval(timer)
-          fetch()
-        }
-      }, 996)
+      }, 1000)
     }
 
     fetch()
