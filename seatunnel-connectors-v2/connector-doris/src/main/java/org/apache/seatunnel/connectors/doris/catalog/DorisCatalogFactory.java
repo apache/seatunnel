@@ -22,10 +22,13 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 import org.apache.seatunnel.connectors.doris.config.DorisOptions;
+import org.apache.seatunnel.connectors.doris.config.DorisSinkOptions;
 
 import com.google.auto.service.AutoService;
+
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.IDENTIFIER;
+import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SAVE_MODE_CREATE_TEMPLATE;
 
 @AutoService(Factory.class)
 public class DorisCatalogFactory implements CatalogFactory {
@@ -38,13 +41,13 @@ public class DorisCatalogFactory implements CatalogFactory {
                 options.get(DorisOptions.QUERY_PORT),
                 options.get(DorisOptions.USERNAME),
                 options.get(DorisOptions.PASSWORD),
-                DorisConfig.of(options),
-                options.get(DorisOptions.DEFAULT_DATABASE));
+                options.get(SAVE_MODE_CREATE_TEMPLATE),
+                options.get(DorisSinkOptions.DEFAULT_DATABASE));
     }
 
     @Override
     public String factoryIdentifier() {
-        return DorisConfig.IDENTIFIER;
+        return IDENTIFIER;
     }
 
     @Override

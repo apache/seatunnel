@@ -23,10 +23,11 @@ import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
+
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.IDENTIFIER;
 
 /** Doris type converter for version 1.2.x */
 @Slf4j
@@ -42,7 +43,7 @@ public class DorisTypeConverterV1 extends AbstractDorisTypeConverter {
 
     @Override
     public String identifier() {
-        return DorisConfig.IDENTIFIER;
+        return IDENTIFIER;
     }
 
     @Override

@@ -22,7 +22,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.doris.config.DorisConfig;
+import org.apache.seatunnel.connectors.doris.config.DorisSinkConfig;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 import org.apache.seatunnel.connectors.doris.rest.models.RespContent;
@@ -89,20 +89,20 @@ public class DorisStreamLoad implements Serializable {
     public DorisStreamLoad(
             String hostPort,
             TablePath tablePath,
-            DorisConfig dorisConfig,
+            DorisSinkConfig dorisSinkConfig,
             LabelGenerator labelGenerator,
             CloseableHttpClient httpClient) {
         this.hostPort = hostPort;
         this.db = tablePath.getDatabaseName();
         this.table = tablePath.getTableName();
-        this.user = dorisConfig.getUsername();
-        this.passwd = dorisConfig.getPassword();
+        this.user = dorisSinkConfig.getUsername();
+        this.passwd = dorisSinkConfig.getPassword();
         this.labelGenerator = labelGenerator;
         this.loadUrlStr = String.format(LOAD_URL_PATTERN, hostPort, db, table);
         this.abortUrlStr = String.format(ABORT_URL_PATTERN, hostPort, db);
-        this.enable2PC = dorisConfig.getEnable2PC();
-        this.streamLoadProp = dorisConfig.getStreamLoadProps();
-        this.enableDelete = dorisConfig.getEnableDelete();
+        this.enable2PC = dorisSinkConfig.getEnable2PC();
+        this.streamLoadProp = dorisSinkConfig.getStreamLoadProps();
+        this.enableDelete = dorisSinkConfig.getEnableDelete();
         this.httpClient = httpClient;
         this.executorService =
                 new ThreadPoolExecutor(
@@ -113,7 +113,7 @@ public class DorisStreamLoad implements Serializable {
                         new LinkedBlockingQueue<>(),
                         new ThreadFactoryBuilder().setNameFormat("stream-load-upload").build());
         this.recordStream =
-                new RecordStream(dorisConfig.getBufferSize(), dorisConfig.getBufferCount());
+                new RecordStream(dorisSinkConfig.getBufferSize(), dorisSinkConfig.getBufferCount());
         lineDelimiter =
                 streamLoadProp.getProperty(LINE_DELIMITER_KEY, LINE_DELIMITER_DEFAULT).getBytes();
         loadBatchFirstRecord = true;

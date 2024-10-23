@@ -18,12 +18,13 @@
 package org.apache.seatunnel.connectors.doris.rest;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.doris.config.DorisConfig;
-import org.apache.seatunnel.connectors.doris.config.DorisOptions;
+import org.apache.seatunnel.connectors.doris.config.DorisSourceConfig;
+import org.apache.seatunnel.connectors.doris.config.DorisSourceOptions;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 import org.apache.seatunnel.connectors.doris.rest.models.QueryPlan;
 import org.apache.seatunnel.connectors.doris.rest.models.Tablet;
+import org.apache.seatunnel.connectors.doris.source.DorisSourceTable;
 import org.apache.seatunnel.connectors.doris.util.ErrorMessages;
 
 import org.apache.commons.io.IOUtils;
@@ -69,11 +70,12 @@ public class RestService implements Serializable {
     private static final String QUERY_PLAN = "_query_plan";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    private static String send(DorisConfig dorisConfig, HttpRequestBase request, Logger logger)
+    private static String send(
+            DorisSourceConfig dorisSourceConfig, HttpRequestBase request, Logger logger)
             throws DorisConnectorException {
-        int connectTimeout = dorisConfig.getRequestConnectTimeoutMs();
-        int socketTimeout = dorisConfig.getRequestReadTimeoutMs();
-        int retries = dorisConfig.getRequestRetries();
+        int connectTimeout = dorisSourceConfig.getRequestConnectTimeoutMs();
+        int socketTimeout = dorisSourceConfig.getRequestReadTimeoutMs();
+        int retries = dorisSourceConfig.getRequestRetries();
         logger.trace(
                 "connect timeout set to '{}'. socket timeout set to '{}'. retries set to '{}'.",
                 connectTimeout,
@@ -90,7 +92,7 @@ public class RestService implements Serializable {
         logger.info(
                 "Send request to Doris FE '{}' with user '{}'.",
                 request.getURI(),
-                dorisConfig.getUsername());
+                dorisSourceConfig.getUsername());
         IOException ex = null;
         int statusCode = -1;
 
@@ -102,15 +104,15 @@ public class RestService implements Serializable {
                     response =
                             getConnectionGet(
                                     request.getURI().toString(),
-                                    dorisConfig.getUsername(),
-                                    dorisConfig.getPassword(),
+                                    dorisSourceConfig.getUsername(),
+                                    dorisSourceConfig.getPassword(),
                                     logger);
                 } else {
                     response =
                             getConnectionPost(
                                     request,
-                                    dorisConfig.getUsername(),
-                                    dorisConfig.getPassword(),
+                                    dorisSourceConfig.getUsername(),
+                                    dorisSourceConfig.getPassword(),
                                     logger);
                 }
                 if (StringUtils.isEmpty(response)) {
@@ -251,11 +253,16 @@ public class RestService implements Serializable {
     }
 
     @VisibleForTesting
-    static String getUriStr(DorisConfig dorisConfig, Logger logger) throws DorisConnectorException {
-        String tableIdentifier = dorisConfig.getDatabase() + "." + dorisConfig.getTable();
+    static String getUriStr(
+            DorisSourceConfig dorisSourceConfig, DorisSourceTable dorisSourceTable, Logger logger)
+            throws DorisConnectorException {
+        String tableIdentifier =
+                dorisSourceTable.getTablePath().getDatabaseName()
+                        + "."
+                        + dorisSourceTable.getTablePath().getTableName();
         String[] identifier = parseIdentifier(tableIdentifier, logger);
         return "http://"
-                + randomEndpoint(dorisConfig.getFrontends(), logger)
+                + randomEndpoint(dorisSourceConfig.getFrontends(), logger)
                 + API_PREFIX
                 + "/"
                 + identifier[0]
@@ -265,9 +272,13 @@ public class RestService implements Serializable {
     }
 
     public static List<PartitionDefinition> findPartitions(
-            SeaTunnelRowType rowType, DorisConfig dorisConfig, Logger logger)
+            DorisSourceConfig dorisSourceConfig, DorisSourceTable dorisSourceTable, Logger logger)
             throws DorisConnectorException {
-        String tableIdentifier = dorisConfig.getDatabase() + "." + dorisConfig.getTable();
+        String tableIdentifier =
+                dorisSourceTable.getTablePath().getDatabaseName()
+                        + "."
+                        + dorisSourceTable.getTablePath().getTableName();
+        SeaTunnelRowType rowType = dorisSourceTable.getCatalogTable().getSeaTunnelRowType();
         String[] tableIdentifiers = parseIdentifier(tableIdentifier, logger);
         String readFields = "*";
         if (rowType.getFieldNames().length != 0) {
@@ -281,12 +292,13 @@ public class RestService implements Serializable {
                         + "`.`"
                         + tableIdentifiers[1]
                         + "`";
-        if (!StringUtils.isEmpty(dorisConfig.getFilterQuery())) {
-            sql += " where " + dorisConfig.getFilterQuery();
+        if (!StringUtils.isEmpty(dorisSourceTable.getFilterQuery())) {
+            sql += " where " + dorisSourceTable.getFilterQuery();
         }
         logger.debug("Query SQL Sending to Doris FE is: '{}'.", sql);
 
-        HttpPost httpPost = new HttpPost(getUriStr(dorisConfig, logger) + QUERY_PLAN);
+        HttpPost httpPost =
+                new HttpPost(getUriStr(dorisSourceConfig, dorisSourceTable, logger) + QUERY_PLAN);
         String entity = "{\"sql\": \"" + sql + "\"}";
         logger.debug("Post body Sending to Doris FE is: '{}'.", entity);
         StringEntity stringEntity = new StringEntity(entity, StandardCharsets.UTF_8);
@@ -294,12 +306,12 @@ public class RestService implements Serializable {
         stringEntity.setContentType("application/json");
         httpPost.setEntity(stringEntity);
 
-        String resStr = send(dorisConfig, httpPost, logger);
+        String resStr = send(dorisSourceConfig, httpPost, logger);
         logger.debug("Find partition response is '{}'.", resStr);
         QueryPlan queryPlan = getQueryPlan(resStr, logger);
         Map<String, List<Long>> be2Tablets = selectBeForTablet(queryPlan, logger);
         return tabletsMapToPartition(
-                dorisConfig,
+                dorisSourceTable,
                 be2Tablets,
                 queryPlan.getOpaqued_query_plan(),
                 tableIdentifiers[0],
@@ -397,18 +409,18 @@ public class RestService implements Serializable {
     }
 
     @VisibleForTesting
-    static int tabletCountLimitForOnePartition(DorisConfig dorisConfig, Logger logger) {
-        int tabletsSize = DorisOptions.DORIS_TABLET_SIZE_DEFAULT;
-        if (dorisConfig.getTabletSize() != null) {
-            tabletsSize = dorisConfig.getTabletSize();
+    static int tabletCountLimitForOnePartition(DorisSourceTable dorisSourceTable, Logger logger) {
+        int tabletsSize = DorisSourceOptions.DORIS_TABLET_SIZE_DEFAULT;
+        if (dorisSourceTable.getTabletSize() != null) {
+            tabletsSize = dorisSourceTable.getTabletSize();
         }
-        if (tabletsSize < DorisOptions.DORIS_TABLET_SIZE_MIN) {
+        if (tabletsSize < DorisSourceOptions.DORIS_TABLET_SIZE_MIN) {
             logger.warn(
                     "{} is less than {}, set to default value {}.",
-                    DorisOptions.DORIS_TABLET_SIZE,
-                    DorisOptions.DORIS_TABLET_SIZE_MIN,
-                    DorisOptions.DORIS_TABLET_SIZE_MIN);
-            tabletsSize = DorisOptions.DORIS_TABLET_SIZE_MIN;
+                    DorisSourceOptions.DORIS_TABLET_SIZE,
+                    DorisSourceOptions.DORIS_TABLET_SIZE_MIN,
+                    DorisSourceOptions.DORIS_TABLET_SIZE_MIN);
+            tabletsSize = DorisSourceOptions.DORIS_TABLET_SIZE_MIN;
         }
         logger.debug("Tablet size is set to {}.", tabletsSize);
         return tabletsSize;
@@ -416,14 +428,14 @@ public class RestService implements Serializable {
 
     @VisibleForTesting
     static List<PartitionDefinition> tabletsMapToPartition(
-            DorisConfig dorisConfig,
+            DorisSourceTable dorisSourceTable,
             Map<String, List<Long>> be2Tablets,
             String opaquedQueryPlan,
             String database,
             String table,
             Logger logger)
             throws DorisConnectorException {
-        int tabletsSize = tabletCountLimitForOnePartition(dorisConfig, logger);
+        int tabletsSize = tabletCountLimitForOnePartition(dorisSourceTable, logger);
         List<PartitionDefinition> partitions = new ArrayList<>();
         for (Map.Entry<String, List<Long>> beInfo : be2Tablets.entrySet()) {
             logger.debug("Generate partition with beInfo: '{}'.", beInfo);

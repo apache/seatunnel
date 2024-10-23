@@ -26,7 +26,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.doris.config.DorisOptions;
+import org.apache.seatunnel.connectors.doris.config.DorisSinkOptions;
 import org.apache.seatunnel.connectors.doris.sink.committer.DorisCommitInfo;
 import org.apache.seatunnel.connectors.doris.sink.writer.DorisSinkState;
 import org.apache.seatunnel.connectors.doris.util.UnsupportedTypeConverterUtils;
@@ -39,14 +39,13 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DATABASE;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.NEEDS_UNSUPPORTED_TYPE_CASTING;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.IDENTIFIER;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.TABLE;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.TABLE_IDENTIFIER;
+import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.NEEDS_UNSUPPORTED_TYPE_CASTING;
 
 @AutoService(Factory.class)
 public class DorisSinkFactory implements TableSinkFactory {
-
-    public static final String IDENTIFIER = "Doris";
 
     @Override
     public String factoryIdentifier() {
@@ -55,12 +54,12 @@ public class DorisSinkFactory implements TableSinkFactory {
 
     @Override
     public OptionRule optionRule() {
-        return DorisOptions.SINK_RULE.build();
+        return DorisSinkOptions.SINK_RULE.build();
     }
 
     @Override
     public List<String> excludeTablePlaceholderReplaceKeys() {
-        return Arrays.asList(DorisOptions.SAVE_MODE_CREATE_TEMPLATE.key());
+        return Arrays.asList(DorisSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key());
     }
 
     @Override

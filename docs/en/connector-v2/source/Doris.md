@@ -16,6 +16,7 @@
 - [x] [schema projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [x] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [support multiple table read](../../concept/connector-v2-features.md)
 
 ## Description
 
@@ -54,29 +55,39 @@ directly return the data
 
 ## Source Options
 
+Base configuration:
+
 |               Name               |  Type  | Required |  Default   |                                             Description                                             |
 |----------------------------------|--------|----------|------------|-----------------------------------------------------------------------------------------------------|
 | fenodes                          | string | yes      | -          | FE address, the format is `"fe_host:fe_http_port"`                                                  |
 | username                         | string | yes      | -          | User username                                                                                       |
 | password                         | string | yes      | -          | User password                                                                                       |
-| database                         | string | yes      | -          | The name of Doris database                                                                          |
-| table                            | string | yes      | -          | The name of Doris table                                                                             |
-| doris.read.field                 | string | no       | -          | Use the 'doris.read.field' parameter to select the doris table columns to read                      |
-| query-port                       | string | no       | 9030       | Doris QueryPort                                                                                     |
-| doris.filter.query               | string | no       | -          | Data filtering in doris. the format is "field = value",example : doris.filter.query = "F_ID > 2"    |
-| doris.batch.size                 | int    | no       | 1024       | The maximum value that can be obtained by reading Doris BE once.                                    |
-| doris.request.query.timeout.s    | int    | no       | 3600       | Timeout period of Doris scan data, expressed in seconds.                                            |
-| doris.exec.mem.limit             | long   | no       | 2147483648 | Maximum memory that can be used by a single be scan request. The default memory is 2G (2147483648). |
 | doris.request.retries            | int    | no       | 3          | Number of retries to send requests to Doris FE.                                                     |
 | doris.request.read.timeout.ms    | int    | no       | 30000      |                                                                                                     |
 | doris.request.connect.timeout.ms | int    | no       | 30000      |                                                                                                     |
+| query-port                       | string | no       | 9030       | Doris QueryPort                                                                                     |
+| doris.request.query.timeout.s    | int    | no       | 3600       | Timeout period of Doris scan data, expressed in seconds.                                            |
+
+Table list configuration:
+
+|               Name               |  Type  | Required |  Default   |                                             Description                                             |
+|----------------------------------|--------|----------|------------|-----------------------------------------------------------------------------------------------------|
+| database                         | string | yes      | -          | The name of Doris database                                                                          |
+| table                            | string | yes      | -          | The name of Doris table                                                                             |
+| doris.read.field                 | string | no       | -          | Use the 'doris.read.field' parameter to select the doris table columns to read                      |
+| doris.filter.query               | string | no       | -          | Data filtering in doris. the format is "field = value",example : doris.filter.query = "F_ID > 2"    |
+| doris.batch.size                 | int    | no       | 1024       | The maximum value that can be obtained by reading Doris BE once.                                    |
+| doris.exec.mem.limit             | long   | no       | 2147483648 | Maximum memory that can be used by a single be scan request. The default memory is 2G (2147483648). |
+ 
+Note: When this configuration corresponds to a single table, you can flatten the configuration items in table_list to the outer layer.
 
 ### Tips
 
 > It is not recommended to modify advanced parameters at will
 
-## Task Example
+## Example
 
+### single table
 > This is an example of reading a Doris table and writing to Console.
 
 ```
@@ -159,4 +170,51 @@ sink {
     Console {}
 }
 ```
+### Multiple table
+```
+env{
+  parallelism = 1
+  job.mode = "BATCH"
+}
 
+source{
+  Doris {
+      fenodes = "xxxx:8030"
+      username = root
+      password = ""
+      table_list = [
+          {
+            database = "st_source_0"
+            table = "doris_table_0"
+            doris.read.field = "F_ID,F_INT,F_BIGINT,F_TINYINT,F_SMALLINT,F_DECIMAL,F_LARGEINT,F_BOOLEAN,F_DOUBLE,F_FLOAT,F_CHAR,F_VARCHAR_11,F_STRING,F_DATETIME_P,F_DATETIME,F_DATE,MAP_VARCHAR_BOOLEAN, MAP_CHAR_TINYINT, MAP_STRING_SMALLINT, MAP_INT_INT, MAP_TINYINT_BIGINT, MAP_SMALLINT_LARGEINT, MAP_BIGINT_FLOAT, MAP_LARGEINT_DOUBLE, MAP_STRING_DECIMAL, MAP_DECIMAL_DATE, MAP_DATE_DATETIME, MAP_DATETIME_CHAR, MAP_CHAR_VARCHAR, MAP_VARCHAR_STRING"
+            doris.filter.query = "F_ID >= 50"
+          },
+          {
+            database = "st_source_1"
+            table = "doris_table_1"
+            doris.read.field = "F_ID,F_INT,F_BIGINT,F_TINYINT,F_SMALLINT,F_DECIMAL,F_LARGEINT,F_BOOLEAN,F_DOUBLE,F_FLOAT,F_CHAR,F_VARCHAR_11,F_STRING,F_DATETIME_P,F_DATETIME,F_DATE,MAP_VARCHAR_BOOLEAN, MAP_CHAR_TINYINT, MAP_STRING_SMALLINT, MAP_INT_INT, MAP_TINYINT_BIGINT, MAP_SMALLINT_LARGEINT, MAP_BIGINT_FLOAT, MAP_LARGEINT_DOUBLE, MAP_STRING_DECIMAL, MAP_DECIMAL_DATE, MAP_DATE_DATETIME, MAP_DATETIME_CHAR, MAP_CHAR_VARCHAR, MAP_VARCHAR_STRING"
+            doris.filter.query = "F_ID < 40"
+          }
+      ]
+  }
+}
+
+transform {}
+
+sink{
+  Doris {
+      fenodes = "xxxx:8030"
+      schema_save_mode = "RECREATE_SCHEMA"
+      username = root
+      password = ""
+      database = "st_sink"
+      table = "${table_name}"
+      sink.enable-2pc = "true"
+      sink.label-prefix = "test_json"
+      doris.config = {
+          format="json"
+          read_json_by_line="true"
+      }
+  }
+}
+```

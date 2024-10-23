@@ -26,11 +26,12 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.exception.CommonError;
-import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Locale;
+
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.IDENTIFIER;
 
 @Slf4j
 public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicTypeDefine> {
@@ -186,7 +187,7 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 break;
             default:
                 throw CommonError.convertToSeaTunnelTypeError(
-                        DorisConfig.IDENTIFIER, dorisColumnType, typeDefine.getName());
+                        IDENTIFIER, dorisColumnType, typeDefine.getName());
         }
     }
 
@@ -234,7 +235,7 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
         }
 
         throw CommonError.convertToConnectorTypeError(
-                DorisConfig.IDENTIFIER, column.getDataType().getSqlType().name(), column.getName());
+                IDENTIFIER, column.getDataType().getSqlType().name(), column.getName());
     }
 
     protected BasicTypeDefine sampleReconvert(
@@ -366,9 +367,7 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 break;
             default:
                 throw CommonError.convertToConnectorTypeError(
-                        DorisConfig.IDENTIFIER,
-                        column.getDataType().getSqlType().name(),
-                        column.getName());
+                        IDENTIFIER, column.getDataType().getSqlType().name(), column.getName());
         }
         return builder.build();
     }
@@ -430,7 +429,7 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 break;
             default:
                 throw CommonError.convertToConnectorTypeError(
-                        DorisConfig.IDENTIFIER, elementType.getSqlType().name(), columnName);
+                        IDENTIFIER, elementType.getSqlType().name(), columnName);
         }
     }
 

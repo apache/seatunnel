@@ -33,8 +33,8 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.doris.config.DorisConfig;
-import org.apache.seatunnel.connectors.doris.config.DorisOptions;
+import org.apache.seatunnel.connectors.doris.config.DorisSinkConfig;
+import org.apache.seatunnel.connectors.doris.config.DorisSinkOptions;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 import org.apache.seatunnel.connectors.doris.sink.committer.DorisCommitInfo;
 import org.apache.seatunnel.connectors.doris.sink.committer.DorisCommitInfoSerializer;
@@ -55,7 +55,7 @@ public class DorisSink
                 SupportSaveMode,
                 SupportMultiTableSink {
 
-    private final DorisConfig dorisConfig;
+    private final DorisSinkConfig dorisSinkConfig;
     private final ReadonlyConfig config;
     private final CatalogTable catalogTable;
     private String jobId;
@@ -63,7 +63,7 @@ public class DorisSink
     public DorisSink(ReadonlyConfig config, CatalogTable catalogTable) {
         this.config = config;
         this.catalogTable = catalogTable;
-        this.dorisConfig = DorisConfig.of(config);
+        this.dorisSinkConfig = DorisSinkConfig.of(config);
     }
 
     @Override
@@ -79,13 +79,13 @@ public class DorisSink
     @Override
     public DorisSinkWriter createWriter(SinkWriter.Context context) throws IOException {
         return new DorisSinkWriter(
-                context, Collections.emptyList(), catalogTable, dorisConfig, jobId);
+                context, Collections.emptyList(), catalogTable, dorisSinkConfig, jobId);
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, DorisCommitInfo, DorisSinkState> restoreWriter(
             SinkWriter.Context context, List<DorisSinkState> states) throws IOException {
-        return new DorisSinkWriter(context, states, catalogTable, dorisConfig, jobId);
+        return new DorisSinkWriter(context, states, catalogTable, dorisSinkConfig, jobId);
     }
 
     @Override
@@ -95,7 +95,7 @@ public class DorisSink
 
     @Override
     public Optional<SinkCommitter<DorisCommitInfo>> createCommitter() throws IOException {
-        return Optional.of(new DorisCommitter(dorisConfig));
+        return Optional.of(new DorisCommitter(dorisSinkConfig));
     }
 
     @Override
@@ -127,11 +127,11 @@ public class DorisSink
         Catalog catalog = catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), config);
         return Optional.of(
                 new DefaultSaveModeHandler(
-                        config.get(DorisOptions.SCHEMA_SAVE_MODE),
-                        config.get(DorisOptions.DATA_SAVE_MODE),
+                        config.get(DorisSinkOptions.SCHEMA_SAVE_MODE),
+                        config.get(DorisSinkOptions.DATA_SAVE_MODE),
                         catalog,
                         catalogTable,
-                        config.get(DorisOptions.CUSTOM_SQL)));
+                        config.get(DorisSinkOptions.CUSTOM_SQL)));
     }
 
     @Override
