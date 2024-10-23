@@ -27,22 +27,30 @@ import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.core.starter.enums.DiscoveryType;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.core.starter.execution.PluginExecuteProcessor;
 import org.apache.seatunnel.core.starter.execution.RuntimeEnvironment;
 import org.apache.seatunnel.core.starter.execution.TaskExecution;
 import org.apache.seatunnel.core.starter.flink.FlinkStarter;
+import org.apache.seatunnel.core.starter.flink.utils.ResourceUtils;
 import org.apache.seatunnel.translation.flink.metric.FlinkJobMetricsSummary;
 
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.RuntimeExecutionMode;
+import org.apache.flink.core.fs.FileStatus;
+import org.apache.flink.core.fs.FileSystem;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -52,6 +60,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static org.apache.seatunnel.core.starter.flink.execution.FlinkAbstractPluginExecuteProcessor.ADD_URL_TO_CLASSLOADER;
 
 /** Used to execute a SeaTunnelTask. */
 public class FlinkExecution implements TaskExecution {
@@ -65,42 +75,46 @@ public class FlinkExecution implements TaskExecution {
             transformPluginExecuteProcessor;
     private final PluginExecuteProcessor<DataStreamTableInfo, FlinkRuntimeEnvironment>
             sinkPluginExecuteProcessor;
-    private final List<URL> jarPaths;
+    private List<URL> actualUsedJars;
+    private final List<URL> connectors = new ArrayList<>();
 
-    public FlinkExecution(Config config) {
-        try {
-            jarPaths =
-                    new ArrayList<>(
-                            Collections.singletonList(
-                                    new File(
-                                                    Common.appStarterDir()
-                                                            .resolve(FlinkStarter.APP_JAR_NAME)
-                                                            .toString())
-                                            .toURI()
-                                            .toURL()));
-        } catch (MalformedURLException e) {
-            throw new SeaTunnelException("load flink starter error.", e);
-        }
+    public FlinkExecution(DiscoveryType type, List<URL> connectors, Config config) {
+        initializeClasspath(type, connectors, config);
         Config envConfig = config.getConfig("env");
-        registerPlugin(envConfig);
         JobContext jobContext = new JobContext();
         jobContext.setJobMode(RuntimeEnvironment.getJobMode(config));
         this.sourcePluginExecuteProcessor =
                 new SourceExecuteProcessor(
-                        jarPaths, envConfig, config.getConfigList(Constants.SOURCE), jobContext);
+                        type,
+                        this.connectors,
+                        actualUsedJars,
+                        envConfig,
+                        config.getConfigList(Constants.SOURCE),
+                        jobContext);
         this.transformPluginExecuteProcessor =
                 new TransformExecuteProcessor(
-                        jarPaths,
+                        type,
+                        this.connectors,
+                        actualUsedJars,
                         envConfig,
                         TypesafeConfigUtils.getConfigList(
                                 config, Constants.TRANSFORM, Collections.emptyList()),
                         jobContext);
         this.sinkPluginExecuteProcessor =
                 new SinkExecuteProcessor(
-                        jarPaths, envConfig, config.getConfigList(Constants.SINK), jobContext);
+                        type,
+                        this.connectors,
+                        actualUsedJars,
+                        envConfig,
+                        config.getConfigList(Constants.SINK),
+                        jobContext);
 
+        LOGGER.info(
+                "SeaTunnel task actual plugin classpath: {}",
+                JsonUtils.toJsonString(actualUsedJars));
         this.flinkRuntimeEnvironment =
-                FlinkRuntimeEnvironment.getInstance(this.registerPlugin(config, jarPaths));
+                FlinkRuntimeEnvironment.getInstance(
+                        this.registerPlugin(type, config, actualUsedJars));
 
         this.sourcePluginExecuteProcessor.setRuntimeEnvironment(flinkRuntimeEnvironment);
         this.transformPluginExecuteProcessor.setRuntimeEnvironment(flinkRuntimeEnvironment);
@@ -144,7 +158,113 @@ public class FlinkExecution implements TaskExecution {
         }
     }
 
-    private void registerPlugin(Config envConfig) {
+    private void initializeClasspath(DiscoveryType type, List<URL> connectors, Config config) {
+        switch (type) {
+            case LOCAL:
+                initializeLocalClasspath(config);
+                break;
+            case REMOTE:
+                initializeRemoteClasspath(config, connectors);
+                break;
+            default:
+                throw new IllegalArgumentException("unsupported plugin discover type: " + type);
+        }
+    }
+
+    private void initializeLocalClasspath(Config config) {
+        try {
+            actualUsedJars =
+                    new ArrayList<>(
+                            Collections.singletonList(
+                                    new File(
+                                                    Common.appStarterDir()
+                                                            .resolve(FlinkStarter.APP_JAR_NAME)
+                                                            .toString())
+                                            .toURI()
+                                            .toURL()));
+        } catch (MalformedURLException e) {
+            throw new SeaTunnelException("load flink starter error.", e);
+        }
+        Config envConfig = config.getConfig("env");
+        registerPlugin(DiscoveryType.LOCAL, envConfig);
+    }
+
+    private void initializeRemoteClasspath(Config config, List<URL> connectors) {
+        if (connectors == null || connectors.isEmpty()) {
+            throw new SeaTunnelException("provide remote connectors empty.");
+        }
+        this.actualUsedJars = new ArrayList<>();
+        try {
+            for (URL provideLib : connectors) {
+                org.apache.flink.core.fs.Path provideLibPath =
+                        new org.apache.flink.core.fs.Path(provideLib.toURI());
+                FileSystem fs = provideLibPath.getFileSystem();
+                if (!fs.exists(provideLibPath)) {
+                    LOGGER.info("provide remote connectors not exist, path: {}", provideLib);
+                    continue;
+                }
+                retrieveFiles(fs, provideLibPath, this.connectors);
+            }
+        } catch (URISyntaxException | IOException e) {
+            throw new SeaTunnelException("load flink starter error.", e);
+        }
+        Config envConfig = config.getConfig("env");
+        registerPlugin(DiscoveryType.REMOTE, envConfig);
+    }
+
+    private static void retrieveFiles(
+            FileSystem fs, org.apache.flink.core.fs.Path path, List<URL> files) throws IOException {
+        if (!fs.exists(path)) {
+            return;
+        }
+        FileStatus[] fileStatuses = fs.listStatus(path);
+        for (FileStatus fileStatus : fileStatuses) {
+            if (fileStatus.isDir()) {
+                retrieveFiles(fs, fileStatus.getPath(), files);
+                continue;
+            }
+            if (fileStatus.getPath().getName().endsWith("jar")) {
+                URL fileUrl = fileStatus.getPath().makeQualified(fs).toUri().toURL();
+                LOGGER.info("provide library, url: {}", fileUrl);
+                files.add(fileUrl);
+            }
+        }
+    }
+
+    private void registerPlugin(DiscoveryType type, Config envConfig) {
+        switch (type) {
+            case LOCAL:
+                registerLocalPlugin(envConfig);
+                break;
+            case REMOTE:
+                registerRemotePlugin(envConfig);
+                break;
+            default:
+                throw new SeaTunnelException("unsupported discovery type: " + type);
+        }
+    }
+
+    private void registerRemotePlugin(Config envConfig) {
+        if (envConfig.hasPath(EnvCommonOptions.JARS.key())) {
+            actualUsedJars.addAll(
+                    Arrays.stream(envConfig.getString(EnvCommonOptions.JARS.key()).split(";"))
+                            .map(ResourceUtils::of)
+                            .peek(
+                                    url -> {
+                                        try {
+                                            ClassLoader classLoader =
+                                                    Thread.currentThread().getContextClassLoader();
+                                            ADD_URL_TO_CLASSLOADER.accept(classLoader, url);
+                                        } catch (Exception e) {
+                                            throw new SeaTunnelException(
+                                                    "failed load user jar, path: " + url, e);
+                                        }
+                                    })
+                            .collect(Collectors.toList()));
+        }
+    }
+
+    private void registerLocalPlugin(Config envConfig) {
         List<Path> thirdPartyJars = new ArrayList<>();
         if (envConfig.hasPath(EnvCommonOptions.JARS.key())) {
             thirdPartyJars =
@@ -168,27 +288,32 @@ public class FlinkExecution implements TaskExecution {
                         .collect(Collectors.toList());
         jarDependencies.forEach(
                 url ->
-                        FlinkAbstractPluginExecuteProcessor.ADD_URL_TO_CLASSLOADER.accept(
+                        ADD_URL_TO_CLASSLOADER.accept(
                                 Thread.currentThread().getContextClassLoader(), url));
-        jarPaths.addAll(jarDependencies);
+        actualUsedJars.addAll(jarDependencies);
     }
 
-    private Config registerPlugin(Config config, List<URL> jars) {
+    private Config registerPlugin(DiscoveryType type, Config config, List<URL> jars) {
         config =
                 this.injectJarsToConfig(
-                        config, ConfigUtil.joinPath("env", "pipeline", "jars"), jars);
+                        type, config, ConfigUtil.joinPath("env", "pipeline", "jars"), jars);
         return this.injectJarsToConfig(
-                config, ConfigUtil.joinPath("env", "pipeline", "classpaths"), jars);
+                type, config, ConfigUtil.joinPath("env", "pipeline", "classpaths"), jars);
     }
 
-    private Config injectJarsToConfig(Config config, String path, List<URL> jars) {
+    private Config injectJarsToConfig(
+            DiscoveryType type, Config config, String path, List<URL> jars) {
         List<URL> validJars = new ArrayList<>();
         for (URL jarUrl : jars) {
-            if (new File(jarUrl.getFile()).exists()) {
-                validJars.add(jarUrl);
-                LOGGER.info("Inject jar to config: {}", jarUrl);
-            } else {
-                LOGGER.warn("Remove invalid jar when inject jars into config: {}", jarUrl);
+            switch (type) {
+                case LOCAL:
+                    checkLocalFile(jarUrl, validJars);
+                    break;
+                case REMOTE:
+                    checkRemoteFile(jarUrl, validJars);
+                    break;
+                default:
+                    throw new IllegalArgumentException("unsupported discovery type: " + type);
             }
         }
 
@@ -227,5 +352,27 @@ public class FlinkExecution implements TaskExecution {
                                             .collect(Collectors.joining(";"))));
         }
         return config;
+    }
+
+    private static void checkLocalFile(URL jarUrl, List<URL> validJars) {
+        if (new File(jarUrl.getFile()).exists()) {
+            validJars.add(jarUrl);
+            LOGGER.info("Inject jar to config: {}", jarUrl);
+        } else {
+            LOGGER.warn("Remove invalid jar when inject jars into config: {}", jarUrl);
+        }
+    }
+
+    private static void checkRemoteFile(URL jarUrl, List<URL> validJars) {
+        try {
+            URI uri = jarUrl.toURI();
+            FileSystem fs = FileSystem.get(uri);
+            if (fs.exists(new org.apache.flink.core.fs.Path(uri))) {
+                validJars.add(jarUrl);
+                LOGGER.info("Inject jar to config: {}", jarUrl);
+            }
+        } catch (URISyntaxException | IOException e) {
+            LOGGER.warn("Remove invalid jar when inject jars into config: {}", jarUrl);
+        }
     }
 }

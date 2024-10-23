@@ -36,13 +36,11 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.starter.enums.PluginType;
+import org.apache.seatunnel.plugin.discovery.PluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
 
 import com.google.common.collect.Lists;
 
@@ -62,8 +60,8 @@ public class PluginUtil {
     protected static final String ENGINE_TYPE = "seatunnel";
 
     public static SourceTableInfo createSource(
-            SeaTunnelFactoryDiscovery factoryDiscovery,
-            SeaTunnelSourcePluginDiscovery sourcePluginDiscovery,
+            PluginDiscovery<Factory> factoryDiscovery,
+            PluginDiscovery<SeaTunnelSource> sourcePluginDiscovery,
             PluginIdentifier pluginIdentifier,
             Config pluginConfig,
             JobContext jobContext) {
@@ -122,7 +120,7 @@ public class PluginUtil {
     }
 
     private static SeaTunnelSource fallbackCreate(
-            SeaTunnelSourcePluginDiscovery sourcePluginDiscovery,
+            PluginDiscovery<SeaTunnelSource> sourcePluginDiscovery,
             PluginIdentifier pluginIdentifier,
             Config pluginConfig) {
         SeaTunnelSource source = sourcePluginDiscovery.createPluginInstance(pluginIdentifier);
@@ -131,8 +129,8 @@ public class PluginUtil {
     }
 
     public static Optional<? extends Factory> createTransformFactory(
-            SeaTunnelFactoryDiscovery factoryDiscovery,
-            SeaTunnelTransformPluginDiscovery transformPluginDiscovery,
+            PluginDiscovery<Factory> factoryDiscovery,
+            PluginDiscovery<SeaTunnelTransform> transformPluginDiscovery,
             Config transformConfig,
             List<URL> pluginJars) {
         PluginIdentifier pluginIdentifier =
@@ -148,8 +146,8 @@ public class PluginUtil {
     }
 
     public static Optional<? extends Factory> createSinkFactory(
-            SeaTunnelFactoryDiscovery factoryDiscovery,
-            SeaTunnelSinkPluginDiscovery sinkPluginDiscovery,
+            PluginDiscovery<Factory> factoryDiscovery,
+            PluginDiscovery<SeaTunnelSink> sinkPluginDiscovery,
             Config sinkConfig,
             List<URL> pluginJars) {
         PluginIdentifier pluginIdentifier =
@@ -166,7 +164,7 @@ public class PluginUtil {
     public static SeaTunnelSink createSink(
             Optional<? extends Factory> factory,
             Config sinkConfig,
-            SeaTunnelSinkPluginDiscovery sinkPluginDiscovery,
+            PluginDiscovery<SeaTunnelSink> sinkPluginDiscovery,
             JobContext jobContext,
             List<CatalogTable> catalogTables,
             ClassLoader classLoader) {
@@ -236,7 +234,7 @@ public class PluginUtil {
     }
 
     public static SeaTunnelSink fallbackCreateSink(
-            SeaTunnelSinkPluginDiscovery sinkPluginDiscovery,
+            PluginDiscovery<SeaTunnelSink> sinkPluginDiscovery,
             PluginIdentifier pluginIdentifier,
             Config pluginConfig) {
         SeaTunnelSink source = sinkPluginDiscovery.createPluginInstance(pluginIdentifier);

@@ -22,14 +22,19 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.core.starter.enums.DiscoveryType;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.core.starter.execution.PluginUtil;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.PluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryLocalDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryRemoteDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginLocalDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginRemoteDiscovery;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -45,27 +50,43 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.common.CommonOptions.RESULT_TABLE_NAME;
+import static org.apache.seatunnel.core.starter.flink.utils.ResourceUtils.getPluginMappingConfigFromClasspath;
 
 @SuppressWarnings("unchecked,rawtypes")
 public class TransformExecuteProcessor
         extends FlinkAbstractPluginExecuteProcessor<TableTransformFactory> {
 
     protected TransformExecuteProcessor(
-            List<URL> jarPaths,
+            DiscoveryType discoveryType,
+            List<URL> provideJarPaths,
+            List<URL> actualUseJarPaths,
             Config envConfig,
             List<? extends Config> pluginConfigs,
             JobContext jobContext) {
-        super(jarPaths, envConfig, pluginConfigs, jobContext);
+        super(
+                discoveryType,
+                provideJarPaths,
+                actualUseJarPaths,
+                envConfig,
+                pluginConfigs,
+                jobContext);
     }
 
     @Override
     protected List<TableTransformFactory> initializePlugins(
-            List<URL> jarPaths, List<? extends Config> pluginConfigs) {
+            List<URL> actualUseJarPaths, List<? extends Config> pluginConfigs) {
 
-        SeaTunnelFactoryDiscovery factoryDiscovery =
-                new SeaTunnelFactoryDiscovery(TableTransformFactory.class, ADD_URL_TO_CLASSLOADER);
-        SeaTunnelTransformPluginDiscovery transformPluginDiscovery =
-                new SeaTunnelTransformPluginDiscovery();
+        Config pluginMappingConfig =
+                discoveryType == DiscoveryType.REMOTE
+                        ? getPluginMappingConfigFromClasspath()
+                        : null;
+
+        PluginDiscovery<Factory> factoryDiscovery =
+                getSeaTunnelFactoryDiscovery(connectors, pluginMappingConfig);
+
+        PluginDiscovery<SeaTunnelTransform> transformPluginDiscovery =
+                getSeaTunnelTransformPluginLocalDiscovery(connectors, pluginMappingConfig);
+
         return pluginConfigs.stream()
                 .map(
                         transformConfig ->
@@ -73,7 +94,7 @@ public class TransformExecuteProcessor
                                         factoryDiscovery,
                                         transformPluginDiscovery,
                                         transformConfig,
-                                        jarPaths))
+                                        actualUseJarPaths))
                 .distinct()
                 .filter(Optional::isPresent)
                 .map(Optional::get)
@@ -150,5 +171,31 @@ public class TransformExecuteProcessor
                                         row ->
                                                 ((SeaTunnelTransform<SeaTunnelRow>) transform)
                                                         .map(row))));
+    }
+
+    private PluginDiscovery<Factory> getSeaTunnelFactoryDiscovery(List<URL> jarPaths, Config cfg) {
+        switch (discoveryType) {
+            case LOCAL:
+                return new SeaTunnelFactoryLocalDiscovery(
+                        TableTransformFactory.class, ADD_URL_TO_CLASSLOADER);
+            case REMOTE:
+                return new SeaTunnelFactoryRemoteDiscovery(
+                        jarPaths, cfg, ADD_URL_TO_CLASSLOADER, TableTransformFactory.class);
+            default:
+                throw new IllegalArgumentException("unsupported discovery type: " + discoveryType);
+        }
+    }
+
+    private PluginDiscovery<SeaTunnelTransform> getSeaTunnelTransformPluginLocalDiscovery(
+            List<URL> jarPaths, Config cfg) {
+        switch (discoveryType) {
+            case LOCAL:
+                return new SeaTunnelTransformPluginLocalDiscovery();
+            case REMOTE:
+                return new SeaTunnelTransformPluginRemoteDiscovery(
+                        jarPaths, cfg, ADD_URL_TO_CLASSLOADER);
+            default:
+                throw new IllegalArgumentException("unsupported discovery type: " + discoveryType);
+        }
     }
 }

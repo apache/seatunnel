@@ -26,9 +26,9 @@ import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ConnectorCheckCommandArgs;
 import org.apache.seatunnel.plugin.discovery.PluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginLocalDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginLocalDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginLocalDiscovery;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
@@ -52,9 +52,9 @@ public class ConnectorCheckCommand implements Command<ConnectorCheckCommandArgs>
 
     public ConnectorCheckCommand(ConnectorCheckCommandArgs connectorCheckCommandArgs) {
         this.connectorCheckCommandArgs = connectorCheckCommandArgs;
-        this.DISCOVERY_MAP.put(PluginType.SOURCE, new SeaTunnelSourcePluginDiscovery());
-        this.DISCOVERY_MAP.put(PluginType.SINK, new SeaTunnelSinkPluginDiscovery());
-        this.DISCOVERY_MAP.put(PluginType.TRANSFORM, new SeaTunnelTransformPluginDiscovery());
+        this.DISCOVERY_MAP.put(PluginType.SOURCE, new SeaTunnelSourcePluginLocalDiscovery());
+        this.DISCOVERY_MAP.put(PluginType.SINK, new SeaTunnelSinkPluginLocalDiscovery());
+        this.DISCOVERY_MAP.put(PluginType.TRANSFORM, new SeaTunnelTransformPluginLocalDiscovery());
     }
 
     @Override

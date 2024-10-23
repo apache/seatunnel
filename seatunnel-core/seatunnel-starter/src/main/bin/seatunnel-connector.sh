@@ -48,4 +48,4 @@ fi
 set +u
 CLASS_PATH=${APP_DIR}/connectors/*:${APP_JAR}:${APP_DIR}/lib/seatunnel-transforms-v2.jar
 
-java -cp ${CLASS_PATH} ${LOAD_CLASS} ${args} | grep -v 'org\.apache\.seatunnel\.plugin\.discovery\.AbstractPluginDiscovery'
+java -cp ${CLASS_PATH} ${LOAD_CLASS} ${args} | grep -v 'org\.apache\.seatunnel\.plugin\.discovery\.AbstractPluginLocalDiscovery'
