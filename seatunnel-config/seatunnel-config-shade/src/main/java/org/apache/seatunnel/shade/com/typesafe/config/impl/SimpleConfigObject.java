@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -277,7 +278,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
             boolean changed = false;
             boolean allResolved = true;
             Map<String, AbstractConfigValue> merged = new LinkedHashMap<>();
-            Set<String> allKeys = new HashSet<>();
+            Set<String> allKeys = new LinkedHashSet<>();
             allKeys.addAll(this.keySet());
             allKeys.addAll(fallback.keySet());
 
@@ -386,8 +387,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
             ResolveSource sourceWithParent = source.pushParent(this);
 
             try {
-                SimpleConfigObject.ResolveModifier modifier =
-                        new SimpleConfigObject.ResolveModifier(context, sourceWithParent);
+                ResolveModifier modifier = new ResolveModifier(context, sourceWithParent);
                 AbstractConfigValue value = this.modifyMayThrow(modifier);
                 return ResolveResult.make(modifier.context, value).asObjectResult();
             } catch (NotPossibleToResolve | RuntimeException var6) {
@@ -562,7 +562,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
     }
 
     public Set<Entry<String, ConfigValue>> entrySet() {
-        HashSet<Entry<String, ConfigValue>> entries = new HashSet<>();
+        HashSet<Entry<String, ConfigValue>> entries = new LinkedHashSet<>();
 
         for (Entry<String, AbstractConfigValue> stringAbstractConfigValueEntry :
                 this.value.entrySet()) {
@@ -584,7 +584,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
     }
 
     public Collection<ConfigValue> values() {
-        return new HashSet<>(this.value.values());
+        return new ArrayList<>(this.value.values());
     }
 
     static SimpleConfigObject empty() {
