@@ -16,7 +16,8 @@
  */
 
 import { getJobLogs } from '@/service/job-log'
-import { NSpace } from 'naive-ui'
+import type { JobLog } from '@/service/job-log/types'
+import { NCollapse, NCollapseItem, NSpace } from 'naive-ui'
 import { defineComponent, ref } from 'vue'
 
 export default defineComponent({
@@ -27,8 +28,23 @@ export default defineComponent({
     }
   },
   setup(props) {
-    const log = ref('')
-    getJobLogs(props.jobId).then((res) => {})
-    return () => <NSpace>{log.value}</NSpace>
+    const logList = ref([] as JobLog[])
+    getJobLogs(props.jobId).then((res) => (logList.value = res))
+    return () => (
+      <div class="p-6">
+        <NCollapse accordion>
+          {logList.value.map((log) => (
+            <NCollapseItem title={log.logName}>
+              <iframe
+                src={log.logLink.replace('localhost', '124.221.211.72')}
+                width="100%"
+                height="700px"
+                style="border: none"
+              />
+            </NCollapseItem>
+          ))}
+        </NCollapse>
+      </div>
+    )
   }
 })

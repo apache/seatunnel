@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import { defineComponent, reactive } from 'vue'
+import { defineComponent, onUnmounted, ref } from 'vue'
 import { NSpace, NCard } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { overviewService } from '@/service/overview'
@@ -25,26 +25,34 @@ export default defineComponent({
   setup() {
     const { t } = useI18n()
 
-    const data = reactive({} as Overview)
-    overviewService.getOverview().then((res) => Object.assign(data, res))
+    const data = ref({} as Overview)
+
+    let timer: NodeJS.Timeout
+    const fetch = async () => {
+      data.value = await overviewService.getOverview()
+      timer = setTimeout(fetch, 5000)
+    }
+    onUnmounted(() => clearTimeout(timer))
+
+    fetch()
 
     return () => (
       <NSpace wrap-item={false}>
         <NCard title="Workers" hoverable style="flex:1">
-          <span class="text-2xl font-bold">{data.workers}</span>
+          <span class="text-2xl font-bold">{data.value.workers}</span>
           <div class="border border-b-0 mt-3" />
           <NSpace class="mt-3" size={16}>
-            <span>Total Slot: {data.totalSlot}</span>
-            <span>Unassigned Slot: {data.unassignedSlot}</span>
+            <span>Total Slot: {data.value.totalSlot}</span>
+            <span>Unassigned Slot: {data.value.unassignedSlot}</span>
           </NSpace>
         </NCard>
         <NCard title="Running Jobs" hoverable style="flex:1">
-          <span class="text-2xl font-bold">{data.runningJobs}</span>
+          <span class="text-2xl font-bold">{data.value.runningJobs}</span>
           <div class="border border-b-0 mt-3" />
           <NSpace class="mt-3" size={16}>
-            <span>Cancelled: {data.cancelledJobs}</span>
-            <span>Failed: {data.failedJobs}</span>
-            <span>Finished: {data.finishedJobs}</span>
+            <span>Cancelled: {data.value.cancelledJobs}</span>
+            <span>Failed: {data.value.failedJobs}</span>
+            <span>Finished: {data.value.finishedJobs}</span>
           </NSpace>
         </NCard>
       </NSpace>

@@ -46,17 +46,26 @@ export default defineComponent({
     const jobId = route.params.jobId as string
     const job = reactive({} as Job)
     const duration = ref('')
-    getJobInfo(jobId).then((res) => {
+    const fetch = async () => {
+      const res = await getJobInfo(jobId)
       Object.assign(job, res)
       const d = parse(res.createTime, 'yyyy-MM-dd HH:mm:ss', new Date())
       duration.value = getRemainTime(Math.abs(Date.now() - d.getTime()))
       if (job.jobStatus !== 'RUNNING') {
         return
       }
-      setInterval(() => {
+      let count = 0
+      const timer = setInterval(() => {
         duration.value = getRemainTime(Math.abs(Date.now() - d.getTime()))
-      }, 1000)
-    })
+        count++
+        if (count > 5) {
+          clearInterval(timer)
+          fetch()
+        }
+      }, 996)
+    }
+
+    fetch()
 
     const select = ref('Overview')
     const change = () => {
@@ -234,7 +243,7 @@ export default defineComponent({
               {job.errorMsg}
             </NTabPane>
             <NTabPane name="Configuration" tab="Configuration">
-              <Configuration data={job.envOptions}></Configuration>
+              <Configuration data={job.envOptions || job.jobDag.envOptions}></Configuration>
             </NTabPane>
             <NTabPane name="Log" tab="Log">
               <JobLog jobId={job.jobId}></JobLog>

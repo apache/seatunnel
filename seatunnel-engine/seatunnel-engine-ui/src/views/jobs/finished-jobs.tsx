@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-import { defineComponent, h, reactive } from 'vue'
-import { useMessage, NDataTable, NTag } from 'naive-ui'
+import { defineComponent, h, onUnmounted, ref } from 'vue'
+import { NDataTable, NTag } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { JobsService } from '@/service/job'
 import type { DataTableColumns } from 'naive-ui'
@@ -29,9 +29,16 @@ export default defineComponent({
   setup() {
     const { t } = useI18n()
 
-    const jobs = reactive([] as Job[])
+    const jobs = ref([] as Job[])
 
-    JobsService.getFinishedJobs().then((res) => jobs.push(...res))
+    let timer: NodeJS.Timeout
+    const fetch = async () => {
+      jobs.value = await JobsService.getFinishedJobs()
+      timer = setTimeout(fetch, 5000)
+    }
+    onUnmounted(() => clearTimeout(timer))
+
+    fetch()
 
     const router = useRouter()
     function createColumns(): DataTableColumns<Job> {
@@ -90,7 +97,7 @@ export default defineComponent({
     return () => (
       <div class="w-full bg-white p-6 border border-gray-100 rounded-xl">
         <h2 class="font-bold text-2xl pb-6">{t('jobs.finishedJobs')}</h2>
-        <NDataTable columns={columns} data={jobs} pagination={false} bordered={false} />
+        <NDataTable columns={columns} data={jobs.value} pagination={false} bordered={false} />
       </div>
     )
   }

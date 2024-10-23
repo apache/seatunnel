@@ -18,8 +18,10 @@
 import { get } from '@/service/service'
 import type { JobLog } from './types'
 
-export const getJobLogs = (jobId: string) => get<JobLog[]>(`/logs/${jobId}`)
+export const getJobLogs = (jobId: string) => get<JobLog[]>(`/logs/${jobId}?format=json`)
+export const getJobLogContent = (logName: string) => get<JobLog[]>(`/log/${logName}`)
 
 export const JobLogService = {
-  getJobLogs
+  getJobLogs,
+  getJobLogContent
 }
