@@ -27,7 +27,12 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Paths;
 
-public class SeaTunnelEngineExample {
+public class SeaTunnelEngineLocalExample {
+
+    static {
+        // https://logging.apache.org/log4j/2.x/manual/simple-logger.html#isThreadContextMapInheritable
+        System.setProperty("log4j2.isThreadContextMapInheritable", "true");
+    }
 
     public static void main(String[] args)
             throws FileNotFoundException, URISyntaxException, CommandException {
@@ -38,14 +43,14 @@ public class SeaTunnelEngineExample {
         clientCommandArgs.setCheckConfig(false);
         clientCommandArgs.setJobName(Paths.get(configFile).getFileName().toString());
         // Change Execution Mode to CLUSTER to use client mode, before do this, you should start
-        // SeaTunnelEngineServerExample
+        // SeaTunnelEngineClusterServerExample
         clientCommandArgs.setMasterType(MasterType.LOCAL);
         SeaTunnel.run(clientCommandArgs.buildCommand());
     }
 
     public static String getTestConfigFile(String configFile)
             throws FileNotFoundException, URISyntaxException {
-        URL resource = SeaTunnelEngineExample.class.getResource(configFile);
+        URL resource = SeaTunnelEngineLocalExample.class.getResource(configFile);
         if (resource == null) {
             throw new FileNotFoundException("Can't find config file: " + configFile);
         }

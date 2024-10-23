@@ -8,7 +8,7 @@ Used to write data to Hudi.
 
 ## Key features
 
-- [x] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
 - [x] [support multiple table write](../../concept/connector-v2-features.md)
 
@@ -21,7 +21,6 @@ Base configuration:
 | table_dfs_path             | string  | yes      | -                           |
 | conf_files_path            | string  | no       | -                           |
 | table_list                 | Array   | no       | -                           |
-| auto_commit                | boolean | no       | true                        |
 | schema_save_mode           | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST|
 | common-options             | Config  | no       | -                           |
 
@@ -44,6 +43,7 @@ Table list configuration:
 | index_type                 | enum   | no       | BLOOM         |
 | index_class_name           | string | no       | -             |
 | record_byte_size           | Int    | no       | 1024          |
+| cdc_enabled                | boolean| no       | false         |
 
 Note: When this configuration corresponds to a single table, you can flatten the configuration items in table_list to the outer layer.
 
@@ -115,9 +115,9 @@ Note: When this configuration corresponds to a single table, you can flatten the
 
 `max_commits_to_keep` The max commits to keep of hudi table.
 
-### auto_commit [boolean]
+### cdc_enabled [boolean]
 
-`auto_commit` Automatic transaction commit is enabled by default.
+`cdc_enabled` Whether to persist the CDC change log. When enable, persist the change data if necessary, and the table can be queried as a CDC query mode.
 
 ### schema_save_mode [Enum]
 

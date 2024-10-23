@@ -17,22 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.sink.state;
 
-import org.apache.hudi.client.WriteStatus;
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
-
 import java.io.Serializable;
-import java.util.List;
-import java.util.Stack;
 
-@Data
-@AllArgsConstructor
-public class HudiCommitInfo implements Serializable {
-
-    private final String writeInstantTime;
-
-    private final List<WriteStatus> writeStatusList;
-
-    private final Stack<String> forceCommitTime;
-}
+public class HudiCommitInfo implements Serializable {}

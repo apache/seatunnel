@@ -103,7 +103,7 @@ public class PaimonAggregatedCommitter
         } catch (Exception e) {
             throw new PaimonConnectorException(
                     PaimonConnectorErrorCode.TABLE_WRITE_COMMIT_FAILED,
-                    "Flink table store commit operation failed",
+                    "Paimon table storage write-commit Failed.",
                     e);
         }
         return Collections.emptyList();

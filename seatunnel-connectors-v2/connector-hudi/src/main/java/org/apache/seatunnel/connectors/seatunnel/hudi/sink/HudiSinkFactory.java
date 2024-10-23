@@ -37,12 +37,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.AUTO_COMMIT;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.CONF_FILES_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.TABLE_DFS_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.TABLE_LIST;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.BATCH_INTERVAL_MS;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.BATCH_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.CDC_ENABLED;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.INDEX_CLASS_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.INDEX_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.INSERT_SHUFFLE_PARALLELISM;
@@ -85,7 +85,7 @@ public class HudiSinkFactory implements TableSinkFactory {
                         UPSERT_SHUFFLE_PARALLELISM,
                         MIN_COMMITS_TO_KEEP,
                         MAX_COMMITS_TO_KEEP,
-                        AUTO_COMMIT,
+                        CDC_ENABLED,
                         SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
@@ -121,6 +121,10 @@ public class HudiSinkFactory implements TableSinkFactory {
         }
         // table type
         catalogTable.getOptions().put(TABLE_TYPE.key(), hudiTableConfig.getTableType().name());
+        // cdc enabled
+        catalogTable
+                .getOptions()
+                .put(CDC_ENABLED.key(), String.valueOf(hudiTableConfig.isCdcEnabled()));
         catalogTable =
                 CatalogTable.of(
                         newTableId,

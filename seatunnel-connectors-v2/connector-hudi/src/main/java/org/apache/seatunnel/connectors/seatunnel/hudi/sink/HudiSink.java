@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
@@ -38,14 +37,12 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.hudi.sink.commiter.HudiSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.hudi.sink.state.HudiAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.hudi.sink.state.HudiCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.hudi.sink.state.HudiSinkState;
 import org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer.HudiSinkWriter;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -82,15 +79,13 @@ public class HudiSink
 
     @Override
     public HudiSinkWriter createWriter(SinkWriter.Context context) throws IOException {
-        return new HudiSinkWriter(
-                context, seaTunnelRowType, hudiSinkConfig, hudiTableConfig, new ArrayList<>());
+        return new HudiSinkWriter(context, seaTunnelRowType, hudiSinkConfig, hudiTableConfig);
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, HudiCommitInfo, HudiSinkState> restoreWriter(
             SinkWriter.Context context, List<HudiSinkState> states) throws IOException {
-        return new HudiSinkWriter(
-                context, seaTunnelRowType, hudiSinkConfig, hudiTableConfig, states);
+        return SeaTunnelSink.super.restoreWriter(context, states);
     }
 
     @Override
@@ -100,18 +95,6 @@ public class HudiSink
 
     @Override
     public Optional<Serializer<HudiCommitInfo>> getCommitInfoSerializer() {
-        return Optional.of(new DefaultSerializer<>());
-    }
-
-    @Override
-    public Optional<SinkAggregatedCommitter<HudiCommitInfo, HudiAggregatedCommitInfo>>
-            createAggregatedCommitter() throws IOException {
-        return Optional.of(
-                new HudiSinkAggregatedCommitter(hudiTableConfig, hudiSinkConfig, seaTunnelRowType));
-    }
-
-    @Override
-    public Optional<Serializer<HudiAggregatedCommitInfo>> getAggregatedCommitInfoSerializer() {
         return Optional.of(new DefaultSerializer<>());
     }
 

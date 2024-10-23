@@ -15,15 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.example.engine;
+package org.apache.seatunnel.engine.common.config.server;
 
-import org.apache.seatunnel.core.starter.SeaTunnel;
-import org.apache.seatunnel.core.starter.exception.CommandException;
-import org.apache.seatunnel.core.starter.seatunnel.args.ServerCommandArgs;
-
-public class SeaTunnelEngineServerExample {
-    public static void main(String[] args) throws CommandException {
-        ServerCommandArgs serverCommandArgs = new ServerCommandArgs();
-        SeaTunnel.run(serverCommandArgs.buildCommand());
-    }
+public enum ScheduleStrategy {
+    WAIT,
+    REJECT
 }
