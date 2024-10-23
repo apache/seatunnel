@@ -306,6 +306,37 @@ jobs:
           npm set strict-ssl false
           npm install
           npm run build
+
+  seatunnel-ui:
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.docs == 'true'
+    needs: [ changes, sanity-check ]
+    name: Build SeaTunnel UI
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v2
+        with:
+          node-version: 20.1.4
+
+      - name: Install Dependencies and Check Code Style
+        run: |
+          cd seatunnel-engine/seatunnel-engine-ui/
+          npm install
+          npm run lint
+
+      - name: Run unit tests
+        run: |
+          cd seatunnel-engine/seatunnel-engine-ui/
+          npm run test:unit
+
+      - name: Build SeaTunnel UI
+        run: |
+          cd seatunnel-engine/seatunnel-engine-ui/
+          npm run build
+
   unit-test:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || (needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != '')
