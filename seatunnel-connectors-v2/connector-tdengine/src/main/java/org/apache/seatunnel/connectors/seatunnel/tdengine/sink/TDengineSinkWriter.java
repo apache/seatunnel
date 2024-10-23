@@ -100,11 +100,13 @@ public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                 conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
             String sql =
                     String.format(
-                            "INSERT INTO %s using %s tags ( %s ) VALUES ( %s );",
+                            "INSERT INTO %s using %s tags ( %s ) (%s) VALUES ( %s );",
                             element.getField(0),
                             config.getStable(),
                             tagValues,
+                            String.join(",", config.getFields()),
                             StringUtils.join(convertDataType(metrics), ","));
+            log.debug("sql content: {}", sql);
             final int rowCount = statement.executeUpdate(sql);
             if (rowCount == 0) {
                 Throwables.propagateIfPossible(
