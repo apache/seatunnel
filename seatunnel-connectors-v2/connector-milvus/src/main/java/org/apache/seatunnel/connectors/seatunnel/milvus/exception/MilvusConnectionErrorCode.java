@@ -35,7 +35,12 @@ public enum MilvusConnectionErrorCode implements SeaTunnelErrorCode {
     CREATE_DATABASE_ERROR("MILVUS-13", "Create database error"),
     CREATE_COLLECTION_ERROR("MILVUS-14", "Create collection error"),
     CREATE_INDEX_ERROR("MILVUS-15", "Create index error"),
-    ;
+    INIT_CLIENT_ERROR("MILVUS-16", "Init milvus client error"),
+    WRITE_DATA_FAIL("MILVUS-17", "Write milvus data fail"),
+    READ_DATA_FAIL("MILVUS-18", "Read milvus data fail"),
+    LIST_PARTITIONS_FAILED("MILVUS-19", "Failed to list milvus partition"),
+    SHOW_PARTITION_ERROR("MILVUS-20", "Desc partition error"),
+    CREATE_PARTITION_ERROR("MILVUS-21", "Create partition error");
 
     private final String code;
     private final String description;

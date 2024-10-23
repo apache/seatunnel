@@ -4,7 +4,11 @@
 
 ## Description
 
-Read data from Milvus or Zilliz Cloud
+This Milvus source connector reads data from Milvus or Zilliz Cloud, it has the following features:
+- support read and write data by partition
+- support read dynamic schema data into Metadata Column
+- json data will be converted to json string and sink as json as well
+- retry automatically to bypass ratelimit and grpc limit
 
 ## Key Features
 
@@ -52,4 +56,6 @@ source {
   }
 }
 ```
+
+## Changelog
 

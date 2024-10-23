@@ -216,10 +216,24 @@ public class PhysicalColumn extends Column {
             String sourceType,
             Map<String, Object> options) {
         return new PhysicalColumn(
+                name, dataType, columnLength, nullable, defaultValue, comment, sourceType, options);
+    }
+
+    public static PhysicalColumn of(
+            String name,
+            SeaTunnelDataType<?> dataType,
+            Long columnLength,
+            Integer scale,
+            boolean nullable,
+            Object defaultValue,
+            String comment,
+            String sourceType,
+            Map<String, Object> options) {
+        return new PhysicalColumn(
                 name,
                 dataType,
                 columnLength,
-                null,
+                scale,
                 nullable,
                 defaultValue,
                 comment,
