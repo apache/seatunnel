@@ -88,6 +88,7 @@ connector-tdengine
 connector-web3j
 connector-milvus
 connector-activemq
+connector-prometheus
 connector-sls
 connector-qdrant
 connector-typesense

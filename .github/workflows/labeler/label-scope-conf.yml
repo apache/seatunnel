@@ -132,6 +132,11 @@ http:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-http/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(http)/**'
+prometheus:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-prometheus/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(prometheus)/**'
 hudi:
   - all:
       - changed-files:
