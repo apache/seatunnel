@@ -24,6 +24,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.core.job.ExecutionAddress;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
@@ -48,6 +49,7 @@ import lombok.Getter;
 import scala.Tuple2;
 
 import java.io.Serializable;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -82,8 +84,6 @@ public class JobHistoryService {
      */
     private final Map<Long, JobMaster> runningJobMasterMap;
 
-    private final Map<Long, JobMaster> finishedJobMasterMap;
-
     private final Map<Long, Tuple2<PendingSourceState, JobMaster>> pendingJobMasterMap;
 
     /** finishedJobVertexInfoImap key is jobId and value is JobDAGInfo */
@@ -107,7 +107,6 @@ public class JobHistoryService {
             ILogger logger,
             Map<Long, Tuple2<PendingSourceState, JobMaster>> pendingJobMasterMap,
             Map<Long, JobMaster> runningJobMasterMap,
-            Map<Long, JobMaster> finishedJobMasterMap,
             IMap<Long, JobState> finishedJobStateImap,
             IMap<Long, JobMetrics> finishedJobMetricsImap,
             IMap<Long, JobDAGInfo> finishedJobVertexInfoImap,
@@ -118,7 +117,6 @@ public class JobHistoryService {
         this.pendingJobMasterMap = pendingJobMasterMap;
         this.runningJobMasterMap = runningJobMasterMap;
         this.finishedJobStateImap = finishedJobStateImap;
-        this.finishedJobMasterMap = finishedJobMasterMap;
         this.finishedJobMetricsImap = finishedJobMetricsImap;
         this.finishedJobDAGInfoImap = finishedJobVertexInfoImap;
         this.finishedJobDAGInfoImap.addEntryListener(new JobInfoExpiredListener(), true);
@@ -308,17 +306,24 @@ public class JobHistoryService {
         @Override
         public void entryExpired(EntryEvent<Long, JobDAGInfo> event) {
             Long jobId = event.getKey();
+            JobDAGInfo jobDagInfo = event.getOldValue();
             try {
-                JobMaster jobMaster = finishedJobMasterMap.get(jobId);
-                Set<Address> historyExecutionPlan = jobMaster.getHistoryExecutionPlan();
+                Set<ExecutionAddress> historyExecutionPlan = jobDagInfo.getHistoryExecutionPlan();
 
                 historyExecutionPlan.forEach(
                         address -> {
-                            NodeEngineUtil.sendOperationToMemberNode(
-                                    nodeEngine, new CleanLogOperation(jobId), address);
+                            logger.info("clean job log, jobId: " + jobId + ", address: " + address);
+                            try {
+                                NodeEngineUtil.sendOperationToMemberNode(
+                                        nodeEngine,
+                                        new CleanLogOperation(jobId),
+                                        new Address(address.getHostname(), address.getPort()));
+                            } catch (UnknownHostException e) {
+                                throw new RuntimeException(e);
+                            }
                         });
-            } finally {
-                finishedJobMasterMap.remove(jobId);
+            } catch (Exception e) {
+                logger.warning("clean job log err", e);
             }
         }
     }

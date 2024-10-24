@@ -44,6 +44,7 @@ import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
+import org.apache.seatunnel.engine.core.job.ExecutionAddress;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
@@ -98,7 +99,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -159,7 +159,7 @@ public class JobMaster {
 
     private final IMap<Long, JobInfo> runningJobInfoIMap;
 
-    @Getter private final Set<Address> historyExecutionPlan = new HashSet<>();
+    @Getter private final Set<ExecutionAddress> historyExecutionPlan = new HashSet<>();
 
     private final IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap;
 
@@ -408,9 +408,12 @@ public class JobMaster {
             for (Map.Entry<TaskGroupLocation, CompletableFuture<SlotProfile>> entry :
                     preApplyResourceFutures.entrySet()) {
                 try {
-                    historyExecutionPlan.add(entry.getValue().get().getWorker());
-                } catch (InterruptedException | ExecutionException e) {
-                    throw new RuntimeException(e);
+                    Address worker = entry.getValue().get().getWorker();
+                    historyExecutionPlan.add(
+                            new ExecutionAddress(worker.getHost(), worker.getPort()));
+
+                } catch (Exception e) {
+                    LOGGER.warning("history execution plan add worker failed", e);
                 }
             }
             // Adequate resources, pass on resources to the plan
@@ -549,7 +552,11 @@ public class JobMaster {
         if (jobDAGInfo == null) {
             jobDAGInfo =
                     DAGUtils.getJobDAGInfo(
-                            logicalDag, jobImmutableInformation, engineConfig, isPhysicalDAGIInfo);
+                            logicalDag,
+                            jobImmutableInformation,
+                            engineConfig,
+                            isPhysicalDAGIInfo,
+                            historyExecutionPlan);
         }
         return jobDAGInfo;
     }
