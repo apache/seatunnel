@@ -91,6 +91,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -735,7 +736,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                         logicalDag,
                         jobImmutableInformation,
                         getSeaTunnelServer(false).getSeaTunnelConfig().getEngineConfig(),
-                        true);
+                        true,
+                        new HashSet<>());
 
         jobInfoJson
                 .add(RestConstant.JOB_ID, String.valueOf(jobId))

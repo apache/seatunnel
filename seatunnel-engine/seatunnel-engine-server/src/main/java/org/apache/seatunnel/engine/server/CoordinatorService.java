@@ -398,6 +398,7 @@ public class CoordinatorService {
 
         jobHistoryService =
                 new JobHistoryService(
+                        nodeEngine,
                         runningJobStateIMap,
                         logger,
                         pendingJobMasterMap,

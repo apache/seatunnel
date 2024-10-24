@@ -24,6 +24,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.core.job.ExecutionAddress;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
@@ -33,15 +34,22 @@ import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.PendingSourceState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.operation.CleanLogOperation;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
+import com.hazelcast.cluster.Address;
+import com.hazelcast.core.EntryEvent;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
+import com.hazelcast.map.listener.EntryExpiredListener;
+import com.hazelcast.spi.impl.NodeEngine;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Getter;
 import scala.Tuple2;
 
 import java.io.Serializable;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -52,6 +60,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class JobHistoryService {
+
+    private final NodeEngine nodeEngine;
+
     /**
      * IMap key is one of jobId {@link
      * org.apache.seatunnel.engine.server.dag.physical.PipelineLocation} and {@link
@@ -91,6 +102,7 @@ public class JobHistoryService {
     private final int finishedJobExpireTime;
 
     public JobHistoryService(
+            NodeEngine nodeEngine,
             IMap<Object, Object> runningJobStateIMap,
             ILogger logger,
             Map<Long, Tuple2<PendingSourceState, JobMaster>> pendingJobMasterMap,
@@ -99,6 +111,7 @@ public class JobHistoryService {
             IMap<Long, JobMetrics> finishedJobMetricsImap,
             IMap<Long, JobDAGInfo> finishedJobVertexInfoImap,
             int finishedJobExpireTime) {
+        this.nodeEngine = nodeEngine;
         this.runningJobStateIMap = runningJobStateIMap;
         this.logger = logger;
         this.pendingJobMasterMap = pendingJobMasterMap;
@@ -106,6 +119,7 @@ public class JobHistoryService {
         this.finishedJobStateImap = finishedJobStateImap;
         this.finishedJobMetricsImap = finishedJobMetricsImap;
         this.finishedJobDAGInfoImap = finishedJobVertexInfoImap;
+        this.finishedJobDAGInfoImap.addEntryListener(new JobInfoExpiredListener(), true);
         this.objectMapper = new ObjectMapper();
         this.objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
         this.finishedJobExpireTime = finishedJobExpireTime;
@@ -286,5 +300,31 @@ public class JobHistoryService {
         private static final long serialVersionUID = -7875004875757861958L;
         private PipelineStatus pipelineStatus;
         private Map<TaskGroupLocation, ExecutionState> executionStateMap;
+    }
+
+    private class JobInfoExpiredListener implements EntryExpiredListener<Long, JobDAGInfo> {
+        @Override
+        public void entryExpired(EntryEvent<Long, JobDAGInfo> event) {
+            Long jobId = event.getKey();
+            JobDAGInfo jobDagInfo = event.getOldValue();
+            try {
+                Set<ExecutionAddress> historyExecutionPlan = jobDagInfo.getHistoryExecutionPlan();
+
+                historyExecutionPlan.forEach(
+                        address -> {
+                            logger.info("clean job log, jobId: " + jobId + ", address: " + address);
+                            try {
+                                NodeEngineUtil.sendOperationToMemberNode(
+                                        nodeEngine,
+                                        new CleanLogOperation(jobId),
+                                        new Address(address.getHostname(), address.getPort()));
+                            } catch (UnknownHostException e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+            } catch (Exception e) {
+                logger.warning("clean job log err", e);
+            }
+        }
     }
 }

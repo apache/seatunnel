@@ -76,6 +76,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -206,7 +207,8 @@ public class BaseServlet extends HttpServlet {
                         logicalDag,
                         jobImmutableInformation,
                         getSeaTunnelServer(false).getSeaTunnelConfig().getEngineConfig(),
-                        true);
+                        true,
+                        new HashSet<>());
 
         jobInfoJson
                 .add(RestConstant.JOB_ID, String.valueOf(jobId))

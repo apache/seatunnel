@@ -37,6 +37,9 @@ seatunnel:
     telemetry:
       metric:
         enabled: false
+      log:
+        scheduled-deletion-enable: false
+        prefix: job
     http:
       enable-http: true
       port: 8080

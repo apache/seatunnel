@@ -27,6 +27,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.platform.commons.util.StringUtils;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
@@ -35,12 +36,15 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
+import com.beust.jcommander.internal.Lists;
+import com.hazelcast.jet.datamodel.Tuple2;
 import io.restassured.response.Response;
 
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -52,7 +56,11 @@ import static org.hamcrest.Matchers.equalTo;
 public class JobLogIT extends SeaTunnelContainer {
 
     private static final String CUSTOM_JOB_NAME = "test-job-log-file";
+    private static final String CUSTOM_JOB_NAME2 = "test-job-log-file2";
+    private static final String CUSTOM_JOB_NAME3 = "test-job-log-file3";
     private static final long CUSTOM_JOB_ID = 862969647010611201L;
+    private static final long CUSTOM_JOB_ID2 = 862969647010611202L;
+    private static final long CUSTOM_JOB_ID3 = 862969647010611203L;
 
     private static final String confFile = "/fakesource_to_console.conf";
     private static final Path BIN_PATH = Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL);
@@ -99,10 +107,29 @@ public class JobLogIT extends SeaTunnelContainer {
     @Test
     public void testJobLogFile() throws Exception {
         submitJobAndAssertResponse(
-                server, JobMode.STREAMING.name(), false, CUSTOM_JOB_NAME, CUSTOM_JOB_ID);
+                server, JobMode.BATCH.name(), false, CUSTOM_JOB_NAME, CUSTOM_JOB_ID);
+
+        submitJobAndAssertResponse(
+                server, JobMode.STREAMING.name(), false, CUSTOM_JOB_NAME2, CUSTOM_JOB_ID2);
+
+        submitJobAndAssertResponse(
+                server, JobMode.STREAMING.name(), false, CUSTOM_JOB_NAME3, CUSTOM_JOB_ID3);
 
         assertConsoleLog();
         assertFileLog();
+        List<Tuple2<Boolean, String>> before =
+                Lists.newArrayList(
+                        Tuple2.tuple2(false, "job-" + CUSTOM_JOB_ID + ".log"),
+                        Tuple2.tuple2(false, "job-" + CUSTOM_JOB_ID2 + ".log"),
+                        Tuple2.tuple2(false, "job-" + CUSTOM_JOB_ID3 + ".log"));
+        assertFileLogClean(before);
+        Thread.sleep(90000);
+        List<Tuple2<Boolean, String>> after =
+                Lists.newArrayList(
+                        Tuple2.tuple2(true, "job-" + CUSTOM_JOB_ID + ".log"),
+                        Tuple2.tuple2(false, "job-" + CUSTOM_JOB_ID2 + ".log"),
+                        Tuple2.tuple2(false, "job-" + CUSTOM_JOB_ID3 + ".log"));
+        assertFileLogClean(after);
     }
 
     private void assertConsoleLog() {
@@ -166,6 +193,22 @@ public class JobLogIT extends SeaTunnelContainer {
                                             || pattern.matcher(apiSecondExecResult.getStdout())
                                                     .find());
                         });
+    }
+
+    private void assertFileLogClean(List<Tuple2<Boolean, String>> tuple2s)
+            throws IOException, InterruptedException {
+        for (Tuple2<Boolean, String> tuple2 : tuple2s) {
+            Container.ExecResult execResult =
+                    server.execInContainer(
+                            "sh", "-c", "find /tmp/seatunnel/logs -name " + tuple2.f1() + "\n");
+            String file = execResult.getStdout();
+            execResult =
+                    secondServer.execInContainer(
+                            "sh", "-c", "find /tmp/seatunnel/logs -name " + tuple2.f1() + "\n");
+            String file1 = execResult.getStdout();
+            Assertions.assertEquals(
+                    tuple2.f0(), StringUtils.isBlank(file) && StringUtils.isBlank(file1));
+        }
     }
 
     private Response submitJob(
