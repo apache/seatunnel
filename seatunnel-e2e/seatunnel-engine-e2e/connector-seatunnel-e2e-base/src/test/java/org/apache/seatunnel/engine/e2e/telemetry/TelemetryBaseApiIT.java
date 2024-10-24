@@ -21,6 +21,8 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.e2e.TestUtils;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
+import org.junit.jupiter.api.Test;
+
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 
 public class TelemetryBaseApiIT extends AbstractTelemetryBaseIT {
@@ -46,11 +48,6 @@ public class TelemetryBaseApiIT extends AbstractTelemetryBaseIT {
     }
 
     @Override
-    public HazelcastInstanceImpl getHazelcastInstance() throws Exception {
-        return hazelcastInstance;
-    }
-
-    @Override
     public int getNodeCount() {
         return 1;
     }
@@ -58,5 +55,10 @@ public class TelemetryBaseApiIT extends AbstractTelemetryBaseIT {
     @Override
     public String getClusterName() {
         return TestUtils.getClusterName(testClusterName);
+    }
+
+    @Test
+    public void testGetMetrics() throws Exception {
+        testGetMetrics(hazelcastInstance, getClusterName());
     }
 }

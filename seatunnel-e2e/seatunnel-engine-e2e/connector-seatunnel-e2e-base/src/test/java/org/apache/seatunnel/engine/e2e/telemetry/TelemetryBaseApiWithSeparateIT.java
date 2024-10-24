@@ -23,6 +23,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 
@@ -82,11 +83,6 @@ public class TelemetryBaseApiWithSeparateIT extends AbstractTelemetryBaseIT {
     }
 
     @Override
-    public HazelcastInstanceImpl getHazelcastInstance() throws Exception {
-        return masterNode;
-    }
-
-    @Override
     public int getNodeCount() {
         return 3;
     }
@@ -94,5 +90,10 @@ public class TelemetryBaseApiWithSeparateIT extends AbstractTelemetryBaseIT {
     @Override
     public String getClusterName() {
         return TestUtils.getClusterName(testClusterNameWithSeparate);
+    }
+
+    @Test
+    public void testGetMetrics() throws Exception {
+        testGetMetrics(masterNode, getClusterName());
     }
 }

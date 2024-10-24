@@ -34,7 +34,6 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.config.Config;
@@ -53,15 +52,17 @@ public abstract class AbstractTelemetryBaseIT {
 
     private static final String HOST = "http://localhost:";
 
+    private SeaTunnelClient engineClient;
+
     public abstract void open(SeaTunnelConfig... seaTunnelConfigs) throws Exception;
 
     public abstract void close() throws Exception;
 
-    public abstract HazelcastInstanceImpl getHazelcastInstance() throws Exception;
-
     public abstract int getNodeCount();
 
     public abstract String getClusterName();
+
+    public abstract void testGetMetrics() throws Exception;
 
     @BeforeEach
     public void before() throws Exception {
@@ -75,13 +76,9 @@ public abstract class AbstractTelemetryBaseIT {
         runJob(getSeaTunnelConfig(getClusterName()), getClusterName());
     }
 
-    @Test
-    public void testGetMetrics() throws Exception {
-        testGetMetrics(getHazelcastInstance(), getClusterName());
-    }
-
     @AfterEach
     public void after() throws Exception {
+        engineClient.close();
         this.close();
     }
 
@@ -573,7 +570,7 @@ public abstract class AbstractTelemetryBaseIT {
 
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         clientConfig.setClusterName(clusterName);
-        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
+        engineClient = new SeaTunnelClient(clientConfig);
         ClientJobExecutionEnvironment jobExecutionEnv =
                 engineClient.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
 
