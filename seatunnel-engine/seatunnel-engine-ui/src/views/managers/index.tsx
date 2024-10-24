@@ -56,22 +56,22 @@ export default defineComponent({
         {
           title: 'Heap MEM Used',
           key: 'heap.memory.used'
-        },
-        {
-          title: 'Action',
-          key: 'actions',
-          render(row) {
-            return h(
-              NButton,
-              {
-                strong: true,
-                tertiary: true,
-                size: 'small',
-                onClick: () => view(row)
-              },
-              { default: () => 'View' }
-            )
-          }
+          // },
+          // {
+          //   title: 'Action',
+          //   key: 'actions',
+          //   render(row) {
+          //     return h(
+          //       NButton,
+          //       {
+          //         strong: true,
+          //         tertiary: true,
+          //         size: 'small',
+          //         onClick: () => view(row)
+          //       },
+          //       { default: () => 'View' }
+          //     )
+          //   }
         }
       ]
     }

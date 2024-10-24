@@ -59,4 +59,4 @@ node/
 
 dist/
 
-ui/
+seatunnel-engine/seatunnel-engine-server/**/ui/*
