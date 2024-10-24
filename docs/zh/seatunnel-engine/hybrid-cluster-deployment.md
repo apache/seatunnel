@@ -136,6 +136,23 @@ seatunnel:
     classloader-cache-mode: true
 ```
 
+### 4.6 作业调度策略
+
+当资源不足时，作业调度策略可以配置为以下两种模式：
+
+1. `WAIT`：等待资源可用。
+2. `REJECT`：拒绝作业，默认值。
+
+示例
+
+```yaml
+seatunnel:
+  engine:
+    job-schedule-strategy: WAIT
+```
+
+当`dynamic-slot: ture`时，`job-schedule-strategy: WAIT` 配置会失效，将被强制修改为`job-schedule-strategy: REJECT`，因为动态Slot时该参数没有意义，可以直接提交。
+
 ## 5. 配置 SeaTunnel Engine 网络服务
 
 所有 SeaTunnel Engine 网络相关的配置都在 `hazelcast.yaml` 文件中.

@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.system.FtpConnectionMode;
 
-import static org.apache.seatunnel.connectors.seatunnel.file.ftp.system.FtpConnectionMode.ACTIVE_LOCAL_DATA_CONNECTION_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.file.ftp.system.FtpConnectionMode.ACTIVE_LOCAL;
 
 public class FtpConfigOptions extends BaseSourceConfigOptions {
     public static final Option<String> FTP_PASSWORD =
@@ -42,6 +42,6 @@ public class FtpConfigOptions extends BaseSourceConfigOptions {
     public static final Option<FtpConnectionMode> FTP_CONNECTION_MODE =
             Options.key("connection_mode")
                     .enumType(FtpConnectionMode.class)
-                    .defaultValue(ACTIVE_LOCAL_DATA_CONNECTION_MODE)
+                    .defaultValue(ACTIVE_LOCAL)
                     .withDescription("FTP server connection mode ");
 }

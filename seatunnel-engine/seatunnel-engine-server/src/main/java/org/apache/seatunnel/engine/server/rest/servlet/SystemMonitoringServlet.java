@@ -17,14 +17,7 @@
 
 package org.apache.seatunnel.engine.server.rest.servlet;
 
-import org.apache.seatunnel.engine.server.operation.GetClusterHealthMetricsOperation;
-import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
-
-import com.hazelcast.cluster.Address;
-import com.hazelcast.cluster.Cluster;
-import com.hazelcast.cluster.Member;
 import com.hazelcast.internal.json.JsonArray;
-import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,9 +26,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
 
 @Slf4j
 public class SystemMonitoringServlet extends BaseServlet {
@@ -47,37 +37,7 @@ public class SystemMonitoringServlet extends BaseServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        Cluster cluster = nodeEngine.getHazelcastInstance().getCluster();
-
-        Set<Member> members = cluster.getMembers();
-        JsonArray jsonValues =
-                members.stream()
-                        .map(
-                                member -> {
-                                    Address address = member.getAddress();
-                                    String input = null;
-                                    try {
-                                        input =
-                                                (String)
-                                                        NodeEngineUtil.sendOperationToMemberNode(
-                                                                        nodeEngine,
-                                                                        new GetClusterHealthMetricsOperation(),
-                                                                        address)
-                                                                .get();
-                                    } catch (InterruptedException | ExecutionException e) {
-                                        log.error("Failed to get cluster health metrics", e);
-                                    }
-                                    String[] parts = input.split(", ");
-                                    JsonObject jobInfo = new JsonObject();
-                                    Arrays.stream(parts)
-                                            .forEach(
-                                                    part -> {
-                                                        String[] keyValue = part.split("=");
-                                                        jobInfo.add(keyValue[0], keyValue[1]);
-                                                    });
-                                    return jobInfo;
-                                })
-                        .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+        JsonArray jsonValues = getSystemMonitoringInformationJsonValues();
         writeJson(resp, jsonValues);
     }
 }

@@ -973,3 +973,14 @@ It is used to determine whether the condition is valid and return different valu
 Example:
 
 case when c_string in ('c_string') then 1 else 0 end
+
+### UUID
+
+```UUID()```
+
+Generate a uuid through java function.
+
+Example:
+
+select UUID() as seatunnel_uuid
+

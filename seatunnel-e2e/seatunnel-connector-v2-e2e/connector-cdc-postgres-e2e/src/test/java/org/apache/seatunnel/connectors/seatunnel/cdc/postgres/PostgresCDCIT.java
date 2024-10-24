@@ -24,6 +24,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -274,12 +275,14 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             disabledReason = "Currently SPARK and FLINK do not support restore")
     public void testMultiTableWithRestore(TestContainer container)
             throws IOException, InterruptedException {
+        Long jobId = JobIdGenerator.newJobId();
         try {
             CompletableFuture.supplyAsync(
                     () -> {
                         try {
                             return container.executeJob(
-                                    "/pgcdc_to_pg_with_multi_table_mode_one_table.conf");
+                                    "/pgcdc_to_pg_with_multi_table_mode_one_table.conf",
+                                    String.valueOf(jobId));
                         } catch (Exception e) {
                             log.error("Commit task exception :" + e.getMessage());
                             throw new RuntimeException(e);
@@ -305,26 +308,15 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                                                             POSTGRESQL_SCHEMA,
                                                                             SINK_TABLE_1)))));
 
-            Pattern jobIdPattern =
-                    Pattern.compile(
-                            ".*Init JobMaster for Job pgcdc_to_pg_with_multi_table_mode_one_table.conf \\(([0-9]*)\\).*",
-                            Pattern.DOTALL);
-            Matcher matcher = jobIdPattern.matcher(container.getServerLogs());
-            String jobId;
-            if (matcher.matches()) {
-                jobId = matcher.group(1);
-            } else {
-                throw new RuntimeException("Can not find jobId");
-            }
-
-            Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+            Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
 
             // Restore job with add a new table
             CompletableFuture.supplyAsync(
                     () -> {
                         try {
                             container.restoreJob(
-                                    "/pgcdc_to_pg_with_multi_table_mode_two_table.conf", jobId);
+                                    "/pgcdc_to_pg_with_multi_table_mode_two_table.conf",
+                                    String.valueOf(jobId));
                         } catch (Exception e) {
                             log.error("Commit task exception :" + e.getMessage());
                             throw new RuntimeException(e);
@@ -382,12 +374,14 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             disabledReason = "Currently SPARK and FLINK do not support restore")
     public void testAddFiledWithRestore(TestContainer container)
             throws IOException, InterruptedException {
+        Long jobId = JobIdGenerator.newJobId();
         try {
             CompletableFuture.supplyAsync(
                     () -> {
                         try {
                             return container.executeJob(
-                                    "/postgrescdc_to_postgres_test_add_Filed.conf");
+                                    "/postgrescdc_to_postgres_test_add_Filed.conf",
+                                    String.valueOf(jobId));
                         } catch (Exception e) {
                             log.error("Commit task exception :" + e.getMessage());
                             throw new RuntimeException(e);
@@ -410,19 +404,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                                                             POSTGRESQL_SCHEMA,
                                                                             SINK_TABLE_3)))));
 
-            Pattern jobIdPattern =
-                    Pattern.compile(
-                            ".*Init JobMaster for Job postgrescdc_to_postgres_test_add_Filed.conf \\(([0-9]*)\\).*",
-                            Pattern.DOTALL);
-            Matcher matcher = jobIdPattern.matcher(container.getServerLogs());
-            String jobId;
-            if (matcher.matches()) {
-                jobId = matcher.group(1);
-            } else {
-                throw new RuntimeException("Can not find jobId");
-            }
-
-            Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+            Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
 
             // add filed add insert source table data
             addFieldsForTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_3);
@@ -434,7 +416,8 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                     () -> {
                         try {
                             container.restoreJob(
-                                    "/postgrescdc_to_postgres_test_add_Filed.conf", jobId);
+                                    "/postgrescdc_to_postgres_test_add_Filed.conf",
+                                    String.valueOf(jobId));
                         } catch (Exception e) {
                             log.error("Commit task exception :" + e.getMessage());
                             throw new RuntimeException(e);
@@ -662,7 +645,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                         + tableName
                         + " VALUES (2, '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,\n"
                         + "        'Hello World', 'a', 'abc', 'abcd..xyz', '2020-07-17 18:00:22.123', '2020-07-17 18:00:22.123456',\n"
-                        + "        '2020-07-17', '18:00:22', 500);");
+                        + "        '2020-07-17', '18:00:22', 500,'192.168.1.1');");
 
         executeSql(
                 "INSERT INTO "
@@ -671,7 +654,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                         + tableName
                         + " VALUES (3, '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,\n"
                         + "        'Hello World', 'a', 'abc', 'abcd..xyz', '2020-07-17 18:00:22.123', '2020-07-17 18:00:22.123456',\n"
-                        + "        '2020-07-17', '18:00:22', 500);");
+                        + "        '2020-07-17', '18:00:22', 500,'192.168.1.1');");
 
         executeSql("DELETE FROM " + database + "." + tableName + " where id = 2;");
 

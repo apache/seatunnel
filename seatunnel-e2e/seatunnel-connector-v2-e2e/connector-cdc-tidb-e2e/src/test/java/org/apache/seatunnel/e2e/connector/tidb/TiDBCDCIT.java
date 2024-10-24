@@ -24,6 +24,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -41,8 +42,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static org.awaitility.Awaitility.await;
 
@@ -167,11 +166,11 @@ public class TiDBCDCIT extends TiDBTestBase implements TestResource {
         // Clear related content to ensure that multiple operations are not affected
         clearTable(TIDB_DATABASE, SOURCE_TABLE);
         clearTable(TIDB_DATABASE, SINK_TABLE);
-
+        Long jobId = JobIdGenerator.newJobId();
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
-                        container.executeJob("/tidb/tidbcdc_to_tidb.conf");
+                        container.executeJob("/tidb/tidbcdc_to_tidb.conf", String.valueOf(jobId));
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
@@ -192,24 +191,13 @@ public class TiDBCDCIT extends TiDBTestBase implements TestResource {
                                             query(getSinkQuerySQL(TIDB_DATABASE, SINK_TABLE))));
                         });
 
-        Pattern jobIdPattern =
-                Pattern.compile(
-                        ".*Init JobMaster for Job tidbcdc_to_tidb.conf \\(([0-9]*)\\).*",
-                        Pattern.DOTALL);
-        Matcher matcher = jobIdPattern.matcher(container.getServerLogs());
-        String jobId;
-        if (matcher.matches()) {
-            jobId = matcher.group(1);
-        } else {
-            throw new RuntimeException("Can not find jobId");
-        }
-        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+        Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
 
         // Restore job
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
-                        container.restoreJob("/tidb/tidbcdc_to_tidb.conf", jobId);
+                        container.restoreJob("/tidb/tidbcdc_to_tidb.conf", String.valueOf(jobId));
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);

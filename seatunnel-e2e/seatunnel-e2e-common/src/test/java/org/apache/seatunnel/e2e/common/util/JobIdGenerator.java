@@ -15,15 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.example.engine;
+package org.apache.seatunnel.e2e.common.util;
 
-import org.apache.seatunnel.core.starter.SeaTunnel;
-import org.apache.seatunnel.core.starter.exception.CommandException;
-import org.apache.seatunnel.core.starter.seatunnel.args.ServerCommandArgs;
+import java.util.concurrent.ThreadLocalRandom;
 
-public class SeaTunnelEngineServerExample {
-    public static void main(String[] args) throws CommandException {
-        ServerCommandArgs serverCommandArgs = new ServerCommandArgs();
-        SeaTunnel.run(serverCommandArgs.buildCommand());
+public class JobIdGenerator {
+
+    public static Long newJobId() {
+        return Math.abs(ThreadLocalRandom.current().nextLong());
     }
 }

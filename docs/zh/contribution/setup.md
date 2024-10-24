@@ -75,7 +75,7 @@ Apache SeaTunnel 使用 `Spotless` 来统一代码风格和格式检查。可以
 完成上面所有的工作后，环境搭建已经完成， 可以直接运行我们的示例了。 所有的示例在 `seatunnel-examples` 模块里， 你可以随意选择进行编译和调试，参考 [running or debugging
 it in IDEA](https://www.jetbrains.com/help/idea/run-debug-configuration.html)。
 
-我们使用 `seatunnel-examples/seatunnel-engine-examples/src/main/java/org/apache/seatunnel/example/engine/SeaTunnelEngineExample.java`
+我们使用 `seatunnel-examples/seatunnel-engine-examples/src/main/java/org/apache/seatunnel/example/engine/SeaTunnelEngineLocalExample.java`
 作为示例, 运行成功后的输出如下:
 
 ```log
