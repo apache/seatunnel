@@ -20,6 +20,7 @@ package org.apache.seatunnel.api.table.type;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -34,6 +35,8 @@ public final class SeaTunnelRow implements Serializable {
     private final Object[] fields;
 
     private volatile int size;
+
+    private Map<String, Object> options = new HashMap<>();
 
     public SeaTunnelRow(int arity) {
         this.fields = new Object[arity];
@@ -55,6 +58,10 @@ public final class SeaTunnelRow implements Serializable {
         this.rowKind = rowKind;
     }
 
+    public void setOptions(Map<String, Object> options) {
+        this.options = options;
+    }
+
     public int getArity() {
         return fields.length;
     }
@@ -65,6 +72,10 @@ public final class SeaTunnelRow implements Serializable {
 
     public RowKind getRowKind() {
         return this.rowKind;
+    }
+
+    public Map<String, Object> getOptions() {
+        return options;
     }
 
     public Object[] getFields() {

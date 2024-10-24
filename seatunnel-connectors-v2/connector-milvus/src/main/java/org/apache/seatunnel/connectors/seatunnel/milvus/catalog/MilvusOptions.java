@@ -14,9 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.connectors.seatunnel.milvus.catalog;
 
 public class MilvusOptions {
 
     public static final String ENABLE_DYNAMIC_FIELD = "enableDynamicField";
+    public static final String SHARDS_NUM = "shardsNum";
+    public static final String PARTITION_KEY_FIELD = "partitionKeyField";
+    public static final String PARTITION_NAMES = "partitionNames";
 }

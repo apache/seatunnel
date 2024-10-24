@@ -465,7 +465,9 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 // JDBC Hana driver
                 || threadName.startsWith("Thread-")
                 // JNA Cleaner
-                || threadName.startsWith("JNA Cleaner");
+                || threadName.startsWith("JNA Cleaner")
+                // GRPC client
+                || threadName.startsWith("grpc");
     }
 
     @Override

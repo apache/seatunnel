@@ -4,8 +4,11 @@
 
 ## Description
 
-Write data to Milvus or Zilliz Cloud
-
+This Milvus sink connector write data to Milvus or Zilliz Cloud, it has the following features:
+- support read and write data by partition
+- support write dynamic schema data from Metadata Column
+- json data will be converted to json string and sink as json as well
+- retry automatically to bypass ratelimit and grpc limit
 ## Key Features
 
 - [x] [batch](../../concept/connector-v2-features.md)
@@ -34,7 +37,7 @@ Write data to Milvus or Zilliz Cloud
 
 ## Sink Options
 
-|         Name         |  Type   | Required |           Default            |                        Description                        |
+|         Name         | Type    | Required |           Default            | Description                                               |
 |----------------------|---------|----------|------------------------------|-----------------------------------------------------------|
 | url                  | String  | Yes      | -                            | The URL to connect to Milvus or Zilliz Cloud.             |
 | token                | String  | Yes      | -                            | User:password                                             |
@@ -44,6 +47,7 @@ Write data to Milvus or Zilliz Cloud
 | enable_upsert        | boolean | No       | false                        | Upsert data not insert.                                   |
 | enable_dynamic_field | boolean | No       | true                         | Enable create table with dynamic field.                   |
 | batch_size           | int     | No       | 1000                         | Write batch size.                                         |
+| partition_key        | String  | No       |                              | Milvus partition key field                                |                                         
 
 ## Task Example
 

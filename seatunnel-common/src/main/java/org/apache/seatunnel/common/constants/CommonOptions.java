@@ -15,17 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.milvus.sink.batch;
+package org.apache.seatunnel.common.constants;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import lombok.Getter;
 
-public interface MilvusBatchWriter {
+@Getter
+public enum CommonOptions {
+    JSON("Json"),
+    METADATA("Metadata"),
+    PARTITION("Partition"),
+    ;
 
-    void addToBatch(SeaTunnelRow element);
+    private final String name;
 
-    boolean needFlush();
-
-    boolean flush();
-
-    void close();
+    CommonOptions(String name) {
+        this.name = name;
+    }
 }
