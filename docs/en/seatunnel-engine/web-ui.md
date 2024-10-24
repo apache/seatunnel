@@ -1,5 +1,17 @@
 # Apache SeaTunnel Web UI Documentation
 
+## Access
+
+Before accessing the web ui we need to enable the http rest api. first you need to configure it in the `seatunnel.yaml` configuration file
+``
+http.
+enable-http: true
+port: 8080
+
+```
+Then visit http://ip:8080/#/overview
+```
+
 ## Overview
 
 The Web UI of Apache SeaTunnel offers a user-friendly interface for monitoring and managing SeaTunnel jobs. Through the Web UI, users can view real-time information on currently running jobs, finished jobs, and the status of worker and master nodes within the cluster. The main functional modules include Jobs, Workers, and Master, each providing detailed status information and operational options to help users efficiently manage and optimize their data processing workflows.
