@@ -20,11 +20,12 @@ package org.apache.seatunnel.connectors.doris.source.reader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.doris.backend.BackendClient;
-import org.apache.seatunnel.connectors.doris.config.DorisConfig;
+import org.apache.seatunnel.connectors.doris.config.DorisSourceConfig;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 import org.apache.seatunnel.connectors.doris.rest.PartitionDefinition;
 import org.apache.seatunnel.connectors.doris.rest.models.Schema;
+import org.apache.seatunnel.connectors.doris.source.DorisSourceTable;
 import org.apache.seatunnel.connectors.doris.source.serialization.Routing;
 import org.apache.seatunnel.connectors.doris.source.serialization.RowBatch;
 import org.apache.seatunnel.connectors.doris.util.SchemaUtils;
@@ -54,7 +55,8 @@ public class DorisValueReader {
     protected Lock clientLock = new ReentrantLock();
 
     private PartitionDefinition partition;
-    private DorisConfig config;
+    private DorisSourceTable dorisSourceTable;
+    private DorisSourceConfig config;
 
     protected int offset = 0;
     protected AtomicBoolean eos = new AtomicBoolean(false);
@@ -72,12 +74,15 @@ public class DorisValueReader {
     protected boolean asyncThreadStarted;
 
     public DorisValueReader(
-            PartitionDefinition partition, DorisConfig config, SeaTunnelRowType seaTunnelRowType) {
+            PartitionDefinition partition,
+            DorisSourceConfig config,
+            DorisSourceTable dorisSourceTable) {
         this.partition = partition;
         this.config = config;
+        this.dorisSourceTable = dorisSourceTable;
         this.client = backendClient();
         this.deserializeArrowToRowBatchAsync = config.getDeserializeArrowAsync();
-        this.seaTunnelRowType = seaTunnelRowType;
+        this.seaTunnelRowType = dorisSourceTable.getCatalogTable().getSeaTunnelRowType();
         int blockingQueueSize = config.getDeserializeQueueSize();
         if (this.deserializeArrowToRowBatchAsync) {
             this.rowBatchBlockingQueue = new ArrayBlockingQueue<>(blockingQueueSize);
@@ -117,9 +122,9 @@ public class DorisValueReader {
         params.tablet_ids = Arrays.asList(partition.getTabletIds().toArray(new Long[] {}));
         params.opaqued_query_plan = partition.getQueryPlan();
         // max row number of one read batch
-        Integer batchSize = config.getBatchSize();
+        Integer batchSize = dorisSourceTable.getBatchSize();
         Integer queryDorisTimeout = config.getRequestQueryTimeoutS();
-        Long execMemLimit = config.getExecMemLimit();
+        Long execMemLimit = dorisSourceTable.getExecMemLimit();
         params.setBatchSize(batchSize);
         params.setQueryTimeout(queryDorisTimeout);
         params.setMemLimit(execMemLimit);
@@ -250,7 +255,9 @@ public class DorisValueReader {
             throw new DorisConnectorException(
                     DorisConnectorErrorCode.SHOULD_NEVER_HAPPEN, "never happen error.");
         }
-        return rowBatch.next();
+        SeaTunnelRow next = rowBatch.next();
+        next.setTableId(dorisSourceTable.getTablePath().toString());
+        return next;
     }
 
     public void close() {

@@ -20,10 +20,11 @@ package org.apache.seatunnel.connectors.doris.source.reader;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.doris.config.DorisConfig;
+import org.apache.seatunnel.connectors.doris.config.DorisSourceConfig;
 import org.apache.seatunnel.connectors.doris.rest.PartitionDefinition;
+import org.apache.seatunnel.connectors.doris.source.DorisSourceTable;
 import org.apache.seatunnel.connectors.doris.source.split.DorisSourceSplit;
 
 import lombok.extern.slf4j.Slf4j;
@@ -32,27 +33,30 @@ import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 
 @Slf4j
 public class DorisSourceReader implements SourceReader<SeaTunnelRow, DorisSourceSplit> {
 
     private final Context context;
-    private final DorisConfig dorisConfig;
+    private final DorisSourceConfig dorisSourceConfig;
 
     private final Queue<DorisSourceSplit> splitsQueue;
     private volatile boolean noMoreSplits;
 
     private DorisValueReader valueReader;
 
-    private SeaTunnelRowType seaTunnelRowType;
+    private final Map<TablePath, DorisSourceTable> tables;
 
     public DorisSourceReader(
-            Context context, DorisConfig dorisConfig, SeaTunnelRowType seaTunnelRowType) {
+            Context context,
+            DorisSourceConfig dorisSourceConfig,
+            Map<TablePath, DorisSourceTable> tables) {
         this.splitsQueue = new ArrayDeque<>();
         this.context = context;
-        this.dorisConfig = dorisConfig;
-        this.seaTunnelRowType = seaTunnelRowType;
+        this.dorisSourceConfig = dorisSourceConfig;
+        this.tables = tables;
     }
 
     @Override
@@ -71,7 +75,12 @@ public class DorisSourceReader implements SourceReader<SeaTunnelRow, DorisSource
             DorisSourceSplit nextSplit = splitsQueue.poll();
             if (nextSplit != null) {
                 PartitionDefinition partition = nextSplit.getPartitionDefinition();
-                valueReader = new DorisValueReader(partition, dorisConfig, seaTunnelRowType);
+                DorisSourceTable dorisSourceTable =
+                        tables.get(TablePath.of(partition.getDatabase(), partition.getTable()));
+                if (dorisSourceTable == null) {
+                    return;
+                }
+                valueReader = new DorisValueReader(partition, dorisSourceConfig, dorisSourceTable);
                 while (valueReader.hasNext()) {
                     SeaTunnelRow record = valueReader.next();
                     output.collect(record);

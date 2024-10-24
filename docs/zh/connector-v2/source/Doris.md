@@ -1,36 +1,36 @@
 # Doris
 
-> Doris source connector
+> Doris 源连接器
 
-## Support Those Engines
+## 支持的引擎
 
 > Spark<br/>
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
-## Key features
+## 主要功能
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [ ] [stream](../../concept/connector-v2-features.md)
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [column projection](../../concept/connector-v2-features.md)
-- [x] [parallelism](../../concept/connector-v2-features.md)
-- [x] [support user-defined split](../../concept/connector-v2-features.md)
-- [x] [support multiple table read](../../concept/connector-v2-features.md)
+- [x] [批处理](../../concept/connector-v2-features.md)
+- [ ] [流处理](../../concept/connector-v2-features.md)
+- [ ] [精确一次](../../concept/connector-v2-features.md)
+- [x] [列投影](../../concept/connector-v2-features.md)
+- [x] [并行度](../../concept/connector-v2-features.md)
+- [x] [支持用户自定义分片](../../concept/connector-v2-features.md)
+- [x] [支持多表读](../../concept/connector-v2-features.md)
 
-## Description
+## 描述
 
-Used to read data from Apache Doris.
+用于 Apache Doris 的源连接器。
 
-## Supported DataSource Info
+## 支持的数据源信息
 
-| Datasource |          Supported versions          | Driver | Url | Maven |
+| 数据源      |          支持版本                      | 驱动   | Url | Maven |
 |------------|--------------------------------------|--------|-----|-------|
-| Doris      | Only Doris2.0 or later is supported. | -      | -   | -     |
+| Doris      | 仅支持Doris2.0及以上版本.               | -      | -   | -     |
 
-## Data Type Mapping
+## 数据类型映射
 
-|           Doris Data type            |                                                                 SeaTunnel Data type                                                                 |
+|           Doris 数据类型               |                                                                 SeaTunnel 数据类型                                                                   |
 |--------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
 | INT                                  | INT                                                                                                                                                 |
 | TINYINT                              | TINYINT                                                                                                                                             |
@@ -46,43 +46,43 @@ Used to read data from Apache Doris.
 | DATETIME<br/>DATETIME(p)             | TIMESTAMP                                                                                                                                           |
 | ARRAY                                | ARRAY                                                                                                                                               |
 
-## Source Options
+## 源选项
 
-Base configuration:
+基础配置:
 
-|               Name               |  Type  | Required |  Default   |                                             Description                                             |
+|               名称                |  类型   | 是否必须  |  默认值     |                                             描述                                                     |
 |----------------------------------|--------|----------|------------|-----------------------------------------------------------------------------------------------------|
-| fenodes                          | string | yes      | -          | FE address, the format is `"fe_host:fe_http_port"`                                                  |
-| username                         | string | yes      | -          | User username                                                                                       |
-| password                         | string | yes      | -          | User password                                                                                       |
-| doris.request.retries            | int    | no       | 3          | Number of retries to send requests to Doris FE.                                                     |
+| fenodes                          | string | yes      | -          | FE 地址, 格式：`"fe_host:fe_http_port"`                                                               |
+| username                         | string | yes      | -          | 用户名                                                                                               |
+| password                         | string | yes      | -          | 密码                                                                                                 |
+| doris.request.retries            | int    | no       | 3          | 请求Doris FE的重试次数                                                                                 |
 | doris.request.read.timeout.ms    | int    | no       | 30000      |                                                                                                     |
 | doris.request.connect.timeout.ms | int    | no       | 30000      |                                                                                                     |
-| query-port                       | string | no       | 9030       | Doris QueryPort                                                                                     |
-| doris.request.query.timeout.s    | int    | no       | 3600       | Timeout period of Doris scan data, expressed in seconds.                                            |
-| table_list                       | string | 否       | -          | table list                                                                                          |
+| query-port                       | string | no       | 9030       | Doris查询端口                                                                                         |
+| doris.request.query.timeout.s    | int    | no       | 3600       | Doris扫描数据的超时时间，单位秒                                                                          |
+| table_list                       | string | 否       | -           | 表清单                                                                                               |
 
-Table list configuration:
+表清单配置:
 
-|               Name               |  Type  | Required |  Default   |                                             Description                                             |
+|               名称                |  类型   | 是否必须  |  默认值     |                                             描述                                                     |
 |----------------------------------|--------|----------|------------|-----------------------------------------------------------------------------------------------------|
-| database                         | string | yes      | -          | The name of Doris database                                                                          |
-| table                            | string | yes      | -          | The name of Doris table                                                                             |
-| doris.read.field                 | string | no       | -          | Use the 'doris.read.field' parameter to select the doris table columns to read                      |
-| doris.filter.query               | string | no       | -          | Data filtering in doris. the format is "field = value",example : doris.filter.query = "F_ID > 2"    |
-| doris.batch.size                 | int    | no       | 1024       | The maximum value that can be obtained by reading Doris BE once.                                    |
-| doris.exec.mem.limit             | long   | no       | 2147483648 | Maximum memory that can be used by a single be scan request. The default memory is 2G (2147483648). |
+| database                         | string | yes      | -          | 数据库                                                                                               |
+| table                            | string | yes      | -          | 表名                                                                                                |
+| doris.read.field                 | string | no       | -          | 选择要读取的Doris表字段                                                                                |
+| doris.filter.query               | string | no       | -          | 数据过滤. 格式："字段 = 值", 例如：doris.filter.query = "F_ID > 2"                                       |
+| doris.batch.size                 | int    | no       | 1024       | 每次能够从BE中读取到的最大行数                                                                           |
+| doris.exec.mem.limit             | long   | no       | 2147483648 | 单个be扫描请求可以使用的最大内存。默认内存为2G（2147483648）                                                |
  
-Note: When this configuration corresponds to a single table, you can flatten the configuration items in table_list to the outer layer.
+注意: 当此配置对应于单个表时，您可以将table_list中的配置项展平到外层。
 
-### Tips
+### 提示
 
-> It is not recommended to modify advanced parameters at will
+> 不建议随意修改高级参数
 
-## Example
+## 例子
 
-### single table
-> This is an example of reading a Doris table and writing to Console.
+### 单表
+> 这是一个从doris读取数据后，输出到控制台的例子：
 
 ```
 env {
@@ -109,7 +109,7 @@ sink {
 }
 ```
 
-Use the 'doris.read.field' parameter to select the doris table columns to read
+使用`doris.read.field`参数来选择需要读取的Doris表字段：
 
 ```
 env {
@@ -137,7 +137,7 @@ sink {
 }
 ```
 
-Use 'doris.filter.query' to filter the data, and the parameter values are passed directly to doris
+使用`doris.filter.query`来过滤数据，参数值将作为过滤条件直接传递到doris：
 
 ```
 env {
@@ -164,7 +164,7 @@ sink {
     Console {}
 }
 ```
-### Multiple table
+### 多表
 ```
 env{
   parallelism = 1

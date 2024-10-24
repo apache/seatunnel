@@ -18,13 +18,14 @@
 package org.apache.seatunnel.connectors.doris.source.split;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.doris.config.DorisConfig;
+import org.apache.seatunnel.connectors.doris.config.DorisSourceConfig;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 import org.apache.seatunnel.connectors.doris.rest.PartitionDefinition;
 import org.apache.seatunnel.connectors.doris.rest.RestService;
 import org.apache.seatunnel.connectors.doris.source.DorisSourceState;
+import org.apache.seatunnel.connectors.doris.source.DorisSourceTable;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -41,31 +42,31 @@ import java.util.concurrent.ConcurrentHashMap;
 public class DorisSourceSplitEnumerator
         implements SourceSplitEnumerator<DorisSourceSplit, DorisSourceState> {
 
-    private Context<DorisSourceSplit> context;
-    private DorisConfig dorisConfig;
+    private final Context<DorisSourceSplit> context;
+    private final DorisSourceConfig dorisSourceConfig;
 
     private volatile boolean shouldEnumerate;
 
     private final Map<Integer, List<DorisSourceSplit>> pendingSplit;
 
-    private SeaTunnelRowType seaTunnelRowType;
+    private final Map<TablePath, DorisSourceTable> dorisSourceTables;
     private final Object stateLock = new Object();
 
     public DorisSourceSplitEnumerator(
             Context<DorisSourceSplit> context,
-            DorisConfig dorisConfig,
-            SeaTunnelRowType seaTunnelRowType) {
-        this(context, dorisConfig, seaTunnelRowType, null);
+            DorisSourceConfig dorisSourceConfig,
+            Map<TablePath, DorisSourceTable> dorisSourceTables) {
+        this(context, dorisSourceConfig, dorisSourceTables, null);
     }
 
     public DorisSourceSplitEnumerator(
             Context<DorisSourceSplit> context,
-            DorisConfig dorisConfig,
-            SeaTunnelRowType rowType,
+            DorisSourceConfig dorisSourceConfig,
+            Map<TablePath, DorisSourceTable> dorisSourceTables,
             DorisSourceState dorisSourceState) {
         this.context = context;
-        this.dorisConfig = dorisConfig;
-        this.seaTunnelRowType = rowType;
+        this.dorisSourceConfig = dorisSourceConfig;
+        this.dorisSourceTables = dorisSourceTables;
         this.pendingSplit = new ConcurrentHashMap<>();
         this.shouldEnumerate = (dorisSourceState == null);
         if (dorisSourceState != null) {
@@ -149,10 +150,12 @@ public class DorisSourceSplitEnumerator
 
     private List<DorisSourceSplit> getDorisSourceSplit() {
         List<DorisSourceSplit> splits = new ArrayList<>();
-        List<PartitionDefinition> partitions =
-                RestService.findPartitions(seaTunnelRowType, dorisConfig, log);
-        for (PartitionDefinition partition : partitions) {
-            splits.add(new DorisSourceSplit(partition, String.valueOf(partition.hashCode())));
+        for (DorisSourceTable dorisSourceTable : dorisSourceTables.values()) {
+            List<PartitionDefinition> partitions =
+                    RestService.findPartitions(dorisSourceConfig, dorisSourceTable, log);
+            for (PartitionDefinition partition : partitions) {
+                splits.add(new DorisSourceSplit(partition, String.valueOf(partition.hashCode())));
+            }
         }
         return splits;
     }

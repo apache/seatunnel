@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.doris.config.DorisConfig;
+import org.apache.seatunnel.connectors.doris.config.DorisSinkConfig;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 import org.apache.seatunnel.connectors.doris.rest.RestService;
@@ -59,7 +59,7 @@ public class DorisSinkWriter
             new ArrayList<>(Arrays.asList(LoadStatus.SUCCESS, LoadStatus.PUBLISH_TIMEOUT));
     private long lastCheckpointId;
     private DorisStreamLoad dorisStreamLoad;
-    private final DorisConfig dorisConfig;
+    private final DorisSinkConfig dorisSinkConfig;
     private final String labelPrefix;
     private final LabelGenerator labelGenerator;
     private final int intervalTime;
@@ -72,41 +72,41 @@ public class DorisSinkWriter
             SinkWriter.Context context,
             List<DorisSinkState> state,
             CatalogTable catalogTable,
-            DorisConfig dorisConfig,
+            DorisSinkConfig dorisSinkConfig,
             String jobId) {
-        this.dorisConfig = dorisConfig;
+        this.dorisSinkConfig = dorisSinkConfig;
         this.catalogTable = catalogTable;
         this.lastCheckpointId = !state.isEmpty() ? state.get(0).getCheckpointId() : 0;
         log.info("restore checkpointId {}", lastCheckpointId);
-        log.info("labelPrefix " + dorisConfig.getLabelPrefix());
+        log.info("labelPrefix " + dorisSinkConfig.getLabelPrefix());
         this.labelPrefix =
-                dorisConfig.getLabelPrefix()
+                dorisSinkConfig.getLabelPrefix()
                         + "_"
                         + catalogTable.getTablePath().getFullName().replaceAll("\\.", "_")
                         + "_"
                         + jobId
                         + "_"
                         + context.getIndexOfSubtask();
-        this.labelGenerator = new LabelGenerator(labelPrefix, dorisConfig.getEnable2PC());
+        this.labelGenerator = new LabelGenerator(labelPrefix, dorisSinkConfig.getEnable2PC());
         this.scheduledExecutorService =
                 new ScheduledThreadPoolExecutor(
                         1, new ThreadFactoryBuilder().setNameFormat("stream-load-check").build());
-        this.serializer = createSerializer(dorisConfig, catalogTable.getSeaTunnelRowType());
-        this.intervalTime = dorisConfig.getCheckInterval();
+        this.serializer = createSerializer(dorisSinkConfig, catalogTable.getSeaTunnelRowType());
+        this.intervalTime = dorisSinkConfig.getCheckInterval();
         this.initializeLoad();
     }
 
     private void initializeLoad() {
-        String backend = RestService.randomEndpoint(dorisConfig.getFrontends(), log);
+        String backend = RestService.randomEndpoint(dorisSinkConfig.getFrontends(), log);
         try {
             this.dorisStreamLoad =
                     new DorisStreamLoad(
                             backend,
                             catalogTable.getTablePath(),
-                            dorisConfig,
+                            dorisSinkConfig,
                             labelGenerator,
                             new HttpUtil().getHttpClient());
-            if (dorisConfig.getEnable2PC()) {
+            if (dorisSinkConfig.getEnable2PC()) {
                 dorisStreamLoad.abortPreCommit(labelPrefix, lastCheckpointId + 1);
             }
         } catch (Exception e) {
@@ -124,15 +124,15 @@ public class DorisSinkWriter
         checkLoadException();
         byte[] serialize =
                 serializer.serialize(
-                        dorisConfig.isNeedsUnsupportedTypeCasting()
+                        dorisSinkConfig.isNeedsUnsupportedTypeCasting()
                                 ? UnsupportedTypeConverterUtils.convertRow(element)
                                 : element);
         if (Objects.isNull(serialize)) {
             return;
         }
         dorisStreamLoad.writeRecord(serialize);
-        if (!dorisConfig.getEnable2PC()
-                && dorisStreamLoad.getRecordCount() >= dorisConfig.getBatchSize()) {
+        if (!dorisSinkConfig.getEnable2PC()
+                && dorisStreamLoad.getRecordCount() >= dorisSinkConfig.getBatchSize()) {
             flush();
             startLoad(labelGenerator.generateLabel(lastCheckpointId));
         }
@@ -141,7 +141,7 @@ public class DorisSinkWriter
     @Override
     public Optional<DorisCommitInfo> prepareCommit() throws IOException {
         RespContent respContent = flush();
-        if (!dorisConfig.getEnable2PC() || respContent == null) {
+        if (!dorisSinkConfig.getEnable2PC() || respContent == null) {
             return Optional.empty();
         }
         long txnId = respContent.getTxnId();
@@ -178,7 +178,7 @@ public class DorisSinkWriter
 
     @Override
     public void abortPrepare() {
-        if (dorisConfig.getEnable2PC()) {
+        if (dorisSinkConfig.getEnable2PC()) {
             try {
                 dorisStreamLoad.abortPreCommit(labelPrefix, lastCheckpointId + 1);
             } catch (Exception e) {
@@ -208,7 +208,7 @@ public class DorisSinkWriter
 
     @Override
     public void close() throws IOException {
-        if (!dorisConfig.getEnable2PC()) {
+        if (!dorisSinkConfig.getEnable2PC()) {
             flush();
         }
         if (scheduledExecutorService != null) {
@@ -220,14 +220,14 @@ public class DorisSinkWriter
     }
 
     private DorisSerializer createSerializer(
-            DorisConfig dorisConfig, SeaTunnelRowType seaTunnelRowType) {
+            DorisSinkConfig dorisSinkConfig, SeaTunnelRowType seaTunnelRowType) {
         return new SeaTunnelRowSerializer(
-                dorisConfig
+                dorisSinkConfig
                         .getStreamLoadProps()
                         .getProperty(LoadConstants.FORMAT_KEY)
                         .toLowerCase(),
                 seaTunnelRowType,
-                dorisConfig.getStreamLoadProps().getProperty(LoadConstants.FIELD_DELIMITER_KEY),
-                dorisConfig.getEnableDelete());
+                dorisSinkConfig.getStreamLoadProps().getProperty(LoadConstants.FIELD_DELIMITER_KEY),
+                dorisSinkConfig.getEnableDelete());
     }
 }

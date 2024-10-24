@@ -31,7 +31,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-import org.apache.seatunnel.connectors.doris.config.DorisOptions;
+import org.apache.seatunnel.connectors.doris.config.DorisSinkOptions;
 import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverterV1;
 import org.apache.seatunnel.connectors.doris.util.DorisCatalogUtil;
 
@@ -141,7 +141,7 @@ public class DorisCreateTableTest {
                         + "\"disable_auto_compaction\" = \"false\"\n"
                         + ")");
 
-        String createTemplate = DorisOptions.SAVE_MODE_CREATE_TEMPLATE.defaultValue();
+        String createTemplate = DorisSinkOptions.SAVE_MODE_CREATE_TEMPLATE.defaultValue();
         CatalogTable catalogTable =
                 CatalogTable.of(
                         TableIdentifier.of("test", "test1", "test2"),
@@ -171,7 +171,7 @@ public class DorisCreateTableTest {
                         SaveModePlaceHolder.getDisplay(primaryKeyHolder),
                         createTemplate,
                         primaryKeyHolder,
-                        DorisOptions.SAVE_MODE_CREATE_TEMPLATE.key());
+                        DorisSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key());
         Assertions.assertEquals(
                 exceptSeaTunnelRuntimeException.getMessage(),
                 actualSeaTunnelRuntimeException.getMessage());

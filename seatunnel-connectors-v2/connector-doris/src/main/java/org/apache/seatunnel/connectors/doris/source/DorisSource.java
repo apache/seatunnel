@@ -17,34 +17,36 @@
 
 package org.apache.seatunnel.connectors.doris.source;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.doris.config.DorisConfig;
+import org.apache.seatunnel.connectors.doris.config.DorisSourceConfig;
 import org.apache.seatunnel.connectors.doris.source.reader.DorisSourceReader;
 import org.apache.seatunnel.connectors.doris.source.split.DorisSourceSplit;
 import org.apache.seatunnel.connectors.doris.source.split.DorisSourceSplitEnumerator;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class DorisSource
         implements SeaTunnelSource<SeaTunnelRow, DorisSourceSplit, DorisSourceState> {
 
     private static final long serialVersionUID = 6139826339248788618L;
-    private final DorisConfig config;
-    private final CatalogTable catalogTable;
+    private final DorisSourceConfig config;
+    private final Map<TablePath, DorisSourceTable> dorisSourceTables;
 
-    public DorisSource(ReadonlyConfig config, CatalogTable catalogTable) {
-        this.config = DorisConfig.of(config);
-        this.catalogTable = catalogTable;
+    public DorisSource(
+            DorisSourceConfig config, Map<TablePath, DorisSourceTable> dorisSourceTables) {
+        this.config = config;
+        this.dorisSourceTables = dorisSourceTables;
     }
 
     @Override
@@ -59,20 +61,21 @@ public class DorisSource
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        return Collections.singletonList(catalogTable);
+        return dorisSourceTables.values().stream()
+                .map(DorisSourceTable::getCatalogTable)
+                .collect(Collectors.toList());
     }
 
     @Override
     public SourceReader<SeaTunnelRow, DorisSourceSplit> createReader(
             SourceReader.Context readerContext) {
-        return new DorisSourceReader(readerContext, config, catalogTable.getSeaTunnelRowType());
+        return new DorisSourceReader(readerContext, config, dorisSourceTables);
     }
 
     @Override
     public SourceSplitEnumerator<DorisSourceSplit, DorisSourceState> createEnumerator(
             SourceSplitEnumerator.Context<DorisSourceSplit> enumeratorContext) {
-        return new DorisSourceSplitEnumerator(
-                enumeratorContext, config, catalogTable.getSeaTunnelRowType());
+        return new DorisSourceSplitEnumerator(enumeratorContext, config, dorisSourceTables);
     }
 
     @Override
@@ -80,6 +83,6 @@ public class DorisSource
             SourceSplitEnumerator.Context<DorisSourceSplit> enumeratorContext,
             DorisSourceState checkpointState) {
         return new DorisSourceSplitEnumerator(
-                enumeratorContext, config, catalogTable.getSeaTunnelRowType(), checkpointState);
+                enumeratorContext, config, dorisSourceTables, checkpointState);
     }
 }

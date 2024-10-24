@@ -28,7 +28,6 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.exception.CommonError;
-import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +35,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.IDENTIFIER;
 
 /** Doris type converter for version 2.x */
 @Slf4j
@@ -62,7 +63,7 @@ public class DorisTypeConverterV2 extends AbstractDorisTypeConverter {
 
     @Override
     public String identifier() {
-        return DorisConfig.IDENTIFIER;
+        return IDENTIFIER;
     }
 
     @Override
@@ -166,7 +167,7 @@ public class DorisTypeConverterV2 extends AbstractDorisTypeConverter {
             DecimalArrayType decimalArray = new DecimalArrayType(new DecimalType(20, 0));
             builder.dataType(decimalArray);
         } else {
-            throw CommonError.convertToSeaTunnelTypeError(DorisConfig.IDENTIFIER, columnType, name);
+            throw CommonError.convertToSeaTunnelTypeError(IDENTIFIER, columnType, name);
         }
     }
 

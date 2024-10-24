@@ -37,7 +37,6 @@ import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 import org.apache.seatunnel.connectors.doris.config.DorisOptions;
 import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverterFactory;
 import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverterV2;
@@ -85,7 +84,7 @@ public class DorisCatalog implements Catalog {
 
     private Connection conn;
 
-    private DorisConfig dorisConfig;
+    private String createTableTemplate;
 
     private String dorisVersion;
 
@@ -110,9 +109,9 @@ public class DorisCatalog implements Catalog {
             Integer queryPort,
             String username,
             String password,
-            DorisConfig config) {
+            String createTableTemplate) {
         this(catalogName, frontEndNodes, queryPort, username, password);
-        this.dorisConfig = config;
+        this.createTableTemplate = createTableTemplate;
     }
 
     public DorisCatalog(
@@ -121,9 +120,9 @@ public class DorisCatalog implements Catalog {
             Integer queryPort,
             String username,
             String password,
-            DorisConfig config,
+            String createTableTemplate,
             String defaultDatabase) {
-        this(catalogName, frontEndNodes, queryPort, username, password, config);
+        this(catalogName, frontEndNodes, queryPort, username, password, createTableTemplate);
         this.defaultDatabase = defaultDatabase;
     }
 
@@ -414,7 +413,7 @@ public class DorisCatalog implements Catalog {
 
         String stmt =
                 DorisCatalogUtil.getCreateTableStatement(
-                        dorisConfig.getCreateTableTemplate(), tablePath, table, typeConverter);
+                        createTableTemplate, tablePath, table, typeConverter);
         try (Statement statement = conn.createStatement()) {
             statement.execute(stmt);
         } catch (SQLException e) {
@@ -510,7 +509,7 @@ public class DorisCatalog implements Catalog {
             checkArgument(catalogTable.isPresent(), "CatalogTable cannot be null");
             return new SQLPreviewResult(
                     DorisCatalogUtil.getCreateTableStatement(
-                            dorisConfig.getCreateTableTemplate(),
+                            createTableTemplate,
                             tablePath,
                             catalogTable.get(),
                             // used for test when typeConverter is null
