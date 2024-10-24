@@ -35,12 +35,7 @@ export default defineComponent({
         <NCollapse accordion>
           {logList.value.map((log) => (
             <NCollapseItem title={log.logName}>
-              <iframe
-                src={log.logLink.replace('localhost', '124.221.211.72')}
-                width="100%"
-                height="700px"
-                style="border: none"
-              />
+              <iframe src={log.logLink} width="100%" height="700px" style="border: none" />
             </NCollapseItem>
           ))}
         </NCollapse>
