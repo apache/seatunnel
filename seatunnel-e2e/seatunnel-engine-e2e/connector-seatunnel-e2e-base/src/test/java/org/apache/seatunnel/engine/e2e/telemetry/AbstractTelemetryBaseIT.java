@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.e2e;
+package org.apache.seatunnel.engine.e2e.telemetry;
 
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
@@ -28,16 +28,17 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.TelemetryConfig;
 import org.apache.seatunnel.engine.common.config.server.TelemetryMetricConfig;
 import org.apache.seatunnel.engine.core.job.JobStatus;
-import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.e2e.TestUtils;
 
 import org.awaitility.Awaitility;
-import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import io.restassured.response.Response;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.TimeUnit;
@@ -47,59 +48,52 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.Matchers.matchesRegex;
 
 @Slf4j
-public class TelemetryApiIT {
+public abstract class AbstractTelemetryBaseIT {
 
     private static final String HOST = "http://localhost:";
 
-    private static ClientJobProxy clientJobProxy;
+    private SeaTunnelClient engineClient;
 
-    private static HazelcastInstanceImpl hazelcastInstance;
+    public abstract void open(SeaTunnelConfig... seaTunnelConfigs) throws Exception;
 
-    private static String testClusterName;
+    public abstract void close() throws Exception;
 
-    @BeforeAll
-    static void beforeClass() throws Exception {
-        testClusterName = TestUtils.getClusterName("TelemetryApiIT");
-        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
-        seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
-        TelemetryMetricConfig telemetryMetricConfig = new TelemetryMetricConfig();
-        telemetryMetricConfig.setEnabled(true);
-        TelemetryConfig telemetryConfig = new TelemetryConfig();
-        telemetryConfig.setMetric(telemetryMetricConfig);
-        seaTunnelConfig.getEngineConfig().setTelemetryConfig(telemetryConfig);
-        hazelcastInstance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
-        Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("stream_fakesource_to_file.conf");
-        JobConfig jobConfig = new JobConfig();
-        jobConfig.setName("fake_to_file");
+    public abstract int getNodeCount();
 
-        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        clientConfig.setClusterName(testClusterName);
-        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
-        ClientJobExecutionEnvironment jobExecutionEnv =
-                engineClient.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
+    public abstract String getClusterName();
 
-        clientJobProxy = jobExecutionEnv.execute();
+    public abstract void testGetMetrics() throws Exception;
 
-        Awaitility.await()
-                .atMost(2, TimeUnit.MINUTES)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertEquals(
-                                        JobStatus.RUNNING, clientJobProxy.getJobStatus()));
+    @BeforeEach
+    public void before() throws Exception {
+        int nodeCount = getNodeCount();
+        SeaTunnelConfig[] seaTunnelConfigs = new SeaTunnelConfig[nodeCount];
+        for (int i = 0; i < nodeCount; i++) {
+            SeaTunnelConfig seaTunnelConfig = getSeaTunnelConfig(getClusterName());
+            seaTunnelConfigs[i] = seaTunnelConfig;
+        }
+        this.open(seaTunnelConfigs);
+        runJob(getSeaTunnelConfig(getClusterName()), getClusterName());
     }
 
-    @Test
-    public void testGetMetrics() throws InterruptedException {
-        given().get(
-                        HOST
-                                + hazelcastInstance
-                                        .getCluster()
-                                        .getLocalMember()
-                                        .getAddress()
-                                        .getPort()
-                                + "/hazelcast/rest/instance/metrics")
-                .then()
+    @AfterEach
+    public void after() throws Exception {
+        engineClient.close();
+        this.close();
+    }
+
+    public void testGetMetrics(HazelcastInstanceImpl hazelcastInstance, String testClusterName)
+            throws InterruptedException {
+        Response response =
+                given().get(
+                                HOST
+                                        + hazelcastInstance
+                                                .getCluster()
+                                                .getLocalMember()
+                                                .getAddress()
+                                                .getPort()
+                                        + "/hazelcast/rest/instance/metrics");
+        response.then()
                 .statusCode(200)
                 // Use regular expressions to verify whether the response body is the indicator data
                 // of Prometheus
@@ -528,10 +522,65 @@ public class TelemetryApiIT {
                                         + "\",address=.*$"));
     }
 
-    @AfterAll
-    static void afterClass() {
-        if (hazelcastInstance != null) {
-            hazelcastInstance.shutdown();
-        }
+    public SeaTunnelConfig getSeaTunnelConfig(String testClusterName) {
+        Config hazelcastConfig = Config.loadFromString(getHazelcastConfig());
+        hazelcastConfig.setClusterName(testClusterName);
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
+        TelemetryMetricConfig telemetryMetricConfig = new TelemetryMetricConfig();
+        telemetryMetricConfig.setEnabled(true);
+        TelemetryConfig telemetryConfig = new TelemetryConfig();
+        telemetryConfig.setMetric(telemetryMetricConfig);
+        seaTunnelConfig.getEngineConfig().setTelemetryConfig(telemetryConfig);
+        return seaTunnelConfig;
+    }
+
+    private static String getHazelcastConfig() {
+        return "hazelcast:\n"
+                + "  cluster-name: seatunnel\n"
+                + "  network:\n"
+                + "    rest-api:\n"
+                + "      enabled: true\n"
+                + "      endpoint-groups:\n"
+                + "        CLUSTER_WRITE:\n"
+                + "          enabled: true\n"
+                + "    join:\n"
+                + "      tcp-ip:\n"
+                + "        enabled: true\n"
+                + "        member-list:\n"
+                + "          - localhost\n"
+                + "    port:\n"
+                + "      auto-increment: true\n"
+                + "      port-count: 100\n"
+                + "      port: 5801\n"
+                + "  properties:\n"
+                + "    hazelcast.invocation.max.retry.count: 200\n"
+                + "    hazelcast.tcp.join.port.try.count: 30\n"
+                + "    hazelcast.invocation.retry.pause.millis: 2000\n"
+                + "    hazelcast.slow.operation.detector.stacktrace.logging.enabled: true\n"
+                + "    hazelcast.logging.type: log4j2\n"
+                + "    hazelcast.operation.generic.thread.count: 200\n";
+    }
+
+    public void runJob(SeaTunnelConfig seaTunnelConfig, String clusterName) throws Exception {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("stream_fakesource_to_console.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("fake_to_console");
+
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(clusterName);
+        engineClient = new SeaTunnelClient(clientConfig);
+        ClientJobExecutionEnvironment jobExecutionEnv =
+                engineClient.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
+
+        final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING, clientJobProxy.getJobStatus()));
     }
 }
