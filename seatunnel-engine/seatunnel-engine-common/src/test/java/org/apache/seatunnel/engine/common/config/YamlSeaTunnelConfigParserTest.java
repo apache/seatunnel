@@ -69,6 +69,12 @@ public class YamlSeaTunnelConfigParserTest {
                         .getStorage()
                         .getStoragePluginConfig()
                         .get("fs.defaultFS"));
+
+        Assertions.assertFalse(
+                config.getEngineConfig().getTelemetryConfig().getMetric().isEnabled());
+        Assertions.assertTrue(config.getEngineConfig().getHttpConfig().isEnabled());
+        Assertions.assertTrue(config.getEngineConfig().getHttpConfig().isEnableDynamicPort());
+        Assertions.assertEquals(8080, config.getEngineConfig().getHttpConfig().getPort());
     }
 
     @Test

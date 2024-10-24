@@ -105,7 +105,8 @@ public class RestApiIT {
         node2Tags.setAttribute("node", "node2");
         Config node2hzconfig = node1Config.getHazelcastConfig().setMemberAttributeConfig(node2Tags);
         node2Config = ConfigProvider.locateAndGetSeaTunnelConfig();
-        node2Config.getEngineConfig().getHttpConfig().setPort(8081);
+        // Dynamically generated port
+        node2Config.getEngineConfig().getHttpConfig().setEnableDynamicPort(true);
         node2Config.getEngineConfig().getHttpConfig().setEnabled(true);
         node2Config.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
         node2Config.getEngineConfig().getSlotServiceConfig().setSlotNum(20);
