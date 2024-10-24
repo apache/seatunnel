@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.transform.common.TransformCommonOptions;
 import org.apache.seatunnel.transform.nlpmodel.ModelProvider;
 import org.apache.seatunnel.transform.nlpmodel.llm.LLMTransformConfig;
 
@@ -61,12 +62,15 @@ public class EmbeddingTransformFactory implements TableTransformFactory {
                         LLMTransformConfig.MODEL_PROVIDER,
                         ModelProvider.CUSTOM,
                         LLMTransformConfig.CustomRequestConfig.CUSTOM_CONFIG)
+                .optional(TransformCommonOptions.MULTI_TABLES)
+                .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
                 .build();
     }
 
     @Override
     public TableTransform createTransform(TableTransformFactoryContext context) {
         return () ->
-                new EmbeddingTransform(context.getOptions(), context.getCatalogTables().get(0));
+                new EmbeddingMultiCatalogTransform(
+                        context.getCatalogTables(), context.getOptions());
     }
 }
