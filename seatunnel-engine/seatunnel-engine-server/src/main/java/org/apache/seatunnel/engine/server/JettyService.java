@@ -47,6 +47,9 @@ import lombok.extern.slf4j.Slf4j;
 
 import javax.servlet.DispatcherType;
 
+import java.io.IOException;
+import java.net.DatagramSocket;
+import java.net.ServerSocket;
 import java.util.EnumSet;
 
 import static org.apache.seatunnel.engine.server.rest.RestConstant.ENCRYPT_CONFIG;
@@ -70,6 +73,8 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.UPDATE_TAGS_U
 /** The Jetty service for SeaTunnel engine server. */
 @Slf4j
 public class JettyService {
+    private static final int MAX_PORT = 65535;
+
     private NodeEngineImpl nodeEngine;
     private SeaTunnelConfig seaTunnelConfig;
     Server server;
@@ -77,7 +82,12 @@ public class JettyService {
     public JettyService(NodeEngineImpl nodeEngine, SeaTunnelConfig seaTunnelConfig) {
         this.nodeEngine = nodeEngine;
         this.seaTunnelConfig = seaTunnelConfig;
-        this.server = new Server(seaTunnelConfig.getEngineConfig().getHttpConfig().getPort());
+        int port = seaTunnelConfig.getEngineConfig().getHttpConfig().getPort();
+        if (seaTunnelConfig.getEngineConfig().getHttpConfig().isEnableDynamicPort()) {
+            port = chooseAppropriatePort(port);
+        }
+        log.info("Jetty will start on port: {}", port);
+        this.server = new Server(port);
     }
 
     public void createJettyServer() {
@@ -156,5 +166,27 @@ public class JettyService {
 
     private static String convertUrlToPath(String url) {
         return url + "/*";
+    }
+
+    public int chooseAppropriatePort(int initialPort) {
+        int port = initialPort;
+
+        while (port <= MAX_PORT) {
+            if (!isPortInUse(port)) {
+                return port;
+            }
+            port++;
+        }
+
+        throw new RuntimeException("Jetty failed to start, No available port found in the range!");
+    }
+
+    private boolean isPortInUse(int port) {
+        try (ServerSocket ss = new ServerSocket(port);
+                DatagramSocket ds = new DatagramSocket(port)) {
+            return false;
+        } catch (IOException e) {
+            return true;
+        }
     }
 }

@@ -10,7 +10,8 @@ completed jobs. The monitoring API is a RESTful API that accepts HTTP requests a
 ## Overview
 
 The v2 version of the api uses jetty support. It is the same as the interface specification of v1 version
-, you can specify the port and context-path by modifying the configuration items in `seatunnel.yaml`
+, you can specify the port and context-path by modifying the configuration items in `seatunnel.yaml`,
+you can configure `enable-dynamic-port` to enable dynamic ports (the default port is accumulated starting from 8080), and the default is closed.
 
 
 ```yaml
@@ -20,6 +21,7 @@ seatunnel:
     http:
       enable-http: true
       port: 8080
+      enable-dynamic-port: false
 ```
 
 Context-path can also be configured as follows:
