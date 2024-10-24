@@ -206,7 +206,8 @@ const sidebars = {
                 "seatunnel-engine/rest-api-v2",
                 "seatunnel-engine/user-command",
                 "seatunnel-engine/logging",
-                "seatunnel-engine/telemetry"
+                "seatunnel-engine/telemetry",
+                "seatunnel-engine/web-ui"
             ]
         },
         {

@@ -55,3 +55,8 @@ seatunnel-examples
 
 /lib/*
 version.properties
+node/
+
+dist/
+
+seatunnel-engine/seatunnel-engine-server/**/ui/*
