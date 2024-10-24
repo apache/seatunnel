@@ -15,25 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.starrocks;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.starrocks;
 
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlDialect;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalogFactory;
 
-public class StarRocksDialect extends MysqlDialect {
+import com.google.auto.service.AutoService;
 
-    public StarRocksDialect() {}
-
-    public StarRocksDialect(String fieldIde) {
-        this.fieldIde = fieldIde;
-    }
+@AutoService(Factory.class)
+public class StarRocksFactory extends MySqlCatalogFactory {
 
     @Override
-    public String dialectName() {
+    public String factoryIdentifier() {
         return "JDBC-StarRocks";
-    }
-
-    @Override
-    public String hashModForField(String fieldName, int mod) {
-        return "ABS(murmur_hash3_32(" + quoteIdentifier(fieldName) + ") % " + mod + ")";
     }
 }
