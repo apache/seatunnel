@@ -26,6 +26,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
@@ -45,6 +46,7 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     private String transactionId;
     private final String transactionPrefix;
     private final Properties kafkaProperties;
+    private int recordNumInTransaction = 0;
 
     public KafkaTransactionSender(String transactionPrefix, Properties kafkaProperties) {
         this.transactionPrefix = transactionPrefix;
@@ -54,6 +56,7 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     @Override
     public void send(ProducerRecord<K, V> producerRecord) {
         kafkaProducer.send(producerRecord);
+        recordNumInTransaction++;
     }
 
     @Override
@@ -61,6 +64,7 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
         this.transactionId = transactionId;
         this.kafkaProducer = getTransactionProducer(kafkaProperties, transactionId);
         kafkaProducer.beginTransaction();
+        recordNumInTransaction = 0;
     }
 
     @Override
@@ -70,7 +74,8 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
                         transactionId,
                         kafkaProperties,
                         this.kafkaProducer.getProducerId(),
-                        this.kafkaProducer.getEpoch());
+                        this.kafkaProducer.getEpoch(),
+                        this.kafkaProducer.isTxnStarted());
         return Optional.of(kafkaCommitInfo);
     }
 
@@ -107,6 +112,10 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
 
     @Override
     public List<KafkaSinkState> snapshotState(long checkpointId) {
+        if (recordNumInTransaction == 0) {
+            // KafkaSinkCommitter does not support emptyTransaction, so we commit here.
+            kafkaProducer.commitTransaction();
+        }
         return Lists.newArrayList(
                 new KafkaSinkState(
                         transactionId, transactionPrefix, checkpointId, kafkaProperties));
@@ -116,7 +125,9 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     public void close() {
         if (kafkaProducer != null) {
             kafkaProducer.flush();
-            kafkaProducer.close();
+            // kafkaProducer will abort the transaction if you call close() without a duration arg
+            // which will cause an exception when Committer commit the transaction later.
+            kafkaProducer.close(Duration.ZERO);
         }
     }
 
