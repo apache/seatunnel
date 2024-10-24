@@ -26,6 +26,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.reader.external.JdbcSourc
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 import io.debezium.jdbc.JdbcConnection;
@@ -117,6 +118,26 @@ public interface JdbcDataSourceDialect extends DataSourceDialect<JdbcSourceConfi
                                 constraintKey.getConstraintType()
                                         == ConstraintKey.ConstraintType.UNIQUE_KEY)
                 .collect(Collectors.toList());
+    }
+
+    default boolean isUniqueKey(JdbcConnection jdbcConnection, TableId tableId, String columnName)
+            throws SQLException {
+        boolean isUnique = false;
+        if (StringUtils.isNotEmpty(columnName)) {
+            DatabaseMetaData metaData = jdbcConnection.connection().getMetaData();
+            ResultSet resultSet =
+                    metaData.getIndexInfo(
+                            tableId.catalog(), tableId.schema(), tableId.table(), false, false);
+
+            while (resultSet.next()) {
+                if (columnName.equalsIgnoreCase(resultSet.getString("COLUMN_NAME"))
+                        && !resultSet.getBoolean("NON_UNIQUE")) {
+                    isUnique = true;
+                    break;
+                }
+            }
+        }
+        return isUnique;
     }
 
     default List<ConstraintKey> getConstraintKeys(JdbcConnection jdbcConnection, TableId tableId)

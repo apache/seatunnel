@@ -36,7 +36,6 @@ public class SourceOptions {
                     .defaultValue(8096)
                     .withDescription(
                             "The split size (number of rows) of table snapshot, captured tables are split into multiple splits when read the snapshot of table.");
-
     public static final Option<Integer> SNAPSHOT_FETCH_SIZE =
             Options.key("snapshot.fetch.size")
                     .intType()
