@@ -120,10 +120,6 @@ public class DorisMultiReadIT extends AbstractDorisIT {
             };
 
     @TestTemplate
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK, EngineType.SEATUNNEL},
-            disabledReason = "Currently FLINK do not support multiple table read")
     public void testDorisMultiRead(TestContainer container)
             throws IOException, InterruptedException {
         initializeJdbcTable();
