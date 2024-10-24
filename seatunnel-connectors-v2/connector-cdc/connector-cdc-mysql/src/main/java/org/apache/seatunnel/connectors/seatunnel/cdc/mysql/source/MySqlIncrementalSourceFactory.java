@@ -26,16 +26,15 @@ import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
+import org.apache.seatunnel.connectors.cdc.base.source.BaseChangeStreamTableSourceFactory;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
 
 import com.google.auto.service.AutoService;
@@ -45,7 +44,7 @@ import java.util.List;
 import java.util.Optional;
 
 @AutoService(Factory.class)
-public class MySqlIncrementalSourceFactory implements TableSourceFactory {
+public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFactory {
     @Override
     public String factoryIdentifier() {
         return MySqlIncrementalSource.IDENTIFIER;
@@ -96,11 +95,27 @@ public class MySqlIncrementalSourceFactory implements TableSourceFactory {
 
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
-            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+            TableSource<T, SplitT, StateT> restoreSource(
+                    TableSourceFactoryContext context, List<CatalogTable> restoreTables) {
         return () -> {
             List<CatalogTable> catalogTables =
                     CatalogTableUtil.getCatalogTables(
                             context.getOptions(), context.getClassLoader());
+            boolean enableSchemaChange =
+                    context.getOptions()
+                            .getOptional(SourceOptions.DEBEZIUM_PROPERTIES)
+                            .map(
+                                    e ->
+                                            e.getOrDefault(
+                                                    MySqlSourceConfigFactory.SCHEMA_CHANGE_KEY,
+                                                    MySqlSourceConfigFactory.SCHEMA_CHANGE_DEFAULT
+                                                            .toString()))
+                            .map(Boolean::parseBoolean)
+                            .orElse(MySqlSourceConfigFactory.SCHEMA_CHANGE_DEFAULT);
+            if (!restoreTables.isEmpty() && enableSchemaChange) {
+                catalogTables = mergeTableStruct(catalogTables, restoreTables);
+            }
+
             Optional<List<JdbcSourceTableConfig>> tableConfigs =
                     context.getOptions().getOptional(JdbcSourceOptions.TABLE_NAMES_CONFIG);
             if (tableConfigs.isPresent()) {
@@ -110,10 +125,8 @@ public class MySqlIncrementalSourceFactory implements TableSourceFactory {
                                 tableConfigs.get(),
                                 text -> TablePath.of(text, false));
             }
-            SeaTunnelDataType<SeaTunnelRow> dataType =
-                    CatalogTableUtil.convertToMultipleRowType(catalogTables);
             return (SeaTunnelSource<T, SplitT, StateT>)
-                    new MySqlIncrementalSource<>(context.getOptions(), dataType, catalogTables);
+                    new MySqlIncrementalSource<>(context.getOptions(), catalogTables);
         };
     }
 }

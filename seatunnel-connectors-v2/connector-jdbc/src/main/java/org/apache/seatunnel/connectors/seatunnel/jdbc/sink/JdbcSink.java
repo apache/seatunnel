@@ -29,10 +29,12 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.iris.IrisCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.iris.savemode.IrisSaveModeHandler;
@@ -52,6 +54,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -60,7 +63,8 @@ import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_
 public class JdbcSink
         implements SeaTunnelSink<SeaTunnelRow, JdbcSinkState, XidInfo, JdbcAggregatedCommitInfo>,
                 SupportSaveMode,
-                SupportMultiTableSink {
+                SupportMultiTableSink,
+                SupportSchemaEvolutionSink {
 
     private final TableSchema tableSchema;
 
@@ -241,5 +245,14 @@ public class JdbcSink
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
         return Optional.ofNullable(catalogTable);
+    }
+
+    @Override
+    public List<SchemaChangeType> supports() {
+        return Arrays.asList(
+                SchemaChangeType.ADD_COLUMN,
+                SchemaChangeType.DROP_COLUMN,
+                SchemaChangeType.RENAME_COLUMN,
+                SchemaChangeType.UPDATE_COLUMN);
     }
 }

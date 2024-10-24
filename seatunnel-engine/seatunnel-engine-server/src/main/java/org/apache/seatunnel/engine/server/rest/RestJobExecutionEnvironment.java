@@ -26,6 +26,7 @@ import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.AbstractJobEnvironment;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.core.job.JobPipelineCheckpointData;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 
@@ -96,8 +97,21 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
 
     @Override
     protected MultipleTableJobConfigParser getJobConfigParser() {
+        List<JobPipelineCheckpointData> pipelineCheckpoints = Collections.emptyList();
+        if (isStartWithSavePoint) {
+            LOGGER.info("Start with savePoint, get checkpoint state from seaTunnelServer");
+            pipelineCheckpoints =
+                    seaTunnelServer
+                            .getCheckpointService()
+                            .getLatestCheckpointData(jobConfig.getJobContext().getJobId());
+        }
         return new MultipleTableJobConfigParser(
-                seaTunnelJobConfig, idGenerator, jobConfig, commonPluginJars, isStartWithSavePoint);
+                seaTunnelJobConfig,
+                idGenerator,
+                jobConfig,
+                commonPluginJars,
+                isStartWithSavePoint,
+                pipelineCheckpoints);
     }
 
     public JobImmutableInformation build() {

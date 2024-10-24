@@ -28,8 +28,6 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
@@ -97,10 +95,8 @@ public class PostgresIncrementalSourceFactory implements TableSourceFactory {
                         CatalogTableUtils.mergeCatalogTableConfig(
                                 catalogTables, tableConfigs.get(), s -> TablePath.of(s, true));
             }
-            SeaTunnelDataType<SeaTunnelRow> dataType =
-                    CatalogTableUtil.convertToMultipleRowType(catalogTables);
             return (SeaTunnelSource<T, SplitT, StateT>)
-                    new PostgresIncrementalSource<>(context.getOptions(), dataType, catalogTables);
+                    new PostgresIncrementalSource<>(context.getOptions(), catalogTables);
         };
     }
 }

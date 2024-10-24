@@ -28,8 +28,6 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
@@ -114,9 +112,7 @@ public class OracleIncrementalSourceFactory implements TableSourceFactory {
                         CatalogTableUtils.mergeCatalogTableConfig(
                                 catalogTables, tableConfigs.get(), s -> TablePath.of(s, true));
             }
-            SeaTunnelDataType<SeaTunnelRow> dataType =
-                    CatalogTableUtil.convertToMultipleRowType(catalogTables);
-            return new OracleIncrementalSource(context.getOptions(), dataType, catalogTables);
+            return new OracleIncrementalSource(context.getOptions(), catalogTables);
         };
     }
 }

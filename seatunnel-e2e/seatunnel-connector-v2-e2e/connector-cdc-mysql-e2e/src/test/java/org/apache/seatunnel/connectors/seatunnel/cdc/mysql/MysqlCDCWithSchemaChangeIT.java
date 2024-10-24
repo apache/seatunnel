@@ -42,6 +42,7 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -51,6 +52,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
@@ -114,19 +117,82 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
 
     @Order(1)
     @TestTemplate
-    public void testMysqlCdcWithSchemaEvolutionCase(TestContainer container) {
-
+    public void testMysqlCdcWithSchemaEvolutionCase(TestContainer container)
+            throws IOException, InterruptedException {
+        String jobConfigFile = "/mysqlcdc_to_mysql_with_schema_change.conf";
         CompletableFuture.runAsync(
                 () -> {
                     try {
-                        container.executeJob("/mysqlcdc_to_mysql_with_schema_change.conf");
+                        container.executeJob(jobConfigFile);
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
                     }
                 });
 
-        assertSchemaEvolution(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE);
+        // waiting for case1 completed
+        assertSchemaEvolutionForAddColumns(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE);
+
+        // savepoint 1
+        String jobId = getJobId(container);
+        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+
+        // case2 drop columns with cdc data at same time
+        shopDatabase.setTemplateName("drop_columns").createAndInitialize();
+
+        // restore 1
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.restoreJob(jobConfigFile, jobId);
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        // waiting for case2 completed
+        assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE);
+
+        // savepoint 2
+        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+
+        // case3 change column name with cdc data at same time
+        shopDatabase.setTemplateName("change_columns").createAndInitialize();
+
+        // case4 modify column data type with cdc data at same time
+        shopDatabase.setTemplateName("modify_columns").createAndInitialize();
+
+        // restore 2
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.restoreJob(jobConfigFile, jobId);
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        // waiting for case3/case4 completed
+        assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE);
+    }
+
+    private String getJobId(TestContainer container) {
+        Pattern jobIdPattern =
+                Pattern.compile(
+                        ".*Init JobMaster for Job mysqlcdc_to_mysql_with_schema_change.conf \\(([0-9]*)\\).*",
+                        Pattern.DOTALL);
+        Matcher matcher = jobIdPattern.matcher(container.getServerLogs());
+        String jobId;
+        if (matcher.matches()) {
+            jobId = matcher.group(1);
+        } else {
+            throw new RuntimeException("Can not find jobId");
+        }
+        return jobId;
     }
 
     @Order(2)
@@ -148,14 +214,65 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
         assertSchemaEvolution(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE2);
     }
 
-    private void assertSchemaEvolution(String database, String sourceTable, String sinkTable) {
+    private void assertSchemaEvolutionForAddColumns(
+            String database, String sourceTable, String sinkTable) {
         await().atMost(30000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
-                                        query(String.format(QUERY, database, sourceTable)),
-                                        query(String.format(QUERY, database, sinkTable))));
+                                        query(String.format(QUERY, MYSQL_DATABASE, SOURCE_TABLE)),
+                                        query(String.format(QUERY, MYSQL_DATABASE, SINK_TABLE))));
 
+        // case1 add columns with cdc data at same time
+        shopDatabase.setTemplateName("add_columns").createAndInitialize();
+        await().atMost(30000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(String.format(DESC, database, sourceTable)),
+                                        query(String.format(DESC, database, sinkTable))));
+        await().atMost(30000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    query(
+                                            String.format(QUERY, database, sourceTable)
+                                                    + " where id >= 128"),
+                                    query(
+                                            String.format(QUERY, database, sinkTable)
+                                                    + " where id >= 128"));
+
+                            Assertions.assertIterableEquals(
+                                    query(String.format(PROJECTION_QUERY, database, sourceTable)),
+                                    query(String.format(PROJECTION_QUERY, database, sinkTable)));
+
+                            // The default value of add_column4 is current_timestamp()，so the
+                            // history data of sink table with this column may be different from the
+                            // source table because delay of apply schema change.
+                            String query =
+                                    String.format(
+                                            "SELECT t1.id AS table1_id, t1.add_column4 AS table1_timestamp, "
+                                                    + "t2.id AS table2_id, t2.add_column4 AS table2_timestamp, "
+                                                    + "ABS(TIMESTAMPDIFF(SECOND, t1.add_column4, t2.add_column4)) AS time_diff "
+                                                    + "FROM %s.%s t1 "
+                                                    + "INNER JOIN %s.%s t2 ON t1.id = t2.id",
+                                            database, sourceTable, database, sinkTable);
+                            try (Connection jdbcConnection = getJdbcConnection();
+                                    Statement statement = jdbcConnection.createStatement();
+                                    ResultSet resultSet = statement.executeQuery(query); ) {
+                                while (resultSet.next()) {
+                                    int timeDiff = resultSet.getInt("time_diff");
+                                    Assertions.assertTrue(
+                                            timeDiff <= 3,
+                                            "Time difference exceeds 3 seconds: "
+                                                    + timeDiff
+                                                    + " seconds");
+                                }
+                            }
+                        });
+    }
+
+    private void assertSchemaEvolution(String database, String sourceTable, String sinkTable) {
         // case1 add columns with cdc data at same time
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
         await().atMost(30000, TimeUnit.MILLISECONDS)

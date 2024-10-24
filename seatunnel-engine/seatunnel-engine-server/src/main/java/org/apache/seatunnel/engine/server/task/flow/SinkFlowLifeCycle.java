@@ -25,11 +25,12 @@ import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SinkWriter.Context;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -264,7 +265,12 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     return;
                 }
                 SchemaChangeEvent event = (SchemaChangeEvent) record.getData();
-                writer.applySchemaChange(event);
+                if (writer instanceof SupportSchemaEvolutionSinkWriter) {
+                    ((SupportSchemaEvolutionSinkWriter) writer).applySchemaChange(event);
+                } else {
+                    // todo remove deprecated method
+                    writer.applySchemaChange(event);
+                }
             } else {
                 if (prepareClose) {
                     return;

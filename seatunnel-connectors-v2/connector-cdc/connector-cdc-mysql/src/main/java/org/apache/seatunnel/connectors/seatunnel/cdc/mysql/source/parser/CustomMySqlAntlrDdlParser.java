@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.parser;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 
 import com.google.common.collect.Lists;
 import io.debezium.antlr.AntlrDdlParserListener;
