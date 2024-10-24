@@ -22,9 +22,11 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.LOWER_BOUND;
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.STABLE;
@@ -71,6 +73,10 @@ public class TDengineSourceConfig implements Serializable {
                 pluginConfig.hasPath(LOWER_BOUND) ? pluginConfig.getString(LOWER_BOUND) : null);
         tdengineSourceConfig.setTimezone(
                 pluginConfig.hasPath(TIMEZONE) ? pluginConfig.getString(TIMEZONE) : "UTC");
+        tdengineSourceConfig.setFields(
+                pluginConfig.hasPath(FIELDS)
+                        ? pluginConfig.getStringList(FIELDS)
+                        : new ArrayList<>());
 
         return tdengineSourceConfig;
     }
@@ -85,5 +91,6 @@ public class TDengineSourceConfig implements Serializable {
         public static String TIMEZONE = "timezone";
         public static String LOWER_BOUND = "lower_bound";
         public static String UPPER_BOUND = "upper_bound";
+        public static String FIELDS = "fields";
     }
 }

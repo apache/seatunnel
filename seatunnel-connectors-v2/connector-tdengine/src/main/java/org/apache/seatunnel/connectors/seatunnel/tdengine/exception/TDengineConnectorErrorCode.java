@@ -20,7 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.tdengine.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum TDengineConnectorErrorCode implements SeaTunnelErrorCode {
-    LOAD_DRIVER_FAILED("TDengine-01", "Fail to create driver of class");
+    LOAD_DRIVER_FAILED("TDengine-01", "Fail to create driver of class"),
+    FIELD_NOT_EXIST("TDengine-02", "Selected fields does not exist!");
 
     private final String code;
     private final String description;
