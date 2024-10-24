@@ -50,6 +50,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
@@ -178,6 +179,35 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                                     query(getSourceQuerySQL(MYSQL_DATABASE, SOURCE_TABLE_1)),
                                     query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)));
                         });
+    }
+
+    @TestTemplate
+    public void testMysqlCdcMetadataTrans(TestContainer container)
+            throws InterruptedException, IOException {
+        // Clear related content to ensure that multiple operations are not affected
+        clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        clearTable(MYSQL_DATABASE, SINK_TABLE);
+
+        Long jobId = JobIdGenerator.newJobId();
+        AtomicReference<Container.ExecResult> execResult = new AtomicReference<>();
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        execResult.set(
+                                container.executeJob(
+                                        "/mysqlcdc_to_metadata_trans.conf", String.valueOf(jobId)));
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+        // insert update delete
+        upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        TimeUnit.SECONDS.sleep(30);
+        Assertions.assertEquals(0, execResult.get().getExitCode(), execResult.get().getStderr());
+        Container.ExecResult cancelJobResult = container.cancelJob(String.valueOf(jobId));
+        Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
     }
 
     @TestTemplate

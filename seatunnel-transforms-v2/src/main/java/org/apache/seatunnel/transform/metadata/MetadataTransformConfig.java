@@ -15,38 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.common;
+package org.apache.seatunnel.transform.metadata;
 
-import org.apache.seatunnel.api.table.type.RowKind;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.transform.nlpmodel.ModelTransformConfig;
 
-import lombok.AllArgsConstructor;
+import java.util.Map;
 
-@AllArgsConstructor
-public class SeaTunnelRowAccessor {
-    private final SeaTunnelRow row;
+public class MetadataTransformConfig extends ModelTransformConfig {
 
-    public int getArity() {
-        return row.getArity();
-    }
+    public static final String PLUGIN_NAME = "Metadata";
 
-    public String getTableId() {
-        return row.getTableId();
-    }
-
-    public RowKind getRowKind() {
-        return row.getRowKind();
-    }
-
-    public Object getField(int pos) {
-        return row.getField(pos);
-    }
-
-    public Object[] getFields() {
-        return row.getFields();
-    }
-
-    public SeaTunnelRow getRow() {
-        return row;
-    }
+    public static final Option<Map<String, String>> METADATA_FIELDS =
+            Options.key("metadata_fields")
+                    .mapType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Specify the metadata field relationship between input and output");
 }
