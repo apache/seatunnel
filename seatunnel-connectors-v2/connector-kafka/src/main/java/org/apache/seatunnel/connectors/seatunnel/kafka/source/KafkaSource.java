@@ -104,7 +104,11 @@ public class KafkaSource
     @Override
     public SourceSplitEnumerator<KafkaSourceSplit, KafkaSourceState> createEnumerator(
             SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext) {
-        return new KafkaSourceSplitEnumerator(kafkaSourceConfig, enumeratorContext, null);
+        return new KafkaSourceSplitEnumerator(
+                kafkaSourceConfig,
+                enumeratorContext,
+                null,
+                getBoundedness() == Boundedness.UNBOUNDED);
     }
 
     @Override
@@ -112,7 +116,10 @@ public class KafkaSource
             SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext,
             KafkaSourceState checkpointState) {
         return new KafkaSourceSplitEnumerator(
-                kafkaSourceConfig, enumeratorContext, checkpointState);
+                kafkaSourceConfig,
+                enumeratorContext,
+                checkpointState,
+                getBoundedness() == Boundedness.UNBOUNDED);
     }
 
     @Override
