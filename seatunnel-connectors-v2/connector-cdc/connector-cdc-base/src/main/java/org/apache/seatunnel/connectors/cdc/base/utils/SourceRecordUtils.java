@@ -62,10 +62,9 @@ public class SourceRecordUtils {
     }
 
     /**
-     * Return the timestamp when the change event is produced in MySQL.
-     *
-     * <p>The field `source.ts_ms` in {@link SourceRecord} data struct is the time when the change
-     * event is operated in MySQL.
+     * In the source object, ts_ms indicates the time that the change was made in the database. By
+     * comparing the value for payload.source.ts_ms with the value for payload.ts_ms, you can
+     * determine the lag between the source database update and Debezium.
      */
     public static Long getMessageTimestamp(SourceRecord record) {
         Schema schema = record.valueSchema();

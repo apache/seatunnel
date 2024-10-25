@@ -20,6 +20,7 @@ package org.apache.seatunnel.api.table.type;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -32,6 +33,8 @@ public final class SeaTunnelRow implements Serializable {
     private RowKind rowKind = RowKind.INSERT;
     /** The array to store the actual internal format values. */
     private final Object[] fields;
+
+    private Map<String, Object> metadata = new HashMap<String, Object>();
 
     private volatile int size;
 
@@ -338,6 +341,10 @@ public final class SeaTunnelRow implements Serializable {
         int result = Objects.hash(tableId, rowKind);
         result = 31 * result + Arrays.deepHashCode(fields);
         return result;
+    }
+
+    public Map<String, Object> getMetadata() {
+        return metadata;
     }
 
     @Override

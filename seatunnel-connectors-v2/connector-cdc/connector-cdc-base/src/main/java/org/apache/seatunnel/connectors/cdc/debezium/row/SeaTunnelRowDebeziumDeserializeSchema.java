@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.event.handler.DataTypeChangeEventDispatcher;
 import org.apache.seatunnel.api.table.event.handler.DataTypeChangeEventHandler;
+import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -173,26 +174,39 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         } else {
             converters = tableRowConverters.get(DEFAULT_TABLE_NAME_KEY);
         }
-
+        Long fetchTimestamp = SourceRecordUtils.getFetchTimestamp(record);
+        Long messageTimestamp = SourceRecordUtils.getMessageTimestamp(record);
+        long delay = -1L;
+        if (fetchTimestamp != null && messageTimestamp != null) {
+            delay = fetchTimestamp - messageTimestamp;
+        }
         if (operation == Envelope.Operation.CREATE || operation == Envelope.Operation.READ) {
             SeaTunnelRow insert = extractAfterRow(converters, record, messageStruct, valueSchema);
             insert.setRowKind(RowKind.INSERT);
             insert.setTableId(tableId);
+            MetadataUtil.setDelay(insert, delay);
+            MetadataUtil.setEventTime(insert, fetchTimestamp);
             collector.collect(insert);
         } else if (operation == Envelope.Operation.DELETE) {
             SeaTunnelRow delete = extractBeforeRow(converters, record, messageStruct, valueSchema);
             delete.setRowKind(RowKind.DELETE);
             delete.setTableId(tableId);
+            MetadataUtil.setDelay(delete, delay);
+            MetadataUtil.setEventTime(delete, fetchTimestamp);
             collector.collect(delete);
         } else if (operation == Envelope.Operation.UPDATE) {
             SeaTunnelRow before = extractBeforeRow(converters, record, messageStruct, valueSchema);
             before.setRowKind(RowKind.UPDATE_BEFORE);
             before.setTableId(tableId);
+            MetadataUtil.setDelay(before, delay);
+            MetadataUtil.setEventTime(before, fetchTimestamp);
             collector.collect(before);
 
             SeaTunnelRow after = extractAfterRow(converters, record, messageStruct, valueSchema);
             after.setRowKind(RowKind.UPDATE_AFTER);
             after.setTableId(tableId);
+            MetadataUtil.setDelay(after, delay);
+            MetadataUtil.setEventTime(after, fetchTimestamp);
             collector.collect(after);
         } else {
             log.warn("Received {} operation, skip", operation);

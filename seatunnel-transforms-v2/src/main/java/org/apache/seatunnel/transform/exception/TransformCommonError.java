@@ -25,6 +25,8 @@ import java.util.Map;
 
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.INPUT_FIELDS_NOT_FOUND;
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.INPUT_FIELD_NOT_FOUND;
+import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.METADATA_FIELDS_NOT_FOUND;
+import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.METADATA_MAPPING_FIELD_EXISTS;
 
 /** The common error of SeaTunnel transform. Please refer {@link CommonError} */
 public class TransformCommonError {
@@ -42,5 +44,19 @@ public class TransformCommonError {
         params.put("fields", String.join(",", fields));
         params.put("transform", transform);
         return new TransformException(INPUT_FIELDS_NOT_FOUND, params);
+    }
+
+    public static TransformException cannotFindMetadataFieldError(String transform, String field) {
+        Map<String, String> params = new HashMap<>();
+        params.put("field", field);
+        params.put("transform", transform);
+        return new TransformException(METADATA_FIELDS_NOT_FOUND, params);
+    }
+
+    public static TransformException metadataMappingFieldExists(String transform, String field) {
+        Map<String, String> params = new HashMap<>();
+        params.put("field", field);
+        params.put("transform", transform);
+        return new TransformException(METADATA_MAPPING_FIELD_EXISTS, params);
     }
 }
