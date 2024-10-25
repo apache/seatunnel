@@ -21,6 +21,7 @@ import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispat
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
+import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleConnectorConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.reader.fetch.OracleSourceFetchTaskContext;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleConnectionUtils;
 
@@ -29,7 +30,6 @@ import org.slf4j.LoggerFactory;
 
 import io.debezium.config.Configuration;
 import io.debezium.connector.oracle.OracleConnection;
-import io.debezium.connector.oracle.OracleConnectorConfig;
 import io.debezium.connector.oracle.OracleDatabaseSchema;
 import io.debezium.connector.oracle.OracleOffsetContext;
 import io.debezium.connector.oracle.OraclePartition;
@@ -144,6 +144,9 @@ public class OracleRedoLogFetchTask implements FetchTask<SourceSplitBase> {
                 OraclePartition oraclePartition,
                 OracleOffsetContext offsetContext) {
             this.context = context;
+            if (connectorConfig.getPdbName() != null) {
+                connection.resetSessionToCdb();
+            }
             super.execute(context, oraclePartition, offsetContext);
         }
 

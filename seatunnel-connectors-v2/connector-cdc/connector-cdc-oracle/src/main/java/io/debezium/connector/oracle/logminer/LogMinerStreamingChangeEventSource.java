@@ -207,6 +207,7 @@ public class LogMinerStreamingChangeEventSource
                         // before proceeding.
                         if (archiveLogOnlyMode && startScn.equals(endScn)) {
                             pauseBetweenMiningSessions();
+                            dispatcher.dispatchHeartbeatEvent(partition, offsetContext);
                             continue;
                         }
 

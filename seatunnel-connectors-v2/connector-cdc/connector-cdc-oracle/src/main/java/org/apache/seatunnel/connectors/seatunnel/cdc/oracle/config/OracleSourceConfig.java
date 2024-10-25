@@ -22,7 +22,6 @@ import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StopConfig;
 
 import io.debezium.config.Configuration;
-import io.debezium.connector.oracle.OracleConnectorConfig;
 import io.debezium.relational.RelationalTableFilters;
 import lombok.Getter;
 
