@@ -39,16 +39,22 @@ public class IcebergFileScanTaskSplit implements SourceSplit {
 
     private final TablePath tablePath;
     private final FileScanTask task;
+    private final long currentSnapshotId;
     @Setter private volatile long recordOffset;
 
+    public IcebergFileScanTaskSplit(
+            TablePath tablePath, @NonNull FileScanTask task, long currentSnapshotId) {
+        this(tablePath, task, currentSnapshotId, 0);
+    }
+
     public IcebergFileScanTaskSplit(TablePath tablePath, @NonNull FileScanTask task) {
-        this(tablePath, task, 0);
+        this(tablePath, task, 0, 0);
     }
 
     // TODO: Waiting for old version migration to complete before remove
     @Deprecated
     public IcebergFileScanTaskSplit(@NonNull FileScanTask task) {
-        this(null, task, 0);
+        this(null, task, 0, 0);
     }
 
     @Override
@@ -61,6 +67,8 @@ public class IcebergFileScanTaskSplit implements SourceSplit {
         return "IcebergFileScanTaskSplit{"
                 + "task="
                 + toString(task)
+                + ", currentSnapshotId="
+                + currentSnapshotId
                 + ", recordOffset="
                 + recordOffset
                 + '}';

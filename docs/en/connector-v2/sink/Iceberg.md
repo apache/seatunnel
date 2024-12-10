@@ -59,25 +59,26 @@ libfb303-xxx.jar
 
 ## Sink Options
 
-| Name                                   | Type    | Required | Default                      | Description                                                                                                                                                                                                                                                                                                               |
-|----------------------------------------|---------|----------|------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| catalog_name                           | string  | yes      | default                      | User-specified catalog name. default is `default`                                                                                                                                                                                                                                                                         |
-| namespace                              | string  | yes      | default                      | The iceberg database name in the backend catalog. default is `default`                                                                                                                                                                                                                                                    |
-| table                                  | string  | yes      | -                            | The iceberg table name in the backend catalog.                                                                                                                                                                                                                                                                            |
-| iceberg.catalog.config                 | map     | yes      | -                            | Specify the properties for initializing the Iceberg catalog, which can be referenced in this file:"https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/CatalogProperties.java"                                                                                                              |
-| hadoop.config                          | map     | no       | -                            | Properties passed through to the Hadoop configuration                                                                                                                                                                                                                                                                     |
-| iceberg.hadoop-conf-path               | string  | no       | -                            | The specified loading paths for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files.                                                                                                                                                                                                                              |
-| case_sensitive                         | boolean | no       | false                        | If data columns where selected via schema [config], controls whether the match to the schema will be done with case sensitivity.                                                                                                                                                                                          |
-| iceberg.table.write-props              | map     | no       | -                            | Properties passed through to Iceberg writer initialization, these take precedence, such as 'write.format.default', 'write.target-file-size-bytes', and other settings, can be found with specific parameters at 'https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/TableProperties.java'. |
-| iceberg.table.auto-create-props        | map     | no       | -                            | Configuration specified by Iceberg during automatic table creation.                                                                                                                                                                                                                                                       |
-| iceberg.table.schema-evolution-enabled | boolean | no       | false                        | Setting to true enables Iceberg tables to support schema evolution during the synchronization process                                                                                                                                                                                                                     |
-| iceberg.table.primary-keys             | string  | no       | -                            | Default comma-separated list of columns that identify a row in tables (primary key)                                                                                                                                                                                                                                       |
-| iceberg.table.partition-keys           | string  | no       | -                            | Default comma-separated list of partition fields to use when creating tables                                                                                                                                                                                                                                              |
-| iceberg.table.upsert-mode-enabled      | boolean | no       | false                        | Set to `true` to enable upsert mode, default is `false`                                                                                                                                                                                                                                                                   |
-| schema_save_mode                       | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | the schema save mode, please refer to `schema_save_mode` below                                                                                                                                                                                                                                                            |
-| data_save_mode                         | Enum    | no       | APPEND_DATA                  | the data save mode, please refer to `data_save_mode` below                                                                                                                                                                                                                                                                |
-| custom_sql                             | string  | no       | -                            | Custom `delete` data sql for data save mode. e.g: `delete from ... where ...`                                                                                                                                                                                                                                             |
-| iceberg.table.commit-branch            | string  | no       | -                            | Default branch for commits                                                                                                                                                                                                                                                                                                |
+| Name                                   | Type       | Required | Default                      | Description                                                                                                                                                                                                                                                                                                                            |
+|----------------------------------------|------------|----------|------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| catalog_name                           | string     | yes      | default                      | User-specified catalog name. default is `default`                                                                                                                                                                                                                                                                                      |
+| namespace                              | string     | yes      | default                      | The iceberg database name in the backend catalog. default is `default`                                                                                                                                                                                                                                                                 |
+| table                                  | string     | yes      | -                            | The iceberg table name in the backend catalog.                                                                                                                                                                                                                                                                                         |
+| iceberg.catalog.config                 | map        | yes      | -                            | Specify the properties for initializing the Iceberg catalog, which can be referenced in this file:"https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/CatalogProperties.java"                                                                                                                           |
+| hadoop.config                          | map        | no       | -                            | Properties passed through to the Hadoop configuration                                                                                                                                                                                                                                                                                  |
+| iceberg.hadoop-conf-path               | string     | no       | -                            | The specified loading paths for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files.                                                                                                                                                                                                                                           |
+| case_sensitive                         | boolean    | no       | false                        | If data columns where selected via schema [config], controls whether the match to the schema will be done with case sensitivity.                                                                                                                                                                                                       |
+| iceberg.table.write-props              | map        | no       | -                            | Properties passed through to Iceberg writer initialization, these take precedence, such as 'write.format.default', 'write.target-file-size-bytes', and other settings, can be found with specific parameters at 'https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/TableProperties.java'.              |
+| iceberg.table.auto-create-props        | map        | no       | -                            | Configuration specified by Iceberg during automatic table creation.                                                                                                                                                                                                                                                                    |
+| iceberg.table.schema-evolution-enabled | boolean    | no       | false                        | Setting to true enables Iceberg tables to support schema evolution during the synchronization process                                                                                                                                                                                                                                  |
+| iceberg.table.primary-keys             | string     | no       | -                            | Default comma-separated list of columns that identify a row in tables (primary key)                                                                                                                                                                                                                                                    |
+| iceberg.table.partition-keys           | string     | no       | -                            | Default comma-separated list of partition fields to use when creating tables                                                                                                                                                                                                                                                           |
+| iceberg.table.upsert-mode-enabled      | boolean    | no       | false                        | Set to `true` to enable upsert mode, default is `false`                                                                                                                                                                                                                                                                                |
+| schema_save_mode                       | Enum       | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | the schema save mode, please refer to `schema_save_mode` below                                                                                                                                                                                                                                                                         |
+| data_save_mode                         | Enum       | no       | APPEND_DATA                  | the data save mode, please refer to `data_save_mode` below                                                                                                                                                                                                                                                                             |
+| custom_sql                             | string     | no       | -                            | Custom `delete` data sql for data save mode. e.g: `delete from ... where ...`                                                                                                                                                                                                                                                          |
+| iceberg.table.commit-branch            | string     | no       | -                            | Default branch for commits                                                                                                                                                                                                                                                                                                             |
+| compaction_action                      | boolean    | no       | false                        | Whether to enable the Compaction operation on the Iceberg table. Compaction is an optimization operation that merges small files into larger ones to improve read performance. When set to `true`, the Iceberg connector will perform Compaction during data writes. The default value is `false`, meaning Compaction is not enabled.  |
 
 ## Task Example
 
@@ -247,6 +248,50 @@ sink {
     table = "${table_name}_test"
   }
 }
+```
+
+### Iceberg compaction action
+> Note: The current compaction task only supports single concurrency and single-table tasks. It does not support multi-table operations.
+#### example
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Iceberg {
+    catalog_name = "seatunnel_test"
+    iceberg.catalog.config={
+      "type"="hadoop"
+      "warehouse"="file:///tmp/seatunnel/iceberg/hadoop-compaction/"
+    }
+    namespace="seatunnel_namespace"
+    table = "iceberg_table"
+    compaction_action = true
+    plugin_output = "iceberg"
+  }
+}
+
+transform {
+}
+
+sink {
+  Iceberg {
+    plugin_input = "iceberg"
+    catalog_name = "seatunnel_test"
+    iceberg.catalog.config={
+      "type"="hadoop"
+      "warehouse"="file:///tmp/seatunnel/iceberg/hadoop-compaction/"
+    }
+    namespace="seatunnel_namespace"
+    table="iceberg_table"
+    compaction_action = true
+    case_sensitive=true
+  }
+}
+
 ```
 
 ## Changelog

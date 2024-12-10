@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergCatalogLoader;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.compaction.IcebergCompactionHandler;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.DefaultDeserializer;
@@ -59,8 +60,9 @@ public class IcebergSourceReader implements SourceReader<SeaTunnelRow, IcebergFi
     private final Map<TablePath, CatalogTable> tables;
     private final Map<TablePath, Pair<Schema, Schema>> tableSchemaProjections;
     private final BlockingQueue<IcebergFileScanTaskSplit> pendingSplits;
-
+    private final List<IcebergFileScanTaskSplit> finishedSplits;
     private volatile IcebergFileScanTaskSplit currentReadSplit;
+
     private volatile boolean noMoreSplitsAssignment;
 
     private Catalog catalog;
@@ -76,6 +78,7 @@ public class IcebergSourceReader implements SourceReader<SeaTunnelRow, IcebergFi
         this.tables = tables;
         this.tableSchemaProjections = tableSchemaProjections;
         this.pendingSplits = new LinkedBlockingQueue<>();
+        this.finishedSplits = new ArrayList<>();
         this.tableReaders = new ConcurrentHashMap<>();
     }
 
@@ -143,11 +146,15 @@ public class IcebergSourceReader implements SourceReader<SeaTunnelRow, IcebergFi
                         output.collect(rowIterator.next());
                     }
                 }
+                finishedSplits.add(currentReadSplit);
                 return;
             }
         }
 
         if (noMoreSplitsAssignment && Boundedness.BOUNDED.equals(context.getBoundedness())) {
+            if (sourceConfig.isCompactionAction()) {
+                IcebergCompactionHandler.emitCompactionEndRecord(output, finishedSplits);
+            }
             context.signalNoMoreElement();
         } else {
             context.sendSplitRequest();

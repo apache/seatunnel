@@ -64,6 +64,10 @@ public class IcebergSource
     private JobContext jobContext;
 
     public IcebergSource(SourceConfig config, List<CatalogTable> catalogTables) {
+        if (config.isCompactionAction() && catalogTables.size() > 1) {
+            throw new UnsupportedOperationException(
+                    "Iceberg source does not support multi-table compaction action in batch mode.");
+        }
         this.sourceConfig = config;
         this.catalogTables =
                 catalogTables.stream()
@@ -110,9 +114,12 @@ public class IcebergSource
 
     @Override
     public Boundedness getBoundedness() {
-        return JobMode.BATCH.equals(jobContext.getJobMode())
-                ? Boundedness.BOUNDED
-                : Boundedness.UNBOUNDED;
+        JobMode jobMode = jobContext.getJobMode();
+        if (sourceConfig.isCompactionAction() && !JobMode.BATCH.equals(jobMode)) {
+            throw new UnsupportedOperationException(
+                    "Iceberg source does not support compaction action in stream mode.");
+        }
+        return JobMode.BATCH.equals(jobMode) ? Boundedness.BOUNDED : Boundedness.UNBOUNDED;
     }
 
     @Override

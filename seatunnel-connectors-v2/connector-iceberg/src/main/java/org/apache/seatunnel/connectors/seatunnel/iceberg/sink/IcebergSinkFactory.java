@@ -65,7 +65,8 @@ public class IcebergSinkFactory implements TableSinkFactory {
                         SinkConfig.TABLE_UPSERT_MODE_ENABLED_PROP,
                         SinkConfig.TABLE_SCHEMA_EVOLUTION_ENABLED_PROP,
                         SinkConfig.TABLES_DEFAULT_COMMIT_BRANCH,
-                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA,
+                        CommonConfig.COMPACTION_ACTION)
                 .conditional(
                         SinkConfig.DATA_SAVE_MODE,
                         DataSaveMode.CUSTOM_PROCESSING,

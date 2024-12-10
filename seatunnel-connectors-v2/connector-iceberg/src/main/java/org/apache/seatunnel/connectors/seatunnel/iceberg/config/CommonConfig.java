@@ -99,6 +99,12 @@ public class CommonConfig implements Serializable {
                     .noDefaultValue()
                     .withDescription("When using kerberos, We should specify the keytab path");
 
+    public static final Option<Boolean> COMPACTION_ACTION =
+            Options.key("compaction_action")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Merge fragmented files.");
+
     private String catalogName;
     private String namespace;
     private String table;
@@ -114,6 +120,9 @@ public class CommonConfig implements Serializable {
     private String kerberosKeytabPath;
     private String kerberosKrb5ConfPath;
 
+    // compaction
+    private boolean compactionAction;
+
     public CommonConfig(ReadonlyConfig pluginConfig) {
         this.catalogName = checkArgumentNotNull(pluginConfig.get(KEY_CATALOG_NAME));
         this.namespace = pluginConfig.get(KEY_NAMESPACE);
@@ -121,6 +130,7 @@ public class CommonConfig implements Serializable {
         this.catalogProps = pluginConfig.get(CATALOG_PROPS);
         this.hadoopProps = pluginConfig.get(HADOOP_PROPS);
         this.hadoopConfPath = pluginConfig.get(HADOOP_CONF_PATH_PROP);
+        this.compactionAction = pluginConfig.get(COMPACTION_ACTION);
         if (pluginConfig.toConfig().hasPath(KEY_CASE_SENSITIVE.key())) {
             this.caseSensitive = pluginConfig.get(KEY_CASE_SENSITIVE);
         }

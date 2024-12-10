@@ -68,6 +68,10 @@ public class IcebergSink
         this.readonlyConfig = pluginConfig;
         this.config = new SinkConfig(pluginConfig);
         this.catalogTable = catalogTable;
+        if (config.isCompactionAction() && config.isUpsertModeEnabled()) {
+            throw new UnsupportedOperationException(
+                    "Iceberg sink does not support compaction action when upsert mode is enabled");
+        }
         // Reset primary keys if need
         if (config.getPrimaryKeys().isEmpty()
                 && Objects.nonNull(this.catalogTable.getTableSchema().getPrimaryKey())) {
@@ -88,6 +92,7 @@ public class IcebergSink
 
     @Override
     public IcebergSinkWriter createWriter(SinkWriter.Context context) throws IOException {
+        validateParallelism(context);
         return IcebergSinkWriter.of(config, catalogTable);
     }
 
@@ -95,6 +100,13 @@ public class IcebergSink
     public SinkWriter<SeaTunnelRow, IcebergCommitInfo, IcebergSinkState> restoreWriter(
             SinkWriter.Context context, List<IcebergSinkState> states) throws IOException {
         return IcebergSinkWriter.of(config, catalogTable, states);
+    }
+
+    private void validateParallelism(SinkWriter.Context context) {
+        if (config.isCompactionAction() && context.getNumberOfParallelSubtasks() > 1) {
+            throw new UnsupportedOperationException(
+                    "Iceberg sink does not support compaction action when parallelism > 1");
+        }
     }
 
     @Override

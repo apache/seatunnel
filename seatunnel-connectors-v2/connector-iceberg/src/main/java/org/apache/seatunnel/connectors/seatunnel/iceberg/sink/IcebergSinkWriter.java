@@ -32,6 +32,7 @@ import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventHandler;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.compaction.IcebergCompactionHandler;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit.IcebergCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit.IcebergFilesCommitter;
@@ -67,6 +68,7 @@ public class IcebergSinkWriter
     private String commitUser = UUID.randomUUID().toString();
 
     private final DataTypeChangeEventHandler dataTypeChangeEventHandler;
+    private IcebergCompactionHandler compactionHandler;
 
     public IcebergSinkWriter(
             IcebergTableLoader icebergTableLoader,
@@ -97,6 +99,7 @@ public class IcebergSinkWriter
             IcebergWriterFactory icebergWriterFactory =
                     new IcebergWriterFactory(icebergTableLoader, config);
             this.writer = icebergWriterFactory.createWriter(this.tableSchema);
+            this.compactionHandler = new IcebergCompactionHandler(icebergTableLoader, this.writer);
         }
     }
 
@@ -114,11 +117,19 @@ public class IcebergSinkWriter
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         tryCreateRecordWriter();
-        writer.write(element, rowType);
+        if (compactionHandler.isCompactionEndRecord(element)) {
+            compactionHandler.doCompaction(element);
+        } else {
+            writer.write(element, rowType);
+        }
     }
 
     @Override
     public Optional<IcebergCommitInfo> prepareCommit() throws IOException {
+        if (config.isCompactionAction()) {
+            //  Unsupported.
+            return Optional.empty();
+        }
         List<WriteResult> writeResults;
         if (writer != null) {
             writeResults = writer.complete();

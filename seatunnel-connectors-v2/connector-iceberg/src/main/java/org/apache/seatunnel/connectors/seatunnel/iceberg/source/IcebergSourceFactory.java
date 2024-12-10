@@ -78,7 +78,8 @@ public class IcebergSourceFactory implements TableSourceFactory {
                         KEY_USE_SNAPSHOT_ID,
                         KEY_USE_SNAPSHOT_TIMESTAMP,
                         KEY_STREAM_SCAN_STRATEGY,
-                        KEY_INCREMENT_SCAN_INTERVAL)
+                        KEY_INCREMENT_SCAN_INTERVAL,
+                        CommonConfig.COMPACTION_ACTION)
                 .build();
     }
 

@@ -94,11 +94,17 @@ public class IcebergBatchSplitEnumerator extends AbstractSplitEnumerator {
     private List<IcebergFileScanTaskSplit> loadSplits(TablePath tablePath) {
         Table table = loadTable(tablePath);
         Pair<Schema, Schema> tableSchemaProjection = tableSchemaProjections.get(tablePath);
+        IcebergScanContext scanContext = getIcebergScanContext(tablePath, tableSchemaProjection);
+        return IcebergScanSplitPlanner.planSplits(table, scanContext);
+    }
+
+    private IcebergScanContext getIcebergScanContext(
+            TablePath tablePath, Pair<Schema, Schema> tableSchemaProjection) {
         IcebergScanContext scanContext =
                 IcebergScanContext.scanContext(
                         sourceConfig,
                         sourceConfig.getTableConfig(tablePath),
                         tableSchemaProjection.getRight());
-        return IcebergScanSplitPlanner.planSplits(table, scanContext);
+        return scanContext;
     }
 }

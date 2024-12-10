@@ -44,6 +44,7 @@ public class IcebergScanContext {
     private final Long useSnapshotId;
     private final Long useSnapshotTimestamp;
 
+    private final boolean compactionAction;
     private final boolean caseSensitive;
 
     private final Schema schema;
@@ -72,6 +73,7 @@ public class IcebergScanContext {
                 .useSnapshotId(tableConfig.getUseSnapshotId())
                 .useSnapshotTimestamp(tableConfig.getUseSnapshotTimestamp())
                 .caseSensitive(sourceConfig.isCaseSensitive())
+                .compactionAction(sourceConfig.isCompactionAction())
                 .schema(schema)
                 .filter(tableConfig.getFilter())
                 .splitSize(tableConfig.getSplitSize())
