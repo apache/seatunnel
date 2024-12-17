@@ -45,7 +45,6 @@ import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.sql.*;
 import java.time.Duration;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -60,7 +59,7 @@ public class HiveOverwriteIT extends TestSuiteBase implements TestResource {
 
     private static final String HIVE_IMAGE = "apache/hive:3.1.3";
     private static final int THRIFT_PORT = 9083;
-    private static final int JDBC_PORT = 10010;
+    private static final int JDBC_PORT = 10000;
     private GenericContainer metastore;
     private GenericContainer hive2;
     private String jdbcUrl;
@@ -97,17 +96,26 @@ public class HiveOverwriteIT extends TestSuiteBase implements TestResource {
                 Lists.newArrayList(String.format("%s:%s", THRIFT_PORT, THRIFT_PORT)));
         Startables.deepStart(Stream.of(metastore)).join();
 
+        String metastoreHost = metastore.getContainerIpAddress();
+        int metastorePort = metastore.getMappedPort(THRIFT_PORT);
+        System.out.printf("----{}:{}----" + metastoreHost + ":"  + metastorePort);
+
         hive2 =
                 new GenericContainer<>(HIVE_IMAGE)
                         .withExposedPorts(JDBC_PORT)
                         .withNetwork(NETWORK)
                         .withNetworkAliases("hiveserver2")
                         .withEnv("SERVICE_NAME", "hiveserver2")
+//                        .withEnv(
+//                                "SERVICE_OPTS",
+//                                "-Dhive.metastore.uris=thrift://"
+//                                        + InetAddress.getLocalHost().getHostAddress()
+//                                        + ":9083")
                         .withEnv(
                                 "SERVICE_OPTS",
                                 "-Dhive.metastore.uris=thrift://"
-                                        + InetAddress.getLocalHost().getHostAddress()
-                                        + ":9083")
+                                        + metastoreHost
+                                        + ":" + metastorePort)
                         .withEnv("IS_RESUME", "true")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(HIVE_IMAGE)))
@@ -116,11 +124,6 @@ public class HiveOverwriteIT extends TestSuiteBase implements TestResource {
                                         .withStartupTimeout(Duration.ofSeconds(180)));
         hive2.setPortBindings(Lists.newArrayList(String.format("%s:%s", JDBC_PORT, JDBC_PORT)));
         Startables.deepStart(Stream.of(hive2)).join();
-        createTable(
-                InetAddress.getLocalHost().getHostAddress(),
-                "10010",
-                "default",
-                "hive_overwrite_example");
 
         changeConnectionURLConf("src/test/resources/overwrite/fake_to_hive_1_on_hdfs.conf");
         changeConnectionURLConf("src/test/resources/overwrite/fake_to_hive_overwrite_on_hdfs.conf");
@@ -137,41 +140,9 @@ public class HiveOverwriteIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private void createTable(String host, String port, String db, String tableName)
-            throws SQLException {
-        String jdbcUrl = "jdbc:hive2://" + host + ":" + port + "/" + db;
-        String ddl =
-                "CREATE TABLE "
-                        + tableName
-                        + "("
-                        + "    name              STRING,"
-                        + "    age          INT,"
-                        + "    score           DOUBLE,"
-                        + "    c_date         DATE"
-                        + ")";
-        Connection connection = DriverManager.getConnection(jdbcUrl);
-        Statement statement = connection.createStatement();
-        statement.execute(ddl);
-        log.info("create table {} successful. Jdbc url: {}", tableName, jdbcUrl);
-    }
-
-    private void selectTable(String host, String port, String db, String tableName)
-            throws SQLException {
-        String jdbcUrl = "jdbc:hive2://" + host + ":" + port + "/" + db;
-        String ddl = "SELECT * FROM " + tableName ;
-        Connection connection = DriverManager.getConnection(jdbcUrl);
-        Statement statement = connection.createStatement();
-        ResultSet resultSet = statement.executeQuery(ddl);
-        // Process the result set
-        while (resultSet.next()) {
-            // Assuming you want to log the first column value
-            String firstColumnValue = resultSet.getString(1);
-            log.info("select result is row: {}", firstColumnValue);
-        }
-    }
 
     private void changeConnectionURLConf(String resourceFilePath) throws UnknownHostException {
-        jdbcUrl = "jdbc:hive2://" + InetAddress.getLocalHost().getHostAddress() + ":10010/default";
+        jdbcUrl = "jdbc:hive2://" + InetAddress.getLocalHost().getHostAddress() + ":10000/default";
         hmsUrl = "thrift://" + InetAddress.getLocalHost().getHostAddress() + ":9083";
         Path path = Paths.get(resourceFilePath);
         try {
@@ -198,19 +169,18 @@ public class HiveOverwriteIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testFakeSinkHiveOverwriteOnHDFS(TestContainer container)
-            throws IOException, InterruptedException, SQLException {
-        Container.ExecResult execResult1 = container.executeJob("/overwrite/fake_to_hive_1_on_hdfs.conf");
-        selectTable(InetAddress.getLocalHost().getHostAddress(),
-                "10010",
-                "default",
-                "hive_overwrite_example");
-        log.info("execResult1: {}" , execResult1.toString());
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult1 =
+                container.executeJob("/overwrite/fake_to_hive_1_on_hdfs.conf");
+
+        log.info("execResult1: {}", execResult1.toString());
         Assertions.assertEquals(0, execResult1.getExitCode());
-        Container.ExecResult execResult2 = container.executeJob("/overwrite/fake_to_hive_overwrite_on_hdfs.conf");
+        Container.ExecResult execResult2 =
+                container.executeJob("/overwrite/fake_to_hive_overwrite_on_hdfs.conf");
         log.info("execResult2: {}", execResult2.toString());
         Container.ExecResult checkJobRes =
                 container.executeJob("/overwrite/fake_to_hive_overwrite_on_hdfs.conf");
         log.info("checkJobRes: {}", checkJobRes.toString());
-//        Assertions.assertEquals("0", checkJobRes.getStdout());
+        //        Assertions.assertEquals("0", checkJobRes.getStdout());
     }
 }
