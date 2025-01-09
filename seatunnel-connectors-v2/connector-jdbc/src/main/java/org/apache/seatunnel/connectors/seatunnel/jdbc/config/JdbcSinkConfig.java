@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.TablePlaceholder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
 
 import org.apache.commons.lang3.StringUtils;
@@ -30,7 +31,6 @@ import java.util.List;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.ENABLE_UPSERT;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.IS_PRIMARY_KEY_UPDATED;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.REPLACE_TARGET_TABLE_NAME_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.SUPPORT_UPSERT_BY_INSERT_ONLY;
 
 @Data
@@ -51,6 +51,7 @@ public class JdbcSinkConfig implements Serializable {
     private String tempColumnRowKind;
     private String tempColumnBatchCode;
     private boolean supportUpsertByInsertOnly;
+    private boolean useCopyStatement;
     @Builder.Default private boolean createIndex = true;
 
     public static JdbcSinkConfig of(ReadonlyConfig config) {
@@ -64,6 +65,7 @@ public class JdbcSinkConfig implements Serializable {
         builder.isPrimaryKeyUpdated(config.get(IS_PRIMARY_KEY_UPDATED));
         builder.supportUpsertByInsertOnly(config.get(SUPPORT_UPSERT_BY_INSERT_ONLY));
         builder.simpleSql(config.get(JdbcOptions.QUERY));
+        builder.useCopyStatement(config.get(JdbcOptions.USE_COPY_STATEMENT));
         builder.createIndex(config.get(JdbcCatalogOptions.CREATE_INDEX));
         builder.writeMode(config.get(JdbcOptions.WRITE_MODE));
         String tempTableName = config.get(JdbcOptions.TEMP_TABLE_NAME);
@@ -74,7 +76,10 @@ public class JdbcSinkConfig implements Serializable {
             if (index > -1) {
                 tableName = tableName.substring(index + 1);
             }
-            tempTableName = tempTableName.replace(REPLACE_TARGET_TABLE_NAME_KEY, tableName);
+            tempTableName =
+                    tempTableName.replace(
+                            "${" + TablePlaceholder.REPLACE_TABLE_NAME_KEY.getPlaceholder() + "}",
+                            tableName);
         }
         builder.tempTableName(tempTableName);
         builder.tempColumnBatchCode(config.get(JdbcOptions.TEMP_COLUMN_BATCH_CODE));

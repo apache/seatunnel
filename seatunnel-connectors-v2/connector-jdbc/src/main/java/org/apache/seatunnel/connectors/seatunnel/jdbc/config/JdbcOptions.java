@@ -27,6 +27,8 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.seatunnel.api.sink.TablePlaceholder.REPLACE_TABLE_NAME_KEY;
+
 @SuppressWarnings("checkstyle:MagicNumber")
 public interface JdbcOptions {
 
@@ -159,12 +161,15 @@ public interface JdbcOptions {
                     .defaultValue(JdbcSinkConfig.WriteMode.SQL)
                     .withDescription("write mode: SQL/COPY/COPY_SQL/MERGE/COPY_MERGE");
 
-    String REPLACE_TARGET_TABLE_NAME_KEY = "${target_table}";
-
+    Option<Boolean> USE_COPY_STATEMENT =
+            Options.key("use_copy_statement")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("support copy in statement (postgresql)");
     Option<String> TEMP_TABLE_NAME =
             Options.key("temp_table_name")
                     .stringType()
-                    .defaultValue(REPLACE_TARGET_TABLE_NAME_KEY + "_tmp")
+                    .defaultValue("${" + REPLACE_TABLE_NAME_KEY.getPlaceholder() + "}_tmp")
                     .withDescription("temp table name");
 
     Option<String> TEMP_COLUMN_BATCH_CODE =

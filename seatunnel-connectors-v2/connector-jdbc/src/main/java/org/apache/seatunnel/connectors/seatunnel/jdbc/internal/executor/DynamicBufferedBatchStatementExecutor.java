@@ -174,7 +174,8 @@ public class DynamicBufferedBatchStatementExecutor
 
     @Override
     public void addToBatch(SeaTunnelRow record) throws SQLException {
-        if (jdbcSinkConfig.getWriteMode().equals(JdbcSinkConfig.WriteMode.COPY)) {
+        if (jdbcSinkConfig.getWriteMode().equals(JdbcSinkConfig.WriteMode.COPY)
+                || jdbcSinkConfig.isUseCopyStatement()) {
             if (!RowKind.INSERT.equals(record.getRowKind())) {
                 throw new RuntimeException("Only support INSERT row kind when writeMode is COPY");
             }
@@ -216,7 +217,8 @@ public class DynamicBufferedBatchStatementExecutor
 
     @Override
     public void executeBatch() throws SQLException {
-        if (jdbcSinkConfig.getWriteMode().equals(JdbcSinkConfig.WriteMode.COPY)) {
+        if (jdbcSinkConfig.getWriteMode().equals(JdbcSinkConfig.WriteMode.COPY)
+                || jdbcSinkConfig.isUseCopyStatement()) {
             copyBatchStatementExecutor.executeBatch();
             return;
         }

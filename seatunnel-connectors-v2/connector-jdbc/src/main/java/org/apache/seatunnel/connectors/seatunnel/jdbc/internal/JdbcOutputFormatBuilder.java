@@ -68,9 +68,10 @@ public class JdbcOutputFormatBuilder {
 
         final List<String> primaryKeys = jdbcSinkConfig.getPrimaryKeys();
         if ((JdbcSinkConfig.WriteMode.COPY.equals(jdbcSinkConfig.getWriteMode())
-                || JdbcSinkConfig.WriteMode.MERGE.equals(jdbcSinkConfig.getWriteMode())
-                || JdbcSinkConfig.WriteMode.COPY_MERGE.equals(jdbcSinkConfig.getWriteMode())
-                || JdbcSinkConfig.WriteMode.COPY_SQL.equals(jdbcSinkConfig.getWriteMode()))) {
+                        || JdbcSinkConfig.WriteMode.MERGE.equals(jdbcSinkConfig.getWriteMode())
+                        || JdbcSinkConfig.WriteMode.COPY_MERGE.equals(jdbcSinkConfig.getWriteMode())
+                        || JdbcSinkConfig.WriteMode.COPY_SQL.equals(jdbcSinkConfig.getWriteMode()))
+                || jdbcSinkConfig.isUseCopyStatement()) {
             statementExecutorFactory = this::createDynamicBufferedExecutor;
         } else if (StringUtils.isNotBlank(jdbcSinkConfig.getSimpleSql())) {
             statementExecutorFactory =
