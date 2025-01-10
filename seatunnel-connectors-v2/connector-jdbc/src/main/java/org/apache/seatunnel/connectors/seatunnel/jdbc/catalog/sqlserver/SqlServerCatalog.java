@@ -31,6 +31,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver
 
 import org.apache.commons.lang3.StringUtils;
 
+import org.slf4j.Logger;
+
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
@@ -67,6 +69,11 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
             String defaultSchema,
             String driverClass) {
         super(catalogName, username, pwd, urlInfo, defaultSchema, driverClass);
+    }
+
+    @Override
+    public Logger getLogger() {
+        return log;
     }
 
     @Override

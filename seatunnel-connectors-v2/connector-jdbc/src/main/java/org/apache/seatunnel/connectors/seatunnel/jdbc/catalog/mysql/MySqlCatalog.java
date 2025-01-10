@@ -34,6 +34,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MyS
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlVersion;
 
+import org.slf4j.Logger;
+
 import com.mysql.cj.MysqlType;
 import lombok.extern.slf4j.Slf4j;
 
@@ -70,6 +72,11 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         super(catalogName, username, pwd, urlInfo, null, driverClass);
         this.version = resolveVersion();
         this.typeConverter = new MySqlTypeConverter(version);
+    }
+
+    @Override
+    public Logger getLogger() {
+        return log;
     }
 
     @Override

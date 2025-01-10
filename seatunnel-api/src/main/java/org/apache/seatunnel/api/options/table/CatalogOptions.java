@@ -51,6 +51,12 @@ public interface CatalogOptions {
                     .defaultValue(".*")
                     .withDescription("The database names RegEx of the database to capture.");
 
+    Option<String> SCHEMA_PATTERN =
+            Options.key("schema-pattern")
+                    .stringType()
+                    .defaultValue(".*")
+                    .withDescription("The schema names RegEx of the database to capture.");
+
     Option<String> TABLE_PATTERN =
             Options.key("table-pattern")
                     .stringType()

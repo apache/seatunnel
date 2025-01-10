@@ -19,10 +19,12 @@ package org.apache.seatunnel.common.utils;
 
 import org.apache.commons.lang3.StringUtils;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.Serializable;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -47,6 +49,19 @@ public final class JdbcUrlUtil {
                     matcher.group("suffix"));
         }
         throw new IllegalArgumentException("The jdbc url format is incorrect: " + url);
+    }
+
+    public static JdbcUrlUtil.UrlInfo getUrlInfo(
+            String url, Pattern pattern, Function<UrlParser, UrlInfo> parserFunction) {
+        return parserFunction.apply(new JdbcUrlUtil.UrlParser(url, pattern));
+    }
+
+    @Data
+    @AllArgsConstructor
+    public static class UrlParser implements Serializable {
+        private static final long serialVersionUID = 1L;
+        private final String url;
+        private final Pattern pattern;
     }
 
     @Data

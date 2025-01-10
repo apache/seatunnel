@@ -24,9 +24,6 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
@@ -69,17 +66,7 @@ public class JdbcSourceFactory implements TableSourceFactory {
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
-        JdbcSourceConfig config = JdbcSourceConfig.of(context.getOptions());
-        JdbcDialect jdbcDialect =
-                JdbcDialectLoader.load(
-                        config.getJdbcConnectionConfig().getUrl(),
-                        config.getJdbcConnectionConfig().getDialect(),
-                        config.getJdbcConnectionConfig().getCompatibleMode());
-        jdbcDialect.connectionUrlParse(
-                config.getJdbcConnectionConfig().getUrl(),
-                config.getJdbcConnectionConfig().getProperties(),
-                jdbcDialect.defaultParameter());
-        return () -> (SeaTunnelSource<T, SplitT, StateT>) new JdbcSource(config);
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new JdbcSource(context);
     }
 
     @Override

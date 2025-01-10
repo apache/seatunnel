@@ -29,7 +29,10 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+
+import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -57,6 +60,10 @@ public interface Catalog extends AutoCloseable {
      * @throws CatalogException in case of any runtime exception
      */
     void open() throws CatalogException;
+
+    default Logger getLogger() {
+        return null;
+    }
 
     /**
      * Close the catalog when it is no longer needed and release any resource that it might be
@@ -92,6 +99,17 @@ public interface Catalog extends AutoCloseable {
      * @throws CatalogException in case of any runtime exception
      */
     boolean databaseExists(String databaseName) throws CatalogException;
+
+    /**
+     * Get the names of all schemas in this catalog.
+     *
+     * @return a list of the names of all schemas
+     * @throws CatalogException in case of any runtime exception
+     */
+    default List<String> listSchemas() throws CatalogException {
+        throw CommonError.unsupportedOperation(
+                name(), "The operation to list schemas is not supported in this catalog.");
+    }
 
     /**
      * Get the names of all databases in this catalog.
@@ -165,16 +183,49 @@ public interface Catalog extends AutoCloseable {
                 Pattern.compile(config.get(ConnectorCommonOptions.DATABASE_PATTERN));
         Pattern tablePattern = Pattern.compile(config.get(ConnectorCommonOptions.TABLE_PATTERN));
         List<String> allDatabase = this.listDatabases();
-        allDatabase.removeIf(s -> !databasePattern.matcher(s).matches());
+        boolean schemaMatch;
+        if (CollectionUtils.isEmpty(allDatabase)) {
+            Pattern schemaPattern =
+                    Pattern.compile(config.get(ConnectorCommonOptions.SCHEMA_PATTERN));
+            List<String> allSchemas = this.listSchemas();
+            allSchemas.removeIf(s -> !schemaPattern.matcher(s).matches());
+            allDatabase.addAll(allSchemas);
+            schemaMatch = true;
+        } else {
+            schemaMatch = false;
+            allDatabase.removeIf(s -> !databasePattern.matcher(s).matches());
+        }
         List<TablePath> tablePaths = new ArrayList<>();
         for (String databaseName : allDatabase) {
             tableNames = this.listTables(databaseName);
             tableNames.forEach(
                     tableName -> {
                         if (tablePattern.matcher(databaseName + "." + tableName).matches()) {
-                            tablePaths.add(TablePath.of(databaseName, tableName));
+                            if (tableName.contains(".")) {
+                                tablePaths.add(
+                                        TablePath.of(
+                                                databaseName,
+                                                tableName.split("\\.")[0],
+                                                tableName.split("\\.")[1]));
+                            } else {
+                                tablePaths.add(TablePath.of(databaseName, tableName));
+                            }
+                        } else if (tablePattern.matcher(tableName).matches()) {
+                            tablePaths.add(TablePath.of(tableName, schemaMatch));
                         }
                     });
+        }
+        if (getLogger() != null) {
+            if (tablePaths.isEmpty()) {
+                getLogger().info("No table matched the pattern: {}", tablePatternStr);
+            } else {
+                getLogger()
+                        .info(
+                                "{} tables {} matched the pattern: {}",
+                                tablePaths.size(),
+                                tablePaths,
+                                tablePatternStr);
+            }
         }
         return buildCatalogTablesWithErrorCheck(tablePaths.iterator());
     }

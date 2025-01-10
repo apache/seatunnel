@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -30,6 +32,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeMapper;
 
+import org.slf4j.Logger;
+
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
@@ -37,7 +41,6 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 @Slf4j
@@ -106,6 +109,11 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
+    public Logger getLogger() {
+        return log;
+    }
+
+    @Override
     protected String getTableWithConditionSql(TablePath tablePath) {
         return getListTableSql(tablePath.getDatabaseName())
                 + "  and  OWNER = '"
@@ -122,7 +130,21 @@ public class OracleCatalog extends AbstractJdbcCatalog {
 
     @Override
     public List<String> listDatabases() throws CatalogException {
-        return new ArrayList<>(Collections.singletonList("default"));
+        return Lists.newArrayList();
+    }
+
+    @Override
+    public List<String> listSchemas() throws CatalogException {
+        try {
+            return queryString(defaultUrl, getListSchemaSql(), rs -> rs.getString(1));
+        } catch (Exception e) {
+            throw new CatalogException(
+                    String.format("Failed listing schema in catalog %s", this.catalogName), e);
+        }
+    }
+
+    private String getListSchemaSql() {
+        return " SELECT owner FROM  all_tables GROUP BY owner";
     }
 
     @Override

@@ -30,6 +30,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.Post
 
 import org.apache.commons.collections4.CollectionUtils;
 
+import org.slf4j.Logger;
+
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
@@ -92,8 +94,13 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
+    public Logger getLogger() {
+        return log;
+    }
+
+    @Override
     protected String getDatabaseWithConditionSql(String databaseName) {
-        return String.format(getListDatabaseSql() + " where datname = '%s'", databaseName);
+        return String.format(getListDatabaseSql() + " and datname = '%s'", databaseName);
     }
 
     @Override
@@ -107,7 +114,7 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getListDatabaseSql() {
-        return "select datname from pg_database";
+        return "select datname from pg_database where datallowconn = true";
     }
 
     @Override

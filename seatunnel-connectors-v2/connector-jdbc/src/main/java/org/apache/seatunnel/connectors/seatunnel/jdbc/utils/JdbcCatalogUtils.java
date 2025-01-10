@@ -408,4 +408,21 @@ public class JdbcCatalogUtils {
         catalogConfig.put(JdbcCatalogOptions.DRIVER.key(), config.getDriverName());
         return ReadonlyConfig.fromMap(catalogConfig);
     }
+
+    public static ReadonlyConfig extractCatalogConfig(
+            JdbcConnectionConfig config, ReadonlyConfig options) {
+        Map<String, Object> catalogConfig = new HashMap<>(options.toMap());
+        catalogConfig.remove(JdbcOptions.URL.key());
+        catalogConfig.remove(JdbcOptions.USER.key());
+        catalogConfig.put(JdbcCatalogOptions.BASE_URL.key(), config.getUrl());
+        config.getUsername()
+                .ifPresent(val -> catalogConfig.put(JdbcCatalogOptions.USERNAME.key(), val));
+        config.getPassword()
+                .ifPresent(val -> catalogConfig.put(JdbcCatalogOptions.PASSWORD.key(), val));
+        Optional.ofNullable(config.getCompatibleMode())
+                .ifPresent(val -> catalogConfig.put(JdbcCatalogOptions.COMPATIBLE_MODE.key(), val));
+        catalogConfig.put(
+                JdbcOptions.DECIMAL_TYPE_NARROWING.key(), config.isDecimalTypeNarrowing());
+        return ReadonlyConfig.fromMap(catalogConfig);
+    }
 }

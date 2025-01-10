@@ -24,7 +24,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class OracleURLParser {
-    private static final Pattern ORACLE_URL_PATTERN =
+    public static final Pattern ORACLE_URL_PATTERN =
             Pattern.compile(
                     "^(?<url>jdbc:oracle:thin:@(//)?(?<host>[^:]+):(?<port>\\d+)[:/])(?<database>.+?)((?<suffix>\\?.*)?)$");
 

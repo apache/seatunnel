@@ -129,13 +129,13 @@ public class SqlServerURLParser {
                 String key =
                         idx > 0
                                 ? URLDecoder.decode(
-                                pair.substring(0, idx), StandardCharsets.UTF_8.name())
+                                        pair.substring(0, idx), StandardCharsets.UTF_8.name())
                                 : pair;
                 if (!queryParams.containsKey(key)) {
                     String value =
                             idx > 0 && pair.length() > idx + 1
                                     ? URLDecoder.decode(
-                                    pair.substring(idx + 1), StandardCharsets.UTF_8.name())
+                                            pair.substring(idx + 1), StandardCharsets.UTF_8.name())
                                     : null;
                     queryParams.put(key, value);
                 }

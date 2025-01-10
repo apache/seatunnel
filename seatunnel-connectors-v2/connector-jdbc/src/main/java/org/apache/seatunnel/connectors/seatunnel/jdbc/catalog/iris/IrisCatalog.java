@@ -60,6 +60,9 @@ public class IrisCatalog extends AbstractJdbcCatalog {
     private static final String LIST_TABLES_SQL_TEMPLATE =
             "SELECT TABLE_SCHEMA,TABLE_NAME FROM INFORMATION_SCHEMA.Tables WHERE TABLE_SCHEMA='%s' and TABLE_TYPE != 'SYSTEM TABLE' and TABLE_TYPE != 'SYSTEM VIEW'";
 
+    private static final String LIST_DATABASE_SQL =
+            "SELECT TABLE_SCHEMA FROM INFORMATION_SCHEMA.Tables GROUP BY TABLE_SCHEMA";
+
     public IrisCatalog(
             String catalogName,
             String username,
@@ -88,6 +91,10 @@ public class IrisCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getDropDatabaseSql(String databaseName) {
         return String.format("DROP DATABASE \"%s\"", databaseName);
+    }
+
+    protected String getListDatabaseSql() {
+        return LIST_DATABASE_SQL;
     }
 
     @Override
