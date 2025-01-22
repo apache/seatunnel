@@ -318,4 +318,10 @@ public class BaseSinkConfig extends KerberosConfig {
                     .defaultValue(APPEND_DATA)
                     .withDescription(
                             "Before the synchronization task begins, different processing of data files that already exist in the directory");
+
+    public static final Option<CsvStringQuoteMode> CSV_STRING_QUOTE_MODE =
+            Options.key("csv_string_quote_mode")
+                    .enumType(CsvStringQuoteMode.class)
+                    .defaultValue(CsvStringQuoteMode.MINIMAL)
+                    .withDescription("CSV file string quote mode, only valid for csv files");
 }
