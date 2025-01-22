@@ -31,10 +31,10 @@ public class SeaTunnelEngineClusterClientExample {
         String id = "834720088434147329";
         String configurePath = "/examples/fake_to_console.conf";
 
-        submit(configurePath, id);
+        // submit(configurePath, id);
 
         // list();
-        // savepoint(id);
+        savepoint(id);
         // restore(configurePath, id);
         // cancel(id);
     }
@@ -70,12 +70,14 @@ public class SeaTunnelEngineClusterClientExample {
     public static void savepoint(String id) {
         ClientCommandArgs clientCommandArgs = new ClientCommandArgs();
         clientCommandArgs.setSavePointJobId(id);
+        clientCommandArgs.setAsync(true);
         SeaTunnel.run(clientCommandArgs.buildCommand());
     }
 
     public static void cancel(String id) {
         ClientCommandArgs clientCommandArgs = new ClientCommandArgs();
         clientCommandArgs.setCancelJobId(Collections.singletonList(id));
+        clientCommandArgs.setAsync(true);
         SeaTunnel.run(clientCommandArgs.buildCommand());
     }
 }

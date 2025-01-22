@@ -110,6 +110,11 @@ public class SourceFlowTestUtils {
                             }
 
                             @Override
+                            public Boundedness getBoundedness() {
+                                return boundedness;
+                            }
+
+                            @Override
                             public void signalNoMoreSplits(int subtask) {
                                 SourceReader reader = readers.get(subtask);
                                 reader.handleNoMoreSplits();

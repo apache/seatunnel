@@ -18,6 +18,7 @@
 package org.apache.seatunnel.translation.source;
 
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceEvent;
@@ -45,6 +46,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Slf4j
 public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Serializable>
@@ -65,6 +67,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
     protected transient volatile SourceSplitEnumerator<SplitT, StateT> splitEnumerator;
     protected transient Map<Integer, SourceReader<T, SplitT>> readerMap = new ConcurrentHashMap<>();
     protected final Map<Integer, AtomicBoolean> readerRunningMap;
+    protected final Set<Integer> needSplitReaders;
     protected final AtomicInteger completedReader = new AtomicInteger(0);
     protected transient volatile ScheduledThreadPoolExecutor executorService;
 
@@ -83,9 +86,13 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
         this.splitSerializer = source.getSplitSerializer();
         this.enumeratorStateSerializer = source.getEnumeratorStateSerializer();
 
-        this.coordinatedEnumeratorContext = new CoordinatedEnumeratorContext<>(this, jobId);
+        this.coordinatedEnumeratorContext =
+                new CoordinatedEnumeratorContext<>(this, jobId, source.getBoundedness());
         this.readerContextMap = new ConcurrentHashMap<>(parallelism);
         this.readerRunningMap = new ConcurrentHashMap<>(parallelism);
+        this.needSplitReaders =
+                Collections.synchronizedSet(
+                        IntStream.range(0, parallelism).boxed().collect(Collectors.toSet()));
         try {
             createSplitEnumerator();
             createReaders();
@@ -201,6 +208,10 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
                         });
         splitEnumerator.run();
         while (running) {
+            if (Boundedness.UNBOUNDED.equals(source.getBoundedness())
+                    && !needSplitReaders.isEmpty()) {
+                splitEnumerator.run();
+            }
             Thread.sleep(SLEEP_TIME_INTERVAL);
         }
     }
@@ -333,6 +344,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
 
     protected void handleNoMoreSplits(int subtaskId) {
         readerMap.get(subtaskId).handleNoMoreSplits();
+        needSplitReaders.remove(subtaskId);
     }
 
     protected void handleEnumeratorEvent(int subtaskId, SourceEvent event) {

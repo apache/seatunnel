@@ -79,9 +79,9 @@ public class FlinkSource<SplitT extends SourceSplit, EnumStateT extends Serializ
     public SplitEnumerator<SplitWrapper<SplitT>, EnumStateT> createEnumerator(
             SplitEnumeratorContext<SplitWrapper<SplitT>> enumContext) throws Exception {
         SourceSplitEnumerator.Context<SplitT> context =
-                new FlinkSourceSplitEnumeratorContext<>(enumContext);
+                new FlinkSourceSplitEnumeratorContext<>(enumContext, source.getBoundedness());
         SourceSplitEnumerator<SplitT, EnumStateT> enumerator = source.createEnumerator(context);
-        return new FlinkSourceEnumerator<>(enumerator, enumContext);
+        return new FlinkSourceEnumerator<>(enumerator, enumContext, source.getBoundedness());
     }
 
     @Override
@@ -89,10 +89,10 @@ public class FlinkSource<SplitT extends SourceSplit, EnumStateT extends Serializ
             SplitEnumeratorContext<SplitWrapper<SplitT>> enumContext, EnumStateT checkpoint)
             throws Exception {
         FlinkSourceSplitEnumeratorContext<SplitT> context =
-                new FlinkSourceSplitEnumeratorContext<>(enumContext);
+                new FlinkSourceSplitEnumeratorContext<>(enumContext, source.getBoundedness());
         SourceSplitEnumerator<SplitT, EnumStateT> enumerator =
                 source.restoreEnumerator(context, checkpoint);
-        return new FlinkSourceEnumerator<>(enumerator, enumContext);
+        return new FlinkSourceEnumerator<>(enumerator, enumContext, source.getBoundedness());
     }
 
     @Override

@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.metrics.AbstractMetricsContext;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -30,6 +31,7 @@ import org.apache.flink.runtime.operators.coordination.OperatorCoordinator;
 import org.apache.flink.runtime.scheduler.SchedulerBase;
 import org.apache.flink.runtime.source.coordinator.SourceCoordinatorContext;
 
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Field;
@@ -48,12 +50,14 @@ import java.util.Set;
 public class FlinkSourceSplitEnumeratorContext<SplitT extends SourceSplit>
         implements SourceSplitEnumerator.Context<SplitT> {
 
-    private final SplitEnumeratorContext<SplitWrapper<SplitT>> enumContext;
+    @Getter private final SplitEnumeratorContext<SplitWrapper<SplitT>> enumContext;
+    protected final Boundedness boundedness;
     protected final EventListener eventListener;
 
     public FlinkSourceSplitEnumeratorContext(
-            SplitEnumeratorContext<SplitWrapper<SplitT>> enumContext) {
+            SplitEnumeratorContext<SplitWrapper<SplitT>> enumContext, Boundedness boundedness) {
         this.enumContext = enumContext;
+        this.boundedness = boundedness;
         this.eventListener = new DefaultEventProcessor(getFlinkJobId(enumContext));
     }
 
@@ -73,6 +77,11 @@ public class FlinkSourceSplitEnumeratorContext<SplitT extends SourceSplit>
                 split -> {
                     enumContext.assignSplit(new SplitWrapper<>(split), subtaskId);
                 });
+    }
+
+    @Override
+    public Boundedness getBoundedness() {
+        return boundedness;
     }
 
     @Override

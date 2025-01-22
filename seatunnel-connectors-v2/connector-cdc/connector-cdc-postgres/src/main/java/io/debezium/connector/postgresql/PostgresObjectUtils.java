@@ -17,8 +17,6 @@
 
 package io.debezium.connector.postgresql;
 
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-
 import org.apache.kafka.connect.errors.ConnectException;
 
 import io.debezium.connector.postgresql.connection.PostgresConnection;
@@ -31,8 +29,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.sql.SQLException;
 import java.time.Duration;
-
-import static org.apache.seatunnel.connectors.seatunnel.cdc.postgres.exception.PostgresConnectorErrorCode.CREATE_REPLICATION_CONNECTION_FAILED;
 
 /**
  * A factory for creating various Debezium objects
@@ -118,6 +114,6 @@ public class PostgresObjectUtils {
                 }
             }
         }
-        throw new SeaTunnelRuntimeException(CREATE_REPLICATION_CONNECTION_FAILED, "" + taskContext);
+        throw new RuntimeException("Failed to create replication connection" + taskContext);
     }
 }

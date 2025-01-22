@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.metrics.AbstractMetricsContext;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -32,11 +33,15 @@ public class CoordinatedEnumeratorContext<SplitT extends SourceSplit>
         implements SourceSplitEnumerator.Context<SplitT> {
 
     protected final CoordinatedSource<?, SplitT, ?> coordinatedSource;
+    protected final Boundedness boundedness;
     protected final EventListener eventListener;
 
     public CoordinatedEnumeratorContext(
-            CoordinatedSource<?, SplitT, ?> coordinatedSource, String jobId) {
+            CoordinatedSource<?, SplitT, ?> coordinatedSource,
+            String jobId,
+            Boundedness boundedness) {
         this.coordinatedSource = coordinatedSource;
+        this.boundedness = boundedness;
         this.eventListener = new DefaultEventProcessor(jobId);
     }
 
@@ -53,6 +58,11 @@ public class CoordinatedEnumeratorContext<SplitT extends SourceSplit>
     @Override
     public void assignSplit(int subtaskId, List<SplitT> splits) {
         coordinatedSource.addSplits(subtaskId, splits);
+    }
+
+    @Override
+    public Boundedness getBoundedness() {
+        return boundedness;
     }
 
     @Override

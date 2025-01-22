@@ -61,6 +61,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CANCELED;
@@ -88,6 +89,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private Map<TaskLocation, Address> taskMemberMapping;
     private Map<Long, TaskLocation> taskIDToTaskLocationMapping;
     private Map<Integer, TaskLocation> taskIndexToTaskLocationMapping;
+    private final Set<Integer> needSplitReaders;
 
     private volatile SeaTunnelTaskState currState;
 
@@ -105,6 +107,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                         + source.getName());
         enumeratorContext =
                 new SeaTunnelSplitEnumeratorContext<>(
+                        this.source.getSource().getBoundedness(),
                         this.source.getParallelism(),
                         this,
                         getMetricsContext(),
@@ -134,6 +137,11 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         super(jobID, taskID);
         this.source = (SourceAction<?, SplitT, Serializable>) source;
         this.currState = SeaTunnelTaskState.CREATED;
+        this.needSplitReaders =
+                Collections.synchronizedSet(
+                        IntStream.range(0, source.getParallelism())
+                                .boxed()
+                                .collect(Collectors.toSet()));
     }
 
     @NonNull @Override
@@ -323,6 +331,10 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                 enumerator.run();
                 break;
             case RUNNING:
+                if (source.getSource().getBoundedness().equals(Boundedness.UNBOUNDED)
+                        && !needSplitReaders.isEmpty()) {
+                    enumerator.run();
+                }
                 // The reader closes automatically after reading
                 if (prepareCloseStatus) {
                     this.getExecutionContext()
@@ -404,5 +416,9 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         if (prepareCloseBarrierId.get() == checkpointId) {
             closeCall();
         }
+    }
+
+    public void signalNoMoreSplits(int subtaskIndex) {
+        needSplitReaders.remove(subtaskIndex);
     }
 }

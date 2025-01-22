@@ -311,3 +311,9 @@ aerospike:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-aerospike/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(aerospike)/**'
+
+tailfile:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-tailfile/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(tailfile)/**'

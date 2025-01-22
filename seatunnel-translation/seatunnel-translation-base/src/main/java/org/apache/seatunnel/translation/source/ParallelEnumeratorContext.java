@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.metrics.AbstractMetricsContext;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -33,6 +34,7 @@ public class ParallelEnumeratorContext<SplitT extends SourceSplit>
         implements SourceSplitEnumerator.Context<SplitT> {
 
     protected final ParallelSource<?, SplitT, ?> parallelSource;
+    protected final Boundedness boundedness;
     protected final Integer parallelism;
     protected final Integer subtaskId;
     protected final EventListener eventListener;
@@ -40,10 +42,12 @@ public class ParallelEnumeratorContext<SplitT extends SourceSplit>
 
     public ParallelEnumeratorContext(
             ParallelSource<?, SplitT, ?> parallelSource,
+            Boundedness boundedness,
             int parallelism,
             String jobId,
             int subtaskId) {
         this.parallelSource = parallelSource;
+        this.boundedness = boundedness;
         this.parallelism = parallelism;
         this.subtaskId = subtaskId;
         this.eventListener = new DefaultEventProcessor(jobId);
@@ -68,6 +72,11 @@ public class ParallelEnumeratorContext<SplitT extends SourceSplit>
         if (this.subtaskId == subtaskId) {
             parallelSource.addSplits(splits);
         }
+    }
+
+    @Override
+    public Boundedness getBoundedness() {
+        return boundedness;
     }
 
     @Override

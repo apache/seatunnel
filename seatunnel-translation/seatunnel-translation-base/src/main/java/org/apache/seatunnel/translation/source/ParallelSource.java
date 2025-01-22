@@ -18,6 +18,7 @@
 package org.apache.seatunnel.translation.source;
 
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -39,8 +40,13 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import static org.apache.seatunnel.translation.source.CoordinatedSource.SLEEP_TIME_INTERVAL;
 
 public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serializable>
         implements BaseSourceFunction<T> {
@@ -60,6 +66,7 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
 
     protected final SourceSplitEnumerator<SplitT, StateT> splitEnumerator;
     protected final SourceReader<T, SplitT> reader;
+    protected final Set<Integer> needSplitReaders;
     protected transient volatile ScheduledThreadPoolExecutor executorService;
 
     /** Flag indicating whether the consumer is still running. */
@@ -79,9 +86,13 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
         this.splitSerializer = source.getSplitSerializer();
         this.enumeratorStateSerializer = source.getEnumeratorStateSerializer();
         this.parallelEnumeratorContext =
-                new ParallelEnumeratorContext<>(this, parallelism, jobId, subtaskId);
+                new ParallelEnumeratorContext<>(
+                        this, source.getBoundedness(), parallelism, jobId, subtaskId);
         this.readerContext =
                 new ParallelReaderContext(this, source.getBoundedness(), jobId, subtaskId);
+        this.needSplitReaders =
+                Collections.synchronizedSet(
+                        IntStream.range(0, parallelism).boxed().collect(Collectors.toSet()));
 
         // Create or restore split enumerator & reader
         try {
@@ -132,6 +143,13 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
                         () -> {
                             try {
                                 splitEnumerator.run();
+
+                                while (Boundedness.UNBOUNDED.equals(source.getBoundedness())
+                                        && needSplitReaders.contains(subtaskId)) {
+                                    splitEnumerator.run();
+
+                                    Thread.sleep(SLEEP_TIME_INTERVAL);
+                                }
                             } catch (Exception e) {
                                 throw new RuntimeException("SourceSplitEnumerator run failed.", e);
                             }
@@ -203,6 +221,7 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
 
     protected void handleNoMoreSplits() {
         reader.handleNoMoreSplits();
+        needSplitReaders.remove(Integer.valueOf(subtaskId));
     }
 
     // --------------------------------------------------------------------------------------------

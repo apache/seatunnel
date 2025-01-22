@@ -122,7 +122,10 @@ public class LogMinerStreamingChangeEventSource
         this.schema = schema;
         this.connectorConfig = connectorConfig;
         this.strategy = connectorConfig.getLogMiningStrategy();
-        this.isContinuousMining = connectorConfig.isContinuousMining();
+        this.isContinuousMining =
+                jdbcConnection.getOracleVersion().getMajor() >= 19
+                        ? false
+                        : connectorConfig.isContinuousMining();
         this.errorHandler = errorHandler;
         this.streamingMetrics = streamingMetrics;
         this.jdbcConfiguration = JdbcConfiguration.adapt(jdbcConfig);

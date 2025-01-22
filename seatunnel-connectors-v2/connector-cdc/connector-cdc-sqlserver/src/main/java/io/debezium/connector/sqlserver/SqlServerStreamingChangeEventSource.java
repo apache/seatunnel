@@ -228,6 +228,7 @@ public class SqlServerStreamingChangeEventSource
                 if (toLsn.compareTo(lastProcessedPosition.getCommitLsn()) <= 0
                         && streamingExecutionContext.getShouldIncreaseFromLsn()) {
                     LOGGER.debug("No change in the database");
+                    dispatcher.dispatchHeartbeatEvent(partition, offsetContext);
                     return false;
                 }
 

@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.split;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 
@@ -64,6 +65,11 @@ public class FileSourceSplitEnumeratorTest {
                     @Override
                     public void assignSplit(int subtaskId, List<FileSourceSplit> splits) {
                         assignSplitMap.put(subtaskId, splits);
+                    }
+
+                    @Override
+                    public Boundedness getBoundedness() {
+                        return null;
                     }
 
                     @Override

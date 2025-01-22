@@ -102,6 +102,9 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT>
             assignSplit(subtaskId, Collections.singletonList(split));
         }
 
+        /** @return boundedness of this enumerator. */
+        Boundedness getBoundedness();
+
         /**
          * Signals a subtask that it will not receive any further split.
          *

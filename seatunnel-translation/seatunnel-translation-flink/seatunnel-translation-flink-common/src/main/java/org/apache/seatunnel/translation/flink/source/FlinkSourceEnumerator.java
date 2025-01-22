@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.translation.flink.source;
 
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.event.EnumeratorCloseEvent;
@@ -62,10 +63,11 @@ public class FlinkSourceEnumerator<SplitT extends SourceSplit, EnumStateT>
 
     public FlinkSourceEnumerator(
             SourceSplitEnumerator<SplitT, EnumStateT> enumerator,
-            SplitEnumeratorContext<SplitWrapper<SplitT>> enumContext) {
+            SplitEnumeratorContext<SplitWrapper<SplitT>> enumContext,
+            Boundedness boundedness) {
         this.sourceSplitEnumerator = enumerator;
         this.enumeratorContext = enumContext;
-        this.context = new FlinkSourceSplitEnumeratorContext<>(enumeratorContext);
+        this.context = new FlinkSourceSplitEnumeratorContext<>(enumeratorContext, boundedness);
         this.parallelism = enumeratorContext.currentParallelism();
     }
 
@@ -77,6 +79,13 @@ public class FlinkSourceEnumerator<SplitT extends SourceSplit, EnumStateT>
 
     @Override
     public void handleSplitRequest(int subtaskId, @Nullable String requesterHostname) {
+        if (isRun && context.getBoundedness().equals(Boundedness.UNBOUNDED)) {
+            try {
+                sourceSplitEnumerator.run();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
         sourceSplitEnumerator.handleSplitRequest(subtaskId);
     }
 
@@ -92,6 +101,7 @@ public class FlinkSourceEnumerator<SplitT extends SourceSplit, EnumStateT>
         sourceSplitEnumerator.registerReader(subtaskId);
         synchronized (lock) {
             currentRegisterReaders++;
+
             if (!isRun && currentRegisterReaders == parallelism) {
                 try {
                     sourceSplitEnumerator.run();

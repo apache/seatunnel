@@ -84,6 +84,7 @@
         <module>connector-sls</module>
         <module>connector-typesense</module>
         <module>connector-aerospike</module>
+        <module>connector-tailfile</module>
     </modules>
 
     <dependencyManagement>

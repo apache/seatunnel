@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.option.PostgresOptions;
 
 import io.debezium.connector.postgresql.PostgresConnector;
+import io.debezium.connector.postgresql.PostgresConnectorConfig;
 
 import java.util.List;
 import java.util.Properties;
@@ -69,6 +70,9 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
         props.setProperty("database.dbname", checkNotNull(databaseList.get(0)));
         props.setProperty("plugin.name", decodingPluginName);
         props.setProperty("slot.name", slotName);
+        props.setProperty(
+                "publication.autocreate.mode",
+                PostgresConnectorConfig.AutoCreateMode.FILTERED.getValue());
 
         // database history
         props.setProperty("database.history", EmbeddedDatabaseHistory.class.getCanonicalName());

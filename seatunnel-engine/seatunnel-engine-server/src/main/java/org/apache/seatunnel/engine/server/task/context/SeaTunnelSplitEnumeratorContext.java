@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.task.context;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -39,6 +40,7 @@ import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
 public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
         implements SourceSplitEnumerator.Context<SplitT> {
 
+    private final Boundedness boundedness;
     private final int parallelism;
 
     private final SourceSplitEnumeratorTask<SplitT> task;
@@ -47,10 +49,12 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
     private final EventListener eventListener;
 
     public SeaTunnelSplitEnumeratorContext(
+            Boundedness boundedness,
             int parallelism,
             SourceSplitEnumeratorTask<SplitT> task,
             MetricsContext metricsContext,
             EventListener eventListener) {
+        this.boundedness = boundedness;
         this.parallelism = parallelism;
         this.task = task;
         this.metricsContext = metricsContext;
@@ -87,6 +91,11 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
     }
 
     @Override
+    public Boundedness getBoundedness() {
+        return boundedness;
+    }
+
+    @Override
     public void signalNoMoreSplits(int subtaskIndex) {
         List<byte[]> emptySplits = Collections.emptyList();
         task.getExecutionContext()
@@ -95,6 +104,7 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
                                 task.getTaskMemberLocationByIndex(subtaskIndex), emptySplits),
                         task.getTaskMemberAddressByIndex(subtaskIndex))
                 .join();
+        task.signalNoMoreSplits(subtaskIndex);
     }
 
     @Override

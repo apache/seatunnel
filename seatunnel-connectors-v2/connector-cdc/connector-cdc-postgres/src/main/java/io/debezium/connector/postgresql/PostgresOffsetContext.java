@@ -253,8 +253,10 @@ public class PostgresOffsetContext implements OffsetContext {
             final Long txId = readOptionalLong(offset, SourceInfo.TXID_KEY);
 
             final Instant useconds =
-                    Conversions.toInstantFromMicros(
-                            (Long) offset.get(SourceInfo.TIMESTAMP_USEC_KEY));
+                    offset.get(SourceInfo.TIMESTAMP_USEC_KEY) != null
+                            ? Conversions.toInstantFromMicros(
+                                    (Long) offset.get(SourceInfo.TIMESTAMP_USEC_KEY))
+                            : Clock.system().currentTimeAsInstant();
             final boolean snapshot =
                     (boolean)
                             ((Map<String, Object>) offset)
