@@ -17,56 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.activemq.config;
 
-import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.Setter;
-
 import java.io.Serializable;
-import java.util.HashMap;
-import java.util.Map;
 
-@Setter
-@Getter
-@AllArgsConstructor
-public class ActivemqConfig implements Serializable {
-    private String host;
-    private Integer port;
-    private String username;
-    private String password;
-    private String uri;
-    private String queueName;
-    private Boolean checkForDuplicate;
-    private String clientID;
-    private Integer closeTimeout;
-    private Boolean consumerExpiryCheckEnabled;
-    private Boolean copyMessageOnSend;
-    private Boolean disableTimeStampsByDefault;
-    private Boolean dispatchAsync;
-    private Boolean nestedMapAndListEnabled;
-    private Boolean useCompression;
-    private Boolean alwaysSessionAsync;
-    private Boolean alwaysSyncSend;
-    private Integer warnAboutUnstartedConnectionTimeout;
-
-    private final Map<String, Object> sinkOptionProps = new HashMap<>();
-
-    public static final Option<String> HOST =
-            Options.key("host")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the default host to use for connections");
-
-    public static final Option<Integer> PORT =
-            Options.key("port")
-                    .intType()
-                    .noDefaultValue()
-                    .withDescription("the default port to use for connections");
+public class ActivemqSinkOptions implements Serializable {
 
     public static final Option<String> USERNAME =
             Options.key("username")
@@ -105,29 +61,6 @@ public class ActivemqConfig implements Serializable {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Sets the JMS clientID to use for the connection.");
-
-    public static final Option<Boolean> COPY_MESSAGE_ON_SEND =
-            Options.key("copy_message_on_send")
-                    .booleanType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Should a JMS message be copied to a new JMS Message object as part of the send() method in JMS. "
-                                    + "This is enabled by default to be compliant with the JMS specification. "
-                                    + "For a performance boost set to false if you do not mutate JMS messages after they are sent.");
-
-    public static final Option<Boolean> DISABLE_TIMESTAMP_BY_DEFAULT =
-            Options.key("disable_timeStamps_by_default")
-                    .booleanType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Sets whether or not timestamps on messages should be disabled or not. "
-                                    + "For a small performance boost set to false.");
-
-    public static final Option<Boolean> USE_COMPRESSION =
-            Options.key("use_compression")
-                    .booleanType()
-                    .noDefaultValue()
-                    .withDescription("Enables the use of compression on the message’s body.");
 
     public static final Option<Boolean> ALWAYS_SESSION_ASYNC =
             Options.key("always_session_async")
@@ -189,54 +122,4 @@ public class ActivemqConfig implements Serializable {
                     .withDescription(
                             "Controls whether message expiration checking is done in each "
                                     + "MessageConsumer prior to dispatching a message.");
-
-    public ActivemqConfig(Config config) {
-        this.host = config.getString(HOST.key());
-        this.port = config.getInt(PORT.key());
-        this.queueName = config.getString(QUEUE_NAME.key());
-        this.uri = config.getString(URI.key());
-        if (config.hasPath(USERNAME.key())) {
-            this.username = config.getString(USERNAME.key());
-        }
-        if (config.hasPath(PASSWORD.key())) {
-            this.password = config.getString(PASSWORD.key());
-        }
-        if (config.hasPath(CHECK_FOR_DUPLICATE.key())) {
-            this.checkForDuplicate = config.getBoolean(CHECK_FOR_DUPLICATE.key());
-        }
-        if (config.hasPath(CLIENT_ID.key())) {
-            this.clientID = config.getString(CLIENT_ID.key());
-        }
-        if (config.hasPath(COPY_MESSAGE_ON_SEND.key())) {
-            this.copyMessageOnSend = config.getBoolean(COPY_MESSAGE_ON_SEND.key());
-        }
-        if (config.hasPath(DISABLE_TIMESTAMP_BY_DEFAULT.key())) {
-            this.disableTimeStampsByDefault = config.getBoolean(DISABLE_TIMESTAMP_BY_DEFAULT.key());
-        }
-        if (config.hasPath(USE_COMPRESSION.key())) {
-            this.useCompression = config.getBoolean(USE_COMPRESSION.key());
-        }
-        if (config.hasPath(ALWAYS_SESSION_ASYNC.key())) {
-            this.alwaysSessionAsync = config.getBoolean(ALWAYS_SESSION_ASYNC.key());
-        }
-        if (config.hasPath(ALWAYS_SYNC_SEND.key())) {
-            this.alwaysSyncSend = config.getBoolean(ALWAYS_SYNC_SEND.key());
-        }
-        if (config.hasPath(CLOSE_TIMEOUT.key())) {
-            this.closeTimeout = config.getInt(CLOSE_TIMEOUT.key());
-        }
-        if (config.hasPath(DISPATCH_ASYNC.key())) {
-            this.dispatchAsync = config.getBoolean(DISPATCH_ASYNC.key());
-        }
-        if (config.hasPath(NESTED_MAP_AND_LIST_ENABLED.key())) {
-            this.nestedMapAndListEnabled = config.getBoolean(NESTED_MAP_AND_LIST_ENABLED.key());
-        }
-        if (config.hasPath(WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT.key())) {
-            this.warnAboutUnstartedConnectionTimeout =
-                    config.getInt(WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT.key());
-        }
-    }
-
-    @VisibleForTesting
-    public ActivemqConfig() {}
 }
