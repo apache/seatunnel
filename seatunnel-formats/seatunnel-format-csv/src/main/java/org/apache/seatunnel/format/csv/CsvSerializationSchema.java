@@ -89,7 +89,7 @@ public class CsvSerializationSchema implements SerializationSchema {
         private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
         private Charset charset = StandardCharsets.UTF_8;
         private String nullValue = "";
-        private String quoteMode = "MINIMAL";
+        private String quoteMode = QuoteMode.MINIMAL.toString();
 
         private Builder() {}
 
