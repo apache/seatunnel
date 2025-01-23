@@ -15,10 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.config;
+package org.apache.seatunnel.format.csv.constant;
+
+import java.io.Serializable;
 
 /** @see org.apache.commons.csv.QuoteMode */
-public enum CsvStringQuoteMode {
+public enum CsvStringQuoteMode implements Serializable {
     /** Quotes all fields. */
     ALL,
 

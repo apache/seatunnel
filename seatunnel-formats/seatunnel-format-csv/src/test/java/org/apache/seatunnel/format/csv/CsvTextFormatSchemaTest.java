@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.DateTimeUtils.Formatter;
+import org.apache.seatunnel.format.csv.constant.CsvStringQuoteMode;
 import org.apache.seatunnel.format.csv.processor.DefaultCsvLineProcessor;
 
 import org.junit.jupiter.api.Assertions;
@@ -156,7 +157,7 @@ public class CsvTextFormatSchemaTest {
                         .seaTunnelRowType(seaTunnelRowType)
                         .dateTimeFormatter(Formatter.YYYY_MM_DD_HH_MM_SS_SSSSSS)
                         .delimiter(",")
-                        .quoteMode("ALL")
+                        .quoteMode(CsvStringQuoteMode.ALL)
                         .build();
 
         SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(content.getBytes());

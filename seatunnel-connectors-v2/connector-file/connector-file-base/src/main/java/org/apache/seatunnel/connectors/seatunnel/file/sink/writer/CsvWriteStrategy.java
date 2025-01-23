@@ -26,11 +26,11 @@ import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.EncodingUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
-import org.apache.seatunnel.connectors.seatunnel.file.config.CsvStringQuoteMode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.format.csv.CsvSerializationSchema;
+import org.apache.seatunnel.format.csv.constant.CsvStringQuoteMode;
 
 import org.apache.hadoop.fs.FSDataOutputStream;
 
@@ -86,7 +86,7 @@ public class CsvWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream> 
                         .dateTimeFormatter(dateTimeFormat)
                         .timeFormatter(timeFormat)
                         .charset(charset)
-                        .quoteMode(csvStringQuoteMode.toString())
+                        .quoteMode(csvStringQuoteMode)
                         .build();
     }
 

@@ -28,6 +28,7 @@ import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.format.csv.constant.CsvFormatConstant;
+import org.apache.seatunnel.format.csv.constant.CsvStringQuoteMode;
 import org.apache.seatunnel.format.csv.exception.SeaTunnelCsvFormatException;
 
 import org.apache.commons.csv.CSVFormat;
@@ -55,7 +56,7 @@ public class CsvSerializationSchema implements SerializationSchema {
     private final TimeUtils.Formatter timeFormatter;
     private final Charset charset;
     private final String nullValue;
-    private final String quoteMode;
+    private final CsvStringQuoteMode quoteMode;
 
     private CsvSerializationSchema(
             @NonNull SeaTunnelRowType seaTunnelRowType,
@@ -65,7 +66,7 @@ public class CsvSerializationSchema implements SerializationSchema {
             TimeUtils.Formatter timeFormatter,
             Charset charset,
             String nullValue,
-            String quoteMode) {
+            CsvStringQuoteMode quoteMode) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.separators = separators;
         this.dateFormatter = dateFormatter;
@@ -89,7 +90,7 @@ public class CsvSerializationSchema implements SerializationSchema {
         private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
         private Charset charset = StandardCharsets.UTF_8;
         private String nullValue = "";
-        private String quoteMode = QuoteMode.MINIMAL.toString();
+        private CsvStringQuoteMode quoteMode = CsvStringQuoteMode.MINIMAL;
 
         private Builder() {}
 
@@ -133,7 +134,7 @@ public class CsvSerializationSchema implements SerializationSchema {
             return this;
         }
 
-        public Builder quoteMode(String quoteMode) {
+        public Builder quoteMode(CsvStringQuoteMode quoteMode) {
             this.quoteMode = quoteMode;
             return this;
         }
@@ -236,7 +237,7 @@ public class CsvSerializationSchema implements SerializationSchema {
 
     private String addQuotesUsingCSVFormat(String fieldValue) {
         CSVFormat.Builder builder = CSVFormat.DEFAULT.builder().setRecordSeparator("");
-        switch (QuoteMode.valueOf(quoteMode)) {
+        switch (quoteMode) {
             case ALL:
                 builder.setQuoteMode(QuoteMode.ALL);
                 break;
