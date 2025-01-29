@@ -150,6 +150,7 @@ public class CsvTextFormatSchemaTest {
                         .seaTunnelRowType(seaTunnelRowType)
                         .dateTimeFormatter(Formatter.YYYY_MM_DD_HH_MM_SS_SSSSSS)
                         .delimiter(",")
+                        .quoteMode(CsvStringQuoteMode.MINIMAL)
                         .build();
 
         CsvSerializationSchema csvSerializationSchemaWithAllQuotes =
@@ -158,6 +159,14 @@ public class CsvTextFormatSchemaTest {
                         .dateTimeFormatter(Formatter.YYYY_MM_DD_HH_MM_SS_SSSSSS)
                         .delimiter(",")
                         .quoteMode(CsvStringQuoteMode.ALL)
+                        .build();
+
+        CsvSerializationSchema csvSerializationSchemaWithNoneQuotes =
+                CsvSerializationSchema.builder()
+                        .seaTunnelRowType(seaTunnelRowType)
+                        .dateTimeFormatter(Formatter.YYYY_MM_DD_HH_MM_SS_SSSSSS)
+                        .delimiter(",")
+                        .quoteMode(CsvStringQuoteMode.NONE)
                         .build();
 
         SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(content.getBytes());
@@ -183,6 +192,11 @@ public class CsvTextFormatSchemaTest {
         Assertions.assertEquals(
                 "\"mess,age\",\"message\",true,1,2,3,4,6.66,7.77,8.8888888,,2022-09-24,22:45:00,2022-09-24 22:45:00.000000,1\u00032\u00033\u00034\u00035\u00036\u0002tyrantlucifer\u000418\u0003Kris\u000421,1\u00022\u00023\u00024\u00025\u00026,tyrantlucifer\u000318\u0002Kris\u000321\u0002nullValueKey\u0003\u0002\u00031231",
                 new String(serialize1));
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> {
+                    csvSerializationSchemaWithNoneQuotes.serialize(seaTunnelRow);
+                });
     }
 
     @Test

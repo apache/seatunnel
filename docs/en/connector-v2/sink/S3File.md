@@ -119,7 +119,7 @@ If write to `csv`, `text` file type, All column will be string.
 | common-options                        | object  | no       | -                                                     |                                                                                                                                                                        |
 | max_rows_in_memory                    | int     | no       | -                                                     | Only used when file_format is excel.                                                                                                                                   |
 | sheet_name                            | string  | no       | Sheet${Random number}                                 | Only used when file_format is excel.                                                                                                                                   |
-| csv_string_quote_mode                 | string  | no       | MINIMAL                                               | Only used when file_format is csv.                                                                                                                                     |
+| csv_string_quote_mode                 | enum    | no       | MINIMAL                                               | Only used when file_format is csv.                                                                                                                                     |
 | xml_root_tag                          | string  | no       | RECORDS                                               | Only used when file_format is xml, specifies the tag name of the root element within the XML file.                                                                     |
 | xml_row_tag                           | string  | no       | RECORD                                                | Only used when file_format is xml, specifies the tag name of the data rows within the XML file                                                                         |
 | xml_use_attr_format                   | boolean | no       | -                                                     | Only used when file_format is xml, specifies Whether to process data using the tag attribute format.                                                                   |
@@ -505,28 +505,3 @@ sink {
 ### enable_header_write [boolean]
 
 Only used when file_format_type is text,csv.false:don't write header,true:write header.
-
-## Changelog
-
-### 2.3.0-beta 2022-10-20
-
-- Add S3File Sink Connector
-
-### 2.3.0 2022-12-30
-
-- [BugFix] Fixed the following bugs that failed to write data to
-  files ([3258](https://github.com/apache/seatunnel/pull/3258))
-    - When field from upstream is null it will throw NullPointerException
-    - Sink columns mapping failed
-    - When restore writer from states getting transaction directly failed
-- [Feature] Support S3A protocol ([3632](https://github.com/apache/seatunnel/pull/3632))
-    - Allow user to add additional hadoop-s3 parameters
-    - Allow the use of the s3a protocol
-    - Decouple hadoop-aws dependencies
-- [Improve] Support setting batch size for every file ([3625](https://github.com/apache/seatunnel/pull/3625))
-- [Feature]Set S3 AK to optional ([3688](https://github.com/apache/seatunnel/pull/))
-
-### Next version
-
-- ​    [Improve] Support file compress ([3899](https://github.com/apache/seatunnel/pull/3899))
-
