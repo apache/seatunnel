@@ -1,0 +1,98 @@
+package org.apache.seatunnel.api;
+
+import com.github.javaparser.JavaParser;
+import com.github.javaparser.ParseResult;
+import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.NodeList;
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
+import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.FileVisitOption;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+
+@Slf4j
+public class ConnectorOptionCheckTest {
+
+    private static final String javaPathFragment = "src" + File.separator + "main" + File.separator + "java";
+    private static final String JAVA_FILE_EXTENSION = ".java";
+    private static final String CONNECTOR_DIR = "seatunnel-connectors-v2";
+    private static final JavaParser JAVA_PARSER = new JavaParser();
+
+    @Test
+    public void checkConnectorOptionExist() {
+        Set<String> connectorOptionFileNames = new HashSet<>();
+        try (Stream<Path> paths = Files.walk(Paths.get(".."), FileVisitOption.FOLLOW_LINKS)) {
+            List<Path> connectorClassPaths = paths.filter(
+                    path -> {
+                        String pathString = path.toString();
+                        return pathString.endsWith(JAVA_FILE_EXTENSION)
+                                && pathString.contains(CONNECTOR_DIR)
+                                && pathString.contains(javaPathFragment);
+                    }).collect(Collectors.toList());
+            connectorClassPaths
+                    .forEach(
+                            path -> {
+                                try {
+                                    ParseResult<CompilationUnit> parseResult =
+                                            JAVA_PARSER.parse(Files.newInputStream(path));
+                                    parseResult.getResult().ifPresent(compilationUnit -> {
+                                        List<ClassOrInterfaceDeclaration> classes = compilationUnit.findAll(ClassOrInterfaceDeclaration.class);
+                                        for (ClassOrInterfaceDeclaration classDeclaration : classes) {
+                                            if (classDeclaration.isAbstract() || classDeclaration.isInterface()) {
+                                                continue;
+                                            }
+                                            NodeList<ClassOrInterfaceType> implementedTypes = classDeclaration.getImplementedTypes();
+                                            implementedTypes.forEach(
+                                                    implementedType -> {
+                                                        if (implementedType.getNameAsString().equals("SeaTunnelSource") || implementedType.getNameAsString().equals("SeaTunnelSink")) {
+                                                            connectorOptionFileNames.add(path.getFileName().toString().replace(JAVA_FILE_EXTENSION, "").concat("Options"));
+                                                        }
+                                                    });
+                                            NodeList<ClassOrInterfaceType> extendedTypes = classDeclaration.getExtendedTypes();
+                                            extendedTypes.forEach(
+                                                    extendedType -> {
+                                                        if (extendedType.getNameAsString().equals("AbstractSimpleSink")) {
+                                                            connectorOptionFileNames.add(path.getFileName().toString().replace(JAVA_FILE_EXTENSION, "").concat("Options"));
+                                                        }
+                                                    });
+                                        }
+                                    });
+                                } catch (IOException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
+            connectorClassPaths.forEach(
+                    path -> {
+                        String className = path.getFileName().toString().replace(JAVA_FILE_EXTENSION, "");
+                        connectorOptionFileNames.remove(className);
+                    }
+            );
+            Assertions.assertEquals(
+                    0,
+                    connectorOptionFileNames.size(),
+                    () ->
+                            "Connector class does not have correspondingly [Options] class. "
+                                    + "The connector need put all parameter into <ConnectorClassName>Options classes, like [ActivemqSink] and [ActivemqSinkOptions].\n" +
+                                    "Those [Options] class are missing: \n"
+                                    + String.join("\n", connectorOptionFileNames));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+}
+
+
