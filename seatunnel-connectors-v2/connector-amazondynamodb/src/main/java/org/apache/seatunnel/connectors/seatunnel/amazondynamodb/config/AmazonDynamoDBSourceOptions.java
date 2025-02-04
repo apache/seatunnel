@@ -1,73 +1,24 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import java.util.Map;
 
-import java.io.Serializable;
+public class AmazonDynamoDBSourceOptions extends AmazonDynamoDBBaseOptions {
 
-@Data
-@AllArgsConstructor
-public class AmazonDynamoDBSourceOptions implements Serializable {
+    public static final Option<Integer> SCAN_ITEM_LIMIT =
+            Options.key("scan_item_limit")
+                    .intType()
+                    .defaultValue(1)
+                    .withDescription("number of item each scan request should return");
 
-    private String url;
+    public static final Option<Integer> PARALLEL_SCAN_THREADS =
+            Options.key("parallel_scan_threads")
+                    .intType()
+                    .defaultValue(2)
+                    .withDescription("number of logical segments for parallel scan");
 
-    private String region;
-
-    private String accessKeyId;
-
-    private String secretAccessKey;
-
-    private String table;
-
-    private Config schema;
-
-    public int batchSize = AmazonDynamoDBConfig.BATCH_SIZE.defaultValue();
-    public int batchIntervalMs = AmazonDynamoDBConfig.BATCH_INTERVAL_MS.defaultValue();
-    public int scanItemLimit = AmazonDynamoDBConfig.SCAN_ITEM_LIMIT.defaultValue();
-    public int parallelScanThreads = AmazonDynamoDBConfig.PARALLEL_SCAN_THREADS.defaultValue();
-
-    public AmazonDynamoDBSourceOptions(Config config) {
-        this.url = config.getString(AmazonDynamoDBConfig.URL.key());
-        this.region = config.getString(AmazonDynamoDBConfig.REGION.key());
-        this.accessKeyId = config.getString(AmazonDynamoDBConfig.ACCESS_KEY_ID.key());
-        this.secretAccessKey = config.getString(AmazonDynamoDBConfig.SECRET_ACCESS_KEY.key());
-        this.table = config.getString(AmazonDynamoDBConfig.TABLE.key());
-        if (config.hasPath(TableSchemaOptions.SCHEMA.key())) {
-            this.schema = config.getConfig(TableSchemaOptions.SCHEMA.key());
-        }
-        if (config.hasPath(AmazonDynamoDBConfig.BATCH_SIZE.key())) {
-            this.batchSize = config.getInt(AmazonDynamoDBConfig.BATCH_SIZE.key());
-        }
-        if (config.hasPath(AmazonDynamoDBConfig.BATCH_INTERVAL_MS.key())) {
-            this.batchIntervalMs = config.getInt(AmazonDynamoDBConfig.BATCH_INTERVAL_MS.key());
-        }
-        if (config.hasPath(AmazonDynamoDBConfig.SCAN_ITEM_LIMIT.key())) {
-            this.scanItemLimit = config.getInt(AmazonDynamoDBConfig.SCAN_ITEM_LIMIT.key());
-        }
-        if (config.hasPath(AmazonDynamoDBConfig.PARALLEL_SCAN_THREADS.key())) {
-            this.parallelScanThreads =
-                    config.getInt(AmazonDynamoDBConfig.PARALLEL_SCAN_THREADS.key());
-        }
-    }
+    public static final Option<Map<String, Object>> SCHEMA = TableSchemaOptions.SCHEMA;
 }
