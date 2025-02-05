@@ -220,7 +220,7 @@ schema {
 
 #### fields [config]
 
-Redis 数据的 schema fields
+Redis 数据的 schema 字段列表
 
 ### common options
 
