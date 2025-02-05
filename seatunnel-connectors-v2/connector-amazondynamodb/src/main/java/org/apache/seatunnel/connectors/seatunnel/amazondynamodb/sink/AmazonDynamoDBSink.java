@@ -20,23 +20,28 @@ package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.sink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import java.io.IOException;
+import java.util.Optional;
 
 public class AmazonDynamoDBSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
-    private SeaTunnelRowType rowType;
+    private CatalogTable catalogTable;
 
     private AmazonDynamoDBConfig amazondynamodbConfig;
 
     public AmazonDynamoDBSink(
             CatalogTable catalogTable, AmazonDynamoDBConfig amazondynamodbConfig) {
-        this.rowType = catalogTable.getSeaTunnelRowType();
+        this.catalogTable = catalogTable;
         this.amazondynamodbConfig = amazondynamodbConfig;
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.of(catalogTable);
     }
 
     @Override
@@ -47,6 +52,6 @@ public class AmazonDynamoDBSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
             throws IOException {
-        return new AmazonDynamoDBWriter(amazondynamodbConfig, rowType);
+        return new AmazonDynamoDBWriter(amazondynamodbConfig, catalogTable.getSeaTunnelRowType());
     }
 }
