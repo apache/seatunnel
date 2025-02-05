@@ -82,18 +82,18 @@ public class ConnectorOptionCheckTest {
                                                     }
                                                     NodeList<ClassOrInterfaceType>
                                                             implementedTypes =
-                                                            classDeclaration
-                                                                    .getImplementedTypes();
+                                                                    classDeclaration
+                                                                            .getImplementedTypes();
                                                     implementedTypes.forEach(
                                                             implementedType -> {
                                                                 if (implementedType
-                                                                        .getNameAsString()
-                                                                        .equals(
-                                                                                "SeaTunnelSource")
+                                                                                .getNameAsString()
+                                                                                .equals(
+                                                                                        "SeaTunnelSource")
                                                                         || implementedType
-                                                                        .getNameAsString()
-                                                                        .equals(
-                                                                                "SeaTunnelSink")) {
+                                                                                .getNameAsString()
+                                                                                .equals(
+                                                                                        "SeaTunnelSink")) {
                                                                     connectorOptionFileNames.add(
                                                                             path.getFileName()
                                                                                     .toString()
@@ -217,5 +217,4 @@ public class ConnectorOptionCheckTest {
         whiteList.add("TDengineSinkOptions");
         return whiteList;
     }
-
 }
