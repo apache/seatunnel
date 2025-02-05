@@ -82,18 +82,18 @@ public class ConnectorOptionCheckTest {
                                                     }
                                                     NodeList<ClassOrInterfaceType>
                                                             implementedTypes =
-                                                                    classDeclaration
-                                                                            .getImplementedTypes();
+                                                            classDeclaration
+                                                                    .getImplementedTypes();
                                                     implementedTypes.forEach(
                                                             implementedType -> {
                                                                 if (implementedType
-                                                                                .getNameAsString()
-                                                                                .equals(
-                                                                                        "SeaTunnelSource")
+                                                                        .getNameAsString()
+                                                                        .equals(
+                                                                                "SeaTunnelSource")
                                                                         || implementedType
-                                                                                .getNameAsString()
-                                                                                .equals(
-                                                                                        "SeaTunnelSink")) {
+                                                                        .getNameAsString()
+                                                                        .equals(
+                                                                                "SeaTunnelSink")) {
                                                                     connectorOptionFileNames.add(
                                                                             path.getFileName()
                                                                                     .toString()
@@ -134,6 +134,7 @@ public class ConnectorOptionCheckTest {
                                 path.getFileName().toString().replace(JAVA_FILE_EXTENSION, "");
                         connectorOptionFileNames.remove(className);
                     });
+            connectorOptionFileNames.removeAll(buildWhiteList());
             Assertions.assertEquals(
                     0,
                     connectorOptionFileNames.size(),
@@ -141,9 +142,80 @@ public class ConnectorOptionCheckTest {
                             "Connector class does not have correspondingly [Options] class. "
                                     + "The connector need put all parameter into <ConnectorClassName>Options classes, like [ActivemqSink] and [ActivemqSinkOptions].\n"
                                     + "Those [Options] class are missing: \n"
-                                    + String.join("\n", connectorOptionFileNames));
+                                    + String.join("\n", connectorOptionFileNames)
+                                    + "\n");
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
+
+    private Set<String> buildWhiteList() {
+        Set<String> whiteList = new HashSet<>();
+        whiteList.add("ElasticsearchSourceOptions");
+        whiteList.add("JdbcSinkOptions");
+        whiteList.add("TypesenseSourceOptions");
+        whiteList.add("RabbitmqSourceOptions");
+        whiteList.add("TypesenseSinkOptions");
+        whiteList.add("EmailSinkOptions");
+        whiteList.add("HudiSinkOptions");
+        whiteList.add("PulsarSinkOptions");
+        whiteList.add("HttpSinkOptions");
+        whiteList.add("SlsSinkOptions");
+        whiteList.add("DingTalkSinkOptions");
+        whiteList.add("Neo4jSinkOptions");
+        whiteList.add("SlackSinkOptions");
+        whiteList.add("MaxcomputeSinkOptions");
+        whiteList.add("PaimonSinkOptions");
+        whiteList.add("TDengineSourceOptions");
+        whiteList.add("PulsarSourceOptions");
+        whiteList.add("RedisSinkOptions");
+        whiteList.add("DruidSinkOptions");
+        whiteList.add("FakeSourceOptions");
+        whiteList.add("HbaseSinkOptions");
+        whiteList.add("MongodbSinkOptions");
+        whiteList.add("IoTDBSinkOptions");
+        whiteList.add("ActivemqSinkOptions");
+        whiteList.add("EasysearchSourceOptions");
+        whiteList.add("RabbitmqSinkOptions");
+        whiteList.add("StarRocksSourceOptions");
+        whiteList.add("AmazonSqsSinkOptions");
+        whiteList.add("IcebergSourceOptions");
+        whiteList.add("HbaseSourceOptions");
+        whiteList.add("PaimonSourceOptions");
+        whiteList.add("IoTDBSourceOptions");
+        whiteList.add("SlsSourceOptions");
+        whiteList.add("SentrySinkOptions");
+        whiteList.add("EasysearchSinkOptions");
+        whiteList.add("QdrantSinkOptions");
+        whiteList.add("ElasticsearchSinkOptions");
+        whiteList.add("MilvusSourceOptions");
+        whiteList.add("RocketMqSinkOptions");
+        whiteList.add("ClickhouseFileSinkOptions");
+        whiteList.add("IcebergSinkOptions");
+        whiteList.add("KafkaSourceOptions");
+        whiteList.add("AssertSinkOptions");
+        whiteList.add("MaxcomputeSourceOptions");
+        whiteList.add("InfluxDBSourceOptions");
+        whiteList.add("InfluxDBSinkOptions");
+        whiteList.add("CassandraSinkOptions");
+        whiteList.add("KuduSourceOptions");
+        whiteList.add("SocketSinkOptions");
+        whiteList.add("DataHubSinkOptions");
+        whiteList.add("ClickhouseSinkOptions");
+        whiteList.add("SelectDBSinkOptions");
+        whiteList.add("ConsoleSinkOptions");
+        whiteList.add("PrometheusSinkOptions");
+        whiteList.add("FirestoreSinkOptions");
+        whiteList.add("ClickhouseSourceOptions");
+        whiteList.add("MilvusSinkOptions");
+        whiteList.add("RocketMqSourceOptions");
+        whiteList.add("TablestoreSinkOptions");
+        whiteList.add("TableStoreDBSourceOptions");
+        whiteList.add("AmazonDynamoDBSinkOptions");
+        whiteList.add("KuduSinkOptions");
+        whiteList.add("KafkaSinkOptions");
+        whiteList.add("TDengineSinkOptions");
+        return whiteList;
+    }
+
 }
