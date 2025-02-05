@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.cassandra.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-import java.util.Collections;
 import java.util.List;
 
 public class CassandraSinkOptions extends CassandraBaseOptions {
@@ -31,8 +30,8 @@ public class CassandraSinkOptions extends CassandraBaseOptions {
     public static final Option<List<String>> FIELDS =
             Options.key("fields")
                     .listType()
-                    .defaultValue(Collections.singletonList("LOCAL_ONE"))
-                    .withDescription("");
+                    .noDefaultValue()
+                    .withDescription("The fields need write to cassandra");
 
     public static final Option<Integer> BATCH_SIZE =
             Options.key("batch_size")
