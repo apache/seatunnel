@@ -28,6 +28,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
@@ -143,6 +144,18 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
                         String.format("Get table schema from file [%s] failed", filePaths.get(0));
                 throw new FileConnectorException(
                         CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED, errorMsg, e);
+            }
+        }
+    }
+
+    public void close() {
+        super.close();
+        if (readStrategy != null) {
+            try {
+                // where new, where close
+                readStrategy.close();
+            } catch (IOException e) {
+                throw new SeaTunnelException(e);
             }
         }
     }

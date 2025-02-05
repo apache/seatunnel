@@ -573,6 +573,19 @@ public class JobMaster {
                         });
     }
 
+    private void closeVertexAction() {
+        try {
+            logicalDag
+                    .getLogicalVertexMap()
+                    .forEach(
+                            (a, b) -> {
+                                b.getAction().close();
+                            });
+        } catch (Exception e) {
+            LOGGER.info(String.format("close vertex action error %s", e.getMessage()));
+        }
+    }
+
     private void removeJobIMap() {
         Long jobId = getJobImmutableInformation().getJobId();
         runningJobStateTimestampsIMap.remove(jobId);
@@ -714,6 +727,7 @@ public class JobMaster {
         jobHistoryService.storeJobInfo(jobImmutableInformation.getJobId(), getJobDAGInfo());
         jobHistoryService.storeFinishedJobState(this);
         removeJobIMap();
+        closeVertexAction();
     }
 
     public Address queryTaskGroupAddress(TaskGroupLocation taskGroupLocation) {

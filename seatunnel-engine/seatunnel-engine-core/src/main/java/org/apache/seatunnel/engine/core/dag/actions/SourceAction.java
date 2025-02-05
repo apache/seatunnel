@@ -48,4 +48,9 @@ public class SourceAction<T, SplitT extends SourceSplit, StateT extends Serializ
     public SeaTunnelSource<T, SplitT, StateT> getSource() {
         return source;
     }
+
+    @Override
+    public void close() {
+        source.close();
+    }
 }

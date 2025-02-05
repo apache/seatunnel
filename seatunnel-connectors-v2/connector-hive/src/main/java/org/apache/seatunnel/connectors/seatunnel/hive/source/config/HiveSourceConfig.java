@@ -31,6 +31,7 @@ import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
@@ -53,6 +54,7 @@ import org.apache.hadoop.hive.metastore.api.Table;
 import lombok.Getter;
 import lombok.SneakyThrows;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -314,5 +316,16 @@ public class HiveSourceConfig implements Serializable {
                 new HashMap<>(),
                 new ArrayList<>(),
                 readonlyConfig.get(TableSchemaOptions.TableIdentifierOptions.COMMENT));
+    }
+
+    public void close() {
+        if (readStrategy != null) {
+            try {
+                // where new, where close
+                readStrategy.close();
+            } catch (IOException e) {
+                throw new SeaTunnelException(e);
+            }
+        }
     }
 }

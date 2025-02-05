@@ -120,4 +120,6 @@ public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT extends S
     default Serializer<StateT> getEnumeratorStateSerializer() {
         return new DefaultSerializer<>();
     }
+
+    default void close() {}
 }

@@ -69,4 +69,9 @@ public class SinkAction<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends 
     public SinkConfig getConfig() {
         return (SinkConfig) super.getConfig();
     }
+
+    @Override
+    public void close() {
+        sink.close();
+    }
 }

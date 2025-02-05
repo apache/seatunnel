@@ -46,4 +46,6 @@ public interface Action extends Serializable {
     Set<ConnectorJarIdentifier> getConnectorJarIdentifiers();
 
     Config getConfig();
+
+    default void close() {}
 }

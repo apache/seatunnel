@@ -80,4 +80,12 @@ public class HiveSource extends BaseHdfsFileSource {
         return new MultipleTableHiveSourceSplitEnumerator(
                 enumeratorContext, multipleTableHiveSourceConfig, checkpointState);
     }
+
+    public void close() {
+        super.close();
+        for (HiveSourceConfig hiveSourceConfig :
+                multipleTableHiveSourceConfig.getHiveSourceConfigs()) {
+            hiveSourceConfig.close();
+        }
+    }
 }
