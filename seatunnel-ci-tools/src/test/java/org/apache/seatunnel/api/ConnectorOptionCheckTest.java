@@ -116,7 +116,11 @@ public class ConnectorOptionCheckTest {
                                                                         || extendedType
                                                                                 .getNameAsString()
                                                                                 .equals(
-                                                                                        "AbstractSingleSplitSource")) {
+                                                                                        "AbstractSingleSplitSource")
+                                                                        || extendedType
+                                                                                .getNameAsString()
+                                                                                .equals(
+                                                                                        "IncrementalSource")) {
                                                                     connectorOptionFileNames.add(
                                                                             path.getFileName()
                                                                                     .toString()
@@ -238,6 +242,11 @@ public class ConnectorOptionCheckTest {
         whiteList.add("Web3jSourceOptions");
         whiteList.add("CassandraSourceOptions");
         whiteList.add("RedisSourceOptions");
+        whiteList.add("PostgresIncrementalSourceOptions");
+        whiteList.add("SqlServerIncrementalSourceOptions");
+        whiteList.add("OracleIncrementalSourceOptions");
+        whiteList.add("MySqlIncrementalSourceOptions");
+        whiteList.add("MongodbIncrementalSourceOptions");
         return whiteList;
     }
 }
