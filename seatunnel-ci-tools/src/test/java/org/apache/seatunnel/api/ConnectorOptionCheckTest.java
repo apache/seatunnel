@@ -52,6 +52,7 @@ public class ConnectorOptionCheckTest {
     @Test
     public void checkConnectorOptionExist() {
         Set<String> connectorOptionFileNames = new HashSet<>();
+        Set<String> whiteListConnectorOptionFileNames = buildWhiteList();
         try (Stream<Path> paths = Files.walk(Paths.get(".."), FileVisitOption.FOLLOW_LINKS)) {
             List<Path> connectorClassPaths =
                     paths.filter(
@@ -138,7 +139,12 @@ public class ConnectorOptionCheckTest {
                                 path.getFileName().toString().replace(JAVA_FILE_EXTENSION, "");
                         connectorOptionFileNames.remove(className);
                     });
-            connectorOptionFileNames.removeAll(buildWhiteList());
+            int beforeRemoveWhiteList = connectorOptionFileNames.size();
+            connectorOptionFileNames.removeAll(whiteListConnectorOptionFileNames);
+            int afterRemoveWhiteList = connectorOptionFileNames.size();
+            Assertions.assertEquals(
+                    whiteListConnectorOptionFileNames.size(),
+                    beforeRemoveWhiteList - afterRemoveWhiteList);
             Assertions.assertEquals(
                     0,
                     connectorOptionFileNames.size(),
