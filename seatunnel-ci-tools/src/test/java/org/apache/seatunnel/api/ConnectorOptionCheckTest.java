@@ -109,9 +109,13 @@ public class ConnectorOptionCheckTest {
                                                     extendedTypes.forEach(
                                                             extendedType -> {
                                                                 if (extendedType
-                                                                        .getNameAsString()
-                                                                        .equals(
-                                                                                "AbstractSimpleSink")) {
+                                                                                .getNameAsString()
+                                                                                .equals(
+                                                                                        "AbstractSimpleSink")
+                                                                        || extendedType
+                                                                                .getNameAsString()
+                                                                                .equals(
+                                                                                        "AbstractSingleSplitSource")) {
                                                                     connectorOptionFileNames.add(
                                                                             path.getFileName()
                                                                                     .toString()
@@ -215,6 +219,15 @@ public class ConnectorOptionCheckTest {
         whiteList.add("KuduSinkOptions");
         whiteList.add("KafkaSinkOptions");
         whiteList.add("TDengineSinkOptions");
+        whiteList.add("Neo4jSourceOptions");
+        whiteList.add("HttpSourceOptions");
+        whiteList.add("QdrantSourceOptions");
+        whiteList.add("SheetsSourceOptions");
+        whiteList.add("SocketSourceOptions");
+        whiteList.add("OpenMldbSourceOptions");
+        whiteList.add("Web3jSourceOptions");
+        whiteList.add("CassandraSourceOptions");
+        whiteList.add("RedisSourceOptions");
         return whiteList;
     }
 }
