@@ -139,12 +139,16 @@ public class ConnectorOptionCheckTest {
                                 path.getFileName().toString().replace(JAVA_FILE_EXTENSION, "");
                         connectorOptionFileNames.remove(className);
                     });
-            int beforeRemoveWhiteList = connectorOptionFileNames.size();
-            connectorOptionFileNames.removeAll(whiteListConnectorOptionFileNames);
-            int afterRemoveWhiteList = connectorOptionFileNames.size();
-            Assertions.assertEquals(
-                    whiteListConnectorOptionFileNames.size(),
-                    beforeRemoveWhiteList - afterRemoveWhiteList);
+
+            whiteListConnectorOptionFileNames.forEach(
+                    whiteListConnectorOptionFileName -> {
+                        Assertions.assertTrue(
+                                connectorOptionFileNames.remove(whiteListConnectorOptionFileName),
+                                "This [Options] class is in white list, but not found related connector classes, please check: ["
+                                        + whiteListConnectorOptionFileName
+                                        + "]\n");
+                    });
+
             Assertions.assertEquals(
                     0,
                     connectorOptionFileNames.size(),
