@@ -40,6 +40,7 @@ public class MapType<K, V> implements CompositeType<Map<K, V>> {
                     SqlType.DATE,
                     SqlType.TIME,
                     SqlType.TIMESTAMP,
+                    SqlType.TIMESTAMP_TZ,
                     SqlType.FLOAT,
                     SqlType.DOUBLE,
                     SqlType.STRING,

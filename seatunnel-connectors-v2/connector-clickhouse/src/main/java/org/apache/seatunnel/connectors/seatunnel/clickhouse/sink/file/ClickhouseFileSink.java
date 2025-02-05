@@ -127,7 +127,9 @@ public class ClickhouseFileSink
                 proxy.getClickhouseTableSchema(config.getString(TABLE.key()));
         ClickhouseTable table =
                 proxy.getClickhouseTable(
-                        config.getString(DATABASE.key()), config.getString(TABLE.key()));
+                        proxy.getClickhouseConnection(),
+                        config.getString(DATABASE.key()),
+                        config.getString(TABLE.key()));
         String shardKey = null;
         String shardKeyType = null;
         if (config.hasPath(SHARDING_KEY.key())) {

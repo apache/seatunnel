@@ -75,7 +75,8 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String PG_MONEY = "money";
 
     // char <=> character <=> bpchar
-    public static final String PG_CHAR = "bpchar";
+    public static final String PG_CHAR = "char";
+    public static final String PG_BPCHAR = "bpchar";
     public static final String PG_CHARACTER = "character";
     // char[] <=> _character <=> _bpchar
     public static final String PG_CHAR_ARRAY = "_bpchar";
@@ -189,6 +190,7 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.scale(2);
                 break;
             case PG_CHAR:
+            case PG_BPCHAR:
             case PG_CHARACTER:
                 builder.dataType(BasicType.STRING_TYPE);
                 if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {

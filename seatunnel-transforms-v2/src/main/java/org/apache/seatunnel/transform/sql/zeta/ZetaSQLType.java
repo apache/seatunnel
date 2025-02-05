@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
+import org.apache.seatunnel.transform.sql.zeta.functions.ArrayFunction;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -448,6 +449,7 @@ public class ZetaSQLType {
             case ZetaSQLFunction.TRUNCATE:
                 return BasicType.DOUBLE_TYPE;
             case ZetaSQLFunction.ARRAY:
+                return ArrayFunction.castArrayTypeMapping(function, inputRowType);
             case ZetaSQLFunction.SPLIT:
                 return ArrayType.STRING_ARRAY_TYPE;
             case ZetaSQLFunction.NOW:

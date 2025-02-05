@@ -41,6 +41,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.seatunnel.core.starter.utils.ConfigBuilder.CONFIG_RENDER_OPTIONS;
 
@@ -50,6 +51,9 @@ public class ConfigShadeTest {
     private static final String USERNAME = "seatunnel";
 
     private static final String PASSWORD = "seatunnel_password";
+
+    private static final String ACCESS_KEY = "access_key";
+    private static final String SECRET_KEY = "secret_key";
 
     @Test
     public void testParseConfig() throws URISyntaxException {
@@ -71,6 +75,10 @@ public class ConfigShadeTest {
                 config.getConfigList("source").get(0).getString("username"), USERNAME);
         Assertions.assertEquals(
                 config.getConfigList("source").get(0).getString("password"), PASSWORD);
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getString("access_key"), ACCESS_KEY);
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getString("secret_key"), SECRET_KEY);
     }
 
     @Test
@@ -89,6 +97,10 @@ public class ConfigShadeTest {
                 config.getConfigList("source").get(0).getString("username"), "******");
         Assertions.assertEquals(
                 config.getConfigList("source").get(0).getString("password"), "******");
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getString("access_key"), "******");
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getString("secret_key"), "******");
         String conf = ConfigBuilder.mapToString(config.root().unwrapped());
         Assertions.assertTrue(conf.contains("\"password\" : \"******\""));
     }
@@ -261,6 +273,55 @@ public class ConfigShadeTest {
         Assertions.assertEquals("c2VhdHVubmVsX3Bhc3N3b3Jk", encryptPassword);
         Assertions.assertEquals(decryptUsername, USERNAME);
         Assertions.assertEquals(decryptPassword, PASSWORD);
+    }
+
+    @Test
+    public void testDecryptWithProps() throws URISyntaxException {
+        URL resource = ConfigShadeTest.class.getResource("/config.shade_with_props.json");
+        Assertions.assertNotNull(resource);
+        Config decryptedProps = ConfigBuilder.of(Paths.get(resource.toURI()), Lists.newArrayList());
+
+        String suffix = "666";
+        String rawUsername = "un";
+        String rawPassword = "pd";
+        Assertions.assertEquals(
+                rawUsername, decryptedProps.getConfigList("source").get(0).getString("username"));
+        Assertions.assertEquals(
+                rawPassword, decryptedProps.getConfigList("source").get(0).getString("password"));
+
+        Config encryptedConfig = ConfigShadeUtils.encryptConfig(decryptedProps);
+        Assertions.assertEquals(
+                rawUsername + suffix,
+                encryptedConfig.getConfigList("source").get(0).getString("username"));
+        Assertions.assertEquals(
+                rawPassword + suffix,
+                encryptedConfig.getConfigList("source").get(0).getString("password"));
+    }
+
+    public static class ConfigShadeWithProps implements ConfigShade {
+
+        private String suffix;
+        private String identifier = "withProps";
+
+        @Override
+        public void open(Map<String, Object> props) {
+            this.suffix = String.valueOf(props.get("suffix"));
+        }
+
+        @Override
+        public String getIdentifier() {
+            return identifier;
+        }
+
+        @Override
+        public String encrypt(String content) {
+            return content + suffix;
+        }
+
+        @Override
+        public String decrypt(String content) {
+            return content.substring(0, content.length() - suffix.length());
+        }
     }
 
     public static class Base64ConfigShade implements ConfigShade {

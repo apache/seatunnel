@@ -41,6 +41,7 @@ import org.apache.seatunnel.format.compatible.kafka.connect.json.KafkaConnectJso
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.debezium.DebeziumJsonDeserializationSchema;
+import org.apache.seatunnel.format.json.debezium.DebeziumJsonDeserializationSchemaDispatcher;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.json.maxwell.MaxWellJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.ogg.OggJsonDeserializationSchema;
@@ -49,6 +50,7 @@ import org.apache.seatunnel.format.text.TextDeserializationSchema;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
 import org.apache.commons.collections4.MapUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.common.TopicPartition;
 
 import lombok.Getter;
@@ -66,6 +68,7 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOT
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.COMMIT_ON_CHECKPOINT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONSUMER_GROUP;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEBEZIUM_RECORD_INCLUDE_SCHEMA;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEBEZIUM_RECORD_TABLE_FILTER;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG;
@@ -134,7 +137,7 @@ public class KafkaSourceConfig implements Serializable {
         return consumerMetadataList.stream()
                 .collect(
                         Collectors.toMap(
-                                consumerMetadata -> TablePath.of(consumerMetadata.getTopic()),
+                                consumerMetadata -> TablePath.of(null, consumerMetadata.getTopic()),
                                 consumerMetadata -> consumerMetadata));
     }
 
@@ -205,7 +208,7 @@ public class KafkaSourceConfig implements Serializable {
     private CatalogTable createCatalogTable(ReadonlyConfig readonlyConfig) {
         Optional<Map<String, Object>> schemaOptions =
                 readonlyConfig.getOptional(TableSchemaOptions.SCHEMA);
-        TablePath tablePath = TablePath.of(readonlyConfig.get(TOPIC));
+        TablePath tablePath = TablePath.of(null, readonlyConfig.get(TOPIC));
         TableSchema tableSchema;
         if (schemaOptions.isPresent()) {
             tableSchema = new ReadonlyConfigParser().parse(readonlyConfig);
@@ -245,7 +248,6 @@ public class KafkaSourceConfig implements Serializable {
     private DeserializationSchema<SeaTunnelRow> createDeserializationSchema(
             CatalogTable catalogTable, ReadonlyConfig readonlyConfig) {
         SeaTunnelRowType seaTunnelRowType = catalogTable.getSeaTunnelRowType();
-
         MessageFormat format = readonlyConfig.get(FORMAT);
 
         if (!readonlyConfig.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
@@ -289,7 +291,30 @@ public class KafkaSourceConfig implements Serializable {
                         catalogTable, keySchemaEnable, valueSchemaEnable, false, false);
             case DEBEZIUM_JSON:
                 boolean includeSchema = readonlyConfig.get(DEBEZIUM_RECORD_INCLUDE_SCHEMA);
-                return new DebeziumJsonDeserializationSchema(catalogTable, true, includeSchema);
+                TableSchemaOptions.TableIdentifier tableFilter =
+                        readonlyConfig.get(DEBEZIUM_RECORD_TABLE_FILTER);
+                if (tableFilter != null) {
+                    TablePath tablePath =
+                            TablePath.of(
+                                    StringUtils.isNotEmpty(tableFilter.getDatabaseName())
+                                            ? tableFilter.getDatabaseName()
+                                            : null,
+                                    StringUtils.isNotEmpty(tableFilter.getSchemaName())
+                                            ? tableFilter.getSchemaName()
+                                            : null,
+                                    StringUtils.isNotEmpty(tableFilter.getTableName())
+                                            ? tableFilter.getTableName()
+                                            : null);
+                    Map<TablePath, DebeziumJsonDeserializationSchema> tableDeserializationMap =
+                            Collections.singletonMap(
+                                    tablePath,
+                                    new DebeziumJsonDeserializationSchema(
+                                            catalogTable, true, includeSchema));
+                    return new DebeziumJsonDeserializationSchemaDispatcher(
+                            tableDeserializationMap, true, includeSchema);
+                } else {
+                    return new DebeziumJsonDeserializationSchema(catalogTable, true, includeSchema);
+                }
             case AVRO:
                 return new AvroDeserializationSchema(catalogTable);
             case PROTOBUF:

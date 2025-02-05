@@ -89,8 +89,9 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     + SOURCE_TABLE
                     + " (\n"
                     + "  BIGINT_COL     BIGINT,\n"
-                    + "  LARGEINT_COL   LARGEINT,\n"
-                    + "  SMALLINT_COL   SMALLINT,\n"
+                    // add comment for test
+                    + "  LARGEINT_COL   LARGEINT COMMENT '''N''-N',\n"
+                    + "  SMALLINT_COL   SMALLINT COMMENT '\\N\\-N',\n"
                     + "  TINYINT_COL    TINYINT,\n"
                     + "  BOOLEAN_COL    BOOLEAN,\n"
                     + "  DECIMAL_COL    Decimal(12, 1),\n"
@@ -362,9 +363,16 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                         "root",
                         PASSWORD,
                         String.format(URL, starRocksServer.getHost()),
-                        "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (\n ${rowtype_fields}\n ) ENGINE=OLAP \n  DUPLICATE KEY(`BIGINT_COL`) \n  DISTRIBUTED BY HASH (BIGINT_COL) BUCKETS 1 \n PROPERTIES (\n   \"replication_num\" = \"1\", \n  \"in_memory\" = \"false\" , \n  \"storage_format\" = \"DEFAULT\"  \n )");
+                        "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (\n ${rowtype_fields}\n ) ENGINE=OLAP \n  DUPLICATE KEY(`BIGINT_COL`) \n COMMENT '${comment}' \n DISTRIBUTED BY HASH (BIGINT_COL) BUCKETS 1 \n PROPERTIES (\n   \"replication_num\" = \"1\", \n  \"in_memory\" = \"false\" , \n  \"storage_format\" = \"DEFAULT\"  \n )");
         starRocksCatalog.open();
         CatalogTable catalogTable = starRocksCatalog.getTable(tablePathStarRocksSource);
+        catalogTable =
+                CatalogTable.of(
+                        catalogTable.getTableId(),
+                        catalogTable.getTableSchema(),
+                        catalogTable.getOptions(),
+                        catalogTable.getPartitionKeys(),
+                        "test'1'");
         // sink tableExists ?
         starRocksCatalog.dropTable(tablePathStarRocksSink, true);
         boolean tableExistsBefore = starRocksCatalog.tableExists(tablePathStarRocksSink);

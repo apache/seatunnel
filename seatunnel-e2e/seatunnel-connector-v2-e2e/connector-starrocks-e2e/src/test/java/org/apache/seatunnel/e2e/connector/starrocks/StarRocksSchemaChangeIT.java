@@ -174,7 +174,7 @@ public class StarRocksSchemaChangeIT extends TestSuiteBase implements TestResour
 
     @TestTemplate
     public void testStarRocksSinkWithSchemaEvolutionCase(TestContainer container)
-            throws InterruptedException, IOException {
+            throws InterruptedException, IOException, SQLException {
         String jobId = String.valueOf(JobIdGenerator.newJobId());
         String jobConfigFile = "/mysqlcdc_to_starrocks_with_schema_change.conf";
         CompletableFuture.runAsync(
@@ -187,6 +187,11 @@ public class StarRocksSchemaChangeIT extends TestSuiteBase implements TestResour
                     }
                 });
         TimeUnit.SECONDS.sleep(20);
+
+        // verify multi table sink
+        verifyDataConsistency("orders");
+        verifyDataConsistency("customers");
+
         // waiting for case1 completed
         assertSchemaEvolutionForAddColumns(
                 DATABASE, SOURCE_TABLE, SINK_TABLE, mysqlConnection, starRocksConnection);
@@ -194,9 +199,14 @@ public class StarRocksSchemaChangeIT extends TestSuiteBase implements TestResour
         assertSchemaEvolutionForDropColumns(
                 DATABASE, SOURCE_TABLE, SINK_TABLE, mysqlConnection, starRocksConnection);
 
+        insertNewDataIntoMySQL();
+        insertNewDataIntoMySQL();
+        // verify incremental
+        verifyDataConsistency("orders");
+
         // savepoint 1
         Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
-
+        insertNewDataIntoMySQL();
         // case2 drop columns with cdc data at same time
         shopDatabase.setTemplateName("drop_columns").createAndInitialize();
 
@@ -240,6 +250,30 @@ public class StarRocksSchemaChangeIT extends TestSuiteBase implements TestResour
         // waiting for case3/case4 completed
         assertTableStructureAndData(
                 DATABASE, SOURCE_TABLE, SINK_TABLE, mysqlConnection, starRocksConnection);
+        insertNewDataIntoMySQL();
+        // verify restore
+        verifyDataConsistency("orders");
+    }
+
+    private void insertNewDataIntoMySQL() throws SQLException {
+        mysqlConnection
+                .createStatement()
+                .execute(
+                        "INSERT INTO orders (id, customer_id, order_date, total_amount, status) "
+                                + "VALUES (null, 1, '2025-01-04 13:00:00', 498.99, 'pending')");
+    }
+
+    private void verifyDataConsistency(String tableName) {
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(
+                                                String.format(QUERY, DATABASE, tableName),
+                                                mysqlConnection),
+                                        query(
+                                                String.format(QUERY, DATABASE, tableName),
+                                                starRocksConnection)));
     }
 
     private void assertSchemaEvolutionForAddColumns(

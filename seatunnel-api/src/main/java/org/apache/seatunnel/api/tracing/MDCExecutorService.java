@@ -65,17 +65,17 @@ public class MDCExecutorService extends MDCExecutor implements ExecutorService {
 
     @Override
     public <T> Future<T> submit(Callable<T> task) {
-        return delegate.submit(new MDCCallable<>(context, task));
+        return delegate.submit(new MDCCallable<>(MDCContext.of(context), task));
     }
 
     @Override
     public <T> Future<T> submit(Runnable task, T result) {
-        return delegate.submit(new MDCRunnable(context, task), result);
+        return delegate.submit(new MDCRunnable(MDCContext.of(context), task), result);
     }
 
     @Override
     public Future<?> submit(Runnable task) {
-        return delegate.submit(new MDCRunnable(context, task));
+        return delegate.submit(new MDCRunnable(MDCContext.of(context), task));
     }
 
     @Override
@@ -83,7 +83,7 @@ public class MDCExecutorService extends MDCExecutor implements ExecutorService {
             throws InterruptedException {
         return delegate.invokeAll(
                 tasks.stream()
-                        .map(task -> new MDCCallable<>(context, task))
+                        .map(task -> new MDCCallable<>(MDCContext.of(context), task))
                         .collect(Collectors.toList()));
     }
 
@@ -93,7 +93,7 @@ public class MDCExecutorService extends MDCExecutor implements ExecutorService {
             throws InterruptedException {
         return delegate.invokeAll(
                 tasks.stream()
-                        .map(task -> new MDCCallable<>(context, task))
+                        .map(task -> new MDCCallable<>(MDCContext.of(context), task))
                         .collect(Collectors.toList()),
                 timeout,
                 unit);
@@ -104,7 +104,7 @@ public class MDCExecutorService extends MDCExecutor implements ExecutorService {
             throws InterruptedException, ExecutionException {
         return delegate.invokeAny(
                 tasks.stream()
-                        .map(task -> new MDCCallable<>(context, task))
+                        .map(task -> new MDCCallable<>(MDCContext.of(context), task))
                         .collect(Collectors.toList()));
     }
 
@@ -113,7 +113,7 @@ public class MDCExecutorService extends MDCExecutor implements ExecutorService {
             throws InterruptedException, ExecutionException, TimeoutException {
         return delegate.invokeAny(
                 tasks.stream()
-                        .map(task -> new MDCCallable<>(context, task))
+                        .map(task -> new MDCCallable<>(MDCContext.of(context), task))
                         .collect(Collectors.toList()),
                 timeout,
                 unit);

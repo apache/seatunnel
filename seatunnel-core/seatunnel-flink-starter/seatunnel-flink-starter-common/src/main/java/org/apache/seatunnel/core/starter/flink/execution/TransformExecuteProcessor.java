@@ -45,6 +45,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -148,15 +149,18 @@ public class TransformExecuteProcessor
         }
 
         return stream.transform(
-                String.format("%s-Transform", transform.getPluginName()),
-                TypeInformation.of(SeaTunnelRow.class),
-                new StreamMap<>(
-                        flinkRuntimeEnvironment
-                                .getStreamExecutionEnvironment()
-                                .clean(
-                                        row ->
-                                                ((SeaTunnelMapTransform<SeaTunnelRow>) transform)
-                                                        .map(row))));
+                        String.format("%s-Transform", transform.getPluginName()),
+                        TypeInformation.of(SeaTunnelRow.class),
+                        new StreamMap<>(
+                                flinkRuntimeEnvironment
+                                        .getStreamExecutionEnvironment()
+                                        .clean(
+                                                row ->
+                                                        ((SeaTunnelMapTransform<SeaTunnelRow>)
+                                                                        transform)
+                                                                .map(row))))
+                // null value shouldn't be passed to downstream
+                .filter(Objects::nonNull);
     }
 
     public static class ArrayFlatMap implements FlatMapFunction<SeaTunnelRow, SeaTunnelRow> {

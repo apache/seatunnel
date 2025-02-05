@@ -103,7 +103,10 @@ public class ClickhouseSink
         String shardKey = null;
         String shardKeyType = null;
         ClickhouseTable table =
-                proxy.getClickhouseTable(readonlyConfig.get(DATABASE), readonlyConfig.get(TABLE));
+                proxy.getClickhouseTable(
+                        proxy.getClickhouseConnection(),
+                        readonlyConfig.get(DATABASE),
+                        readonlyConfig.get(TABLE));
         if (readonlyConfig.get(SPLIT_MODE)) {
             if (!"Distributed".equals(table.getEngine())) {
                 throw new ClickhouseConnectorException(

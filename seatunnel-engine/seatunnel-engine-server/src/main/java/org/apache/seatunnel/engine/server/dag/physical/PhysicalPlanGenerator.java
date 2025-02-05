@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.ShuffleAction;
 import org.apache.seatunnel.engine.core.dag.actions.ShuffleConfig;
@@ -77,7 +78,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -330,7 +330,7 @@ public class PhysicalPlanGenerator {
                                             (PhysicalExecutionFlow) nextFlow;
                                     SinkAction sinkAction = (SinkAction) sinkFlow.getAction();
                                     String sinkTableId =
-                                            sinkAction.getConfig().getMultipleRowTableId();
+                                            sinkAction.getConfig().getTablePath().toString();
 
                                     long taskIDPrefix = idGenerator.getNextId();
                                     long taskGroupIDPrefix = idGenerator.getNextId();

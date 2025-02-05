@@ -244,7 +244,11 @@ public class ClickhouseConfig {
                                     + SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
                                     + ")\n"
                                     + "SETTINGS\n"
-                                    + "    index_granularity = 8192;")
+                                    + "    index_granularity = 8192"
+                                    + "\n"
+                                    + "COMMENT '"
+                                    + SaveModePlaceHolder.COMMENT.getPlaceHolder()
+                                    + "';")
                     .withDescription(
                             "Create table statement template, used to create Clickhouse table");
 }

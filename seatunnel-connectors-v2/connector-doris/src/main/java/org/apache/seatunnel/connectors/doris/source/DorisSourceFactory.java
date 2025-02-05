@@ -83,39 +83,41 @@ public class DorisSourceFactory implements TableSourceFactory {
         DorisSourceConfig dorisSourceConfig = DorisSourceConfig.of(context.getOptions());
         List<DorisTableConfig> dorisTableConfigList = dorisSourceConfig.getTableConfigList();
         Map<TablePath, DorisSourceTable> dorisSourceTables = new HashMap<>();
-        for (DorisTableConfig dorisTableConfig : dorisTableConfigList) {
-            CatalogTable table;
-            DorisCatalogFactory dorisCatalogFactory = new DorisCatalogFactory();
-            DorisCatalog catalog =
-                    (DorisCatalog) dorisCatalogFactory.createCatalog("doris", context.getOptions());
-            catalog.open();
-            TablePath tablePath = TablePath.of(dorisTableConfig.getTableIdentifier());
-            String readFields = dorisTableConfig.getReadField();
-            try {
-                List<String> readFiledList = null;
-                if (StringUtils.isNotBlank(readFields)) {
-                    readFiledList =
-                            Arrays.stream(readFields.split(","))
-                                    .map(String::trim)
-                                    .collect(Collectors.toList());
-                }
 
-                table = catalog.getTable(tablePath, readFiledList);
-            } catch (Exception e) {
-                log.error("create source error");
-                throw e;
+        DorisCatalogFactory dorisCatalogFactory = new DorisCatalogFactory();
+        try (DorisCatalog catalog =
+                (DorisCatalog) dorisCatalogFactory.createCatalog("doris", context.getOptions())) {
+            catalog.open();
+            for (DorisTableConfig dorisTableConfig : dorisTableConfigList) {
+                CatalogTable table;
+                TablePath tablePath = TablePath.of(dorisTableConfig.getTableIdentifier());
+                String readFields = dorisTableConfig.getReadField();
+                try {
+                    List<String> readFiledList = null;
+                    if (StringUtils.isNotBlank(readFields)) {
+                        readFiledList =
+                                Arrays.stream(readFields.split(","))
+                                        .map(String::trim)
+                                        .collect(Collectors.toList());
+                    }
+
+                    table = catalog.getTable(tablePath, readFiledList);
+                } catch (Exception e) {
+                    log.error("create source error");
+                    throw e;
+                }
+                dorisSourceTables.put(
+                        tablePath,
+                        DorisSourceTable.builder()
+                                .catalogTable(table)
+                                .tablePath(tablePath)
+                                .readField(readFields)
+                                .filterQuery(dorisTableConfig.getFilterQuery())
+                                .batchSize(dorisTableConfig.getBatchSize())
+                                .tabletSize(dorisTableConfig.getTabletSize())
+                                .execMemLimit(dorisTableConfig.getExecMemLimit())
+                                .build());
             }
-            dorisSourceTables.put(
-                    tablePath,
-                    DorisSourceTable.builder()
-                            .catalogTable(table)
-                            .tablePath(tablePath)
-                            .readField(readFields)
-                            .filterQuery(dorisTableConfig.getFilterQuery())
-                            .batchSize(dorisTableConfig.getBatchSize())
-                            .tabletSize(dorisTableConfig.getTabletSize())
-                            .execMemLimit(dorisTableConfig.getExecMemLimit())
-                            .build());
         }
         return () ->
                 (SeaTunnelSource<T, SplitT, StateT>)

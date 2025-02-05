@@ -53,7 +53,8 @@ public class ClickhouseCreateTableTest {
         columns.add(
                 PhysicalColumn.of(
                         "age", BasicType.INT_TYPE, (Long) null, true, null, "test comment"));
-        columns.add(PhysicalColumn.of("score", BasicType.INT_TYPE, (Long) null, true, null, ""));
+        columns.add(
+                PhysicalColumn.of("score", BasicType.INT_TYPE, (Long) null, true, null, "'N'-N"));
         columns.add(PhysicalColumn.of("gender", BasicType.BYTE_TYPE, (Long) null, true, null, ""));
         columns.add(
                 PhysicalColumn.of("create_time", BasicType.LONG_TYPE, (Long) null, true, null, ""));
@@ -96,13 +97,14 @@ public class ClickhouseCreateTableTest {
                                                                                         .ASC)))))
                                 .columns(columns)
                                 .build(),
+                        "clickhouse test table",
                         ClickhouseConfig.SAVE_MODE_CREATE_TEMPLATE.key());
         Assertions.assertEquals(
                 createTableSql,
                 "CREATE TABLE IF NOT EXISTS  `test1`.`test2` (\n"
                         + "    `id` Int64 ,`age` Int32 COMMENT 'test comment',\n"
                         + "    `name` String ,\n"
-                        + "`score` Int32 ,\n"
+                        + "`score` Int32 COMMENT '''N''-N',\n"
                         + "`gender` Int8 ,\n"
                         + "`create_time` Int64 \n"
                         + ") ENGINE = MergeTree()\n"
@@ -129,6 +131,7 @@ public class ClickhouseCreateTableTest {
                                         "test1",
                                         "test2",
                                         tableSchema,
+                                        "clickhouse test table",
                                         ClickhouseConfig.SAVE_MODE_CREATE_TEMPLATE.key()));
 
         String primaryKeyHolder = SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder();
@@ -224,6 +227,7 @@ public class ClickhouseCreateTableTest {
                                                 "", Arrays.asList("L_ORDERKEY", "L_LINENUMBER")))
                                 .columns(columns)
                                 .build(),
+                        "clickhouse test table",
                         ClickhouseConfig.SAVE_MODE_CREATE_TEMPLATE.key());
         String expected =
                 "CREATE TABLE IF NOT EXISTS `tpch`.`lineitem` (\n"
@@ -247,6 +251,112 @@ public class ClickhouseCreateTableTest {
                         + " PRIMARY KEY (L_COMMITDATE, `L_ORDERKEY`,`L_LINENUMBER`, L_SUPPKEY)\n"
                         + "SETTINGS\n"
                         + "    index_granularity = 8192;";
+        Assertions.assertEquals(result, expected);
+    }
+
+    @Test
+    public void testTableComment() {
+        List<Column> columns = new ArrayList<>();
+
+        columns.add(
+                PhysicalColumn.of("L_ORDERKEY", BasicType.INT_TYPE, (Long) null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of("L_PARTKEY", BasicType.INT_TYPE, (Long) null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of("L_SUPPKEY", BasicType.INT_TYPE, (Long) null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_LINENUMBER", BasicType.INT_TYPE, (Long) null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_QUANTITY", new DecimalType(15, 2), (Long) null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_EXTENDEDPRICE", new DecimalType(15, 2), (Long) null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_DISCOUNT", new DecimalType(15, 2), (Long) null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of("L_TAX", new DecimalType(15, 2), (Long) null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_RETURNFLAG", BasicType.STRING_TYPE, (Long) null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_LINESTATUS", BasicType.STRING_TYPE, (Long) null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_SHIPDATE", LocalTimeType.LOCAL_DATE_TYPE, (Long) null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_COMMITDATE",
+                        LocalTimeType.LOCAL_DATE_TYPE,
+                        (Long) null,
+                        false,
+                        null,
+                        ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_RECEIPTDATE",
+                        LocalTimeType.LOCAL_DATE_TYPE,
+                        (Long) null,
+                        false,
+                        null,
+                        ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_SHIPINSTRUCT", BasicType.STRING_TYPE, (Long) null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_SHIPMODE", BasicType.STRING_TYPE, (Long) null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_COMMENT", BasicType.STRING_TYPE, (Long) null, false, null, ""));
+
+        String result =
+                ClickhouseCatalogUtil.INSTANCE.getCreateTableSql(
+                        "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (\n"
+                                + "${rowtype_primary_key},\n"
+                                + "${rowtype_fields}\n"
+                                + ") ENGINE = MergeTree()\n"
+                                + "ORDER BY (${rowtype_primary_key})\n"
+                                + "PRIMARY KEY (${rowtype_primary_key})\n"
+                                + "SETTINGS\n"
+                                + "    index_granularity = 8192\n"
+                                + "COMMENT '${comment}';",
+                        "tpch",
+                        "lineitem",
+                        TableSchema.builder()
+                                .primaryKey(
+                                        PrimaryKey.of(
+                                                "", Arrays.asList("L_ORDERKEY", "L_LINENUMBER")))
+                                .columns(columns)
+                                .build(),
+                        "clickhouse test table",
+                        ClickhouseConfig.SAVE_MODE_CREATE_TEMPLATE.key());
+        String expected =
+                "CREATE TABLE IF NOT EXISTS `tpch`.`lineitem` (\n"
+                        + "`L_ORDERKEY` Int32 ,`L_LINENUMBER` Int32 ,\n"
+                        + "`L_PARTKEY` Int32 ,\n"
+                        + "`L_SUPPKEY` Int32 ,\n"
+                        + "`L_QUANTITY` Decimal(15, 2) ,\n"
+                        + "`L_EXTENDEDPRICE` Decimal(15, 2) ,\n"
+                        + "`L_DISCOUNT` Decimal(15, 2) ,\n"
+                        + "`L_TAX` Decimal(15, 2) ,\n"
+                        + "`L_RETURNFLAG` String ,\n"
+                        + "`L_LINESTATUS` String ,\n"
+                        + "`L_SHIPDATE` Date ,\n"
+                        + "`L_COMMITDATE` Date ,\n"
+                        + "`L_RECEIPTDATE` Date ,\n"
+                        + "`L_SHIPINSTRUCT` String ,\n"
+                        + "`L_SHIPMODE` String ,\n"
+                        + "`L_COMMENT` String \n"
+                        + ") ENGINE = MergeTree()\n"
+                        + "ORDER BY (`L_ORDERKEY`,`L_LINENUMBER`)\n"
+                        + "PRIMARY KEY (`L_ORDERKEY`,`L_LINENUMBER`)\n"
+                        + "SETTINGS\n"
+                        + "    index_granularity = 8192\n"
+                        + "COMMENT 'clickhouse test table';";
         Assertions.assertEquals(result, expected);
     }
 }

@@ -106,6 +106,7 @@ public class PreviewActionTest {
                         + "`test2` STRING NULL \n"
                         + ") ENGINE=OLAP\n"
                         + " PRIMARY KEY (`test`)\n"
+                        + "COMMENT 'comment'\n"
                         + "DISTRIBUTED BY HASH (`test`)PROPERTIES (\n"
                         + "    \"replication_num\" = \"1\" \n"
                         + ")",

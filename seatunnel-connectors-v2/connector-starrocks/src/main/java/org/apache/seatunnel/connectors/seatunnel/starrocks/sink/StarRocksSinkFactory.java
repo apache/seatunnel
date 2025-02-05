@@ -37,6 +37,7 @@ import com.google.auto.service.AutoService;
 import java.util.Arrays;
 import java.util.List;
 
+import static org.apache.seatunnel.api.sink.SinkCommonOptions.MULTI_TABLE_SINK_REPLICA;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSinkOptions.DATA_SAVE_MODE;
 
 @AutoService(Factory.class)
@@ -64,6 +65,7 @@ public class StarRocksSinkFactory implements TableSinkFactory {
                         StarRocksSinkOptions.ENABLE_UPSERT_DELETE,
                         StarRocksSinkOptions.SCHEMA_SAVE_MODE,
                         StarRocksSinkOptions.DATA_SAVE_MODE,
+                        MULTI_TABLE_SINK_REPLICA,
                         StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE,
                         StarRocksSinkOptions.HTTP_SOCKET_TIMEOUT_MS)
                 .conditional(
@@ -98,7 +100,7 @@ public class StarRocksSinkFactory implements TableSinkFactory {
                         catalogTable.getTableSchema(),
                         catalogTable.getOptions(),
                         catalogTable.getPartitionKeys(),
-                        catalogTable.getCatalogName());
+                        catalogTable.getComment());
 
         return () -> new StarRocksSink(sinkConfig, finalCatalogTable);
     }

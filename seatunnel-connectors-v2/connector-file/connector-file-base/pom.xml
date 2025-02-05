@@ -39,6 +39,8 @@
         <hadoop-minikdc.version>3.1.4</hadoop-minikdc.version>
         <dom4j.version>2.1.4</dom4j.version>
         <jaxen.version>2.0.0</jaxen.version>
+        <easyexcel.version>4.0.3</easyexcel.version>
+        <fastexcel-reader.version>0.18.4</fastexcel-reader.version>
     </properties>
 
     <dependencyManagement>
@@ -75,6 +77,12 @@
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-format-csv</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-common</artifactId>
             <version>${project.version}</version>
         </dependency>
@@ -83,6 +91,12 @@
             <groupId>org.apache.parquet</groupId>
             <artifactId>parquet-avro</artifactId>
             <version>${parquet-avro.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.xerial.snappy</groupId>
+                    <artifactId>snappy-java</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -158,6 +172,13 @@
             <artifactId>jaxen</artifactId>
             <version>${jaxen.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>easyexcel</artifactId>
+            <version>${easyexcel.version}</version>
+        </dependency>
+
     </dependencies>
 
     <build>

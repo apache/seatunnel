@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -38,12 +39,14 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceCon
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
 
 @AutoService(Factory.class)
+@Slf4j
 public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFactory {
     @Override
     public String factoryIdentifier() {
@@ -99,9 +102,9 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
             TableSource<T, SplitT, StateT> restoreSource(
                     TableSourceFactoryContext context, List<CatalogTable> restoreTables) {
         return () -> {
+            ReadonlyConfig config = context.getOptions();
             List<CatalogTable> catalogTables =
-                    CatalogTableUtil.getCatalogTables(
-                            context.getOptions(), context.getClassLoader());
+                    CatalogTableUtil.getCatalogTables(config, context.getClassLoader());
             boolean enableSchemaChange =
                     context.getOptions()
                             .getOptional(SourceOptions.SCHEMA_CHANGES_ENABLED)
@@ -137,7 +140,7 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                                 text -> TablePath.of(text, false));
             }
             return (SeaTunnelSource<T, SplitT, StateT>)
-                    new MySqlIncrementalSource<>(context.getOptions(), catalogTables);
+                    new MySqlIncrementalSource<>(config, catalogTables);
         };
     }
 }

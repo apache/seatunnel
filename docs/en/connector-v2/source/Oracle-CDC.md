@@ -292,6 +292,24 @@ source {
     password = "oracle"
     database-names = ["XE"]
     schema-names = ["DEBEZIUM"]
+    table-names = ["XE.DEBEZIUM.FULL_TYPES", "XE.DEBEZIUM.FULL_TYPES2"]
+    base-url = "jdbc:oracle:thin:@oracle-host:1521:xe"
+    source.reader.close.timeout = 120000
+  }
+}
+```
+
+> Use the select count(*) instead of analysis table for count table rows in full stage
+```conf
+source {
+# This is a example source plugin **only for test and demonstrate the feature source plugin**
+  Oracle-CDC {
+    plugin_output = "customers"
+    use_select_count = true 
+    username = "system"
+    password = "oracle"
+    database-names = ["XE"]
+    schema-names = ["DEBEZIUM"]
     table-names = ["XE.DEBEZIUM.FULL_TYPES"]
     base-url = "jdbc:oracle:thin:system/oracle@oracle-host:1521:xe"
     source.reader.close.timeout = 120000
@@ -299,48 +317,28 @@ source {
 }
 ```
 
-> Use the select count(*) instead of analysis table for count table rows in full stage
->
-> ```conf
-> source {
-> # This is a example source plugin **only for test and demonstrate the feature source plugin**
-> Oracle-CDC {
-> plugin_output = "customers"
-> use_select_count = true 
-> username = "system"
-> password = "oracle"
-> database-names = ["XE"]
-> schema-names = ["DEBEZIUM"]
-> table-names = ["XE.DEBEZIUM.FULL_TYPES"]
-> base-url = "jdbc:oracle:thin:system/oracle@oracle-host:1521:xe"
-> source.reader.close.timeout = 120000
-> }
-> }
-> ```
->
 > Use the select NUM_ROWS from all_tables for the table rows but skip the analyze table.
->
-> ```conf
-> source {
-> # This is a example source plugin **only for test and demonstrate the feature source plugin**
-> Oracle-CDC {
-> plugin_output = "customers"
-> skip_analyze = true 
-> username = "system"
-> password = "oracle"
-> database-names = ["XE"]
-> schema-names = ["DEBEZIUM"]
-> table-names = ["XE.DEBEZIUM.FULL_TYPES"]
-> base-url = "jdbc:oracle:thin:system/oracle@oracle-host:1521:xe"
-> source.reader.close.timeout = 120000
-> }
-> }
-> ```
+
+```conf
+source {
+# This is a example source plugin **only for test and demonstrate the feature source plugin**
+  Oracle-CDC {
+    plugin_output = "customers"
+    skip_analyze = true 
+    username = "system"
+    password = "oracle"
+    database-names = ["XE"]
+    schema-names = ["DEBEZIUM"]
+    table-names = ["XE.DEBEZIUM.FULL_TYPES"]
+    base-url = "jdbc:oracle:thin:system/oracle@oracle-host:1521:xe"
+    source.reader.close.timeout = 120000
+  }
+}
+```
 
 ### Support custom primary key for table
 
-```
-
+```conf
 source {
   Oracle-CDC {
     plugin_output = "customers"
@@ -359,7 +357,6 @@ source {
     ]
   }
 }
-
 ```
 
 ### Support debezium-compatible format send to kafka

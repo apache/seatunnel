@@ -271,6 +271,27 @@ public class MaxComputeCatalog implements Catalog {
         }
     }
 
+    public void createPartition(TablePath tablePath, PartitionSpec partitionSpec) {
+        try {
+            Odps odps = getOdps(tablePath.getDatabaseName());
+            Table odpsTable = odps.tables().get(tablePath.getTableName());
+            odpsTable.createPartition(partitionSpec, true);
+        } catch (Exception e) {
+            throw new CatalogException("create partition error", e);
+        }
+    }
+
+    public void truncatePartition(TablePath tablePath, PartitionSpec partitionSpec) {
+        try {
+            Odps odps = getOdps(tablePath.getDatabaseName());
+            Table odpsTable = odps.tables().get(tablePath.getTableName());
+            odpsTable.deletePartition(partitionSpec, true);
+            odpsTable.createPartition(partitionSpec, true);
+        } catch (Exception e) {
+            throw new CatalogException("create partition error", e);
+        }
+    }
+
     @Override
     public boolean isExistsData(TablePath tablePath) {
         throw new UnsupportedOperationException();
@@ -280,7 +301,15 @@ public class MaxComputeCatalog implements Catalog {
     public void executeSql(TablePath tablePath, String sql) {
         try {
             Odps odps = getOdps(tablePath.getDatabaseName());
-            SQLTask.run(odps, sql).waitForSuccess();
+            String[] sqls = sql.split(";");
+            for (String s : sqls) {
+                if (!s.trim().isEmpty()) {
+                    if (!s.trim().endsWith(";")) {
+                        s = s.trim() + ";";
+                    }
+                    SQLTask.run(odps, s).waitForSuccess();
+                }
+            }
         } catch (OdpsException e) {
             throw new CatalogException("execute sql error", e);
         }

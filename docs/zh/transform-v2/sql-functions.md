@@ -987,11 +987,16 @@ select UUID() as seatunnel_uuid
 
 ### ARRAY
 
-生成一个数组。
+```ARRAY<T> array(T, ...)```
+创建一个由可变参数元素组成的数组并返回它。这里，T 可以是“列”或“常量”。。
 
 示例:
 
-select ARRAY('test1','test2','test3') as arrays
+select ARRAY(1,2,3) as arrays
+select ARRAY('c_1',2,3.12) as arrays
+select ARRAY(column1,column2,column3) as arrays
+
+注意：目前仅支持string、double、long、int几种类型
 
 ### LATERAL VIEW
 #### EXPLODE

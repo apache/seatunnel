@@ -110,7 +110,10 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         FileStatus[] stats = hadoopFileSystemProxy.listStatus(path);
         for (FileStatus fileStatus : stats) {
             if (fileStatus.isDirectory()) {
-                fileNames.addAll(getFileNamesByPath(fileStatus.getPath().toString()));
+                // skip hidden tmp directory, such as .hive-staging_hive
+                if (!fileStatus.getPath().getName().startsWith(".")) {
+                    fileNames.addAll(getFileNamesByPath(fileStatus.getPath().toString()));
+                }
                 continue;
             }
             if (fileStatus.isFile() && filterFileByPattern(fileStatus) && fileStatus.getLen() > 0) {

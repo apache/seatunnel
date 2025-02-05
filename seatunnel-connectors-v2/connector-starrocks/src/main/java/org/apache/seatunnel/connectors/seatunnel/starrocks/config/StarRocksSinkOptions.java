@@ -71,6 +71,9 @@ public interface StarRocksSinkOptions {
                                     + " PRIMARY KEY ("
                                     + SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
                                     + ")\n"
+                                    + "COMMENT '"
+                                    + SaveModePlaceHolder.COMMENT.getPlaceHolder()
+                                    + "'\n"
                                     + "DISTRIBUTED BY HASH ("
                                     + SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
                                     + ")"

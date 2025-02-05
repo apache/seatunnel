@@ -994,12 +994,16 @@ select UUID() as seatunnel_uuid
 
 ### ARRAY
 
-Generate an array.
+```ARRAY<T> array(T, ...)```
+Create an array consisting of variadic elements and return it. Here, T can be either “column” or “literal”.
 
 Example:
 
-select ARRAY('test1','test2','test3') as arrays
+select ARRAY(1,2,3) as arrays
+select ARRAY('c_1',2,3.12) as arrays
+select ARRAY(column1,column2,column3) as arrays
 
+notes: Currently only string, double, long, int types are supported
 
 ### LATERAL VIEW 
 #### EXPLODE

@@ -56,6 +56,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | skip_header_row_number    | long    | no       | 0                                    |
 | schema                    | config  | no       | -                                    |
 | sheet_name                | string  | no       | -                                    |
+| excel_engine              | string  | no       | POI                                  |                                             |
 | xml_row_tag               | string  | no       | -                                    |
 | xml_use_attr_format       | boolean | no       | -                                    |
 | file_filter_pattern       | string  | no       |                                      |
@@ -238,6 +239,16 @@ The schema information of upstream data.
 Only need to be configured when file_format is excel.
 
 Reader the sheet of the workbook.
+
+### excel_engine [string]
+
+Only need to be configured when file_format is excel.
+
+supported as the following file types:
+`POI` `EasyExcel`
+
+The default excel reading engine is POI, but POI can easily cause memory overflow when reading Excel with more than 65,000 rows, so you can switch to EasyExcel as the reading engine.
+
 
 ### xml_row_tag [string]
 

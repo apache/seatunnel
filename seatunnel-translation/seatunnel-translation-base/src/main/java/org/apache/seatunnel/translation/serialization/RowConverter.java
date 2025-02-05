@@ -87,6 +87,7 @@ public abstract class RowConverter<T> implements Serializable {
             case DATE:
             case TIME:
             case TIMESTAMP:
+            case TIMESTAMP_TZ:
             case FLOAT:
             case DOUBLE:
             case STRING:

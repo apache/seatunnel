@@ -30,7 +30,7 @@ minikube start --kubernetes-version=v1.23.3
 Install with default settings.
 ```bash
 # Choose the corresponding version yourself
-export VERSION=2.3.9
+export VERSION=2.3.10
 helm pull oci://registry-1.docker.io/apache/seatunnel-helm --version ${VERSION}
 tar -xvf seatunnel-helm-${VERSION}.tgz
 cd seatunnel-helm
@@ -76,5 +76,5 @@ After that you can submit your job by [rest-api-v2](../../seatunnel-engine/rest-
 
 ## What's More
 
-For now, you have taken a quick look at SeaTunnel, and you can see [connector](../../connector-v2) to find all sources and sinks SeaTunnel supported.
+For now, you have taken a quick look at SeaTunnel, and you can see [connector](../../connector-v2/source) to find all sources and sinks SeaTunnel supported.
 Or see [deployment](../../seatunnel-engine/deployment.md) if you want to submit your application in another kind of your engine cluster.

@@ -144,6 +144,7 @@ public class ClickhouseCatalog implements Catalog {
                 tablePath.getDatabaseName(),
                 tablePath.getTableName(),
                 template,
+                table.getComment(),
                 table.getTableSchema());
     }
 
@@ -252,6 +253,7 @@ public class ClickhouseCatalog implements Catalog {
                             tablePath.getDatabaseName(),
                             tablePath.getTableName(),
                             catalogTable.get().getTableSchema(),
+                            catalogTable.get().getComment(),
                             ClickhouseConfig.SAVE_MODE_CREATE_TEMPLATE.key()));
         } else if (actionType == ActionType.DROP_TABLE) {
             return new SQLPreviewResult(

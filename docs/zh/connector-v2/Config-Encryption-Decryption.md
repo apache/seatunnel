@@ -12,6 +12,9 @@ Base64编码支持加密以下参数：
 - username
 - password
 - auth
+- token
+- access_key
+- secret_key
 
 接下来，将展示如何快速使用 SeaTunnel 自带的 `base64` 加密功能：
 
@@ -138,6 +141,7 @@ Base64编码支持加密以下参数：
        <groupId>org.apache.seatunnel</groupId>
        <artifactId>seatunnel-api</artifactId>
        <version>${seatunnel.version}</version>
+       <scope>provided</scope>
    </dependency>
    ```
 3. 创建一个 java 类并实现 `ConfigShade` 接口，该接口包含以下方法：
@@ -175,7 +179,47 @@ Base64编码支持加密以下参数：
        }
    }
    ```
-4. 在 `resources/META-INF/services` 目录下添加 `org.apache.seatunnel.api.configuration.ConfigShade`
+4. 在 `resources/META-INF/services` 目录下创建名为 `org.apache.seatunnel.api.configuration.ConfigShade`的文件， 文件内容是您在步骤 3 中定义的类的完全限定类名。
 5. 将其打成 jar 包, 并添加到 `${SEATUNNEL_HOME}/lib` 目录下。
 6. 将选项 `shade.identifier` 的值更改为上面定义在配置文件中的 `ConfigShade#getIdentifier` 的值。
 
+### 在加密解密方法中使用自定义参数
+
+如果您想要使用自定义参数进行加密和解密，可以按照以下步骤操作：
+1. 在配置文件的env 中添加`shade.properties`配置，该配置的值是键值对形式（键的类型必须是字符串） ，如下所示：
+
+   ```hocon
+    env {
+        shade.properties = {
+           suffix = "666"
+        }
+    }
+
+   ```
+2. 覆写 `ConfigShade` 接口的 `open` 方法，如下所示：
+
+   ```java
+    public static class ConfigShadeWithProps implements ConfigShade {
+
+        private String suffix;
+        private String identifier = "withProps";
+
+        @Override
+        public void open(Map<String, Object> props) {
+            this.suffix = String.valueOf(props.get("suffix"));
+        }
+   }
+   ```
+   3. 在加密和解密方法中使用open 方法中传入的参数，如下所示：
+
+   ```java
+    @Override
+    public String encrypt(String content) {
+        return content + suffix;
+    }
+
+    @Override
+    public String decrypt(String content) {
+        return content.substring(0, content.length() - suffix.length());
+    }
+   ```

@@ -73,7 +73,7 @@ public class MaxComputeCreateTableTest {
                                 + "\"in_memory\" = \"false\",\n"
                                 + "\"storage_format\" = \"V2\",\n"
                                 + "\"disable_auto_compaction\" = \"false\"\n"
-                                + ");",
+                                + ") COMMENT '${comment}';",
                         TablePath.of("test1.test2"),
                         CatalogTable.of(
                                 TableIdentifier.of("test", "test1", "test2"),
@@ -109,7 +109,7 @@ public class MaxComputeCreateTableTest {
                                         .build(),
                                 Collections.emptyMap(),
                                 Collections.emptyList(),
-                                ""));
+                                "comment"));
         Assertions.assertEquals(
                 result,
                 "CREATE TABLE IF NOT EXISTS `test1`.`test2` (                                                                                                                                                   \n"
@@ -128,6 +128,6 @@ public class MaxComputeCreateTableTest {
                         + "\"in_memory\" = \"false\",\n"
                         + "\"storage_format\" = \"V2\",\n"
                         + "\"disable_auto_compaction\" = \"false\"\n"
-                        + ");");
+                        + ") COMMENT 'comment';");
     }
 }

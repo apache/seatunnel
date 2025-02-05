@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.tracing;
 
+import java.util.Comparator;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -24,6 +25,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 /**
@@ -171,6 +173,36 @@ public class MDCTracer {
             throw new IllegalArgumentException("Already an MDCPredicate");
         }
         return new MDCPredicate<>(context, delegate);
+    }
+
+    public static <T> MDCComparator<T> tracing(Comparator<T> delegate) {
+        return tracing(MDCContext.current(), delegate);
+    }
+
+    public static <T> MDCComparator<T> tracing(Long jobId, Comparator<T> delegate) {
+        return tracing(MDCContext.of(jobId), delegate);
+    }
+
+    public static <T> MDCComparator<T> tracing(MDCContext context, Comparator<T> delegate) {
+        if (delegate instanceof MDCComparator) {
+            throw new IllegalArgumentException("Already an MDCComparator");
+        }
+        return new MDCComparator<>(context, delegate);
+    }
+
+    public static <T> MDCSupplier<T> tracing(Supplier<T> delegate) {
+        return tracing(MDCContext.current(), delegate);
+    }
+
+    public static <T> MDCSupplier<T> tracing(Long jobId, Supplier<T> delegate) {
+        return tracing(MDCContext.of(jobId), delegate);
+    }
+
+    public static <T> MDCSupplier<T> tracing(MDCContext context, Supplier<T> delegate) {
+        if (delegate instanceof MDCSupplier) {
+            throw new IllegalArgumentException("Already an MDCSupplier");
+        }
+        return new MDCSupplier<>(context, delegate);
     }
 
     public static <T> MDCStream<T> tracing(Stream<T> delegate) {

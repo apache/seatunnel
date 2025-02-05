@@ -22,10 +22,10 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
-import org.apache.seatunnel.transform.nlpmodel.embadding.remote.custom.CustomModel;
-import org.apache.seatunnel.transform.nlpmodel.embadding.remote.doubao.DoubaoModel;
-import org.apache.seatunnel.transform.nlpmodel.embadding.remote.openai.OpenAIModel;
-import org.apache.seatunnel.transform.nlpmodel.embadding.remote.qianfan.QianfanModel;
+import org.apache.seatunnel.transform.nlpmodel.embedding.remote.custom.CustomModel;
+import org.apache.seatunnel.transform.nlpmodel.embedding.remote.doubao.DoubaoModel;
+import org.apache.seatunnel.transform.nlpmodel.embedding.remote.openai.OpenAIModel;
+import org.apache.seatunnel.transform.nlpmodel.embedding.remote.qianfan.QianfanModel;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

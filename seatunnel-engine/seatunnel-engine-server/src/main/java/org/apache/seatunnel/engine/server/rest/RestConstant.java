@@ -60,34 +60,36 @@ public class RestConstant {
     public static final String TABLE_SINK_WRITE_BYTES_PER_SECONDS = "TableSinkWriteBytesPerSeconds";
 
     public static final String CONTEXT_PATH = "/hazelcast/rest/maps";
+    public static final String INSTANCE_CONTEXT_PATH = "/hazelcast/rest/instance";
 
-    public static final String OVERVIEW = "/overview";
-
-    public static final String RUNNING_JOBS_URL = "/running-jobs";
-    @Deprecated public static final String RUNNING_JOB_URL = "/running-job";
-    public static final String JOB_INFO_URL = "/job-info";
-    public static final String FINISHED_JOBS_INFO = "/finished-jobs";
-    public static final String ENCRYPT_CONFIG = "/encrypt-config";
-    public static final String THREAD_DUMP = "/thread-dump";
-
+    // api path start
+    public static final String REST_URL_OVERVIEW = "/overview";
+    public static final String REST_URL_RUNNING_JOBS = "/running-jobs";
+    @Deprecated public static final String REST_URL_RUNNING_JOB = "/running-job";
+    public static final String REST_URL_JOB_INFO = "/job-info";
+    public static final String REST_URL_FINISHED_JOBS = "/finished-jobs";
+    public static final String REST_URL_ENCRYPT_CONFIG = "/encrypt-config";
+    public static final String REST_URL_THREAD_DUMP = "/thread-dump";
     // only for test use
-    public static final String RUNNING_THREADS = "/running-threads";
+    public static final String REST_URL_RUNNING_THREADS = "/running-threads";
+    public static final String REST_URL_SYSTEM_MONITORING_INFORMATION =
+            "/system-monitoring-information";
+    public static final String REST_URL_SUBMIT_JOB = "/submit-job";
 
-    public static final String SYSTEM_MONITORING_INFORMATION = "/system-monitoring-information";
+    public static final String REST_URL_SUBMIT_JOB_BY_UPLOAD_FILE = "/submit-job/upload";
 
-    public static final String SUBMIT_JOB_URL = "/submit-job";
-    public static final String SUBMIT_JOBS_URL = "/submit-jobs";
-    public static final String STOP_JOB_URL = "/stop-job";
-    public static final String STOP_JOBS_URL = "/stop-jobs";
-    public static final String UPDATE_TAGS_URL = "/update-tags";
+    public static final String REST_URL_SUBMIT_JOBS = "/submit-jobs";
+    public static final String REST_URL_STOP_JOB = "/stop-job";
+    public static final String REST_URL_STOP_JOBS = "/stop-jobs";
+    public static final String REST_URL_UPDATE_TAGS = "/update-tags";
     // Get All Nodes Log
-    public static final String GET_LOGS = "/logs";
+    public static final String REST_URL_LOGS = "/logs";
     // Get Current Node Log
-    public static final String GET_LOG = "/log";
+    public static final String REST_URL_LOG = "/log";
     // Code internal Use , Get Node Log Name
-    public static final String GET_ALL_LOG_NAME = "/get-all-log-name";
+    public static final String REST_URL_GET_ALL_LOG_NAME = "/get-all-log-name";
+    public static final String REST_URL_METRICS = "/metrics";
+    public static final String REST_URL_OPEN_METRICS = "/openmetrics";
+    // api path end
 
-    // metrics
-    public static final String TELEMETRY_METRICS_URL = "/hazelcast/rest/instance/metrics";
-    public static final String TELEMETRY_OPEN_METRICS_URL = "/hazelcast/rest/instance/openmetrics";
 }

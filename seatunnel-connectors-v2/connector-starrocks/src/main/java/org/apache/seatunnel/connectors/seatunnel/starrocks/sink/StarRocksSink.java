@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.Catalog;
@@ -40,7 +41,7 @@ import java.util.List;
 import java.util.Optional;
 
 public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
-        implements SupportSaveMode, SupportSchemaEvolutionSink {
+        implements SupportSaveMode, SupportSchemaEvolutionSink, SupportMultiTableSink {
 
     private final TableSchema tableSchema;
     private final SinkConfig sinkConfig;

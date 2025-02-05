@@ -393,6 +393,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || s.startsWith("seatunnel-coordinator-service")
                 || s.startsWith("GC task thread")
                 || s.contains("CompilerThread")
+                || s.startsWith("SeaTunnel-CompletableFuture-Thread-")
                 || s.contains("NioNetworking-closeListenerExecutor")
                 || s.contains("ForkJoinPool.commonPool")
                 || s.contains("DestroyJavaVM")

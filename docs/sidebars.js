@@ -232,7 +232,8 @@ const sidebars = {
                 'contribution/new-license',
                 'contribution/coding-guide',
                 'contribution/contribute-transform-v2-guide',
-                'contribution/how-to-create-your-connector'
+                'contribution/how-to-create-your-connector',
+                'contribution/docs-format-specification'
             ],
         },
         "faq"

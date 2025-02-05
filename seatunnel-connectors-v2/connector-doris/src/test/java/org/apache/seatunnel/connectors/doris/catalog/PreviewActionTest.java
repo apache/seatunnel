@@ -108,6 +108,7 @@ public class PreviewActionTest {
                         + "`test` STRING NULL \n"
                         + ") ENGINE=OLAP\n"
                         + " UNIQUE KEY (`id`)\n"
+                        + "COMMENT 'comment'\n"
                         + "DISTRIBUTED BY HASH (`id`)\n"
                         + " PROPERTIES (\n"
                         + "\"replication_allocation\" = \"tag.location.default: 1\",\n"

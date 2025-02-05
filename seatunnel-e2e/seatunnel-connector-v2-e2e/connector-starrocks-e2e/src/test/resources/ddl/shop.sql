@@ -30,6 +30,30 @@ CREATE TABLE products (
   weight FLOAT
 );
 
+drop table if exists orders;
+
+CREATE TABLE orders (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  customer_id BIGINT NOT NULL,
+  order_date DATETIME NOT NULL,
+  total_amount DECIMAL ( 10, 2 ) NOT NULL,
+  STATUS VARCHAR ( 50 ) DEFAULT 'pending',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+drop table if exists customers;
+
+CREATE TABLE customers (
+  id BIGINT PRIMARY KEY,
+  NAME VARCHAR ( 255 ) NOT NULL,
+  email VARCHAR ( 255 ) NOT NULL,
+  phone VARCHAR ( 50 ),
+  address TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 ALTER TABLE products AUTO_INCREMENT = 101;
 
 INSERT INTO products
@@ -42,3 +66,15 @@ VALUES (101,"scooter","Small 2-wheel scooter",3.14),
        (107,"rocks","box of assorted rocks",5.3),
        (108,"jacket","water resistent black wind breaker",0.1),
        (109,"spare tire","24 inch spare tire",22.2);
+
+INSERT INTO orders ( id, customer_id, order_date, total_amount, STATUS )
+VALUES
+    ( 1, 1, '2024-01-01 10:00:00', 299.99, 'completed' ),
+    ( 2, 2, '2024-01-02 11:00:00', 199.99, 'completed' ),
+    ( 3, 3, '2024-01-03 12:00:00', 399.99, 'processing' );
+
+INSERT INTO customers ( id, NAME, email, phone, address )
+VALUES
+    ( 1, 'John Doe', 'john@example.com', '123-456-7890', '123 Main St' ),
+    ( 2, 'Jane Smith', 'jane@example.com', '234-567-8901', '456 Oak Ave' ),
+    ( 3, 'Bob Johnson', 'bob@example.com', '345-678-9012', '789 Pine Rd' );

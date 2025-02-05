@@ -25,6 +25,16 @@
 Used to send data to Doris. Both support streaming and batch mode.
 The internal implementation of Doris sink connector is cached and imported by stream load in batches.
 
+## Using Dependency
+
+### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+
+### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
+
 ## Sink Options
 
 |              Name              |  Type   | Required |           Default            |                                                                                                                                      Description                                                                                                                                       |
@@ -37,7 +47,7 @@ The internal implementation of Doris sink connector is cached and imported by st
 | table                          | String  | Yes      | -                            | The table name of `Doris` table,  use `${table_name}` to represent the upstream table name                                                                                                                                                                                             |
 | table.identifier               | String  | Yes      | -                            | The name of `Doris` table, it will deprecate after version 2.3.5, please use `database` and `table` instead.                                                                                                                                                                           |
 | sink.label-prefix              | String  | Yes      | -                            | The label prefix used by stream load imports. In the 2pc scenario, global uniqueness is required to ensure the EOS semantics of SeaTunnel.                                                                                                                                             |
-| sink.enable-2pc                | bool    | No       | false                        | Whether to enable two-phase commit (2pc), the default is false. For two-phase commit, please refer to [here](https://doris.apache.org/docs/dev/sql-manual/sql-statements/Data-Manipulation-Statements/Load/STREAM-LOAD/).                                                              |
+| sink.enable-2pc                | bool    | No       | false                        | Whether to enable two-phase commit (2pc), the default is false. For two-phase commit, please refer to [here](https://doris.apache.org/docs/data-operate/transaction?_highlight=two&_highlight=phase#stream-load-2pc).                                                              |
 | sink.enable-delete             | bool    | No       | -                            | Whether to enable deletion. This option requires Doris table to enable batch delete function (0.15+ version is enabled by default), and only supports Unique model. you can get more detail at this [link](https://doris.apache.org/docs/dev/data-operate/delete/batch-delete-manual/) |
 | sink.check-interval            | int     | No       | 10000                        | check exception with the interval while loading                                                                                                                                                                                                                                        |
 | sink.max-retries               | int     | No       | 3                            | the max retry times if writing records to database failed                                                                                                                                                                                                                              |
@@ -83,6 +93,7 @@ ${rowtype_primary_key},
 ${rowtype_fields}
 ) ENGINE=OLAP
  UNIQUE KEY (${rowtype_primary_key})
+COMMENT '${comment}'
 DISTRIBUTED BY HASH (${rowtype_primary_key})
  PROPERTIES (
 "replication_allocation" = "tag.location.default: 1",
@@ -100,6 +111,7 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table}`
     id,
     ${rowtype_fields}
 ) ENGINE = OLAP UNIQUE KEY (${rowtype_primary_key})
+    COMMENT '${comment}'
     DISTRIBUTED BY HASH (${rowtype_primary_key})
     PROPERTIES
 (
@@ -119,6 +131,7 @@ You can use the following placeholders
 - rowtype_primary_key: Used to get the primary key in the upstream schema (maybe a list)
 - rowtype_unique_key: Used to get the unique key in the upstream schema (maybe a list)
 - rowtype_duplicate_key: Used to get the duplicate key in the upstream schema (only for doris source, maybe a list)
+- comment: Used to get the table comment in the upstream schema
 
 ## Data Type Mapping
 

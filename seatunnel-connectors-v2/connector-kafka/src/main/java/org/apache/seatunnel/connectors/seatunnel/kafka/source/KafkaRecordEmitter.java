@@ -67,9 +67,6 @@ public class KafkaRecordEmitter
             } else {
                 deserializationSchema.deserialize(consumerRecord.value(), outputCollector);
             }
-            // consumerRecord.offset + 1 is the offset commit to Kafka and also the start offset
-            // for the next run
-            splitState.setCurrentOffset(consumerRecord.offset() + 1);
         } catch (Exception e) {
             if (this.messageFormatErrorHandleWay == MessageFormatErrorHandleWay.SKIP) {
                 logger.warn(
@@ -79,6 +76,9 @@ public class KafkaRecordEmitter
                 throw e;
             }
         }
+        // consumerRecord.offset + 1 is the offset commit to Kafka and also the start offset
+        // for the next run
+        splitState.setCurrentOffset(consumerRecord.offset() + 1);
     }
 
     private static class OutputCollector<T> implements Collector<T> {

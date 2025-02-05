@@ -42,6 +42,8 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     protected String originUrl;
     protected List<String> databaseList;
     protected List<String> tableList;
+    protected String databasePattern;
+    protected String tablePattern;
     protected StartupConfig startupConfig;
     protected StopConfig stopConfig;
     protected double distributionFactorUpper =
@@ -243,6 +245,8 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.password = config.get(JdbcSourceOptions.PASSWORD);
         this.databaseList = config.get(JdbcSourceOptions.DATABASE_NAMES);
         this.tableList = config.get(CatalogOptions.TABLE_NAMES);
+        this.databasePattern = config.get(CatalogOptions.DATABASE_PATTERN);
+        this.tablePattern = config.get(CatalogOptions.TABLE_PATTERN);
         this.distributionFactorUpper =
                 config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND);
         this.distributionFactorLower =

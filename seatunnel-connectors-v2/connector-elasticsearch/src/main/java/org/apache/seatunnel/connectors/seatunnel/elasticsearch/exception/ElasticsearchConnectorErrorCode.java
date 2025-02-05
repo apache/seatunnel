@@ -33,7 +33,9 @@ public enum ElasticsearchConnectorErrorCode implements SeaTunnelErrorCode {
     CHECK_INDEX_FAILED("ELASTICSEARCH-10", "Failed to check whether the index exists"),
     SOURCE_CONFIG_ERROR_01(
             "ELASTICSEARCH-11",
-            "'index' or 'index_list' must be configured, with at least one being required.");
+            "'index' or 'index_list' must be configured, with at least one being required."),
+    ADD_FIELD_FAILED("ELASTICSEARCH-12", "Field add failed"),
+    SCHEMA_CHANGE_FAILED("ELASTICSEARCH-13", "Schema change failed"),
     ;
 
     private final String code;

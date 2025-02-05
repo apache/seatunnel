@@ -187,6 +187,7 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
         this.sinkColumnsIndexInRow =
                 this.sinkColumnList.stream()
                         .map(column -> columnsMap.get(column.toLowerCase()))
+                        .filter(e -> e != null)
                         .collect(Collectors.toList());
 
         if (!CollectionUtils.isEmpty(this.partitionFieldList)) {

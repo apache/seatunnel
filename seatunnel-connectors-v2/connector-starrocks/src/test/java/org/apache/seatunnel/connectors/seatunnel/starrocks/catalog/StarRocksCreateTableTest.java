@@ -58,7 +58,7 @@ public class StarRocksCreateTableTest {
         columns.add(
                 PhysicalColumn.of(
                         "name", BasicType.STRING_TYPE, (Long) null, true, null, "test comment"));
-        columns.add(PhysicalColumn.of("age", BasicType.INT_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("age", BasicType.INT_TYPE, (Long) null, true, null, "'N'-N"));
         columns.add(PhysicalColumn.of("score", BasicType.INT_TYPE, (Long) null, true, null, ""));
         columns.add(PhysicalColumn.of("gender", BasicType.BYTE_TYPE, (Long) null, true, null, ""));
         columns.add(
@@ -111,10 +111,11 @@ public class StarRocksCreateTableTest {
                                                                                         .ASC)))))
                                 .columns(columns)
                                 .build(),
+                        "test table",
                         StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key());
         Assertions.assertEquals(
                 "CREATE TABLE IF NOT EXISTS `test1`.`test2` (                                                                                                                                                   \n"
-                        + "`id` BIGINT NULL ,`age` INT NULL   ,       \n"
+                        + "`id` BIGINT NULL ,`age` INT NULL COMMENT '''N''-N'  ,       \n"
                         + "`name` STRING NULL COMMENT 'test comment',`score` INT NULL  , \n"
                         + "`create_time` DATETIME NOT NULL ,  \n"
                         + "`gender` TINYINT NULL   \n"
@@ -143,7 +144,7 @@ public class StarRocksCreateTableTest {
                                 .build(),
                         Collections.emptyMap(),
                         Collections.emptyList(),
-                        "");
+                        "test table");
         TablePath tablePath = TablePath.of("test1.test2");
         String createTemplate = StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.defaultValue();
         RuntimeException actualSeaTunnelRuntimeException =
@@ -155,6 +156,7 @@ public class StarRocksCreateTableTest {
                                         tablePath.getDatabaseName(),
                                         tablePath.getTableName(),
                                         catalogTable.getTableSchema(),
+                                        catalogTable.getComment(),
                                         StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key()));
         String primaryKeyHolder = SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder();
         SeaTunnelRuntimeException exceptSeaTunnelRuntimeException =
@@ -255,6 +257,7 @@ public class StarRocksCreateTableTest {
                                                 "", Arrays.asList("L_ORDERKEY", "L_LINENUMBER")))
                                 .columns(columns)
                                 .build(),
+                        "test table",
                         StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key());
         String expected =
                 "CREATE TABLE IF NOT EXISTS `tpch`.`lineitem` (\n"
@@ -316,6 +319,7 @@ public class StarRocksCreateTableTest {
                                 .primaryKey(PrimaryKey.of("", Arrays.asList("id", "age")))
                                 .columns(columns)
                                 .build(),
+                        "test table",
                         StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key());
 
         Assertions.assertEquals(
@@ -363,6 +367,7 @@ public class StarRocksCreateTableTest {
                                         PrimaryKey.of("test", Arrays.asList("id", "age", "name")))
                                 .columns(columns)
                                 .build(),
+                        "test table",
                         StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key());
 
         Assertions.assertEquals(
@@ -374,6 +379,51 @@ public class StarRocksCreateTableTest {
                         + "`description` STRING NULL \n"
                         + " )\n"
                         + " partitioned by `id`,`age`,`name`;",
+                result);
+    }
+
+    @Test
+    public void testTableComment() {
+        List<Column> columns = new ArrayList<>();
+
+        columns.add(PhysicalColumn.of("id", BasicType.LONG_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("name", BasicType.STRING_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("age", BasicType.INT_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("comment", BasicType.STRING_TYPE, 500, true, null, ""));
+        columns.add(PhysicalColumn.of("description", BasicType.STRING_TYPE, 70000, true, null, ""));
+
+        String result =
+                StarRocksSaveModeUtil.INSTANCE.getCreateTableSql(
+                        "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (\n"
+                                + "${rowtype_primary_key},\n"
+                                + "${rowtype_fields}\n"
+                                + ") ENGINE=OLAP\n"
+                                + " PRIMARY KEY (${rowtype_primary_key})\n"
+                                + "COMMENT '${comment}'\n"
+                                + "DISTRIBUTED BY HASH (${rowtype_primary_key})PROPERTIES (\n"
+                                + "    \"replication_num\" = \"1\" \n"
+                                + ")\n",
+                        "test1",
+                        "test2",
+                        TableSchema.builder()
+                                .primaryKey(
+                                        PrimaryKey.of("test", Arrays.asList("id", "age", "name")))
+                                .columns(columns)
+                                .build(),
+                        "test table",
+                        StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key());
+
+        Assertions.assertEquals(
+                "CREATE TABLE IF NOT EXISTS `test1`.`test2` (\n"
+                        + "`id` BIGINT NULL ,`age` INT NULL ,`name` STRING NULL ,\n"
+                        + "`comment` VARCHAR(500) NULL ,\n"
+                        + "`description` STRING NULL \n"
+                        + ") ENGINE=OLAP\n"
+                        + " PRIMARY KEY (`id`,`age`,`name`)\n"
+                        + "COMMENT 'test table'\n"
+                        + "DISTRIBUTED BY HASH (`id`,`age`,`name`)PROPERTIES (\n"
+                        + "    \"replication_num\" = \"1\" \n"
+                        + ")\n",
                 result);
     }
 }

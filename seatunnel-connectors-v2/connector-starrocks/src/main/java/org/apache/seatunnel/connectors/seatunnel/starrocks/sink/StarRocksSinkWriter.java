@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -46,7 +47,7 @@ import java.util.Optional;
 
 @Slf4j
 public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
-        implements SupportSchemaEvolutionSinkWriter {
+        implements SupportMultiTableSinkWriter<Void>, SupportSchemaEvolutionSinkWriter {
     private StarRocksISerializer serializer;
     private StarRocksSinkManager manager;
     private TableSchema tableSchema;

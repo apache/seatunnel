@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.net.URL;
 import java.nio.file.Paths;
+import java.util.List;
 
 public class FileSinkConfigTest {
 
@@ -46,5 +47,24 @@ public class FileSinkConfigTest {
                         new String[] {"data", "ts"},
                         new SeaTunnelDataType[] {BasicType.STRING_TYPE, BasicType.STRING_TYPE});
         Assertions.assertDoesNotThrow(() -> new FileSinkConfig(config, rowType));
+    }
+
+    @Test
+    public void testSinkColumnsGreaterThanSource() throws Exception {
+        URL conf = OrcReadStrategyTest.class.getResource("/test_write_hive.conf");
+        Assertions.assertNotNull(conf);
+        String confPath = Paths.get(conf.toURI()).toString();
+        Config config = ConfigFactory.parseFile(new File(confPath));
+
+        SeaTunnelRowType seaTunnelRowTypeInfo =
+                new SeaTunnelRowType(
+                        new String[] {"name", "age", "address"},
+                        new SeaTunnelDataType[] {
+                            BasicType.STRING_TYPE, BasicType.INT_TYPE, BasicType.STRING_TYPE
+                        });
+        FileSinkConfig fileSinkConfig = new FileSinkConfig(config, seaTunnelRowTypeInfo);
+        List<Integer> sinkColumnsIndexInRow = fileSinkConfig.getSinkColumnsIndexInRow();
+        Assertions.assertEquals(
+                sinkColumnsIndexInRow.size(), seaTunnelRowTypeInfo.getFieldNames().length);
     }
 }

@@ -113,13 +113,14 @@ public class ShardRouter implements Serializable {
         }
         int offset =
                 (int)
-                        (HASH_INSTANCE.hash(
-                                        ByteBuffer.wrap(
-                                                shardValue
-                                                        .toString()
-                                                        .getBytes(StandardCharsets.UTF_8)),
-                                        0)
-                                & Long.MAX_VALUE % shardWeightCount);
+                        ((HASH_INSTANCE.hash(
+                                                ByteBuffer.wrap(
+                                                        shardValue
+                                                                .toString()
+                                                                .getBytes(StandardCharsets.UTF_8)),
+                                                0)
+                                        & Long.MAX_VALUE)
+                                % shardWeightCount);
         return shards.lowerEntry(offset + 1).getValue();
     }
 

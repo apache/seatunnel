@@ -67,6 +67,7 @@ public class MultipleTableJobConfigParserTest {
         Assertions.assertEquals(
                 "Source[0]-FakeSource", actions.get(0).getUpstream().get(0).getName());
 
+        Assertions.assertFalse(jobConfig.getJobContext().isEnableCheckpoint());
         Assertions.assertEquals(3, actions.get(0).getUpstream().get(0).getParallelism());
         Assertions.assertEquals(3, actions.get(0).getParallelism());
     }
@@ -83,6 +84,7 @@ public class MultipleTableJobConfigParserTest {
         List<Action> actions = parse.getLeft();
         Assertions.assertEquals(1, actions.size());
 
+        Assertions.assertTrue(jobConfig.getJobContext().isEnableCheckpoint());
         Assertions.assertEquals("Sink[0]-LocalFile-fake", actions.get(0).getName());
         Assertions.assertEquals(2, actions.get(0).getUpstream().size());
 

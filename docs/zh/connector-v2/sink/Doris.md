@@ -24,6 +24,16 @@
 用于发送数据到doris. 同时支持流模式和批模式处理.
 Doris Sink连接器的内部实现是通过stream load批量缓存和导入的。
 
+## 依赖
+
+### 对于 Spark/Flink
+
+> 1. 你需要下载 [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) 并添加到目录 `${SEATUNNEL_HOME}/plugins/`.
+
+### 对于 SeaTunnel Zeta
+
+> 1. 你需要下载 [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) 并添加到目录 `${SEATUNNEL_HOME}/lib/`.
+
 ## Sink 选项
 
 |              Name              |  Type   | Required |           Default            |                                                                      Description                                                                       |
@@ -36,7 +46,7 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 | table                          | String  | Yes      | -                            | `Doris` 表名,  使用 `${table_name}`  表示上游表名。                                                                                                               |
 | table.identifier               | String  | Yes      | -                            | `Doris` 表的名称，2.3.5 版本后将弃用，请使用 `database` 和 `table` 代替。                                                                                                 |
 | sink.label-prefix              | String  | Yes      | -                            | stream load导入使用的标签前缀。 在2pc场景下，需要全局唯一性来保证SeaTunnel的EOS语义。                                                                                               |
-| sink.enable-2pc                | bool    | No       | false                        | 是否启用两阶段提交（2pc），默认为 false。 对于两阶段提交，请参考[此处](https://doris.apache.org/docs/dev/sql-manual/sql-statements/Data-Manipulation-Statements/Load/STREAM-LOAD/)。 |
+| sink.enable-2pc                | bool    | No       | false                        | 是否启用两阶段提交（2pc），默认为 false。 对于两阶段提交，请参考[此处](https://doris.apache.org/docs/data-operate/transaction?_highlight=two&_highlight=phase#stream-load-2pc)。 |
 | sink.enable-delete             | bool    | No       | -                            | 是否启用删除。 该选项需要Doris表开启批量删除功能（0.15+版本默认开启），且仅支持Unique模型。 您可以在此[link](https://doris.apache.org/docs/dev/data-operate/delete/batch-delete-manual/)获得更多详细信息 |
 | sink.check-interval            | int     | No       | 10000                        | 加载过程中检查异常时间间隔。                                                                                                                                         |
 | sink.max-retries               | int     | No       | 3                            | 向数据库写入记录失败时的最大重试次数。                                                                                                                                    |
@@ -82,6 +92,7 @@ ${rowtype_primary_key},
 ${rowtype_fields}
 ) ENGINE=OLAP
  UNIQUE KEY (${rowtype_primary_key})
+COMMENT '${comment}'
 DISTRIBUTED BY HASH (${rowtype_primary_key})
  PROPERTIES (
 "replication_allocation" = "tag.location.default: 1",
@@ -99,6 +110,7 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
     id,
     ${rowtype_fields}
 ) ENGINE = OLAP UNIQUE KEY (${rowtype_primary_key})
+    COMMENT '${comment}'
     DISTRIBUTED BY HASH (${rowtype_primary_key})
     PROPERTIES
 (
@@ -114,8 +126,9 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 - database：用于获取上游schema中的数据库。
 - table_name：用于获取上游schema中的表名。
 - rowtype_fields：用于获取上游schema中的所有字段，自动映射到Doris的字段描述。
-- rowtype_primary_key：用于获取上游模式中的主键（可能是列表）
+- rowtype_primary_key：用于获取上游模式中的主键（可能是列表）。
 - rowtype_unique_key：用于获取上游模式中的唯一键（可能是列表）。
+- comment：用于获取上游模式中的表注释。
 
 ## 数据类型映射
 

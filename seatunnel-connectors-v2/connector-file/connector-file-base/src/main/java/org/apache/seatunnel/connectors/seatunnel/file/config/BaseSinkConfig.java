@@ -187,6 +187,20 @@ public class BaseSinkConfig extends KerberosConfig {
                                     + "like `test_${uuid}_${now}`,`${now}` represents the current time, "
                                     + "and its format can be defined by specifying the option `filename_time_format`.");
 
+    public static final Option<Boolean> SINGLE_FILE_MODE =
+            Options.key("single_file_mode")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to write all data to a single file in each parallelism task");
+
+    public static final Option<Boolean> CREATE_EMPTY_FILE_WHEN_NO_DATA =
+            Options.key("create_empty_file_when_no_data")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to generate an empty file when there is no data to write");
+
     public static final Option<String> FILENAME_TIME_FORMAT =
             Options.key("filename_time_format")
                     .stringType()

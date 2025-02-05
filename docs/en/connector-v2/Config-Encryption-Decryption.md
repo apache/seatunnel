@@ -12,6 +12,9 @@ Base64 encryption support encrypt the following parameters:
 - username
 - password
 - auth
+- token
+- access_key
+- secret_key
 
 Next, I'll show how to quickly use SeaTunnel's own `base64` encryption:
 
@@ -130,13 +133,14 @@ If you want to customize the encryption method and the configuration of the encr
 
 1. Create a java maven project
 
-2. Add `seatunnel-api` module in dependencies like the following shown:
+2. Add `seatunnel-api` module with the provided scope in dependencies like the following shown:
 
    ```xml
    <dependency>
        <groupId>org.apache.seatunnel</groupId>
        <artifactId>seatunnel-api</artifactId>
        <version>${seatunnel.version}</version>
+       <scope>provided</scope>
    </dependency>
    ```
 3. Create a new class and implement interface `ConfigShade`, this interface has the following methods:
@@ -174,7 +178,47 @@ If you want to customize the encryption method and the configuration of the encr
        }
    }
    ```
-4. Add `org.apache.seatunnel.api.configuration.ConfigShade` in `resources/META-INF/services`
+4. Create a file named `org.apache.seatunnel.api.configuration.ConfigShade` in `resources/META-INF/services`, the file content should be the fully qualified class name of the class that you defined in step 3.
+
 5. Package it to jar and add jar to `${SEATUNNEL_HOME}/lib`
 6. Change the option `shade.identifier` to the value that you defined in `ConfigShade#getIdentifier`of you config file, please enjoy it \^_\^
 
+### How to encrypt and decrypt with customized params
+
+If you want to encrypt and decrypt with customized params, you can follow the steps below:
+1. Add a configuration named `shade.properties` in the env part of the configuration file, the value of this configuration is in the form of key-value pairs (the type of the key must be a string), as shown below:
+
+   ```hocon
+    env {
+        shade.properties = {
+           suffix = "666"
+        }
+    }
+
+   ```
+
+2. Override the `ConfigShade` interface's `open` method, as shown below:
+
+   ```java
+       public static class ConfigShadeWithProps implements ConfigShade {
+
+        private String suffix;
+        private String identifier = "withProps";
+
+        @Override
+        public void open(Map<String, Object> props) {
+            this.suffix = String.valueOf(props.get("suffix"));
+        }
+   }
+   ```
+3. Use the parameters passed in the open method in the encryption and decryption methods, as shown below:
+
+   ```java
+       public String encrypt(String content) {
+           return content + suffix;
+       }
+
+       public String decrypt(String content) {
+           return content.substring(0, content.length() - suffix.length());
+       }
+   ```

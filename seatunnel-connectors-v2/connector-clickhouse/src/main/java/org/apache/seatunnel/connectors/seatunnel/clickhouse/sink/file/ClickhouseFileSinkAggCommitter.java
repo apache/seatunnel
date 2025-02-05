@@ -50,6 +50,7 @@ public class ClickhouseFileSinkAggCommitter
         proxy = new ClickhouseProxy(readerOption.getShardMetadata().getDefaultShard().getNode());
         clickhouseTable =
                 proxy.getClickhouseTable(
+                        proxy.getClickhouseConnection(),
                         readerOption.getShardMetadata().getDatabase(),
                         readerOption.getShardMetadata().getTable());
     }

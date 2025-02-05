@@ -56,6 +56,7 @@ public class KafkaSourceFactory implements TableSourceFactory {
                         Config.SCHEMA,
                         Config.FORMAT,
                         Config.DEBEZIUM_RECORD_INCLUDE_SCHEMA,
+                        Config.DEBEZIUM_RECORD_TABLE_FILTER,
                         Config.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS)
                 .conditional(Config.START_MODE, StartMode.TIMESTAMP, Config.START_MODE_TIMESTAMP)
                 .conditional(

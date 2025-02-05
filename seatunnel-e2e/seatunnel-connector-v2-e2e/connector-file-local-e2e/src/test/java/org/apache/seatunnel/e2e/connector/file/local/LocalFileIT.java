@@ -298,6 +298,8 @@ public class LocalFileIT extends TestSuiteBase {
     public void testLocalFileReadAndWrite(TestContainer container)
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
+        helper.execute("/csv/fake_to_local_csv.conf");
+        helper.execute("/csv/local_csv_to_assert.conf");
         helper.execute("/excel/fake_to_local_excel.conf");
         helper.execute("/excel/local_excel_to_assert.conf");
         helper.execute("/excel/local_excel_projection_to_assert.conf");

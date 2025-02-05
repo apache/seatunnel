@@ -37,7 +37,9 @@ import com.hazelcast.jet.json.JsonUtil;
 import io.restassured.response.Response;
 import scala.Tuple3;
 
+import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -254,6 +256,34 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
     }
 
     @Test
+    public void testRestApiSubmitJobByUploadFileV2() {
+        Arrays.asList(server, secondServer)
+                .forEach(
+                        container -> {
+                            Tuple3<Integer, String, Long> task = tasks.get(1);
+                            URL resource =
+                                    this.getClass().getClassLoader().getResource("upload-file");
+                            File fileDirect = new File(resource.getFile());
+                            File[] files = fileDirect.listFiles();
+                            for (File file : files) {
+                                Response response =
+                                        given().multiPart("config_file", file)
+                                                .baseUri(
+                                                        http
+                                                                + container.getHost()
+                                                                + colon
+                                                                + task._1())
+                                                .basePath(
+                                                        RestConstant
+                                                                .REST_URL_SUBMIT_JOB_BY_UPLOAD_FILE)
+                                                .when()
+                                                .post();
+                                Assertions.assertEquals(200, response.getStatusCode());
+                            }
+                        });
+    }
+
+    @Test
     public void testStopJob() {
         AtomicInteger i = new AtomicInteger();
 
@@ -284,7 +314,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                                             + task._1()
                                                                             + task._2()
                                                                             + RestConstant
-                                                                                    .RUNNING_JOB_URL
+                                                                                    .REST_URL_RUNNING_JOB
                                                                             + "/"
                                                                             + jobId)
                                                             .then()
@@ -305,7 +335,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                     + colon
                                                     + task._1()
                                                     + task._2()
-                                                    + RestConstant.STOP_JOB_URL)
+                                                    + RestConstant.REST_URL_STOP_JOB)
                                     .then()
                                     .statusCode(200)
                                     .body("jobId", equalTo(jobId));
@@ -321,7 +351,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                                             + task._1()
                                                                             + task._2()
                                                                             + RestConstant
-                                                                                    .FINISHED_JOBS_INFO
+                                                                                    .REST_URL_FINISHED_JOBS
                                                                             + "/SAVEPOINT_DONE")
                                                             .then()
                                                             .statusCode(200)
@@ -352,7 +382,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                                             + task._1()
                                                                             + task._2()
                                                                             + RestConstant
-                                                                                    .RUNNING_JOB_URL
+                                                                                    .REST_URL_RUNNING_JOB
                                                                             + "/"
                                                                             + jobId2)
                                                             .then()
@@ -372,7 +402,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                     + colon
                                                     + task._1()
                                                     + task._2()
-                                                    + RestConstant.STOP_JOB_URL)
+                                                    + RestConstant.REST_URL_STOP_JOB)
                                     .then()
                                     .statusCode(200)
                                     .body("jobId", equalTo(jobId2));
@@ -388,7 +418,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                                             + task._1()
                                                                             + task._2()
                                                                             + RestConstant
-                                                                                    .FINISHED_JOBS_INFO
+                                                                                    .REST_URL_FINISHED_JOBS
                                                                             + "/CANCELED")
                                                             .then()
                                                             .statusCode(200)
@@ -430,7 +460,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                                             + task._1()
                                                                             + task._2()
                                                                             + RestConstant
-                                                                                    .RUNNING_JOB_URL
+                                                                                    .REST_URL_RUNNING_JOB
                                                                             + "/"
                                                                             + jobId)
                                                             .then()
@@ -451,7 +481,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                     + colon
                                                     + task._1()
                                                     + task._2()
-                                                    + RestConstant.STOP_JOB_URL)
+                                                    + RestConstant.REST_URL_STOP_JOB)
                                     .then()
                                     .statusCode(200)
                                     .body("jobId", equalTo(jobId));
@@ -467,7 +497,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                                             + task._1()
                                                                             + task._2()
                                                                             + RestConstant
-                                                                                    .FINISHED_JOBS_INFO
+                                                                                    .REST_URL_FINISHED_JOBS
                                                                             + "/SAVEPOINT_DONE")
                                                             .then()
                                                             .statusCode(200)
@@ -498,7 +528,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                                             + task._1()
                                                                             + task._2()
                                                                             + RestConstant
-                                                                                    .RUNNING_JOB_URL
+                                                                                    .REST_URL_RUNNING_JOB
                                                                             + "/"
                                                                             + jobId2)
                                                             .then()
@@ -518,7 +548,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                     + colon
                                                     + task._1()
                                                     + task._2()
-                                                    + RestConstant.STOP_JOB_URL)
+                                                    + RestConstant.REST_URL_STOP_JOB)
                                     .then()
                                     .statusCode(200)
                                     .body("jobId", equalTo(jobId2));
@@ -534,7 +564,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                                             + task._1()
                                                                             + task._2()
                                                                             + RestConstant
-                                                                                    .FINISHED_JOBS_INFO
+                                                                                    .REST_URL_FINISHED_JOBS
                                                                             + "/CANCELED")
                                                             .then()
                                                             .statusCode(200)
@@ -585,7 +615,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                         + colon
                                                         + task._1()
                                                         + task._2()
-                                                        + RestConstant.STOP_JOBS_URL)
+                                                        + RestConstant.REST_URL_STOP_JOBS)
                                         .then()
                                         .statusCode(200)
                                         .body("[0].jobId", equalTo(task._3()))
@@ -607,7 +637,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                                                 + task._1()
                                                                                 + task._2()
                                                                                 + RestConstant
-                                                                                        .FINISHED_JOBS_INFO
+                                                                                        .REST_URL_FINISHED_JOBS
                                                                                 + "/CANCELED")
                                                                 .then()
                                                                 .statusCode(200)
@@ -649,7 +679,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                         + colon
                                                         + task._1()
                                                         + task._2()
-                                                        + RestConstant.STOP_JOBS_URL)
+                                                        + RestConstant.REST_URL_STOP_JOBS)
                                         .then()
                                         .statusCode(200)
                                         .body("[0].jobId", equalTo(task._3()))
@@ -671,7 +701,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                                                 + task._1()
                                                                                 + task._2()
                                                                                 + RestConstant
-                                                                                        .FINISHED_JOBS_INFO
+                                                                                        .REST_URL_FINISHED_JOBS
                                                                                 + "/CANCELED")
                                                                 .then()
                                                                 .statusCode(200)
@@ -871,7 +901,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                                             + task._1()
                                                                             + task._2()
                                                                             + RestConstant
-                                                                                    .RUNNING_JOB_URL
+                                                                                    .REST_URL_RUNNING_JOB
                                                                             + "/"
                                                                             + jobId)
                                                             .then()
@@ -892,7 +922,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                     + colon
                                                     + task._1()
                                                     + task._2()
-                                                    + RestConstant.STOP_JOB_URL)
+                                                    + RestConstant.REST_URL_STOP_JOB)
                                     .then()
                                     .statusCode(200)
                                     .body("jobId", equalTo(jobId));
@@ -908,7 +938,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                                             + task._1()
                                                                             + task._2()
                                                                             + RestConstant
-                                                                                    .FINISHED_JOBS_INFO
+                                                                                    .REST_URL_FINISHED_JOBS
                                                                             + "/SAVEPOINT_DONE")
                                                             .then()
                                                             .statusCode(200)
@@ -939,7 +969,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                                             + task._1()
                                                                             + task._2()
                                                                             + RestConstant
-                                                                                    .RUNNING_JOB_URL
+                                                                                    .REST_URL_RUNNING_JOB
                                                                             + "/"
                                                                             + jobId2)
                                                             .then()
@@ -959,7 +989,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                     + colon
                                                     + task._1()
                                                     + task._2()
-                                                    + RestConstant.STOP_JOB_URL)
+                                                    + RestConstant.REST_URL_STOP_JOB)
                                     .then()
                                     .statusCode(200)
                                     .body("jobId", equalTo(jobId2));
@@ -975,7 +1005,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                                             + task._1()
                                                                             + task._2()
                                                                             + RestConstant
-                                                                                    .FINISHED_JOBS_INFO
+                                                                                    .REST_URL_FINISHED_JOBS
                                                                             + "/CANCELED")
                                                             .then()
                                                             .statusCode(200)
@@ -1017,7 +1047,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                                             + task._1()
                                                                             + task._2()
                                                                             + RestConstant
-                                                                                    .RUNNING_JOB_URL
+                                                                                    .REST_URL_RUNNING_JOB
                                                                             + "/"
                                                                             + jobId)
                                                             .then()
@@ -1038,7 +1068,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                     + colon
                                                     + task._1()
                                                     + task._2()
-                                                    + RestConstant.STOP_JOB_URL)
+                                                    + RestConstant.REST_URL_STOP_JOB)
                                     .then()
                                     .statusCode(200)
                                     .body("jobId", equalTo(jobId));
@@ -1054,7 +1084,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                                             + task._1()
                                                                             + task._2()
                                                                             + RestConstant
-                                                                                    .FINISHED_JOBS_INFO
+                                                                                    .REST_URL_FINISHED_JOBS
                                                                             + "/SAVEPOINT_DONE")
                                                             .then()
                                                             .statusCode(200)
@@ -1085,7 +1115,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                                             + task._1()
                                                                             + task._2()
                                                                             + RestConstant
-                                                                                    .RUNNING_JOB_URL
+                                                                                    .REST_URL_RUNNING_JOB
                                                                             + "/"
                                                                             + jobId2)
                                                             .then()
@@ -1105,7 +1135,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                     + colon
                                                     + task._1()
                                                     + task._2()
-                                                    + RestConstant.STOP_JOB_URL)
+                                                    + RestConstant.REST_URL_STOP_JOB)
                                     .then()
                                     .statusCode(200)
                                     .body("jobId", equalTo(jobId2));
@@ -1121,7 +1151,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                                             + task._1()
                                                                             + task._2()
                                                                             + RestConstant
-                                                                                    .FINISHED_JOBS_INFO
+                                                                                    .REST_URL_FINISHED_JOBS
                                                                             + "/CANCELED")
                                                             .then()
                                                             .statusCode(200)
@@ -1153,7 +1183,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                         + colon
                                         + port
                                         + contextPath
-                                        + RestConstant.SUBMIT_JOBS_URL);
+                                        + RestConstant.REST_URL_SUBMIT_JOBS);
 
         response.then()
                 .statusCode(200)
@@ -1168,7 +1198,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                         + colon
                                         + port
                                         + contextPath
-                                        + RestConstant.JOB_INFO_URL
+                                        + RestConstant.REST_URL_JOB_INFO
                                         + "/"
                                         + jobId);
         jobInfoResponse.then().statusCode(200).body("jobStatus", equalTo("RUNNING"));
@@ -1283,13 +1313,13 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                 + colon
                                                 + port
                                                 + contextPath
-                                                + RestConstant.SUBMIT_JOB_URL
+                                                + RestConstant.REST_URL_SUBMIT_JOB
                                         : http
                                                 + container.getHost()
                                                 + colon
                                                 + port
                                                 + contextPath
-                                                + RestConstant.SUBMIT_JOB_URL
+                                                + RestConstant.REST_URL_SUBMIT_JOB
                                                 + "?"
                                                 + parameters);
         return response;
@@ -1440,7 +1470,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                 + colon
                 + port
                 + contextPath
-                + RestConstant.FINISHED_JOBS_INFO;
+                + RestConstant.REST_URL_FINISHED_JOBS;
     }
 
     private Response submitHoconJob(
@@ -1505,13 +1535,13 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                 + colon
                                                 + port
                                                 + contextPath
-                                                + RestConstant.SUBMIT_JOB_URL
+                                                + RestConstant.REST_URL_SUBMIT_JOB
                                         : http
                                                 + container.getHost()
                                                 + colon
                                                 + port
                                                 + contextPath
-                                                + RestConstant.SUBMIT_JOB_URL
+                                                + RestConstant.REST_URL_SUBMIT_JOB
                                                 + "?"
                                                 + parameters);
         return response;

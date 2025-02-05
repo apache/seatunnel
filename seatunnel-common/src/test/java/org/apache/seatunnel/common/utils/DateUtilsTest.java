@@ -66,5 +66,17 @@ public class DateUtilsTest {
         Assertions.assertEquals(
                 "2020-10-10",
                 DateUtils.parse(datetimeStr, DateUtils.matchDateFormatter(datetimeStr)).toString());
+        datetimeStr = "2024/1/1";
+        Assertions.assertEquals(
+                "2024-01-01",
+                DateUtils.parse(datetimeStr, DateUtils.matchDateFormatter(datetimeStr)).toString());
+        datetimeStr = "2024/10/1";
+        Assertions.assertEquals(
+                "2024-10-01",
+                DateUtils.parse(datetimeStr, DateUtils.matchDateFormatter(datetimeStr)).toString());
+        datetimeStr = "2024/1/10";
+        Assertions.assertEquals(
+                "2024-01-10",
+                DateUtils.parse(datetimeStr, DateUtils.matchDateFormatter(datetimeStr)).toString());
     }
 }
