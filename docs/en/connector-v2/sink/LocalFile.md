@@ -33,7 +33,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-gi t| Name                                  | Type    | Required | Default                                  | Description                                                                                                                                                            |
+| Name                                  | Type    | Required | Default                                  | Description                                                                                                                                                            |
 |---------------------------------------|---------|----------|------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                                  | string  | yes      | -                                        |                                                                                                                                                                        |
 | tmp_path                              | string  | no       | /tmp/seatunnel                           | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir.                                                                      |
