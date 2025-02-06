@@ -33,15 +33,15 @@ public class ActivemqSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private final ReadonlyConfig pluginConfig;
     private final CatalogTable catalogTable;
 
-    @Override
-    public String getPluginName() {
-        return "ActiveMQ";
-    }
-
     public ActivemqSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
         this.pluginConfig = pluginConfig;
         this.catalogTable = catalogTable;
         this.seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
+    }
+
+    @Override
+    public String getPluginName() {
+        return "ActiveMQ";
     }
 
     @Override

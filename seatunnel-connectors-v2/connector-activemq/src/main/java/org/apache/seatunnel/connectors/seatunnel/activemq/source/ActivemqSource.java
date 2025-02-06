@@ -59,6 +59,13 @@ public class ActivemqSource
 
     public static final String DEFAULT_FIELD_DELIMITER = ",";
 
+    public ActivemqSource(ReadonlyConfig config, CatalogTable catalogTable) {
+        this.activemqConfig = ActivemqConfig.of(config);
+        this.catalogTable = catalogTable;
+        this.typeInfo = catalogTable.getSeaTunnelRowType();
+        setDeserialization(config);
+    }
+
     @Override
     public Boundedness getBoundedness() {
         return JobMode.BATCH.equals(jobContext.getJobMode())
@@ -69,13 +76,6 @@ public class ActivemqSource
     @Override
     public String getPluginName() {
         return "ActiveMQ";
-    }
-
-    public ActivemqSource(ReadonlyConfig config, CatalogTable catalogTable) {
-        this.activemqConfig = ActivemqConfig.of(config);
-        this.catalogTable = catalogTable;
-        this.typeInfo = catalogTable.getSeaTunnelRowType();
-        setDeserialization(config);
     }
 
     @Override
