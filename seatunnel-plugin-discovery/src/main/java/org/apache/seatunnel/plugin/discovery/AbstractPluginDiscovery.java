@@ -20,7 +20,6 @@ package org.apache.seatunnel.plugin.discovery;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
@@ -410,77 +409,80 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         final String engineType = pluginIdentifier.getEngineType().toLowerCase();
         final String pluginType = pluginIdentifier.getPluginType().toLowerCase();
         final String pluginName = pluginIdentifier.getPluginName().toLowerCase();
-        if (!pluginMappingConfig.hasPath(engineType)) {
-            return Optional.empty();
-        }
-        Config engineConfig = pluginMappingConfig.getConfig(engineType);
-        if (!engineConfig.hasPath(pluginType)) {
-            return Optional.empty();
-        }
-        Config typeConfig = engineConfig.getConfig(pluginType);
-        Optional<Map.Entry<String, ConfigValue>> optional =
-                typeConfig.entrySet().stream()
-                        .filter(entry -> StringUtils.equalsIgnoreCase(entry.getKey(), pluginName))
-                        .findFirst();
-        if (!optional.isPresent()) {
-            return Optional.empty();
-        }
-        String pluginJarPrefix = optional.get().getValue().unwrapped().toString();
-        File[] targetPluginFiles =
-                pluginDir
-                        .toFile()
-                        .listFiles(
-                                pathname ->
-                                        pathname.getName().endsWith(".jar")
-                                                && StringUtils.startsWithIgnoreCase(
-                                                        pathname.getName(), pluginJarPrefix));
-        if (ArrayUtils.isEmpty(targetPluginFiles)) {
-            return Optional.empty();
-        }
-        try {
-            URL pluginJarPath = null;
-            if (targetPluginFiles.length == 1) {
-                pluginJarPath = targetPluginFiles[0].toURI().toURL();
-            } else {
-                PluginType type = "source".equals(pluginType) ? PluginType.SOURCE : PluginType.SINK;
-                switch (type) {
-                    case SINK:
-                        {
-                            String sinkName = sinkPluginInstance.get(pluginIdentifier);
-                            for (File targetPluginFile : targetPluginFiles) {
-                                if (readPomPropertiesJudgeJar(
-                                        targetPluginFile.getPath(), sinkName)) {
-                                    pluginJarPath = targetPluginFile.toURI().toURL();
-                                    break;
+
+        return Optional.ofNullable(pluginMappingConfig.getConfig(engineType))
+                .flatMap(engineConfig -> Optional.ofNullable(engineConfig.getConfig(pluginType)))
+                .flatMap(
+                        typeConfig ->
+                                typeConfig.entrySet().stream()
+                                        .filter(
+                                                entry ->
+                                                        StringUtils.equalsIgnoreCase(
+                                                                entry.getKey(), pluginName))
+                                        .findFirst())
+                .map(entry -> entry.getValue().unwrapped().toString())
+                .map(
+                        pluginJarPrefix ->
+                                pluginDir
+                                        .toFile()
+                                        .listFiles(
+                                                pathname ->
+                                                        pathname.getName().endsWith(".jar")
+                                                                && StringUtils.startsWithIgnoreCase(
+                                                                        pathname.getName(),
+                                                                        pluginJarPrefix)))
+                .filter(files -> !ArrayUtils.isEmpty(files))
+                .flatMap(
+                        files -> {
+                            try {
+                                if (files.length == 1) {
+                                    return Optional.of(files[0].toURI().toURL());
+                                } else {
+                                    PluginType type = PluginType.valueOf(pluginType.toUpperCase());
+                                    String targetPluginName =
+                                            getTargetPluginName(pluginIdentifier, type);
+                                    return selectPluginJar(files, targetPluginName);
                                 }
+                            } catch (MalformedURLException e) {
+                                log.warn(
+                                        "Cannot get plugin URL for pluginIdentifier: {}",
+                                        pluginIdentifier,
+                                        e);
+                                return Optional.empty();
                             }
-                            break;
-                        }
-                    case SOURCE:
-                        {
-                            String sourceName = sourcePluginInstance.get(pluginIdentifier);
-                            for (File targetPluginFile : targetPluginFiles) {
-                                if (readPomPropertiesJudgeJar(
-                                        targetPluginFile.getPath(), sourceName)) {
-                                    pluginJarPath = targetPluginFile.toURI().toURL();
-                                    break;
-                                }
-                            }
-                            break;
-                        }
-                    default:
-                        throw new SeaTunnelException("Unsupported plugin type: " + type);
+                        })
+                .map(
+                        pluginJarPath -> {
+                            log.info(
+                                    "Discovery plugin jar for: {} at: {}",
+                                    pluginIdentifier,
+                                    pluginJarPath);
+                            return pluginJarPath;
+                        });
+    }
+
+    private String getTargetPluginName(PluginIdentifier pluginIdentifier, PluginType type) {
+        switch (type) {
+            case SINK:
+                return sinkPluginInstance.get(pluginIdentifier);
+            case SOURCE:
+                return sourcePluginInstance.get(pluginIdentifier);
+            default:
+                throw new SeaTunnelException("Unsupported plugin type: " + type);
+        }
+    }
+
+    private Optional<URL> selectPluginJar(File[] targetPluginFiles, String targetPluginName) {
+        for (File file : targetPluginFiles) {
+            if (readPomPropertiesJudgeJar(file.getPath(), targetPluginName)) {
+                try {
+                    return Optional.of(file.toURI().toURL());
+                } catch (MalformedURLException e) {
+                    log.error("Invalid URL for file: {}", file.getAbsolutePath(), e);
                 }
             }
-            log.info("Discovery plugin jar for: {} at: {}", pluginIdentifier, pluginJarPath);
-            return Optional.of(pluginJarPath);
-        } catch (MalformedURLException e) {
-            log.warn(
-                    "Cannot get plugin URL: {} for pluginIdentifier: {}" + targetPluginFiles[0],
-                    pluginIdentifier,
-                    e);
-            return Optional.empty();
         }
+        return Optional.empty();
     }
 
     @SneakyThrows
