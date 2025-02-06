@@ -115,6 +115,13 @@ public class ServerConfigOptions {
                     .defaultValue(new CheckpointStorageConfig())
                     .withDescription("The checkpoint storage configuration.");
 
+    public static final Option<AllocateStrategy> SLOT_ALLOCATE_STRATEGY =
+            Options.key("slot-allocate-strategy")
+                    .enumType(AllocateStrategy.class)
+                    .defaultValue(AllocateStrategy.RANDOM)
+                    .withDescription(
+                            "When the strategy is SLOT_RATIO, the system allocates tasks based on the slot usage ratio, with priority given to workers with low usage rates; When the strategy is SYSTEM_LOAD, the system allocates tasks based on server load, with priority given to workers with lower load.");
+
     public static final Option<SlotServiceConfig> SLOT_SERVICE =
             Options.key("slot-service")
                     .type(new TypeReference<SlotServiceConfig>() {})

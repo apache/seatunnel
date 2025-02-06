@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.plugin.discovery;
+package org.apache.seatunnel.api.common;
 
 import org.apache.commons.lang3.StringUtils;
 
