@@ -230,10 +230,14 @@ public class StarRocksCatalog implements Catalog {
     public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists)
             throws TableNotExistException, CatalogException {
         try {
-            if (ignoreIfNotExists) {
-                conn.createStatement()
-                        .execute(StarRocksSaveModeUtil.INSTANCE.getTruncateTableSql(tablePath));
+            if (!tableExists(tablePath)) {
+                if (!ignoreIfNotExists) {
+                    throw new TableNotExistException(catalogName, tablePath);
+                }
+                return;
             }
+            conn.createStatement()
+                    .execute(StarRocksSaveModeUtil.INSTANCE.getTruncateTableSql(tablePath));
         } catch (Exception e) {
             throw new CatalogException(
                     String.format("Failed TRUNCATE TABLE in catalog %s", tablePath.getFullName()),

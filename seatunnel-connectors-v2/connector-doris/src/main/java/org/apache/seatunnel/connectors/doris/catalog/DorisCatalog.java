@@ -472,9 +472,13 @@ public class DorisCatalog implements Catalog {
     public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists)
             throws TableNotExistException, CatalogException {
         try {
-            if (ignoreIfNotExists) {
-                conn.createStatement().execute(DorisCatalogUtil.getTruncateTableQuery(tablePath));
+            if (!tableExists(tablePath)) {
+                if (!ignoreIfNotExists) {
+                    throw new TableNotExistException(catalogName, tablePath);
+                }
+                return;
             }
+            conn.createStatement().execute(DorisCatalogUtil.getTruncateTableQuery(tablePath));
         } catch (Exception e) {
             throw new CatalogException(
                     String.format("Failed TRUNCATE TABLE in catalog %s", tablePath.getFullName()),
