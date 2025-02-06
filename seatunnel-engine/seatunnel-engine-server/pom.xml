@@ -29,6 +29,10 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.github.oshi</groupId>
+            <artifactId>oshi-core</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-engine-core</artifactId>
             <version>${project.version}</version>

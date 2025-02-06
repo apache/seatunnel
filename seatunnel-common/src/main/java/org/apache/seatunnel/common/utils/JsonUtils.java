@@ -303,4 +303,13 @@ public class JsonUtils {
             }
         }
     }
+
+    public static boolean isJsonArray(String jsonString) {
+        try {
+            JsonNode jsonNode = OBJECT_MAPPER.readTree(jsonString);
+            return jsonNode.isArray();
+        } catch (Exception e) {
+            return false;
+        }
+    }
 }

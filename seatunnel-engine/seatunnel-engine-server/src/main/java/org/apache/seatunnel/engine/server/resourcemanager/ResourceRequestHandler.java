@@ -19,8 +19,10 @@ package org.apache.seatunnel.engine.server.resourcemanager;
 
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
+import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SlotAllocationStrategy;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.RequestSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
@@ -39,6 +41,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
 
@@ -63,17 +66,25 @@ public class ResourceRequestHandler {
 
     private final AbstractResourceManager resourceManager;
 
+    private final AllocateStrategy allocateStrategy;
+
+    private final SlotAllocationStrategy slotAllocationStrategy;
+
     public ResourceRequestHandler(
             long jobId,
             List<ResourceProfile> resourceProfile,
             ConcurrentMap<Address, WorkerProfile> registerWorker,
-            AbstractResourceManager resourceManager) {
+            AbstractResourceManager resourceManager,
+            SlotAllocationStrategy slotAllocationStrategy) {
         this.completableFuture = new CompletableFuture<>();
         this.resultSlotProfiles = new ConcurrentHashMap<>();
         this.jobId = jobId;
         this.resourceProfile = resourceProfile;
         this.registerWorker = registerWorker;
         this.resourceManager = resourceManager;
+        this.allocateStrategy =
+                resourceManager.getEngineConfig().getSlotServiceConfig().getAllocateStrategy();
+        this.slotAllocationStrategy = slotAllocationStrategy;
     }
 
     public CompletableFuture<List<SlotProfile>> request(Map<String, String> tags) {
@@ -145,6 +156,7 @@ public class ResourceRequestHandler {
     private List<CompletableFuture<SlotAndWorkerProfile>> requestSlots(
             List<ResourceProfile> requestProfile) {
         List<CompletableFuture<SlotAndWorkerProfile>> allRequestFuture = new ArrayList<>();
+
         for (int i = 0; i < requestProfile.size(); i++) {
             ResourceProfile r = requestProfile.get(i);
             Optional<WorkerProfile> workerProfile = preCheckWorkerResource(r);
@@ -208,12 +220,10 @@ public class ResourceRequestHandler {
 
     @VisibleForTesting
     public Optional<WorkerProfile> preCheckWorkerResource(ResourceProfile r) {
-        // Shuffle the order to ensure random selection of workers
         List<WorkerProfile> workerProfiles =
                 Arrays.asList(registerWorker.values().toArray(new WorkerProfile[0]));
-        Collections.shuffle(workerProfiles);
-        // Check if there are still unassigned slots
-        Optional<WorkerProfile> workerProfile =
+
+        List<WorkerProfile> availableWorkers =
                 workerProfiles.stream()
                         .filter(
                                 worker ->
@@ -222,10 +232,16 @@ public class ResourceRequestHandler {
                                                         slot ->
                                                                 slot.getResourceProfile()
                                                                         .enoughThan(r)))
-                        .findAny();
+                        .collect(Collectors.toList());
+
+        Optional<WorkerProfile> workerProfile =
+                slotAllocationStrategy.selectWorker(availableWorkers);
 
         if (!workerProfile.isPresent()) {
             // Check if there are still unassigned resources
+            if (allocateStrategy == AllocateStrategy.RANDOM) {
+                Collections.shuffle(workerProfiles);
+            }
             workerProfile =
                     workerProfiles.stream()
                             .filter(WorkerProfile::isDynamicSlot)

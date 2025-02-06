@@ -116,6 +116,18 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case ARRAY:
                 Class<?> elementTypeClass =
                         ((ArrayType<?, ?>) dataType).getElementType().getTypeClass();
+
+                if (((ArrayType<?, ?>) dataType).getElementType() instanceof MapType) {
+                    Object arrayMap =
+                            Array.newInstance(ArrayBasedMapData.class, ((Map[]) field).length);
+                    for (int i = 0; i < ((Map[]) field).length; i++) {
+                        Map<?, ?> value = (Map<?, ?>) ((Map[]) field)[i];
+                        MapType<?, ?> type =
+                                (MapType<?, ?>) ((ArrayType<?, ?>) dataType).getElementType();
+                        Array.set(arrayMap, i, convertMap(value, type));
+                    }
+                    return ArrayData.toArrayData(arrayMap);
+                }
                 // if string array, we need to covert every item in array from String to UTF8String
                 if (((ArrayType<?, ?>) dataType).getElementType().equals(BasicType.STRING_TYPE)) {
                     Object[] fields = (Object[]) field;

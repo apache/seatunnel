@@ -21,6 +21,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.common.PluginIdentifier;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SaveModeExecuteWrapper;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -29,12 +31,12 @@ import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.core.starter.execution.PluginUtil;
-import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 import org.apache.seatunnel.translation.spark.execution.DatasetTableInfo;
@@ -45,11 +47,14 @@ import org.apache.spark.sql.Row;
 
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
 import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_MODE_FAILED;
 
 public class SinkExecuteProcessor
@@ -91,6 +96,8 @@ public class SinkExecuteProcessor
         SeaTunnelSinkPluginDiscovery sinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery();
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         DatasetTableInfo input = upstreamDataStreams.get(upstreamDataStreams.size() - 1);
+        Function<PluginIdentifier, SeaTunnelSink> fallbackCreateSink =
+                sinkPluginDiscovery::createPluginInstance;
         for (int i = 0; i < plugins.size(); i++) {
             Config sinkConfig = pluginConfigs.get(i);
             DatasetTableInfo datasetTableInfo =
@@ -110,15 +117,25 @@ public class SinkExecuteProcessor
                                         CommonOptions.PARALLELISM.defaultValue());
             }
             dataset.sparkSession().read().option(CommonOptions.PARALLELISM.key(), parallelism);
-            Optional<? extends Factory> factory = plugins.get(i);
+            Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
+            datasetTableInfo.getCatalogTables().stream()
+                    .forEach(
+                            catalogTable -> {
+                                SeaTunnelSink<Object, Object, Object, Object> sink =
+                                        FactoryUtil.createAndPrepareSink(
+                                                catalogTable,
+                                                ReadonlyConfig.fromConfig(sinkConfig),
+                                                classLoader,
+                                                sinkConfig.getString(PLUGIN_NAME.key()),
+                                                fallbackCreateSink,
+                                                null);
+                                sink.setJobContext(jobContext);
+                                sinks.put(catalogTable.getTableId().toTablePath(), sink);
+                            });
+
             SeaTunnelSink sink =
-                    PluginUtil.createSink(
-                            factory,
-                            sinkConfig,
-                            sinkPluginDiscovery,
-                            jobContext,
-                            datasetTableInfo.getCatalogTables(),
-                            classLoader);
+                    tryGenerateMultiTableSink(
+                            sinks, ReadonlyConfig.fromConfig(sinkConfig), classLoader);
             // TODO modify checkpoint location
             handleSaveMode(sink);
             String applicationId =
@@ -132,28 +149,6 @@ public class SinkExecuteProcessor
         }
         // the sink is the last stream
         return null;
-    }
-
-    public boolean isFallback(Factory factory) {
-        try {
-            ((TableSinkFactory) factory).createSink(null);
-        } catch (Exception e) {
-            if (e instanceof UnsupportedOperationException
-                    && "The Factory has not been implemented and the deprecated Plugin will be used."
-                            .equals(e.getMessage())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public SeaTunnelSink fallbackCreateSink(
-            SeaTunnelSinkPluginDiscovery sinkPluginDiscovery,
-            PluginIdentifier pluginIdentifier,
-            Config pluginConfig) {
-        SeaTunnelSink source = sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
-        source.prepare(pluginConfig);
-        return source;
     }
 
     public void handleSaveMode(SeaTunnelSink sink) {

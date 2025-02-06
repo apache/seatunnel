@@ -17,61 +17,88 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator;
 
-import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.IcebergScanContext;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.IcebergScanSplitPlanner;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
 
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 
-import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Slf4j
 public class IcebergBatchSplitEnumerator extends AbstractSplitEnumerator {
 
-    private final IcebergScanContext icebergScanContext;
+    public IcebergBatchSplitEnumerator(
+            Context<IcebergFileScanTaskSplit> context,
+            SourceConfig sourceConfig,
+            Map<TablePath, CatalogTable> catalogTables,
+            Map<TablePath, Pair<Schema, Schema>> tableSchemaProjections) {
+        this(context, sourceConfig, catalogTables, tableSchemaProjections, null);
+    }
 
     public IcebergBatchSplitEnumerator(
-            @NonNull SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> context,
-            @NonNull IcebergScanContext icebergScanContext,
-            @NonNull SourceConfig sourceConfig,
-            IcebergSplitEnumeratorState restoreState,
-            CatalogTable catalogTable) {
-        super(
-                context,
-                sourceConfig,
-                restoreState != null ? restoreState.getPendingSplits() : Collections.emptyMap(),
-                catalogTable);
-        this.icebergScanContext = icebergScanContext;
+            Context<IcebergFileScanTaskSplit> context,
+            SourceConfig sourceConfig,
+            Map<TablePath, CatalogTable> catalogTables,
+            Map<TablePath, Pair<Schema, Schema>> tableSchemaProjections,
+            IcebergSplitEnumeratorState state) {
+        super(context, sourceConfig, catalogTables, tableSchemaProjections, state);
     }
 
     @Override
-    public void run() {
-        super.run();
-
+    public void run() throws Exception {
         Set<Integer> readers = context.registeredReaders();
+        while (!pendingTables.isEmpty()) {
+            synchronized (stateLock) {
+                checkThrowInterruptedException();
+
+                TablePath tablePath = pendingTables.poll();
+                log.info("Splitting table {}.", tablePath);
+
+                Collection<IcebergFileScanTaskSplit> splits = loadSplits(tablePath);
+                log.info("Split table {} into {} splits.", tablePath, splits.size());
+
+                addPendingSplits(splits);
+            }
+
+            synchronized (stateLock) {
+                assignPendingSplits(readers);
+            }
+        }
+
         log.debug(
                 "No more splits to assign." + " Sending NoMoreSplitsEvent to reader {}.", readers);
         readers.forEach(context::signalNoMoreSplits);
     }
 
     @Override
-    public IcebergSplitEnumeratorState snapshotState(long checkpointId) {
-        return new IcebergSplitEnumeratorState(null, pendingSplits);
+    public IcebergSplitEnumeratorState snapshotState(long checkpointId) throws Exception {
+        synchronized (stateLock) {
+            return new IcebergSplitEnumeratorState(
+                    new ArrayList<>(pendingTables), new HashMap<>(pendingSplits));
+        }
     }
 
-    @Override
-    public void handleSplitRequest(int subtaskId) {}
-
-    @Override
-    protected List<IcebergFileScanTaskSplit> loadNewSplits(Table table) {
-        return IcebergScanSplitPlanner.planSplits(table, icebergScanContext);
+    private List<IcebergFileScanTaskSplit> loadSplits(TablePath tablePath) {
+        Table table = loadTable(tablePath);
+        Pair<Schema, Schema> tableSchemaProjection = tableSchemaProjections.get(tablePath);
+        IcebergScanContext scanContext =
+                IcebergScanContext.scanContext(
+                        sourceConfig,
+                        sourceConfig.getTableConfig(tablePath),
+                        tableSchemaProjection.getRight());
+        return IcebergScanSplitPlanner.planSplits(table, scanContext);
     }
 }
