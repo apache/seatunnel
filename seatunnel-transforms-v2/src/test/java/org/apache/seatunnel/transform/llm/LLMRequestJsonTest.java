@@ -38,6 +38,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -233,6 +234,7 @@ public class LLMRequestJsonTest {
 
         Map<String, Object> resultMap = new HashMap<>();
         resultMap.put("model", "${model}");
+        resultMap.put("stream", false);
         resultMap.put("messages", messagesList);
 
         CustomModel model =
@@ -241,17 +243,16 @@ public class LLMRequestJsonTest {
                         SqlType.STRING,
                         null,
                         "Determine whether someone is Chinese or American by their name",
-                        "custom-model",
+                        "qwen:7b",
                         "http://localhost:11434/api/chat",
                         header,
                         resultMap,
-                        "{\"model\":\"${model}\",\"messages\":[{\"role\":\"system\",\"content\":\"${prompt}\"},{\"role\":\"user\",\"content\":\"${data}\"}]}");
-        ObjectNode node =
-                model.createJsonNodeFromData(
-                        "Determine whether someone is Chinese or American by their name",
-                        "{\"id\":1, \"name\":\"John\"}");
-        Assertions.assertEquals(
-                "{\"messages\":[{\"role\":\"system\",\"content\":\"Determine whether someone is Chinese or American by their name\"},{\"role\":\"user\",\"content\":\"{\\\"id\\\":1, \\\"name\\\":\\\"John\\\"}\"}],\"model\":\"custom-model\"}",
-                OBJECT_MAPPER.writeValueAsString(node));
+                        "$.message.content");
+
+        SeaTunnelRow row = new SeaTunnelRow(rowType.getFieldTypes().length);
+        row.setField(0, 1);
+        row.setField(1, "John");
+        List<String> successResult = model.inference(Collections.singletonList(row));
+        Assertions.assertFalse(successResult.isEmpty());
     }
 }
