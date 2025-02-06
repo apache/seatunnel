@@ -192,7 +192,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("HbaseSinkOptions");
         whiteList.add("MongodbSinkOptions");
         whiteList.add("IoTDBSinkOptions");
-        whiteList.add("ActivemqSinkOptions");
         whiteList.add("EasysearchSourceOptions");
         whiteList.add("RabbitmqSinkOptions");
         whiteList.add("StarRocksSourceOptions");
