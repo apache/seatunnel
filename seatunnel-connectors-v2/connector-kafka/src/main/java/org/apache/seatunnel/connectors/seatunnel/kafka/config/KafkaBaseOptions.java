@@ -50,15 +50,6 @@ public class KafkaBaseOptions {
                     .noDefaultValue()
                     .withDescription("Kafka cluster address, separated by \",\".");
 
-    public static final Option<String> TRANSACTION_PREFIX =
-            Options.key("transaction_prefix")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "If semantic is specified as EXACTLY_ONCE, the producer will write all messages in a Kafka transaction. "
-                                    + "Kafka distinguishes different transactions by different transactionId. "
-                                    + "This parameter is prefix of kafka transactionId, make sure different job use different prefix.");
-
     public static final Option<MessageFormat> FORMAT =
             Options.key("format")
                     .enumType(MessageFormat.class)
