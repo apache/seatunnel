@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.CommonOptions;
@@ -35,9 +36,10 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.constants.EngineType;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
-import org.apache.seatunnel.core.starter.execution.PluginUtil;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 import org.apache.seatunnel.translation.flink.sink.FlinkSink;
@@ -56,6 +58,7 @@ import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
 import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_MODE_FAILED;
+import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverOptionalFactory;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
 @Slf4j
@@ -77,14 +80,34 @@ public class SinkExecuteProcessor
                 new SeaTunnelFactoryDiscovery(TableSinkFactory.class, ADD_URL_TO_CLASSLOADER);
         SeaTunnelSinkPluginDiscovery sinkPluginDiscovery =
                 new SeaTunnelSinkPluginDiscovery(ADD_URL_TO_CLASSLOADER);
+        Function<String, TableSinkFactory> discoverOptionalFactoryFunction =
+                pluginName ->
+                        (TableSinkFactory)
+                                factoryDiscovery
+                                        .createOptionalPluginInstance(
+                                                PluginIdentifier.of(
+                                                        EngineType.SEATUNNEL.getEngine(),
+                                                        PluginType.SINK.getType(),
+                                                        pluginName))
+                                        .orElse(null);
+
         return pluginConfigs.stream()
                 .map(
-                        sinkConfig ->
-                                PluginUtil.createSinkFactory(
-                                        factoryDiscovery,
-                                        sinkPluginDiscovery,
-                                        sinkConfig,
-                                        jarPaths))
+                        sinkConfig -> {
+                            jarPaths.addAll(
+                                    sinkPluginDiscovery.getPluginJarPaths(
+                                            Lists.newArrayList(
+                                                    PluginIdentifier.of(
+                                                            EngineType.SEATUNNEL.getEngine(),
+                                                            PluginType.SINK.getType(),
+                                                            sinkConfig.getString(
+                                                                    PLUGIN_NAME.key())))));
+                            return discoverOptionalFactory(
+                                    classLoader,
+                                    TableSinkFactory.class,
+                                    sinkConfig.getString(PLUGIN_NAME.key()),
+                                    discoverOptionalFactoryFunction);
+                        })
                 .distinct()
                 .collect(Collectors.toList());
     }
@@ -95,7 +118,6 @@ public class SinkExecuteProcessor
         SeaTunnelSinkPluginDiscovery sinkPluginDiscovery =
                 new SeaTunnelSinkPluginDiscovery(ADD_URL_TO_CLASSLOADER);
         DataStreamTableInfo input = upstreamDataStreams.get(upstreamDataStreams.size() - 1);
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         Function<PluginIdentifier, SeaTunnelSink> fallbackCreateSink =
                 sinkPluginDiscovery::createPluginInstance;
         for (int i = 0; i < plugins.size(); i++) {

@@ -15,22 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.seatunnel;
+package org.apache.seatunnel.engine.server.resourcemanager.resource;
 
-import org.apache.seatunnel.common.constants.EngineType;
-import org.apache.seatunnel.core.starter.SeaTunnel;
-import org.apache.seatunnel.core.starter.exception.CommandException;
-import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
-import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-public class SeaTunnelClient {
-    public static void main(String[] args) throws CommandException {
-        ClientCommandArgs clientCommandArgs =
-                CommandLineUtils.parse(
-                        args,
-                        new ClientCommandArgs(),
-                        EngineType.SEATUNNEL.getStarterShellName(),
-                        true);
-        SeaTunnel.run(clientCommandArgs.buildCommand());
-    }
+/** Record resource usage */
+@Data
+@AllArgsConstructor
+public class SlotAssignedProfile {
+
+    /** Record the resource usage of a single slot */
+    private double singleSlotUseResource;
+
+    /** The number of slots currently assigned to the task. */
+    private Integer currentTaskAssignedSlotsNum;
+
+    /** The number of slots currently assigned to the worker. */
+    private Integer assignedSlotsNum;
 }

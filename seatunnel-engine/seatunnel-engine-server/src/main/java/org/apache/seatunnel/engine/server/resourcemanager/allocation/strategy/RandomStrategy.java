@@ -15,21 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.enums;
+package org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy;
 
-/** Plugin type enum */
-public enum PluginType {
-    SOURCE("source"),
-    TRANSFORM("transform"),
-    SINK("sink");
+import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
-    private final String type;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 
-    PluginType(String type) {
-        this.type = type;
-    }
+/** RandomStrategy is a strategy that selects the worker randomly. */
+public class RandomStrategy implements SlotAllocationStrategy {
 
-    public String getType() {
-        return type;
+    @Override
+    public Optional<WorkerProfile> selectWorker(List<WorkerProfile> availableWorkers) {
+        Collections.shuffle(availableWorkers);
+        return availableWorkers.stream().findFirst();
     }
 }

@@ -15,22 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.seatunnel;
+package org.apache.seatunnel.engine.server.resourcemanager.resource;
 
-import org.apache.seatunnel.common.constants.EngineType;
-import org.apache.seatunnel.core.starter.SeaTunnel;
-import org.apache.seatunnel.core.starter.exception.CommandException;
-import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
-import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-public class SeaTunnelClient {
-    public static void main(String[] args) throws CommandException {
-        ClientCommandArgs clientCommandArgs =
-                CommandLineUtils.parse(
-                        args,
-                        new ClientCommandArgs(),
-                        EngineType.SEATUNNEL.getStarterShellName(),
-                        true);
-        SeaTunnel.run(clientCommandArgs.buildCommand());
-    }
+import java.io.Serializable;
+
+@AllArgsConstructor
+@NoArgsConstructor
+@Data
+public class SystemLoadInfo implements Serializable {
+
+    private Double memPercentage;
+    private Double cpuPercentage;
 }

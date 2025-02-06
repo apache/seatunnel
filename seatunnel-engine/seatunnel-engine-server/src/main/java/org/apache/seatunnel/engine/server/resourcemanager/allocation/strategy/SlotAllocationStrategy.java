@@ -15,22 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.seatunnel;
+package org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy;
 
-import org.apache.seatunnel.common.constants.EngineType;
-import org.apache.seatunnel.core.starter.SeaTunnel;
-import org.apache.seatunnel.core.starter.exception.CommandException;
-import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
-import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
+import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
-public class SeaTunnelClient {
-    public static void main(String[] args) throws CommandException {
-        ClientCommandArgs clientCommandArgs =
-                CommandLineUtils.parse(
-                        args,
-                        new ClientCommandArgs(),
-                        EngineType.SEATUNNEL.getStarterShellName(),
-                        true);
-        SeaTunnel.run(clientCommandArgs.buildCommand());
-    }
+import java.util.List;
+import java.util.Optional;
+
+/** Slot allocation strategy interface. */
+public interface SlotAllocationStrategy {
+    Optional<WorkerProfile> selectWorker(List<WorkerProfile> availableWorkers);
 }
