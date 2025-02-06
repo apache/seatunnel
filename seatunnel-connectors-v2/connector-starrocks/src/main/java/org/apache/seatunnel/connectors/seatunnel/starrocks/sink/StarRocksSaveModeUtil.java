@@ -45,7 +45,9 @@ public class StarRocksSaveModeUtil extends CatalogUtil {
                 column.isNullable() ? "NULL" : "NOT NULL",
                 StringUtils.isEmpty(column.getComment())
                         ? ""
-                        : "COMMENT '" + column.getComment() + "'");
+                        : "COMMENT '"
+                                + column.getComment().replace("'", "''").replace("\\", "\\\\")
+                                + "'");
     }
 
     private static String dataTypeToStarrocksType(SeaTunnelDataType<?> dataType, long length) {

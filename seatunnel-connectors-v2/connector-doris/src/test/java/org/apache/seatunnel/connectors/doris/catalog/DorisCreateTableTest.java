@@ -60,7 +60,8 @@ public class DorisCreateTableTest {
         columns.add(
                 PhysicalColumn.of(
                         "age", BasicType.INT_TYPE, (Long) null, true, null, "test comment"));
-        columns.add(PhysicalColumn.of("score", BasicType.INT_TYPE, (Long) null, true, null, ""));
+        columns.add(
+                PhysicalColumn.of("score", BasicType.INT_TYPE, (Long) null, true, null, "'N'-N"));
         columns.add(PhysicalColumn.of("gender", BasicType.BYTE_TYPE, (Long) null, true, null, ""));
         columns.add(
                 PhysicalColumn.of("create_time", BasicType.LONG_TYPE, (Long) null, true, null, ""));
@@ -125,7 +126,7 @@ public class DorisCreateTableTest {
                 result,
                 "CREATE TABLE IF NOT EXISTS `test1`.`test2` (                                                                                                                                                   \n"
                         + "`id` BIGINT NULL ,`age` INT NULL COMMENT 'test comment'  ,       \n"
-                        + "`name` STRING NULL ,`score` INT NULL  , \n"
+                        + "`name` STRING NULL ,`score` INT NULL COMMENT '''N''-N' , \n"
                         + "`create_time` DATETIME NOT NULL ,  \n"
                         + "`gender` TINYINT NULL   \n"
                         + ") ENGINE=OLAP  \n"
