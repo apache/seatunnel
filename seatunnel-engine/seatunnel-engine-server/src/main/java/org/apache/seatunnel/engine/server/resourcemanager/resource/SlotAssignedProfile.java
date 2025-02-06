@@ -15,26 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.config.server;
+package org.apache.seatunnel.engine.server.resourcemanager.resource;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
-import java.io.Serializable;
-
-import static com.hazelcast.internal.util.Preconditions.checkPositive;
-
+/** Record resource usage */
 @Data
-public class SlotServiceConfig implements Serializable {
+@AllArgsConstructor
+public class SlotAssignedProfile {
 
-    private AllocateStrategy allocateStrategy =
-            ServerConfigOptions.SLOT_ALLOCATE_STRATEGY.defaultValue();
+    /** Record the resource usage of a single slot */
+    private double singleSlotUseResource;
 
-    private boolean dynamicSlot = ServerConfigOptions.DYNAMIC_SLOT.defaultValue();
+    /** The number of slots currently assigned to the task. */
+    private Integer currentTaskAssignedSlotsNum;
 
-    private int slotNum = ServerConfigOptions.SLOT_NUM.defaultValue();
-
-    public void setSlotNum(int slotNum) {
-        checkPositive(slotNum, ServerConfigOptions.SLOT_NUM + " must be > 0");
-        this.slotNum = slotNum;
-    }
+    /** The number of slots currently assigned to the worker. */
+    private Integer assignedSlotsNum;
 }

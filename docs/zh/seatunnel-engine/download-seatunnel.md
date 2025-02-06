@@ -20,7 +20,7 @@ import TabItem from '@theme/TabItem';
 或者您也可以通过终端下载
 
 ```shell
-export version="2.3.9"
+export version="2.3.10"
 wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${version}-bin.tar.gz"
 tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 ```
@@ -30,13 +30,13 @@ tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 从2.2.0-beta版本开始，二进制包不再默认提供连接器依赖，因此在第一次使用它时，您需要执行以下命令来安装连接器：(当然，您也可以从 [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/) 手动下载连接器，然后将其移动至`connectors/seatunnel`目录下)。
 
 ```bash
-sh bin/install-plugin.sh 2.3.9
+sh bin/install-plugin.sh 2.3.10
 ```
 
-如果您需要指定的连接器版本，以2.3.9为例，您需要执行如下命令
+如果您需要指定的连接器版本，以2.3.10为例，您需要执行如下命令
 
 ```bash
-sh bin/install-plugin.sh 2.3.9
+sh bin/install-plugin.sh 2.3.10
 ```
 
 通常您并不需要所有的连接器插件，所以您可以通过配置`config/plugin_config`来指定您所需要的插件，例如，您只需要`connector-console`插件，那么您可以修改plugin.properties配置文件如下

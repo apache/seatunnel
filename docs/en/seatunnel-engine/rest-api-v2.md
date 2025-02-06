@@ -54,7 +54,7 @@ seatunnel:
 
 ```json
 {
-    "projectVersion":"2.3.5-SNAPSHOT",
+    "projectVersion":"2.3.10-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",

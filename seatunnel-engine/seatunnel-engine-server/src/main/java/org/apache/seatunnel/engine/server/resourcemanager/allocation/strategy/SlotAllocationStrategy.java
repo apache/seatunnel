@@ -15,26 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.config.server;
+package org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy;
 
-import lombok.Data;
+import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
-import java.io.Serializable;
+import java.util.List;
+import java.util.Optional;
 
-import static com.hazelcast.internal.util.Preconditions.checkPositive;
-
-@Data
-public class SlotServiceConfig implements Serializable {
-
-    private AllocateStrategy allocateStrategy =
-            ServerConfigOptions.SLOT_ALLOCATE_STRATEGY.defaultValue();
-
-    private boolean dynamicSlot = ServerConfigOptions.DYNAMIC_SLOT.defaultValue();
-
-    private int slotNum = ServerConfigOptions.SLOT_NUM.defaultValue();
-
-    public void setSlotNum(int slotNum) {
-        checkPositive(slotNum, ServerConfigOptions.SLOT_NUM + " must be > 0");
-        this.slotNum = slotNum;
-    }
+/** Slot allocation strategy interface. */
+public interface SlotAllocationStrategy {
+    Optional<WorkerProfile> selectWorker(List<WorkerProfile> availableWorkers);
 }

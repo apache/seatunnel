@@ -15,26 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.config.server;
+package org.apache.seatunnel.engine.server.resourcemanager.resource;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 
-import static com.hazelcast.internal.util.Preconditions.checkPositive;
-
+@AllArgsConstructor
+@NoArgsConstructor
 @Data
-public class SlotServiceConfig implements Serializable {
+public class SystemLoadInfo implements Serializable {
 
-    private AllocateStrategy allocateStrategy =
-            ServerConfigOptions.SLOT_ALLOCATE_STRATEGY.defaultValue();
-
-    private boolean dynamicSlot = ServerConfigOptions.DYNAMIC_SLOT.defaultValue();
-
-    private int slotNum = ServerConfigOptions.SLOT_NUM.defaultValue();
-
-    public void setSlotNum(int slotNum) {
-        checkPositive(slotNum, ServerConfigOptions.SLOT_NUM + " must be > 0");
-        this.slotNum = slotNum;
-    }
+    private Double memPercentage;
+    private Double cpuPercentage;
 }
