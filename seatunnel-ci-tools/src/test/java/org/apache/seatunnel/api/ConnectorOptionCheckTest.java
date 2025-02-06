@@ -187,7 +187,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("TDengineSourceOptions");
         whiteList.add("PulsarSourceOptions");
         whiteList.add("RedisSinkOptions");
-        whiteList.add("DruidSinkOptions");
         whiteList.add("FakeSourceOptions");
         whiteList.add("HbaseSinkOptions");
         whiteList.add("MongodbSinkOptions");
