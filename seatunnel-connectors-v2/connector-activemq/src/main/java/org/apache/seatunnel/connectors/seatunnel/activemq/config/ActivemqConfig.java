@@ -17,17 +17,20 @@
 
 package org.apache.seatunnel.connectors.seatunnel.activemq.config;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.io.Serializable;
+import java.util.Map;
 
 @Setter
 @Getter
@@ -51,7 +54,7 @@ public class ActivemqConfig implements Serializable {
     private Boolean alwaysSyncSend;
     private Integer warnAboutUnstartedConnectionTimeout;
     private boolean usesCorrelationId = false;
-    private Config schema;
+    private Map<String, Object> schema;
     private String format;
     private String fieldDelimiter;
 
@@ -185,9 +188,9 @@ public class ActivemqConfig implements Serializable {
                             "Whether the messages received are supplied with a unique"
                                     + "id to deduplicate messages (in case of failed acknowledgments).");
 
-    public static final Option<Config> SCHEMA =
+    public static final Option<Map<String, Object>> SCHEMA =
             Options.key("schema")
-                    .objectType(Config.class)
+                    .type(new TypeReference<Map<String, Object>>() {})
                     .noDefaultValue()
                     .withDescription(
                             "The structure of the data, including field names and field types.");
@@ -206,65 +209,42 @@ public class ActivemqConfig implements Serializable {
                     .defaultValue(",")
                     .withDescription("Customize the field delimiter for data format.");
 
-    public ActivemqConfig(Config config) {
-        this.queueName = config.getString(QUEUE_NAME.key());
-        this.uri = config.getString(URI.key());
-        if (config.hasPath(USERNAME.key())) {
-            this.username = config.getString(USERNAME.key());
-        }
-        if (config.hasPath(PASSWORD.key())) {
-            this.password = config.getString(PASSWORD.key());
-        }
-        if (config.hasPath(CHECK_FOR_DUPLICATE.key())) {
-            this.checkForDuplicate = config.getBoolean(CHECK_FOR_DUPLICATE.key());
-        }
-        if (config.hasPath(CLIENT_ID.key())) {
-            this.clientID = config.getString(CLIENT_ID.key());
-        }
-        if (config.hasPath(COPY_MESSAGE_ON_SEND.key())) {
-            this.copyMessageOnSend = config.getBoolean(COPY_MESSAGE_ON_SEND.key());
-        }
-        if (config.hasPath(DISABLE_TIMESTAMP_BY_DEFAULT.key())) {
-            this.disableTimeStampsByDefault = config.getBoolean(DISABLE_TIMESTAMP_BY_DEFAULT.key());
-        }
-        if (config.hasPath(USE_COMPRESSION.key())) {
-            this.useCompression = config.getBoolean(USE_COMPRESSION.key());
-        }
-        if (config.hasPath(ALWAYS_SESSION_ASYNC.key())) {
-            this.alwaysSessionAsync = config.getBoolean(ALWAYS_SESSION_ASYNC.key());
-        }
-        if (config.hasPath(ALWAYS_SYNC_SEND.key())) {
-            this.alwaysSyncSend = config.getBoolean(ALWAYS_SYNC_SEND.key());
-        }
-        if (config.hasPath(CLOSE_TIMEOUT.key())) {
-            this.closeTimeout = config.getInt(CLOSE_TIMEOUT.key());
-        }
-        if (config.hasPath(DISPATCH_ASYNC.key())) {
-            this.dispatchAsync = config.getBoolean(DISPATCH_ASYNC.key());
-        }
-        if (config.hasPath(NESTED_MAP_AND_LIST_ENABLED.key())) {
-            this.nestedMapAndListEnabled = config.getBoolean(NESTED_MAP_AND_LIST_ENABLED.key());
-        }
-        if (config.hasPath(WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT.key())) {
-            this.warnAboutUnstartedConnectionTimeout =
-                    config.getInt(WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT.key());
-        }
-        if (config.hasPath(USE_CORRELATION_ID.key())) {
-            this.usesCorrelationId = config.getBoolean(USE_CORRELATION_ID.key());
-        }
-        if (config.hasPath(CONSUMER_EXPIRY_CHECK_ENABLED.key())) {
-            this.consumerExpiryCheckEnabled =
-                    config.getBoolean(CONSUMER_EXPIRY_CHECK_ENABLED.key());
-        }
-        if (config.hasPath(SCHEMA.key())) {
-            this.schema = config.getConfig(SCHEMA.key());
-        }
-        if (config.hasPath(FORMAT.key())) {
-            this.format = config.getString(FORMAT.key());
-        }
-        if (config.hasPath(FIELD_DELIMITER.key())) {
-            this.fieldDelimiter = config.getString(FIELD_DELIMITER.key());
-        }
+    public static ActivemqConfig of(Config pluginConfig) {
+        return of(ReadonlyConfig.fromConfig(pluginConfig));
+    }
+
+    public static ActivemqConfig of(ReadonlyConfig config) {
+
+        ActivemqConfig activemqConfig = new ActivemqConfig();
+
+        // common option
+        activemqConfig.setUsername(config.get(USERNAME));
+        activemqConfig.setPassword(config.get(PASSWORD));
+        activemqConfig.setQueueName(config.get(QUEUE_NAME));
+        activemqConfig.setUri(config.get(URI));
+        activemqConfig.setCheckForDuplicate(config.get(CHECK_FOR_DUPLICATE));
+        activemqConfig.setClientID(config.get(CLIENT_ID));
+        activemqConfig.setCloseTimeout(config.get(CLOSE_TIMEOUT));
+        activemqConfig.setDisableTimeStampsByDefault(config.get(DISABLE_TIMESTAMP_BY_DEFAULT));
+        activemqConfig.setWarnAboutUnstartedConnectionTimeout(
+                config.get(WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT));
+
+        // sink option
+        activemqConfig.setAlwaysSessionAsync(config.get(ALWAYS_SESSION_ASYNC));
+        activemqConfig.setAlwaysSyncSend(config.get(ALWAYS_SYNC_SEND));
+        activemqConfig.setConsumerExpiryCheckEnabled(config.get(CONSUMER_EXPIRY_CHECK_ENABLED));
+        activemqConfig.setCopyMessageOnSend(config.get(COPY_MESSAGE_ON_SEND));
+        activemqConfig.setNestedMapAndListEnabled(config.get(NESTED_MAP_AND_LIST_ENABLED));
+        activemqConfig.setUseCompression(config.get(USE_COMPRESSION));
+
+        // source option
+        activemqConfig.setUsesCorrelationId(config.get(USE_CORRELATION_ID));
+        activemqConfig.setSchema(config.get(SCHEMA));
+        activemqConfig.setFormat(config.get(FORMAT));
+        activemqConfig.setFieldDelimiter(config.get(FIELD_DELIMITER));
+        activemqConfig.setDispatchAsync(config.get(DISPATCH_ASYNC));
+
+        return activemqConfig;
     }
 
     @VisibleForTesting

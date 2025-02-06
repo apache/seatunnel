@@ -17,11 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.activemq.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -30,18 +27,13 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig;
 import org.apache.seatunnel.connectors.seatunnel.activemq.config.SchemaFormat;
-import org.apache.seatunnel.connectors.seatunnel.activemq.exception.ActivemqConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.activemq.split.ActivemqSplit;
 import org.apache.seatunnel.connectors.seatunnel.activemq.split.ActivemqSplitEnumeratorState;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
@@ -52,9 +44,7 @@ import com.google.auto.service.AutoService;
 
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.FORMAT;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.QUEUE_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.SCHEMA;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.URI;
 
 @AutoService(SeaTunnelSource.class)
 public class ActivemqSource
@@ -81,20 +71,9 @@ public class ActivemqSource
         return "ActiveMQ";
     }
 
-    @Override
-    public void prepare(Config config) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        config, URI.key(), QUEUE_NAME.key(), TableSchemaOptions.SCHEMA.key());
-        if (!result.isSuccess()) {
-            throw new ActivemqConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
-        this.activemqConfig = new ActivemqConfig(config);
-        this.catalogTable = CatalogTableUtil.buildWithConfig(config);
+    public ActivemqSource(ReadonlyConfig config, CatalogTable catalogTable) {
+        this.activemqConfig = ActivemqConfig.of(config);
+        this.catalogTable = catalogTable;
         this.typeInfo = catalogTable.getSeaTunnelRowType();
         setDeserialization(config);
     }
@@ -129,11 +108,11 @@ public class ActivemqSource
         this.jobContext = jobContext;
     }
 
-    private void setDeserialization(Config config) {
-        if (config.hasPath(SCHEMA.key())) {
+    private void setDeserialization(ReadonlyConfig config) {
+        if (config.getOptional(SCHEMA).isPresent()) {
             SchemaFormat format = SchemaFormat.JSON;
-            if (config.hasPath(FORMAT.key())) {
-                format = SchemaFormat.find(config.getString(FORMAT.key()));
+            if (config.getOptional(FORMAT).isPresent()) {
+                format = SchemaFormat.find(config.get(FORMAT));
             }
             switch (format) {
                 case JSON:
@@ -142,8 +121,8 @@ public class ActivemqSource
                     break;
                 case TEXT:
                     String delimiter = DEFAULT_FIELD_DELIMITER;
-                    if (config.hasPath(FIELD_DELIMITER.key())) {
-                        delimiter = config.getString(FIELD_DELIMITER.key());
+                    if (config.getOptional(FIELD_DELIMITER).isPresent()) {
+                        delimiter = config.get(FIELD_DELIMITER);
                     }
                     deserializationSchema =
                             TextDeserializationSchema.builder()
