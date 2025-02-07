@@ -195,7 +195,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("EasysearchSourceOptions");
         whiteList.add("RabbitmqSinkOptions");
         whiteList.add("StarRocksSourceOptions");
-        whiteList.add("AmazonSqsSinkOptions");
         whiteList.add("IcebergSourceOptions");
         whiteList.add("HbaseSourceOptions");
         whiteList.add("PaimonSourceOptions");
