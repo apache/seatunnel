@@ -26,6 +26,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.PartitionConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.format.csv.constant.CsvStringQuoteMode;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -85,6 +86,9 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
 
     private List<String> parquetAvroWriteFixedAsInt96 =
             BaseSinkConfig.PARQUET_AVRO_WRITE_FIXED_AS_INT96.defaultValue();
+
+    private CsvStringQuoteMode csvStringQuoteMode =
+            BaseSinkConfig.CSV_STRING_QUOTE_MODE.defaultValue();
 
     public FileSinkConfig(@NonNull Config config, @NonNull SeaTunnelRowType seaTunnelRowTypeInfo) {
         super(config);
@@ -237,6 +241,16 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
                 this.parquetAvroWriteFixedAsInt96 =
                         config.getStringList(
                                 BaseSinkConfig.PARQUET_AVRO_WRITE_FIXED_AS_INT96.key());
+            }
+        }
+
+        if (FileFormat.CSV
+                .name()
+                .equalsIgnoreCase(config.getString(BaseSinkConfig.FILE_FORMAT_TYPE.key()))) {
+            if (config.hasPath(BaseSinkConfig.CSV_STRING_QUOTE_MODE.key())) {
+                this.csvStringQuoteMode =
+                        CsvStringQuoteMode.valueOf(
+                                config.getString(BaseSinkConfig.CSV_STRING_QUOTE_MODE.key()));
             }
         }
     }
