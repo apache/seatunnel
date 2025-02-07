@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.activemq.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
@@ -24,7 +25,6 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.connectors.seatunnel.activemq.client.ActivemqClient;
-import org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig;
 import org.apache.seatunnel.connectors.seatunnel.activemq.exception.ActivemqConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.activemq.exception.ActivemqConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.activemq.split.ActivemqSplit;
@@ -47,6 +47,8 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqOptions.QUEUE_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.USE_CORRELATION_ID;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.exception.ActivemqConnectorErrorCode.HANDLE_SHUTDOWN_SIGNAL_FAILED;
 
 @Slf4j
@@ -54,19 +56,18 @@ public class ActivemqSourceReader<T> implements SourceReader<T, ActivemqSplit> {
     protected final Handover<Message> handover;
     protected final Context context;
     protected final MessageConsumer consumer;
-    private final boolean usesCorrelationId;
     protected transient Set<String> correlationIdsProcessedButNotAcknowledged;
     protected transient List<String> massageIdsProcessedForCurrentSnapshot;
     protected final SortedMap<Long, List<String>> pendingMassageIdsToCommit;
     protected final SortedMap<Long, Set<String>> pendingCorrelationIdsToCommit;
     private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private ActivemqClient activemqClient;
-    private final ActivemqConfig config;
+    private final ReadonlyConfig config;
 
     public ActivemqSourceReader(
             DeserializationSchema<SeaTunnelRow> deserializationSchema,
             Context context,
-            ActivemqConfig config) {
+            ReadonlyConfig config) {
         this.handover = new Handover<>();
         this.pendingMassageIdsToCommit = Collections.synchronizedSortedMap(new TreeMap<>());
         this.pendingCorrelationIdsToCommit = Collections.synchronizedSortedMap(new TreeMap<>());
@@ -75,7 +76,6 @@ public class ActivemqSourceReader<T> implements SourceReader<T, ActivemqSplit> {
         this.config = config;
         this.activemqClient = new ActivemqClient(config);
         this.consumer = activemqClient.getConsumer();
-        this.usesCorrelationId = config.isUsesCorrelationId();
     }
 
     @Override
@@ -94,7 +94,7 @@ public class ActivemqSourceReader<T> implements SourceReader<T, ActivemqSplit> {
             throw new ActivemqConnectorException(
                     ActivemqConnectorErrorCode.CLOSE_SESSION_FAILED,
                     String.format(
-                            "Error while closing AMQ session with  %s", config.getQueueName()));
+                            "Error while closing AMQ session with  %s", config.get(QUEUE_NAME)));
         }
         if (activemqClient != null) {
             activemqClient.close();
@@ -190,7 +190,7 @@ public class ActivemqSourceReader<T> implements SourceReader<T, ActivemqSplit> {
     }
 
     public boolean verifyMessageIdentifier(String correlationId) {
-        if (usesCorrelationId && correlationId != null) {
+        if (config.get(USE_CORRELATION_ID) && correlationId != null) {
             if (!correlationIdsProcessedButNotAcknowledged.add(correlationId)) {
                 return false;
             }

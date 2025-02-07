@@ -32,7 +32,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig;
 import org.apache.seatunnel.connectors.seatunnel.activemq.config.SchemaFormat;
 import org.apache.seatunnel.connectors.seatunnel.activemq.split.ActivemqSplit;
 import org.apache.seatunnel.connectors.seatunnel.activemq.split.ActivemqSplitEnumeratorState;
@@ -42,9 +41,10 @@ import org.apache.seatunnel.format.text.TextDeserializationSchema;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.FIELD_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.FORMAT;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.SCHEMA;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.DEFAULT_FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.SCHEMA;
 
 @AutoService(SeaTunnelSource.class)
 public class ActivemqSource
@@ -53,14 +53,12 @@ public class ActivemqSource
 
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private JobContext jobContext;
-    private ActivemqConfig activemqConfig;
+    private ReadonlyConfig config;
     private SeaTunnelRowType typeInfo;
     private CatalogTable catalogTable;
 
-    public static final String DEFAULT_FIELD_DELIMITER = ",";
-
     public ActivemqSource(ReadonlyConfig config, CatalogTable catalogTable) {
-        this.activemqConfig = ActivemqConfig.of(config);
+        this.config = config;
         this.catalogTable = catalogTable;
         this.typeInfo = catalogTable.getSeaTunnelRowType();
         setDeserialization(config);
@@ -86,7 +84,7 @@ public class ActivemqSource
     @Override
     public SourceReader<SeaTunnelRow, ActivemqSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
-        return new ActivemqSourceReader(deserializationSchema, readerContext, activemqConfig);
+        return new ActivemqSourceReader(deserializationSchema, readerContext, config);
     }
 
     @Override

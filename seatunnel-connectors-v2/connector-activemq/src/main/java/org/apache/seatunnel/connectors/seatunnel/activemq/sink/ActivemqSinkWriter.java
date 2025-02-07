@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.activemq.client.ActivemqClient;
-import org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
@@ -34,7 +33,7 @@ public class ActivemqSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private final SerializationSchema serializationSchema;
 
     public ActivemqSinkWriter(ReadonlyConfig config, SeaTunnelRowType seaTunnelRowType) {
-        this.activeMQClient = new ActivemqClient(ActivemqConfig.of(config));
+        this.activeMQClient = new ActivemqClient(config);
         this.serializationSchema = new JsonSerializationSchema(seaTunnelRowType);
     }
 

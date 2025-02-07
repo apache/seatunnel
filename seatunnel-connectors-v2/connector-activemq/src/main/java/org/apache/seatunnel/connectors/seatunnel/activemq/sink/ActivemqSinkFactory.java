@@ -25,21 +25,21 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.ALWAYS_SESSION_ASYNC;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.ALWAYS_SYNC_SEND;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.CHECK_FOR_DUPLICATE;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.CLIENT_ID;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.CLOSE_TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.COPY_MESSAGE_ON_SEND;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.DISABLE_TIMESTAMP_BY_DEFAULT;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.DISPATCH_ASYNC;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.NESTED_MAP_AND_LIST_ENABLED;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.QUEUE_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.URI;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.USE_COMPRESSION;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqOptions.CHECK_FOR_DUPLICATE;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqOptions.CLIENT_ID;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqOptions.CLOSE_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqOptions.DISABLE_TIMESTAMP_BY_DEFAULT;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqOptions.QUEUE_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqOptions.URI;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqOptions.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqOptions.WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.ALWAYS_SESSION_ASYNC;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.ALWAYS_SYNC_SEND;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.COPY_MESSAGE_ON_SEND;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.NESTED_MAP_AND_LIST_ENABLED;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.USE_COMPRESSION;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.DISPATCH_ASYNC;
 
 @AutoService(Factory.class)
 public class ActivemqSinkFactory implements TableSinkFactory {
