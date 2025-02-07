@@ -15,21 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.enums;
+package org.apache.seatunnel.format.csv.constant;
 
-/** Plugin type enum */
-public enum PluginType {
-    SOURCE("source"),
-    TRANSFORM("transform"),
-    SINK("sink");
+import java.io.Serializable;
 
-    private final String type;
+/** @see org.apache.commons.csv.QuoteMode */
+public enum CsvStringQuoteMode implements Serializable {
+    /** Quotes all fields. */
+    ALL,
 
-    PluginType(String type) {
-        this.type = type;
-    }
+    /**
+     * Quotes fields which contain special characters such as a the field delimiter, quote character
+     * or any of the characters in the line separator string.
+     */
+    MINIMAL,
 
-    public String getType() {
-        return type;
-    }
+    /**
+     * Never quotes fields. When the delimiter occurs in data, the printer prefixes it with the
+     * escape character. If the escape character is not set, format validation throws an exception.
+     */
+    NONE
 }

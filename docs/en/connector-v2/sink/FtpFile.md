@@ -58,6 +58,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | common-options                        | object  | no       | -                                          |                                                                                                                                                                        |
 | max_rows_in_memory                    | int     | no       | -                                          | Only used when file_format_type is excel.                                                                                                                              |
 | sheet_name                            | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                                                                                              |
+| csv_string_quote_mode                 | enum    | no       | MINIMAL                                    | Only used when file_format is csv.                                                                                                                                     |
 | xml_root_tag                          | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                                                                     |
 | xml_row_tag                           | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                                                                                     |
 | xml_use_attr_format                   | boolean | no       | -                                          | Only used when file_format is xml.                                                                                                                                     |
@@ -207,6 +208,14 @@ When File Format is Excel,The maximum number of data items that can be cached in
 
 Writer the sheet of the workbook
 
+### csv_string_quote_mode [string]
+
+When File Format is CSV,The string quote mode of CSV.
+
+- ALL: All String fields will be quoted.
+- MINIMAL: Quotes fields which contain special characters such as a the field delimiter, quote character or any of the characters in the line separator string.
+- NONE: Never quotes fields. When the delimiter occurs in data, the printer prefixes it with the escape character. If the escape character is not set, format validation throws an exception.
+
 ### xml_root_tag [string]
 
 Specifies the tag name of the root element within the XML file.
@@ -237,17 +246,22 @@ Only used when file_format_type is json,text,csv,xml.
 The encoding of the file to write. This param will be parsed by `Charset.forName(encoding)`.
 
 ### schema_save_mode [string]
+
 Existing dir processing method.
+
 - RECREATE_SCHEMA: will create when the dir does not exist, delete and recreate when the dir is exist
 - CREATE_SCHEMA_WHEN_NOT_EXIST: will create when the dir does not exist, skipped when the dir is exist
 - ERROR_WHEN_SCHEMA_NOT_EXIST: error will be reported when the dir does not exist
 - IGNORE ：Ignore the treatment of the table
 
 ### data_save_mode [string]
+
 Existing data processing method.
+
 - DROP_DATA: preserve dir and delete data files
 - APPEND_DATA: preserve dir, preserve data files
 - ERROR_WHEN_DATA_EXISTS: when there is data files, an error is reported
+
 ## Example
 
 For text file format simple config

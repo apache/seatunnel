@@ -197,7 +197,7 @@ sink {
     HdfsFile {
       fs.defaultFS = "hdfs://hadoopcluster"
       path = "/tmp/hive/warehouse/test2"
-      file_format = "orc"
+      file_format_type = "orc"
     }
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
   # please go to https://seatunnel.apache.org/docs/connector-v2/sink
