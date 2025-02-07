@@ -30,6 +30,8 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.common.Constants;
+import org.apache.seatunnel.common.constants.EngineType;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.core.starter.execution.SourceTableInfo;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
@@ -52,11 +54,10 @@ import java.util.function.Function;
 
 import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
 import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_OUTPUT;
-import static org.apache.seatunnel.core.starter.execution.PluginUtil.ensureJobModeMatch;
+import static org.apache.seatunnel.api.table.factory.FactoryUtil.ensureJobModeMatch;
 
 @SuppressWarnings("rawtypes")
 public class SourceExecuteProcessor extends SparkAbstractPluginExecuteProcessor<SourceTableInfo> {
-    private static final String PLUGIN_TYPE = "source";
     private Map envOption = new HashMap<String, String>();
 
     public SourceExecuteProcessor(
@@ -124,13 +125,15 @@ public class SourceExecuteProcessor extends SparkAbstractPluginExecuteProcessor<
         for (Config sourceConfig : pluginConfigs) {
             PluginIdentifier pluginIdentifier =
                     PluginIdentifier.of(
-                            ENGINE_TYPE, PLUGIN_TYPE, sourceConfig.getString(PLUGIN_NAME.key()));
+                            EngineType.SEATUNNEL.getEngine(),
+                            PluginType.SOURCE.getType(),
+                            sourceConfig.getString(PLUGIN_NAME.key()));
             jars.addAll(
                     sourcePluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
             Tuple2<SeaTunnelSource<Object, SourceSplit, Serializable>, List<CatalogTable>> source =
                     FactoryUtil.createAndPrepareSource(
                             ReadonlyConfig.fromConfig(sourceConfig),
-                            Thread.currentThread().getContextClassLoader(),
+                            classLoader,
                             pluginIdentifier.getPluginName(),
                             fallbackCreateSource,
                             null);

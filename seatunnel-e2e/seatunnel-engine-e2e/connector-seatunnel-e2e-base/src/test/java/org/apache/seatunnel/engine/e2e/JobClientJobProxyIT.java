@@ -60,7 +60,8 @@ public class JobClientJobProxyIT extends SeaTunnelEngineContainer {
         Assertions.assertTrue(
                 server.getLogs()
                         .contains(
-                                "Restore time 3, pipeline Job stream_fake_to_inmemory_with_error.conf"));
+                                "Restore time 3, pipeline Job stream_fake_to_inmemory_with_error.conf"),
+                server.getLogs());
     }
 
     @Test
@@ -77,14 +78,16 @@ public class JobClientJobProxyIT extends SeaTunnelEngineContainer {
         Container.ExecResult execResult =
                 executeJob(server, "/stream_fake_to_inmemory_with_throwable_error.conf");
         Assertions.assertNotEquals(0, execResult.getExitCode());
-        Assertions.assertTrue(execResult.getStderr().contains("table fake sink throw error"));
+        Assertions.assertTrue(
+                execResult.getStderr().contains("table fake sink throw error"),
+                execResult.getStderr());
     }
 
     @Test
     public void testSaveModeOnMasterOrClient() throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 executeJob(server, "/savemode/fake_to_inmemory_savemode.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         int serverLogLength = 0;
         String serverLogs = server.getLogs();
         Assertions.assertTrue(
@@ -101,8 +104,8 @@ public class JobClientJobProxyIT extends SeaTunnelEngineContainer {
                         "org.apache.seatunnel.e2e.sink.inmemory.InMemorySaveModeHandler - handle data savemode with table path: test.table2"));
 
         // restore will not execute savemode
-        execResult = restoreJob(server, "/savemode/fake_to_inmemory_savemode.conf", "1");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        execResult = restoreJob(server, "/savemode/fake_to_inmemory_savemode.conf", "1", null);
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         // clear old logs
         serverLogLength += serverLogs.length();
         serverLogs = server.getLogs().substring(serverLogLength);
@@ -112,7 +115,7 @@ public class JobClientJobProxyIT extends SeaTunnelEngineContainer {
         // test savemode on client side
         Container.ExecResult execResult2 =
                 executeJob(server, "/savemode/fake_to_inmemory_savemode_client.conf");
-        Assertions.assertEquals(0, execResult2.getExitCode());
+        Assertions.assertEquals(0, execResult2.getExitCode(), execResult2.getStderr());
         // clear old logs
         serverLogLength += serverLogs.length();
         serverLogs = server.getLogs().substring(serverLogLength);

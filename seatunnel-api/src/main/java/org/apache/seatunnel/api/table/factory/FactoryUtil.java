@@ -18,6 +18,7 @@
 package org.apache.seatunnel.api.table.factory;
 
 import org.apache.seatunnel.api.common.CommonOptions;
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
@@ -37,6 +38,9 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.common.constants.EngineType;
+import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 
 import org.slf4j.Logger;
@@ -106,7 +110,10 @@ public final class FactoryUtil {
             if (fallback) {
                 source =
                         fallbackCreateSource.apply(
-                                PluginIdentifier.of("seatunnel", "source", factoryId));
+                                PluginIdentifier.of(
+                                        EngineType.SEATUNNEL.getEngine(),
+                                        PluginType.SOURCE.getType(),
+                                        factoryId));
                 source.prepare(options.toConfig());
 
             } else {
@@ -205,7 +212,10 @@ public final class FactoryUtil {
             if (fallback) {
                 SeaTunnelSink sink =
                         fallbackCreateSink.apply(
-                                PluginIdentifier.of("seatunnel", "sink", factoryId));
+                                PluginIdentifier.of(
+                                        EngineType.SEATUNNEL.getEngine(),
+                                        PluginType.SINK.getType(),
+                                        factoryId));
                 sink.prepare(config.toConfig());
                 sink.setTypeInfo(catalogTable.getSeaTunnelRowType());
 
@@ -271,6 +281,23 @@ public final class FactoryUtil {
 
     public static <T extends Factory> URL getFactoryUrl(T factory) {
         return factory.getClass().getProtectionDomain().getCodeSource().getLocation();
+    }
+
+    public static <T extends Factory> Optional<T> discoverOptionalFactory(
+            ClassLoader classLoader,
+            Class<T> factoryClass,
+            String factoryIdentifier,
+            Function<String, T> discoverOptionalFactoryFunction) {
+
+        if (discoverOptionalFactoryFunction != null) {
+            T apply = discoverOptionalFactoryFunction.apply(factoryIdentifier);
+            if (apply != null) {
+                return Optional.of(apply);
+            } else {
+                return Optional.empty();
+            }
+        }
+        return discoverOptionalFactory(classLoader, factoryClass, factoryIdentifier);
     }
 
     public static <T extends Factory> Optional<T> discoverOptionalFactory(
@@ -435,5 +462,15 @@ public final class FactoryUtil {
             log.debug(ExceptionUtils.getMessage(e));
         }
         return false;
+    }
+
+    public static void ensureJobModeMatch(JobContext jobContext, SeaTunnelSource source) {
+        if (jobContext.getJobMode() == JobMode.BATCH
+                && source.getBoundedness()
+                        == org.apache.seatunnel.api.source.Boundedness.UNBOUNDED) {
+            throw new UnsupportedOperationException(
+                    String.format(
+                            "'%s' source don't support off-line job.", source.getPluginName()));
+        }
     }
 }

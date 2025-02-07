@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.cassandra.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class CassandraConfig {
+public class CassandraBaseOptions {
 
     public static final Integer DEFAULT_BATCH_SIZE = 5000;
 
@@ -42,25 +42,4 @@ public class CassandraConfig {
                     .stringType()
                     .defaultValue("LOCAL_ONE")
                     .withDescription("");
-
-    public static final Option<String> TABLE =
-            Options.key("table").stringType().noDefaultValue().withDescription("");
-
-    public static final Option<String> FIELDS =
-            Options.key("fields").stringType().defaultValue("LOCAL_ONE").withDescription("");
-
-    public static final Option<Integer> BATCH_SIZE =
-            Options.key("batch_size")
-                    .intType()
-                    .defaultValue(DEFAULT_BATCH_SIZE)
-                    .withDescription("");
-
-    public static final Option<String> BATCH_TYPE =
-            Options.key("batch_type").stringType().defaultValue("UNLOGGED").withDescription("");
-
-    public static final Option<Boolean> ASYNC_WRITE =
-            Options.key("async_write").booleanType().defaultValue(true).withDescription("");
-
-    public static final Option<String> CQL =
-            Options.key("cql").stringType().noDefaultValue().withDescription("");
 }

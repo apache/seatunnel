@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,23 +41,23 @@ public class AmazonDynamoDBSourceSplitEnumerator
 
     private final SourceSplitEnumerator.Context<AmazonDynamoDBSourceSplit> enumeratorContext;
     private final Map<Integer, List<AmazonDynamoDBSourceSplit>> pendingSplits;
-    private final AmazonDynamoDBSourceOptions amazonDynamoDBSourceOptions;
+    private final AmazonDynamoDBConfig amazonDynamoDBConfig;
 
     private final Object stateLock = new Object();
     private volatile boolean shouldEnumerate;
 
     public AmazonDynamoDBSourceSplitEnumerator(
             Context<AmazonDynamoDBSourceSplit> enumeratorContext,
-            AmazonDynamoDBSourceOptions amazonDynamoDBSourceOptions) {
-        this(enumeratorContext, amazonDynamoDBSourceOptions, null);
+            AmazonDynamoDBConfig amazonDynamoDBConfig) {
+        this(enumeratorContext, amazonDynamoDBConfig, null);
     }
 
     public AmazonDynamoDBSourceSplitEnumerator(
             Context<AmazonDynamoDBSourceSplit> enumeratorContext,
-            AmazonDynamoDBSourceOptions amazonDynamoDBSourceOptions,
+            AmazonDynamoDBConfig amazonDynamoDBConfig,
             AmazonDynamoDBSourceState sourceState) {
         this.enumeratorContext = enumeratorContext;
-        this.amazonDynamoDBSourceOptions = amazonDynamoDBSourceOptions;
+        this.amazonDynamoDBConfig = amazonDynamoDBConfig;
         this.pendingSplits = new HashMap<>();
         this.shouldEnumerate = sourceState == null;
         if (sourceState != null) {
@@ -119,8 +119,8 @@ public class AmazonDynamoDBSourceSplitEnumerator
 
     private Set<AmazonDynamoDBSourceSplit> discoverySplits() {
         Set<AmazonDynamoDBSourceSplit> allSplit = new HashSet<>();
-        int totalSegments = amazonDynamoDBSourceOptions.parallelScanThreads;
-        int itemLimit = amazonDynamoDBSourceOptions.scanItemLimit;
+        int totalSegments = amazonDynamoDBConfig.parallelScanThreads;
+        int itemLimit = amazonDynamoDBConfig.scanItemLimit;
         for (int i = 0; i < totalSegments; i++) {
             AmazonDynamoDBSourceSplit split =
                     new AmazonDynamoDBSourceSplit(i, totalSegments, itemLimit);

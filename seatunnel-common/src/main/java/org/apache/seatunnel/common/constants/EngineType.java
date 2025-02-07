@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.enums;
+package org.apache.seatunnel.common.constants;
 
 /** Engine type enum */
 public enum EngineType {

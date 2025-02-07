@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.DateTimeUtils.Formatter;
+import org.apache.seatunnel.format.csv.constant.CsvStringQuoteMode;
 import org.apache.seatunnel.format.csv.processor.DefaultCsvLineProcessor;
 
 import org.junit.jupiter.api.Assertions;
@@ -46,6 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class CsvTextFormatSchemaTest {
     public String content =
             "\"mess,age\","
+                    + "\"message\","
                     + "true,"
                     + "1,"
                     + "2,"
@@ -88,7 +90,8 @@ public class CsvTextFormatSchemaTest {
         seaTunnelRowType =
                 new SeaTunnelRowType(
                         new String[] {
-                            "string_field",
+                            "string_field1",
+                            "string_field2",
                             "boolean_field",
                             "tinyint_field",
                             "smallint_field",
@@ -106,6 +109,7 @@ public class CsvTextFormatSchemaTest {
                             "map_field"
                         },
                         new SeaTunnelDataType<?>[] {
+                            BasicType.STRING_TYPE,
                             BasicType.STRING_TYPE,
                             BasicType.BOOLEAN_TYPE,
                             BasicType.BYTE_TYPE,
@@ -146,26 +150,53 @@ public class CsvTextFormatSchemaTest {
                         .seaTunnelRowType(seaTunnelRowType)
                         .dateTimeFormatter(Formatter.YYYY_MM_DD_HH_MM_SS_SSSSSS)
                         .delimiter(",")
+                        .quoteMode(CsvStringQuoteMode.MINIMAL)
+                        .build();
+
+        CsvSerializationSchema csvSerializationSchemaWithAllQuotes =
+                CsvSerializationSchema.builder()
+                        .seaTunnelRowType(seaTunnelRowType)
+                        .dateTimeFormatter(Formatter.YYYY_MM_DD_HH_MM_SS_SSSSSS)
+                        .delimiter(",")
+                        .quoteMode(CsvStringQuoteMode.ALL)
+                        .build();
+
+        CsvSerializationSchema csvSerializationSchemaWithNoneQuotes =
+                CsvSerializationSchema.builder()
+                        .seaTunnelRowType(seaTunnelRowType)
+                        .dateTimeFormatter(Formatter.YYYY_MM_DD_HH_MM_SS_SSSSSS)
+                        .delimiter(",")
+                        .quoteMode(CsvStringQuoteMode.NONE)
                         .build();
 
         SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(content.getBytes());
         Assertions.assertEquals("mess,age", seaTunnelRow.getField(0));
-        Assertions.assertEquals(Boolean.TRUE, seaTunnelRow.getField(1));
-        Assertions.assertEquals(Byte.valueOf("1"), seaTunnelRow.getField(2));
-        Assertions.assertEquals(Short.valueOf("2"), seaTunnelRow.getField(3));
-        Assertions.assertEquals(Integer.valueOf("3"), seaTunnelRow.getField(4));
-        Assertions.assertEquals(Long.valueOf("4"), seaTunnelRow.getField(5));
-        Assertions.assertEquals(Float.valueOf("6.66"), seaTunnelRow.getField(6));
-        Assertions.assertEquals(Double.valueOf("7.77"), seaTunnelRow.getField(7));
-        Assertions.assertEquals(BigDecimal.valueOf(8.8888888D), seaTunnelRow.getField(8));
-        Assertions.assertNull((seaTunnelRow.getField(9)));
-        Assertions.assertEquals(LocalDate.of(2022, 9, 24), seaTunnelRow.getField(10));
-        Assertions.assertEquals(((Map<?, ?>) (seaTunnelRow.getField(15))).get("tyrantlucifer"), 18);
-        Assertions.assertEquals(((Map<?, ?>) (seaTunnelRow.getField(15))).get("Kris"), 21);
+        Assertions.assertEquals(Boolean.TRUE, seaTunnelRow.getField(2));
+        Assertions.assertEquals(Byte.valueOf("1"), seaTunnelRow.getField(3));
+        Assertions.assertEquals(Short.valueOf("2"), seaTunnelRow.getField(4));
+        Assertions.assertEquals(Integer.valueOf("3"), seaTunnelRow.getField(5));
+        Assertions.assertEquals(Long.valueOf("4"), seaTunnelRow.getField(6));
+        Assertions.assertEquals(Float.valueOf("6.66"), seaTunnelRow.getField(7));
+        Assertions.assertEquals(Double.valueOf("7.77"), seaTunnelRow.getField(8));
+        Assertions.assertEquals(BigDecimal.valueOf(8.8888888D), seaTunnelRow.getField(9));
+        Assertions.assertNull((seaTunnelRow.getField(10)));
+        Assertions.assertEquals(LocalDate.of(2022, 9, 24), seaTunnelRow.getField(11));
+        Assertions.assertEquals(((Map<?, ?>) (seaTunnelRow.getField(16))).get("tyrantlucifer"), 18);
+        Assertions.assertEquals(((Map<?, ?>) (seaTunnelRow.getField(16))).get("Kris"), 21);
         byte[] serialize = csvSerializationSchema.serialize(seaTunnelRow);
         Assertions.assertEquals(
-                "\"mess,age\",true,1,2,3,4,6.66,7.77,8.8888888,,2022-09-24,22:45:00,2022-09-24 22:45:00.000000,1\u00032\u00033\u00034\u00035\u00036\u0002tyrantlucifer\u000418\u0003Kris\u000421,1\u00022\u00023\u00024\u00025\u00026,tyrantlucifer\u000318\u0002Kris\u000321\u0002nullValueKey\u0003\u0002\u00031231",
+                "\"mess,age\",message,true,1,2,3,4,6.66,7.77,8.8888888,,2022-09-24,22:45:00,2022-09-24 22:45:00.000000,1\u00032\u00033\u00034\u00035\u00036\u0002tyrantlucifer\u000418\u0003Kris\u000421,1\u00022\u00023\u00024\u00025\u00026,tyrantlucifer\u000318\u0002Kris\u000321\u0002nullValueKey\u0003\u0002\u00031231",
                 new String(serialize));
+
+        byte[] serialize1 = csvSerializationSchemaWithAllQuotes.serialize(seaTunnelRow);
+        Assertions.assertEquals(
+                "\"mess,age\",\"message\",true,1,2,3,4,6.66,7.77,8.8888888,,2022-09-24,22:45:00,2022-09-24 22:45:00.000000,1\u00032\u00033\u00034\u00035\u00036\u0002tyrantlucifer\u000418\u0003Kris\u000421,1\u00022\u00023\u00024\u00025\u00026,tyrantlucifer\u000318\u0002Kris\u000321\u0002nullValueKey\u0003\u0002\u00031231",
+                new String(serialize1));
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> {
+                    csvSerializationSchemaWithNoneQuotes.serialize(seaTunnelRow);
+                });
     }
 
     @Test
