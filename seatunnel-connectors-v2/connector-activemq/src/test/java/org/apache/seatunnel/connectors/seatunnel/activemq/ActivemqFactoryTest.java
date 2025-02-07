@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.activemq;
 
 import org.apache.seatunnel.connectors.seatunnel.activemq.sink.ActivemqSinkFactory;
 
+import org.apache.seatunnel.connectors.seatunnel.activemq.source.ActivemqSourceFactory;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -27,5 +28,6 @@ class ActivemqFactoryTest {
     @Test
     void optionRule() {
         Assertions.assertNotNull((new ActivemqSinkFactory()).optionRule());
+        Assertions.assertNotNull((new ActivemqSourceFactory()).optionRule());
     }
 }
