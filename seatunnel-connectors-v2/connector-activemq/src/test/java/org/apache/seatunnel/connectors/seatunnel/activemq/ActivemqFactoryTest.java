@@ -18,8 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.activemq;
 
 import org.apache.seatunnel.connectors.seatunnel.activemq.sink.ActivemqSinkFactory;
-
 import org.apache.seatunnel.connectors.seatunnel.activemq.source.ActivemqSourceFactory;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
