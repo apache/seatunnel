@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config;
+package org.apache.seatunnel.connectors.seatunnel.amazonsqs.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -29,7 +28,7 @@ import java.io.Serializable;
 
 @Data
 @AllArgsConstructor
-public class AmazonDynamoDBConfig implements Serializable {
+public class AmazonSqsSourceConfig implements Serializable {
 
     private String url;
 
@@ -39,25 +38,20 @@ public class AmazonDynamoDBConfig implements Serializable {
 
     private String secretAccessKey;
 
-    private String table;
+    private String messageGroupId;
+
+    private boolean deleteMessage;
 
     private Config schema;
 
-    public int batchSize;
-    public int scanItemLimit;
-    public int parallelScanThreads;
-
-    public AmazonDynamoDBConfig(ReadonlyConfig config) {
-        this.url = config.get(AmazonDynamoDBBaseOptions.URL);
-        this.region = config.get(AmazonDynamoDBBaseOptions.REGION);
-        this.accessKeyId = config.get(AmazonDynamoDBBaseOptions.ACCESS_KEY_ID);
-        this.secretAccessKey = config.get(AmazonDynamoDBBaseOptions.SECRET_ACCESS_KEY);
-        this.table = config.get(AmazonDynamoDBBaseOptions.TABLE);
-        if (config.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
-            this.schema = ReadonlyConfig.fromMap(config.get(TableSchemaOptions.SCHEMA)).toConfig();
-        }
-        this.batchSize = config.get(AmazonDynamoDBSinkOptions.BATCH_SIZE);
-        this.scanItemLimit = config.get(AmazonDynamoDBSourceOptions.SCAN_ITEM_LIMIT);
-        this.parallelScanThreads = config.get(AmazonDynamoDBSourceOptions.PARALLEL_SCAN_THREADS);
+    public AmazonSqsSourceConfig(ReadonlyConfig config) {
+        this.url = config.get(AmazonSqsSourceOptions.URL);
+        this.region = config.get(AmazonSqsSourceOptions.REGION);
+        this.accessKeyId = config.get(AmazonSqsSourceOptions.ACCESS_KEY_ID);
+        this.secretAccessKey = config.get(AmazonSqsSourceOptions.SECRET_ACCESS_KEY);
+        this.messageGroupId = config.get(AmazonSqsSourceOptions.MESSAGE_GROUP_ID);
+        this.deleteMessage = config.get(AmazonSqsSourceOptions.DELETE_MESSAGE);
+        this.schema = ReadonlyConfig.fromMap(config.get(AmazonSqsSourceOptions.SCHEMA)).toConfig();
+        ;
     }
 }

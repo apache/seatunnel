@@ -23,7 +23,6 @@ import org.apache.seatunnel.connectors.seatunnel.activemq.exception.ActivemqConn
 
 import org.apache.activemq.ActiveMQConnectionFactory;
 
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.jms.Connection;
@@ -54,7 +53,6 @@ import static org.apache.seatunnel.connectors.seatunnel.activemq.config.Activemq
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.DISPATCH_ASYNC;
 
 @Slf4j
-@AllArgsConstructor
 public class ActivemqClient {
     private final ReadonlyConfig config;
     private final ActiveMQConnectionFactory connectionFactory;
