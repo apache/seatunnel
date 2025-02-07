@@ -20,7 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.activemq.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class ActivemqOptions {
+import java.io.Serializable;
+
+public class ActivemqOptions implements Serializable {
 
     public static final Option<String> USERNAME =
             Options.key("username")
