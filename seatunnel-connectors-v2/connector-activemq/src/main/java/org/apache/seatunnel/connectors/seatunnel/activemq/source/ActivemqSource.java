@@ -27,7 +27,6 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -40,6 +39,9 @@ import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.Collections;
+import java.util.List;
 
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.DEFAULT_FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.FIELD_DELIMITER;
@@ -77,8 +79,8 @@ public class ActivemqSource
     }
 
     @Override
-    public SeaTunnelDataType getProducedType() {
-        return deserializationSchema.getProducedType();
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(catalogTable);
     }
 
     @Override
