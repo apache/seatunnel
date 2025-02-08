@@ -30,6 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.format.csv.CsvSerializationSchema;
+import org.apache.seatunnel.format.csv.constant.CsvStringQuoteMode;
 
 import org.apache.hadoop.fs.FSDataOutputStream;
 
@@ -54,10 +55,12 @@ public class CsvWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream> 
     private final FileFormat fileFormat;
     private final Boolean enableHeaderWriter;
     private final Charset charset;
+    private final CsvStringQuoteMode csvStringQuoteMode;
     private SerializationSchema serializationSchema;
 
     public CsvWriteStrategy(FileSinkConfig fileSinkConfig) {
         super(fileSinkConfig);
+        this.csvStringQuoteMode = fileSinkConfig.getCsvStringQuoteMode();
         this.beingWrittenOutputStream = new LinkedHashMap<>();
         this.isFirstWrite = new HashMap<>();
         this.fieldDelimiter = fileSinkConfig.getFieldDelimiter();
@@ -83,6 +86,7 @@ public class CsvWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream> 
                         .dateTimeFormatter(dateTimeFormat)
                         .timeFormatter(timeFormat)
                         .charset(charset)
+                        .quoteMode(csvStringQuoteMode)
                         .build();
     }
 

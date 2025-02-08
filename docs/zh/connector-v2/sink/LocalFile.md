@@ -55,6 +55,7 @@
 | common-options                        | object  | 否    | -                                          | 常见选项                                                            |
 | max_rows_in_memory                    | int     | 否    | -                                          | 仅在 file_format_type 为 excel 时使用                                 |
 | sheet_name                            | string  | 否    | Sheet${随机数}                                | 仅在 file_format_type 为 excel 时使用                                 |
+| csv_string_quote_mode                 | enum    | 否    | MINIMAL                                    | 仅在文件格式为 CSV 时使用。                                                |
 | xml_root_tag                          | string  | 否    | RECORDS                                    | 仅在 file_format 为 xml 时使用                                        |
 | xml_row_tag                           | string  | 否    | RECORD                                     | 仅在 file_format 为 xml 时使用                                        |
 | xml_use_attr_format                   | boolean | 否    | -                                          | 仅在 file_format 为 xml 时使用                                        |
@@ -175,6 +176,14 @@ Sink 插件的常见参数，请参阅 [Sink 常见选项](../sink-common-option
 ### sheet_name [string]
 
 工作簿的表名。
+
+### csv_string_quote_mode [string]
+
+当文件格式为 CSV 时，CSV 的字符串引号模式。
+
+- ALL：所有字符串字段都会加引号。
+- MINIMAL：仅为包含特殊字符（如字段分隔符、引号字符或行分隔符字符串中的任何字符）的字段加引号。
+- NONE：从不为字段加引号。当数据中包含分隔符时，输出会在前面加上转义字符。如果未设置转义字符，则格式验证会抛出异常。
 
 ### xml
 

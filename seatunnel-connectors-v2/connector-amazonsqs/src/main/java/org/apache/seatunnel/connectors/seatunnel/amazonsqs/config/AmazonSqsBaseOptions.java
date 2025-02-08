@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.configuration.Options;
 
 import java.io.Serializable;
 
-public class AmazonSqsConfig implements Serializable {
+public class AmazonSqsBaseOptions implements Serializable {
 
     public static final String DEFAULT_FIELD_DELIMITER = ",";
 
@@ -47,11 +47,6 @@ public class AmazonSqsConfig implements Serializable {
                     .noDefaultValue()
                     .withDescription("The access secret key of Amazon SQS Service");
 
-    public static final Option<String> MESSAGE_GROUP_ID =
-            Options.key("message_group_id")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The message group id of Amazon SQS Service");
     public static final Option<MessageFormat> FORMAT =
             Options.key("format")
                     .enumType(MessageFormat.class)
@@ -64,15 +59,4 @@ public class AmazonSqsConfig implements Serializable {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Customize the field delimiter for data format.");
-    public static final Option<Boolean> DEBEZIUM_RECORD_INCLUDE_SCHEMA =
-            Options.key("debezium_record_include_schema")
-                    .booleanType()
-                    .defaultValue(true)
-                    .withDescription("Does the debezium record carry a schema.");
-
-    public static final Option<Boolean> DELETE_MESSAGE =
-            Options.key("delete_message")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription("Delete the message after it is consumed if set true.");
 }

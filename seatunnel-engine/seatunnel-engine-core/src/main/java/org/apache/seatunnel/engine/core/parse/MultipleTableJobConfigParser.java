@@ -46,7 +46,6 @@ import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-import org.apache.seatunnel.core.starter.execution.PluginUtil;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
@@ -386,7 +385,7 @@ public class MultipleTableJobConfigParser {
         String actionName = JobConfigParser.createSourceActionName(configIndex, factoryId);
         SeaTunnelSource<Object, SourceSplit, Serializable> source = tuple2._1();
         source.setJobContext(jobConfig.getJobContext());
-        PluginUtil.ensureJobModeMatch(jobConfig.getJobContext(), source);
+        FactoryUtil.ensureJobModeMatch(jobConfig.getJobContext(), source);
         SourceAction<Object, SourceSplit, Serializable> action =
                 new SourceAction<>(id, actionName, tuple2._1(), factoryUrls, new HashSet<>());
         action.setParallelism(parallelism);

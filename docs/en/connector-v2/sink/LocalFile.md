@@ -33,18 +33,18 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-| Name                                  | Type    | Required | Default                                    | Description                                                                                                                                                            |
-|---------------------------------------|---------|----------|--------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| path                                  | string  | yes      | -                                          |                                                                                                                                                                        |
-| tmp_path                              | string  | no       | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir.                                                                      |
-| custom_filename                       | boolean | no       | false                                      | Whether you need custom the filename                                                                                                                                   |
-| file_name_expression                  | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                                                                                                 |
-| filename_time_format                  | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                                                                                                 |
-| file_format_type                      | string  | no       | "csv"                                      |                                                                                                                                                                        |
-| field_delimiter                       | string  | no       | '\001'                                     | Only used when file_format_type is text                                                                                                                                |
-| row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format_type is text                                                                                                                                |
-| have_partition                        | boolean | no       | false                                      | Whether you need processing partitions.                                                                                                                                |
-| partition_by                          | array   | no       | -                                          | Only used then have_partition is true                                                                                                                                  |
+| Name                                  | Type    | Required | Default                                  | Description                                                                                                                                                            |
+|---------------------------------------|---------|----------|------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| path                                  | string  | yes      | -                                        |                                                                                                                                                                        |
+| tmp_path                              | string  | no       | /tmp/seatunnel                           | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir.                                                                      |
+| custom_filename                       | boolean | no       | false                                    | Whether you need custom the filename                                                                                                                                   |
+| file_name_expression                  | string  | no       | "${transactionId}"                       | Only used when custom_filename is true                                                                                                                                 |
+| filename_time_format                  | string  | no       | "yyyy.MM.dd"                             | Only used when custom_filename is true                                                                                                                                 |
+| file_format_type                      | string  | no       | "csv"                                    |                                                                                                                                                                        |
+| field_delimiter                       | string  | no       | '\001'                                   | Only used when file_format_type is text                                                                                                                                |
+| row_delimiter                         | string  | no       | "\n"                                     | Only used when file_format_type is text                                                                                                                                |
+| have_partition                        | boolean | no       | false                                    | Whether you need processing partitions.                                                                                                                                |
+| partition_by                          | array   | no       | -                                        | Only used then have_partition is true                                                                                                                                  |
 | partition_dir_expression              | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                                                                                                                                  |
 | is_partition_field_write_in_file      | boolean | no       | false                                      | Only used then have_partition is true                                                                                                                                  |
 | sink_columns                          | array   | no       |                                            | When this parameter is empty, all fields are sink columns                                                                                                              |
@@ -54,6 +54,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | common-options                        | object  | no       | -                                          |                                                                                                                                                                        |
 | max_rows_in_memory                    | int     | no       | -                                          | Only used when file_format_type is excel.                                                                                                                              |
 | sheet_name                            | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                                                                                              |
+| csv_string_quote_mode                 | enum    | no       | MINIMAL                                    | Only used when file_format is csv.                                                                                                                                     |
 | xml_root_tag                          | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                                                                     |
 | xml_row_tag                           | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                                                                                     |
 | xml_use_attr_format                   | boolean | no       | -                                          | Only used when file_format is xml.                                                                                                                                     |
@@ -180,6 +181,14 @@ When File Format is Excel,The maximum number of data items that can be cached in
 ### sheet_name [string]
 
 Writer the sheet of the workbook
+
+### csv_string_quote_mode [string]
+
+When File Format is CSV,The string quote mode of CSV.
+
+- ALL: All String fields will be quoted.
+- MINIMAL: Quotes fields which contain special characters such as a the field delimiter, quote character or any of the characters in the line separator string.
+- NONE: Never quotes fields. When the delimiter occurs in data, the printer prefixes it with the escape character. If the escape character is not set, format validation throws an exception.
 
 ### xml_root_tag [string]
 

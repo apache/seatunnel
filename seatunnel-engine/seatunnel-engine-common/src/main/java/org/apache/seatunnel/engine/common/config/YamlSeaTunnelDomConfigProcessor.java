@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.common.config;
 
+import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarHAStorageConfig;
@@ -100,6 +101,9 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             } else if (ServerConfigOptions.SLOT_NUM.key().equals(name)) {
                 slotServiceConfig.setSlotNum(
                         getIntegerValue(ServerConfigOptions.SLOT_NUM.key(), getTextContent(node)));
+            } else if (ServerConfigOptions.SLOT_ALLOCATE_STRATEGY.key().equals(name)) {
+                slotServiceConfig.setAllocateStrategy(
+                        AllocateStrategy.valueOf(getTextContent(node).toUpperCase()));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }

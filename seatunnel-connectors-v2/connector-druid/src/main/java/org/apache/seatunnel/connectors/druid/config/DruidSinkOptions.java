@@ -21,7 +21,7 @@ package org.apache.seatunnel.connectors.druid.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class DruidConfig {
+public class DruidSinkOptions {
     public static final Integer BATCH_SIZE_DEFAULT = 10000;
 
     public static Option<String> COORDINATOR_URL =

@@ -15,21 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.enums;
+package org.apache.seatunnel.connectors.seatunnel.cassandra.config;
 
-/** Plugin type enum */
-public enum PluginType {
-    SOURCE("source"),
-    TRANSFORM("transform"),
-    SINK("sink");
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 
-    private final String type;
+public class CassandraSourceOptions extends CassandraBaseOptions {
 
-    PluginType(String type) {
-        this.type = type;
-    }
-
-    public String getType() {
-        return type;
-    }
+    public static final Option<String> CQL =
+            Options.key("cql").stringType().noDefaultValue().withDescription("");
 }
