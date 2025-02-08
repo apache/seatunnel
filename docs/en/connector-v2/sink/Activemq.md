@@ -24,7 +24,7 @@ Used to write data to Activemq.
 | disable_timeStamps_by_default       | boolean | no       | -             |
 | use_compression                     | boolean | no       | -             |
 | always_session_async                | boolean | no       | -             |
-| dispatch_async                      | boolean | no       | -             |
+| always_sync_send                    | boolean | no       | -             |
 | nested_map_and_list_enabled         | boolean | no       | -             |
 | warnAboutUnstartedConnectionTimeout | boolean | no       | -             |
 | closeTimeout                        | int     | no       | -             |
@@ -77,9 +77,9 @@ When true a MessageProducer will always use Sync sends when sending a Message
 
 Sets the timeout, in milliseconds, before a close is considered complete.
 
-### dispatch_async [boolean]
+### always_sync_send [boolean]
 
-Should the broker dispatch messages asynchronously to the consumer
+When true a MessageProducer will always use Sync sends when sending a Message even if it is not required for the Delivery Mode.
 
 ### nested_map_and_list_enabled [boolean]
 

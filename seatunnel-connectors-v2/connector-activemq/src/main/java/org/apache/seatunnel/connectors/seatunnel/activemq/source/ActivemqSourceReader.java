@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.connectors.seatunnel.activemq.client.ActivemqClient;
 import org.apache.seatunnel.connectors.seatunnel.activemq.exception.ActivemqConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.activemq.exception.ActivemqConnectorException;
@@ -53,7 +52,6 @@ import static org.apache.seatunnel.connectors.seatunnel.activemq.exception.Activ
 
 @Slf4j
 public class ActivemqSourceReader<T> implements SourceReader<T, ActivemqSplit> {
-    protected final Handover<Message> handover;
     protected final Context context;
     protected final MessageConsumer consumer;
     protected transient Set<String> correlationIdsProcessedButNotAcknowledged;
@@ -68,7 +66,6 @@ public class ActivemqSourceReader<T> implements SourceReader<T, ActivemqSplit> {
             DeserializationSchema<SeaTunnelRow> deserializationSchema,
             Context context,
             ReadonlyConfig config) {
-        this.handover = new Handover<>();
         this.pendingMassageIdsToCommit = Collections.synchronizedSortedMap(new TreeMap<>());
         this.pendingCorrelationIdsToCommit = Collections.synchronizedSortedMap(new TreeMap<>());
         this.context = context;

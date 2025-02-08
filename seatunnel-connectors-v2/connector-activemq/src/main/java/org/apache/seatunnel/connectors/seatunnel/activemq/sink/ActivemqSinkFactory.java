@@ -39,7 +39,6 @@ import static org.apache.seatunnel.connectors.seatunnel.activemq.config.Activemq
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.COPY_MESSAGE_ON_SEND;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.NESTED_MAP_AND_LIST_ENABLED;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.USE_COMPRESSION;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.DISPATCH_ASYNC;
 
 @AutoService(Factory.class)
 public class ActivemqSinkFactory implements TableSinkFactory {
@@ -63,7 +62,6 @@ public class ActivemqSinkFactory implements TableSinkFactory {
                         ALWAYS_SESSION_ASYNC,
                         ALWAYS_SYNC_SEND,
                         CLOSE_TIMEOUT,
-                        DISPATCH_ASYNC,
                         NESTED_MAP_AND_LIST_ENABLED,
                         WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT)
                 .build();
