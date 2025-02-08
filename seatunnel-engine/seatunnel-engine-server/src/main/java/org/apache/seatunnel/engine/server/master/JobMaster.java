@@ -249,6 +249,7 @@ public class JobMaster {
         try {
             Thread.currentThread().setContextClassLoader(classLoader);
             if (!restart
+                    && !logicalDag.isStartWithSavePoint()
                     && ReadonlyConfig.fromMap(logicalDag.getJobConfig().getEnvOptions())
                             .get(EnvCommonOptions.SAVEMODE_EXECUTE_LOCATION)
                             .equals(SaveModeExecuteLocation.CLUSTER)) {
