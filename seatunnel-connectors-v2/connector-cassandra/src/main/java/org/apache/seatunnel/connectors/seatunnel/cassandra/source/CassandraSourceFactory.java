@@ -19,11 +19,24 @@ package org.apache.seatunnel.connectors.seatunnel.cassandra.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraParameters;
 
 import com.google.auto.service.AutoService;
+
+import java.io.Serializable;
+
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSourceOptions.CONSISTENCY_LEVEL;
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSourceOptions.CQL;
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSourceOptions.DATACENTER;
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSourceOptions.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSourceOptions.KEYSPACE;
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSourceOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSourceOptions.USERNAME;
 
 @AutoService(Factory.class)
 public class CassandraSourceFactory implements TableSourceFactory {
@@ -35,10 +48,20 @@ public class CassandraSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(CassandraConfig.HOST, CassandraConfig.KEYSPACE, CassandraConfig.CQL)
-                .bundled(CassandraConfig.USERNAME, CassandraConfig.PASSWORD)
-                .optional(CassandraConfig.DATACENTER, CassandraConfig.CONSISTENCY_LEVEL)
+                .required(HOST, KEYSPACE, CQL)
+                .bundled(USERNAME, PASSWORD)
+                .optional(DATACENTER, CONSISTENCY_LEVEL)
                 .build();
+    }
+
+    @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        CassandraParameters cassandraParameters = new CassandraParameters();
+        cassandraParameters.buildWithConfig(context.getOptions());
+        return () ->
+                (SeaTunnelSource<T, SplitT, StateT>)
+                        new CassandraSource(cassandraParameters, context.getOptions());
     }
 
     @Override

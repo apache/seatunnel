@@ -29,8 +29,8 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.druid.config.DruidConfig.COORDINATOR_URL;
-import static org.apache.seatunnel.connectors.druid.config.DruidConfig.DATASOURCE;
+import static org.apache.seatunnel.connectors.druid.config.DruidSinkOptions.COORDINATOR_URL;
+import static org.apache.seatunnel.connectors.druid.config.DruidSinkOptions.DATASOURCE;
 
 @AutoService(Factory.class)
 public class DruidSinkFactory implements TableSinkFactory {

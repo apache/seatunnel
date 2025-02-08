@@ -108,6 +108,14 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testClickhouseWithCreateSchemaWhenComment(TestContainer container)
+            throws Exception {
+        Container.ExecResult execResult =
+                container.executeJob("/clickhouse_with_create_schema_when_comment.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
     public void clickhouseWithCreateSchemaWhenNotExist(TestContainer container) throws Exception {
         String tableName = "default.sink_table_for_schema";
         Container.ExecResult execResult =

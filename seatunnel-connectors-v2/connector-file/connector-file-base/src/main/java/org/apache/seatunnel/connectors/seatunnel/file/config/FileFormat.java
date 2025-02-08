@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.config;
 
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.BinaryWriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.CsvWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.ExcelWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.JsonWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.OrcWriteStrategy;
@@ -27,6 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.TextWriteStrat
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.XmlWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.BinaryReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.CsvReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ExcelReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.JsonReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.OrcReadStrategy;
@@ -43,12 +45,12 @@ public enum FileFormat implements Serializable {
         @Override
         public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
             fileSinkConfig.setFieldDelimiter(",");
-            return new TextWriteStrategy(fileSinkConfig);
+            return new CsvWriteStrategy(fileSinkConfig);
         }
 
         @Override
         public ReadStrategy getReadStrategy() {
-            return new TextReadStrategy();
+            return new CsvReadStrategy();
         }
     },
     TEXT("txt") {

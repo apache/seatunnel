@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
+import org.apache.seatunnel.format.csv.constant.CsvStringQuoteMode;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
 import java.util.Arrays;
@@ -194,6 +195,13 @@ public class BaseSinkConfig extends KerberosConfig {
                     .withDescription(
                             "Whether to write all data to a single file in each parallelism task");
 
+    public static final Option<Boolean> CREATE_EMPTY_FILE_WHEN_NO_DATA =
+            Options.key("create_empty_file_when_no_data")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to generate an empty file when there is no data to write");
+
     public static final Option<String> FILENAME_TIME_FORMAT =
             Options.key("filename_time_format")
                     .stringType()
@@ -311,4 +319,10 @@ public class BaseSinkConfig extends KerberosConfig {
                     .defaultValue(APPEND_DATA)
                     .withDescription(
                             "Before the synchronization task begins, different processing of data files that already exist in the directory");
+
+    public static final Option<CsvStringQuoteMode> CSV_STRING_QUOTE_MODE =
+            Options.key("csv_string_quote_mode")
+                    .enumType(CsvStringQuoteMode.class)
+                    .defaultValue(CsvStringQuoteMode.MINIMAL)
+                    .withDescription("CSV file string quote mode, only valid for csv files");
 }

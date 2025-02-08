@@ -21,25 +21,33 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergCatalogLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.DefaultDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.Deserializer;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Table;
+import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.io.CloseableIterator;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Queue;
+import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.LinkedBlockingQueue;
 
 @Slf4j
 public class IcebergSourceReader implements SourceReader<SeaTunnelRow, IcebergFileScanTaskSplit> {
@@ -47,72 +55,95 @@ public class IcebergSourceReader implements SourceReader<SeaTunnelRow, IcebergFi
     private static final long POLL_WAIT_MS = 1000;
 
     private final Context context;
-    private final Queue<IcebergFileScanTaskSplit> pendingSplits;
-    private final Deserializer deserializer;
-    private final Schema tableSchema;
-    private final Schema projectedSchema;
     private final SourceConfig sourceConfig;
+    private final Map<TablePath, CatalogTable> tables;
+    private final Map<TablePath, Pair<Schema, Schema>> tableSchemaProjections;
+    private final BlockingQueue<IcebergFileScanTaskSplit> pendingSplits;
 
-    private IcebergTableLoader icebergTableLoader;
-    private IcebergFileScanTaskSplitReader icebergFileScanTaskSplitReader;
+    private volatile IcebergFileScanTaskSplit currentReadSplit;
+    private volatile boolean noMoreSplitsAssignment;
 
-    private IcebergFileScanTaskSplit currentReadSplit;
-    private boolean noMoreSplitsAssignment;
-
-    private CatalogTable catalogTable;
+    private Catalog catalog;
+    private ConcurrentMap<TablePath, IcebergFileScanTaskSplitReader> tableReaders;
 
     public IcebergSourceReader(
             @NonNull SourceReader.Context context,
-            @NonNull SeaTunnelRowType seaTunnelRowType,
-            @NonNull Schema tableSchema,
-            @NonNull Schema projectedSchema,
             @NonNull SourceConfig sourceConfig,
-            CatalogTable catalogTable) {
+            @NonNull Map<TablePath, CatalogTable> tables,
+            @NonNull Map<TablePath, Pair<Schema, Schema>> tableSchemaProjections) {
         this.context = context;
-        this.pendingSplits = new LinkedList<>();
-        this.catalogTable = catalogTable;
-        this.deserializer = new DefaultDeserializer(seaTunnelRowType, projectedSchema);
-        this.tableSchema = tableSchema;
-        this.projectedSchema = projectedSchema;
         this.sourceConfig = sourceConfig;
+        this.tables = tables;
+        this.tableSchemaProjections = tableSchemaProjections;
+        this.pendingSplits = new LinkedBlockingQueue<>();
+        this.tableReaders = new ConcurrentHashMap<>();
     }
 
     @Override
     public void open() {
-        icebergTableLoader = IcebergTableLoader.create(sourceConfig, catalogTable);
-        icebergTableLoader.open();
-
-        icebergFileScanTaskSplitReader =
-                new IcebergFileScanTaskSplitReader(
-                        deserializer,
-                        IcebergFileScanTaskReader.builder()
-                                .fileIO(icebergTableLoader.loadTable().io())
-                                .tableSchema(tableSchema)
-                                .projectedSchema(projectedSchema)
-                                .caseSensitive(sourceConfig.isCaseSensitive())
-                                .reuseContainers(true)
-                                .build());
+        IcebergCatalogLoader catalogFactory = new IcebergCatalogLoader(sourceConfig);
+        catalog = catalogFactory.loadCatalog();
     }
 
     @Override
     public void close() throws IOException {
-        if (icebergFileScanTaskSplitReader != null) {
-            icebergFileScanTaskSplitReader.close();
+        if (catalog != null && catalog instanceof Closeable) {
+            ((Closeable) catalog).close();
         }
-        icebergTableLoader.close();
+        tableReaders.forEach((tablePath, reader) -> reader.close());
+    }
+
+    private IcebergFileScanTaskSplitReader getOrCreateTableReader(TablePath tablePath) {
+        IcebergFileScanTaskSplitReader tableReader = tableReaders.get(tablePath);
+        if (tableReader != null) {
+            return tableReader;
+        }
+
+        if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
+            // clean up table readers if the source is bounded
+            tableReaders.forEach((key, value) -> value.close());
+            tableReaders.clear();
+        }
+
+        return tableReaders.computeIfAbsent(
+                tablePath,
+                key -> {
+                    SourceTableConfig tableConfig = sourceConfig.getTableConfig(key);
+                    CatalogTable catalogTable = tables.get(key);
+                    Pair<Schema, Schema> pair = tableSchemaProjections.get(key);
+                    Schema tableSchema = pair.getLeft();
+                    Schema projectedSchema = pair.getRight();
+                    Deserializer deserializer =
+                            new DefaultDeserializer(
+                                    catalogTable.getSeaTunnelRowType(), projectedSchema);
+
+                    Table icebergTable = catalog.loadTable(tableConfig.getTableIdentifier());
+                    return new IcebergFileScanTaskSplitReader(
+                            deserializer,
+                            IcebergFileScanTaskReader.builder()
+                                    .fileIO(icebergTable.io())
+                                    .tableSchema(tableSchema)
+                                    .projectedSchema(projectedSchema)
+                                    .caseSensitive(sourceConfig.isCaseSensitive())
+                                    .reuseContainers(true)
+                                    .build());
+                });
     }
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        for (IcebergFileScanTaskSplit pendingSplit = pendingSplits.poll();
-                pendingSplit != null;
-                pendingSplit = pendingSplits.poll()) {
-            currentReadSplit = pendingSplit;
-            try (CloseableIterator<SeaTunnelRow> rowIterator =
-                    icebergFileScanTaskSplitReader.open(currentReadSplit)) {
-                while (rowIterator.hasNext()) {
-                    output.collect(rowIterator.next());
+        synchronized (output.getCheckpointLock()) {
+            currentReadSplit = pendingSplits.poll();
+            if (currentReadSplit != null) {
+                IcebergFileScanTaskSplitReader tableReader =
+                        getOrCreateTableReader(currentReadSplit.getTablePath());
+                try (CloseableIterator<SeaTunnelRow> rowIterator =
+                        tableReader.open(currentReadSplit)) {
+                    while (rowIterator.hasNext()) {
+                        output.collect(rowIterator.next());
+                    }
                 }
+                return;
             }
         }
 

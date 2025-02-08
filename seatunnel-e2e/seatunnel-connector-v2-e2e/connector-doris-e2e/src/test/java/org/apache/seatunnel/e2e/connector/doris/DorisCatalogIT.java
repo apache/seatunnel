@@ -66,7 +66,7 @@ public class DorisCatalogIT extends AbstractDorisIT {
         TableSchema.Builder builder = TableSchema.builder();
         builder.column(PhysicalColumn.of("k1", BasicType.INT_TYPE, 10, false, 0, "k1"));
         builder.column(PhysicalColumn.of("k2", BasicType.STRING_TYPE, 64, false, "", "k2"));
-        builder.column(PhysicalColumn.of("v1", BasicType.DOUBLE_TYPE, 10, true, null, "v1"));
+        builder.column(PhysicalColumn.of("v1", BasicType.DOUBLE_TYPE, 10, true, null, "v1-'v1'"));
         builder.column(PhysicalColumn.of("v2", new DecimalType(10, 2), 0, false, 0.1, "v2"));
         builder.primaryKey(PrimaryKey.of("pk", Arrays.asList("k1", "k2")));
         catalogTable =
@@ -75,7 +75,7 @@ public class DorisCatalogIT extends AbstractDorisIT {
                         builder.build(),
                         Collections.emptyMap(),
                         Collections.emptyList(),
-                        "test");
+                        "test - \\ 'test'");
     }
 
     private DorisCatalogFactory factory;

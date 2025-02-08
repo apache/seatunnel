@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.local.sink.LocalFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.sink.SinkFlowTestUtils;
 
@@ -33,7 +34,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -152,5 +155,79 @@ public class LocalFileTest {
                 (long)
                         FileUtils.getFileLineNumber(
                                 "/tmp/seatunnel/LocalFileTest/only_one_file_1.txt"));
+    }
+
+    @Test
+    void testCreateEmptyFileWhenNoData() throws IOException {
+        Map<String, Object> options =
+                new HashMap<String, Object>() {
+                    {
+                        put("path", "/tmp/seatunnel/LocalFileTest");
+                        put("row_delimiter", "\n");
+                        put("file_name_expression", "empty_file");
+                        put("is_enable_transaction", false);
+                        put("batch_size", 1);
+                        put("create_empty_file_when_no_data", true);
+                    }
+                };
+        options.put("file_format_type", "text");
+        FileUtils.deleteFile("/tmp/seatunnel/LocalFileTest");
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                catalogTable,
+                ReadonlyConfig.fromMap(options),
+                new LocalFileSinkFactory(),
+                Collections.emptyList());
+        Assertions.assertEquals(
+                0,
+                (long)
+                        FileUtils.getFileLineNumber(
+                                "/tmp/seatunnel/LocalFileTest/empty_file_0.txt"));
+
+        options.put("file_format_type", "csv");
+        FileUtils.deleteFile("/tmp/seatunnel/LocalFileTest");
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                catalogTable,
+                ReadonlyConfig.fromMap(options),
+                new LocalFileSinkFactory(),
+                Collections.emptyList());
+        Assertions.assertEquals(
+                0,
+                (long)
+                        FileUtils.getFileLineNumber(
+                                "/tmp/seatunnel/LocalFileTest/empty_file_0.csv"));
+
+        options.put("enable_header_write", true);
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                catalogTable,
+                ReadonlyConfig.fromMap(options),
+                new LocalFileSinkFactory(),
+                Collections.emptyList());
+        Assertions.assertEquals(
+                "test\n",
+                FileUtils.readFileToStr(
+                        Paths.get("/tmp/seatunnel/LocalFileTest/empty_file_0.csv")));
+
+        options.put("file_format_type", "parquet");
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                catalogTable,
+                ReadonlyConfig.fromMap(options),
+                new LocalFileSinkFactory(),
+                Collections.emptyList());
+        Assertions.assertEquals(
+                300, new File("/tmp/seatunnel/LocalFileTest/empty_file_0.parquet").length());
+
+        options.put("file_format_type", "binary");
+        FileConnectorException exception =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () ->
+                                SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                                        catalogTable,
+                                        ReadonlyConfig.fromMap(options),
+                                        new LocalFileSinkFactory(),
+                                        Collections.emptyList()));
+        Assertions.assertEquals(
+                "ErrorCode:[FILE-07], ErrorDescription:[Format not support] - BinaryWriteStrategy does not support generating empty files when no data is written.",
+                exception.getMessage());
     }
 }

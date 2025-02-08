@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 
@@ -39,10 +40,10 @@ public class MaxcomputeSourceTest {
 
         Config schema = fields.atKey("fields").atKey("schema");
 
-        MaxcomputeSource maxcomputeSource = new MaxcomputeSource();
-        Assertions.assertDoesNotThrow(() -> maxcomputeSource.prepare(schema));
+        MaxcomputeSource maxcomputeSource = new MaxcomputeSource(ReadonlyConfig.fromConfig(schema));
 
-        SeaTunnelRowType seaTunnelRowType = maxcomputeSource.getProducedType();
+        SeaTunnelRowType seaTunnelRowType =
+                maxcomputeSource.getProducedCatalogTables().get(0).getSeaTunnelRowType();
         Assertions.assertEquals(SqlType.INT, seaTunnelRowType.getFieldType(0).getSqlType());
     }
 }
