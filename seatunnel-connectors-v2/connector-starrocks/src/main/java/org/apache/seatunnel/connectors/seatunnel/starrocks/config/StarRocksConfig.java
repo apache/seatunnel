@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import lombok.AllArgsConstructor;
@@ -28,43 +26,16 @@ import lombok.ToString;
 import java.io.Serializable;
 import java.util.List;
 
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksBaseOptions.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksBaseOptions.NODE_URLS;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksBaseOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksBaseOptions.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksBaseOptions.USERNAME;
+
 @Getter
 @ToString
 @AllArgsConstructor
-public class CommonConfig implements Serializable {
-
-    public static final String CONNECTOR_IDENTITY = "StarRocks";
-
-    public static final Option<List<String>> NODE_URLS =
-            Options.key("nodeUrls")
-                    .listType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "StarRocks cluster address, the format is [\"fe_ip:fe_http_port\", ...]");
-
-    public static final Option<String> DATABASE =
-            Options.key("database")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The name of StarRocks database");
-
-    public static final Option<String> TABLE =
-            Options.key("table")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The name of StarRocks table");
-
-    public static final Option<String> USERNAME =
-            Options.key("username")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("StarRocks user username");
-
-    public static final Option<String> PASSWORD =
-            Options.key("password")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("StarRocks user password");
+public class StarRocksConfig implements Serializable {
 
     private List<String> nodeUrls;
     private String username;
@@ -72,7 +43,7 @@ public class CommonConfig implements Serializable {
     private String database;
     private String table;
 
-    public CommonConfig(ReadonlyConfig config) {
+    public StarRocksConfig(ReadonlyConfig config) {
         this.nodeUrls = config.get(NODE_URLS);
         this.username = config.get(USERNAME);
         this.password = config.get(PASSWORD);
