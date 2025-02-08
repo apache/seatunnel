@@ -169,7 +169,6 @@ public class ConnectorOptionCheckTest {
 
     private Set<String> buildWhiteList() {
         Set<String> whiteList = new HashSet<>();
-        whiteList.add("ElasticsearchSourceOptions");
         whiteList.add("JdbcSinkOptions");
         whiteList.add("TypesenseSourceOptions");
         whiteList.add("RabbitmqSourceOptions");
@@ -202,7 +201,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("SentrySinkOptions");
         whiteList.add("EasysearchSinkOptions");
         whiteList.add("QdrantSinkOptions");
-        whiteList.add("ElasticsearchSinkOptions");
         whiteList.add("MilvusSourceOptions");
         whiteList.add("RocketMqSinkOptions");
         whiteList.add("ClickhouseFileSinkOptions");
