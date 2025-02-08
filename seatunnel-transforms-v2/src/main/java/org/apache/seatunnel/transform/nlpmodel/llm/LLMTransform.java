@@ -106,6 +106,7 @@ public class LLMTransform extends SingleFieldOutputTransform {
                                 config.get(LLMTransformConfig.API_KEY),
                                 provider.usedLLMPath(config.get(LLMTransformConfig.API_PATH)));
                 break;
+            case DEEPSEEK:
             case OPENAI:
             case DOUBAO:
                 model =

@@ -22,10 +22,12 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfi
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.internal.services.MembershipServiceEvent;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentMap;
 
 public interface ResourceManager {
     void init();
@@ -67,4 +69,6 @@ public interface ResourceManager {
     List<SlotProfile> getAssignedSlots(Map<String, String> tags);
 
     int workerCount(Map<String, String> tags);
+
+    ConcurrentMap<Address, WorkerProfile> getRegisterWorker();
 }

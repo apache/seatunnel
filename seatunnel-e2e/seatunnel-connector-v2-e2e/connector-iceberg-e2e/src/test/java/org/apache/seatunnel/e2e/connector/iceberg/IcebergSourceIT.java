@@ -147,6 +147,7 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
 
         configs.put(CommonConfig.KEY_CATALOG_NAME.key(), CATALOG_NAME);
         configs.put(CommonConfig.CATALOG_PROPS.key(), catalogProps);
+        configs.put(CommonConfig.KEY_TABLE.key(), TABLE.toString());
 
         CATALOG =
                 new IcebergCatalogLoader(new SourceConfig(ReadonlyConfig.fromMap(configs)))

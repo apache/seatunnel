@@ -19,17 +19,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.IcebergStreamScanStrategy;
-
-import org.apache.iceberg.expressions.Expression;
 
 import lombok.Getter;
 import lombok.ToString;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.IcebergStreamScanStrategy.FROM_LATEST_SNAPSHOT;
 
@@ -74,45 +75,53 @@ public class SourceConfig extends CommonConfig {
                     .defaultValue(FROM_LATEST_SNAPSHOT)
                     .withDescription(" the iceberg strategy of stream scanning");
 
-    private Long startSnapshotTimestamp;
-    private Long startSnapshotId;
-    private Long endSnapshotId;
+    public static final Option<List<SourceTableConfig>> KEY_TABLE_LIST =
+            Options.key("table_list")
+                    .listType(SourceTableConfig.class)
+                    .noDefaultValue()
+                    .withDescription(" the iceberg tables");
 
-    private Long useSnapshotId;
-    private Long useSnapshotTimestamp;
+    public static final Option<Long> KEY_INCREMENT_SCAN_INTERVAL =
+            Options.key("increment.scan-interval")
+                    .longType()
+                    .defaultValue(2000L)
+                    .withDescription(" the interval of increment scan(mills)");
 
-    private IcebergStreamScanStrategy streamScanStrategy = KEY_STREAM_SCAN_STRATEGY.defaultValue();
-    private Expression filter;
-    private Long splitSize;
-    private Integer splitLookback;
-    private Long splitOpenFileCost;
+    private long incrementScanInterval;
+    private List<SourceTableConfig> tableList;
 
     public SourceConfig(ReadonlyConfig readonlyConfig) {
         super(readonlyConfig);
-        Config pluginConfig = readonlyConfig.toConfig();
-        if (pluginConfig.hasPath(KEY_START_SNAPSHOT_TIMESTAMP.key())) {
-            this.startSnapshotTimestamp = pluginConfig.getLong(KEY_START_SNAPSHOT_TIMESTAMP.key());
-        }
-        if (pluginConfig.hasPath(KEY_START_SNAPSHOT_ID.key())) {
-            this.startSnapshotId = pluginConfig.getLong(KEY_START_SNAPSHOT_ID.key());
-        }
-        if (pluginConfig.hasPath(KEY_END_SNAPSHOT_ID.key())) {
-            this.endSnapshotId = pluginConfig.getLong(KEY_END_SNAPSHOT_ID.key());
-        }
-        if (pluginConfig.hasPath(KEY_USE_SNAPSHOT_ID.key())) {
-            this.useSnapshotId = pluginConfig.getLong(KEY_USE_SNAPSHOT_ID.key());
-        }
-        if (pluginConfig.hasPath(KEY_USE_SNAPSHOT_TIMESTAMP.key())) {
-            this.useSnapshotTimestamp = pluginConfig.getLong(KEY_USE_SNAPSHOT_TIMESTAMP.key());
-        }
-        if (pluginConfig.hasPath(KEY_STREAM_SCAN_STRATEGY.key())) {
-            this.streamScanStrategy =
-                    pluginConfig.getEnum(
-                            IcebergStreamScanStrategy.class, KEY_STREAM_SCAN_STRATEGY.key());
+        this.incrementScanInterval = readonlyConfig.get(KEY_INCREMENT_SCAN_INTERVAL);
+        if (this.getTable() != null) {
+            SourceTableConfig tableConfig =
+                    SourceTableConfig.builder()
+                            .namespace(this.getNamespace())
+                            .table(this.getTable())
+                            .startSnapshotTimestamp(
+                                    readonlyConfig.get(KEY_START_SNAPSHOT_TIMESTAMP))
+                            .startSnapshotId(readonlyConfig.get(KEY_START_SNAPSHOT_ID))
+                            .endSnapshotId(readonlyConfig.get(KEY_END_SNAPSHOT_ID))
+                            .useSnapshotId(readonlyConfig.get(KEY_USE_SNAPSHOT_ID))
+                            .useSnapshotTimestamp(readonlyConfig.get(KEY_USE_SNAPSHOT_TIMESTAMP))
+                            .streamScanStrategy(readonlyConfig.get(KEY_STREAM_SCAN_STRATEGY))
+                            .build();
+            this.tableList = Collections.singletonList(tableConfig);
+        } else {
+            this.tableList =
+                    readonlyConfig.get(KEY_TABLE_LIST).stream()
+                            .map(
+                                    tableConfig ->
+                                            tableConfig.setNamespace(
+                                                    SourceConfig.this.getNamespace()))
+                            .collect(Collectors.toList());
         }
     }
 
-    public static SourceConfig loadConfig(ReadonlyConfig pluginConfig) {
-        return new SourceConfig(pluginConfig);
+    public SourceTableConfig getTableConfig(TablePath tablePath) {
+        return tableList.stream()
+                .filter(tableConfig -> tableConfig.getTablePath().equals(tablePath))
+                .findFirst()
+                .get();
     }
 }

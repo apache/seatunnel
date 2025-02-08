@@ -26,9 +26,9 @@ protostuff-collectionschema-1.8.0.jar
 protostuff-core-1.8.0.jar
 protostuff-runtime-1.8.0.jar
 scala-library-2.12.15.jar
-seatunnel-jackson-2.3.9-SNAPSHOT-optional.jar
-seatunnel-guava-2.3.9-SNAPSHOT-optional.jar
-seatunnel-hazelcast-shade-2.3.9-SNAPSHOT-optional.jar
+seatunnel-jackson-2.3.10-SNAPSHOT-optional.jar
+seatunnel-guava-2.3.10-SNAPSHOT-optional.jar
+seatunnel-hazelcast-shade-2.3.10-SNAPSHOT-optional.jar
 slf4j-api-1.7.25.jar
 jsqlparser-4.9.jar
 animal-sniffer-annotations-1.17.jar
@@ -46,7 +46,7 @@ accessors-smart-2.4.7.jar
 asm-9.1.jar
 avro-1.11.1.jar
 groovy-4.0.16.jar
-seatunnel-janino-2.3.9-SNAPSHOT-optional.jar
+seatunnel-janino-2.3.10-SNAPSHOT-optional.jar
 protobuf-java-util-3.25.3.jar
 protobuf-java-3.25.3.jar
 protoc-jar-3.11.4.jar
@@ -69,7 +69,10 @@ jetty-util-9.4.20.v20190813.jar
 jetty-util-9.4.56.v20240826.jar
 jetty-util-ajax-9.4.56.v20240826.jar
 javax.servlet-api-3.1.0.jar
-seatunnel-jetty9-9.4.56-2.3.9-SNAPSHOT-optional.jar
+seatunnel-jetty9-9.4.56-2.3.10-SNAPSHOT-optional.jar
+jna-5.15.0.jar
+jna-platform-5.15.0.jar
+oshi-core-6.6.5.jar
 arrow-format-15.0.1.jar
 arrow-memory-core-15.0.1.jar
 arrow-memory-netty-15.0.1.jar
@@ -79,4 +82,4 @@ eclipse-collections-api-11.1.0.jar
 flatbuffers-java-23.5.26.jar
 netty-buffer-4.1.104.Final.jar
 netty-common-4.1.104.Final.jar
-seatunnel-arrow-2.3.9-SNAPSHOT-optional.jar
+seatunnel-arrow-2.3.10-SNAPSHOT-optional.jar

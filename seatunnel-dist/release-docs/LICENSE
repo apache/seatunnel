@@ -307,6 +307,8 @@ The text of each license is the standard Apache 2.0 license.
      (Apache-2.0) kerby-pkix (org.apache.kerby:kerby-pkix:1.0.1 - https://github.com/apache/directory-kerby)
      (Apache-2.0) kerby-util (org.apache.kerby:kerby-util:1.0.1 - https://github.com/apache/directory-kerby)
      (Apache-2.0) kerby-xdr (org.apache.kerby:kerby-xdr:1.0.1 - https://github.com/apache/directory-kerby)
+     (Apache-2.0) jna (net.java.dev.jna:jna:5.15.0 - https://github.com/java-native-access/jna)
+     (Apache-2.0) jna-platform (net.java.dev.jna:jna-platform:5.15.0 - https://github.com/java-native-access/jna)
      (Apache-2.0) token-provider (org.apache.kerby:token-provider:1.0.1 - https://github.com/apache/directory-kerby)
      (Apache-2.0) snappy-java (org.xerial.snappy:snappy-java:1.0.5 - https://github.com/xerial/snappy-java)
      (Apache-2.0) snappy-java (org.xerial.snappy:snappy-java:1.1.8.3 - https://github.com/xerial/snappy-java)
@@ -396,6 +398,7 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
      (MIT License) jcl-over-slf4j (org.slf4j:jcl-over-slf4j:1.7.25 - http://www.slf4j.org)
      (MIT License) animal-sniffer-annotations (org.codehaus.mojo:animal-sniffer-annotations:1.17 - https://mvnrepository.com/artifact/org.codehaus.mojo/animal-sniffer-annotations/1.17)
      (MIT License) checker-qual (org.checkerframework:checker-qual:3.10.0 - https://mvnrepository.com/)
+     (MIT License) oshi-core (com.github.oshi:oshi-core:6.6.5 - https://github.com/oshi/oshi)
 
 ========================================================================
 EPL-1.0 and Apache-2.0 licenses
