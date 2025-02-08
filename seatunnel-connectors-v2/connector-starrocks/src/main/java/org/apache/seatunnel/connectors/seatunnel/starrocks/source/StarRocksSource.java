@@ -23,8 +23,8 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksBaseOptions;
 
 import java.util.Collections;
 import java.util.List;
@@ -37,7 +37,7 @@ public class StarRocksSource
 
     @Override
     public String getPluginName() {
-        return CommonConfig.CONNECTOR_IDENTITY;
+        return StarRocksBaseOptions.CONNECTOR_IDENTITY;
     }
 
     public StarRocksSource(SourceConfig sourceConfig, CatalogTable catalogTable) {
