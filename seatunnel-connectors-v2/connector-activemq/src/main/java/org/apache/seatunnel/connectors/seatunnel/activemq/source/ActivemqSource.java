@@ -39,14 +39,14 @@ import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 
-import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.DEFAULT_FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.SCHEMA;
 
-@AutoService(SeaTunnelSource.class)
+@Slf4j
 public class ActivemqSource
         implements SeaTunnelSource<SeaTunnelRow, ActivemqSplit, ActivemqSplitEnumeratorState>,
                 SupportParallelism {
