@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.configuration.Options;
 
 import java.util.List;
 
-public class RedisConfig {
+public class RedisSinkOptions {
 
     public static final String CONNECTOR_IDENTITY = "Redis";
 
@@ -85,16 +85,16 @@ public class RedisConfig {
                     .noDefaultValue()
                     .withDescription("redis data types, support string hash list set zset.");
 
-    public static final Option<RedisConfig.Format> FORMAT =
+    public static final Option<RedisSinkOptions.Format> FORMAT =
             Options.key("format")
-                    .enumType(RedisConfig.Format.class)
-                    .defaultValue(RedisConfig.Format.JSON)
+                    .enumType(RedisSinkOptions.Format.class)
+                    .defaultValue(RedisSinkOptions.Format.JSON)
                     .withDescription(
                             "the format of upstream data, now only support json and text, default json.");
 
-    public static final Option<RedisConfig.RedisMode> MODE =
+    public static final Option<RedisSinkOptions.RedisMode> MODE =
             Options.key("mode")
-                    .enumType(RedisConfig.RedisMode.class)
+                    .enumType(RedisSinkOptions.RedisMode.class)
                     .defaultValue(RedisMode.SINGLE)
                     .withDescription(
                             "redis mode, support single or cluster, default value is single");
@@ -106,9 +106,9 @@ public class RedisConfig {
                     .withDescription(
                             "redis nodes information, used in cluster mode, must like as the following format: [host1:port1, host2:port2]");
 
-    public static final Option<RedisConfig.HashKeyParseMode> HASH_KEY_PARSE_MODE =
+    public static final Option<RedisSinkOptions.HashKeyParseMode> HASH_KEY_PARSE_MODE =
             Options.key("hash_key_parse_mode")
-                    .enumType(RedisConfig.HashKeyParseMode.class)
+                    .enumType(RedisSinkOptions.HashKeyParseMode.class)
                     .defaultValue(HashKeyParseMode.ALL)
                     .withDescription(
                             "hash key parse mode, support all or kv, default value is all");

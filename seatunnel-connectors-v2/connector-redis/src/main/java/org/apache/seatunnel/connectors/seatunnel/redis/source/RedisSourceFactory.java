@@ -25,7 +25,7 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSinkOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -48,18 +48,21 @@ public class RedisSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        RedisConfig.HOST,
-                        RedisConfig.PORT,
-                        RedisConfig.KEY_PATTERN,
-                        RedisConfig.DATA_TYPE)
+                        RedisSinkOptions.HOST,
+                        RedisSinkOptions.PORT,
+                        RedisSinkOptions.KEY_PATTERN,
+                        RedisSinkOptions.DATA_TYPE)
                 .optional(
-                        RedisConfig.MODE,
-                        RedisConfig.HASH_KEY_PARSE_MODE,
-                        RedisConfig.AUTH,
-                        RedisConfig.USER,
-                        RedisConfig.KEY)
-                .conditional(RedisConfig.MODE, RedisConfig.RedisMode.CLUSTER, RedisConfig.NODES)
-                .bundled(RedisConfig.FORMAT, TableSchemaOptions.SCHEMA)
+                        RedisSinkOptions.MODE,
+                        RedisSinkOptions.HASH_KEY_PARSE_MODE,
+                        RedisSinkOptions.AUTH,
+                        RedisSinkOptions.USER,
+                        RedisSinkOptions.KEY)
+                .conditional(
+                        RedisSinkOptions.MODE,
+                        RedisSinkOptions.RedisMode.CLUSTER,
+                        RedisSinkOptions.NODES)
+                .bundled(RedisSinkOptions.FORMAT, TableSchemaOptions.SCHEMA)
                 .build();
     }
 

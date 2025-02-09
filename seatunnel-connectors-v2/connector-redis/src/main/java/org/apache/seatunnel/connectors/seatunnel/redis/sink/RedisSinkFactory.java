@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSinkOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -45,20 +45,26 @@ public class RedisSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        RedisConfig.HOST, RedisConfig.PORT, RedisConfig.KEY, RedisConfig.DATA_TYPE)
+                        RedisSinkOptions.HOST,
+                        RedisSinkOptions.PORT,
+                        RedisSinkOptions.KEY,
+                        RedisSinkOptions.DATA_TYPE)
                 .optional(
-                        RedisConfig.MODE,
-                        RedisConfig.AUTH,
-                        RedisConfig.USER,
-                        RedisConfig.KEY_PATTERN,
-                        RedisConfig.FORMAT,
-                        RedisConfig.EXPIRE,
-                        RedisConfig.SUPPORT_CUSTOM_KEY,
-                        RedisConfig.VALUE_FIELD,
-                        RedisConfig.HASH_KEY_FIELD,
-                        RedisConfig.HASH_VALUE_FIELD,
+                        RedisSinkOptions.MODE,
+                        RedisSinkOptions.AUTH,
+                        RedisSinkOptions.USER,
+                        RedisSinkOptions.KEY_PATTERN,
+                        RedisSinkOptions.FORMAT,
+                        RedisSinkOptions.EXPIRE,
+                        RedisSinkOptions.SUPPORT_CUSTOM_KEY,
+                        RedisSinkOptions.VALUE_FIELD,
+                        RedisSinkOptions.HASH_KEY_FIELD,
+                        RedisSinkOptions.HASH_VALUE_FIELD,
                         SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
-                .conditional(RedisConfig.MODE, RedisConfig.RedisMode.CLUSTER, RedisConfig.NODES)
+                .conditional(
+                        RedisSinkOptions.MODE,
+                        RedisSinkOptions.RedisMode.CLUSTER,
+                        RedisSinkOptions.NODES)
                 .build();
     }
 }
