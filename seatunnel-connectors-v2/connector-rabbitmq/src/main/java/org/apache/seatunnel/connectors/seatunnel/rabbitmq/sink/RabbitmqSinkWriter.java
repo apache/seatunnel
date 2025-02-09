@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.client.RabbitmqClient;
-import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqOptions;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import java.util.Optional;
@@ -30,7 +30,7 @@ public class RabbitmqSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private RabbitmqClient rabbitMQClient;
     private final JsonSerializationSchema jsonSerializationSchema;
 
-    public RabbitmqSinkWriter(RabbitmqConfig config, SeaTunnelRowType seaTunnelRowType) {
+    public RabbitmqSinkWriter(RabbitmqOptions config, SeaTunnelRowType seaTunnelRowType) {
         this.rabbitMQClient = new RabbitmqClient(config);
         this.jsonSerializationSchema = new JsonSerializationSchema(seaTunnelRowType);
     }

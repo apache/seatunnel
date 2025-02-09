@@ -36,7 +36,7 @@ import java.util.Map;
 @Setter
 @Getter
 @AllArgsConstructor
-public class RabbitmqConfig implements Serializable {
+public class RabbitmqOptions implements Serializable {
     private String host;
     private Integer port;
     private String virtualHost;
@@ -234,7 +234,7 @@ public class RabbitmqConfig implements Serializable {
         }
     }
 
-    public RabbitmqConfig(Config config) {
+    public RabbitmqOptions(Config config) {
         this.host = config.getString(HOST.key());
         this.port = config.getInt(PORT.key());
         this.queueName = config.getString(QUEUE_NAME.key());
@@ -299,5 +299,5 @@ public class RabbitmqConfig implements Serializable {
     }
 
     @VisibleForTesting
-    public RabbitmqConfig() {}
+    public RabbitmqOptions() {}
 }
