@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
-import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.JobContext;
@@ -38,7 +37,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqOptions;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplitEnumeratorState;
@@ -71,7 +70,9 @@ public class RabbitmqSource
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, "not support batch job mode"));
         }
-        return rabbitmqSourceOptions.isForE2ETesting() ? Boundedness.BOUNDED : Boundedness.UNBOUNDED;
+        return rabbitmqSourceOptions.isForE2ETesting()
+                ? Boundedness.BOUNDED
+                : Boundedness.UNBOUNDED;
     }
 
     @Override
@@ -110,7 +111,8 @@ public class RabbitmqSource
     @Override
     public SourceReader<SeaTunnelRow, RabbitmqSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
-        return new RabbitmqSourceReader(deserializationSchema, readerContext, rabbitmqSourceOptions);
+        return new RabbitmqSourceReader(
+                deserializationSchema, readerContext, rabbitmqSourceOptions);
     }
 
     @Override
