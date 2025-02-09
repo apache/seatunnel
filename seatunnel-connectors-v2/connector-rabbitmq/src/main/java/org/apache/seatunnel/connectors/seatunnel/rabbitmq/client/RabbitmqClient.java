@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.client;
 
 import org.apache.seatunnel.common.Handover;
-import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 
 import org.apache.commons.lang3.StringUtils;
@@ -47,12 +47,12 @@ import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.Rabbi
 @Slf4j
 @AllArgsConstructor
 public class RabbitmqClient {
-    private final RabbitmqConfig config;
+    private final RabbitmqSinkOptions config;
     private final ConnectionFactory connectionFactory;
     private final Connection connection;
     private final Channel channel;
 
-    public RabbitmqClient(RabbitmqConfig config) {
+    public RabbitmqClient(RabbitmqSinkOptions config) {
         this.config = config;
         try {
             this.connectionFactory = getConnectionFactory();
@@ -193,7 +193,8 @@ public class RabbitmqClient {
         }
     }
 
-    private void declareQueueDefaults(Channel channel, RabbitmqConfig config) throws IOException {
+    private void declareQueueDefaults(Channel channel, RabbitmqSinkOptions config)
+            throws IOException {
         channel.queueDeclare(
                 config.getQueueName(),
                 config.getDurable(),
