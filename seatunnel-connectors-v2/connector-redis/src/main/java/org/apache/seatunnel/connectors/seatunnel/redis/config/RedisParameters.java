@@ -52,11 +52,11 @@ public class RedisParameters implements Serializable {
     private String keysPattern;
     private String keyField;
     private RedisDataType redisDataType;
-    private RedisSinkOptions.RedisMode mode;
-    private RedisSinkOptions.HashKeyParseMode hashKeyParseMode;
+    private RedisBaseOptions.RedisMode mode;
+    private RedisSourceOptions.HashKeyParseMode hashKeyParseMode;
     private List<String> redisNodes = Collections.emptyList();
     private long expire = RedisSinkOptions.EXPIRE.defaultValue();
-    private int batchSize = RedisSinkOptions.BATCH_SIZE.defaultValue();
+    private int batchSize = RedisBaseOptions.BATCH_SIZE.defaultValue();
     private Boolean supportCustomKey;
     private String valueField;
     private String hashKeyField;
@@ -66,41 +66,41 @@ public class RedisParameters implements Serializable {
 
     public void buildWithConfig(ReadonlyConfig config) {
         // set host
-        this.host = config.get(RedisSinkOptions.HOST);
+        this.host = config.get(RedisBaseOptions.HOST);
         // set port
-        this.port = config.get(RedisSinkOptions.PORT);
+        this.port = config.get(RedisBaseOptions.PORT);
         // set db_num
-        this.dbNum = config.get(RedisSinkOptions.DB_NUM);
+        this.dbNum = config.get(RedisBaseOptions.DB_NUM);
         // set hash key mode
-        this.hashKeyParseMode = config.get(RedisSinkOptions.HASH_KEY_PARSE_MODE);
+        this.hashKeyParseMode = config.get(RedisSourceOptions.HASH_KEY_PARSE_MODE);
         // set expire
         this.expire = config.get(RedisSinkOptions.EXPIRE);
         // set auth
-        if (config.getOptional(RedisSinkOptions.AUTH).isPresent()) {
-            this.auth = config.get(RedisSinkOptions.AUTH);
+        if (config.getOptional(RedisBaseOptions.AUTH).isPresent()) {
+            this.auth = config.get(RedisBaseOptions.AUTH);
         }
         // set user
-        if (config.getOptional(RedisSinkOptions.USER).isPresent()) {
-            this.user = config.get(RedisSinkOptions.USER);
+        if (config.getOptional(RedisBaseOptions.USER).isPresent()) {
+            this.user = config.get(RedisBaseOptions.USER);
         }
         // set mode
-        this.mode = config.get(RedisSinkOptions.MODE);
+        this.mode = config.get(RedisBaseOptions.MODE);
         // set redis nodes information
-        if (config.getOptional(RedisSinkOptions.NODES).isPresent()) {
-            this.redisNodes = config.get(RedisSinkOptions.NODES);
+        if (config.getOptional(RedisBaseOptions.NODES).isPresent()) {
+            this.redisNodes = config.get(RedisBaseOptions.NODES);
         }
         // set key
-        if (config.getOptional(RedisSinkOptions.KEY).isPresent()) {
-            this.keyField = config.get(RedisSinkOptions.KEY);
+        if (config.getOptional(RedisBaseOptions.KEY).isPresent()) {
+            this.keyField = config.get(RedisBaseOptions.KEY);
         }
         // set keysPattern
-        if (config.getOptional(RedisSinkOptions.KEY_PATTERN).isPresent()) {
-            this.keysPattern = config.get(RedisSinkOptions.KEY_PATTERN);
+        if (config.getOptional(RedisBaseOptions.KEY_PATTERN).isPresent()) {
+            this.keysPattern = config.get(RedisBaseOptions.KEY_PATTERN);
         }
         // set redis data type verification factory createAndPrepareSource
-        this.redisDataType = config.get(RedisSinkOptions.DATA_TYPE);
+        this.redisDataType = config.get(RedisBaseOptions.DATA_TYPE);
         // Indicates the number of keys to attempt to return per iteration.default 10
-        this.batchSize = config.get(RedisSinkOptions.BATCH_SIZE);
+        this.batchSize = config.get(RedisBaseOptions.BATCH_SIZE);
         // set support custom key
         if (config.getOptional(RedisSinkOptions.SUPPORT_CUSTOM_KEY).isPresent()) {
             this.supportCustomKey = config.get(RedisSinkOptions.SUPPORT_CUSTOM_KEY);
@@ -122,7 +122,7 @@ public class RedisParameters implements Serializable {
     public RedisClient buildRedisClient() {
         Jedis jedis = this.buildJedis();
         this.redisVersion = extractRedisVersion(jedis);
-        if (mode.equals(RedisSinkOptions.RedisMode.SINGLE)) {
+        if (mode.equals(RedisBaseOptions.RedisMode.SINGLE)) {
             return new RedisSingleClient(this, jedis, redisVersion);
         } else {
             return new RedisClusterClient(this, jedis, redisVersion);

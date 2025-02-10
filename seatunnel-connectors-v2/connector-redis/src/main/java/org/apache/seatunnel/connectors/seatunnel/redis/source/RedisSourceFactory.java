@@ -25,7 +25,8 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -48,21 +49,21 @@ public class RedisSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        RedisSinkOptions.HOST,
-                        RedisSinkOptions.PORT,
-                        RedisSinkOptions.KEY_PATTERN,
-                        RedisSinkOptions.DATA_TYPE)
+                        RedisBaseOptions.HOST,
+                        RedisBaseOptions.PORT,
+                        RedisBaseOptions.KEY_PATTERN,
+                        RedisBaseOptions.DATA_TYPE)
                 .optional(
-                        RedisSinkOptions.MODE,
-                        RedisSinkOptions.HASH_KEY_PARSE_MODE,
-                        RedisSinkOptions.AUTH,
-                        RedisSinkOptions.USER,
-                        RedisSinkOptions.KEY)
+                        RedisBaseOptions.MODE,
+                        RedisSourceOptions.HASH_KEY_PARSE_MODE,
+                        RedisBaseOptions.AUTH,
+                        RedisBaseOptions.USER,
+                        RedisBaseOptions.KEY)
                 .conditional(
-                        RedisSinkOptions.MODE,
-                        RedisSinkOptions.RedisMode.CLUSTER,
-                        RedisSinkOptions.NODES)
-                .bundled(RedisSinkOptions.FORMAT, TableSchemaOptions.SCHEMA)
+                        RedisBaseOptions.MODE,
+                        RedisBaseOptions.RedisMode.CLUSTER,
+                        RedisBaseOptions.NODES)
+                .bundled(RedisBaseOptions.FORMAT, TableSchemaOptions.SCHEMA)
                 .build();
     }
 

@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSinkOptions;
 
 import com.google.auto.service.AutoService;
@@ -45,16 +46,16 @@ public class RedisSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        RedisSinkOptions.HOST,
-                        RedisSinkOptions.PORT,
-                        RedisSinkOptions.KEY,
-                        RedisSinkOptions.DATA_TYPE)
+                        RedisBaseOptions.HOST,
+                        RedisBaseOptions.PORT,
+                        RedisBaseOptions.KEY,
+                        RedisBaseOptions.DATA_TYPE)
                 .optional(
-                        RedisSinkOptions.MODE,
-                        RedisSinkOptions.AUTH,
-                        RedisSinkOptions.USER,
-                        RedisSinkOptions.KEY_PATTERN,
-                        RedisSinkOptions.FORMAT,
+                        RedisBaseOptions.MODE,
+                        RedisBaseOptions.AUTH,
+                        RedisBaseOptions.USER,
+                        RedisBaseOptions.KEY_PATTERN,
+                        RedisBaseOptions.FORMAT,
                         RedisSinkOptions.EXPIRE,
                         RedisSinkOptions.SUPPORT_CUSTOM_KEY,
                         RedisSinkOptions.VALUE_FIELD,
@@ -62,9 +63,9 @@ public class RedisSinkFactory implements TableSinkFactory {
                         RedisSinkOptions.HASH_VALUE_FIELD,
                         SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .conditional(
-                        RedisSinkOptions.MODE,
-                        RedisSinkOptions.RedisMode.CLUSTER,
-                        RedisSinkOptions.NODES)
+                        RedisBaseOptions.MODE,
+                        RedisBaseOptions.RedisMode.CLUSTER,
+                        RedisBaseOptions.NODES)
                 .build();
     }
 }
