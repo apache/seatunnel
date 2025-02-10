@@ -58,7 +58,9 @@ class SeaTunnelSourcePluginDiscoveryTest {
                     Paths.get(seatunnelHome, "connectors", "connector-jdbc-release-1.1.jar"),
                     Paths.get(seatunnelHome, "connectors", "connector-jdbc-hive1.jar"),
                     Paths.get(seatunnelHome, "connectors", "connector-odbc-baidu-v1.jar"),
-                    Paths.get(seatunnelHome, "connectors", "connector-odbc-baidu-release-1.1.jar"));
+                    Paths.get(seatunnelHome, "connectors", "connector-odbc-baidu-release-1.1.jar"),
+                    Paths.get(seatunnelHome, "connectors", "seatunnel-transforms-v2.jar"),
+                    Paths.get(seatunnelHome, "connectors", "seatunnel-transforms-v1.jar"));
 
     @BeforeEach
     public void before() throws IOException {
@@ -119,6 +121,32 @@ class SeaTunnelSourcePluginDiscoveryTest {
         Assertions.assertEquals(
                 "Cannot find unique plugin jar for pluginIdentifier: odbc -> connector-odbc",
                 exception.getMessage());
+    }
+
+    @Test
+    void getTransformClass() {
+        List<PluginIdentifier> pluginIdentifiers =
+                Lists.newArrayList(
+                        PluginIdentifier.of("seatunnel", PluginType.TRANSFORM.getType(), "Sql"),
+                        PluginIdentifier.of("seatunnel", PluginType.TRANSFORM.getType(), "Filter"));
+        SeaTunnelSourcePluginDiscovery seaTunnelSourcePluginDiscovery =
+                new SeaTunnelSourcePluginDiscovery();
+        Assertions.assertIterableEquals(
+                Stream.of(
+                                Paths.get(
+                                                seatunnelHome,
+                                                "connectors",
+                                                "seatunnel-transforms-v2.jar")
+                                        .toString(),
+                                Paths.get(
+                                                seatunnelHome,
+                                                "connectors",
+                                                "seatunnel-transforms-v1.jar")
+                                        .toString())
+                        .collect(Collectors.toList()),
+                seaTunnelSourcePluginDiscovery.getPluginJarPaths(pluginIdentifiers).stream()
+                        .map(URL::getPath)
+                        .collect(Collectors.toList()));
     }
 
     @AfterEach

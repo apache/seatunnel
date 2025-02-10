@@ -90,6 +90,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
             new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
     protected final Map<PluginIdentifier, String> sourcePluginInstance;
     protected final Map<PluginIdentifier, String> sinkPluginInstance;
+    protected final Map<PluginIdentifier, String> transformPluginInstance;
 
     public AbstractPluginDiscovery(BiConsumer<ClassLoader, URL> addURLToClassloader) {
         this(Common.connectorDir(), loadConnectorPluginConfig(), addURLToClassloader);
@@ -116,6 +117,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         this.addURLToClassLoaderConsumer = addURLToClassLoaderConsumer;
         this.sourcePluginInstance = getAllSupportedPlugins(PluginType.SOURCE);
         this.sinkPluginInstance = getAllSupportedPlugins(PluginType.SINK);
+        this.transformPluginInstance = getAllSupportedPlugins(PluginType.TRANSFORM);
         log.info("Load {} Plugin from {}", getPluginBaseClass().getSimpleName(), pluginDir);
     }
 
@@ -464,6 +466,8 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                 return sinkPluginInstance.get(pluginIdentifier);
             case SOURCE:
                 return sourcePluginInstance.get(pluginIdentifier);
+            case TRANSFORM:
+                return transformPluginInstance.get(pluginIdentifier);
             default:
                 throw new SeaTunnelException("Unsupported plugin type: " + type);
         }
@@ -494,13 +498,17 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                 break;
             case SOURCE:
                 pluginInstanceMap = sourcePluginInstance;
+                break;
+            case TRANSFORM:
+                pluginInstanceMap = transformPluginInstance;
+                break;
         }
         if (pluginInstanceMap == null) {
             return Optional.empty();
         }
         List<URL> matchedUrls = new ArrayList<>();
-        for (String suffix : pluginInstanceMap.values()) {
-            if (file.getName().startsWith(suffix)) {
+        for (Map.Entry<PluginIdentifier, String> entry : pluginInstanceMap.entrySet()) {
+            if (file.getName().startsWith(entry.getValue())) {
                 try {
                     matchedUrls.add(file.toURI().toURL());
                 } catch (MalformedURLException e) {
