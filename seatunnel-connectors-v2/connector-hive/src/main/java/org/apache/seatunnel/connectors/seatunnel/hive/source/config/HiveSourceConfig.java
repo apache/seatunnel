@@ -53,6 +53,7 @@ import org.apache.hadoop.hive.metastore.api.Table;
 import lombok.Getter;
 import lombok.SneakyThrows;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -73,7 +74,7 @@ public class HiveSourceConfig implements Serializable {
 
     private final CatalogTable catalogTable;
     private final FileFormat fileFormat;
-    private final ReadStrategy readStrategy;
+    private final ReadonlyConfig readonlyConfig;
     private final List<String> filePaths;
     private final HadoopConf hadoopConf;
 
@@ -85,11 +86,17 @@ public class HiveSourceConfig implements Serializable {
         Table table = HiveTableUtils.getTableInfo(readonlyConfig);
         this.hadoopConf = parseHiveHadoopConfig(readonlyConfig, table);
         this.fileFormat = HiveTableUtils.parseFileFormat(table);
-        this.readStrategy = parseReadStrategy(table, readonlyConfig, fileFormat, hadoopConf);
-        this.filePaths = parseFilePaths(table, readStrategy);
-        this.catalogTable =
-                parseCatalogTable(
-                        readonlyConfig, readStrategy, fileFormat, hadoopConf, filePaths, table);
+        this.readonlyConfig = readonlyConfig;
+        // ReadStrategy cannot be field of object. as it need be close after use.
+        // but this object has no close method to invoke. so we need to create when needed, close
+        // when finished.
+        try (ReadStrategy readStrategy =
+                parseReadStrategy(table, readonlyConfig, fileFormat, hadoopConf)) {
+            this.filePaths = parseFilePaths(table, readStrategy);
+            this.catalogTable =
+                    parseCatalogTable(
+                            readonlyConfig, readStrategy, fileFormat, hadoopConf, filePaths, table);
+        }
     }
 
     private void validatePartitions(List<String> partitionsList) {
@@ -109,6 +116,11 @@ public class HiveSourceConfig implements Serializable {
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     "Every partition that in partition list should has the same directory depth");
         }
+    }
+
+    public ReadStrategy getReadStrategy() {
+        Table table = HiveTableUtils.getTableInfo(readonlyConfig);
+        return parseReadStrategy(table, readonlyConfig, fileFormat, hadoopConf);
     }
 
     private ReadStrategy parseReadStrategy(
@@ -272,11 +284,12 @@ public class HiveSourceConfig implements Serializable {
             return buildEmptyCatalogTable(readonlyConfig, table);
         }
         CatalogTable catalogTable = buildEmptyCatalogTable(readonlyConfig, table);
-        try {
+        try (ReadStrategy readStrategy =
+                parseReadStrategy(table, readonlyConfig, fileFormat, hadoopConf)) {
             SeaTunnelRowType seaTunnelRowTypeInfo =
                     readStrategy.getSeaTunnelRowTypeInfo(filePaths.get(0));
             return CatalogTableUtil.newCatalogTable(catalogTable, seaTunnelRowTypeInfo);
-        } catch (FileConnectorException e) {
+        } catch (FileConnectorException | IOException e) {
             String errorMsg =
                     String.format("Get table schema from file [%s] failed", filePaths.get(0));
             throw new FileConnectorException(

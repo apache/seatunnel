@@ -76,7 +76,6 @@ public class HiveSink
     private final ReadonlyConfig readonlyConfig;
     private final HadoopConf hadoopConf;
     private final FileSinkConfig fileSinkConfig;
-    private transient WriteStrategy writeStrategy;
     private String jobId;
 
     public HiveSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
@@ -85,7 +84,6 @@ public class HiveSink
         this.tableInformation = getTableInformation();
         this.hadoopConf = createHadoopConf(readonlyConfig);
         this.fileSinkConfig = generateFileSinkConfig(readonlyConfig, catalogTable);
-        this.writeStrategy = getWriteStrategy();
     }
 
     private FileSinkConfig generateFileSinkConfig(
@@ -237,10 +235,9 @@ public class HiveSink
     }
 
     private WriteStrategy getWriteStrategy() {
-        if (writeStrategy == null) {
-            writeStrategy = WriteStrategyFactory.of(fileSinkConfig.getFileFormat(), fileSinkConfig);
-            writeStrategy.setCatalogTable(catalogTable);
-        }
+        WriteStrategy writeStrategy =
+                WriteStrategyFactory.of(fileSinkConfig.getFileFormat(), fileSinkConfig);
+        writeStrategy.setCatalogTable(catalogTable);
         return writeStrategy;
     }
 
