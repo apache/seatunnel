@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -31,17 +32,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.Random;
-import java.util.jar.JarEntry;
-import java.util.jar.JarOutputStream;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -52,37 +48,17 @@ class SeaTunnelSourcePluginDiscoveryTest {
     private DeployMode originMode = null;
     private static final String seatunnelHome =
             SeaTunnelSourcePluginDiscoveryTest.class.getResource("/duplicate").getPath();
-
-    private static final List<Object[]> pluginJars =
+    private static final List<Path> pluginJars =
             Lists.newArrayList(
-                    new Object[] {
-                        Paths.get(seatunnelHome, "connectors", "connector-http-jira.jar"),
-                        "connector-http-jira"
-                    },
-                    new Object[] {
-                        Paths.get(seatunnelHome, "connectors", "connector-http.jar"),
-                        "connector-http"
-                    },
-                    new Object[] {
-                        Paths.get(seatunnelHome, "connectors", "connector-kafka.jar"),
-                        "connector-kafka"
-                    },
-                    new Object[] {
-                        Paths.get(seatunnelHome, "connectors", "connector-kafka-alcs.jar"),
-                        "connector-kafka-alcs"
-                    },
-                    new Object[] {
-                        Paths.get(seatunnelHome, "connectors", "connector-kafka-blcs.jar"),
-                        "connector-kafka-blcs"
-                    },
-                    new Object[] {
-                        Paths.get(seatunnelHome, "connectors", "connector-jdbc-release-1.1.jar"),
-                        "connector-jdbc"
-                    },
-                    new Object[] {
-                        Paths.get(seatunnelHome, "connectors", "connector-jdbc-hive1.jar"),
-                        "connector-jdbc-hive1"
-                    });
+                    Paths.get(seatunnelHome, "connectors", "connector-http-jira.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-http.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-kafka.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-kafka-alcs.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-kafka-blcs.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-jdbc-release-1.1.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-jdbc-hive1.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-odbc-baidu-v1.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-odbc-baidu-release-1.1.jar"));
 
     @BeforeEach
     public void before() throws IOException {
@@ -92,13 +68,8 @@ class SeaTunnelSourcePluginDiscoveryTest {
         Common.setSeaTunnelHome(seatunnelHome);
 
         // The file is created under target directory.
-        for (Object[] pluginJarTuple : pluginJars) {
-            generateJarWithPomProperties(
-                    ((Path) pluginJarTuple[0]).toString(),
-                    "org.apache.seatunnel",
-                    pluginJarTuple[1].toString(),
-                    "1.0.0-SNAPSHOT");
-            // Files.createFile( ((Path) pluginJarTuple[0]));
+        for (Path pluginJar : pluginJars) {
+            Files.createFile(pluginJar);
         }
     }
 
@@ -113,11 +84,6 @@ class SeaTunnelSourcePluginDiscoveryTest {
                         PluginIdentifier.of("seatunnel", PluginType.SINK.getType(), "Jdbc"));
         SeaTunnelSourcePluginDiscovery seaTunnelSourcePluginDiscovery =
                 new SeaTunnelSourcePluginDiscovery();
-        List<String> collect =
-                seaTunnelSourcePluginDiscovery.getPluginJarPaths(pluginIdentifiers).stream()
-                        .map(URL::getPath)
-                        .collect(Collectors.toList());
-        collect.forEach(System.out::println);
         Assertions.assertIterableEquals(
                 Stream.of(
                                 Paths.get(seatunnelHome, "connectors", "connector-http-jira.jar")
@@ -134,93 +100,33 @@ class SeaTunnelSourcePluginDiscoveryTest {
                                                 "connector-jdbc-release-1.1.jar")
                                         .toString())
                         .collect(Collectors.toList()),
-                collect);
+                seaTunnelSourcePluginDiscovery.getPluginJarPaths(pluginIdentifiers).stream()
+                        .map(URL::getPath)
+                        .collect(Collectors.toList()));
+    }
+
+    @Test
+    void getPluginBaseClassFailureScenario() {
+        List<PluginIdentifier> pluginIdentifiers =
+                Lists.newArrayList(
+                        PluginIdentifier.of("seatunnel", PluginType.SOURCE.getType(), "Odbc"));
+        SeaTunnelSourcePluginDiscovery seaTunnelSourcePluginDiscovery =
+                new SeaTunnelSourcePluginDiscovery();
+        Exception exception =
+                Assertions.assertThrows(
+                        SeaTunnelException.class,
+                        () -> seaTunnelSourcePluginDiscovery.getPluginJarPaths(pluginIdentifiers));
+        Assertions.assertEquals(
+                "Cannot find unique plugin jar for pluginIdentifier: odbc -> connector-odbc",
+                exception.getMessage());
     }
 
     @AfterEach
     public void after() throws IOException {
-        for (Object[] pluginJar : pluginJars) {
-            Files.deleteIfExists(((Path) pluginJar[0]));
+        for (Path pluginJar : pluginJars) {
+            Files.deleteIfExists(pluginJar);
         }
         Common.setSeaTunnelHome(originSeatunnelHome);
         Common.setDeployMode(originMode);
-    }
-
-    public static void generateJarWithPomProperties(
-            String jarFilePath, String groupId, String artifactId, String version)
-            throws IOException {
-        File jarFile = new File(jarFilePath);
-
-        File parentDir = jarFile.getParentFile();
-        if (parentDir != null && !parentDir.exists()) {
-            parentDir.mkdirs();
-        }
-        if (jarFile.exists()) {
-            jarFile.delete();
-        }
-
-        try (JarOutputStream jos = new JarOutputStream(Files.newOutputStream(jarFile.toPath()))) {
-            String pomDir = "META-INF/maven/" + groupId + "/" + artifactId + "/";
-            JarEntry dirEntry = new JarEntry(pomDir);
-            jos.putNextEntry(dirEntry);
-            jos.closeEntry();
-
-            String pomContent = buildPomContent(groupId, artifactId, version);
-            String pomPath = pomDir + "pom.properties";
-            JarEntry pomEntry = new JarEntry(pomPath);
-            jos.putNextEntry(pomEntry);
-            jos.write(pomContent.getBytes("UTF-8"));
-            jos.closeEntry();
-
-            addPerturbedPomProperties(jos, groupId, artifactId, version, 10);
-        }
-    }
-
-    private static String buildPomContent(String groupId, String artifactId, String version) {
-        return "groupId="
-                + groupId
-                + "\n"
-                + "artifactId="
-                + artifactId
-                + "\n"
-                + "version="
-                + version
-                + "\n";
-    }
-
-    private static void addDirectoryEntry(JarOutputStream jos, String directoryPath) {
-        if (!directoryPath.endsWith("/")) {
-            directoryPath += "/";
-        }
-        JarEntry dirEntry = new JarEntry(directoryPath);
-        try {
-            jos.putNextEntry(dirEntry);
-            jos.closeEntry();
-        } catch (IOException e) {
-        }
-    }
-
-    private static void addPerturbedPomProperties(
-            JarOutputStream jos, String groupId, String artifactId, String version, int count)
-            throws IOException {
-        Random random = new Random();
-        for (int i = 1; i <= count; i++) {
-            String perturbedGroupId = perturbString(groupId, i);
-            String perturbedArtifactId = perturbString(artifactId, i);
-            String perturbedPomContent =
-                    buildPomContent(perturbedGroupId, perturbedArtifactId, version);
-            String perturbedDir =
-                    "META-INF/maven/" + perturbedGroupId + "/" + perturbedArtifactId + "/";
-            addDirectoryEntry(jos, perturbedDir);
-            String perturbedPomPath = perturbedDir + "pom.properties";
-            JarEntry entry = new JarEntry(perturbedPomPath);
-            jos.putNextEntry(entry);
-            jos.write(perturbedPomContent.getBytes(StandardCharsets.UTF_8));
-            jos.closeEntry();
-        }
-    }
-
-    private static String perturbString(String s, int i) {
-        return i + s;
     }
 }

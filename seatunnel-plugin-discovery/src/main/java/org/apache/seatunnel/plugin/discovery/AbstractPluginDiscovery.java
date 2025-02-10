@@ -41,31 +41,27 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Enumeration;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -438,10 +434,11 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                                 if (files.length == 1) {
                                     return Optional.of(files[0].toURI().toURL());
                                 } else {
+                                    Arrays.sort(files, Comparator.comparing(File::getName));
                                     PluginType type = PluginType.valueOf(pluginType.toUpperCase());
-                                    String targetPluginName =
+                                    String targetPlugin =
                                             getTargetPluginName(pluginIdentifier, type);
-                                    return selectPluginJar(files, targetPluginName);
+                                    return selectPluginJar(files, targetPlugin, pluginName, type);
                                 }
                             } catch (MalformedURLException e) {
                                 log.warn(
@@ -472,41 +469,49 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         }
     }
 
-    private Optional<URL> selectPluginJar(File[] targetPluginFiles, String targetPluginName) {
+    private Optional<URL> selectPluginJar(
+            File[] targetPluginFiles, String targetPlugin, String pluginName, PluginType type) {
+        List<URL> resMatchedUrls = new ArrayList<>();
         for (File file : targetPluginFiles) {
-            if (readPomPropertiesJudgeJar(file.getPath(), targetPluginName)) {
-                try {
-                    return Optional.of(file.toURI().toURL());
-                } catch (MalformedURLException e) {
-                    log.error("Invalid URL for file: {}", file.getAbsolutePath(), e);
-                }
-            }
+            Optional<URL> matchedUrl = findMatchingUrl(file, type);
+            matchedUrl.ifPresent(resMatchedUrls::add);
         }
-        return Optional.empty();
+        if (resMatchedUrls.size() != 1) {
+            throw new SeaTunnelException(
+                    String.format(
+                            "Cannot find unique plugin jar for pluginIdentifier: %s -> %s",
+                            pluginName, targetPlugin));
+        } else {
+            return Optional.of(resMatchedUrls.get(0));
+        }
     }
 
-    @SneakyThrows
-    private static boolean readPomPropertiesJudgeJar(String jarPath, String targetPluginPath) {
-        try (JarFile jarFile = new JarFile(jarPath)) {
-            Enumeration<JarEntry> entries = jarFile.entries();
-            while (entries.hasMoreElements()) {
-                JarEntry entry = entries.nextElement();
-                String entryName = entry.getName();
-
-                if (entryName.endsWith("pom.properties") && entryName.contains("META-INF/maven/")) {
-
-                    Properties props = new Properties();
-                    try (InputStream is = jarFile.getInputStream(entry)) {
-                        props.load(is);
-                    }
-
-                    String artifactId = props.getProperty("artifactId");
-                    if (targetPluginPath.equals(artifactId)) {
-                        return true;
-                    }
+    private Optional<URL> findMatchingUrl(File file, PluginType type) {
+        Map<PluginIdentifier, String> pluginInstanceMap = null;
+        switch (type) {
+            case SINK:
+                pluginInstanceMap = sinkPluginInstance;
+                break;
+            case SOURCE:
+                pluginInstanceMap = sourcePluginInstance;
+        }
+        if (pluginInstanceMap == null) {
+            return Optional.empty();
+        }
+        List<URL> matchedUrls = new ArrayList<>();
+        for (String suffix : pluginInstanceMap.values()) {
+            if (file.getName().startsWith(suffix)) {
+                try {
+                    matchedUrls.add(file.toURI().toURL());
+                } catch (MalformedURLException e) {
+                    log.warn("Cannot get plugin URL for pluginIdentifier: {}", file, e);
                 }
             }
-            return false;
         }
+
+        if (matchedUrls.size() == 1) {
+            return Optional.of(matchedUrls.get(0));
+        }
+        return Optional.empty();
     }
 }
