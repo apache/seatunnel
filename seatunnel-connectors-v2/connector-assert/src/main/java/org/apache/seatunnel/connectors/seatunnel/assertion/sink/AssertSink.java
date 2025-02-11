@@ -45,8 +45,8 @@ import static org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions.T
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.CATALOG_TABLE_RULES;
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.FIELD_RULES;
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.ROW_RULES;
-import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.RULES;
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.TABLE_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertSinkOptions.RULES;
 
 public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         implements SupportMultiTableSink {
@@ -71,7 +71,7 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         if (ruleConfig.hasPath(TABLE_CONFIGS.key())) {
             List<? extends Config> tableConfigs = ruleConfig.getConfigList(TABLE_CONFIGS.key());
             for (Config tableConfig : tableConfigs) {
-                String tableName = tableConfig.getString(TABLE_PATH.key());
+                String tableName = tableConfig.getString(TABLE_PATH);
                 initTableRule(catalogTable, tableConfig, tableName);
             }
         } else {

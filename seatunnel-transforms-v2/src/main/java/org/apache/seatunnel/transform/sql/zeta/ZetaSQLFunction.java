@@ -148,6 +148,8 @@ public class ZetaSQLFunction {
     public static final String SIGN = "SIGN";
     public static final String TRUNC = "TRUNC";
     public static final String TRUNCATE = "TRUNCATE";
+    public static final String ARRAY_MAX = "ARRAY_MAX";
+    public static final String ARRAY_MIN = "ARRAY_MIN";
 
     // -------------------------time and date functions----------------------------
     public static final String CURRENT_DATE = "CURRENT_DATE";
@@ -554,6 +556,10 @@ public class ZetaSQLFunction {
                 return SystemFunction.nullif(args);
             case ARRAY:
                 return ArrayFunction.array(args);
+            case ARRAY_MAX:
+                return ArrayFunction.arrayMax(args);
+            case ARRAY_MIN:
+                return ArrayFunction.arrayMin(args);
             case UUID:
                 return randomUUID().toString();
             default:

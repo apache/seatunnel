@@ -28,7 +28,7 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3ConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3FileSinkOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -42,18 +42,18 @@ public class S3FileSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(S3ConfigOptions.FILE_PATH)
-                .required(S3ConfigOptions.S3_BUCKET)
-                .required(S3ConfigOptions.FS_S3A_ENDPOINT)
-                .required(S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER)
-                .required(S3ConfigOptions.SCHEMA_SAVE_MODE)
-                .required(S3ConfigOptions.DATA_SAVE_MODE)
+                .required(S3FileSinkOptions.FILE_PATH)
+                .required(S3FileSinkOptions.S3_BUCKET)
+                .required(S3FileSinkOptions.FS_S3A_ENDPOINT)
+                .required(S3FileSinkOptions.S3A_AWS_CREDENTIALS_PROVIDER)
+                .required(S3FileSinkOptions.SCHEMA_SAVE_MODE)
+                .required(S3FileSinkOptions.DATA_SAVE_MODE)
                 .conditional(
-                        S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER,
-                        S3ConfigOptions.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
-                        S3ConfigOptions.S3_ACCESS_KEY,
-                        S3ConfigOptions.S3_SECRET_KEY)
-                .optional(S3ConfigOptions.S3_PROPERTIES)
+                        S3FileSinkOptions.S3A_AWS_CREDENTIALS_PROVIDER,
+                        S3FileSinkOptions.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
+                        S3FileSinkOptions.S3_ACCESS_KEY,
+                        S3FileSinkOptions.S3_SECRET_KEY)
+                .optional(S3FileSinkOptions.S3_PROPERTIES)
                 .optional(BaseSinkConfig.FILE_FORMAT_TYPE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
