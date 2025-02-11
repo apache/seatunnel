@@ -120,7 +120,11 @@ public class HiveSourceConfig implements Serializable {
 
     public ReadStrategy getReadStrategy() {
         Table table = HiveTableUtils.getTableInfo(readonlyConfig);
-        return parseReadStrategy(table, readonlyConfig, fileFormat, hadoopConf);
+        ReadStrategy readStrategy =
+                parseReadStrategy(table, readonlyConfig, fileFormat, hadoopConf);
+        //some field need init by this method, such as deserializationSchema in readStrategy
+        parseCatalogTable(readonlyConfig, readStrategy, fileFormat, hadoopConf, filePaths, table);
+        return readStrategy;
     }
 
     private ReadStrategy parseReadStrategy(
