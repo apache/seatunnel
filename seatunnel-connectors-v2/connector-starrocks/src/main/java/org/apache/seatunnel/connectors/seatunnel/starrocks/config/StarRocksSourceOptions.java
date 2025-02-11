@@ -32,6 +32,11 @@ public class StarRocksSourceOptions extends StarRocksBaseOptions {
     public static final Option<String> SCAN_FILTER =
             Options.key("scan_filter").stringType().defaultValue("").withDescription("SQL filter");
 
+    public static final Option<Integer> MAX_RETRIES =
+            Options.key("max_retries")
+                    .intType()
+                    .defaultValue(3)
+                    .withDescription("number of retry requests sent to StarRocks");
     public static final Option<Integer> SCAN_CONNECT_TIMEOUT =
             Options.key("scan_connect_timeout_ms")
                     .intType()

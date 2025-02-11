@@ -54,10 +54,4 @@ public class StarRocksBaseOptions implements Serializable {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("StarRocks user password");
-
-    public static final Option<Integer> MAX_RETRIES =
-            Options.key("max_retries")
-                    .intType()
-                    .noDefaultValue()
-                    .withDescription("The number of retries to flush failed");
 }

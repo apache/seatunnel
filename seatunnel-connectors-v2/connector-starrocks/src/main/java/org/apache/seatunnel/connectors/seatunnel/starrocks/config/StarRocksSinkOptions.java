@@ -71,6 +71,11 @@ public class StarRocksSinkOptions extends StarRocksBaseOptions {
                     .withDescription(
                             "Create table statement template, used to create StarRocks table");
 
+    public static final Option<Integer> MAX_RETRIES =
+            Options.key("max_retries")
+                    .intType()
+                    .noDefaultValue()
+                    .withDescription("The number of retries to flush failed");
     public static final Option<Integer> BATCH_MAX_SIZE =
             Options.key("batch_max_rows")
                     .intType()
