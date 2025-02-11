@@ -33,21 +33,25 @@
 
 ## 选项
 
-|         名称          |  类型  | 必需 | 默认值  |
-|-----------------------|--------|------|---------|
-| table_name            | string | 是   | -       |
-| metastore_uri         | string | 是   | -       |
-| krb5_path             | string | 否   | /etc/krb5.conf |
-| kerberos_principal    | string | 否   | -       |
-| kerberos_keytab_path  | string | 否   | -       |
-| hdfs_site_path        | string | 否   | -       |
-| hive_site_path        | string | 否   | -       |
-| hive.hadoop.conf      | Map    | 否   | -       |
-| hive.hadoop.conf-path | string | 否   | -       |
-| read_partitions       | list   | 否   | -       |
-| read_columns          | list   | 否   | -       |
-| compress_codec        | string | 否   | none    |
-| common-options        |        | 否   | -       |
+|         名称                          |  类型   | 必需  | 默认值   |
+|--------------------------------------|---------|-------|---------|
+| table_name                           | string  | 是    | -       |
+| metastore_uri                        | string  | 是    | -       |
+| krb5_path                            | string  | 否    | /etc/krb5.conf |
+| kerberos_principal                   | string  | 否    | -       |
+| kerberos_keytab_path                 | string  | 否    | -       |
+| hdfs_site_path                       | string  | 否    | -       |
+| hive_site_path                       | string  | 否    | -       |
+| hive.hadoop.conf                     | Map     | 否    | -       |
+| hive.hadoop.conf-path                | string  | 否    | -       |
+| read_partitions                      | list    | 否    | -       |
+| read_columns                         | list    | 否    | -       |
+| compress_codec                       | string  | 否    | none    |
+| split_single_file_to_multiple_splits | long    | 否    | false   | 
+| file_size_per_split                  | long    | 否    | none    |
+| row_count_per_split                  | long    | 否    | none    |
+| batch_read_rows                      | long    | 否    | 1024    | 
+| common-options                       |         | 否    | -       |
 
 ### table_name [string]
 
@@ -101,6 +105,22 @@ Kerberos 认证的 keytab 文件路径
 - csv: `lzo` `none`
 - orc/parquet:  
   自动识别压缩类型，无需额外设置。
+
+### split_single_file_to_multiple_splits
+
+是否拆分单个文件。默认不拆分，一个文件一个分片。目前仅支持parquet/orc文件的拆分读取。
+
+### file_size_per_split
+
+拆分文件时，每个分片的大小，目前仅对orc文件有效，parquet文件会自动按照block的块大小自动分片。
+
+### row_count_per_split
+
+拆分文件时，每个分片的行数，目前仅对orc文件有效，parquet文件会自动按照block的块大小自动分片。
+
+### batch_read_rows
+
+每次从文件加载的行数，仅对orc文件有效，可以根据内存大小和行的大小进行调整，优化读取效率。
 
 ### 通用选项
 

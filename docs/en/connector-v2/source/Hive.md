@@ -33,21 +33,26 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 
 ## Options
 
-|         name          |  type  | required | default value  |
-|-----------------------|--------|----------|----------------|
-| table_name            | string | yes      | -              |
-| metastore_uri         | string | yes      | -              |
-| krb5_path             | string | no       | /etc/krb5.conf |
-| kerberos_principal    | string | no       | -              |
-| kerberos_keytab_path  | string | no       | -              |
-| hdfs_site_path        | string | no       | -              |
-| hive_site_path        | string | no       | -              |
-| hive.hadoop.conf      | Map    | no       | -              |
-| hive.hadoop.conf-path | string | no       | -              |
-| read_partitions       | list   | no       | -              |
-| read_columns          | list   | no       | -              |
-| compress_codec        | string | no       | none           |
-| common-options        |        | no       | -              |
+|         name                         |  type   | required | default value  |
+|--------------------------------------|---------|----------|----------------|
+| table_name                           | string  | yes      | -              |
+| metastore_uri                        | string  | yes      | -              |
+| krb5_path                            | string  | no       | /etc/krb5.conf |
+| kerberos_principal                   | string  | no       | -              |
+| kerberos_keytab_path                 | string  | no       | -              |
+| hdfs_site_path                       | string  | no       | -              |
+| hive_site_path                       | string  | no       | -              |
+| hive.hadoop.conf                     | Map     | no       | -              |
+| hive.hadoop.conf-path                | string  | no       | -              |
+| read_partitions                      | list    | no       | -              |
+| read_columns                         | list    | no       | -              |
+| compress_codec                       | string  | no       | -              |
+| compress_codec                       | string  | no       | -              |
+| split_single_file_to_multiple_splits | long    | no       | false          | 
+| file_size_per_split                  | long    | no       | -              |
+| row_count_per_split                  | long    | no       | -              |
+| batch_read_rows                      | long    | no       | 1024           | 
+| common-options                       |         | no       | -              |
 
 ### table_name [string]
 
@@ -101,6 +106,22 @@ The compress codec of files and the details that supported as the following show
 - csv: `lzo` `none`
 - orc/parquet:  
   automatically recognizes the compression type, no additional settings required.
+
+### split_single_file_to_multiple_splits
+
+whether to split a file into many splits. true will split.
+
+### file_size_per_split
+
+split a file into many splits according to file size, if row_count_per_split not config. use row_count_per_split prefer. only valid for orc/parquet now.
+
+### row_count_per_split
+
+split a file into many splits according to row count. only valid for orc/parquet now.
+
+### batch_read_rows
+
+max size in a batch. now only useful for orc file. default is 1024, if memory is enough, you can increase it to speed up reading.
 
 ### common options
 
