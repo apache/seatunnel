@@ -25,7 +25,8 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -48,18 +49,21 @@ public class RedisSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        RedisConfig.HOST,
-                        RedisConfig.PORT,
-                        RedisConfig.KEY_PATTERN,
-                        RedisConfig.DATA_TYPE)
+                        RedisBaseOptions.HOST,
+                        RedisBaseOptions.PORT,
+                        RedisBaseOptions.KEY_PATTERN,
+                        RedisBaseOptions.DATA_TYPE)
                 .optional(
-                        RedisConfig.MODE,
-                        RedisConfig.HASH_KEY_PARSE_MODE,
-                        RedisConfig.AUTH,
-                        RedisConfig.USER,
-                        RedisConfig.KEY)
-                .conditional(RedisConfig.MODE, RedisConfig.RedisMode.CLUSTER, RedisConfig.NODES)
-                .bundled(RedisConfig.FORMAT, TableSchemaOptions.SCHEMA)
+                        RedisBaseOptions.MODE,
+                        RedisSourceOptions.HASH_KEY_PARSE_MODE,
+                        RedisBaseOptions.AUTH,
+                        RedisBaseOptions.USER,
+                        RedisBaseOptions.KEY)
+                .conditional(
+                        RedisBaseOptions.MODE,
+                        RedisBaseOptions.RedisMode.CLUSTER,
+                        RedisBaseOptions.NODES)
+                .bundled(RedisBaseOptions.FORMAT, TableSchemaOptions.SCHEMA)
                 .build();
     }
 
