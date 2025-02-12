@@ -19,12 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.amazonsqs.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
-
-import java.util.Map;
 
 public class AmazonSqsSourceOptions extends AmazonSqsBaseOptions {
-    public static final Option<Map<String, Object>> SCHEMA = TableSchemaOptions.SCHEMA;
 
     public static final Option<Boolean> DELETE_MESSAGE =
             Options.key("delete_message")

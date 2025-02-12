@@ -44,6 +44,7 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
+import static org.apache.seatunnel.api.options.ConnectorCommonOptions.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions.ACCESS_KEY_ID;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions.DEBEZIUM_RECORD_INCLUDE_SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions.DEFAULT_FIELD_DELIMITER;
@@ -52,7 +53,6 @@ import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonS
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions.FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions.MESSAGE_GROUP_ID;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions.REGION;
-import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions.SECRET_ACCESS_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions.URL;
 

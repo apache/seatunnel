@@ -18,12 +18,12 @@
 package org.apache.seatunnel.connectors.seatunnel.file.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
@@ -80,7 +80,8 @@ public abstract class BaseFileSourceConfig implements Serializable {
 
     private CatalogTable parseCatalogTable(ReadonlyConfig readonlyConfig) {
         final CatalogTable catalogTable;
-        boolean configSchema = readonlyConfig.getOptional(TableSchemaOptions.SCHEMA).isPresent();
+        boolean configSchema =
+                readonlyConfig.getOptional(ConnectorCommonOptions.SCHEMA).isPresent();
         if (configSchema) {
             catalogTable = CatalogTableUtil.buildWithConfig(getPluginName(), readonlyConfig);
         } else {

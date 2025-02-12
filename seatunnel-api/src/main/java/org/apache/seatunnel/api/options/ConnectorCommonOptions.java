@@ -15,22 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.common;
+package org.apache.seatunnel.api.options;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.options.table.CatalogOptions;
+import org.apache.seatunnel.api.options.table.ColumnOptions;
+import org.apache.seatunnel.api.options.table.ConstraintKeyOptions;
+import org.apache.seatunnel.api.options.table.FieldOptions;
+import org.apache.seatunnel.api.options.table.PrimaryKeyOptions;
+import org.apache.seatunnel.api.options.table.TableIdentifierOptions;
+import org.apache.seatunnel.api.options.table.TableSchemaOptions;
 
+import java.io.Serializable;
 import java.util.List;
 
-public interface CommonOptions {
+public class ConnectorCommonOptions
+        implements CatalogOptions,
+                TableSchemaOptions,
+                TableIdentifierOptions,
+                FieldOptions,
+                ColumnOptions,
+                PrimaryKeyOptions,
+                ConstraintKeyOptions,
+                Serializable {
 
-    Option<String> PLUGIN_NAME =
+    public static Option<String> PLUGIN_NAME =
             Options.key("plugin_name")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Name of the SPI plugin class.");
 
-    Option<String> PLUGIN_OUTPUT =
+    public static Option<String> PLUGIN_OUTPUT =
             Options.key("plugin_output")
                     .stringType()
                     .noDefaultValue()
@@ -45,7 +61,7 @@ public interface CommonOptions {
                                     + "The data set (dataStream/dataset) registered here can be directly accessed by other plugins "
                                     + "by specifying plugin_input .");
 
-    Option<List<String>> PLUGIN_INPUT =
+    public static Option<List<String>> PLUGIN_INPUT =
             Options.key("plugin_input")
                     .listType()
                     .noDefaultValue()
@@ -54,12 +70,4 @@ public interface CommonOptions {
                             "When plugin_input is not specified, "
                                     + "the current plug-in processes the data set dataset output by the previous plugin in the configuration file. "
                                     + "When plugin_input is specified, the current plug-in is processing the data set corresponding to this parameter.");
-
-    Option<Integer> PARALLELISM =
-            Options.key("parallelism")
-                    .intType()
-                    .defaultValue(1)
-                    .withDescription(
-                            "When parallelism is not specified, the parallelism in env is used by default. "
-                                    + "When parallelism is specified, it will override the parallelism in env.");
 }

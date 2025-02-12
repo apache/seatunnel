@@ -15,18 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.api.options;
 
-import org.apache.seatunnel.api.annotation.Experimental;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.env.ParsingMode;
 
-public class SinkCommonOptions {
+public class SourceConnectorCommonOptions extends ConnectorCommonOptions {
 
-    @Experimental
-    public static Option<Integer> MULTI_TABLE_SINK_REPLICA =
-            Options.key("multi_table_sink_replica")
-                    .intType()
-                    .defaultValue(1)
-                    .withDescription("The replica number of multi table sink writer");
+    public static Option<ParsingMode> DAG_PARSING_MODE =
+            Options.key("dag-parsing.mode")
+                    .enumType(ParsingMode.class)
+                    .defaultValue(ParsingMode.SINGLENESS)
+                    .withDescription("Whether to enable parsing support for multi-table source");
 }

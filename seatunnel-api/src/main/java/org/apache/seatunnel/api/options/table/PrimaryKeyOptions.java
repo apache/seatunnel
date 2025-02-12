@@ -15,29 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.kerberos;
+package org.apache.seatunnel.api.options.table;
+
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class KerberosConfig {
+import java.util.List;
+import java.util.Map;
 
-    public static final Option<String> KERBEROS_PRINCIPAL =
-            Options.key("kerberos_principal")
+public interface PrimaryKeyOptions {
+
+    Option<Map<String, Object>> PRIMARY_KEY =
+            Options.key("primaryKey")
+                    .type(new TypeReference<Map<String, Object>>() {})
+                    .noDefaultValue()
+                    .withDescription("SeaTunnel Schema Fields");
+
+    Option<String> PRIMARY_KEY_NAME =
+            Options.key("name")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("When use kerberos, we should set kerberos user principal");
+                    .withDescription("SeaTunnel Schema Primary Key Name");
 
-    public static final Option<String> KRB5_PATH =
-            Options.key("krb5_path")
-                    .stringType()
-                    .defaultValue("/etc/krb5.conf")
-                    .withDescription(
-                            "When use kerberos, we should set krb5 path file path such as '/seatunnel/krb5.conf' or use the default path '/etc/krb5.conf'");
-
-    public static final Option<String> KERBEROS_KEYTAB_PATH =
-            Options.key("kerberos_keytab_path")
-                    .stringType()
+    Option<List<String>> PRIMARY_KEY_COLUMNS =
+            Options.key("columnNames")
+                    .listType()
                     .noDefaultValue()
-                    .withDescription("When using kerberos, We should specify the keytab path");
+                    .withDescription("SeaTunnel Schema Primary Key Columns");
 }
