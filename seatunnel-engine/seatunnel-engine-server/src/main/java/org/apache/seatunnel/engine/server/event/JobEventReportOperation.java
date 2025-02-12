@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.engine.server.event;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.api.event.EventProcessor;
 import org.apache.seatunnel.engine.server.CoordinatorService;
@@ -31,17 +30,14 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
 
 @NoArgsConstructor
 @AllArgsConstructor
@@ -57,9 +53,9 @@ public class JobEventReportOperation extends Operation implements IdentifiedData
         EventProcessor processor = coordinatorService.getEventProcessor();
         for (Event event : events) {
             processor.process(event);
-                JobMaster jobMaster = coordinatorService.getJobMaster(Long.parseLong(event.getJobId()));
-                jobMaster.getEvents().add(event);
-                jobMaster.getHistoryEvents().add(event);
+            JobMaster jobMaster = coordinatorService.getJobMaster(Long.parseLong(event.getJobId()));
+            jobMaster.getEvents().add(event);
+            jobMaster.getHistoryEvents().add(event);
             log.info("Event: {} {}", event.getJobId(), event.getEventType());
         }
     }

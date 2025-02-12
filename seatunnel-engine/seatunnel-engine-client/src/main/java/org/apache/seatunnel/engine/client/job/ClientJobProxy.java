@@ -159,9 +159,11 @@ public class ClientJobProxy implements Job {
     }
 
     public List<Event> getEvent(Long jobId) {
-        return seaTunnelHazelcastClient.getSerializationService().toObject(
-                seaTunnelHazelcastClient.requestOnMasterAndDecodeResponse(
-                        SeaTunnelGetEventCodec.encodeRequest(jobId,false),
-                        SeaTunnelGetEventCodec::decodeResponse));
+        return seaTunnelHazelcastClient
+                .getSerializationService()
+                .toObject(
+                        seaTunnelHazelcastClient.requestOnMasterAndDecodeResponse(
+                                SeaTunnelGetEventCodec.encodeRequest(jobId, false),
+                                SeaTunnelGetEventCodec::decodeResponse));
     }
 }

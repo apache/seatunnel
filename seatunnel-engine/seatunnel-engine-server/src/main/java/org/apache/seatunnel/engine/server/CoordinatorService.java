@@ -17,13 +17,11 @@
 
 package org.apache.seatunnel.engine.server;
 
-import lombok.Getter;
-import lombok.Setter;
-import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
+import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.api.event.EventHandler;
 import org.apache.seatunnel.api.event.EventProcessor;
 import org.apache.seatunnel.api.tracing.MDCExecutorService;
@@ -80,7 +78,9 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
 import com.hazelcast.ringbuffer.Ringbuffer;
 import com.hazelcast.spi.impl.NodeEngineImpl;
+import lombok.Getter;
 import lombok.NonNull;
+import lombok.Setter;
 import scala.Tuple2;
 
 import java.util.ArrayList;
@@ -154,8 +154,7 @@ public class CoordinatorService {
      * key: job id; <br>
      * value: job master;
      */
-    @Getter
-    private final Map<Long, JobMaster> runningJobMasterMap = new ConcurrentHashMap<>();
+    @Getter private final Map<Long, JobMaster> runningJobMasterMap = new ConcurrentHashMap<>();
 
     @Getter @Setter
     private Map<Long, ArrayBlockingQueue<Event>> jobEventMap = new ConcurrentHashMap<>();
@@ -389,7 +388,6 @@ public class CoordinatorService {
                 .orElse(runningJobMasterMap.get(jobId));
     }
 
-
     public EventProcessor getEventProcessor() {
         return eventProcessor;
     }
@@ -419,9 +417,7 @@ public class CoordinatorService {
                         nodeEngine
                                 .getHazelcastInstance()
                                 .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO),
-                        nodeEngine
-                                .getHazelcastInstance()
-                                .getMap(Constant.IMAP_FINISHED_JOB_EVENT),
+                        nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_EVENT),
                         engineConfig.getHistoryJobExpireMinutes());
         eventProcessor =
                 createJobEventProcessor(

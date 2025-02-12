@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.engine.server.master;
 
-import lombok.Setter;
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -93,7 +92,6 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.Getter;
 import lombok.NonNull;
-import org.eclipse.jetty.util.BlockingArrayQueue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -146,10 +144,8 @@ public class JobMaster {
 
     private SeaTunnelServer seaTunnelServer;
 
-    @Getter
-    private ArrayBlockingQueue<Event> events ;
-    @Getter
-    private ArrayBlockingQueue<Event> historyEvents;
+    @Getter private ArrayBlockingQueue<Event> events;
+    @Getter private ArrayBlockingQueue<Event> historyEvents;
     /**
      * we need store slot used by task in Hazelcast IMap and release or reuse it when a new master
      * node active.

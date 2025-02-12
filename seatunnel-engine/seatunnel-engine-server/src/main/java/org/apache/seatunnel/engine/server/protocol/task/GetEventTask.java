@@ -17,17 +17,17 @@
 
 package org.apache.seatunnel.engine.server.protocol.task;
 
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetEventCodec;
+import org.apache.seatunnel.engine.server.operation.GetEventOperation;
+
 import com.hazelcast.client.impl.protocol.ClientMessage;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.nio.Connection;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.spi.impl.operationservice.Operation;
-import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetEventCodec;
-import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobStatusCodec;
-import org.apache.seatunnel.engine.server.operation.GetEventOperation;
-import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
 
-public class GetEventTask extends AbstractSeaTunnelMessageTask<SeaTunnelGetEventCodec.RequestParameters, Data> {
+public class GetEventTask
+        extends AbstractSeaTunnelMessageTask<SeaTunnelGetEventCodec.RequestParameters, Data> {
 
     protected GetEventTask(ClientMessage clientMessage, Node node, Connection connection) {
         super(
@@ -40,7 +40,7 @@ public class GetEventTask extends AbstractSeaTunnelMessageTask<SeaTunnelGetEvent
 
     @Override
     protected Operation prepareOperation() {
-        return new GetEventOperation(parameters.jobId,parameters.isAll);
+        return new GetEventOperation(parameters.jobId, parameters.isAll);
     }
 
     @Override

@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.engine.server;
 
-import org.apache.seatunnel.engine.server.rest.servlet.EventServlet;
 import org.apache.seatunnel.shade.org.eclipse.jetty.server.Server;
 import org.apache.seatunnel.shade.org.eclipse.jetty.servlet.DefaultServlet;
 import org.apache.seatunnel.shade.org.eclipse.jetty.servlet.FilterHolder;
@@ -30,6 +29,7 @@ import org.apache.seatunnel.engine.server.rest.servlet.AllLogNameServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.AllNodeLogServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.CurrentNodeLogServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.EncryptConfigServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.EventServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.FinishedJobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.JobInfoServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.MetricsServlet;

@@ -17,10 +17,9 @@
 
 package org.apache.seatunnel.core.starter.seatunnel.command;
 
-import org.apache.seatunnel.api.event.Event;
-import org.apache.seatunnel.engine.client.job.JobEventRunner;
 import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
+import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.core.starter.command.Command;
@@ -31,6 +30,7 @@ import org.apache.seatunnel.core.starter.utils.FileUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
+import org.apache.seatunnel.engine.client.job.JobEventRunner;
 import org.apache.seatunnel.engine.client.job.JobMetricsRunner;
 import org.apache.seatunnel.engine.client.job.JobStatusRunner;
 import org.apache.seatunnel.engine.common.Constant;
@@ -86,6 +86,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         LocalDateTime startTime = LocalDateTime.now();
         LocalDateTime endTime = LocalDateTime.now();
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        Long jobId = null;
         try {
             String clusterName = clientCommandArgs.getClusterName();
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
@@ -190,7 +191,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                                             }
                                         }));
                 // get job id
-                long jobId = clientJobProxy.getJobId();
+                jobId = clientJobProxy.getJobId();
                 JobMetricsRunner jobMetricsRunner = new JobMetricsRunner(engineClient, jobId);
                 executorService =
                         Executors.newScheduledThreadPool(
@@ -205,12 +206,14 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                         seaTunnelConfig.getEngineConfig().getPrintJobMetricsInfoInterval(),
                         TimeUnit.SECONDS);
 
-                JobEventRunner jobEventRunner = new JobEventRunner(engineClient.getJobClient(), jobId);
+                JobEventRunner jobEventRunner =
+                        new JobEventRunner(engineClient.getJobClient(), jobId);
                 executorService.scheduleAtFixedRate(
                         jobEventRunner,
                         0,
                         seaTunnelConfig.getEngineConfig().getPrintJobEventInfoInterval(),
                         TimeUnit.SECONDS);
+                log.info("Init job event runner , job id : {}", jobId);
 
                 if (!isLocalMode) {
                     // LOCAL mode does not require running the job status runner
@@ -219,8 +222,6 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                             0,
                             TimeUnit.SECONDS);
                 }
-
-
 
                 // wait for job complete
                 JobResult jobResult = clientJobProxy.waitForJobCompleteV2();
@@ -237,10 +238,19 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         } catch (Exception e) {
             throw new CommandExecuteException("SeaTunnel job executed failed", e);
         } finally {
-            List<Event> event = engineClient.getJobClient().getEvent(Long.parseLong(clientCommandArgs.getCustomJobId()));
-            event.forEach(e ->
-                log.info("EventType: {}",e.getEventType())
-            );
+            if (jobId == null) {
+                jobId = Long.parseLong(clientCommandArgs.getJobId());
+                if (jobId == null) {
+                    jobId = Long.parseLong(clientCommandArgs.getCustomJobId());
+                }
+            }
+            if (jobId != null) {
+                List<Event> event = engineClient.getJobClient().getEvent(jobId);
+                event.forEach(e -> log.info("EventType: {}", e.getEventType()));
+                log.info("jobid is :" + jobId);
+            } else {
+                log.info("沒有獲取到jobID");
+            }
             if (jobMetricsSummary != null) {
                 // print job statistics information when job finished
                 log.info(

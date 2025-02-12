@@ -17,11 +17,12 @@
 
 package org.apache.seatunnel.engine.server.rest.service;
 
+import org.apache.seatunnel.api.event.Event;
+import org.apache.seatunnel.engine.common.Constant;
+
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.spi.impl.NodeEngineImpl;
-import org.apache.seatunnel.api.event.Event;
-import org.apache.seatunnel.engine.common.Constant;
 
 import java.util.concurrent.ArrayBlockingQueue;
 
@@ -33,9 +34,13 @@ public class EventService extends BaseService {
 
     public JsonArray getEventInfoJson(Long jobId) {
         ArrayBlockingQueue<Event> events =
-                (ArrayBlockingQueue<Event>)nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_EVENT).get(jobId);
+                (ArrayBlockingQueue<Event>)
+                        nodeEngine
+                                .getHazelcastInstance()
+                                .getMap(Constant.IMAP_FINISHED_JOB_EVENT)
+                                .get(jobId);
         JsonArray eventArray = new JsonArray();
-        if(events == null) {
+        if (events == null) {
             return eventArray;
         }
         for (Event event : events) {
@@ -46,5 +51,4 @@ public class EventService extends BaseService {
         }
         return eventArray;
     }
-
 }

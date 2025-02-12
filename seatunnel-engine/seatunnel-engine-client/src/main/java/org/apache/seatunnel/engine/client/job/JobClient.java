@@ -17,13 +17,12 @@
 
 package org.apache.seatunnel.engine.client.job;
 
-import org.apache.seatunnel.api.event.Event;
-import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetEventCodec;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.client.util.ContentFormatUtil;
 import org.apache.seatunnel.engine.common.Constant;
@@ -34,6 +33,7 @@ import org.apache.seatunnel.engine.core.job.JobPipelineCheckpointData;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.JobStatusData;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelCancelJobCodec;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetEventCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobCheckpointCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobDetailStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobInfoCodec;
@@ -184,9 +184,11 @@ public class JobClient {
     }
 
     public List<Event> getEvent(Long jobId) {
-        return hazelcastClient.getSerializationService().toObject(
-        hazelcastClient.requestOnMasterAndDecodeResponse(
-                SeaTunnelGetEventCodec.encodeRequest(jobId,false),
-                SeaTunnelGetEventCodec::decodeResponse));
+        return hazelcastClient
+                .getSerializationService()
+                .toObject(
+                        hazelcastClient.requestOnMasterAndDecodeResponse(
+                                SeaTunnelGetEventCodec.encodeRequest(jobId, false),
+                                SeaTunnelGetEventCodec::decodeResponse));
     }
 }

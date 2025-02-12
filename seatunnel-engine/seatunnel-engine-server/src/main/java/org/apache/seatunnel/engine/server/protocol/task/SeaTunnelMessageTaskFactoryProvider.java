@@ -110,7 +110,6 @@ public class SeaTunnelMessageTaskFactoryProvider implements MessageTaskFactoryPr
                         new GetJobCheckpointTask(clientMessage, node, connection));
         factories.put(
                 SeaTunnelGetEventCodec.REQUEST_MESSAGE_TYPE,
-                (clientMessage, connection) ->
-                        new GetEventTask(clientMessage, node, connection));
+                (clientMessage, connection) -> new GetEventTask(clientMessage, node, connection));
     }
 }

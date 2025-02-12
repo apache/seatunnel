@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.engine.server.master;
 
-import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
+import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.core.job.ExecutionAddress;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
@@ -224,7 +224,6 @@ public class JobHistoryService {
     public void storeFinishedJobEvent(Long jobId, ArrayBlockingQueue<Event> events) {
         finishedJobEventImap.put(jobId, events, finishedJobExpireTime, TimeUnit.MINUTES);
     }
-
 
     public void storeFinishedPipelineMetrics(long jobId, JobMetrics metrics) {
         finishedJobMetricsImap.computeIfAbsent(jobId, key -> JobMetrics.of(new HashMap<>()));

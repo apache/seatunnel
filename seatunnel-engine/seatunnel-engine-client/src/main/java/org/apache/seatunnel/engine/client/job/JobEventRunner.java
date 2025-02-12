@@ -17,10 +17,9 @@
 
 package org.apache.seatunnel.engine.client.job;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.event.Event;
-import org.apache.seatunnel.common.utils.ExceptionUtils;
-import org.apache.seatunnel.engine.core.job.JobStatus;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 
@@ -39,9 +38,6 @@ public class JobEventRunner implements Runnable {
     public void run() {
         Thread.currentThread().setName("job-event-runner-" + jobId);
         List<Event> event = jobClient.getEvent(jobId);
-        event.forEach(e ->
-            log.info("EventType: {}",e.getEventType())
-        );
+        event.forEach(e -> log.info("EventType: {}", e.getEventType()));
     }
-
 }

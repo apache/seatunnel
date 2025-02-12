@@ -17,12 +17,6 @@
 
 package org.apache.seatunnel.engine.server.operation;
 
-import com.hazelcast.internal.serialization.Data;
-import com.hazelcast.nio.ObjectDataInput;
-import com.hazelcast.nio.ObjectDataOutput;
-import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
-import com.hazelcast.spi.impl.operationservice.Operation;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
@@ -31,10 +25,16 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.serializable.ResourceDataSerializerHook;
 
+import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.nio.ObjectDataInput;
+import com.hazelcast.nio.ObjectDataOutput;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import com.hazelcast.spi.impl.operationservice.Operation;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutionException;
 
@@ -62,33 +62,29 @@ public class GetEventOperation extends Operation implements IdentifiedDataSerial
         CoordinatorService coordinatorService = server.getCoordinatorService();
         JobMaster jobMaster = coordinatorService.getJobMaster(jobId);
         if (jobMaster != null) {
-        if(isAll){
-            ArrayBlockingQueue<Event> event = jobMaster.getHistoryEvents();
-            if(event != null) {
-            events.addAll(event);
+            if (isAll) {
+                ArrayBlockingQueue<Event> event = jobMaster.getHistoryEvents();
+                if (event != null) {
+                    events.addAll(event);
+                }
+            } else {
+                ArrayBlockingQueue<Event> event = jobMaster.getEvents();
+                if (event != null) {
+                    event.drainTo(events);
+                }
             }
-        }else{
-            ArrayBlockingQueue<Event> event = jobMaster.getEvents();
-            if(event != null) {
-                event.drainTo(events);
-            }
-        }
-        }else{
-            ArrayBlockingQueue<Event> historyEvents = coordinatorService.getJobHistoryService().getFinishedJobEventImap().get(jobId);
-            if(historyEvents!=null) {
+        } else {
+            ArrayBlockingQueue<Event> historyEvents =
+                    coordinatorService.getJobHistoryService().getFinishedJobEventImap().get(jobId);
+            if (historyEvents != null) {
                 events.addAll(historyEvents);
             }
         }
 
         CompletableFuture<Data> future =
                 CompletableFuture.supplyAsync(
-                        () ->
-                                this.getNodeEngine()
-                                        .toData(
-                                                events),
-                        getNodeEngine()
-                                .getExecutionService()
-                                .getExecutor("get_event_operation"));
+                        () -> this.getNodeEngine().toData(events),
+                        getNodeEngine().getExecutionService().getExecutor("get_event_operation"));
 
         try {
             response = future.get();
@@ -116,7 +112,6 @@ public class GetEventOperation extends Operation implements IdentifiedDataSerial
     public String getServiceName() {
         return SeaTunnelServer.SERVICE_NAME;
     }
-
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
