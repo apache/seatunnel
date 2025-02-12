@@ -51,6 +51,8 @@ public class Constant {
 
     public static final String IMAP_FINISHED_JOB_VERTEX_INFO = "engine_finishedJobVertexInfo";
 
+    public static final String IMAP_FINISHED_JOB_EVENT = "engine_finishedJobEvent";
+
     public static final String IMAP_STATE_TIMESTAMPS = "engine_stateTimestamps";
 
     public static final String IMAP_OWNED_SLOT_PROFILES = "engine_ownedSlotProfilesIMap";

@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.engine.server;
 
+import lombok.Getter;
+import lombok.Setter;
+import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
@@ -89,6 +92,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -150,8 +154,11 @@ public class CoordinatorService {
      * key: job id; <br>
      * value: job master;
      */
+    @Getter
     private final Map<Long, JobMaster> runningJobMasterMap = new ConcurrentHashMap<>();
 
+    @Getter @Setter
+    private Map<Long, ArrayBlockingQueue<Event>> jobEventMap = new ConcurrentHashMap<>();
     /**
      * key: job id; <br>
      * value: job master;
@@ -382,6 +389,7 @@ public class CoordinatorService {
                 .orElse(runningJobMasterMap.get(jobId));
     }
 
+
     public EventProcessor getEventProcessor() {
         return eventProcessor;
     }
@@ -411,6 +419,9 @@ public class CoordinatorService {
                         nodeEngine
                                 .getHazelcastInstance()
                                 .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO),
+                        nodeEngine
+                                .getHazelcastInstance()
+                                .getMap(Constant.IMAP_FINISHED_JOB_EVENT),
                         engineConfig.getHistoryJobExpireMinutes());
         eventProcessor =
                 createJobEventProcessor(

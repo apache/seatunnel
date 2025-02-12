@@ -45,6 +45,18 @@ public class ServerConfigOptions {
                     .defaultValue(60)
                     .withDescription("The interval (in seconds) of job print metrics info");
 
+    public static final Option<Integer> PRINT_JOB_EVENT_INFO_INTERVAL =
+            Options.key("print-job-event-info-interval")
+                    .intType()
+                    .defaultValue(30)
+                    .withDescription("The interval (in seconds) of job print event info");
+
+    public static final Option<Integer> EVENT_QUEUE_SIZE =
+            Options.key("event-queue-size")
+                    .intType()
+                    .defaultValue(100)
+                    .withDescription("Queue size for storing events");
+
     public static final Option<Integer> JOB_METRICS_BACKUP_INTERVAL =
             Options.key("job-metrics-backup-interval")
                     .intType()

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.seatunnel.command;
 
+import org.apache.seatunnel.api.event.Event;
+import org.apache.seatunnel.engine.client.job.JobEventRunner;
 import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import org.apache.seatunnel.common.utils.DateTimeUtils;
@@ -158,7 +160,6 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                                             ? Long.parseLong(clientCommandArgs.getCustomJobId())
                                             : null);
                 }
-
                 // get job start time
                 startTime = LocalDateTime.now();
                 // create job proxy
@@ -193,7 +194,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 JobMetricsRunner jobMetricsRunner = new JobMetricsRunner(engineClient, jobId);
                 executorService =
                         Executors.newScheduledThreadPool(
-                                2,
+                                3,
                                 new ThreadFactoryBuilder()
                                         .setNameFormat("job-metrics-runner-%d")
                                         .setDaemon(true)
@@ -204,6 +205,13 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                         seaTunnelConfig.getEngineConfig().getPrintJobMetricsInfoInterval(),
                         TimeUnit.SECONDS);
 
+                JobEventRunner jobEventRunner = new JobEventRunner(engineClient.getJobClient(), jobId);
+                executorService.scheduleAtFixedRate(
+                        jobEventRunner,
+                        0,
+                        seaTunnelConfig.getEngineConfig().getPrintJobEventInfoInterval(),
+                        TimeUnit.SECONDS);
+
                 if (!isLocalMode) {
                     // LOCAL mode does not require running the job status runner
                     executorService.schedule(
@@ -211,6 +219,8 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                             0,
                             TimeUnit.SECONDS);
                 }
+
+
 
                 // wait for job complete
                 JobResult jobResult = clientJobProxy.waitForJobCompleteV2();
@@ -227,6 +237,10 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         } catch (Exception e) {
             throw new CommandExecuteException("SeaTunnel job executed failed", e);
         } finally {
+            List<Event> event = engineClient.getJobClient().getEvent(Long.parseLong(clientCommandArgs.getCustomJobId()));
+            event.forEach(e ->
+                log.info("EventType: {}",e.getEventType())
+            );
             if (jobMetricsSummary != null) {
                 // print job statistics information when job finished
                 log.info(

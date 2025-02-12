@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.master;
 
+import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.SerializationFeature;
@@ -55,6 +56,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -97,6 +99,8 @@ public class JobHistoryService {
 
     private final IMap<Long, JobMetrics> finishedJobMetricsImap;
 
+    @Getter private final IMap<Long, ArrayBlockingQueue<Event>> finishedJobEventImap;
+
     private final ObjectMapper objectMapper;
 
     private final int finishedJobExpireTime;
@@ -110,6 +114,7 @@ public class JobHistoryService {
             IMap<Long, JobState> finishedJobStateImap,
             IMap<Long, JobMetrics> finishedJobMetricsImap,
             IMap<Long, JobDAGInfo> finishedJobVertexInfoImap,
+            IMap<Long, ArrayBlockingQueue<Event>> finishedJobEventImap,
             int finishedJobExpireTime) {
         this.nodeEngine = nodeEngine;
         this.runningJobStateIMap = runningJobStateIMap;
@@ -120,6 +125,7 @@ public class JobHistoryService {
         this.finishedJobMetricsImap = finishedJobMetricsImap;
         this.finishedJobDAGInfoImap = finishedJobVertexInfoImap;
         this.finishedJobDAGInfoImap.addEntryListener(new JobInfoExpiredListener(), true);
+        this.finishedJobEventImap = finishedJobEventImap;
         this.objectMapper = new ObjectMapper();
         this.objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
         this.finishedJobExpireTime = finishedJobExpireTime;
@@ -214,6 +220,11 @@ public class JobHistoryService {
         jobState.setErrorMessage(jobMaster.getErrorMessage());
         finishedJobStateImap.put(jobState.jobId, jobState, finishedJobExpireTime, TimeUnit.MINUTES);
     }
+
+    public void storeFinishedJobEvent(Long jobId, ArrayBlockingQueue<Event> events) {
+        finishedJobEventImap.put(jobId, events, finishedJobExpireTime, TimeUnit.MINUTES);
+    }
+
 
     public void storeFinishedPipelineMetrics(long jobId, JobMetrics metrics) {
         finishedJobMetricsImap.computeIfAbsent(jobId, key -> JobMetrics.of(new HashMap<>()));

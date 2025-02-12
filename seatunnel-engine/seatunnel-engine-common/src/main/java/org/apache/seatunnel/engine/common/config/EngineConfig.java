@@ -48,6 +48,11 @@ public class EngineConfig {
     private int printJobMetricsInfoInterval =
             ServerConfigOptions.PRINT_JOB_METRICS_INFO_INTERVAL.defaultValue();
 
+    private int printJobEventInfoInterval =
+            ServerConfigOptions.PRINT_JOB_EVENT_INFO_INTERVAL.defaultValue();
+
+    private int eventQueueSize = ServerConfigOptions.EVENT_QUEUE_SIZE.defaultValue();
+
     private int jobMetricsBackupInterval =
             ServerConfigOptions.JOB_METRICS_BACKUP_INTERVAL.defaultValue();
 
@@ -106,6 +111,18 @@ public class EngineConfig {
                 printJobMetricsInfoInterval,
                 ServerConfigOptions.PRINT_JOB_METRICS_INFO_INTERVAL + " must be > 0");
         this.printJobMetricsInfoInterval = printJobMetricsInfoInterval;
+    }
+
+    public void setPrintJobEventInfoInterval(int printJobEventInfoInterval) {
+        checkPositive(
+                printJobEventInfoInterval,
+                ServerConfigOptions.PRINT_JOB_EVENT_INFO_INTERVAL + " must be > 0");
+        this.printJobEventInfoInterval = printJobEventInfoInterval;
+    }
+
+    public void setEventQueueSize(int eventQueueSize) {
+        checkPositive(eventQueueSize, ServerConfigOptions.EVENT_QUEUE_SIZE + " must be > 0");
+        this.eventQueueSize = eventQueueSize;
     }
 
     public void setJobMetricsBackupInterval(int jobMetricsBackupInterval) {

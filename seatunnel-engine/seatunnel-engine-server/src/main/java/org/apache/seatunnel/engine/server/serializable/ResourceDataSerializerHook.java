@@ -53,6 +53,8 @@ public class ResourceDataSerializerHook implements DataSerializerHook {
 
     public static final int REQUEST_SLOT_INFO_TYPE = 9;
 
+    public static final int GET_EVENT_TYPE = 10;
+
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
                     SeaTunnelFactoryIdConstant.SEATUNNEL_RESOURCE_DATA_SERIALIZER_FACTORY,

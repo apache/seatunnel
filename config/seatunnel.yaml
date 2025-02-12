@@ -23,6 +23,8 @@ seatunnel:
     queue-type: blockingqueue
     print-execution-info-interval: 60
     print-job-metrics-info-interval: 60
+    print-job-event-info-interval: 31
+    event-queue-size: 101
     slot-service:
       dynamic-slot: true
     checkpoint:

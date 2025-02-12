@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.engine.server.rest.servlet.EventServlet;
 import org.apache.seatunnel.shade.org.eclipse.jetty.server.Server;
 import org.apache.seatunnel.shade.org.eclipse.jetty.servlet.DefaultServlet;
 import org.apache.seatunnel.shade.org.eclipse.jetty.servlet.FilterHolder;
@@ -57,6 +58,7 @@ import java.net.URL;
 import java.util.EnumSet;
 
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_ENCRYPT_CONFIG;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_EVENT;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_FINISHED_JOBS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_GET_ALL_LOG_NAME;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_JOB_INFO;
@@ -132,6 +134,7 @@ public class JettyService {
         ServletHolder stopJobHolder = new ServletHolder(new StopJobServlet(nodeEngine));
         ServletHolder stopJobsHolder = new ServletHolder(new StopJobsServlet(nodeEngine));
         ServletHolder encryptConfigHolder = new ServletHolder(new EncryptConfigServlet(nodeEngine));
+        ServletHolder eventHolder = new ServletHolder(new EventServlet(nodeEngine));
         ServletHolder updateTagsHandler = new ServletHolder(new UpdateTagsServlet(nodeEngine));
 
         ServletHolder runningThreadsHolder =
@@ -145,6 +148,7 @@ public class JettyService {
 
         ServletHolder metricsServlet = new ServletHolder(new MetricsServlet(nodeEngine));
 
+        context.addServlet(eventHolder, convertUrlToPath(REST_URL_EVENT));
         context.addServlet(overviewHolder, convertUrlToPath(REST_URL_OVERVIEW));
         context.addServlet(runningJobsHolder, convertUrlToPath(REST_URL_RUNNING_JOBS));
         context.addServlet(finishedJobsHolder, convertUrlToPath(REST_URL_FINISHED_JOBS));

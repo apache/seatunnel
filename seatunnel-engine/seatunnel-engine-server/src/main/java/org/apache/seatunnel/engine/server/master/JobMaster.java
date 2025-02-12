@@ -17,10 +17,12 @@
 
 package org.apache.seatunnel.engine.server.master;
 
+import lombok.Setter;
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.env.EnvCommonOptions;
+import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.api.sink.SaveModeExecuteLocation;
 import org.apache.seatunnel.api.sink.SaveModeExecuteWrapper;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
@@ -91,6 +93,7 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.Getter;
 import lombok.NonNull;
+import org.eclipse.jetty.util.BlockingArrayQueue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -102,6 +105,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -142,6 +146,10 @@ public class JobMaster {
 
     private SeaTunnelServer seaTunnelServer;
 
+    @Getter
+    private ArrayBlockingQueue<Event> events ;
+    @Getter
+    private ArrayBlockingQueue<Event> historyEvents;
     /**
      * we need store slot used by task in Hazelcast IMap and release or reuse it when a new master
      * node active.
@@ -214,6 +222,8 @@ public class JobMaster {
         this.metricsImap = metricsImap;
         this.seaTunnelServer = seaTunnelServer;
         this.releasedSlotWhenTaskGroupFinished = new ConcurrentHashMap<>();
+        this.events = new ArrayBlockingQueue<>(engineConfig.getEventQueueSize());
+        this.historyEvents = new ArrayBlockingQueue<>(engineConfig.getEventQueueSize());
     }
 
     public synchronized void init(long initializationTimestamp, boolean restart) throws Exception {
@@ -713,6 +723,7 @@ public class JobMaster {
         checkpointManager.clearCheckpointIfNeed(physicalPlan.getJobStatus());
         jobHistoryService.storeJobInfo(jobImmutableInformation.getJobId(), getJobDAGInfo());
         jobHistoryService.storeFinishedJobState(this);
+        jobHistoryService.storeFinishedJobEvent(jobImmutableInformation.getJobId(), historyEvents);
         removeJobIMap();
     }
 

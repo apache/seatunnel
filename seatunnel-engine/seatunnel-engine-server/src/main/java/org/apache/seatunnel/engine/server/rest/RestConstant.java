@@ -67,6 +67,7 @@ public class RestConstant {
     public static final String REST_URL_RUNNING_JOBS = "/running-jobs";
     @Deprecated public static final String REST_URL_RUNNING_JOB = "/running-job";
     public static final String REST_URL_JOB_INFO = "/job-info";
+    public static final String REST_URL_EVENT = "/event";
     public static final String REST_URL_FINISHED_JOBS = "/finished-jobs";
     public static final String REST_URL_ENCRYPT_CONFIG = "/encrypt-config";
     public static final String REST_URL_THREAD_DUMP = "/thread-dump";
