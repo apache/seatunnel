@@ -12,25 +12,25 @@
 
 ## 选项
 
-|                名称                 |  类型   | 必需 | 默认值 |
-|-------------------------------------|---------|----------|--------------|
-| host                                | string  | no       | -            |
-| port                                | int     | no       | -            |
-| virtual_host                        | string  | no       | -            |
-| username                            | string  | no       | -            |
-| password                            | string  | no       | -            |
-| queue_name                          | string  | yes      | -            |
-| uri                                 | string  | yes      | -            |
-| check_for_duplicate                 | boolean | no       | -            |
-| client_id                           | boolean | no       | -            |
-| copy_message_on_send                | boolean | no       | -            |
-| disable_timeStamps_by_default       | boolean | no       | -            |
-| use_compression                     | boolean | no       | -            |
-| always_session_async                | boolean | no       | -            |
-| dispatch_async                      | boolean | no       | -            |
-| nested_map_and_list_enabled         | boolean | no       | -            |
-| warnAboutUnstartedConnectionTimeout | boolean | no       | -            |
-| closeTimeout                        | int     | no       | -            |
+|                名称                 |  类型   | 必需  | 默认值 |
+|-------------------------------------|---------|-----|--------------|
+| host                                | string  | 否   | -            |
+| port                                | int     | 否   | -            |
+| virtual_host                        | string  | 否   | -            |
+| username                            | string  | 否   | -            |
+| password                            | string  | 否   | -            |
+| queue_name                          | string  | 是   | -            |
+| uri                                 | string  | 是 | -            |
+| check_for_duplicate                 | boolean | 否  | -            |
+| client_id                           | boolean | 否  | -            |
+| copy_message_on_send                | boolean | 否  | -            |
+| disable_timeStamps_by_default       | boolean | 否  | -            |
+| use_compression                     | boolean | 否  | -            |
+| always_session_async                | boolean | 否  | -            |
+| dispatch_async                      | boolean | 否  | -            |
+| nested_map_and_list_enabled         | boolean | 否  | -            |
+| warnAboutUnstartedConnectionTimeout | boolean | 否  | -            |
+| closeTimeout                        | int     | 否  | -            |
 
 ### host [string]
 
@@ -38,7 +38,7 @@
 
 ### port [int]
 
-the default port to use for connections
+用于连接的默认端口
 
 ### username [string]
 
