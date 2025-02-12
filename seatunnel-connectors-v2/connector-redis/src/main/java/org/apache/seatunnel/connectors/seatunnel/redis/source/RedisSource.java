@@ -32,7 +32,7 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
-import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
@@ -48,7 +48,7 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public String getPluginName() {
-        return RedisConfig.CONNECTOR_IDENTITY;
+        return RedisBaseOptions.CONNECTOR_IDENTITY;
     }
 
     public RedisSource(ReadonlyConfig readonlyConfig) {
@@ -56,7 +56,7 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         this.redisParameters.buildWithConfig(readonlyConfig);
         // TODO: use format SPI
         // default use json format
-        if (readonlyConfig.getOptional(RedisConfig.FORMAT).isPresent()) {
+        if (readonlyConfig.getOptional(RedisBaseOptions.FORMAT).isPresent()) {
             if (!readonlyConfig.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
                 throw new RedisConnectorException(
                         SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -67,8 +67,8 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                                 "Must config schema when format parameter been config"));
             }
 
-            RedisConfig.Format format = readonlyConfig.get(RedisConfig.FORMAT);
-            if (RedisConfig.Format.JSON.equals(format)) {
+            RedisBaseOptions.Format format = readonlyConfig.get(RedisBaseOptions.FORMAT);
+            if (RedisBaseOptions.Format.JSON.equals(format)) {
                 this.catalogTable = CatalogTableUtil.buildWithConfig(readonlyConfig);
                 this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
                 this.deserializationSchema =

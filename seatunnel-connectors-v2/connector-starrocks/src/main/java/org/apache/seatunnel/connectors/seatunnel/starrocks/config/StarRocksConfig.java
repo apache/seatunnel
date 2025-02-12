@@ -15,28 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto;
+package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions;
 
-import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.ToString;
 
-/** index config by seatunnel */
-@Data
-public class IndexInfo {
+import java.io.Serializable;
+import java.util.List;
 
-    private String index;
-    private String type;
-    private String[] primaryKeys;
-    private String keyDelimiter;
+@Getter
+@ToString
+@AllArgsConstructor
+public class StarRocksConfig implements Serializable {
 
-    public IndexInfo(String index, ReadonlyConfig config) {
-        this.index = index;
-        type = config.get(ElasticsearchSinkOptions.INDEX_TYPE);
-        if (config.getOptional(ElasticsearchSinkOptions.PRIMARY_KEYS).isPresent()) {
-            primaryKeys = config.get(ElasticsearchSinkOptions.PRIMARY_KEYS).toArray(new String[0]);
-        }
-        keyDelimiter = config.get(ElasticsearchSinkOptions.KEY_DELIMITER);
+    private List<String> nodeUrls;
+    private String username;
+    private String password;
+    private String database;
+    private String table;
+
+    public StarRocksConfig(ReadonlyConfig config) {
+        this.nodeUrls = config.get(StarRocksBaseOptions.NODE_URLS);
+        this.username = config.get(StarRocksBaseOptions.USERNAME);
+        this.password = config.get(StarRocksBaseOptions.PASSWORD);
+        this.database = config.get(StarRocksBaseOptions.DATABASE);
+        this.table = config.get(StarRocksBaseOptions.TABLE);
     }
 }

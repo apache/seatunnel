@@ -22,18 +22,13 @@ import org.apache.seatunnel.api.configuration.Options;
 
 import java.util.List;
 
-public class RedisConfig {
+public class RedisBaseOptions {
 
     public static final String CONNECTOR_IDENTITY = "Redis";
 
     public enum RedisMode {
         SINGLE,
         CLUSTER;
-    }
-
-    public enum HashKeyParseMode {
-        ALL,
-        KV;
     }
 
     public static final Option<String> HOST =
@@ -85,16 +80,16 @@ public class RedisConfig {
                     .noDefaultValue()
                     .withDescription("redis data types, support string hash list set zset.");
 
-    public static final Option<RedisConfig.Format> FORMAT =
+    public static final Option<RedisBaseOptions.Format> FORMAT =
             Options.key("format")
-                    .enumType(RedisConfig.Format.class)
-                    .defaultValue(RedisConfig.Format.JSON)
+                    .enumType(RedisBaseOptions.Format.class)
+                    .defaultValue(RedisBaseOptions.Format.JSON)
                     .withDescription(
                             "the format of upstream data, now only support json and text, default json.");
 
-    public static final Option<RedisConfig.RedisMode> MODE =
+    public static final Option<RedisBaseOptions.RedisMode> MODE =
             Options.key("mode")
-                    .enumType(RedisConfig.RedisMode.class)
+                    .enumType(RedisBaseOptions.RedisMode.class)
                     .defaultValue(RedisMode.SINGLE)
                     .withDescription(
                             "redis mode, support single or cluster, default value is single");
@@ -106,19 +101,6 @@ public class RedisConfig {
                     .withDescription(
                             "redis nodes information, used in cluster mode, must like as the following format: [host1:port1, host2:port2]");
 
-    public static final Option<RedisConfig.HashKeyParseMode> HASH_KEY_PARSE_MODE =
-            Options.key("hash_key_parse_mode")
-                    .enumType(RedisConfig.HashKeyParseMode.class)
-                    .defaultValue(HashKeyParseMode.ALL)
-                    .withDescription(
-                            "hash key parse mode, support all or kv, default value is all");
-
-    public static final Option<Long> EXPIRE =
-            Options.key("expire")
-                    .longType()
-                    .defaultValue(-1L)
-                    .withDescription("Set redis expiration time.");
-
     public static final Option<Integer> BATCH_SIZE =
             Options.key("batch_size")
                     .intType()
@@ -126,32 +108,6 @@ public class RedisConfig {
                     .withDescription(
                             "batch_size is used to control the size of a batch of data during read and write operations"
                                     + ",default 10");
-
-    public static final Option<Boolean> SUPPORT_CUSTOM_KEY =
-            Options.key("support_custom_key")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription(
-                            "if true, the key can be customized by the field value in the upstream data.");
-
-    public static final Option<String> VALUE_FIELD =
-            Options.key("value_field")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "The field of value you want to write to redis, support string list set zset");
-
-    public static final Option<String> HASH_KEY_FIELD =
-            Options.key("hash_key_field")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The field of hash key you want to write to redis");
-
-    public static final Option<String> HASH_VALUE_FIELD =
-            Options.key("hash_value_field")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The field of hash value you want to write to redis");
 
     public enum Format {
         JSON,

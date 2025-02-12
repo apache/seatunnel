@@ -15,29 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
+package org.apache.seatunnel.connectors.seatunnel.redis.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public interface StarRocksOptions {
-    Option<String> BASE_URL =
-            Options.key("base-url")
-                    .stringType()
-                    .noDefaultValue()
+public class RedisSourceOptions extends RedisBaseOptions {
+    public enum HashKeyParseMode {
+        ALL,
+        KV;
+    }
+
+    public static final Option<HashKeyParseMode> HASH_KEY_PARSE_MODE =
+            Options.key("hash_key_parse_mode")
+                    .enumType(HashKeyParseMode.class)
+                    .defaultValue(HashKeyParseMode.ALL)
                     .withDescription(
-                            "The JDBC URL like \"jdbc:mysql://localhost:9030/\" or"
-                                    + "\"jdbc:mysql://localhost:9030/\" or \"jdbc:mysql://localhost:9030/db\"");
-
-    Option<String> USERNAME =
-            Options.key("username")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("StarRocks user username");
-
-    Option<String> PASSWORD =
-            Options.key("password")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("StarRocks user password");
+                            "hash key parse mode, support all or kv, default value is all");
 }
