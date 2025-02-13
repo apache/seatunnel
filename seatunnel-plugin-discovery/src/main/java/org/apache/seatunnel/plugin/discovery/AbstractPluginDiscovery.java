@@ -439,9 +439,8 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                 pluginJarPath = targetPluginFiles[0].toURI().toURL();
             } else {
                 PluginType type = PluginType.valueOf(pluginType.toUpperCase());
-                String targetPlugin = getTargetPluginName(pluginIdentifier, type);
                 pluginJarPath =
-                        selectPluginJar(targetPluginFiles, targetPlugin, pluginName, type).get();
+                        selectPluginJar(targetPluginFiles, pluginJarPrefix, pluginName, type).get();
             }
             log.info("Discovery plugin jar for: {} at: {}", pluginIdentifier, pluginJarPath);
             return Optional.of(pluginJarPath);
@@ -454,21 +453,8 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         }
     }
 
-    private String getTargetPluginName(PluginIdentifier pluginIdentifier, PluginType type) {
-        switch (type) {
-            case SINK:
-                return sinkPluginInstance.get(pluginIdentifier);
-            case SOURCE:
-                return sourcePluginInstance.get(pluginIdentifier);
-            case TRANSFORM:
-                return transformPluginInstance.get(pluginIdentifier);
-            default:
-                throw new SeaTunnelException("Unsupported plugin type: " + type);
-        }
-    }
-
     private Optional<URL> selectPluginJar(
-            File[] targetPluginFiles, String targetPlugin, String pluginName, PluginType type) {
+            File[] targetPluginFiles, String pluginJarPrefix, String pluginName, PluginType type) {
         List<URL> resMatchedUrls = new ArrayList<>();
         for (File file : targetPluginFiles) {
             Optional<URL> matchedUrl = findMatchingUrl(file, type);
@@ -478,7 +464,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
             throw new SeaTunnelException(
                     String.format(
                             "Cannot find unique plugin jar for pluginIdentifier: %s -> %s",
-                            pluginName, targetPlugin));
+                            pluginName, pluginJarPrefix));
         } else {
             return Optional.of(resMatchedUrls.get(0));
         }
