@@ -26,6 +26,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.util.Optional;
 
 public class EventServlet extends BaseServlet {
 
@@ -42,14 +43,20 @@ public class EventServlet extends BaseServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        String jobIdStr = req.getPathInfo();
+        String[] pathSegments =
+                Optional.ofNullable(req.getPathInfo())
+                        .orElseThrow(() -> new IllegalArgumentException("Path cannot be null"))
+                        .split("/");
 
-        if (jobIdStr != null && jobIdStr.length() > 1) {
-            jobIdStr = jobIdStr.substring(1);
-        } else {
-            throw new IllegalArgumentException("The jobId must not be empty.");
-        }
-        Long jobId = Long.valueOf(jobIdStr);
+        Long jobId =
+                Long.parseLong(
+                        Optional.of(pathSegments)
+                                .filter(p -> p.length > 1)
+                                .map(p -> p[1])
+                                .orElseThrow(
+                                        () ->
+                                                new IllegalArgumentException(
+                                                        "Job ID must be provided in the path")));
 
         writeJson(resp, eventService.getEventInfoJson(jobId));
     }

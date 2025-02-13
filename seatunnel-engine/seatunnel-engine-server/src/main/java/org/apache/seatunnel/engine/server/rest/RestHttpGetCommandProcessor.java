@@ -23,6 +23,7 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.server.NodeExtension;
 import org.apache.seatunnel.engine.server.log.FormatType;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpGetCommandProcessor;
+import org.apache.seatunnel.engine.server.rest.service.EventService;
 import org.apache.seatunnel.engine.server.rest.service.JobInfoService;
 import org.apache.seatunnel.engine.server.rest.service.LogService;
 import org.apache.seatunnel.engine.server.rest.service.OverviewService;
@@ -54,6 +55,7 @@ import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_400;
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.CONTEXT_PATH;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.INSTANCE_CONTEXT_PATH;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_EVENT;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_FINISHED_JOBS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_GET_ALL_LOG_NAME;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_JOB_INFO;
@@ -79,6 +81,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     private ThreadDumpService threadDumpService;
     private RunningThreadService runningThreadService;
     private LogService logService;
+    private EventService eventService;
 
     public RestHttpGetCommandProcessor(TextCommandService textCommandService) {
 
@@ -106,6 +109,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         this.threadDumpService = new ThreadDumpService(nodeEngine);
         this.runningThreadService = new RunningThreadService(nodeEngine);
         this.logService = new LogService(nodeEngine);
+        this.eventService = new EventService(nodeEngine);
     }
 
     @Override
@@ -138,6 +142,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 getAllNodeLog(httpGetCommand, uri);
             } else if (uri.startsWith(CONTEXT_PATH + REST_URL_LOG)) {
                 getCurrentNodeLog(httpGetCommand, uri);
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_EVENT)) {
+                getEventInfo(httpGetCommand);
             } else {
                 original.handle(httpGetCommand);
             }
@@ -156,6 +162,33 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     @Override
     public void handleRejection(HttpGetCommand httpGetCommand) {
         handle(httpGetCommand);
+    }
+
+    public void getEventInfo(HttpGetCommand command) {
+        String uri = StringUtil.stripTrailingSlash(command.getURI());
+
+        int lastSlashIndex = uri.lastIndexOf('/');
+        if (lastSlashIndex == -1 || lastSlashIndex == uri.length() - 1) {
+            prepareResponse(SC_400, command, "Invalid event URI format");
+            return;
+        }
+
+        String jobIdStr = uri.substring(lastSlashIndex + 1);
+        if (StringUtils.isBlank(jobIdStr)) {
+            prepareResponse(SC_400, command, "Missing job ID in URI");
+            return;
+        }
+
+        try {
+            long jobId = Long.parseLong(jobIdStr);
+            this.prepareResponse(command, eventService.getEventInfoJson(jobId));
+        } catch (NumberFormatException e) {
+            logger.warning("Invalid job ID format: " + jobIdStr);
+            prepareResponse(SC_400, command, "Job ID must be a numeric value");
+        } catch (Exception e) {
+            logger.severe("Failed to get event info for job " + jobIdStr + ": " + e.getMessage());
+            prepareResponse(SC_500, command, "Internal server error");
+        }
     }
 
     public void overView(HttpGetCommand command, String uri) {

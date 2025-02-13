@@ -33,22 +33,31 @@ public class EventService extends BaseService {
     }
 
     public JsonArray getEventInfoJson(Long jobId) {
-        ArrayBlockingQueue<Event> events =
-                (ArrayBlockingQueue<Event>)
-                        nodeEngine
-                                .getHazelcastInstance()
-                                .getMap(Constant.IMAP_FINISHED_JOB_EVENT)
-                                .get(jobId);
-        JsonArray eventArray = new JsonArray();
-        if (events == null) {
-            return eventArray;
+        try {
+            ArrayBlockingQueue<Event> events =
+                    nodeEngine
+                            .getHazelcastInstance()
+                            .<Long, ArrayBlockingQueue<Event>>getMap(
+                                    Constant.IMAP_FINISHED_JOB_EVENT)
+                            .get(jobId);
+
+            if (events == null || events.isEmpty()) {
+                return new JsonArray();
+            }
+
+            return events.stream()
+                    .map(this::buildEventJson)
+                    .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+        } catch (ClassCastException e) {
+
+            return new JsonArray();
         }
-        for (Event event : events) {
-            JsonObject members = new JsonObject();
-            members.add("createdTime", event.getCreatedTime());
-            members.add("eventType", event.getEventType().toString());
-            eventArray.add(members);
-        }
-        return eventArray;
+    }
+
+    private JsonObject buildEventJson(Event event) {
+        JsonObject eventJson = new JsonObject();
+        eventJson.add("createdTime", event.getCreatedTime());
+        eventJson.add("eventType", event.getEventType().toString());
+        return eventJson;
     }
 }
