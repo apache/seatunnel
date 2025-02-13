@@ -65,42 +65,13 @@ public class GetEventOperation extends Operation implements IdentifiedDataSerial
         if (jobId == null) {
             throw new SeaTunnelEngineException("JobId cannot be null");
         }
-
         SeaTunnelServer server = getService();
         CoordinatorService coordinatorService = server.getCoordinatorService();
 
         try {
             response =
                     CompletableFuture.supplyAsync(
-                                    () -> {
-                                        List<Event> events = new ArrayList<>();
-                                        JobMaster jobMaster =
-                                                coordinatorService.getJobMaster(jobId);
-                                        if (jobMaster != null) {
-                                            log.debug(
-                                                    "Retrieving events for active job {}, isAll: {}",
-                                                    jobId,
-                                                    isAll);
-                                            if (isAll) {
-                                                Optional.ofNullable(jobMaster.getHistoryEvents())
-                                                        .ifPresent(events::addAll);
-                                            } else {
-                                                Optional.ofNullable(jobMaster.getEvents())
-                                                        .ifPresent(event -> event.drainTo(events));
-                                            }
-                                        } else {
-                                            log.debug(
-                                                    "Job {} not active, retrieving from history",
-                                                    jobId);
-                                            Optional.ofNullable(
-                                                            coordinatorService
-                                                                    .getJobHistoryService()
-                                                                    .getFinishedJobEventImap()
-                                                                    .get(jobId))
-                                                    .ifPresent(events::addAll);
-                                        }
-                                        return this.getNodeEngine().toData(events);
-                                    },
+                                    () -> retrieveEvents(coordinatorService),
                                     getNodeEngine()
                                             .getExecutionService()
                                             .getExecutor("get_event_operation"))
@@ -109,6 +80,30 @@ public class GetEventOperation extends Operation implements IdentifiedDataSerial
             log.error("Failed to retrieve events for job " + jobId, e);
             throw new SeaTunnelEngineException("Failed to retrieve events: " + e.getMessage(), e);
         }
+    }
+
+    private Data retrieveEvents(CoordinatorService coordinatorService) {
+        List<Event> events = new ArrayList<>();
+        JobMaster jobMaster = coordinatorService.getJobMaster(jobId);
+
+        if (jobMaster != null) {
+            log.debug("Retrieving events for active job {}, isAll: {}", jobId, isAll);
+            if (isAll) {
+                Optional.ofNullable(jobMaster.getHistoryEvents()).ifPresent(events::addAll);
+            } else {
+                Optional.ofNullable(jobMaster.getEvents()).ifPresent(q -> q.drainTo(events));
+            }
+        } else {
+            log.debug("Job {} not active, retrieving from history", jobId);
+            Optional.ofNullable(
+                            coordinatorService
+                                    .getJobHistoryService()
+                                    .getFinishedJobEventImap()
+                                    .get(jobId))
+                    .ifPresent(events::addAll);
+        }
+
+        return this.getNodeEngine().toData(events);
     }
 
     @Override
