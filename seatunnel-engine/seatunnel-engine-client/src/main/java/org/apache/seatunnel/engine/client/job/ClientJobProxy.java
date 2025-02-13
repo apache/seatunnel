@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.engine.client.job;
 
-import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
@@ -30,7 +29,6 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelCancelJobCodec;
-import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetEventCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSubmitJobCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelWaitForJobCompleteCodec;
@@ -39,8 +37,6 @@ import com.hazelcast.client.impl.protocol.ClientMessage;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import lombok.NonNull;
-
-import java.util.List;
 
 public class ClientJobProxy implements Job {
     private static final ILogger LOGGER = Logger.getLogger(ClientJobProxy.class);
@@ -156,14 +152,5 @@ public class ClientJobProxy implements Job {
                         SeaTunnelGetJobStatusCodec.encodeRequest(jobId),
                         SeaTunnelGetJobStatusCodec::decodeResponse);
         return JobStatus.values()[jobStatusOrdinal];
-    }
-
-    public List<Event> getEvent(Long jobId) {
-        return seaTunnelHazelcastClient
-                .getSerializationService()
-                .toObject(
-                        seaTunnelHazelcastClient.requestOnMasterAndDecodeResponse(
-                                SeaTunnelGetEventCodec.encodeRequest(jobId, false),
-                                SeaTunnelGetEventCodec::decodeResponse));
     }
 }

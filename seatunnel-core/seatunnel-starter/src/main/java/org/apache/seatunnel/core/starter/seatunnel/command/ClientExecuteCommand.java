@@ -58,6 +58,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -238,19 +239,9 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         } catch (Exception e) {
             throw new CommandExecuteException("SeaTunnel job executed failed", e);
         } finally {
-            if (jobId == null) {
-                jobId = Long.parseLong(clientCommandArgs.getJobId());
-                if (jobId == null) {
-                    jobId = Long.parseLong(clientCommandArgs.getCustomJobId());
-                }
-            }
-            if (jobId != null) {
-                List<Event> event = engineClient.getJobClient().getEvent(jobId);
-                event.forEach(e -> log.info("EventType: {}", e.getEventType()));
-                log.info("jobid is :" + jobId);
-            } else {
-                log.info("沒有獲取到jobID");
-            }
+
+            printEvent(jobId);
+
             if (jobMetricsSummary != null) {
                 // print job statistics information when job finished
                 log.info(
@@ -273,6 +264,25 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                                         - jobMetricsSummary.getSinkWriteCount()));
             }
             closeClient();
+        }
+    }
+
+    private void printEvent(Long jobId) {
+        if (jobId == null) {
+            jobId =
+                    Optional.ofNullable(clientCommandArgs.getJobId())
+                            .map(Long::parseLong)
+                            .orElseGet(
+                                    () ->
+                                            Optional.ofNullable(clientCommandArgs.getCustomJobId())
+                                                    .map(Long::parseLong)
+                                                    .orElse(null));
+        }
+        if (jobId != null) {
+            List<Event> event = engineClient.getJobClient().getEvent(jobId);
+            event.forEach(e -> log.info("EventType: {}", e.getEventType()));
+        } else {
+            log.warn("JobId is null, can not get job event.");
         }
     }
 

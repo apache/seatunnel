@@ -35,8 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutionException;
+import java.util.Optional;
 
 @Slf4j
 public class GetEventOperation extends Operation implements IdentifiedDataSerializable {
@@ -51,6 +50,10 @@ public class GetEventOperation extends Operation implements IdentifiedDataSerial
 
     private Data response;
 
+    /**
+     * @param jobId job id
+     * @param isAll When isAll is true, retrieve all events; otherwise, retrieve the latest event
+     */
     public GetEventOperation(Long jobId, boolean isAll) {
         this.jobId = jobId;
         this.isAll = isAll;
@@ -58,38 +61,43 @@ public class GetEventOperation extends Operation implements IdentifiedDataSerial
 
     @Override
     public void run() throws Exception {
-        SeaTunnelServer server = getService();
-        CoordinatorService coordinatorService = server.getCoordinatorService();
-        JobMaster jobMaster = coordinatorService.getJobMaster(jobId);
-        if (jobMaster != null) {
-            if (isAll) {
-                ArrayBlockingQueue<Event> event = jobMaster.getHistoryEvents();
-                if (event != null) {
-                    events.addAll(event);
-                }
-            } else {
-                ArrayBlockingQueue<Event> event = jobMaster.getEvents();
-                if (event != null) {
-                    event.drainTo(events);
-                }
-            }
-        } else {
-            ArrayBlockingQueue<Event> historyEvents =
-                    coordinatorService.getJobHistoryService().getFinishedJobEventImap().get(jobId);
-            if (historyEvents != null) {
-                events.addAll(historyEvents);
-            }
+        if (jobId == null) {
+            throw new SeaTunnelEngineException("JobId cannot be null");
         }
 
-        CompletableFuture<Data> future =
-                CompletableFuture.supplyAsync(
-                        () -> this.getNodeEngine().toData(events),
-                        getNodeEngine().getExecutionService().getExecutor("get_event_operation"));
-
+        SeaTunnelServer server = getService();
+        CoordinatorService coordinatorService = server.getCoordinatorService();
         try {
+            JobMaster jobMaster = coordinatorService.getJobMaster(jobId);
+            if (jobMaster != null) {
+                log.debug("Retrieving events for active job {}, isAll: {}", jobId, isAll);
+                if (isAll) {
+                    Optional.ofNullable(jobMaster.getHistoryEvents()).ifPresent(events::addAll);
+                } else {
+                    Optional.ofNullable(jobMaster.getEvents())
+                            .ifPresent(event -> event.drainTo(events));
+                }
+            } else {
+                log.debug("Job {} not active, retrieving from history", jobId);
+                Optional.ofNullable(
+                                coordinatorService
+                                        .getJobHistoryService()
+                                        .getFinishedJobEventImap()
+                                        .get(jobId))
+                        .ifPresent(events::addAll);
+            }
+
+            CompletableFuture<Data> future =
+                    CompletableFuture.supplyAsync(
+                            () -> this.getNodeEngine().toData(events),
+                            getNodeEngine()
+                                    .getExecutionService()
+                                    .getExecutor("get_event_operation"));
+
             response = future.get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new SeaTunnelEngineException(e);
+        } catch (Exception e) {
+            log.error("Failed to retrieve events for job " + jobId, e);
+            throw new SeaTunnelEngineException("Failed to retrieve events: " + e.getMessage(), e);
         }
     }
 
@@ -117,11 +125,13 @@ public class GetEventOperation extends Operation implements IdentifiedDataSerial
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
         out.writeLong(jobId);
+        out.writeBoolean(isAll);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
         jobId = in.readLong();
+        isAll = in.readBoolean();
     }
 }
