@@ -68,14 +68,14 @@ import java.util.Objects;
 import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT;
 import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE;
 import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.COLL_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DB_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DEFAULT_JSON_WRITER_SETTINGS;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DOCUMENT_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ENCODE_VALUE_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.FULL_DOCUMENT;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.NS_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.extractBsonDocument;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbSourceConstant.COLL_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbSourceConstant.DB_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbSourceConstant.DEFAULT_JSON_WRITER_SETTINGS;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbSourceConstant.DOCUMENT_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbSourceConstant.ENCODE_VALUE_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbSourceConstant.FULL_DOCUMENT;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbSourceConstant.NS_FIELD;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 @Slf4j

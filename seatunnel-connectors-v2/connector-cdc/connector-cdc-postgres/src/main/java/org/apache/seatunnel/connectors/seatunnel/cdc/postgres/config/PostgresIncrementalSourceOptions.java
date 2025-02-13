@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.option;
+package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.connectors.cdc.base.option.CdcJdbcBaseOptions;
 
 import java.util.List;
 
-public interface PostgresOptions {
+public class PostgresIncrementalSourceOptions extends CdcJdbcBaseOptions {
 
-    Option<String> DECODING_PLUGIN_NAME =
+    public static final Option<String> DECODING_PLUGIN_NAME =
             Options.key("decoding.plugin.name")
                     .stringType()
                     .defaultValue("pgoutput")
@@ -33,7 +34,7 @@ public interface PostgresOptions {
                                     + "Supported values are decoderbufs, wal2json, wal2json_rds, wal2json_streaming,\n"
                                     + "wal2json_rds_streaming and pgoutput.");
 
-    Option<String> SLOT_NAME =
+    public static final Option<String> SLOT_NAME =
             Options.key("slot.name")
                     .stringType()
                     .defaultValue("seatunnel")
@@ -42,7 +43,7 @@ public interface PostgresOptions {
                                     + "from a particular plug-in for a particular database/schema. The server uses this slot "
                                     + "to stream events to the connector that you are configuring. Default is \"seatunnel\".");
 
-    Option<List<String>> SCHEMA_NAME =
+    public static final Option<List<String>> SCHEMA_NAME =
             Options.key("schema-name")
                     .listType()
                     .noDefaultValue()

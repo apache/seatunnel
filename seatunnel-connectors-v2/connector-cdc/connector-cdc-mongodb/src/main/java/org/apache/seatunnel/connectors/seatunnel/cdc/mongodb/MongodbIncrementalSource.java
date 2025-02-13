@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
-import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.CdcJdbcBaseOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
@@ -31,9 +31,9 @@ import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConfigProvider;
-import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.sender.MongoDBConnectorDeserializationSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.dialect.MongodbDialect;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.offset.ChangeStreamOffsetFactory;
@@ -54,12 +54,12 @@ public class MongodbIncrementalSource<T> extends IncrementalSource<T, MongodbSou
 
     @Override
     public Option<StartupMode> getStartupModeOption() {
-        return MongodbSourceOptions.STARTUP_MODE;
+        return MongodbIncrementalSourceOptions.STARTUP_MODE;
     }
 
     @Override
     public Option<StopMode> getStopModeOption() {
-        return MongodbSourceOptions.STOP_MODE;
+        return MongodbIncrementalSourceOptions.STOP_MODE;
     }
 
     @Override
@@ -72,27 +72,31 @@ public class MongodbIncrementalSource<T> extends IncrementalSource<T, MongodbSou
             @Nonnull ReadonlyConfig config) {
         MongodbSourceConfigProvider.Builder builder =
                 MongodbSourceConfigProvider.newBuilder()
-                        .hosts(config.get(MongodbSourceOptions.HOSTS))
+                        .hosts(config.get(MongodbIncrementalSourceOptions.HOSTS))
                         .validate();
-        Optional.ofNullable(config.get(MongodbSourceOptions.DATABASE))
+        Optional.ofNullable(config.get(MongodbIncrementalSourceOptions.DATABASE))
                 .ifPresent(builder::databaseList);
-        Optional.ofNullable(config.get(MongodbSourceOptions.COLLECTION))
+        Optional.ofNullable(config.get(MongodbIncrementalSourceOptions.COLLECTION))
                 .ifPresent(builder::collectionList);
-        Optional.ofNullable(config.get(MongodbSourceOptions.USERNAME)).ifPresent(builder::username);
-        Optional.ofNullable(config.get(MongodbSourceOptions.PASSWORD)).ifPresent(builder::password);
-        Optional.ofNullable(config.get(MongodbSourceOptions.CONNECTION_OPTIONS))
+        Optional.ofNullable(config.get(MongodbIncrementalSourceOptions.USERNAME))
+                .ifPresent(builder::username);
+        Optional.ofNullable(config.get(MongodbIncrementalSourceOptions.PASSWORD))
+                .ifPresent(builder::password);
+        Optional.ofNullable(config.get(MongodbIncrementalSourceOptions.CONNECTION_OPTIONS))
                 .ifPresent(builder::connectionOptions);
-        Optional.ofNullable(config.get(MongodbSourceOptions.BATCH_SIZE))
+        Optional.ofNullable(config.get(MongodbIncrementalSourceOptions.BATCH_SIZE))
                 .ifPresent(builder::batchSize);
-        Optional.ofNullable(config.get(MongodbSourceOptions.POLL_MAX_BATCH_SIZE))
+        Optional.ofNullable(config.get(MongodbIncrementalSourceOptions.POLL_MAX_BATCH_SIZE))
                 .ifPresent(builder::pollMaxBatchSize);
-        Optional.ofNullable(config.get(MongodbSourceOptions.POLL_AWAIT_TIME_MILLIS))
+        Optional.ofNullable(config.get(MongodbIncrementalSourceOptions.POLL_AWAIT_TIME_MILLIS))
                 .ifPresent(builder::pollAwaitTimeMillis);
-        Optional.ofNullable(config.get(MongodbSourceOptions.HEARTBEAT_INTERVAL_MILLIS))
+        Optional.ofNullable(config.get(MongodbIncrementalSourceOptions.HEARTBEAT_INTERVAL_MILLIS))
                 .ifPresent(builder::heartbeatIntervalMillis);
-        Optional.ofNullable(config.get(MongodbSourceOptions.HEARTBEAT_INTERVAL_MILLIS))
+        Optional.ofNullable(config.get(MongodbIncrementalSourceOptions.HEARTBEAT_INTERVAL_MILLIS))
                 .ifPresent(builder::splitMetaGroupSize);
-        Optional.ofNullable(config.get(MongodbSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB))
+        Optional.ofNullable(
+                        config.get(
+                                MongodbIncrementalSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB))
                 .ifPresent(builder::splitSizeMB);
         Optional.ofNullable(startupConfig).ifPresent(builder::startupOptions);
         Optional.ofNullable(stopConfig).ifPresent(builder::stopOptions);
@@ -104,10 +108,10 @@ public class MongodbIncrementalSource<T> extends IncrementalSource<T, MongodbSou
     public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(
             ReadonlyConfig config) {
         if (DeserializeFormat.COMPATIBLE_DEBEZIUM_JSON.equals(
-                config.get(JdbcSourceOptions.FORMAT))) {
+                config.get(CdcJdbcBaseOptions.FORMAT))) {
             return (DebeziumDeserializationSchema<T>)
                     new DebeziumJsonDeserializeSchema(
-                            config.get(JdbcSourceOptions.DEBEZIUM_PROPERTIES));
+                            config.get(CdcJdbcBaseOptions.DEBEZIUM_PROPERTIES));
         }
 
         return (DebeziumDeserializationSchema<T>)

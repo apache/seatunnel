@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.opengauss;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -26,16 +24,12 @@ import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
-import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
-import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
-import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.option.PostgresOptions;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresIncrementalSource;
-import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresIncrementalSourceFactory;
 
 import com.google.auto.service.AutoService;
 
@@ -44,40 +38,12 @@ import java.util.List;
 import java.util.Optional;
 
 @AutoService(Factory.class)
-public class OpengaussIncrementalSourceFactory implements TableSourceFactory {
+public class OpengaussIncrementalSourceFactory extends PostgresIncrementalSourceFactory {
     private static final String IDENTIFIER = "Opengauss-CDC";
 
     @Override
     public String factoryIdentifier() {
         return IDENTIFIER;
-    }
-
-    @Override
-    public OptionRule optionRule() {
-        return JdbcSourceOptions.getBaseRule()
-                .required(
-                        JdbcSourceOptions.USERNAME,
-                        JdbcSourceOptions.PASSWORD,
-                        JdbcCatalogOptions.BASE_URL)
-                .exclusive(ConnectorCommonOptions.TABLE_NAMES, ConnectorCommonOptions.TABLE_PATTERN)
-                .optional(
-                        JdbcSourceOptions.DATABASE_NAMES,
-                        JdbcSourceOptions.SERVER_TIME_ZONE,
-                        JdbcSourceOptions.CONNECT_TIMEOUT_MS,
-                        JdbcSourceOptions.CONNECT_MAX_RETRIES,
-                        JdbcSourceOptions.CONNECTION_POOL_SIZE,
-                        PostgresOptions.DECODING_PLUGIN_NAME,
-                        PostgresOptions.SLOT_NAME,
-                        JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
-                        JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
-                        JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD,
-                        JdbcSourceOptions.TABLE_NAMES_CONFIG)
-                .optional(PostgresSourceOptions.STARTUP_MODE, PostgresSourceOptions.STOP_MODE)
-                .conditional(
-                        PostgresSourceOptions.STARTUP_MODE,
-                        StartupMode.INITIAL,
-                        JdbcSourceOptions.EXACTLY_ONCE)
-                .build();
     }
 
     @Override
@@ -93,7 +59,8 @@ public class OpengaussIncrementalSourceFactory implements TableSourceFactory {
                     CatalogTableUtil.getCatalogTables(
                             "Postgres", context.getOptions(), context.getClassLoader());
             Optional<List<JdbcSourceTableConfig>> tableConfigs =
-                    context.getOptions().getOptional(JdbcSourceOptions.TABLE_NAMES_CONFIG);
+                    context.getOptions()
+                            .getOptional(PostgresIncrementalSourceOptions.TABLE_NAMES_CONFIG);
             if (tableConfigs.isPresent()) {
                 catalogTables =
                         CatalogTableUtils.mergeCatalogTableConfig(

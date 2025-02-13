@@ -26,16 +26,16 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
-import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.CdcJdbcBaseOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffsetFactory;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
 
 import org.apache.kafka.connect.data.Struct;
 
@@ -67,12 +67,12 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
 
     @Override
     public Option<StartupMode> getStartupModeOption() {
-        return PostgresSourceOptions.STARTUP_MODE;
+        return PostgresIncrementalSourceOptions.STARTUP_MODE;
     }
 
     @Override
     public Option<StopMode> getStopModeOption() {
-        return PostgresSourceOptions.STOP_MODE;
+        return PostgresIncrementalSourceOptions.STOP_MODE;
     }
 
     @Override
@@ -80,7 +80,7 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
         PostgresSourceConfigFactory configFactory = new PostgresSourceConfigFactory();
         configFactory.fromReadonlyConfig(readonlyConfig);
         JdbcUrlUtil.UrlInfo urlInfo =
-                JdbcUrlUtil.getUrlInfo(config.get(JdbcCatalogOptions.BASE_URL));
+                JdbcUrlUtil.getUrlInfo(config.get(PostgresIncrementalSourceOptions.BASE_URL));
         configFactory.originUrl(urlInfo.getOrigin());
         configFactory.hostname(urlInfo.getHost());
         configFactory.port(urlInfo.getPort());
@@ -93,7 +93,7 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
     @Override
     public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(
             ReadonlyConfig config) {
-        String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
+        String zoneId = config.get(CdcJdbcBaseOptions.SERVER_TIME_ZONE);
         return (DebeziumDeserializationSchema<T>)
                 SeaTunnelRowDebeziumDeserializeSchema.builder()
                         .setTables(catalogTables)

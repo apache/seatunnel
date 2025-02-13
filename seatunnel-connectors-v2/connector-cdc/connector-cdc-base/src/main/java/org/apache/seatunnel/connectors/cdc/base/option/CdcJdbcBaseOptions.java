@@ -26,7 +26,15 @@ import java.time.ZoneId;
 import java.util.List;
 
 /** Configurations for {@link IncrementalSource} of JDBC data source. */
-public class JdbcSourceOptions extends SourceOptions {
+public class CdcJdbcBaseOptions extends CdcBaseOptions {
+
+    public static final Option<String> BASE_URL =
+            Options.key("base-url")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "URL has to be with database, like \"jdbc:mysql://localhost:5432/db\" or"
+                                    + "\"jdbc:mysql://localhost:5432/db?useSSL=true\".");
 
     public static final Option<String> HOSTNAME =
             Options.key("hostname")

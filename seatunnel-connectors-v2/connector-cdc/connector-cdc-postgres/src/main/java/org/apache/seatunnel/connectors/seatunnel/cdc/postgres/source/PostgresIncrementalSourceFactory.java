@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -29,11 +28,9 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
-import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
-import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.option.PostgresOptions;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresIncrementalSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -50,29 +47,35 @@ public class PostgresIncrementalSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return JdbcSourceOptions.getBaseRule()
+        return PostgresIncrementalSourceOptions.getBaseRule()
                 .required(
-                        JdbcSourceOptions.USERNAME,
-                        JdbcSourceOptions.PASSWORD,
-                        JdbcCatalogOptions.BASE_URL)
-                .exclusive(ConnectorCommonOptions.TABLE_NAMES, ConnectorCommonOptions.TABLE_PATTERN)
+                        PostgresIncrementalSourceOptions.USERNAME,
+                        PostgresIncrementalSourceOptions.PASSWORD,
+                        PostgresIncrementalSourceOptions.BASE_URL)
+                .exclusive(
+                        PostgresIncrementalSourceOptions.TABLE_NAMES,
+                        PostgresIncrementalSourceOptions.TABLE_PATTERN)
                 .optional(
-                        JdbcSourceOptions.DATABASE_NAMES,
-                        JdbcSourceOptions.SERVER_TIME_ZONE,
-                        JdbcSourceOptions.CONNECT_TIMEOUT_MS,
-                        JdbcSourceOptions.CONNECT_MAX_RETRIES,
-                        JdbcSourceOptions.CONNECTION_POOL_SIZE,
-                        PostgresOptions.DECODING_PLUGIN_NAME,
-                        PostgresOptions.SLOT_NAME,
-                        JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
-                        JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
-                        JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD,
-                        JdbcSourceOptions.TABLE_NAMES_CONFIG)
-                .optional(PostgresSourceOptions.STARTUP_MODE, PostgresSourceOptions.STOP_MODE)
+                        PostgresIncrementalSourceOptions.DATABASE_NAMES,
+                        PostgresIncrementalSourceOptions.SERVER_TIME_ZONE,
+                        PostgresIncrementalSourceOptions.CONNECT_TIMEOUT_MS,
+                        PostgresIncrementalSourceOptions.CONNECT_MAX_RETRIES,
+                        PostgresIncrementalSourceOptions.CONNECTION_POOL_SIZE,
+                        PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME,
+                        PostgresIncrementalSourceOptions.SLOT_NAME,
+                        PostgresIncrementalSourceOptions
+                                .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
+                        PostgresIncrementalSourceOptions
+                                .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
+                        PostgresIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD,
+                        PostgresIncrementalSourceOptions.TABLE_NAMES_CONFIG)
+                .optional(
+                        PostgresIncrementalSourceOptions.STARTUP_MODE,
+                        PostgresIncrementalSourceOptions.STOP_MODE)
                 .conditional(
-                        PostgresSourceOptions.STARTUP_MODE,
+                        PostgresIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.INITIAL,
-                        JdbcSourceOptions.EXACTLY_ONCE)
+                        PostgresIncrementalSourceOptions.EXACTLY_ONCE)
                 .build();
     }
 
@@ -89,7 +92,8 @@ public class PostgresIncrementalSourceFactory implements TableSourceFactory {
                     CatalogTableUtil.getCatalogTables(
                             context.getOptions(), context.getClassLoader());
             Optional<List<JdbcSourceTableConfig>> tableConfigs =
-                    context.getOptions().getOptional(JdbcSourceOptions.TABLE_NAMES_CONFIG);
+                    context.getOptions()
+                            .getOptional(PostgresIncrementalSourceOptions.TABLE_NAMES_CONFIG);
             if (tableConfigs.isPresent()) {
                 catalogTables =
                         CatalogTableUtils.mergeCatalogTableConfig(

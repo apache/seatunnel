@@ -69,6 +69,7 @@ public class TiDBSourceFactory implements TableSourceFactory {
                         TiDBSourceOptions.TIKV_BATCH_SCAN_CONCURRENCY,
                         TiDBSourceOptions.TIKV_GRPC_SCAN_TIMEOUT,
                         TiDBSourceOptions.TIKV_GRPC_TIMEOUT,
+                        TiDBSourceOptions.BATCH_SIZE_PER_SCAN,
                         TiDBSourceOptions.STARTUP_MODE)
                 .build();
     }

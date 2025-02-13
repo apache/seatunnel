@@ -25,7 +25,7 @@ import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
-import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.CdcJdbcBaseOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
@@ -34,6 +34,7 @@ import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchem
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.config.SqlServerIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.config.SqlServerSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.offset.LsnOffsetFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
@@ -58,12 +59,12 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
 
     @Override
     public Option<StartupMode> getStartupModeOption() {
-        return SqlServerSourceOptions.STARTUP_MODE;
+        return SqlServerIncrementalSourceOptions.STARTUP_MODE;
     }
 
     @Override
     public Option<StopMode> getStopModeOption() {
-        return SqlServerSourceOptions.STOP_MODE;
+        return SqlServerIncrementalSourceOptions.STOP_MODE;
     }
 
     @Override
@@ -85,13 +86,13 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
     public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(
             ReadonlyConfig config) {
         if (DeserializeFormat.COMPATIBLE_DEBEZIUM_JSON.equals(
-                config.get(JdbcSourceOptions.FORMAT))) {
+                config.get(CdcJdbcBaseOptions.FORMAT))) {
             return (DebeziumDeserializationSchema<T>)
                     new DebeziumJsonDeserializeSchema(
-                            config.get(JdbcSourceOptions.DEBEZIUM_PROPERTIES));
+                            config.get(CdcJdbcBaseOptions.DEBEZIUM_PROPERTIES));
         }
 
-        String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
+        String zoneId = config.get(CdcJdbcBaseOptions.SERVER_TIME_ZONE);
         return (DebeziumDeserializationSchema<T>)
                 SeaTunnelRowDebeziumDeserializeSchema.builder()
                         .setTables(catalogTables)

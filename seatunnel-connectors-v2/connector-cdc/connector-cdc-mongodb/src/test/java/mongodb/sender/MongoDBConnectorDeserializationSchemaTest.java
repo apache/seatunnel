@@ -54,19 +54,19 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.IntStream;
 
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.COLL_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DB_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DOCUMENT_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.FULL_DOCUMENT;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ID_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.NS_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.OPERATION_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.OPERATION_TYPE_INSERT;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.SNAPSHOT_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.SNAPSHOT_TRUE;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.SOURCE_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.TS_MS_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.createSourceOffsetMap;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbSourceConstant.COLL_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbSourceConstant.DB_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbSourceConstant.DOCUMENT_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbSourceConstant.FULL_DOCUMENT;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbSourceConstant.ID_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbSourceConstant.NS_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbSourceConstant.OPERATION_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbSourceConstant.OPERATION_TYPE_INSERT;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbSourceConstant.SNAPSHOT_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbSourceConstant.SNAPSHOT_TRUE;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbSourceConstant.SOURCE_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbSourceConstant.TS_MS_FIELD;
 
 public class MongoDBConnectorDeserializationSchemaTest {
 

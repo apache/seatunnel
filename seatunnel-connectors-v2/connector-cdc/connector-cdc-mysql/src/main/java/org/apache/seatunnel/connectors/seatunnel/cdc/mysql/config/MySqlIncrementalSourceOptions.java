@@ -15,16 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.cdc.base.option;
+package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config;
 
-/** Stop mode for the CDC Connectors, see {@link CdcBaseOptions#STOP_MODE}. */
-public enum StopMode {
-    /** Stop from the latest offset. */
-    LATEST,
-    /** Stop from user-supplied timestamp. */
-    TIMESTAMP,
-    /** Stop from user-supplied specific offset. */
-    SPECIFIC,
-    /** Real-time job don't stop the source. */
-    NEVER
-}
+import org.apache.seatunnel.connectors.cdc.base.option.CdcJdbcBaseOptions;
+
+public class MySqlIncrementalSourceOptions extends CdcJdbcBaseOptions {}

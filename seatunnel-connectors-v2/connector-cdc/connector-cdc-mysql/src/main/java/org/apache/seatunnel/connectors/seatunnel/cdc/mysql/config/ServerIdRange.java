@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config;
 
-import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.CdcJdbcBaseOptions;
 
 import java.io.Serializable;
 import java.util.Random;
@@ -27,7 +27,7 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 /**
  * This class defines a range of server id. The boundaries of the range are inclusive.
  *
- * @see JdbcSourceOptions#SERVER_ID
+ * @see CdcJdbcBaseOptions#SERVER_ID
  */
 public class ServerIdRange implements Serializable {
     private static final long serialVersionUID = 1L;

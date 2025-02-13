@@ -31,8 +31,8 @@ import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StopConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
-import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
-import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.CdcBaseOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.CdcJdbcBaseOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
@@ -99,7 +99,7 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
         this.startupConfig = getStartupConfig(readonlyConfig);
         this.stopConfig = getStopConfig(readonlyConfig);
         this.stopMode = stopConfig.getStopMode();
-        this.incrementalParallelism = readonlyConfig.get(SourceOptions.INCREMENTAL_PARALLELISM);
+        this.incrementalParallelism = readonlyConfig.get(CdcBaseOptions.INCREMENTAL_PARALLELISM);
         this.configFactory = createSourceConfigFactory(readonlyConfig);
         this.dataSourceDialect = createDataSourceDialect(readonlyConfig);
         this.deserializationSchema = createDebeziumDeserializationSchema(readonlyConfig);
@@ -109,23 +109,23 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
     protected StartupConfig getStartupConfig(ReadonlyConfig config) {
         return new StartupConfig(
                 config.get(getStartupModeOption()),
-                config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE),
-                config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS),
-                config.get(SourceOptions.STARTUP_TIMESTAMP));
+                config.get(CdcBaseOptions.STARTUP_SPECIFIC_OFFSET_FILE),
+                config.get(CdcBaseOptions.STARTUP_SPECIFIC_OFFSET_POS),
+                config.get(CdcBaseOptions.STARTUP_TIMESTAMP));
     }
 
     private StopConfig getStopConfig(ReadonlyConfig config) {
         return new StopConfig(
                 config.get(getStopModeOption()),
-                config.get(SourceOptions.STOP_SPECIFIC_OFFSET_FILE),
-                config.get(SourceOptions.STOP_SPECIFIC_OFFSET_POS),
-                config.get(SourceOptions.STOP_TIMESTAMP));
+                config.get(CdcBaseOptions.STOP_SPECIFIC_OFFSET_FILE),
+                config.get(CdcBaseOptions.STOP_SPECIFIC_OFFSET_POS),
+                config.get(CdcBaseOptions.STOP_TIMESTAMP));
     }
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
         if (DeserializeFormat.COMPATIBLE_DEBEZIUM_JSON.equals(
-                readonlyConfig.get(JdbcSourceOptions.FORMAT))) {
+                readonlyConfig.get(CdcJdbcBaseOptions.FORMAT))) {
             return Collections.singletonList(
                     CatalogTableUtil.getCatalogTable(
                             "default.default",

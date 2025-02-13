@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
-import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.option.PostgresOptions;
 
 import io.debezium.connector.postgresql.PostgresConnector;
 
@@ -37,18 +36,19 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
 
     private static final String DRIVER_CLASS_NAME = "org.postgresql.Driver";
 
-    private String decodingPluginName = PostgresOptions.DECODING_PLUGIN_NAME.defaultValue();
+    private String decodingPluginName =
+            PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME.defaultValue();
 
-    private String slotName = PostgresOptions.SLOT_NAME.defaultValue();
+    private String slotName = PostgresIncrementalSourceOptions.SLOT_NAME.defaultValue();
 
     private List<String> schemaList;
 
     @Override
     public JdbcSourceConfigFactory fromReadonlyConfig(ReadonlyConfig config) {
         super.fromReadonlyConfig(config);
-        this.decodingPluginName = config.get(PostgresOptions.DECODING_PLUGIN_NAME);
-        this.slotName = config.get(PostgresOptions.SLOT_NAME);
-        this.schemaList = config.get(PostgresOptions.SCHEMA_NAME);
+        this.decodingPluginName = config.get(PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME);
+        this.slotName = config.get(PostgresIncrementalSourceOptions.SLOT_NAME);
+        this.schemaList = config.get(PostgresIncrementalSourceOptions.SCHEMA_NAME);
         return this;
     }
 

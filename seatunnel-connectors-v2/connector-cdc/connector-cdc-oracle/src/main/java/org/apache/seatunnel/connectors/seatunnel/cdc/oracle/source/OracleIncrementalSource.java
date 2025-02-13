@@ -27,8 +27,8 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
-import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
-import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.CdcBaseOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.CdcJdbcBaseOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
@@ -38,6 +38,7 @@ import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchem
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
+import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffsetFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
@@ -71,12 +72,12 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
 
     @Override
     public Option<StartupMode> getStartupModeOption() {
-        return OracleSourceOptions.STARTUP_MODE;
+        return OracleIncrementalSourceOptions.STARTUP_MODE;
     }
 
     @Override
     public Option<StopMode> getStopModeOption() {
-        return OracleSourceOptions.STOP_MODE;
+        return OracleIncrementalSourceOptions.STOP_MODE;
     }
 
     @Override
@@ -85,9 +86,9 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
         configFactory.fromReadonlyConfig(readonlyConfig);
         configFactory.startupOptions(startupConfig);
         configFactory.stopOptions(stopConfig);
-        configFactory.schemaList(config.get(OracleSourceOptions.SCHEMA_NAMES));
-        configFactory.useSelectCount(config.get(OracleSourceOptions.USE_SELECT_COUNT));
-        configFactory.skipAnalyze(config.get(OracleSourceOptions.SKIP_ANALYZE));
+        configFactory.schemaList(config.get(OracleIncrementalSourceOptions.SCHEMA_NAMES));
+        configFactory.useSelectCount(config.get(OracleIncrementalSourceOptions.USE_SELECT_COUNT));
+        configFactory.skipAnalyze(config.get(OracleIncrementalSourceOptions.SKIP_ANALYZE));
         configFactory.originUrl(config.get(JdbcCatalogOptions.BASE_URL));
         return configFactory;
     }
@@ -97,14 +98,14 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
     public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(
             ReadonlyConfig config) {
         Map<TableId, Struct> tableIdStructMap = tableChanges();
-        Map<String, String> debeziumProperties = config.get(SourceOptions.DEBEZIUM_PROPERTIES);
+        Map<String, String> debeziumProperties = config.get(CdcBaseOptions.DEBEZIUM_PROPERTIES);
         if (DeserializeFormat.COMPATIBLE_DEBEZIUM_JSON.equals(
-                config.get(JdbcSourceOptions.FORMAT))) {
+                config.get(CdcJdbcBaseOptions.FORMAT))) {
             return (DebeziumDeserializationSchema<T>)
                     new DebeziumJsonDeserializeSchema(debeziumProperties, tableIdStructMap);
         }
 
-        String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
+        String zoneId = config.get(CdcJdbcBaseOptions.SERVER_TIME_ZONE);
         return (DebeziumDeserializationSchema<T>)
                 SeaTunnelRowDebeziumDeserializeSchema.builder()
                         .setTables(catalogTables)

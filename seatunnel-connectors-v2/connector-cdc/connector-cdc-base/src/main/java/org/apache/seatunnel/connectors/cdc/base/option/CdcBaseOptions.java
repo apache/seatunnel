@@ -19,13 +19,16 @@ package org.apache.seatunnel.connectors.cdc.base.option;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 
+import java.util.Arrays;
 import java.util.Map;
 
 @SuppressWarnings("MagicNumber")
-public class SourceOptions {
+public class CdcBaseOptions extends ConnectorCommonOptions {
 
     public static final String STARTUP_MODE_KEY = "startup.mode";
     public static final String STOP_MODE_KEY = "stop.mode";
@@ -113,6 +116,30 @@ public class SourceOptions {
                     .defaultValue(false)
                     .withDescription(
                             "Enable send schema change events, by default is false. If set to true, the schema changes will be sent to downstream.");
+
+    public static final SingleChoiceOption<StartupMode> STARTUP_MODE =
+            Options.key(STARTUP_MODE_KEY)
+                    .singleChoice(
+                            StartupMode.class,
+                            Arrays.asList(
+                                    StartupMode.INITIAL,
+                                    StartupMode.EARLIEST,
+                                    StartupMode.LATEST,
+                                    StartupMode.SPECIFIC))
+                    .defaultValue(StartupMode.INITIAL)
+                    .withDescription(
+                            "Optional startup mode for CDC source, valid enumerations are "
+                                    + "\"initial\", \"earliest\", \"latest\" or \"specific\"");
+
+    public static final SingleChoiceOption<StopMode> STOP_MODE =
+            Options.key(STOP_MODE_KEY)
+                    .singleChoice(
+                            StopMode.class,
+                            Arrays.asList(StopMode.LATEST, StopMode.SPECIFIC, StopMode.NEVER))
+                    .defaultValue(StopMode.NEVER)
+                    .withDescription(
+                            "Optional stop mode for CDC source, valid enumerations are "
+                                    + "\"never\", \"latest\" or \"specific\"");
 
     public static OptionRule.Builder getBaseRule() {
         return OptionRule.builder()

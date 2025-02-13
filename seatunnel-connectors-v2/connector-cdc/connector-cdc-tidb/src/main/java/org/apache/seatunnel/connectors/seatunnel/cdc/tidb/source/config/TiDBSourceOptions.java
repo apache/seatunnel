@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.CdcBaseOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 
 import org.tikv.common.ConfigUtils;
@@ -45,7 +45,7 @@ public class TiDBSourceOptions implements Serializable {
                     .withDescription("Table name of the database to monitor.");
 
     public static final Option<StartupMode> STARTUP_MODE =
-            Options.key(SourceOptions.STARTUP_MODE_KEY)
+            Options.key(CdcBaseOptions.STARTUP_MODE_KEY)
                     .singleChoice(
                             StartupMode.class,
                             Arrays.asList(

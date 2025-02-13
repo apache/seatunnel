@@ -19,8 +19,8 @@ package org.apache.seatunnel.connectors.cdc.base.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
-import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
-import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.CdcBaseOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.CdcJdbcBaseOptions;
 
 import lombok.Setter;
 
@@ -47,23 +47,24 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     protected StartupConfig startupConfig;
     protected StopConfig stopConfig;
     protected double distributionFactorUpper =
-            JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND.defaultValue();
+            CdcJdbcBaseOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND.defaultValue();
     protected double distributionFactorLower =
-            JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND.defaultValue();
+            CdcJdbcBaseOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND.defaultValue();
     protected int sampleShardingThreshold =
-            JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD.defaultValue();
-    protected int inverseSamplingRate = JdbcSourceOptions.INVERSE_SAMPLING_RATE.defaultValue();
-    protected int splitSize = SourceOptions.SNAPSHOT_SPLIT_SIZE.defaultValue();
+            CdcJdbcBaseOptions.SAMPLE_SHARDING_THRESHOLD.defaultValue();
+    protected int inverseSamplingRate = CdcJdbcBaseOptions.INVERSE_SAMPLING_RATE.defaultValue();
+    protected int splitSize = CdcBaseOptions.SNAPSHOT_SPLIT_SIZE.defaultValue();
     protected Map<String, String> splitColumn;
-    protected int fetchSize = SourceOptions.SNAPSHOT_FETCH_SIZE.defaultValue();
-    protected String serverTimeZone = JdbcSourceOptions.SERVER_TIME_ZONE.defaultValue();
-    protected long connectTimeoutMillis = JdbcSourceOptions.CONNECT_TIMEOUT_MS.defaultValue();
-    protected int connectMaxRetries = JdbcSourceOptions.CONNECT_MAX_RETRIES.defaultValue();
-    protected int connectionPoolSize = JdbcSourceOptions.CONNECTION_POOL_SIZE.defaultValue();
-    @Setter protected boolean exactlyOnce = JdbcSourceOptions.EXACTLY_ONCE.defaultValue();
+    protected int fetchSize = CdcBaseOptions.SNAPSHOT_FETCH_SIZE.defaultValue();
+    protected String serverTimeZone = CdcJdbcBaseOptions.SERVER_TIME_ZONE.defaultValue();
+    protected long connectTimeoutMillis = CdcJdbcBaseOptions.CONNECT_TIMEOUT_MS.defaultValue();
+    protected int connectMaxRetries = CdcJdbcBaseOptions.CONNECT_MAX_RETRIES.defaultValue();
+    protected int connectionPoolSize = CdcJdbcBaseOptions.CONNECTION_POOL_SIZE.defaultValue();
+    @Setter protected boolean exactlyOnce = CdcJdbcBaseOptions.EXACTLY_ONCE.defaultValue();
 
     @Setter
-    protected boolean schemaChangeEnabled = JdbcSourceOptions.SCHEMA_CHANGES_ENABLED.defaultValue();
+    protected boolean schemaChangeEnabled =
+            CdcJdbcBaseOptions.SCHEMA_CHANGES_ENABLED.defaultValue();
 
     protected Properties dbzProperties;
 
@@ -239,23 +240,23 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     }
 
     public JdbcSourceConfigFactory fromReadonlyConfig(ReadonlyConfig config) {
-        this.port = config.get(JdbcSourceOptions.PORT);
-        this.hostname = config.get(JdbcSourceOptions.HOSTNAME);
-        this.username = config.get(JdbcSourceOptions.USERNAME);
-        this.password = config.get(JdbcSourceOptions.PASSWORD);
-        this.databaseList = config.get(JdbcSourceOptions.DATABASE_NAMES);
+        this.port = config.get(CdcJdbcBaseOptions.PORT);
+        this.hostname = config.get(CdcJdbcBaseOptions.HOSTNAME);
+        this.username = config.get(CdcJdbcBaseOptions.USERNAME);
+        this.password = config.get(CdcJdbcBaseOptions.PASSWORD);
+        this.databaseList = config.get(CdcJdbcBaseOptions.DATABASE_NAMES);
         this.tableList = config.get(ConnectorCommonOptions.TABLE_NAMES);
         this.databasePattern = config.get(ConnectorCommonOptions.DATABASE_PATTERN);
         this.tablePattern = config.get(ConnectorCommonOptions.TABLE_PATTERN);
         this.distributionFactorUpper =
-                config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND);
+                config.get(CdcJdbcBaseOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND);
         this.distributionFactorLower =
-                config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND);
-        this.sampleShardingThreshold = config.get(JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD);
-        this.inverseSamplingRate = config.get(JdbcSourceOptions.INVERSE_SAMPLING_RATE);
-        this.splitSize = config.get(SourceOptions.SNAPSHOT_SPLIT_SIZE);
+                config.get(CdcJdbcBaseOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND);
+        this.sampleShardingThreshold = config.get(CdcJdbcBaseOptions.SAMPLE_SHARDING_THRESHOLD);
+        this.inverseSamplingRate = config.get(CdcJdbcBaseOptions.INVERSE_SAMPLING_RATE);
+        this.splitSize = config.get(CdcBaseOptions.SNAPSHOT_SPLIT_SIZE);
         this.splitColumn = new HashMap<>();
-        config.getOptional(JdbcSourceOptions.TABLE_NAMES_CONFIG)
+        config.getOptional(CdcJdbcBaseOptions.TABLE_NAMES_CONFIG)
                 .ifPresent(
                         jtcs -> {
                             jtcs.forEach(
@@ -265,15 +266,15 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
                                     });
                         });
 
-        this.fetchSize = config.get(SourceOptions.SNAPSHOT_FETCH_SIZE);
-        this.serverTimeZone = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
-        this.connectTimeoutMillis = config.get(JdbcSourceOptions.CONNECT_TIMEOUT_MS);
-        this.connectMaxRetries = config.get(JdbcSourceOptions.CONNECT_MAX_RETRIES);
-        this.connectionPoolSize = config.get(JdbcSourceOptions.CONNECTION_POOL_SIZE);
-        this.exactlyOnce = config.get(JdbcSourceOptions.EXACTLY_ONCE);
-        this.schemaChangeEnabled = config.get(JdbcSourceOptions.SCHEMA_CHANGES_ENABLED);
+        this.fetchSize = config.get(CdcBaseOptions.SNAPSHOT_FETCH_SIZE);
+        this.serverTimeZone = config.get(CdcJdbcBaseOptions.SERVER_TIME_ZONE);
+        this.connectTimeoutMillis = config.get(CdcJdbcBaseOptions.CONNECT_TIMEOUT_MS);
+        this.connectMaxRetries = config.get(CdcJdbcBaseOptions.CONNECT_MAX_RETRIES);
+        this.connectionPoolSize = config.get(CdcJdbcBaseOptions.CONNECTION_POOL_SIZE);
+        this.exactlyOnce = config.get(CdcJdbcBaseOptions.EXACTLY_ONCE);
+        this.schemaChangeEnabled = config.get(CdcJdbcBaseOptions.SCHEMA_CHANGES_ENABLED);
         this.dbzProperties = new Properties();
-        config.getOptional(SourceOptions.DEBEZIUM_PROPERTIES)
+        config.getOptional(CdcBaseOptions.DEBEZIUM_PROPERTIES)
                 .ifPresent(map -> dbzProperties.putAll(map));
         return this;
     }

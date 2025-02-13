@@ -28,7 +28,7 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
-import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.CdcJdbcBaseOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
@@ -38,9 +38,9 @@ import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchem
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffsetFactory;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
 
 import org.apache.kafka.connect.data.Struct;
 
@@ -65,12 +65,12 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
 
     @Override
     public Option<StartupMode> getStartupModeOption() {
-        return MySqlSourceOptions.STARTUP_MODE;
+        return MySqlIncrementalSourceOptions.STARTUP_MODE;
     }
 
     @Override
     public Option<StopMode> getStopModeOption() {
-        return MySqlSourceOptions.STOP_MODE;
+        return MySqlIncrementalSourceOptions.STOP_MODE;
     }
 
     @Override
@@ -81,10 +81,10 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
     @Override
     public SourceConfig.Factory<JdbcSourceConfig> createSourceConfigFactory(ReadonlyConfig config) {
         MySqlSourceConfigFactory configFactory = new MySqlSourceConfigFactory();
-        configFactory.serverId(config.get(JdbcSourceOptions.SERVER_ID));
+        configFactory.serverId(config.get(CdcJdbcBaseOptions.SERVER_ID));
         configFactory.fromReadonlyConfig(readonlyConfig);
         JdbcUrlUtil.UrlInfo urlInfo =
-                JdbcUrlUtil.getUrlInfo(config.get(JdbcCatalogOptions.BASE_URL));
+                JdbcUrlUtil.getUrlInfo(config.get(MySqlIncrementalSourceOptions.BASE_URL));
         configFactory.originUrl(urlInfo.getOrigin());
         configFactory.hostname(urlInfo.getHost());
         configFactory.port(urlInfo.getPort());
@@ -100,14 +100,14 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
         Map<TableId, Struct> tableIdTableChangeMap = tableChanges();
 
         if (DeserializeFormat.COMPATIBLE_DEBEZIUM_JSON.equals(
-                config.get(JdbcSourceOptions.FORMAT))) {
+                config.get(CdcJdbcBaseOptions.FORMAT))) {
             return (DebeziumDeserializationSchema<T>)
                     new DebeziumJsonDeserializeSchema(
-                            config.get(JdbcSourceOptions.DEBEZIUM_PROPERTIES),
+                            config.get(CdcJdbcBaseOptions.DEBEZIUM_PROPERTIES),
                             tableIdTableChangeMap);
         }
 
-        String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
+        String zoneId = config.get(CdcJdbcBaseOptions.SERVER_TIME_ZONE);
         return (DebeziumDeserializationSchema<T>)
                 SeaTunnelRowDebeziumDeserializeSchema.builder()
                         .setTables(catalogTables)

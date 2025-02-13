@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.cdc.base.option;
 
-/** Startup modes for the CDC Connectors, see {@link SourceOptions#STARTUP_MODE}. */
+/** Startup modes for the CDC Connectors, see {@link CdcBaseOptions#STARTUP_MODE}. */
 public enum StartupMode {
     /** Startup from the earliest offset possible. */
     EARLIEST,

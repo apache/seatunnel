@@ -18,9 +18,9 @@
 package mongodb.source;
 
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
-import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.MongodbIncrementalSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbIncrementalSourceOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -38,7 +38,10 @@ public class MongodbIncrementalSourceFactoryTest {
         MongodbIncrementalSourceFactory mongodbIncrementalSourceFactory =
                 new MongodbIncrementalSourceFactory();
         mongodbIncrementalSourceFactory.optionRule().getOptionalOptions().stream()
-                .filter((option) -> option.key().equals(SourceOptions.STARTUP_MODE_KEY))
+                .filter(
+                        (option) ->
+                                option.key()
+                                        .equals(MongodbIncrementalSourceOptions.STARTUP_MODE_KEY))
                 .forEach(
                         (option) -> {
                             Assertions.assertIterableEquals(

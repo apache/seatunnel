@@ -15,38 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source;
+package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.configuration.SingleChoiceOption;
-import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
-import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
-import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
+import org.apache.seatunnel.connectors.cdc.base.option.CdcJdbcBaseOptions;
 
-import java.util.Arrays;
 import java.util.List;
 
-public class OracleSourceOptions {
-    public static final SingleChoiceOption<StartupMode> STARTUP_MODE =
-            (SingleChoiceOption)
-                    Options.key(SourceOptions.STARTUP_MODE_KEY)
-                            .singleChoice(
-                                    StartupMode.class,
-                                    Arrays.asList(StartupMode.INITIAL, StartupMode.LATEST))
-                            .defaultValue(StartupMode.INITIAL)
-                            .withDescription(
-                                    "Optional startup mode for CDC source, valid enumerations are "
-                                            + "\"initial\", \"earliest\", \"latest\", \"timestamp\"\n or \"specific\"");
-
-    public static final SingleChoiceOption<StopMode> STOP_MODE =
-            (SingleChoiceOption)
-                    Options.key(SourceOptions.STOP_MODE_KEY)
-                            .singleChoice(StopMode.class, Arrays.asList(StopMode.NEVER))
-                            .defaultValue(StopMode.NEVER)
-                            .withDescription(
-                                    "Optional stop mode for CDC source, valid enumerations are "
-                                            + "\"never\", \"latest\", \"timestamp\"\n or \"specific\"");
+public class OracleIncrementalSourceOptions extends CdcJdbcBaseOptions {
 
     public static final Option<List<String>> SCHEMA_NAMES =
             Options.key("schema-names")

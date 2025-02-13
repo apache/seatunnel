@@ -185,6 +185,7 @@ public class ConnectorOptionCheckTest {
         whiteList.add("FakeSourceOptions");
         whiteList.add("HbaseSinkOptions");
         whiteList.add("MongodbSinkOptions");
+        whiteList.add("MongodbSourceOptions");
         whiteList.add("IoTDBSinkOptions");
         whiteList.add("EasysearchSourceOptions");
         whiteList.add("IcebergSourceOptions");
@@ -217,11 +218,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("SocketSourceOptions");
         whiteList.add("OpenMldbSourceOptions");
         whiteList.add("Web3jSourceOptions");
-        whiteList.add("PostgresIncrementalSourceOptions");
-        whiteList.add("SqlServerIncrementalSourceOptions");
-        whiteList.add("OracleIncrementalSourceOptions");
-        whiteList.add("MySqlIncrementalSourceOptions");
-        whiteList.add("MongodbIncrementalSourceOptions");
         return whiteList;
     }
 }

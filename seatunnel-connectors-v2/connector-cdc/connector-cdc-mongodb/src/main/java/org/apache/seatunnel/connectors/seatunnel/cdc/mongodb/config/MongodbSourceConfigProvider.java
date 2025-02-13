@@ -28,11 +28,6 @@ import java.util.List;
 import java.util.Objects;
 
 import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.BATCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.HEARTBEAT_INTERVAL_MILLIS;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.POLL_AWAIT_TIME_MILLIS;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.POLL_MAX_BATCH_SIZE;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
@@ -51,14 +46,18 @@ public class MongodbSourceConfigProvider {
         private List<String> databaseList;
         private List<String> collectionList;
         private String connectionOptions;
-        private int batchSize = BATCH_SIZE.defaultValue();
-        private int pollAwaitTimeMillis = POLL_AWAIT_TIME_MILLIS.defaultValue();
-        private int pollMaxBatchSize = POLL_MAX_BATCH_SIZE.defaultValue();
+        private int batchSize = MongodbIncrementalSourceOptions.BATCH_SIZE.defaultValue();
+        private int pollAwaitTimeMillis =
+                MongodbIncrementalSourceOptions.POLL_AWAIT_TIME_MILLIS.defaultValue();
+        private int pollMaxBatchSize =
+                MongodbIncrementalSourceOptions.POLL_MAX_BATCH_SIZE.defaultValue();
         private StartupConfig startupOptions;
         private StopConfig stopOptions;
-        private int heartbeatIntervalMillis = HEARTBEAT_INTERVAL_MILLIS.defaultValue();
+        private int heartbeatIntervalMillis =
+                MongodbIncrementalSourceOptions.HEARTBEAT_INTERVAL_MILLIS.defaultValue();
         private int splitMetaGroupSize = 2;
-        private int splitSizeMB = INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB.defaultValue();
+        private int splitSizeMB =
+                MongodbIncrementalSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB.defaultValue();
 
         public Builder hosts(String hosts) {
             this.hosts = hosts;
