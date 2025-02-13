@@ -908,3 +908,47 @@ To get the metrics, you need to open `Telemetry` first, or you will get an empty
 More information about `Telemetry` can be found in the [Telemetry](telemetry.md) documentation.
 
 </details>
+
+
+
+------------------------------------------------------------------------------------------
+
+### Return Job Event Information
+
+<details>
+ <summary><code>GET</code> <code><b>/event/:jobId</b></code> <code>(Returns the list of job events)</code></summary>
+
+#### Parameters
+
+> | Parameter Name | Required | Type    | Description       |
+> |----------------|----------|---------|-------------------|
+> | jobId          | Yes      | string  | The Job ID        |
+
+#### Response
+
+```json
+[
+  {
+    "createdTime": 1739501227166,
+    "eventType": "LIFECYCLE_READER_OPEN"
+  },
+  {
+    "createdTime": 1739501227232,
+    "eventType": "LIFECYCLE_ENUMERATOR_OPEN"
+  },
+  {
+    "createdTime": 1739501227457,
+    "eventType": "LIFECYCLE_ENUMERATOR_CLOSE"
+  },
+  {
+    "createdTime": 1739501227516,
+    "eventType": "LIFECYCLE_WRITER_CLOSE"
+  },
+  {
+    "createdTime": 1739501228305,
+    "eventType": "LIFECYCLE_READER_CLOSE"
+  }
+]
+```
+
+</details>

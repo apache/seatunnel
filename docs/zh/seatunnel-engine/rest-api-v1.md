@@ -849,3 +849,46 @@ network:
 获取日志文件内容：`http://localhost:5801/hazelcast/rest/maps/log/job-898380162133917698.log`
 
 </details>
+
+
+------------------------------------------------------------------------------------------
+
+### 返回作业的事件信息
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/event/:jobId</b></code> <code>(返回作业事件列表)</code></summary>
+
+#### 参数
+
+> | 参数名称  | 是否必传 |  参数类型  | 参数描述 |
+> |-------|------|--------|------|
+> | jobId | 是    | string | Job ID  |
+
+#### 响应
+
+```json
+[
+  {
+    "createdTime": 1739501227166,
+    "eventType": "LIFECYCLE_READER_OPEN"
+  },
+  {
+    "createdTime": 1739501227232,
+    "eventType": "LIFECYCLE_ENUMERATOR_OPEN"
+  },
+  {
+    "createdTime": 1739501227457,
+    "eventType": "LIFECYCLE_ENUMERATOR_CLOSE"
+  },
+  {
+    "createdTime": 1739501227516,
+    "eventType": "LIFECYCLE_WRITER_CLOSE"
+  },
+  {
+    "createdTime": 1739501228305,
+    "eventType": "LIFECYCLE_READER_CLOSE"
+  }
+]
+```
+
+</details>

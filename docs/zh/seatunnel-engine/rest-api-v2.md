@@ -896,3 +896,45 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 更多关于`Telemetry`的信息可以在[Telemetry](telemetry.md)文档中找到。
 
 </details>
+
+------------------------------------------------------------------------------------------
+
+### 返回作业的事件信息
+
+<details>
+ <summary><code>GET</code> <code><b>/event/:jobId</b></code> <code>(返回作业事件列表)</code></summary>
+
+#### 参数
+
+> | 参数名称  | 是否必传 |  参数类型  | 参数描述 |
+> |-------|------|--------|------|
+> | jobId | 是    | string | Job ID  |
+
+#### 响应
+
+```json
+[
+  {
+    "createdTime": 1739501227166,
+    "eventType": "LIFECYCLE_READER_OPEN"
+  },
+  {
+    "createdTime": 1739501227232,
+    "eventType": "LIFECYCLE_ENUMERATOR_OPEN"
+  },
+  {
+    "createdTime": 1739501227457,
+    "eventType": "LIFECYCLE_ENUMERATOR_CLOSE"
+  },
+  {
+    "createdTime": 1739501227516,
+    "eventType": "LIFECYCLE_WRITER_CLOSE"
+  },
+  {
+    "createdTime": 1739501228305,
+    "eventType": "LIFECYCLE_READER_CLOSE"
+  }
+]
+```
+
+</details>
