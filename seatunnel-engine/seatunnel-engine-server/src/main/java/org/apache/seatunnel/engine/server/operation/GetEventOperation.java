@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 
 @Slf4j
 public class GetEventOperation extends Operation implements IdentifiedDataSerializable {
@@ -67,35 +68,44 @@ public class GetEventOperation extends Operation implements IdentifiedDataSerial
 
         SeaTunnelServer server = getService();
         CoordinatorService coordinatorService = server.getCoordinatorService();
+
         try {
-            JobMaster jobMaster = coordinatorService.getJobMaster(jobId);
-            if (jobMaster != null) {
-                log.debug("Retrieving events for active job {}, isAll: {}", jobId, isAll);
-                if (isAll) {
-                    Optional.ofNullable(jobMaster.getHistoryEvents()).ifPresent(events::addAll);
-                } else {
-                    Optional.ofNullable(jobMaster.getEvents())
-                            .ifPresent(event -> event.drainTo(events));
-                }
-            } else {
-                log.debug("Job {} not active, retrieving from history", jobId);
-                Optional.ofNullable(
-                                coordinatorService
-                                        .getJobHistoryService()
-                                        .getFinishedJobEventImap()
-                                        .get(jobId))
-                        .ifPresent(events::addAll);
-            }
-
-            CompletableFuture<Data> future =
+            response =
                     CompletableFuture.supplyAsync(
-                            () -> this.getNodeEngine().toData(events),
-                            getNodeEngine()
-                                    .getExecutionService()
-                                    .getExecutor("get_event_operation"));
-
-            response = future.get();
-        } catch (Exception e) {
+                                    () -> {
+                                        List<Event> events = new ArrayList<>();
+                                        JobMaster jobMaster =
+                                                coordinatorService.getJobMaster(jobId);
+                                        if (jobMaster != null) {
+                                            log.debug(
+                                                    "Retrieving events for active job {}, isAll: {}",
+                                                    jobId,
+                                                    isAll);
+                                            if (isAll) {
+                                                Optional.ofNullable(jobMaster.getHistoryEvents())
+                                                        .ifPresent(events::addAll);
+                                            } else {
+                                                Optional.ofNullable(jobMaster.getEvents())
+                                                        .ifPresent(event -> event.drainTo(events));
+                                            }
+                                        } else {
+                                            log.debug(
+                                                    "Job {} not active, retrieving from history",
+                                                    jobId);
+                                            Optional.ofNullable(
+                                                            coordinatorService
+                                                                    .getJobHistoryService()
+                                                                    .getFinishedJobEventImap()
+                                                                    .get(jobId))
+                                                    .ifPresent(events::addAll);
+                                        }
+                                        return this.getNodeEngine().toData(events);
+                                    },
+                                    getNodeEngine()
+                                            .getExecutionService()
+                                            .getExecutor("get_event_operation"))
+                            .get();
+        } catch (InterruptedException | ExecutionException e) {
             log.error("Failed to retrieve events for job " + jobId, e);
             throw new SeaTunnelEngineException("Failed to retrieve events: " + e.getMessage(), e);
         }
