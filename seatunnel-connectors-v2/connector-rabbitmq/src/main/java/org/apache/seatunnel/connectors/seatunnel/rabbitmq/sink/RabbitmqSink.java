@@ -31,7 +31,7 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 
 import com.google.auto.service.AutoService;
@@ -39,18 +39,18 @@ import com.google.auto.service.AutoService;
 import java.io.IOException;
 import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PORT;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.QUEUE_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.VIRTUAL_HOST;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.PORT;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.QUEUE_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.VIRTUAL_HOST;
 
 @AutoService(SeaTunnelSink.class)
 public class RabbitmqSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private SeaTunnelRowType seaTunnelRowType;
     private Config pluginConfig;
-    private RabbitmqConfig rabbitMQConfig;
+    private RabbitmqBaseOptions rabbitMQBaseOptions;
 
     @Override
     public String getPluginName() {
@@ -77,7 +77,7 @@ public class RabbitmqSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
-        rabbitMQConfig = new RabbitmqConfig(pluginConfig);
+        rabbitMQBaseOptions = new RabbitmqBaseOptions(pluginConfig);
     }
 
     @Override
@@ -88,7 +88,7 @@ public class RabbitmqSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
             throws IOException {
-        return new RabbitmqSinkWriter(rabbitMQConfig, seaTunnelRowType);
+        return new RabbitmqSinkWriter(rabbitMQBaseOptions, seaTunnelRowType);
     }
 
     @Override
