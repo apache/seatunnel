@@ -36,7 +36,38 @@ seatunnel:
       port: 8080
       context-path: /seatunnel
 ```
+Https can also be configured as follows:
 
+```yaml
+
+seatunnel:
+  engine:
+    http:
+      enable-http: true
+      port: 8080
+      enable-https: true
+      https-port: 8443
+      keystore: /path/to/file.keystore
+      keystore-password: keystore_password
+      key-password: key_password
+```
+For optional：Two-way authentication can also be configured as follows:
+
+```yaml
+
+seatunnel:
+  engine:
+    http:
+      enable-http: true
+      port: 8080
+      enable-https: true
+      https-port: 8443
+      keystore: /path/to/file.keystore
+      keystore-password: keystore_password
+      key-password: key_password
+      truststore: /path/to/file.truststore
+      truststore-password: truststore_password
+```
 ## API reference
 
 ### Returns an overview over the Zeta engine cluster.
