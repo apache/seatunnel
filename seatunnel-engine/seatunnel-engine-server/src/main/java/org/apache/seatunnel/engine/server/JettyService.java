@@ -17,11 +17,17 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.shade.org.eclipse.jetty.server.HttpConfiguration;
+import org.apache.seatunnel.shade.org.eclipse.jetty.server.HttpConnectionFactory;
+import org.apache.seatunnel.shade.org.eclipse.jetty.server.SecureRequestCustomizer;
 import org.apache.seatunnel.shade.org.eclipse.jetty.server.Server;
+import org.apache.seatunnel.shade.org.eclipse.jetty.server.ServerConnector;
+import org.apache.seatunnel.shade.org.eclipse.jetty.server.SslConnectionFactory;
 import org.apache.seatunnel.shade.org.eclipse.jetty.servlet.DefaultServlet;
 import org.apache.seatunnel.shade.org.eclipse.jetty.servlet.FilterHolder;
 import org.apache.seatunnel.shade.org.eclipse.jetty.servlet.ServletContextHandler;
 import org.apache.seatunnel.shade.org.eclipse.jetty.servlet.ServletHolder;
+import org.apache.seatunnel.shade.org.eclipse.jetty.util.ssl.SslContextFactory;
 
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.server.rest.filter.ExceptionHandlingFilter;
@@ -88,14 +94,63 @@ public class JettyService {
     public JettyService(NodeEngineImpl nodeEngine, SeaTunnelConfig seaTunnelConfig) {
         this.nodeEngine = nodeEngine;
         this.seaTunnelConfig = seaTunnelConfig;
+        this.server = new Server();
+        configureServer();
+    }
+
+    private void configureServer() {
+        if (seaTunnelConfig.getEngineConfig().getHttpConfig().isEnableHttps()) {
+            configureHttps();
+        } else {
+            configureHttp();
+        }
+    }
+
+    private void configureHttp() {
         int port = seaTunnelConfig.getEngineConfig().getHttpConfig().getPort();
         if (seaTunnelConfig.getEngineConfig().getHttpConfig().isEnableDynamicPort()) {
             port =
                     chooseAppropriatePort(
                             port, seaTunnelConfig.getEngineConfig().getHttpConfig().getPortRange());
         }
-        log.info("SeaTunnel REST service will start on port {}", port);
-        this.server = new Server(port);
+        ServerConnector httpConnector = new ServerConnector(server);
+        httpConnector.setPort(port);
+        server.addConnector(httpConnector);
+        log.info("SeaTunnel REST service will start on HTTP port {}", port);
+    }
+
+    private void configureHttps() {
+        // Create and configure the SSL context factory
+        SslContextFactory.Server sslContextFactory = new SslContextFactory.Server();
+        sslContextFactory.setKeyStorePath(
+                seaTunnelConfig.getEngineConfig().getHttpConfig().getKeystore());
+        sslContextFactory.setKeyStorePassword(
+                seaTunnelConfig.getEngineConfig().getHttpConfig().getKeystorePassword());
+        sslContextFactory.setKeyManagerPassword(
+                seaTunnelConfig.getEngineConfig().getHttpConfig().getKeyPassword());
+
+        if (seaTunnelConfig.getEngineConfig().getHttpConfig().isTwoWayAuthEnabled()) {
+            sslContextFactory.setTrustStorePath(
+                    seaTunnelConfig.getEngineConfig().getHttpConfig().getTruststore());
+            sslContextFactory.setTrustStorePassword(
+                    seaTunnelConfig.getEngineConfig().getHttpConfig().getTruststorePassword());
+        }
+
+        HttpConfiguration httpsConfig = new HttpConfiguration();
+        httpsConfig.addCustomizer(new SecureRequestCustomizer());
+
+        // Create the HTTPS connector using both SslConnectionFactory and HttpConnectionFactory.
+        ServerConnector httpsConnector =
+                new ServerConnector(
+                        server,
+                        new SslConnectionFactory(sslContextFactory, "http/1.1"),
+                        new HttpConnectionFactory(httpsConfig));
+        httpsConnector.setPort(seaTunnelConfig.getEngineConfig().getHttpConfig().getHttpsPort());
+        server.addConnector(httpsConnector);
+
+        log.info(
+                "SeaTunnel REST service will start on HTTPS port {}",
+                seaTunnelConfig.getEngineConfig().getHttpConfig().getHttpsPort());
     }
 
     public void createJettyServer() {

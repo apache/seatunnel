@@ -43,5 +43,10 @@ seatunnel:
             metric:
                 enabled: false
         http:
-            enable-http: true
+            enable-http: false
             port: 8080
+            enable-https: true
+            https-port: 8443
+            keystore: keystore.jks
+            keystore-password: changeit
+            key-password: changeit

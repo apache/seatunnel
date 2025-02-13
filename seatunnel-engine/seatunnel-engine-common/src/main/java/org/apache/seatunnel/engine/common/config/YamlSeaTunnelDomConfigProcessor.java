@@ -417,6 +417,23 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 httpConfig.setPortRange(
                         getIntegerValue(
                                 ServerConfigOptions.PORT_RANGE.key(), getTextContent(node)));
+            } else if (ServerConfigOptions.ENABLE_HTTPS.key().equals(name)) {
+                httpConfig.setEnableHttps(getBooleanValue(getTextContent(node)));
+            }
+            if (ServerConfigOptions.HTTPS_PORT.key().equals(name)) {
+                httpConfig.setPort(
+                        getIntegerValue(
+                                ServerConfigOptions.HTTPS_PORT.key(), getTextContent(node)));
+            } else if (ServerConfigOptions.KEYSTORE.key().equals(name)) {
+                httpConfig.setKeystore(getTextContent(node));
+            } else if (ServerConfigOptions.KEYSTORE_PASSWORD.key().equals(name)) {
+                httpConfig.setKeystorePassword(getTextContent(node));
+            } else if (ServerConfigOptions.KEY_PASSWORD.key().equals(name)) {
+                httpConfig.setKeyPassword(getTextContent(node));
+            } else if (ServerConfigOptions.TRUSTSTORE.key().equals(name)) {
+                httpConfig.setTruststore(getTextContent(node));
+            } else if (ServerConfigOptions.TRUSTSTORE_PASSWORD.key().equals(name)) {
+                httpConfig.setTruststorePassword(getTextContent(node));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }
