@@ -24,7 +24,7 @@
 - `org.postgresql.Driver`
 - `com.pivotal.jdbc.GreenplumDriver`
 
-警告：为了符合许可证要求, 如果您使用 `GreenplumDriver` 则必须自己提供 Greenplum JDBC 驱动程序, 例如将 greenplum-xxx.jar 复制到单独的 $SEATUNNEL_HOME/lib 下.
+警告: 为了符合许可证要求, 如果您使用 `GreenplumDriver` 则必须自己提供 Greenplum JDBC 驱动程序, 例如将 greenplum-xxx.jar 复制到单独的 $SEATUNNEL_HOME/lib 下.
 
 :::
 
@@ -32,7 +32,7 @@
 
 ### 常见选项
 
-源插件常用参数，详见 [Source Common Options](../source-common-options.md) .
+源插件常用参数，详见 [源通用选项](../source-common-options.md) .
 
 ## 变更日志
 
