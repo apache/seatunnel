@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.client.RabbitmqClient;
-import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
 
@@ -67,12 +67,12 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
     private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private RabbitmqClient rabbitMQClient;
     private DefaultConsumer consumer;
-    private final RabbitmqConfig config;
+    private final RabbitmqSourceOptions config;
 
     public RabbitmqSourceReader(
             DeserializationSchema<SeaTunnelRow> deserializationSchema,
             SourceReader.Context context,
-            RabbitmqConfig config) {
+            RabbitmqSourceOptions config) {
         this.handover = new Handover<>();
         this.pendingDeliveryTagsToCommit = Collections.synchronizedSortedMap(new TreeMap<>());
         this.pendingCorrelationIdsToCommit = Collections.synchronizedSortedMap(new TreeMap<>());

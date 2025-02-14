@@ -37,7 +37,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplitEnumeratorState;
@@ -59,7 +59,7 @@ public class RabbitmqSource
 
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private JobContext jobContext;
-    private RabbitmqBaseOptions rabbitMQBaseOptions;
+    private RabbitmqSourceOptions rabbitmqSourceOptions;
 
     @Override
     public Boundedness getBoundedness() {
@@ -70,7 +70,9 @@ public class RabbitmqSource
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, "not support batch job mode"));
         }
-        return rabbitMQBaseOptions.isForE2ETesting() ? Boundedness.BOUNDED : Boundedness.UNBOUNDED;
+        return rabbitmqSourceOptions.isForE2ETesting()
+                ? Boundedness.BOUNDED
+                : Boundedness.UNBOUNDED;
     }
 
     @Override
@@ -97,7 +99,7 @@ public class RabbitmqSource
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-        this.rabbitMQBaseOptions = new RabbitmqBaseOptions(config);
+        this.rabbitmqSourceOptions = new RabbitmqSourceOptions(config);
         setDeserialization(config);
     }
 
@@ -109,7 +111,8 @@ public class RabbitmqSource
     @Override
     public SourceReader<SeaTunnelRow, RabbitmqSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
-        return new RabbitmqSourceReader(deserializationSchema, readerContext, rabbitMQBaseOptions);
+        return new RabbitmqSourceReader(
+                deserializationSchema, readerContext, rabbitmqSourceOptions);
     }
 
     @Override

@@ -22,19 +22,40 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.io.Serializable;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 
 @Setter
 @Getter
+@AllArgsConstructor
 public class RabbitmqBaseOptions implements Serializable {
+    private String host;
+    private Integer port;
+    private String virtualHost;
+    private String username;
+    private String password;
+    private String uri;
+    private Integer networkRecoveryInterval;
+    private Boolean automaticRecovery;
+    private Boolean topologyRecovery;
+    private Integer connectionTimeout;
+    private String queueName;
+    private Boolean durable;
+    private Boolean exclusive;
+    private Boolean autoDelete;
+    private String routingKey;
+    private boolean logFailuresOnly = false;
+    private String exchange = "";
+    private boolean usesCorrelationId = false;
+    private boolean forE2ETesting = false;
+    private Integer prefetchCount;
+
     public static final Option<String> HOST =
             Options.key("host")
                     .stringType()
@@ -152,32 +173,60 @@ public class RabbitmqBaseOptions implements Serializable {
                     .withDescription(
                             "true: The queue is used only by the current connection and will be deleted when the connection closes."
                                     + " false: The queue can be used by multiple connections.");
-
-    public static final Option<Boolean> AUTO_DELETE =
-            Options.key("auto_delete")
-                    .booleanType()
-                    .defaultValue(false)
+    public static final Option<Long> PREFETCH_COUNT =
+            Options.key("prefetch_count")
+                    .longType()
+                    .noDefaultValue()
                     .withDescription(
-                            "true: The queue will be deleted automatically when the last consumer unsubscribes."
-                                    + " false: The queue will not be automatically deleted.");
+                            "prefetchCount the max number of messages to receive without acknowledgement\n");
 
-    private final Map<String, Object> sinkOptionProps = new HashMap<>();
-
-    private void parseSinkOptionProperties(Config pluginConfig) {
-        if (CheckConfigUtil.isValidParam(pluginConfig, RABBITMQ_CONFIG.key())) {
-            pluginConfig
-                    .getObject(RABBITMQ_CONFIG.key())
-                    .forEach(
-                            (key, value) -> {
-                                final String configKey = key.toLowerCase();
-                                this.sinkOptionProps.put(configKey, value.unwrapped());
-                            });
-        }
-    }
-
-    /** Constructs an instance from a configuration. */
     public RabbitmqBaseOptions(Config config) {
-        parseSinkOptionProperties(config);
+        this.host = config.getString(HOST.key());
+        this.port = config.getInt(PORT.key());
+        this.queueName = config.getString(QUEUE_NAME.key());
+        if (config.hasPath(USERNAME.key())) {
+            this.username = config.getString(USERNAME.key());
+        }
+        if (config.hasPath(PASSWORD.key())) {
+            this.password = config.getString(PASSWORD.key());
+        }
+        if (config.hasPath(VIRTUAL_HOST.key())) {
+            this.virtualHost = config.getString(VIRTUAL_HOST.key());
+        }
+        if (config.hasPath(NETWORK_RECOVERY_INTERVAL.key())) {
+            this.networkRecoveryInterval = config.getInt(NETWORK_RECOVERY_INTERVAL.key());
+        }
+        if (config.hasPath(AUTOMATIC_RECOVERY_ENABLED.key())) {
+            this.automaticRecovery = config.getBoolean(AUTOMATIC_RECOVERY_ENABLED.key());
+        }
+        if (config.hasPath(TOPOLOGY_RECOVERY_ENABLED.key())) {
+            this.topologyRecovery = config.getBoolean(TOPOLOGY_RECOVERY_ENABLED.key());
+        }
+        if (config.hasPath(CONNECTION_TIMEOUT.key())) {
+            this.connectionTimeout = config.getInt(CONNECTION_TIMEOUT.key());
+        }
+
+        if (config.hasPath(ROUTING_KEY.key())) {
+            this.routingKey = config.getString(ROUTING_KEY.key());
+        }
+        if (config.hasPath(EXCHANGE.key())) {
+            this.exchange = config.getString(EXCHANGE.key());
+        }
+        if (config.hasPath(FOR_E2E_TESTING.key())) {
+            this.forE2ETesting = config.getBoolean(FOR_E2E_TESTING.key());
+        }
+        if (config.hasPath(USE_CORRELATION_ID.key())) {
+            this.usesCorrelationId = config.getBoolean(USE_CORRELATION_ID.key());
+        }
+        if (config.hasPath(DURABLE.key())) {
+            this.durable = config.getBoolean(DURABLE.key());
+        }
+        if (config.hasPath(EXCLUSIVE.key())) {
+            this.exclusive = config.getBoolean(EXCLUSIVE.key());
+        }
+        if (config.hasPath(PREFETCH_COUNT.key())) {
+            this.prefetchCount = config.getInt(PREFETCH_COUNT.key());
+        }
     }
 
     @VisibleForTesting

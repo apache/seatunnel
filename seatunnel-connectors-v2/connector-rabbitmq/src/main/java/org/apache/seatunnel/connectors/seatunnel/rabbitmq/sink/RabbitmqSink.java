@@ -31,7 +31,7 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 
 import com.google.auto.service.AutoService;
@@ -50,7 +50,7 @@ import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.Rabbitmq
 public class RabbitmqSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private SeaTunnelRowType seaTunnelRowType;
     private Config pluginConfig;
-    private RabbitmqBaseOptions rabbitMQBaseOptions;
+    private RabbitmqSinkOptions rabbitMQSinkOptions;
 
     @Override
     public String getPluginName() {
@@ -77,7 +77,7 @@ public class RabbitmqSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
-        rabbitMQBaseOptions = new RabbitmqBaseOptions(pluginConfig);
+        rabbitMQSinkOptions = new RabbitmqSinkOptions(pluginConfig);
     }
 
     @Override
@@ -88,7 +88,7 @@ public class RabbitmqSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
             throws IOException {
-        return new RabbitmqSinkWriter(rabbitMQBaseOptions, seaTunnelRowType);
+        return new RabbitmqSinkWriter(rabbitMQSinkOptions, seaTunnelRowType);
     }
 
     @Override

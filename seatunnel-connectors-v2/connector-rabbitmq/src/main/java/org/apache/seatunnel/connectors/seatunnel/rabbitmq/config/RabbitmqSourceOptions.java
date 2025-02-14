@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.config;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
@@ -26,6 +29,11 @@ import lombok.Setter;
 @Setter
 @Getter
 public class RabbitmqSourceOptions extends RabbitmqBaseOptions {
+    private Integer requestedChannelMax;
+    private Integer requestedFrameMax;
+    private Integer requestedHeartbeat;
+    private long deliveryTimeout;
+
     public static final Option<Integer> REQUESTED_CHANNEL_MAX =
             Options.key("requested_channel_max")
                     .intType()
@@ -44,16 +52,29 @@ public class RabbitmqSourceOptions extends RabbitmqBaseOptions {
                     .noDefaultValue()
                     .withDescription("the requested heartbeat timeout");
 
-    public static final Option<Long> PREFETCH_COUNT =
-            Options.key("prefetch_count")
-                    .longType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "prefetchCount the max number of messages to receive without acknowledgement\n");
-
     public static final Option<Integer> DELIVERY_TIMEOUT =
             Options.key("delivery_timeout")
                     .intType()
                     .noDefaultValue()
                     .withDescription("deliveryTimeout maximum wait time");
+
+    public RabbitmqSourceOptions(Config config) {
+        super(config);
+        if (config.hasPath(REQUESTED_CHANNEL_MAX.key())) {
+            this.requestedChannelMax = config.getInt(REQUESTED_CHANNEL_MAX.key());
+        }
+        if (config.hasPath(REQUESTED_FRAME_MAX.key())) {
+            this.requestedFrameMax = config.getInt(REQUESTED_FRAME_MAX.key());
+        }
+        if (config.hasPath(REQUESTED_HEARTBEAT.key())) {
+            this.requestedHeartbeat = config.getInt(REQUESTED_HEARTBEAT.key());
+        }
+
+        if (config.hasPath(DELIVERY_TIMEOUT.key())) {
+            this.deliveryTimeout = config.getInt(DELIVERY_TIMEOUT.key());
+        }
+    }
+
+    @VisibleForTesting
+    public RabbitmqSourceOptions() {}
 }
