@@ -21,11 +21,11 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -57,7 +57,7 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         // TODO: use format SPI
         // default use json format
         if (readonlyConfig.getOptional(RedisBaseOptions.FORMAT).isPresent()) {
-            if (!readonlyConfig.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
+            if (!readonlyConfig.getOptional(SinkConnectorCommonOptions.SCHEMA).isPresent()) {
                 throw new RedisConnectorException(
                         SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                         String.format(

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -37,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PARTITION_SPEC;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PLUGIN_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PROJECT;
@@ -67,7 +67,7 @@ public class MaxcomputeSource
     private Map<TablePath, SourceTableInfo> getSourceTableInfos(ReadonlyConfig readonlyConfig) {
         Map<TablePath, SourceTableInfo> tables = new HashMap<>();
 
-        if (readonlyConfig.getOptional(SCHEMA).isPresent()) {
+        if (readonlyConfig.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
             CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(readonlyConfig);
             tables.put(
                     catalogTable.getTablePath(),
@@ -81,7 +81,9 @@ public class MaxcomputeSource
                 if (readonlyConfig.getOptional(TABLE_LIST).isPresent()) {
                     for (Map<String, Object> subConfig : readonlyConfig.get(TABLE_LIST)) {
                         ReadonlyConfig subReadonlyConfig = ReadonlyConfig.fromMap(subConfig);
-                        if (subReadonlyConfig.getOptional(SCHEMA).isPresent()) {
+                        if (subReadonlyConfig
+                                .getOptional(ConnectorCommonOptions.SCHEMA)
+                                .isPresent()) {
                             CatalogTable catalogTable =
                                     CatalogTableUtil.buildWithConfig(subReadonlyConfig);
                             tables.put(

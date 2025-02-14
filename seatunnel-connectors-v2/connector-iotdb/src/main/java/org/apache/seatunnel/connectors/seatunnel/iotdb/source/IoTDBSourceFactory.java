@@ -18,8 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
@@ -48,7 +48,7 @@ public class IoTDBSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(NODE_URLS, USERNAME, PASSWORD, SQL, TableSchemaOptions.SCHEMA)
+                .required(NODE_URLS, USERNAME, PASSWORD, SQL, ConnectorCommonOptions.SCHEMA)
                 .optional(
                         FETCH_SIZE,
                         THRIFT_DEFAULT_BUFFER_SIZE,
