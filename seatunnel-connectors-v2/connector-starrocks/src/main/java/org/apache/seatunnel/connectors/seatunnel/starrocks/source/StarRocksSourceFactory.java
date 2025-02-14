@@ -19,17 +19,18 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -39,28 +40,28 @@ import java.io.Serializable;
 public class StarRocksSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
-        return CommonConfig.CONNECTOR_IDENTITY;
+        return StarRocksBaseOptions.CONNECTOR_IDENTITY;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        SourceConfig.NODE_URLS,
-                        SourceConfig.USERNAME,
-                        SourceConfig.PASSWORD,
-                        SourceConfig.DATABASE,
-                        SourceConfig.TABLE,
-                        TableSchemaOptions.SCHEMA)
+                        StarRocksSourceOptions.NODE_URLS,
+                        StarRocksSourceOptions.USERNAME,
+                        StarRocksSourceOptions.PASSWORD,
+                        StarRocksSourceOptions.DATABASE,
+                        StarRocksSourceOptions.TABLE,
+                        SinkConnectorCommonOptions.SCHEMA)
                 .optional(
-                        SourceConfig.MAX_RETRIES,
-                        SourceConfig.QUERY_TABLET_SIZE,
-                        SourceConfig.SCAN_FILTER,
-                        SourceConfig.SCAN_MEM_LIMIT,
-                        SourceConfig.SCAN_QUERY_TIMEOUT_SEC,
-                        SourceConfig.SCAN_KEEP_ALIVE_MIN,
-                        SourceConfig.SCAN_BATCH_ROWS,
-                        SourceConfig.SCAN_CONNECT_TIMEOUT)
+                        StarRocksSourceOptions.MAX_RETRIES,
+                        StarRocksSourceOptions.QUERY_TABLET_SIZE,
+                        StarRocksSourceOptions.SCAN_FILTER,
+                        StarRocksSourceOptions.SCAN_MEM_LIMIT,
+                        StarRocksSourceOptions.SCAN_QUERY_TIMEOUT_SEC,
+                        StarRocksSourceOptions.SCAN_KEEP_ALIVE_MIN,
+                        StarRocksSourceOptions.SCAN_BATCH_ROWS,
+                        StarRocksSourceOptions.SCAN_CONNECT_TIMEOUT)
                 .build();
     }
 

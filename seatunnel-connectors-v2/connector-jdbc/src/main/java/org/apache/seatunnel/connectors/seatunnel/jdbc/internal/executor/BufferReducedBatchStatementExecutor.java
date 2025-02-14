@@ -101,9 +101,6 @@ public class BufferReducedBatchStatementExecutor
                 executeBatch();
             }
         } finally {
-            if (!buffer.isEmpty()) {
-                buffer.clear();
-            }
             upsertExecutor.closeStatements();
             deleteExecutor.closeStatements();
         }

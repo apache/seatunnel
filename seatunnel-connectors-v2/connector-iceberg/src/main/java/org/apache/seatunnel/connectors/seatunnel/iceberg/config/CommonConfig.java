@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.kerberos.KerberosConfig;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
 
 import lombok.Getter;
@@ -34,7 +33,7 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 
 @Getter
 @ToString
-public class CommonConfig extends KerberosConfig implements Serializable {
+public class CommonConfig implements Serializable {
     private static final long serialVersionUID = 239821141534421580L;
 
     public static final Option<String> KEY_CATALOG_NAME =
@@ -80,6 +79,25 @@ public class CommonConfig extends KerberosConfig implements Serializable {
                     .booleanType()
                     .defaultValue(false)
                     .withDescription(" the iceberg case_sensitive");
+
+    public static final Option<String> KERBEROS_PRINCIPAL =
+            Options.key("kerberos_principal")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("When use kerberos, we should set kerberos user principal");
+
+    public static final Option<String> KRB5_PATH =
+            Options.key("krb5_path")
+                    .stringType()
+                    .defaultValue("/etc/krb5.conf")
+                    .withDescription(
+                            "When use kerberos, we should set krb5 path file path such as '/seatunnel/krb5.conf' or use the default path '/etc/krb5.conf'");
+
+    public static final Option<String> KERBEROS_KEYTAB_PATH =
+            Options.key("kerberos_keytab_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("When using kerberos, We should specify the keytab path");
 
     private String catalogName;
     private String namespace;

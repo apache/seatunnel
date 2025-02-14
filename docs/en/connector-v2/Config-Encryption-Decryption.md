@@ -183,3 +183,42 @@ If you want to customize the encryption method and the configuration of the encr
 5. Package it to jar and add jar to `${SEATUNNEL_HOME}/lib`
 6. Change the option `shade.identifier` to the value that you defined in `ConfigShade#getIdentifier`of you config file, please enjoy it \^_\^
 
+### How to encrypt and decrypt with customized params
+
+If you want to encrypt and decrypt with customized params, you can follow the steps below:
+1. Add a configuration named `shade.properties` in the env part of the configuration file, the value of this configuration is in the form of key-value pairs (the type of the key must be a string), as shown below:
+
+   ```hocon
+    env {
+        shade.properties = {
+           suffix = "666"
+        }
+    }
+
+   ```
+
+2. Override the `ConfigShade` interface's `open` method, as shown below:
+
+   ```java
+       public static class ConfigShadeWithProps implements ConfigShade {
+
+        private String suffix;
+        private String identifier = "withProps";
+
+        @Override
+        public void open(Map<String, Object> props) {
+            this.suffix = String.valueOf(props.get("suffix"));
+        }
+   }
+   ```
+3. Use the parameters passed in the open method in the encryption and decryption methods, as shown below:
+
+   ```java
+       public String encrypt(String content) {
+           return content + suffix;
+       }
+
+       public String decrypt(String content) {
+           return content.substring(0, content.length() - suffix.length());
+       }
+   ```

@@ -26,6 +26,9 @@ import static com.hazelcast.internal.util.Preconditions.checkPositive;
 @Data
 public class SlotServiceConfig implements Serializable {
 
+    private AllocateStrategy allocateStrategy =
+            ServerConfigOptions.SLOT_ALLOCATE_STRATEGY.defaultValue();
+
     private boolean dynamicSlot = ServerConfigOptions.DYNAMIC_SLOT.defaultValue();
 
     private int slotNum = ServerConfigOptions.SLOT_NUM.defaultValue();

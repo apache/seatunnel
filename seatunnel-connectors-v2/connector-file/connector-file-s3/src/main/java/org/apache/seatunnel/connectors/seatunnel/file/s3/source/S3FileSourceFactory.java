@@ -18,9 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.file.s3.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
@@ -28,7 +28,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3ConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3FileSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -51,17 +51,17 @@ public class S3FileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(S3ConfigOptions.FILE_PATH)
-                .required(S3ConfigOptions.FILE_FORMAT_TYPE)
-                .required(S3ConfigOptions.S3_BUCKET)
-                .required(S3ConfigOptions.FS_S3A_ENDPOINT)
-                .required(S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER)
+                .required(S3FileSourceOptions.FILE_PATH)
+                .required(S3FileSourceOptions.FILE_FORMAT_TYPE)
+                .required(S3FileSourceOptions.S3_BUCKET)
+                .required(S3FileSourceOptions.FS_S3A_ENDPOINT)
+                .required(S3FileSourceOptions.S3A_AWS_CREDENTIALS_PROVIDER)
                 .conditional(
-                        S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER,
-                        S3ConfigOptions.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
-                        S3ConfigOptions.S3_ACCESS_KEY,
-                        S3ConfigOptions.S3_SECRET_KEY)
-                .optional(S3ConfigOptions.S3_PROPERTIES)
+                        S3FileSourceOptions.S3A_AWS_CREDENTIALS_PROVIDER,
+                        S3FileSourceOptions.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
+                        S3FileSourceOptions.S3_ACCESS_KEY,
+                        S3FileSourceOptions.S3_SECRET_KEY)
+                .optional(S3FileSourceOptions.S3_PROPERTIES)
                 .conditional(
                         BaseSourceConfigOptions.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
@@ -79,7 +79,7 @@ public class S3FileSourceFactory implements TableSourceFactory {
                                 FileFormat.EXCEL,
                                 FileFormat.CSV,
                                 FileFormat.XML),
-                        TableSchemaOptions.SCHEMA)
+                        ConnectorCommonOptions.SCHEMA)
                 .optional(BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH)
                 .optional(BaseSourceConfigOptions.DATE_FORMAT)
                 .optional(BaseSourceConfigOptions.DATETIME_FORMAT)

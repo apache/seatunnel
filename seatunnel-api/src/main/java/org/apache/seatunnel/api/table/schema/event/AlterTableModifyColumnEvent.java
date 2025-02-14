@@ -29,6 +29,7 @@ import lombok.ToString;
 public class AlterTableModifyColumnEvent extends AlterTableColumnEvent {
     private final Column column;
     private final boolean first;
+    private Boolean typeChanged;
     private final String afterColumn;
 
     public AlterTableModifyColumnEvent(
@@ -37,6 +38,10 @@ public class AlterTableModifyColumnEvent extends AlterTableColumnEvent {
         this.column = column;
         this.first = first;
         this.afterColumn = afterColumn;
+    }
+
+    public void setTypeChanged(boolean typeChanged) {
+        this.typeChanged = typeChanged;
     }
 
     public static AlterTableModifyColumnEvent modifyFirst(

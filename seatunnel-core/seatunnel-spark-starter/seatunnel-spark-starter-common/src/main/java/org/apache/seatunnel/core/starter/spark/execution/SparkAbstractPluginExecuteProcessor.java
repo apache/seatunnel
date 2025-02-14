@@ -21,6 +21,10 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.core.starter.execution.PluginExecuteProcessor;
 import org.apache.seatunnel.translation.spark.execution.DatasetTableInfo;
@@ -28,19 +32,23 @@ import org.apache.seatunnel.translation.spark.execution.DatasetTableInfo;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
-import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_INPUT;
-import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_OUTPUT;
+import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_INPUT;
+import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_OUTPUT;
 
+@Slf4j
 public abstract class SparkAbstractPluginExecuteProcessor<T>
         implements PluginExecuteProcessor<DatasetTableInfo, SparkRuntimeEnvironment> {
     protected SparkRuntimeEnvironment sparkRuntimeEnvironment;
     protected final List<? extends Config> pluginConfigs;
     protected final JobContext jobContext;
     protected final List<T> plugins;
-    protected static final String ENGINE_TYPE = "seatunnel";
+    protected final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
 
     protected SparkAbstractPluginExecuteProcessor(
             SparkRuntimeEnvironment sparkRuntimeEnvironment,
@@ -99,6 +107,19 @@ public abstract class SparkAbstractPluginExecuteProcessor<T>
                                 .table(pluginInputIdentifier),
                         datasetTableInfo.getCatalogTables(),
                         pluginInputIdentifier));
+    }
+
+    // if not support multi table, rollback
+    protected SeaTunnelSink tryGenerateMultiTableSink(
+            Map<TablePath, SeaTunnelSink> sinks,
+            ReadonlyConfig sinkConfig,
+            ClassLoader classLoader) {
+        if (sinks.values().stream().anyMatch(sink -> !(sink instanceof SupportMultiTableSink))) {
+            log.info("Unsupported multi table sink api, rollback to sink template");
+            // choose the first sink
+            return sinks.values().iterator().next();
+        }
+        return FactoryUtil.createMultiTableSink(sinks, sinkConfig, classLoader);
     }
 
     private void registerTempView(String tableName, Dataset<Row> ds) {

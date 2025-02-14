@@ -60,6 +60,12 @@ public abstract class BaseFileSink
             throw new IllegalArgumentException(
                     "Single file mode is not supported when checkpoint is enabled or in streaming mode.");
         }
+        if (pluginConfig.hasPath(BaseSinkConfig.CREATE_EMPTY_FILE_WHEN_NO_DATA.key())
+                && pluginConfig.getBoolean(BaseSinkConfig.CREATE_EMPTY_FILE_WHEN_NO_DATA.key())
+                && !fileSinkConfig.getPartitionFieldList().isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Generate empty file when no data is not supported when partition is enabled.");
+        }
     }
 
     @Override
