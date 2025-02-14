@@ -18,23 +18,24 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.apache.seatunnel</groupId>
-        <artifactId>seatunnel</artifactId>
-        <version>${revision}</version>
+        <artifactId>seatunnel-transforms-v2-e2e</artifactId>
+        <version>2.3.9-sensorsdata</version>
     </parent>
 
-    <artifactId>seatunnel-formats</artifactId>
-    <packaging>pom</packaging>
-    <name>SeaTunnel : Formats :</name>
+    <artifactId>seatunnel-transforms-v2-e2e-sensorsdata</artifactId>
 
-    <modules>
-        <module>seatunnel-format-json</module>
-        <module>seatunnel-format-text</module>
-        <module>seatunnel-format-compatible-debezium-json</module>
-        <module>seatunnel-format-compatible-connect-json</module>
-        <module>seatunnel-format-avro</module>
-        <module>seatunnel-format-protobuf</module>
-        <module>seatunnel-format-csv</module>
-        <module>seatunnel-format-sensorsdata</module>
-    </modules>
+    <name>SeaTunnel : E2E : Transforms V2 : SensorsData</name>
+
+    <dependencies>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-transforms-v2-e2e-common</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
 
 </project>

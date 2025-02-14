@@ -85,6 +85,7 @@
         <module>connector-typesense</module>
         <module>connector-graphql</module>
         <module>connector-aerospike</module>
+        <module>connector-sensorsdata</module>
     </modules>
 
     <dependencyManagement>
