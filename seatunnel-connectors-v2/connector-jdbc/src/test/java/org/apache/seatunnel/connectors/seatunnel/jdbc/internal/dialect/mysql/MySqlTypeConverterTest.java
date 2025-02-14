@@ -401,7 +401,7 @@ public class MySqlTypeConverterTest {
         Column column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
-        Assertions.assertEquals(2, column.getColumnLength());
+        Assertions.assertEquals(2 * 4, column.getColumnLength());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
         typeDefine =
@@ -414,7 +414,7 @@ public class MySqlTypeConverterTest {
         column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
-        Assertions.assertEquals(2, column.getColumnLength());
+        Assertions.assertEquals(2 * 4, column.getColumnLength());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
     }
 

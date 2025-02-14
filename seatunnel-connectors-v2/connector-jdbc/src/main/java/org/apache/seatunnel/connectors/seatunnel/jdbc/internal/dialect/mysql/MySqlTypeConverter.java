@@ -248,7 +248,7 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                 if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {
                     builder.columnLength(TypeDefineUtils.charTo4ByteLength(1L));
                 } else {
-                    builder.columnLength(typeDefine.getLength());
+                    builder.columnLength(TypeDefineUtils.charTo4ByteLength(typeDefine.getLength()));
                 }
                 builder.dataType(BasicType.STRING_TYPE);
                 break;

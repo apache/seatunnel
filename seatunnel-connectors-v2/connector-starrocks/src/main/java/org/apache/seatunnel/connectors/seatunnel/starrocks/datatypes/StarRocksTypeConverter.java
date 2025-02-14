@@ -230,7 +230,7 @@ public class StarRocksTypeConverter implements TypeConverter<BasicTypeDefine<Sta
                 builder.dataType(SR_DOUBLE);
                 break;
             case DECIMAL:
-                // DORIS LARGEINT
+                // StarRocks LARGEINT
                 if (column.getSourceType() != null
                         && column.getSourceType().equalsIgnoreCase(SR_LARGEINT)) {
                     builder.dataType(SR_LARGEINT);
@@ -565,9 +565,7 @@ public class StarRocksTypeConverter implements TypeConverter<BasicTypeDefine<Sta
 
     private void reconvertString(
             Column column, BasicTypeDefine.BasicTypeDefineBuilder<StarRocksType> builder) {
-        // source is doris too.
         if (column.getSourceType() != null && column.getSourceType().equalsIgnoreCase(SR_JSON)) {
-            // Compatible with Doris 1.x and Doris 2.x versions
             builder.columnType(SR_JSON);
             builder.dataType(SR_JSON);
             return;
