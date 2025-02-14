@@ -42,10 +42,13 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.table.type.BasicType.BOOLEAN_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.BYTE_TYPE;
@@ -177,7 +180,17 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
             } else if (fieldType instanceof ArrayType) {
                 ArrayType<?, ?> arrayType = (ArrayType<?, ?>) fieldType;
                 SeaTunnelDataType<?> elementType = arrayType.getElementType();
-                List<String> stringList = JsonUtils.toList(fieldValue, String.class);
+                List<String> stringList = new ArrayList<>();
+                if (elementType instanceof MapType) {
+                    stringList =
+                            JsonUtils.isJsonArray(fieldValue)
+                                    ? JsonUtils.toList(fieldValue, Map.class).stream()
+                                            .map(JsonUtils::toJsonString)
+                                            .collect(Collectors.toList())
+                                    : Collections.singletonList(fieldValue);
+                } else {
+                    stringList = JsonUtils.toList(fieldValue, String.class);
+                }
                 Object arr = Array.newInstance(elementType.getTypeClass(), stringList.size());
                 for (int i = 0; i < stringList.size(); i++) {
                     Object convertValue = convertValue(elementType, stringList.get(i));

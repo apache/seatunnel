@@ -46,6 +46,7 @@ import java.util.function.BiFunction;
 public final class ConfigShadeUtils {
 
     private static final String SHADE_IDENTIFIER_OPTION = "shade.identifier";
+    private static final String SHADE_PROPS_OPTION = "shade.properties";
 
     public static final String[] DEFAULT_SENSITIVE_KEYWORDS =
             new String[] {"password", "username", "auth", "token", "access_key", "secret_key"};
@@ -101,7 +102,14 @@ public final class ConfigShadeUtils {
                                 : ConfigFactory.empty(),
                         SHADE_IDENTIFIER_OPTION,
                         DEFAULT_SHADE.getIdentifier());
-        return decryptConfig(identifier, config);
+        Map<String, Object> props =
+                TypesafeConfigUtils.getConfig(
+                        config.hasPath(Constants.ENV)
+                                ? config.getConfig(Constants.ENV)
+                                : ConfigFactory.empty(),
+                        SHADE_PROPS_OPTION,
+                        new HashMap<>());
+        return decryptConfig(identifier, config, props);
     }
 
     public static Config encryptConfig(Config config) {
@@ -112,20 +120,33 @@ public final class ConfigShadeUtils {
                                 : ConfigFactory.empty(),
                         SHADE_IDENTIFIER_OPTION,
                         DEFAULT_SHADE.getIdentifier());
-        return encryptConfig(identifier, config);
+        Map<String, Object> props =
+                TypesafeConfigUtils.getConfig(
+                        config.hasPath(Constants.ENV)
+                                ? config.getConfig(Constants.ENV)
+                                : ConfigFactory.empty(),
+                        SHADE_PROPS_OPTION,
+                        new HashMap<>());
+        return encryptConfig(identifier, config, props);
     }
 
-    public static Config decryptConfig(String identifier, Config config) {
-        return processConfig(identifier, config, true);
+    private static Config decryptConfig(
+            String identifier, Config config, Map<String, Object> props) {
+        return processConfig(identifier, config, true, props);
     }
 
-    public static Config encryptConfig(String identifier, Config config) {
-        return processConfig(identifier, config, false);
+    private static Config encryptConfig(
+            String identifier, Config config, Map<String, Object> props) {
+        return processConfig(identifier, config, false, props);
     }
 
     @SuppressWarnings("unchecked")
-    private static Config processConfig(String identifier, Config config, boolean isDecrypted) {
+    private static Config processConfig(
+            String identifier, Config config, boolean isDecrypted, Map<String, Object> props) {
         ConfigShade configShade = CONFIG_SHADES.getOrDefault(identifier, DEFAULT_SHADE);
+        // call open method before the encrypt/decrypt
+        configShade.open(props);
+
         List<String> sensitiveOptions = new ArrayList<>(Arrays.asList(DEFAULT_SENSITIVE_KEYWORDS));
         sensitiveOptions.addAll(Arrays.asList(configShade.sensitiveOptions()));
         BiFunction<String, Object, String> processFunction =

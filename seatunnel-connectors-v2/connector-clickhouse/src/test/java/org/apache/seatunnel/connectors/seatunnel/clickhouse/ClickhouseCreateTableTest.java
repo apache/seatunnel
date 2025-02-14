@@ -53,7 +53,8 @@ public class ClickhouseCreateTableTest {
         columns.add(
                 PhysicalColumn.of(
                         "age", BasicType.INT_TYPE, (Long) null, true, null, "test comment"));
-        columns.add(PhysicalColumn.of("score", BasicType.INT_TYPE, (Long) null, true, null, ""));
+        columns.add(
+                PhysicalColumn.of("score", BasicType.INT_TYPE, (Long) null, true, null, "'N'-N"));
         columns.add(PhysicalColumn.of("gender", BasicType.BYTE_TYPE, (Long) null, true, null, ""));
         columns.add(
                 PhysicalColumn.of("create_time", BasicType.LONG_TYPE, (Long) null, true, null, ""));
@@ -103,7 +104,7 @@ public class ClickhouseCreateTableTest {
                 "CREATE TABLE IF NOT EXISTS  `test1`.`test2` (\n"
                         + "    `id` Int64 ,`age` Int32 COMMENT 'test comment',\n"
                         + "    `name` String ,\n"
-                        + "`score` Int32 ,\n"
+                        + "`score` Int32 COMMENT '''N''-N',\n"
                         + "`gender` Int8 ,\n"
                         + "`create_time` Int64 \n"
                         + ") ENGINE = MergeTree()\n"

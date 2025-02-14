@@ -82,6 +82,9 @@ public class MongodbReader implements SourceReader<SeaTunnelRow, MongoSplit> {
         if (cursor != null) {
             cursor.close();
         }
+        if (clientProvider != null) {
+            clientProvider.close();
+        }
     }
 
     @Override

@@ -17,25 +17,66 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.Setter;
 import lombok.ToString;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 @Getter
-@Setter
-@AllArgsConstructor
 @ToString
 public class IcebergSplitEnumeratorState implements Serializable {
 
     private static final long serialVersionUID = -529307606400995298L;
 
-    private final IcebergEnumeratorPosition lastEnumeratedPosition;
-    private final Map<Integer, List<IcebergFileScanTaskSplit>> pendingSplits;
+    // TODO: Waiting for migration to complete before remove
+    @Deprecated private IcebergEnumeratorPosition lastEnumeratedPosition;
+
+    private Collection<TablePath> pendingTables;
+    private Map<Integer, List<IcebergFileScanTaskSplit>> pendingSplits;
+    private Map<TablePath, IcebergEnumeratorPosition> tableOffsets;
+
+    public IcebergSplitEnumeratorState(
+            Collection<TablePath> pendingTables,
+            Map<Integer, List<IcebergFileScanTaskSplit>> pendingSplits) {
+        this(pendingTables, pendingSplits, Collections.emptyMap());
+    }
+
+    public IcebergSplitEnumeratorState(
+            Collection<TablePath> pendingTables,
+            Map<Integer, List<IcebergFileScanTaskSplit>> pendingSplits,
+            Map<TablePath, IcebergEnumeratorPosition> tableOffsets) {
+        this.pendingTables = pendingTables;
+        this.pendingSplits = pendingSplits;
+        this.tableOffsets = tableOffsets;
+    }
+
+    // TODO: Waiting for migration to complete before remove
+    @Deprecated
+    public IcebergSplitEnumeratorState(
+            IcebergEnumeratorPosition lastEnumeratedPosition,
+            Map<Integer, List<IcebergFileScanTaskSplit>> pendingSplits) {
+        this.lastEnumeratedPosition = lastEnumeratedPosition;
+        this.pendingSplits = pendingSplits;
+        this.pendingTables = new ArrayList<>();
+        this.tableOffsets = new HashMap<>();
+    }
+
+    // TODO: Waiting for migration to complete before remove
+    @Deprecated
+    public IcebergSplitEnumeratorState setPendingTable(TablePath table) {
+        if (lastEnumeratedPosition != null) {
+            this.pendingTables.add(table);
+            this.tableOffsets.put(table, lastEnumeratedPosition);
+        }
+        return this;
+    }
 }

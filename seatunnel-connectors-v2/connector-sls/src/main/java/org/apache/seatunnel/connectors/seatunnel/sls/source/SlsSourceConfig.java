@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.sls.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -25,7 +26,6 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.schema.ReadonlyConfigParser;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -88,7 +88,7 @@ public class SlsSourceConfig implements Serializable {
 
     private CatalogTable createCatalogTable(ReadonlyConfig readonlyConfig) {
         Optional<Map<String, Object>> schemaOptions =
-                readonlyConfig.getOptional(TableSchemaOptions.SCHEMA);
+                readonlyConfig.getOptional(ConnectorCommonOptions.SCHEMA);
         TablePath tablePath = TablePath.of(readonlyConfig.get(LOGSTORE));
         TableSchema tableSchema;
         if (schemaOptions.isPresent()) {
@@ -113,7 +113,7 @@ public class SlsSourceConfig implements Serializable {
     private FastLogDeserialization<SeaTunnelRow> createDeserializationSchema(
             ReadonlyConfig readonlyConfig) {
         Optional<Map<String, Object>> schemaOptions =
-                readonlyConfig.getOptional(TableSchemaOptions.SCHEMA);
+                readonlyConfig.getOptional(ConnectorCommonOptions.SCHEMA);
         FastLogDeserialization fastLogDeserialization;
         if (schemaOptions.isPresent()) {
             fastLogDeserialization = new FastLogDeserializationSchema(catalogTable);

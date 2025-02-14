@@ -23,6 +23,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -31,7 +32,6 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -118,7 +118,7 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     }
 
     protected void buildSchemaWithConfig(Config pluginConfig) {
-        if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
+        if (pluginConfig.hasPath(ConnectorCommonOptions.SCHEMA.key())) {
             this.catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
             // default use json format
             HttpConfig.ResponseFormat format = HttpConfig.FORMAT.defaultValue();

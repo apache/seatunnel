@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
+import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.RandomStrategy;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.CPU;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.Memory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
@@ -98,6 +100,10 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
     public void testApplyResourceWithRandomResult()
             throws ExecutionException, InterruptedException {
         FakeResourceManager resourceManager = new FakeResourceManager(nodeEngine);
+        resourceManager
+                .getEngineConfig()
+                .getSlotServiceConfig()
+                .setAllocateStrategy(AllocateStrategy.RANDOM);
         boolean hasDifferentWorker = false;
         for (int i = 0; i < 5; i++) {
             List<ResourceProfile> resourceProfiles = new ArrayList<>();
@@ -200,7 +206,8 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
                                 jobId,
                                 resourceProfiles,
                                 registerWorker,
-                                (AbstractResourceManager) this.resourceManager)
+                                (AbstractResourceManager) this.resourceManager,
+                                new RandomStrategy())
                         .preCheckWorkerResource(new ResourceProfile());
         Assertions.assertEquals(result.isPresent(), dynamicSlot);
     }

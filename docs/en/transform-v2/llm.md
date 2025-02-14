@@ -28,7 +28,7 @@ more.
 ### model_provider
 
 The model provider to use. The available options are:
-OPENAI, DOUBAO, KIMIAI, MICROSOFT, CUSTOM
+OPENAI, DOUBAO, DEEPSEEK, KIMIAI, MICROSOFT, CUSTOM
 
 > tips: If you use Microsoft, please make sure api_path cannot be empty
 

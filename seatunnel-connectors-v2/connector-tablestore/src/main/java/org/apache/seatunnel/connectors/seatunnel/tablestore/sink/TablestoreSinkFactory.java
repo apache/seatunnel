@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.tablestore.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
@@ -49,7 +49,7 @@ public class TablestoreSinkFactory implements TableSinkFactory {
                         ACCESS_KEY_ID,
                         ACCESS_KEY_SECRET,
                         PRIMARY_KEYS,
-                        TableSchemaOptions.SCHEMA)
+                        ConnectorCommonOptions.SCHEMA)
                 .optional(BATCH_SIZE)
                 .build();
     }

@@ -22,7 +22,7 @@ Visit the [SeaTunnel Download Page](https://seatunnel.apache.org/download) to do
 Or you can also download it through the terminal:
 
 ```shell
-export version="2.3.9"
+export version="2.3.10"
 wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${version}-bin.tar.gz"
 tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 ```
@@ -35,10 +35,10 @@ Starting from version 2.2.0-beta, the binary package no longer provides connecto
 sh bin/install-plugin.sh
 ```
 
-If you need a specific connector version, taking 2.3.9 as an example, you need to execute the following command:
+If you need a specific connector version, taking 2.3.10 as an example, you need to execute the following command:
 
 ```bash
-sh bin/install-plugin.sh 2.3.9
+sh bin/install-plugin.sh 2.3.10
 ```
 
 Typically, you do not need all the connector plugins. You can specify the required plugins by configuring `config/plugin_config`. For example, if you want the sample application to work properly, you will need the `connector-console` and `connector-fake` plugins. You can modify the `plugin_config` configuration file as follows:
@@ -71,7 +71,7 @@ You can download the source code from the [download page](https://seatunnel.apac
 cd seatunnel
 sh ./mvnw clean install -DskipTests -Dskip.spotless=true
 # get the binary package
-cp seatunnel-dist/target/apache-seatunnel-2.3.9-bin.tar.gz /The-Path-You-Want-To-Copy
+cp seatunnel-dist/target/apache-seatunnel-2.3.10-bin.tar.gz /The-Path-You-Want-To-Copy
 
 cd /The-Path-You-Want-To-Copy
 tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"

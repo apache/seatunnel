@@ -26,7 +26,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.ElasticsearchClusterInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.IndexDocsCount;
@@ -92,23 +92,23 @@ public class EsRestClient implements Closeable {
     }
 
     public static EsRestClient createInstance(ReadonlyConfig config) {
-        List<String> hosts = config.get(EsClusterConnectionConfig.HOSTS);
-        Optional<String> username = config.getOptional(EsClusterConnectionConfig.USERNAME);
-        Optional<String> password = config.getOptional(EsClusterConnectionConfig.PASSWORD);
+        List<String> hosts = config.get(ElasticsearchBaseOptions.HOSTS);
+        Optional<String> username = config.getOptional(ElasticsearchBaseOptions.USERNAME);
+        Optional<String> password = config.getOptional(ElasticsearchBaseOptions.PASSWORD);
         Optional<String> keystorePath = Optional.empty();
         Optional<String> keystorePassword = Optional.empty();
         Optional<String> truststorePath = Optional.empty();
         Optional<String> truststorePassword = Optional.empty();
-        boolean tlsVerifyCertificate = config.get(EsClusterConnectionConfig.TLS_VERIFY_CERTIFICATE);
+        boolean tlsVerifyCertificate = config.get(ElasticsearchBaseOptions.TLS_VERIFY_CERTIFICATE);
         if (tlsVerifyCertificate) {
-            keystorePath = config.getOptional(EsClusterConnectionConfig.TLS_KEY_STORE_PATH);
-            keystorePassword = config.getOptional(EsClusterConnectionConfig.TLS_KEY_STORE_PASSWORD);
-            truststorePath = config.getOptional(EsClusterConnectionConfig.TLS_TRUST_STORE_PATH);
+            keystorePath = config.getOptional(ElasticsearchBaseOptions.TLS_KEY_STORE_PATH);
+            keystorePassword = config.getOptional(ElasticsearchBaseOptions.TLS_KEY_STORE_PASSWORD);
+            truststorePath = config.getOptional(ElasticsearchBaseOptions.TLS_TRUST_STORE_PATH);
             truststorePassword =
-                    config.getOptional(EsClusterConnectionConfig.TLS_TRUST_STORE_PASSWORD);
+                    config.getOptional(ElasticsearchBaseOptions.TLS_TRUST_STORE_PASSWORD);
         }
 
-        boolean tlsVerifyHostnames = config.get(EsClusterConnectionConfig.TLS_VERIFY_HOSTNAME);
+        boolean tlsVerifyHostnames = config.get(ElasticsearchBaseOptions.TLS_VERIFY_HOSTNAME);
         return createInstance(
                 hosts,
                 username,

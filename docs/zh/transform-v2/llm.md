@@ -26,7 +26,7 @@
 ### model_provider
 
 要使用的模型提供者。可用选项为:
-OPENAI、DOUBAO、KIMIAI、MICROSOFT, CUSTOM
+OPENAI,DOUBAO,DEEPSEEK,KIMIAI,MICROSOFT, CUSTOM
 
 > tips: 如果使用 Microsoft, 请确保 api_path 配置不能为空
 

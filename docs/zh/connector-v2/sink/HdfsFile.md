@@ -30,7 +30,7 @@
 
 ## 支持的数据源信息
 
-|  数据源   |      支持的版本       |
+| 数据源    | 支持的版本            |
 |--------|------------------|
 | Hdfs文件 | hadoop 2.x 和 3.x |
 
@@ -56,16 +56,18 @@
 | is_enable_transaction            | boolean | 否    | true                                       | 如果 `is_enable_transaction` 为 true，则在将数据写入目标目录时，我们将确保数据不会丢失或重复。请注意，如果 `is_enable_transaction` 为 `true`，我们将在文件头部自动添加 `${transactionId}_`。目前仅支持 `true`。                                                                                                                                             |
 | batch_size                       | int     | 否    | 1000000                                    | 文件中的最大行数。对于 SeaTunnel Engine，文件中的行数由 `batch_size` 和 `checkpoint.interval` 共同决定。如果 `checkpoint.interval` 的值足够大，则接收器写入器将在文件中写入行，直到文件中的行大于 `batch_size`。如果 `checkpoint.interval` 很小，则接收器写入器将在新检查点触发时创建一个新文件。                                                                                        |
 | single_file_mode                 | boolean | 否    | false                                      | 每个并行度只会输出一个文件，当此参数开启时，batch_size就不会生效。输出的文件名没有文件块后缀。                                                                                                                                                                                                                                             |
+| create_empty_file_when_no_data   | boolean | 否    | false                                      | 当上游没有数据同步时，依然生成对应的数据文件。                                                                                                                                                                                                                                                                          |
 | compress_codec                   | string  | 否    | none                                       | 文件的压缩编解码器及其支持的细节如下所示：[txt: `lzo` `none`，json: `lzo` `none`，csv: `lzo` `none`，orc: `lzo` `snappy` `lz4` `zlib` `none`，parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`]。提示：excel类型不支持任何压缩格式。                                                                                           |
 | krb5_path                        | string  | 否    | /etc/krb5.conf                             | kerberos 的 krb5 路径                                                                                                                                                                                                                                                                               |
 | kerberos_principal               | string  | 否    | -                                          | kerberos 的主体                                                                                                                                                                                                                                                                                     |
 | kerberos_keytab_path             | string  | 否    | -                                          | kerberos 的 keytab 路径                                                                                                                                                                                                                                                                             |
 | compress_codec                   | string  | 否    | none                                       | 压缩编解码器                                                                                                                                                                                                                                                                                           |
 | common-options                   | object  | 否    | -                                          | 接收器插件通用参数，请参阅 [接收器通用选项](../sink-common-options.md) 了解详情                                                                                                                                                                                                                                          |
+| csv_string_quote_mode            | enum    | 否    | MINIMAL                                    | 仅在文件格式为 CSV 时使用。                                                                                                                                                                                                                                                                                 |
 | enable_header_write              | boolean | 否    | false                                      | 仅在 file_format_type 为 text,csv 时使用。<br/> false:不写入表头,true:写入表头。                                                                                                                                                                                                                                  |
 | max_rows_in_memory               | int     | 否    | -                                          | 仅当 file_format 为 excel 时使用。当文件格式为 Excel 时，可以缓存在内存中的最大数据项数。                                                                                                                                                                                                                                       |
 | sheet_name                       | string  | 否    | Sheet${Random number}                      | 仅当 file_format 为 excel 时使用。将工作簿的表写入指定的表名                                                                                                                                                                                                                                                         |
-| remote_user                           | string  | 否    | -                                          | Hdfs的远端用户名。                                                                                                                                                                                                                                                                                      |
+| remote_user                      | string  | 否    | -                                          | Hdfs的远端用户名。                                                                                                                                                                                                                                                                                      |
 
 ### 提示
 
@@ -180,9 +182,18 @@ HdfsFile {
     is_enable_transaction = true
 }
 ```
+
 ### enable_header_write [boolean]
 
 仅在 file_format_type 为 text,csv 时使用。false:不写入表头,true:写入表头。
+
+### csv_string_quote_mode [string]
+
+当文件格式为 CSV 时，CSV 的字符串引号模式。
+
+- ALL：所有字符串字段都会加引号。
+- MINIMAL：仅为包含特殊字符（如字段分隔符、引号字符或行分隔符字符串中的任何字符）的字段加引号。
+- NONE：从不为字段加引号。当数据中包含分隔符时，输出会在前面加上转义字符。如果未设置转义字符，则格式验证会抛出异常。
 
 ### kerberos 的简单配置
 

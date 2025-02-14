@@ -71,13 +71,10 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
     protected static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     protected static final String DRIVER_JAR =
             "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    private static final boolean isGithubActionsEnv =
-            "true".equalsIgnoreCase(System.getenv("GITHUB_ACTIONS"));
 
     @BeforeAll
     @Override
     public void startUp() {
-        log.info("isGithubActionsEnv: {}", isGithubActionsEnv);
         container =
                 new GenericContainer<>(DOCKER_IMAGE)
                         .withNetwork(NETWORK)
@@ -109,9 +106,7 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
         props.put("user", USERNAME);
         props.put("password", PASSWORD);
         jdbcConnection = driver.connect(String.format(URL, container.getHost()), props);
-        if (isGithubActionsEnv) {
-            initializeBE();
-        }
+        initializeBE();
         try (Statement statement = jdbcConnection.createStatement()) {
             statement.execute(SET_SQL);
             statement.execute(SET_CONNECTIONS);

@@ -44,7 +44,7 @@ To run the image with SeaTunnel, first create a `Dockerfile`:
 ```Dockerfile
 FROM flink:1.13
 
-ENV SEATUNNEL_VERSION="2.3.9"
+ENV SEATUNNEL_VERSION="2.3.10"
 ENV SEATUNNEL_HOME="/opt/seatunnel"
 
 RUN wget https://dlcdn.apache.org/seatunnel/${SEATUNNEL_VERSION}/apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz
@@ -56,13 +56,13 @@ RUN cd ${SEATUNNEL_HOME} && sh bin/install-plugin.sh ${SEATUNNEL_VERSION}
 
 Then run the following commands to build the image:
 ```bash
-docker build -t seatunnel:2.3.9-flink-1.13 -f Dockerfile .
+docker build -t seatunnel:2.3.10-flink-1.13 -f Dockerfile .
 ```
-Image `seatunnel:2.3.9-flink-1.13` needs to be present in the host (minikube) so that the deployment can take place.
+Image `seatunnel:2.3.10-flink-1.13` needs to be present in the host (minikube) so that the deployment can take place.
 
 Load image to minikube via:
 ```bash
-minikube image load seatunnel:2.3.9-flink-1.13
+minikube image load seatunnel:2.3.10-flink-1.13
 ```
 
 </TabItem>
@@ -72,7 +72,7 @@ minikube image load seatunnel:2.3.9-flink-1.13
 ```Dockerfile
 FROM openjdk:8
 
-ENV SEATUNNEL_VERSION="2.3.9"
+ENV SEATUNNEL_VERSION="2.3.10"
 ENV SEATUNNEL_HOME="/opt/seatunnel"
 
 RUN wget https://dlcdn.apache.org/seatunnel/${SEATUNNEL_VERSION}/apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz
@@ -84,13 +84,13 @@ RUN cd ${SEATUNNEL_HOME} && sh bin/install-plugin.sh ${SEATUNNEL_VERSION}
 
 Then run the following commands to build the image:
 ```bash
-docker build -t seatunnel:2.3.9 -f Dockerfile .
+docker build -t seatunnel:2.3.10 -f Dockerfile .
 ```
-Image `seatunnel:2.3.9` need to be present in the host (minikube) so that the deployment can take place.
+Image `seatunnel:2.3.10` need to be present in the host (minikube) so that the deployment can take place.
 
 Load image to minikube via:
 ```bash
-minikube image load seatunnel:2.3.9
+minikube image load seatunnel:2.3.10
 ```
 
 </TabItem>
@@ -100,7 +100,7 @@ minikube image load seatunnel:2.3.9
 ```Dockerfile
 FROM openjdk:8
 
-ENV SEATUNNEL_VERSION="2.3.9"
+ENV SEATUNNEL_VERSION="2.3.10"
 ENV SEATUNNEL_HOME="/opt/seatunnel"
 
 RUN wget https://dlcdn.apache.org/seatunnel/${SEATUNNEL_VERSION}/apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz
@@ -112,13 +112,13 @@ RUN cd ${SEATUNNEL_HOME} && sh bin/install-plugin.sh ${SEATUNNEL_VERSION}
 
 Then run the following commands to build the image:
 ```bash
-docker build -t seatunnel:2.3.9 -f Dockerfile .
+docker build -t seatunnel:2.3.10 -f Dockerfile .
 ```
-Image `seatunnel:2.3.9` needs to be present in the host (minikube) so that the deployment can take place.
+Image `seatunnel:2.3.10` needs to be present in the host (minikube) so that the deployment can take place.
 
 Load image to minikube via:
 ```bash
-minikube image load seatunnel:2.3.9
+minikube image load seatunnel:2.3.10
 ```
 
 </TabItem>
@@ -191,7 +191,7 @@ none
   ]}>
 <TabItem value="flink">
 
-In this guide we will use [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/2.3.9-release/config/v2.streaming.conf.template):
+In this guide we will use [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/2.3.10-release/config/v2.streaming.conf.template):
 
 ```conf
 env {
@@ -245,7 +245,7 @@ kind: FlinkDeployment
 metadata:
   name: seatunnel-flink-streaming-example
 spec:
-  image: seatunnel:2.3.9-flink-1.13
+  image: seatunnel:2.3.10-flink-1.13
   flinkVersion: v1_13
   flinkConfiguration:
     taskmanager.numberOfTaskSlots: "2"
@@ -291,7 +291,7 @@ kubectl apply -f seatunnel-flink.yaml
 
 <TabItem value="Zeta (local-mode)">
 
-In this guide we will use [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/2.3.9-release/config/v2.streaming.conf.template):
+In this guide we will use [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/2.3.10-release/config/v2.streaming.conf.template):
 
 ```conf
 env {
@@ -334,7 +334,7 @@ metadata:
 spec:
   containers:
   - name: seatunnel
-    image: seatunnel:2.3.9
+    image: seatunnel:2.3.10
     command: ["/bin/sh","-c","/opt/seatunnel/bin/seatunnel.sh --config /data/seatunnel.streaming.conf -e local"]
     resources:
       limits:
@@ -366,7 +366,7 @@ kubectl apply -f seatunnel.yaml
 
 <TabItem value="Zeta (cluster-mode)">
 
-In this guide we will use [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/2.3.9-release/config/v2.streaming.conf.template):
+In this guide we will use [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/2.3.10-release/config/v2.streaming.conf.template):
 
 ```conf
 env {
@@ -524,7 +524,7 @@ spec:
     spec:
       containers:
         - name: seatunnel
-          image: seatunnel:2.3.9
+          image: seatunnel:2.3.10
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5801
