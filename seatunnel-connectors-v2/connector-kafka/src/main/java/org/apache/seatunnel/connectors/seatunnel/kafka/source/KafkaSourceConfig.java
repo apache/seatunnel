@@ -18,23 +18,24 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
-import org.apache.seatunnel.api.table.catalog.CatalogOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.schema.ReadonlyConfigParser;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormatErrorHandleWay;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.TableIdentifierConfig;
 import org.apache.seatunnel.format.avro.AvroDeserializationSchema;
 import org.apache.seatunnel.format.compatible.kafka.connect.json.CompatibleKafkaConnectDeserializationSchema;
 import org.apache.seatunnel.format.compatible.kafka.connect.json.KafkaConnectJsonFormatOptions;
@@ -117,15 +118,15 @@ public class KafkaSourceConfig implements Serializable {
     private Map<TablePath, ConsumerMetadata> createMapConsumerMetadata(
             ReadonlyConfig readonlyConfig) {
         List<ConsumerMetadata> consumerMetadataList;
-        if (readonlyConfig.getOptional(TableSchemaOptions.TABLE_CONFIGS).isPresent()) {
+        if (readonlyConfig.getOptional(KafkaSourceOptions.TABLE_CONFIGS).isPresent()) {
             consumerMetadataList =
-                    readonlyConfig.get(TableSchemaOptions.TABLE_CONFIGS).stream()
+                    readonlyConfig.get(KafkaSourceOptions.TABLE_CONFIGS).stream()
                             .map(ReadonlyConfig::fromMap)
                             .map(this::createConsumerMetadata)
                             .collect(Collectors.toList());
-        } else if (readonlyConfig.getOptional(CatalogOptions.TABLE_LIST).isPresent()) {
+        } else if (readonlyConfig.getOptional(KafkaSourceOptions.TABLE_LIST).isPresent()) {
             consumerMetadataList =
-                    readonlyConfig.get(CatalogOptions.TABLE_LIST).stream()
+                    readonlyConfig.get(KafkaSourceOptions.TABLE_LIST).stream()
                             .map(ReadonlyConfig::fromMap)
                             .map(this::createConsumerMetadata)
                             .collect(Collectors.toList());
@@ -207,7 +208,7 @@ public class KafkaSourceConfig implements Serializable {
 
     private CatalogTable createCatalogTable(ReadonlyConfig readonlyConfig) {
         Optional<Map<String, Object>> schemaOptions =
-                readonlyConfig.getOptional(TableSchemaOptions.SCHEMA);
+                readonlyConfig.getOptional(KafkaSourceOptions.SCHEMA);
         TablePath tablePath = TablePath.of(null, readonlyConfig.get(TOPIC));
         TableSchema tableSchema;
         if (schemaOptions.isPresent()) {
@@ -250,7 +251,7 @@ public class KafkaSourceConfig implements Serializable {
         SeaTunnelRowType seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         MessageFormat format = readonlyConfig.get(FORMAT);
 
-        if (!readonlyConfig.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
+        if (!readonlyConfig.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
             return TextDeserializationSchema.builder()
                     .seaTunnelRowType(seaTunnelRowType)
                     .delimiter(TextFormatConstant.PLACEHOLDER)
@@ -291,7 +292,7 @@ public class KafkaSourceConfig implements Serializable {
                         catalogTable, keySchemaEnable, valueSchemaEnable, false, false);
             case DEBEZIUM_JSON:
                 boolean includeSchema = readonlyConfig.get(DEBEZIUM_RECORD_INCLUDE_SCHEMA);
-                TableSchemaOptions.TableIdentifier tableFilter =
+                TableIdentifierConfig tableFilter =
                         readonlyConfig.get(DEBEZIUM_RECORD_TABLE_FILTER);
                 if (tableFilter != null) {
                     TablePath tablePath =

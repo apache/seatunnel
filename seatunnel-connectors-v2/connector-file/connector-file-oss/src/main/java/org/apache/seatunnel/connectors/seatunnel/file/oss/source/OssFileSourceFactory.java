@@ -18,9 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.file.oss.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
@@ -51,7 +51,7 @@ public class OssFileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(TableSchemaOptions.TABLE_CONFIGS)
+                .optional(ConnectorCommonOptions.TABLE_CONFIGS)
                 .optional(OssConfigOptions.FILE_PATH)
                 .optional(OssConfigOptions.BUCKET)
                 .optional(OssConfigOptions.ACCESS_KEY)
@@ -75,7 +75,7 @@ public class OssFileSourceFactory implements TableSourceFactory {
                                 FileFormat.EXCEL,
                                 FileFormat.CSV,
                                 FileFormat.XML),
-                        TableSchemaOptions.SCHEMA)
+                        ConnectorCommonOptions.SCHEMA)
                 .optional(BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH)
                 .optional(BaseSourceConfigOptions.DATE_FORMAT)
                 .optional(BaseSourceConfigOptions.DATETIME_FORMAT)

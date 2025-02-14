@@ -18,9 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
@@ -63,7 +63,7 @@ public class RedisSourceFactory implements TableSourceFactory {
                         RedisBaseOptions.MODE,
                         RedisBaseOptions.RedisMode.CLUSTER,
                         RedisBaseOptions.NODES)
-                .bundled(RedisBaseOptions.FORMAT, TableSchemaOptions.SCHEMA)
+                .bundled(RedisBaseOptions.FORMAT, SinkConnectorCommonOptions.SCHEMA)
                 .build();
     }
 

@@ -20,10 +20,10 @@ package org.apache.seatunnel.core.starter.spark.execution;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.SaveModeExecuteWrapper;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -55,8 +55,8 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
 import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_MODE_FAILED;
+import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAME;
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverOptionalFactory;
 
 public class SinkExecuteProcessor
@@ -114,17 +114,17 @@ public class SinkExecuteProcessor
             Dataset<Row> dataset = datasetTableInfo.getDataset();
 
             int parallelism;
-            if (sinkConfig.hasPath(CommonOptions.PARALLELISM.key())) {
-                parallelism = sinkConfig.getInt(CommonOptions.PARALLELISM.key());
+            if (sinkConfig.hasPath(EnvCommonOptions.PARALLELISM.key())) {
+                parallelism = sinkConfig.getInt(EnvCommonOptions.PARALLELISM.key());
             } else {
                 parallelism =
                         sparkRuntimeEnvironment
                                 .getSparkConf()
                                 .getInt(
-                                        CommonOptions.PARALLELISM.key(),
-                                        CommonOptions.PARALLELISM.defaultValue());
+                                        EnvCommonOptions.PARALLELISM.key(),
+                                        EnvCommonOptions.PARALLELISM.defaultValue());
             }
-            dataset.sparkSession().read().option(CommonOptions.PARALLELISM.key(), parallelism);
+            dataset.sparkSession().read().option(EnvCommonOptions.PARALLELISM.key(), parallelism);
             Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
             datasetTableInfo.getCatalogTables().stream()
                     .forEach(
