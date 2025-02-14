@@ -21,11 +21,11 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.sink.SinkCommonOptions;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 
 import java.util.Map;
 
-public class AssertSinkOptions {
+public class AssertSinkOptions extends SinkConnectorCommonOptions {
 
     public static final Option<Map<String, Object>> RULES =
             Options.key("rules")
@@ -33,7 +33,4 @@ public class AssertSinkOptions {
                     .noDefaultValue()
                     .withDescription(
                             "Rule definition of user's available data. Each rule represents one field validation or row num validation.");
-
-    public static Option<Integer> MULTI_TABLE_SINK_REPLICA =
-            SinkCommonOptions.MULTI_TABLE_SINK_REPLICA;
 }

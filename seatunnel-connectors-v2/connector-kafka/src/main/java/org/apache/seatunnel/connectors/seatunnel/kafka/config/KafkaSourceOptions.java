@@ -21,7 +21,6 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 
 import java.util.Map;
 
@@ -49,22 +48,15 @@ public class KafkaSourceOptions extends KafkaBaseOptions {
                     .withDescription(
                             "If true the consumer's offset will be periodically committed in the background.");
 
-    public static final Option<KafkaBaseOptions> SCHEMA =
-            Options.key("schema")
-                    .objectType(KafkaBaseOptions.class)
-                    .noDefaultValue()
-                    .withDescription(
-                            "The structure of the data, including field names and field types.");
-
     public static final Option<Boolean> DEBEZIUM_RECORD_INCLUDE_SCHEMA =
             Options.key("debezium_record_include_schema")
                     .booleanType()
                     .defaultValue(true)
                     .withDescription("Does the debezium record carry a schema.");
 
-    public static final Option<TableSchemaOptions.TableIdentifier> DEBEZIUM_RECORD_TABLE_FILTER =
+    public static final Option<TableIdentifierConfig> DEBEZIUM_RECORD_TABLE_FILTER =
             Options.key("debezium_record_table_filter")
-                    .type(new TypeReference<TableSchemaOptions.TableIdentifier>() {})
+                    .type(new TypeReference<TableIdentifierConfig>() {})
                     .noDefaultValue()
                     .withDescription("Debezium record table filter.");
 

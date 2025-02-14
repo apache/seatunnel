@@ -18,6 +18,7 @@
 package org.apache.seatunnel.api.table.catalog;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
@@ -148,7 +149,7 @@ public interface Catalog extends AutoCloseable {
 
     default List<CatalogTable> getTables(ReadonlyConfig config) throws CatalogException {
         // Get the list of specified tables
-        List<String> tableNames = config.get(CatalogOptions.TABLE_NAMES);
+        List<String> tableNames = config.get(ConnectorCommonOptions.TABLE_NAMES);
         if (tableNames != null && !tableNames.isEmpty()) {
             Iterator<TablePath> tablePaths =
                     tableNames.stream().map(TablePath::of).filter(this::tableExists).iterator();
@@ -156,12 +157,13 @@ public interface Catalog extends AutoCloseable {
         }
 
         // Get the list of table pattern
-        String tablePatternStr = config.get(CatalogOptions.TABLE_PATTERN);
+        String tablePatternStr = config.get(ConnectorCommonOptions.TABLE_PATTERN);
         if (StringUtils.isBlank(tablePatternStr)) {
             return Collections.emptyList();
         }
-        Pattern databasePattern = Pattern.compile(config.get(CatalogOptions.DATABASE_PATTERN));
-        Pattern tablePattern = Pattern.compile(config.get(CatalogOptions.TABLE_PATTERN));
+        Pattern databasePattern =
+                Pattern.compile(config.get(ConnectorCommonOptions.DATABASE_PATTERN));
+        Pattern tablePattern = Pattern.compile(config.get(ConnectorCommonOptions.TABLE_PATTERN));
         List<String> allDatabase = this.listDatabases();
         allDatabase.removeIf(s -> !databasePattern.matcher(s).matches());
         List<TablePath> tablePaths = new ArrayList<>();

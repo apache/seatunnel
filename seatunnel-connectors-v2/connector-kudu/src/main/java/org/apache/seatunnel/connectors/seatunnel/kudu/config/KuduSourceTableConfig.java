@@ -20,12 +20,11 @@ package org.apache.seatunnel.connectors.seatunnel.kudu.config;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.Catalog;
-import org.apache.seatunnel.api.table.catalog.CatalogOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.connectors.seatunnel.kudu.catalog.KuduCatalog;
 import org.apache.seatunnel.connectors.seatunnel.kudu.catalog.KuduCatalogFactory;
@@ -61,8 +60,8 @@ public class KuduSourceTableConfig implements Serializable {
 
         try (KuduCatalog kuduCatalog = (KuduCatalog) optionalCatalog.get()) {
             kuduCatalog.open();
-            if (config.getOptional(CatalogOptions.TABLE_LIST).isPresent()) {
-                return config.get(CatalogOptions.TABLE_LIST).stream()
+            if (config.getOptional(ConnectorCommonOptions.TABLE_LIST).isPresent()) {
+                return config.get(ConnectorCommonOptions.TABLE_LIST).stream()
                         .map(ReadonlyConfig::fromMap)
                         .map(readonlyConfig -> parseKuduSourceConfig(readonlyConfig, kuduCatalog))
                         .collect(Collectors.toList());
@@ -77,7 +76,7 @@ public class KuduSourceTableConfig implements Serializable {
             ReadonlyConfig config, KuduCatalog kuduCatalog) {
         CatalogTable catalogTable;
         String tableName = config.get(CommonConfig.TABLE_NAME);
-        if (config.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
+        if (config.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
             catalogTable = CatalogTableUtil.buildWithConfig(config);
         } else {
             catalogTable = kuduCatalog.getTable(TablePath.of(config.get(CommonConfig.TABLE_NAME)));

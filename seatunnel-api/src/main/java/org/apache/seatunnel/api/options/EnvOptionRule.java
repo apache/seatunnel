@@ -15,26 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.env;
+package org.apache.seatunnel.api.options;
 
-import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
 
-public class EnvOptionRule {
+import com.google.auto.service.AutoService;
 
-    public static OptionRule getEnvOptionRules() {
+@AutoService(Factory.class)
+public class EnvOptionRule implements Factory {
+
+    @Override
+    public String factoryIdentifier() {
+        return "EnvOptionRule";
+    }
+
+    @Override
+    public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(EnvCommonOptions.JOB_MODE)
                 .optional(
                         EnvCommonOptions.JOB_NAME,
-                        CommonOptions.PARALLELISM,
+                        EnvCommonOptions.PARALLELISM,
+                        EnvCommonOptions.JOB_RETRY_TIMES,
+                        EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS,
                         EnvCommonOptions.JARS,
                         EnvCommonOptions.CHECKPOINT_INTERVAL,
                         EnvCommonOptions.CHECKPOINT_TIMEOUT,
                         EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND,
                         EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND,
                         EnvCommonOptions.SAVEMODE_EXECUTE_LOCATION,
-                        EnvCommonOptions.CUSTOM_PARAMETERS)
+                        EnvCommonOptions.CUSTOM_PARAMETERS,
+                        EnvCommonOptions.NODE_TAG_FILTER)
                 .build();
     }
 }

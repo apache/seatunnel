@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -32,7 +33,6 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.SeaTunnelDataTypeConvertorUtil;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -107,7 +107,7 @@ public class ElasticsearchSource
         List<String> source;
         Map<String, String> arrayColumn;
 
-        if (readonlyConfig.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
+        if (readonlyConfig.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
             // todo: We need to remove the schema in ES.
             log.warn(
                     "The schema config in ElasticSearch source/sink is deprecated, please use source config instead!");

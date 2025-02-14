@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.connector.TableSource;
@@ -29,7 +30,6 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
-import static org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ACCESS_ID;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ACCESS_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ENDPOINT;
@@ -52,7 +52,12 @@ public class MaxcomputeSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(ACCESS_ID, ACCESS_KEY, ENDPOINT)
-                .optional(PARTITION_SPEC, SPLIT_ROW, SCHEMA, PROJECT, READ_COLUMNS)
+                .optional(
+                        PARTITION_SPEC,
+                        SPLIT_ROW,
+                        ConnectorCommonOptions.SCHEMA,
+                        PROJECT,
+                        READ_COLUMNS)
                 .exclusive(TABLE_LIST, TABLE_NAME)
                 .build();
     }
