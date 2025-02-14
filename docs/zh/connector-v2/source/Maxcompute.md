@@ -68,7 +68,7 @@
 
 ### common options
 
-源插件常用参数, 详见 [Source Common Options](../source-common-options.md) .
+源插件常用参数, 详见 [源通用选项](../source-common-options.md) .
 
 ## 示例
 
