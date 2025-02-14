@@ -58,22 +58,22 @@ IoTDB和Spark之间存在节俭版本冲突。因此，您需要执行`rm -f $SP
 
 |            名称             |  类型   | 是否必传 |            默认值             |                                                                            描述                                                                            |
 |-----------------------------|---------|----------|--------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| node_urls                   | String  | 是      | -                              | `IoTDB` cluster address, the format is `"host1:port"` or `"host1:port,host2:port"`                                                                                |
-| username                    | String  | 是      | -                              | `IoTDB` user username                                                                                                                                             |
-| password                    | String  | 是      | -                              | `IoTDB` user password                                                                                                                                             |
-| key_device                  | String  | 是      | -                              | Specify field name of the `IoTDB` deviceId in SeaTunnelRow                                                                                                        |
-| key_timestamp               | String  | 否       | processing time                | Specify field-name of the `IoTDB` timestamp in SeaTunnelRow. If not specified, use processing-time as timestamp                                                   |
-| key_measurement_fields      | Array   | 否       | exclude `device` & `timestamp` | Specify field-name of the `IoTDB` measurement list in SeaTunnelRow. If not specified, include all fields but exclude `device` & `timestamp`                       |
-| storage_group               | Array   | 否       | -                              | Specify device storage group(path prefix) <br/> example: deviceId = ${storage_group} + "." +  ${key_device}                                                       |
-| batch_size                  | Integer | 否       | 1024                           | For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `batch_interval_ms`, the data will be flushed into the IoTDB |
-| max_retries                 | Integer | 否       | -                              | The number of retries to flush failed                                                                                                                             |
-| retry_backoff_multiplier_ms | Integer | 否       | -                              | Using as a multiplier for generating the next delay for backoff                                                                                                   |
-| max_retry_backoff_ms        | Integer | 否       | -                              | The amount of time to wait before attempting to retry a request to `IoTDB`                                                                                        |
-| default_thrift_buffer_size  | Integer | 否       | -                              | Thrift init buffer size in `IoTDB` client                                                                                                                         |
-| max_thrift_frame_size       | Integer | 否       | -                              | Thrift max frame size in `IoTDB` client                                                                                                                           |
-| zone_id                     | string  | 否       | -                              | java.time.ZoneId in `IoTDB` client                                                                                                                                |
-| enable_rpc_compression      | Boolean | 否       | -                              | Enable rpc compression in `IoTDB` client                                                                                                                          |
-| connection_timeout_in_ms    | Integer | 否       | -                              | The maximum time (in ms) to wait when connecting to `IoTDB`                                                                                                       |
+| node_urls                   | String  | 是      | -                              | `IoTDB` 集群地址，格式为 `"host1:port"` 或 `"host1:port,host2:port"`                                                                                |
+| username                    | String  | 是      | -                              | `IoTDB` 用户的用户名                                                                                                                                             |
+| password                    | String  | 是      | -                              | `IoTDB` 用户的密码                                                                                                                                             |
+| key_device                  | String  | 是      | -                              | 在SeaTunnelRow中指定`IoTDB`设备ID的字段名                                                                                                        |
+| key_timestamp               | String  | 否       | processing time                | 在SeaTunnelRow中指定`IoTDB`时间戳的字段名。如果未指定，则使用处理时间作为时间戳                                                   |
+| key_measurement_fields      | Array   | 否       | exclude `device` & `timestamp` | 在SeaTunnelRow中指定`IoTDB`测量列表的字段名称。如果未指定，则包括所有字段，但排除 `device` & `timestamp`                       |
+| storage_group               | Array   | 否       | -                              | 指定设备存储组（路径前缀） <br/> 例如: deviceId = ${storage_group} + "." +  ${key_device}                                                       |
+| batch_size                  | Integer | 否       | 1024                           | 对于批写入，当缓冲区的数量达到`batch_size`的数量或时间达到`batch_interval_ms`时，数据将被刷新到IoTDB中 |
+| max_retries                 | Integer | 否       | -                              | 刷新的重试次数 failed                                                                                                                             |
+| retry_backoff_multiplier_ms | Integer | 否       | -                              | 用作生成下一个退避延迟的乘数                                                                                                   |
+| max_retry_backoff_ms        | Integer | 否       | -                              | 尝试重试对`IoTDB`的请求之前等待的时间量                                                                                        |
+| default_thrift_buffer_size  | Integer | 否       | -                              | 在`IoTDB`客户端中节省初始化缓冲区大小                                                                                                                         |
+| max_thrift_frame_size       | Integer | 否       | -                              | 在`IoTDB`客户端中节约最大帧大小                                                                                                                           |
+| zone_id                     | string  | 否       | -                              | `IoTDB` java.time.ZoneId  client                                                                                                                                |
+| enable_rpc_compression      | Boolean | 否       | -                              | 在`IoTDB`客户端中启用rpc压缩                                                                                                                          |
+| connection_timeout_in_ms    | Integer | 否       | -                              | 连接到`IoTDB`时等待的最长时间（毫秒）                                                                                                       |
 | common-options              |         | 否       | -                              | Sink插件常用参数，详见[Sink common Options]（../Sink common Options.md）                                        |
 
 ## 示例
@@ -217,5 +217,5 @@ IoTDB> SELECT * FROM root.test_group.* align by device;
   - 支持sql拆分忽略案例
   - 支持将拆分偏移量恢复到至少一次
   - 支持从RowRecord读取时间戳
-- [BugFix] 固定IoTDB连接器槽NPE ([3080](https://github.com/apache/seatunnel/pull/3080))
+- [BugFix] 固定IoTDB连接器写入NPE ([3080](https://github.com/apache/seatunnel/pull/3080))
 
