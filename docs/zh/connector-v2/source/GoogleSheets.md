@@ -23,11 +23,11 @@
 
 |        名称           |  类型  | 必需 | 默认值 |
 |---------------------|--------|----------|---------------|
-| service_account_key | string | yes      | -             |
-| sheet_id            | string | yes      | -             |
-| sheet_name          | string | yes      | -             |
-| range               | string | yes      | -             |
-| schema              | config | no       | -             |
+| service_account_key | string | 是      | -             |
+| sheet_id            | string | 是      | -             |
+| sheet_name          | string | 是      | -             |
+| range               | string | 是      | -             |
+| schema              | config | 否       | -             |
 
 ### service_account_key [string]
 
@@ -43,13 +43,13 @@ Google表格URL中的表格id
 
 ### range [string]
 
-要导入的图纸范围
+要导入的 sheet 页的范围
 
 ### schema [config]
 
 #### fields [config]
 
-上游数据的模式字段
+上游数据的字段
 
 ## 示例
 
