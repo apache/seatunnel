@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.transform.llm;
 
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
-import org.apache.http.client.HttpClient;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
@@ -37,7 +34,9 @@ import org.apache.seatunnel.transform.nlpmodel.llm.remote.openai.OpenAIModel;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
+
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -46,8 +45,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import static org.mockito.Mockito.when;
 
 public class LLMRequestJsonTest {
 
@@ -216,35 +213,33 @@ public class LLMRequestJsonTest {
                 OBJECT_MAPPER.writeValueAsString(node));
     }
 
-    @Mock
-    private HttpClient httpClient;
-
     @Test
     void testCustomOllamaRequestJson() throws IOException {
 
         MockWebServer mockWebServer = new MockWebServer();
         mockWebServer.start(11434);
-        String jsonResponse = "{\n" +
-                "    \"model\": \"qwen:7b\",\n" +
-                "    \"created_at\": \"2025-02-07T01:22:46.589856Z\",\n" +
-                "    \"message\": {\n" +
-                "        \"role\": \"assistant\",\n" +
-                "        \"content\": \"Based on the information provided in the JSON object, \\\"John\\\" does not inherently indicate if the person is Chinese or American. The name \\\"John\\\" is commonly used across many cultures. To determine a person's nationality based solely on their name, more context would be needed.\"\n" +
-                "    },\n" +
-                "    \"done_reason\": \"stop\",\n" +
-                "    \"done\": true,\n" +
-                "    \"total_duration\": 14435322300,\n" +
-                "    \"load_duration\": 28998200,\n" +
-                "    \"prompt_eval_count\": 34,\n" +
-                "    \"prompt_eval_duration\": 302000000,\n" +
-                "    \"eval_count\": 56,\n" +
-                "    \"eval_duration\": 14102000000\n" +
-                "}";
+        String jsonResponse =
+                "{\n"
+                        + "    \"model\": \"qwen:7b\",\n"
+                        + "    \"created_at\": \"2025-02-07T01:22:46.589856Z\",\n"
+                        + "    \"message\": {\n"
+                        + "        \"role\": \"assistant\",\n"
+                        + "        \"content\": \"Based on the information provided in the JSON object, \\\"John\\\" does not inherently indicate if the person is Chinese or American. The name \\\"John\\\" is commonly used across many cultures. To determine a person's nationality based solely on their name, more context would be needed.\"\n"
+                        + "    },\n"
+                        + "    \"done_reason\": \"stop\",\n"
+                        + "    \"done\": true,\n"
+                        + "    \"total_duration\": 14435322300,\n"
+                        + "    \"load_duration\": 28998200,\n"
+                        + "    \"prompt_eval_count\": 34,\n"
+                        + "    \"prompt_eval_duration\": 302000000,\n"
+                        + "    \"eval_count\": 56,\n"
+                        + "    \"eval_duration\": 14102000000\n"
+                        + "}";
 
-        mockWebServer.enqueue(new MockResponse()
-                .setBody(jsonResponse)
-                .addHeader("Content-Type", "application/json"));
-
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setBody(jsonResponse)
+                        .addHeader("Content-Type", "application/json"));
 
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
