@@ -32,44 +32,44 @@
 
 ## 选项
 
-| 名称                                  | 类型    | 需要 | 默认                                    | 描述                                                                                                                                                            |
+| 名称                                  | 类型    | 是否必传 | 默认值                                    | 描述                                                                                                                                                            |
 |---------------------------------------|---------|----------|--------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | host                                  | string  | 是      | -                                          |                                                                                                                                                                        |
 | port                                  | int     | 是      | -                                          |                                                                                                                                                                        |
 | user                                  | string  | 是      | -                                          |                                                                                                                                                                        |
 | password                              | string  | 是      | -                                          |                                                                                                                                                                        |
 | path                                  | string  | 是      | -                                          |                                                                                                                                                                        |
-| tmp_path                              | string  | 是      | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a FTP dir.                                                      |
-| connection_mode                       | string  | 否       | active_local                               | The target ftp connection mode                                                                                                                                         |
-| custom_filename                       | boolean | 否       | false                                     | Whether you need custom the filename                                                                                                                                   |
-| file_name_expression                  | string  | 否       | "${transactionId}"                         | Only used when custom_filename is true                                                                                                                                 |
-| filename_time_format                  | string  | 否       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                                                                                                 |
+| tmp_path                              | string  | 是      | /tmp/seatunnel                             | 结果文件将首先写入tmp路径，然后使用“mv”将tmp目录提交到目标目录。需要一个FTP目录。                                                      |
+| connection_mode                       | string  | 否       | active_local                               | 目标ftp连接模式                                                                                                                                         |
+| custom_filename                       | boolean | 否       | false                                     | 是否需要自定义文件名                                                                                                                                   |
+| file_name_expression                  | string  | 否       | "${transactionId}"                         | 仅在custom_filename为true时使用                                                                                                                                 |
+| filename_time_format                  | string  | 否       | "yyyy.MM.dd"                               | 仅在custom_filename为true时使用                                                                                                                                 |
 | file_format_type                      | string  | 否       | "csv"                                      |                                                                                                                                                                        |
-| field_delimiter                       | string  | 否       | '\001'                                     | Only used when file_format_type is text                                                                                                                                |
-| row_delimiter                         | string  | 否       | "\n"                                       | Only used when file_format_type is text                                                                                                                                |
-| have_partition                        | boolean | 否       | false                                      | Whether you need processing partitions.                                                                                                                                |
-| partition_by                          | array   | 否       | -                                          | Only used then have_partition is true                                                                                                                                  |
-| partition_dir_expression              | string  | 否       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                                                                                                                                  |
-| is_partition_field_write_in_file      | boolean | 否       | false                                      | Only used then have_partition is true                                                                                                                                  |
-| sink_columns                          | array   | 否       |                                            | When this parameter is empty, all fields are sink columns                                                                                                              |
+| field_delimiter                       | string  | 否       | '\001'                                     | 仅当file_format_type为文本时使用                                                                                                                                |
+| row_delimiter                         | string  | 否       | "\n"                                       | 仅当file_format_type为文本时使用                                                                                                                                |
+| have_partition                        | boolean | 否       | false                                      | 是否需要处理分区。                                                                                                                                |
+| partition_by                          | array   | 否       | -                                          | 只有在have_partition为真时才使用                                                                                                                                  |
+| partition_dir_expression              | string  | 否       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | 只有在have_partition为真时才使用                                                                                                                                  |
+| is_partition_field_write_in_file      | boolean | 否       | false                                      | 只有在have_partition为真时才使用                                                                                                                                  |
+| sink_columns                          | array   | 否       |                                            | 当此参数为空时，所有字段都是接收列                                                                                                              |
 | is_enable_transaction                 | boolean | 否       | true                                       |                                                                                                                                                                        |
 | batch_size                            | int     | 否       | 1000000                                    |                                                                                                                                                                        |
 | compress_codec                        | string  | 否       | none                                       |                                                                                                                                                                        |
 | common-options                        | object  | 否       | -                                          |                                                                                                                                                                        |
-| max_rows_in_memory                    | int     | 否       | -                                          | Only used when file_format_type is excel.                                                                                                                              |
-| sheet_name                            | string  | 否       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                                                                                              |
-| csv_string_quote_mode                 | enum    | 否       | MINIMAL                                    | Only used when file_format is csv.                                                                                                                                     |
-| xml_root_tag                          | string  | 否       | RECORDS                                    | Only used when file_format is xml.                                                                                                                                     |
-| xml_row_tag                           | string  | 否       | RECORD                                     | Only used when file_format is xml.                                                                                                                                     |
-| xml_use_attr_format                   | boolean | 否       | -                                          | Only used when file_format is xml.                                                                                                                                     |
-| single_file_mode                      | boolean | 否       | false                                      | Each parallelism will only output one file. When this parameter is turned on, batch_size will not take effect. The output file name does not have a file block suffix. |
-| create_empty_file_when_no_data        | boolean | 否       | false                                      | When there is no data synchronization upstream, the corresponding data files are still generated.                                                                      |
-| parquet_avro_write_timestamp_as_int96 | boolean | 否       | false                                      | Only used when file_format is parquet.                                                                                                                                 |
-| parquet_avro_write_fixed_as_int96     | array   | 否       | -                                          | Only used when file_format is parquet.                                                                                                                                 |
-| enable_header_write                   | boolean | 否       | false                                      | Only used when file_format_type is text,csv.<br/> false:don't write header,true:write header.                                                                          |
-| encoding                              | string  | 否       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                                                                                  |
-| schema_save_mode                      | string  | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST               | Existing dir processing method                                                                                                                                         |
-| data_save_mode                        | string  | 否       | APPEND_DATA                                | Existing data processing method                                                                                                                                        |
+| max_rows_in_memory                    | int     | 否       | -                                          | 仅当file_format_type为excel时使用。                                                                                                                              |
+| sheet_name                            | string  | 否       | Sheet${Random number}                      | 仅当file_format_type为excel时使用。                                                                                                                              |
+| csv_string_quote_mode                 | enum    | 否       | MINIMAL                                    | 仅在file_format为csv时使用。                                                                                                                                     |
+| xml_root_tag                          | string  | 否       | RECORDS                                    | 仅在file_format为xml时使用                                                                                                                                     |
+| xml_row_tag                           | string  | 否       | RECORD                                     | 仅在file_format为xml时使用                                                                                                                                     |
+| xml_use_attr_format                   | boolean | 否       | -                                          | 仅在file_format为xml时使用                                                                                                                                     |
+| single_file_mode                      | boolean | 否       | false                                      | 每个并行处理只会输出一个文件。启用此参数后，batch_size将不会生效。输出文件名没有文件块后缀。 |
+| create_empty_file_when_no_data        | boolean | 否       | false                                      | 当上游没有数据同步时，仍然会生成相应的数据文件。                                                                      |
+| parquet_avro_write_timestamp_as_int96 | boolean | 否       | false                                      | 仅在file_format为拼花地板时使用。                                                                                                                                 |
+| parquet_avro_write_fixed_as_int96     | array   | 否       | -                                          | 仅在file_format为拼花地板时使用。                                                                                                                                 |
+| enable_header_write                   | boolean | 否       | false                                      | 仅当file_format_type为文本、csv时使用<br/>false：不写标头，true：写标头。                                                                          |
+| encoding                              | string  | 否       | "UTF-8"                                    | 仅当file_format_type为json、text、csv、xml时使用。                                                                                                                  |
+| schema_save_mode                      | string  | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有目录处理方法                                                                                                                                         |
+| data_save_mode                        | string  | 否       | APPEND_DATA                                | 现有数据处理方法                                                                                                                                        |
 
 ### host [string]
 
@@ -107,7 +107,7 @@
 
 仅在以下情况下使用 `custom_filename` 是 `true`
 
-`file_name_expression描述了将在`path`中创建的文件表达式。我们可以在“file_name_expression”中添加变量“${now}”或“${uuid}”，类似于“test”_${uuid}_${现在}`，
+`file_name_expression描述了将在`path`中创建的文件表达式。我们可以在"file_name_expression"中添加变量"${now}"或"${uuid}"，类似于"test"_${uuid}_${现在}`，
 `${now}`表示当前时间，其格式可以通过指定选项`filename_time_format`来定义。
 
 请注意，如果`is_enable_transaction`为`true`，我们将自动添加`${transactionId}_`在文件的开头。
@@ -133,15 +133,15 @@
 
 `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`
 
-请注意，最终文件名将以file_format_type的后缀结尾，文本文件的后缀为“txt”。
+请注意，最终文件名将以file_format_type的后缀结尾，文本文件的后缀为"txt"。
 
 ### field_delimiter [string]
 
-数据行中列之间的分隔符。只需要“文本”文件格式。
+数据行中列之间的分隔符。只需要"text"文件格式。
 
 ### row_delimiter [string]
 
-文件中行之间的分隔符。只需要“文本”文件格式。
+文件中行之间的分隔符。只需要"text"文件格式。
 
 ### have_partition [boolean]
 
@@ -167,11 +167,11 @@
 
 如果`is_partition_field_write_in_file`为`true`，则分区字段及其值将写入数据文件。
 
-例如，如果你想写一个Hive数据文件，它的值应该是“false”。
+例如，如果你想写一个Hive数据文件，它的值应该是"false"。
 
 ### sink_columns [array]
 
-哪些列需要写入文件，默认值是从“Transform”或“Source”获取的所有列。
+哪些列需要写入文件，默认值是从"Transform"或"Source"获取的所有列。
 字段的顺序决定了文件实际写入的顺序。
 
 ### is_enable_transaction [boolean]
@@ -180,11 +180,11 @@
 
 请注意，如果`is_enable_transaction`为`true`，我们将自动添加`${transactionId}_`在文件的开头。
 
-现在只支持“true”。
+现在只支持"true"。
 
 ### batch_size [int]
 
-文件中的最大行数。对于SeaTunnel引擎，文件中的行数由“batch_size”和“checkpoint.interval”共同决定。如果“checkpoint.interval”的值足够大，sink writer将在文件中写入行，直到文件中的行大于“batch_size”。如果“checkpoint.interval”较小，则接收器写入程序将在新的检查点触发时创建一个新文件。
+文件中的最大行数。对于SeaTunnel引擎，文件中的行数由"batch_size"和"checkpoint.interval"共同决定。如果"checkpoint.interval"的值足够大，sink writer将在文件中写入行，直到文件中的行大于"batch_size"。如果"checkpoint.interval"较小，则接收器写入程序将在新的检查点触发时创建一个新文件。
 
 ### compress_codec [string]
 
@@ -254,7 +254,7 @@ Sink插件常用参数，请参考[Sink common Options]（../sink-common-options
 - RECREATE_SCHEMA: 当目录不存在时创建，当目录存在时删除并重新创建
 - CREATE_SCHEMA_WHEN_NOT_EXIST: 将在目录不存在时创建，在目录存在时跳过
 - ERROR_WHEN_SCHEMA_NOT_EXIST: 当目录不存在时，将报告错误
-- IGNORE ：忽略桌子的处理
+- IGNORE ：忽略表的处理
 
 ### data_save_mode [string]
 
@@ -338,7 +338,7 @@ FtpFile {
 
 ```
 
-## 修改日志
+## 更改日志
 
 ### 2.2.0-beta 2022-09-26
 
@@ -348,9 +348,9 @@ FtpFile {
 
 - [BugFix] 修复windows环境下路径错误的bug ([2980](https://github.com/apache/seatunnel/pull/2980))
 - [BugFix] 修复文件系统获取错误 ([3117](https://github.com/apache/seatunnel/pull/3117))
-- [BugFix] 解决了无法从配置文件中将“\t”解析为分隔符的错误 ([3083](https://github.com/apache/seatunnel/pull/3083))
+- [BugFix] 解决了无法从配置文件中将"\t"解析为分隔符的错误 ([3083](https://github.com/apache/seatunnel/pull/3083))
 
-### 下一版本
+### 随后版本
 
 - [BugFix] 修复了以下无法将数据写入文件的错误 ([3258](https://github.com/apache/seatunnel/pull/3258))
   - 当上游的字段为空时，它将抛出NullPointerException
