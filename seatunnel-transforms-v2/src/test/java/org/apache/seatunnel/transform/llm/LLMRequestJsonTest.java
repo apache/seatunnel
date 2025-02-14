@@ -224,7 +224,6 @@ public class LLMRequestJsonTest {
 
         MockWebServer mockWebServer = new MockWebServer();
         mockWebServer.start(11434);
-        // 设置模拟的 JSON 响应
         String jsonResponse = "{\n" +
                 "    \"model\": \"qwen:7b\",\n" +
                 "    \"created_at\": \"2025-02-07T01:22:46.589856Z\",\n" +
@@ -242,7 +241,6 @@ public class LLMRequestJsonTest {
                 "    \"eval_duration\": 14102000000\n" +
                 "}";
 
-        // 向 MockWebServer 添加响应
         mockWebServer.enqueue(new MockResponse()
                 .setBody(jsonResponse)
                 .addHeader("Content-Type", "application/json"));
