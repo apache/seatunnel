@@ -19,7 +19,7 @@ package org.apache.seatunnel.translation.spark.source;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Sets;
 
-import org.apache.seatunnel.api.common.CommonOptions;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
@@ -82,7 +82,7 @@ public class SeaTunnelSourceTable implements Table, SupportsRead {
     @Override
     public ScanBuilder newScanBuilder(CaseInsensitiveStringMap caseInsensitiveStringMap) {
         int parallelism =
-                Integer.parseInt(properties.getOrDefault(CommonOptions.PARALLELISM.key(), "1"));
+                Integer.parseInt(properties.getOrDefault(EnvCommonOptions.PARALLELISM.key(), "1"));
         String applicationId = SparkSession.getActiveSession().get().sparkContext().applicationId();
         return new SeaTunnelScanBuilder(
                 source, parallelism, applicationId, caseInsensitiveStringMap, multiTableManager);

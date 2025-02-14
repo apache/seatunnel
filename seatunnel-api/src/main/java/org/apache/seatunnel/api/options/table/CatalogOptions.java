@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.catalog;
+package org.apache.seatunnel.api.options.table;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
@@ -34,7 +34,7 @@ public interface CatalogOptions {
                     .noDefaultValue()
                     .withDescription("configuration options for the catalog.");
 
-    Option<String> NAME =
+    Option<String> CATALOG_NAME =
             Options.key("name").stringType().noDefaultValue().withDescription("catalog name");
 
     Option<List<String>> TABLE_NAMES =

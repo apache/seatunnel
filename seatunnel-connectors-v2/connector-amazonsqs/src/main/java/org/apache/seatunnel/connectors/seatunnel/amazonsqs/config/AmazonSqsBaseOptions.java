@@ -19,10 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.amazonsqs.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 
 import java.io.Serializable;
 
-public class AmazonSqsBaseOptions implements Serializable {
+public class AmazonSqsBaseOptions extends ConnectorCommonOptions implements Serializable {
 
     public static final String DEFAULT_FIELD_DELIMITER = ",";
 

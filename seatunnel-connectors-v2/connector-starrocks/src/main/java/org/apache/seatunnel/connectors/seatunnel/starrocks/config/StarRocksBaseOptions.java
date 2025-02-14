@@ -14,27 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.ToString;
 
 import java.io.Serializable;
 import java.util.List;
 
-@Getter
-@ToString
-@AllArgsConstructor
-public class CommonConfig implements Serializable {
-
+public class StarRocksBaseOptions implements Serializable {
     public static final String CONNECTOR_IDENTITY = "StarRocks";
-
     public static final Option<List<String>> NODE_URLS =
             Options.key("nodeUrls")
                     .listType()
@@ -65,18 +54,4 @@ public class CommonConfig implements Serializable {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("StarRocks user password");
-
-    private List<String> nodeUrls;
-    private String username;
-    private String password;
-    private String database;
-    private String table;
-
-    public CommonConfig(ReadonlyConfig config) {
-        this.nodeUrls = config.get(NODE_URLS);
-        this.username = config.get(USERNAME);
-        this.password = config.get(PASSWORD);
-        this.database = config.get(DATABASE);
-        this.table = config.get(TABLE);
-    }
 }

@@ -15,29 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
+package org.apache.seatunnel.api.options.table;
+
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public interface StarRocksOptions {
-    Option<String> BASE_URL =
-            Options.key("base-url")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "The JDBC URL like \"jdbc:mysql://localhost:9030/\" or"
-                                    + "\"jdbc:mysql://localhost:9030/\" or \"jdbc:mysql://localhost:9030/db\"");
+import java.util.Map;
 
-    Option<String> USERNAME =
-            Options.key("username")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("StarRocks user username");
+// We should use ColumnOptions instead of FieldOptions
+@Deprecated
+public interface FieldOptions {
 
-    Option<String> PASSWORD =
-            Options.key("password")
-                    .stringType()
+    Option<Map<String, Object>> FIELDS =
+            Options.key("schema.fields")
+                    .type(new TypeReference<Map<String, Object>>() {})
                     .noDefaultValue()
-                    .withDescription("StarRocks user password");
+                    .withDescription("SeaTunnel Schema Fields");
 }

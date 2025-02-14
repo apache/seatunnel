@@ -15,29 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.kerberos;
+package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
+
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 
-public class KerberosConfig {
+import java.util.Map;
 
-    public static final Option<String> KERBEROS_PRINCIPAL =
-            Options.key("kerberos_principal")
-                    .stringType()
+public class AssertSinkOptions extends SinkConnectorCommonOptions {
+
+    public static final Option<Map<String, Object>> RULES =
+            Options.key("rules")
+                    .type(new TypeReference<Map<String, Object>>() {})
                     .noDefaultValue()
-                    .withDescription("When use kerberos, we should set kerberos user principal");
-
-    public static final Option<String> KRB5_PATH =
-            Options.key("krb5_path")
-                    .stringType()
-                    .defaultValue("/etc/krb5.conf")
                     .withDescription(
-                            "When use kerberos, we should set krb5 path file path such as '/seatunnel/krb5.conf' or use the default path '/etc/krb5.conf'");
-
-    public static final Option<String> KERBEROS_KEYTAB_PATH =
-            Options.key("kerberos_keytab_path")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("When using kerberos, We should specify the keytab path");
+                            "Rule definition of user's available data. Each rule represents one field validation or row num validation.");
 }

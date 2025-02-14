@@ -19,10 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 
 import java.io.Serializable;
 
-public class AmazonDynamoDBBaseOptions implements Serializable {
+public class AmazonDynamoDBBaseOptions extends ConnectorCommonOptions implements Serializable {
     public static final Option<String> URL =
             Options.key("url")
                     .stringType()
