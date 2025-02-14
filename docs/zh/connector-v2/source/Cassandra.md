@@ -38,7 +38,7 @@
 
 ### cql [String]
 
-查询cql用于通过Cassandra会话搜索数据.
+查询cql，用于通过Cassandra会话搜索数据.
 
 ### username [string]
 
