@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.fake.config;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -38,7 +38,7 @@ public class MultipleTableFakeSourceConfig implements Serializable {
     @Getter private List<FakeConfig> fakeConfigs;
 
     public MultipleTableFakeSourceConfig(ReadonlyConfig fakeSourceRootConfig) {
-        if (fakeSourceRootConfig.getOptional(TableSchemaOptions.TABLE_CONFIGS).isPresent()) {
+        if (fakeSourceRootConfig.getOptional(ConnectorCommonOptions.TABLE_CONFIGS).isPresent()) {
             parseFromConfigs(fakeSourceRootConfig);
         } else {
             parseFromConfig(fakeSourceRootConfig);
@@ -58,7 +58,7 @@ public class MultipleTableFakeSourceConfig implements Serializable {
 
     private void parseFromConfigs(ReadonlyConfig readonlyConfig) {
         List<ReadonlyConfig> readonlyConfigs =
-                readonlyConfig.getOptional(TableSchemaOptions.TABLE_CONFIGS).get().stream()
+                readonlyConfig.getOptional(ConnectorCommonOptions.TABLE_CONFIGS).get().stream()
                         .map(ReadonlyConfig::fromMap)
                         .collect(Collectors.toList());
         // Use the config outside if it's not set in sub config

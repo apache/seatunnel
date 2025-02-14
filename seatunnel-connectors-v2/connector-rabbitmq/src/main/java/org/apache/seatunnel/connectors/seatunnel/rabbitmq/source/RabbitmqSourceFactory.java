@@ -18,8 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
@@ -54,7 +54,7 @@ public class RabbitmqSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(HOST, PORT, VIRTUAL_HOST, QUEUE_NAME, TableSchemaOptions.SCHEMA)
+                .required(HOST, PORT, VIRTUAL_HOST, QUEUE_NAME, ConnectorCommonOptions.SCHEMA)
                 .bundled(USERNAME, PASSWORD)
                 .optional(
                         URL,

@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.sftp.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.sink.SinkCommonOptions;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -54,7 +54,7 @@ public class SftpFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .optional(BaseSinkConfig.FILE_FORMAT_TYPE)
                 .optional(BaseSinkConfig.SCHEMA_SAVE_MODE)
                 .optional(BaseSinkConfig.DATA_SAVE_MODE)
-                .optional(SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,

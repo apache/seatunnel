@@ -20,10 +20,10 @@ package org.apache.seatunnel.core.starter.flink.execution;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -52,8 +52,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
-import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
-import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_OUTPUT;
+import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAME;
+import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_OUTPUT;
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.ensureJobModeMatch;
 
 @Slf4j
@@ -85,8 +85,8 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
                             WatermarkStrategy.noWatermarks(),
                             String.format("%s-Source", internalSource.getPluginName()));
 
-            if (pluginConfig.hasPath(CommonOptions.PARALLELISM.key())) {
-                int parallelism = pluginConfig.getInt(CommonOptions.PARALLELISM.key());
+            if (pluginConfig.hasPath(EnvCommonOptions.PARALLELISM.key())) {
+                int parallelism = pluginConfig.getInt(EnvCommonOptions.PARALLELISM.key());
                 sourceStream.setParallelism(parallelism);
             }
             sources.add(

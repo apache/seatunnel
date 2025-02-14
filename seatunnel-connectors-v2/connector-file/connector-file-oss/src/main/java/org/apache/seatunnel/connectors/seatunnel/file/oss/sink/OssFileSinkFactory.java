@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.oss.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.sink.SinkCommonOptions;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -106,7 +106,7 @@ public class OssFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .optional(BaseSinkConfig.SINGLE_FILE_MODE)
                 .optional(BaseSinkConfig.BATCH_SIZE)
                 .optional(BaseSinkConfig.CREATE_EMPTY_FILE_WHEN_NO_DATA)
-                .optional(SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
 }

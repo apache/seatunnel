@@ -15,16 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.source;
+package org.apache.seatunnel.connectors.seatunnel.kafka.config;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.env.ParsingMode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonProperty;
 
-public interface SourceOptions {
-    Option<ParsingMode> DAG_PARSING_MODE =
-            Options.key("dag-parsing.mode")
-                    .enumType(ParsingMode.class)
-                    .defaultValue(ParsingMode.SINGLENESS)
-                    .withDescription("Whether to enable parsing support for multi-table source");
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor(force = true)
+public class TableIdentifierConfig {
+
+    @JsonProperty("database_name")
+    private final String databaseName;
+
+    @JsonProperty("schema_name")
+    private final String schemaName;
+
+    @JsonProperty("table_name")
+    private final String tableName;
 }

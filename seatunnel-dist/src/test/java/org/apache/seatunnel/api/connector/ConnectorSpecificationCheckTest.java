@@ -18,8 +18,8 @@
 package org.apache.seatunnel.api.connector;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
@@ -185,7 +185,7 @@ public class ConnectorSpecificationCheckTest {
         Assertions.assertTrue(
                 sinkOptionRule
                         .getOptionalOptions()
-                        .contains(SinkCommonOptions.MULTI_TABLE_SINK_REPLICA),
+                        .contains(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA),
                 "Please add `SinkCommonOptions.MULTI_TABLE_SINK_REPLICA` optional into the `optionRule` method optional of `"
                         + sinkFactory.getClass().getSimpleName()
                         + "`");
