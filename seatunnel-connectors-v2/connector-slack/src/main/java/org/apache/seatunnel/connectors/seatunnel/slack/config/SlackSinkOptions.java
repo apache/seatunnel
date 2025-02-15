@@ -25,7 +25,7 @@ import lombok.Data;
 import java.io.Serializable;
 
 @Data
-public class SlackConfig implements Serializable {
+public class SlackSinkOptions implements Serializable {
 
     public static final Option<String> WEBHOOKS_URL =
             Options.key("webhooks_url")
