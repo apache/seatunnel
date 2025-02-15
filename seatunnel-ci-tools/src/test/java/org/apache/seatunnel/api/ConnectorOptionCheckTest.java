@@ -180,7 +180,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("SlsSinkOptions");
         whiteList.add("DingTalkSinkOptions");
         whiteList.add("Neo4jSinkOptions");
-        whiteList.add("SlackSinkOptions");
         whiteList.add("MaxcomputeSinkOptions");
         whiteList.add("PaimonSinkOptions");
         whiteList.add("TDengineSourceOptions");
