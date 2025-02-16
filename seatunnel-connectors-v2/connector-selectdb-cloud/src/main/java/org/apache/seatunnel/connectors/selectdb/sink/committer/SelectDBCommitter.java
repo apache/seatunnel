@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.connectors.selectdb.sink.committer;
 
-
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig;
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorErrorCode;
@@ -29,9 +29,11 @@ import org.apache.seatunnel.connectors.selectdb.rest.CopySQLUtil;
 import org.apache.seatunnel.connectors.selectdb.sink.HttpPutBuilder;
 import org.apache.seatunnel.connectors.selectdb.util.HttpUtil;
 import org.apache.seatunnel.connectors.selectdb.util.ResponseUtil;
+
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
+
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -54,14 +56,10 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
         this(SelectDBConfig.loadConfig(pluginConfig), HttpUtil.getHttpRedirectClient());
     }
 
-
-
     public SelectDBCommitter(SelectDBConfig selectdbConfig, CloseableHttpClient client) {
         this.selectdbConfig = selectdbConfig;
         this.httpClient = client;
     }
-
-
 
     @Override
     public List<SelectDBCommitInfo> commit(List<SelectDBCommitInfo> commitInfos)
@@ -73,7 +71,6 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
     }
 
     @Override
-
     public void abort(List<SelectDBCommitInfo> commitInfos) throws IOException {
         if (selectdbConfig.isEnableStreamLoad()) {
             for (SelectDBCommitInfo commitInfo : commitInfos) {
@@ -124,10 +121,7 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
             } else {
                 break;
             }
-
         }
-
-
 
         if (statusCode != HTTP_TEMPORARY_REDIRECT) {
             throw new SelectDBConnectorException(
@@ -176,9 +170,8 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
                                 + committable.getCopySQL()
                                 + " with url "
                                 + String.format(
-                                COMMIT_PATTERN, hostPort, committable.getClusterName()));
+                                        COMMIT_PATTERN, hostPort, committable.getClusterName()));
             }
-
         }
 
         ObjectMapper mapper = new ObjectMapper();

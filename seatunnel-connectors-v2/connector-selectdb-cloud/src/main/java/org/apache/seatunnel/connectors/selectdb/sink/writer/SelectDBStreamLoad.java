@@ -1,123 +1,63 @@
 /*
-
  * Licensed to the Apache Software Foundation (ASF) under one or more
-
  * contributor license agreements.  See the NOTICE file distributed with
-
  * this work for additional information regarding copyright ownership.
-
  * The ASF licenses this file to You under the Apache License, Version 2.0
-
  * (the "License"); you may not use this file except in compliance with
-
  * the License.  You may obtain a copy of the License at
-
  *
-
  *    http://www.apache.org/licenses/LICENSE-2.0
-
  *
-
  * Unless required by applicable law or agreed to in writing, software
-
  * distributed under the License is distributed on an "AS IS" BASIS,
-
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-
  * See the License for the specific language governing permissions and
-
  * limitations under the License.
-
  */
-
-
 
 package org.apache.seatunnel.connectors.selectdb.sink.writer;
 
-
-
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
-
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-
 import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
-
-
 import org.apache.seatunnel.api.table.catalog.TablePath;
-
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-
 import org.apache.seatunnel.common.utils.JsonUtils;
-
 import org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig;
-
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorErrorCode;
-
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorException;
-
 import org.apache.seatunnel.connectors.selectdb.rest.models.RespContent;
-
 import org.apache.seatunnel.connectors.selectdb.sink.HttpPutBuilder;
-
 import org.apache.seatunnel.connectors.selectdb.util.ResponseUtil;
 
-
-
 import org.apache.http.client.methods.CloseableHttpResponse;
-
 import org.apache.http.entity.InputStreamEntity;
-
 import org.apache.http.impl.client.CloseableHttpClient;
-
 import org.apache.http.util.EntityUtils;
 
-
-
 import lombok.Getter;
-
 import lombok.extern.slf4j.Slf4j;
 
-
-
 import java.io.IOException;
-
 import java.io.Serializable;
-
 import java.util.HashMap;
-
 import java.util.Map;
-
 import java.util.Properties;
-
 import java.util.concurrent.ExecutorService;
-
 import java.util.concurrent.Future;
-
 import java.util.concurrent.LinkedBlockingQueue;
-
 import java.util.concurrent.ThreadPoolExecutor;
-
 import java.util.concurrent.TimeUnit;
-
 import java.util.regex.Matcher;
 
-
-
 import static org.apache.seatunnel.connectors.selectdb.sink.writer.LoadConstants.LINE_DELIMITER_DEFAULT;
-
 import static org.apache.seatunnel.connectors.selectdb.sink.writer.LoadConstants.LINE_DELIMITER_KEY;
-
 import static org.apache.seatunnel.connectors.selectdb.util.ResponseUtil.LABEL_EXIST_PATTERN;
-
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkState;
 
-
-
 /** load data to doris. */
-
 @Slf4j
-
 public class SelectDBStreamLoad implements Serializable {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -133,8 +73,6 @@ public class SelectDBStreamLoad implements Serializable {
     private static final String ABORT_URL_PATTERN = "http://%s/api/%s/_stream_load_2pc";
 
     private static final String JOB_EXIST_FINISHED = "FINISHED";
-
-
 
     private final String loadUrlStr;
 
@@ -172,16 +110,10 @@ public class SelectDBStreamLoad implements Serializable {
 
     @Getter private long recordCount = 0;
 
-
-
     public SelectDBStreamLoad(
-
             TablePath tablePath,
-
             SelectDBConfig selectDBConfig,
-
             LabelGenerator labelGenerator,
-
             CloseableHttpClient httpClient) {
 
         this.hostPort = selectDBConfig.getLoadUrl();
@@ -209,34 +141,22 @@ public class SelectDBStreamLoad implements Serializable {
         this.httpClient = httpClient;
 
         this.executorService =
-
                 new ThreadPoolExecutor(
-
                         1,
-
                         1,
-
                         0L,
-
                         TimeUnit.MILLISECONDS,
-
                         new LinkedBlockingQueue<>(),
-
                         new ThreadFactoryBuilder().setNameFormat("stream-load-upload").build());
 
         this.recordStream =
-
                 new RecordStream(selectDBConfig.getBufferSize(), selectDBConfig.getBufferCount());
 
         lineDelimiter =
-
                 streamLoadProp.getProperty(LINE_DELIMITER_KEY, LINE_DELIMITER_DEFAULT).getBytes();
 
         loadBatchFirstRecord = true;
-
     }
-
-
 
     public void abortPreCommit(String labelSuffix, long chkID) throws Exception {
 
@@ -253,21 +173,14 @@ public class SelectDBStreamLoad implements Serializable {
                 HttpPutBuilder builder = new HttpPutBuilder();
 
                 builder.setUrl(loadUrlStr)
-
                         .baseAuth(user, passwd)
-
                         .addCommonHeader()
-
                         .enable2PC()
-
                         .setLabel(label)
-
                         .setEmptyEntity()
-
                         .addProperties(streamLoadProp);
 
                 RespContent respContent =
-
                         handlePreCommitResponse(httpClient.execute(builder.build()));
 
                 checkState("true".equals(respContent.getTwoPhaseCommit()));
@@ -279,17 +192,11 @@ public class SelectDBStreamLoad implements Serializable {
                     if (JOB_EXIST_FINISHED.equals(respContent.getExistingJobStatus())) {
 
                         throw new SelectDBConnectorException(
-
                                 SelectDBConnectorErrorCode.STREAM_LOAD_FAILED,
-
                                 "Load status is "
-
                                         + LoadStatus.LABEL_ALREADY_EXIST
-
                                         + " and load job finished, "
-
                                         + "change you label prefix or restore from latest savepoint!");
-
                     }
 
                     // job not finished, abort.
@@ -309,19 +216,12 @@ public class SelectDBStreamLoad implements Serializable {
                     } else {
 
                         throw new SelectDBConnectorException(
-
                                 SelectDBConnectorErrorCode.STREAM_LOAD_FAILED,
-
                                 "Load Status is "
-
                                         + LoadStatus.LABEL_ALREADY_EXIST
-
                                         + ", but no txnID associated with it!"
-
                                         + "response: "
-
                                         + respContent);
-
                     }
 
                 } else {
@@ -331,7 +231,6 @@ public class SelectDBStreamLoad implements Serializable {
                     abortTransaction(respContent.getTxnId());
 
                     break;
-
                 }
 
                 startChkID++;
@@ -341,16 +240,11 @@ public class SelectDBStreamLoad implements Serializable {
                 log.warn("failed to stream load data", e);
 
                 throw e;
-
             }
-
         }
 
         log.info("abort for labelSuffix {} finished", labelSuffix);
-
     }
-
-
 
     public void writeRecord(byte[] record) throws IOException {
 
@@ -365,23 +259,18 @@ public class SelectDBStreamLoad implements Serializable {
         } else {
 
             recordStream.write(lineDelimiter);
-
         }
 
         recordStream.write(record);
 
         recordCount++;
-
     }
-
-
 
     public String getLoadFailedMsg() {
 
         if (!loading) {
 
             return null;
-
         }
 
         if (this.getPendingLoadFuture() != null && this.getPendingLoadFuture().isDone()) {
@@ -395,7 +284,6 @@ public class SelectDBStreamLoad implements Serializable {
             } catch (Exception e) {
 
                 errorMessage = ExceptionUtils.getMessage(e);
-
             }
 
             recordStream.setErrorMessageByStreamLoad(errorMessage);
@@ -405,12 +293,8 @@ public class SelectDBStreamLoad implements Serializable {
         } else {
 
             return null;
-
         }
-
     }
-
-
 
     private RespContent handlePreCommitResponse(CloseableHttpResponse response) throws Exception {
 
@@ -423,16 +307,11 @@ public class SelectDBStreamLoad implements Serializable {
             log.info("load Result {}", loadResult);
 
             return OBJECT_MAPPER.readValue(loadResult, RespContent.class);
-
         }
 
         throw new SelectDBConnectorException(
-
                 SelectDBConnectorErrorCode.STREAM_LOAD_FAILED, response.getStatusLine().toString());
-
     }
-
-
 
     public RespContent stopLoad() throws IOException {
 
@@ -451,24 +330,18 @@ public class SelectDBStreamLoad implements Serializable {
             } catch (Exception e) {
 
                 throw new SelectDBConnectorException(
-
                         SelectDBConnectorErrorCode.STREAM_LOAD_FAILED, e);
 
             } finally {
 
                 pendingLoadFuture = null;
-
             }
 
         } else {
 
             return null;
-
         }
-
     }
-
-
 
     public void startLoad(String label) {
 
@@ -479,10 +352,7 @@ public class SelectDBStreamLoad implements Serializable {
         this.label = label;
 
         this.loading = true;
-
     }
-
-
 
     private void startStreamLoad() {
 
@@ -495,37 +365,25 @@ public class SelectDBStreamLoad implements Serializable {
             InputStreamEntity entity = new InputStreamEntity(recordStream);
 
             putBuilder
-
                     .setUrl(loadUrlStr)
-
                     .baseAuth(user, passwd)
-
                     .addCommonHeader()
-
                     .addHiddenColumns(enableDelete)
-
                     .setLabel(label)
-
                     .setEntity(entity)
-
                     .addProperties(streamLoadProp);
 
             if (enable2PC) {
 
                 putBuilder.enable2PC();
-
             }
 
             pendingLoadFuture =
-
                     executorService.submit(
-
                             () -> {
-
                                 log.info("start execute load");
 
                                 return httpClient.execute(putBuilder.build());
-
                             });
 
         } catch (Exception e) {
@@ -535,32 +393,21 @@ public class SelectDBStreamLoad implements Serializable {
             log.warn(err, e);
 
             throw e;
-
         }
-
     }
-
-
 
     public void abortTransaction(long txnID) throws Exception {
 
         HttpPutBuilder builder = new HttpPutBuilder();
 
         builder.setUrl(abortUrlStr)
-
                 .baseAuth(user, passwd)
-
                 .addCommonHeader()
-
                 .addTxnId(txnID)
-
                 .setEmptyEntity()
-
                 .abort();
 
         CloseableHttpResponse response = httpClient.execute(builder.build());
-
-
 
         int statusCode = response.getStatusLine().getStatusCode();
 
@@ -569,19 +416,13 @@ public class SelectDBStreamLoad implements Serializable {
             log.warn("abort transaction response: " + response.getStatusLine().toString());
 
             throw new SelectDBConnectorException(
-
                     SelectDBConnectorErrorCode.STREAM_LOAD_FAILED,
-
                     "Fail to abort transaction " + txnID + " with url " + abortUrlStr);
-
         }
-
-
 
         String loadResult = EntityUtils.toString(response.getEntity());
 
         Map<String, String> res =
-
                 JsonUtils.parseObject(loadResult, new TypeReference<HashMap<String, String>>() {});
 
         if (!"Success".equals(res.get("status"))) {
@@ -589,20 +430,13 @@ public class SelectDBStreamLoad implements Serializable {
             if (ResponseUtil.isCommitted(res.get("msg"))) {
 
                 throw new SelectDBConnectorException(
-
                         SelectDBConnectorErrorCode.STREAM_LOAD_FAILED,
-
                         "try abort committed transaction, " + "do you recover from old savepoint?");
-
             }
 
             log.warn("Fail to abort transaction. txnId: {}, error: {}", txnID, res.get("msg"));
-
         }
-
     }
-
-
 
     public void close() throws IOException {
 
@@ -615,17 +449,12 @@ public class SelectDBStreamLoad implements Serializable {
             } catch (IOException e) {
 
                 throw new IOException("Closing httpClient failed.", e);
-
             }
-
         }
 
         if (null != executorService) {
 
             executorService.shutdownNow();
-
         }
-
     }
-
 }

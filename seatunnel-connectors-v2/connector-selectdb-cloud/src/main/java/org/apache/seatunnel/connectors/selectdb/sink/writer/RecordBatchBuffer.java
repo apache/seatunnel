@@ -1,77 +1,40 @@
 /*
-
  * Licensed to the Apache Software Foundation (ASF) under one or more
-
  * contributor license agreements.  See the NOTICE file distributed with
-
  * this work for additional information regarding copyright ownership.
-
  * The ASF licenses this file to You under the Apache License, Version 2.0
-
  * (the "License"); you may not use this file except in compliance with
-
  * the License.  You may obtain a copy of the License at
-
  *
-
  *    http://www.apache.org/licenses/LICENSE-2.0
-
  *
-
  * Unless required by applicable law or agreed to in writing, software
-
  * distributed under the License is distributed on an "AS IS" BASIS,
-
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-
  * See the License for the specific language governing permissions and
-
  * limitations under the License.
-
  */
-
-
 
 package org.apache.seatunnel.connectors.selectdb.sink.writer;
 
-
-
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorErrorCode;
-
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorException;
 
-
-
 import lombok.Setter;
-
 import lombok.extern.slf4j.Slf4j;
 
-
-
 import java.io.IOException;
-
 import java.nio.Buffer;
-
 import java.nio.ByteBuffer;
-
 import java.util.concurrent.ArrayBlockingQueue;
-
 import java.util.concurrent.BlockingQueue;
-
 import java.util.concurrent.LinkedBlockingDeque;
-
 import java.util.concurrent.TimeUnit;
-
-
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkState;
 
-
-
 /** Channel of record stream and HTTP data stream. */
-
 @Slf4j
-
 public class RecordBatchBuffer {
 
     private final BlockingQueue<ByteBuffer> writeQueue;
@@ -90,8 +53,6 @@ public class RecordBatchBuffer {
 
     @Setter private volatile String errorMessageByStreamLoad;
 
-
-
     public RecordBatchBuffer(int capacity, int queueSize) {
 
         log.info("init RecordBatchBuffer capacity {}, count {}", capacity, queueSize);
@@ -105,7 +66,6 @@ public class RecordBatchBuffer {
         for (int index = 0; index < queueSize; index++) {
 
             this.writeQueue.add(ByteBuffer.allocate(capacity));
-
         }
 
         readQueue = new LinkedBlockingDeque<>();
@@ -113,19 +73,13 @@ public class RecordBatchBuffer {
         this.bufferCapacity = capacity;
 
         this.queueSize = queueSize;
-
     }
-
-
 
     public void startBufferData() {
 
         log.info(
-
                 "start buffer data, read queue size {}, write queue size {}",
-
                 readQueue.size(),
-
                 writeQueue.size());
 
         checkState(readQueue.isEmpty());
@@ -137,12 +91,8 @@ public class RecordBatchBuffer {
             checkState(byteBuffer.position() == 0);
 
             checkState(byteBuffer.remaining() == bufferCapacity);
-
         }
-
     }
-
-
 
     public void stopBufferData() throws IOException {
 
@@ -163,7 +113,6 @@ public class RecordBatchBuffer {
                 readQueue.put(currentWriteBuffer);
 
                 currentWriteBuffer = null;
-
             }
 
             if (!isEmpty) {
@@ -175,7 +124,6 @@ public class RecordBatchBuffer {
                     checkErrorMessageByStreamLoad();
 
                     byteBuffer = writeQueue.poll(100, TimeUnit.MILLISECONDS);
-
                 }
 
                 ((Buffer) byteBuffer).flip();
@@ -183,18 +131,13 @@ public class RecordBatchBuffer {
                 checkState(byteBuffer.limit() == 0);
 
                 readQueue.put(byteBuffer);
-
             }
 
         } catch (Exception e) {
 
             throw new IOException(e);
-
         }
-
     }
-
-
 
     public void write(byte[] buf) throws InterruptedException {
 
@@ -207,7 +150,6 @@ public class RecordBatchBuffer {
                 checkErrorMessageByStreamLoad();
 
                 currentWriteBuffer = writeQueue.poll(100, TimeUnit.MILLISECONDS);
-
             }
 
             int available = currentWriteBuffer.remaining();
@@ -225,14 +167,10 @@ public class RecordBatchBuffer {
                 readQueue.put(currentWriteBuffer);
 
                 currentWriteBuffer = null;
-
             }
 
         } while (wPos != buf.length);
-
     }
-
-
 
     public int read(byte[] buf) throws InterruptedException {
 
@@ -241,7 +179,6 @@ public class RecordBatchBuffer {
             checkErrorMessageByStreamLoad();
 
             currentReadBuffer = readQueue.poll(100, TimeUnit.MILLISECONDS);
-
         }
 
         // add empty buffer as end flag
@@ -255,7 +192,6 @@ public class RecordBatchBuffer {
             checkState(readQueue.isEmpty());
 
             return -1;
-
         }
 
         int available = currentReadBuffer.remaining();
@@ -269,28 +205,19 @@ public class RecordBatchBuffer {
             recycleBuffer(currentReadBuffer);
 
             currentReadBuffer = null;
-
         }
 
         return nRead;
-
     }
-
-
 
     private void checkErrorMessageByStreamLoad() {
 
         if (errorMessageByStreamLoad != null) {
 
             throw new SelectDBConnectorException(
-
                     SelectDBConnectorErrorCode.STREAM_LOAD_FAILED, errorMessageByStreamLoad);
-
         }
-
     }
-
-
 
     private void recycleBuffer(ByteBuffer buffer) throws InterruptedException {
 
@@ -299,9 +226,6 @@ public class RecordBatchBuffer {
         while (!writeQueue.offer(buffer, 100, TimeUnit.MILLISECONDS)) {
 
             checkErrorMessageByStreamLoad();
-
         }
-
     }
-
 }

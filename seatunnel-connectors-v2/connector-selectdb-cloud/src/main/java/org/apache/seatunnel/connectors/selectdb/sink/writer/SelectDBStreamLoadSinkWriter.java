@@ -1,50 +1,47 @@
 /*
-
  * Licensed to the Apache Software Foundation (ASF) under one or more
-
  * contributor license agreements.  See the NOTICE file distributed with
-
  * this work for additional information regarding copyright ownership.
-
  * The ASF licenses this file to You under the Apache License, Version 2.0
-
  * (the "License"); you may not use this file except in compliance with
-
  * the License.  You may obtain a copy of the License at
-
  *
-
  *    http://www.apache.org/licenses/LICENSE-2.0
-
  *
-
  * Unless required by applicable law or agreed to in writing, software
-
  * distributed under the License is distributed on an "AS IS" BASIS,
-
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-
  * See the License for the specific language governing permissions and
-
  * limitations under the License.
-
  */
-
-
 
 package org.apache.seatunnel.connectors.selectdb.sink.writer;
 
+import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
-import org.apache.seatunnel.connectors.selectdb.util.UnsupportedTypeConverterUtils;import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;import org.apache.seatunnel.api.sink.SinkWriter;import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;import org.apache.seatunnel.api.table.catalog.CatalogTable;import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;import org.apache.seatunnel.api.table.catalog.TablePath;import org.apache.seatunnel.api.table.catalog.TableSchema;import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;import org.apache.seatunnel.api.table.type.SeaTunnelRow;import org.apache.seatunnel.api.table.type.SeaTunnelRowType;import org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig;import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorErrorCode;import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorException;
+import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig;
+import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorErrorCode;
+import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorException;
 import org.apache.seatunnel.connectors.selectdb.rest.models.RespContent;
 import org.apache.seatunnel.connectors.selectdb.schema.SchemaChangeManager;
 import org.apache.seatunnel.connectors.selectdb.serialize.SeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.selectdb.serialize.SelectDBSerializer;
 import org.apache.seatunnel.connectors.selectdb.sink.committer.SelectDBCommitInfo;
 import org.apache.seatunnel.connectors.selectdb.util.HttpUtil;
+import org.apache.seatunnel.connectors.selectdb.util.UnsupportedTypeConverterUtils;
 
 import lombok.extern.slf4j.Slf4j;
-
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -57,23 +54,16 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkState;
 
-
 @Slf4j
-
 public class SelectDBStreamLoadSinkWriter
-
         implements SinkWriter<SeaTunnelRow, SelectDBCommitInfo, SelectDBSinkState>,
-
-        SupportMultiTableSinkWriter<Void>,
-
-        SupportSchemaEvolutionSinkWriter {
+                SupportMultiTableSinkWriter<Void>,
+                SupportSchemaEvolutionSinkWriter {
 
     private static final int INITIAL_DELAY = 200;
     private static final List<String> SUCCESS_STATUS =
-
             new ArrayList<>(Arrays.asList("Success", LoadStatus.PUBLISH_TIMEOUT));
     private long lastCheckpointId;
     private SelectDBStreamLoad selectDBStreamLoad;
@@ -87,41 +77,27 @@ public class SelectDBStreamLoadSinkWriter
     private volatile Exception loadException = null;
     private TableSchema tableSchema;
 
-
     private final TablePath sinkTablePath;
     protected TableSchemaChangeEventDispatcher tableSchemaChanger =
-
             new TableSchemaChangeEventDispatcher();
     private SchemaChangeManager schemaChangeManager;
 
-
     public SelectDBStreamLoadSinkWriter(
-
             Context context,
-
             List<SelectDBSinkState> state,
-
             SeaTunnelRowType seaTunnelRowType,
-
             SelectDBConfig selectDBSinkConfig,
-
             String jobId) {
 
         this.selectDBSinkConfig = selectDBSinkConfig;
         this.seaTunnelRowType = seaTunnelRowType;
         sinkTablePath = TablePath.of(selectDBSinkConfig.getTableIdentifier());
         CatalogTable catalogTable =
-
                 CatalogTableUtil.getCatalogTable(
-
                         selectDBSinkConfig.getCatalog(),
-
                         sinkTablePath.getDatabaseName(),
-
                         selectDBSinkConfig.getSchema(),
-
                         sinkTablePath.getTableName(),
-
                         seaTunnelRowType);
         tableSchema = catalogTable.getTableSchema();
         this.lastCheckpointId = !state.isEmpty() ? state.get(0).getCheckpointId() : 0;
@@ -137,9 +113,7 @@ public class SelectDBStreamLoadSinkWriter
                         + context.getIndexOfSubtask();
         this.labelGenerator = new LabelGenerator(labelPrefix, selectDBSinkConfig.isEnable2PC());
         this.scheduledExecutorService =
-
                 new ScheduledThreadPoolExecutor(
-
                         1, new ThreadFactoryBuilder().setNameFormat("stream-load-check").build());
         this.serializer = createSerializer(selectDBSinkConfig, seaTunnelRowType);
         this.intervalTime = selectDBSinkConfig.getCheckInterval();
@@ -147,14 +121,11 @@ public class SelectDBStreamLoadSinkWriter
         this.initializeLoad();
     }
 
-
-
     private void initializeLoad() {
 
         try {
 
             this.selectDBStreamLoad =
-
                     new SelectDBStreamLoad(
                             TablePath.of(selectDBSinkConfig.getTableIdentifier()),
                             selectDBSinkConfig,

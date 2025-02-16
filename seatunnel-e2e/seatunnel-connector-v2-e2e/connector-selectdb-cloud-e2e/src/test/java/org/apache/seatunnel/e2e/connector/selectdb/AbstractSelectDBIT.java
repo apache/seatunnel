@@ -17,10 +17,11 @@
 
 package org.apache.seatunnel.e2e.connector.selectdb;
 
-import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.containers.GenericContainer;
@@ -28,10 +29,16 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.Driver;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.ResultSet;
 import java.time.Duration;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
@@ -41,10 +48,8 @@ import java.util.stream.Stream;
 import static org.awaitility.Awaitility.given;
 
 /**
-
- * @Title: AbstractSelectDBIT
- * @Author: baolin.guo
- * @Date: 2025/1/24
+ * @Title: AbstractSelectDBIT @Author: baolin.guo @Date: 2025/1/24
+ *
  * @description:
  */
 @Slf4j
@@ -95,13 +100,12 @@ public abstract class AbstractSelectDBIT extends TestSuiteBase implements TestRe
                 .untilAsserted(this::initializeJdbcConnection);
     }
 
-
-
     protected void initializeJdbcConnection()
             throws SQLException, ClassNotFoundException, MalformedURLException,
-            InstantiationException, IllegalAccessException {
+                    InstantiationException, IllegalAccessException {
         URLClassLoader urlClassLoader =
-                new URLClassLoader(new URL[]{new URL(DRIVER_JAR)}, SelectDBIT.class.getClassLoader());
+                new URLClassLoader(
+                        new URL[] {new URL(DRIVER_JAR)}, SelectDBIT.class.getClassLoader());
         Thread.currentThread().setContextClassLoader(urlClassLoader);
         Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
         Properties props = new Properties();

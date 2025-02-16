@@ -17,18 +17,19 @@
 
 package org.apache.seatunnel.e2e.connector.selectdb;
 
-
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -37,18 +38,27 @@ import java.math.BigDecimal;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.sql.*;
-import java.util.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.sql.Driver;
+import java.sql.SQLException;
+import java.util.Objects;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-
-
 /**
- * @Title: SelectDBIT
- * @Author: baolin.guo
- * @Date: 2025/1/24
+ * @Title: SelectDBIT @Author: baolin.guo @Date: 2025/1/24
+ *
  * @description:
  */
 @Slf4j
@@ -207,8 +217,7 @@ public class SelectDBIT extends AbstractSelectDBIT {
         try {
             assertHasData(sourceDB, DUPLICATE_TABLE);
 
-            try (PreparedStatement ps =
-                         conn.prepareStatement(TABLE_SCHEMA_QUERY)) {
+            try (PreparedStatement ps = conn.prepareStatement(TABLE_SCHEMA_QUERY)) {
                 ps.setString(1, sinkDB);
                 ps.setString(2, DUPLICATE_TABLE);
                 try (ResultSet resultSet = ps.executeQuery()) {
@@ -238,8 +247,7 @@ public class SelectDBIT extends AbstractSelectDBIT {
             assertHasData(sourceDB, UNIQUE_TABLE);
             assertHasData(sinkDB, UNIQUE_TABLE);
 
-            PreparedStatement sourcePre =
-                    conn.prepareStatement(TABLE_SCHEMA_QUERY);
+            PreparedStatement sourcePre = conn.prepareStatement(TABLE_SCHEMA_QUERY);
             sourcePre.setString(1, sourceDB);
             sourcePre.setString(2, UNIQUE_TABLE);
             ResultSet sourceResultSet = sourcePre.executeQuery();
@@ -377,8 +385,6 @@ public class SelectDBIT extends AbstractSelectDBIT {
         }
     }
 
-
-
     private void clearUniqueTable() {
         try (Statement statement = conn.createStatement()) {
             statement.execute(String.format("TRUNCATE TABLE %s.%s", sourceDB, UNIQUE_TABLE));
@@ -401,7 +407,7 @@ public class SelectDBIT extends AbstractSelectDBIT {
         try {
             URLClassLoader urlClassLoader =
                     new URLClassLoader(
-                            new URL[]{new URL(DRIVER_JAR)}, SelectDBIT.class.getClassLoader());
+                            new URL[] {new URL(DRIVER_JAR)}, SelectDBIT.class.getClassLoader());
             Thread.currentThread().setContextClassLoader(urlClassLoader);
             Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
             Properties props = new Properties();
@@ -561,7 +567,7 @@ public class SelectDBIT extends AbstractSelectDBIT {
         try {
             conn.setAutoCommit(false);
             try (PreparedStatement preparedStatement =
-                         conn.prepareStatement(INIT_UNIQUE_TABLE_DATA_SQL)) {
+                    conn.prepareStatement(INIT_UNIQUE_TABLE_DATA_SQL)) {
 
                 for (int i = 0; i < rows.size(); i++) {
                     if (i % 10 == 0) {
@@ -592,7 +598,7 @@ public class SelectDBIT extends AbstractSelectDBIT {
         try {
             conn.setAutoCommit(false);
             try (PreparedStatement preparedStatement =
-                         conn.prepareStatement(INIT_DUPLICATE_TABLE_DATA_SQL)) {
+                    conn.prepareStatement(INIT_DUPLICATE_TABLE_DATA_SQL)) {
                 for (int i = 0; i < rows.size(); i++) {
                     for (int index = 0; index < rows.get(i).getFields().length; index++) {
                         preparedStatement.setObject(index + 1, rows.get(i).getFields()[index]);
@@ -644,37 +650,37 @@ public class SelectDBIT extends AbstractSelectDBIT {
         for (int i = 0; i < nums; i++) {
             datas.add(
                     new SeaTunnelRow(
-                            new Object[]{
-                                    Long.valueOf(i),
-                                    GenerateTestData.genInt(),
-                                    GenerateTestData.genBigint(),
-                                    GenerateTestData.genTinyint(),
-                                    GenerateTestData.genSmallint(),
-                                    GenerateTestData.genBigDecimal(18, 6),
-                                    GenerateTestData.genBigInteger(126),
-                                    GenerateTestData.genBoolean(),
-                                    GenerateTestData.genDouble(),
-                                    GenerateTestData.genFloat(0, 1000),
-                                    GenerateTestData.genString(1),
-                                    GenerateTestData.genString(11),
-                                    GenerateTestData.genString(12),
-                                    GenerateTestData.genDatetimeString(false),
-                                    GenerateTestData.genDatetimeString(true),
-                                    GenerateTestData.genDateString(),
-                                    JsonUtils.toJsonString(varcharBooleanMap),
-                                    JsonUtils.toJsonString(charTinyintMap),
-                                    JsonUtils.toJsonString(stringSmallintMap),
-                                    JsonUtils.toJsonString(intIntMap),
-                                    JsonUtils.toJsonString(tinyintBigintMap),
-                                    JsonUtils.toJsonString(smallintLargeintMap),
-                                    JsonUtils.toJsonString(bigintFloatMap),
-                                    JsonUtils.toJsonString(largeintDoubtMap),
-                                    stringDecimalMap,
-                                    decimalDateMap,
-                                    dateDatetimeMap,
-                                    datetimeCharMap,
-                                    charVarcharMap,
-                                    varcharStringMap
+                            new Object[] {
+                                Long.valueOf(i),
+                                GenerateTestData.genInt(),
+                                GenerateTestData.genBigint(),
+                                GenerateTestData.genTinyint(),
+                                GenerateTestData.genSmallint(),
+                                GenerateTestData.genBigDecimal(18, 6),
+                                GenerateTestData.genBigInteger(126),
+                                GenerateTestData.genBoolean(),
+                                GenerateTestData.genDouble(),
+                                GenerateTestData.genFloat(0, 1000),
+                                GenerateTestData.genString(1),
+                                GenerateTestData.genString(11),
+                                GenerateTestData.genString(12),
+                                GenerateTestData.genDatetimeString(false),
+                                GenerateTestData.genDatetimeString(true),
+                                GenerateTestData.genDateString(),
+                                JsonUtils.toJsonString(varcharBooleanMap),
+                                JsonUtils.toJsonString(charTinyintMap),
+                                JsonUtils.toJsonString(stringSmallintMap),
+                                JsonUtils.toJsonString(intIntMap),
+                                JsonUtils.toJsonString(tinyintBigintMap),
+                                JsonUtils.toJsonString(smallintLargeintMap),
+                                JsonUtils.toJsonString(bigintFloatMap),
+                                JsonUtils.toJsonString(largeintDoubtMap),
+                                stringDecimalMap,
+                                decimalDateMap,
+                                dateDatetimeMap,
+                                datetimeCharMap,
+                                charVarcharMap,
+                                varcharStringMap
                             }));
         }
         log.info("generate test data succeed");
@@ -686,46 +692,46 @@ public class SelectDBIT extends AbstractSelectDBIT {
         for (int i = 0; i < nums; i++) {
             datas.add(
                     new SeaTunnelRow(
-                            new Object[]{
-                                    Long.valueOf(i),
-                                    GenerateTestData.genInt(),
-                                    GenerateTestData.genBigint(),
-                                    GenerateTestData.genTinyint(),
-                                    GenerateTestData.genSmallint(),
-                                    GenerateTestData.genBigDecimal(18, 6),
-                                    GenerateTestData.genBigDecimal(28, 10),
-                                    GenerateTestData.genBigInteger(126),
-                                    GenerateTestData.genBoolean(),
-                                    GenerateTestData.genDouble(),
-                                    GenerateTestData.genFloat(0, 1000),
-                                    GenerateTestData.genString(1),
-                                    GenerateTestData.genString(11),
-                                    GenerateTestData.genString(12),
-                                    GenerateTestData.genDatetimeString(false),
-                                    GenerateTestData.genDatetimeString(false),
-                                    GenerateTestData.genDatetimeString(true),
-                                    GenerateTestData.genDateString(),
-                                    GenerateTestData.genDateString(),
-                                    GenerateTestData.genJsonString(),
-                                    GenerateTestData.genJsonString(),
-                                    (new boolean[]{true, true, false}).toString(),
-                                    (new int[]{1, 2, 3}).toString(),
-                                    (new int[]{1, 2, 3}).toString(),
-                                    (new int[]{1, 2, 3}).toString(),
-                                    (new long[]{1L, 2L, 3L}).toString(),
-                                    (new float[]{1.0F, 1.0F, 1.0F}).toString(),
-                                    (new double[]{1.0, 1.0, 1.0}).toString(),
-                                    (new String[]{"1", "1"}).toString(),
-                                    (new String[]{"1", "1"}).toString(),
-                                    (new String[]{"1", "1"}).toString(),
-                                    (new String[]{"1", "1"}).toString(),
-                                    (new BigDecimal[]{
+                            new Object[] {
+                                Long.valueOf(i),
+                                GenerateTestData.genInt(),
+                                GenerateTestData.genBigint(),
+                                GenerateTestData.genTinyint(),
+                                GenerateTestData.genSmallint(),
+                                GenerateTestData.genBigDecimal(18, 6),
+                                GenerateTestData.genBigDecimal(28, 10),
+                                GenerateTestData.genBigInteger(126),
+                                GenerateTestData.genBoolean(),
+                                GenerateTestData.genDouble(),
+                                GenerateTestData.genFloat(0, 1000),
+                                GenerateTestData.genString(1),
+                                GenerateTestData.genString(11),
+                                GenerateTestData.genString(12),
+                                GenerateTestData.genDatetimeString(false),
+                                GenerateTestData.genDatetimeString(false),
+                                GenerateTestData.genDatetimeString(true),
+                                GenerateTestData.genDateString(),
+                                GenerateTestData.genDateString(),
+                                GenerateTestData.genJsonString(),
+                                GenerateTestData.genJsonString(),
+                                (new boolean[] {true, true, false}).toString(),
+                                (new int[] {1, 2, 3}).toString(),
+                                (new int[] {1, 2, 3}).toString(),
+                                (new int[] {1, 2, 3}).toString(),
+                                (new long[] {1L, 2L, 3L}).toString(),
+                                (new float[] {1.0F, 1.0F, 1.0F}).toString(),
+                                (new double[] {1.0, 1.0, 1.0}).toString(),
+                                (new String[] {"1", "1"}).toString(),
+                                (new String[] {"1", "1"}).toString(),
+                                (new String[] {"1", "1"}).toString(),
+                                (new String[] {"1", "1"}).toString(),
+                                (new BigDecimal[] {
                                             new BigDecimal("10.02"), new BigDecimal("10.03")
-                                    })
-                                            .toString(),
-                                    (new String[]{"2020-06-09", "2020-06-10"}).toString(),
-                                    (new String[]{"2020-06-09 12:02:02", "2020-06-10 12:02:02"})
-                                            .toString()
+                                        })
+                                        .toString(),
+                                (new String[] {"2020-06-09", "2020-06-10"}).toString(),
+                                (new String[] {"2020-06-09 12:02:02", "2020-06-10 12:02:02"})
+                                        .toString()
                             }));
         }
         log.info("generate test data succeed");
@@ -785,4 +791,3 @@ public class SelectDBIT extends AbstractSelectDBIT {
         }
     }
 }
-

@@ -16,7 +16,9 @@
  */
 
 package org.apache.seatunnel.connectors.selectdb.sink;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
@@ -47,13 +49,12 @@ import org.apache.seatunnel.connectors.selectdb.sink.writer.SelectDBSinkWriter;
 import org.apache.seatunnel.connectors.selectdb.sink.writer.SelectDBStreamLoadSinkWriter;
 
 import com.google.auto.service.AutoService;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-
-
 
 import static org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig.CLUSTER_NAME;
 import static org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig.JDBC_URL;
@@ -65,9 +66,9 @@ import static org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig.USE
 @AutoService(SeaTunnelSink.class)
 public class SelectDBSink
         implements SeaTunnelSink<
-        SeaTunnelRow, SelectDBSinkState, SelectDBCommitInfo, SelectDBCommitInfo>,
-        SupportMultiTableSink,
-        SupportSchemaEvolutionSink {
+                        SeaTunnelRow, SelectDBSinkState, SelectDBCommitInfo, SelectDBCommitInfo>,
+                SupportMultiTableSink,
+                SupportSchemaEvolutionSink {
     private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
     private String jobId;
@@ -161,7 +162,7 @@ public class SelectDBSink
 
     @Override
     public Optional<SinkAggregatedCommitter<SelectDBCommitInfo, SelectDBCommitInfo>>
-    createAggregatedCommitter() throws IOException {
+            createAggregatedCommitter() throws IOException {
         return Optional.empty();
     }
 

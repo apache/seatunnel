@@ -203,8 +203,8 @@ public abstract class AbstractSelectDBTypeConverter implements TypeConverter<Bas
         if (column.getColumnLength() < POWER_2_8) {
             if (column.getSourceType() != null
                     && column.getSourceType()
-                    .toUpperCase(Locale.ROOT)
-                    .startsWith(SELECTDB_VARCHAR)) {
+                            .toUpperCase(Locale.ROOT)
+                            .startsWith(SELECTDB_VARCHAR)) {
                 builder.columnType(
                         String.format("%s(%s)", SELECTDB_VARCHAR, column.getColumnLength()));
                 builder.dataType(SELECTDB_VARCHAR);

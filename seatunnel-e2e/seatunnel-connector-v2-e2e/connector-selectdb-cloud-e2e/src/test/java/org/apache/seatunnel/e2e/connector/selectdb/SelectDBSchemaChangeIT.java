@@ -15,12 +15,10 @@
  * limitations under the License.
  */
 
-
-
 package org.apache.seatunnel.e2e.connector.selectdb;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatabase;
@@ -30,7 +28,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -40,8 +38,15 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.DriverManager;
+import java.sql.Statement;
+import java.sql.ResultSet;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -51,7 +56,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
-
 
 @Slf4j
 @DisabledOnContainer(
@@ -236,7 +240,6 @@ public class SelectDBSchemaChangeIT extends AbstractSelectDBIT {
                                             String.format(PROJECTION_QUERY, database, sinkTable),
                                             sinkConnection));
                         });
-
     }
 
     private void assertTableStructureAndData(
@@ -337,4 +340,3 @@ public class SelectDBSchemaChangeIT extends AbstractSelectDBIT {
         }
     }
 }
-

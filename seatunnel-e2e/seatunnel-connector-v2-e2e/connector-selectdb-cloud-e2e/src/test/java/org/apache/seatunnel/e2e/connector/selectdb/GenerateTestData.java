@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-
-
 package org.apache.seatunnel.e2e.connector.selectdb;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -135,4 +133,3 @@ public class GenerateTestData {
         }
     }
 }
-
