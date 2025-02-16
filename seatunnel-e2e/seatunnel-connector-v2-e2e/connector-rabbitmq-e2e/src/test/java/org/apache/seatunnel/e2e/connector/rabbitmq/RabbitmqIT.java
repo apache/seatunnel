@@ -28,7 +28,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.client.RabbitmqClient;
-import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -181,7 +181,7 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
 
     private void initRabbitMQ() {
         try {
-            RabbitmqBaseOptions config = new RabbitmqBaseOptions();
+            RabbitmqConfig config = new RabbitmqConfig();
             config.setHost(rabbitmqContainer.getHost());
             config.setPort(rabbitmqContainer.getFirstMappedPort());
             config.setQueueName(QUEUE_NAME);
@@ -200,7 +200,7 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
     private RabbitmqClient initSinkRabbitMQ() {
 
         try {
-            RabbitmqBaseOptions config = new RabbitmqBaseOptions();
+            RabbitmqConfig config = new RabbitmqConfig();
             config.setHost(rabbitmqContainer.getHost());
             config.setPort(rabbitmqContainer.getFirstMappedPort());
             config.setQueueName(SINK_QUEUE_NAME);

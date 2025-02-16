@@ -37,7 +37,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplitEnumeratorState;
@@ -45,12 +45,12 @@ import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.PORT;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.QUEUE_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.VIRTUAL_HOST;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PORT;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.QUEUE_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.VIRTUAL_HOST;
 
 @AutoService(SeaTunnelSource.class)
 public class RabbitmqSource
@@ -59,7 +59,7 @@ public class RabbitmqSource
 
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private JobContext jobContext;
-    private RabbitmqSourceOptions rabbitmqSourceOptions;
+    private RabbitmqConfig rabbitMQConfig;
 
     @Override
     public Boundedness getBoundedness() {
@@ -70,9 +70,7 @@ public class RabbitmqSource
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, "not support batch job mode"));
         }
-        return rabbitmqSourceOptions.isForE2ETesting()
-                ? Boundedness.BOUNDED
-                : Boundedness.UNBOUNDED;
+        return rabbitMQConfig.isForE2ETesting() ? Boundedness.BOUNDED : Boundedness.UNBOUNDED;
     }
 
     @Override
@@ -99,7 +97,7 @@ public class RabbitmqSource
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-        this.rabbitmqSourceOptions = new RabbitmqSourceOptions(config);
+        this.rabbitMQConfig = new RabbitmqConfig(config);
         setDeserialization(config);
     }
 
@@ -111,8 +109,7 @@ public class RabbitmqSource
     @Override
     public SourceReader<SeaTunnelRow, RabbitmqSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
-        return new RabbitmqSourceReader(
-                deserializationSchema, readerContext, rabbitmqSourceOptions);
+        return new RabbitmqSourceReader(deserializationSchema, readerContext, rabbitMQConfig);
     }
 
     @Override

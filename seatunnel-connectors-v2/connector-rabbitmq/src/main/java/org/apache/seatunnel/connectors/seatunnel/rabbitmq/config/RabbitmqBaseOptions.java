@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.config;
 
-import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
@@ -35,62 +32,6 @@ import java.util.Map;
 @Getter
 @AllArgsConstructor
 public class RabbitmqBaseOptions implements Serializable {
-    private String host;
-    private Integer port;
-    private String virtualHost;
-    private String username;
-    private String password;
-    private String uri;
-    private Integer networkRecoveryInterval;
-    private Boolean automaticRecovery;
-    private Boolean topologyRecovery;
-    private Integer connectionTimeout;
-    private String queueName;
-    private Boolean durable;
-    private Boolean exclusive;
-    private Boolean autoDelete;
-    private String routingKey;
-    private boolean logFailuresOnly = false;
-    private String exchange = "";
-    private boolean usesCorrelationId = false;
-    private boolean forE2ETesting = false;
-    private Integer prefetchCount;
-
-    public static final Option<String> HOST =
-            Options.key("host")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the default host to use for connections");
-
-    public static final Option<Integer> PORT =
-            Options.key("port")
-                    .intType()
-                    .noDefaultValue()
-                    .withDescription("the default port to use for connections");
-
-    public static final Option<String> VIRTUAL_HOST =
-            Options.key("virtual_host")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the virtual host to use when connecting to the broker");
-
-    public static final Option<String> USERNAME =
-            Options.key("username")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the AMQP user name to use when connecting to the broker");
-
-    public static final Option<String> PASSWORD =
-            Options.key("password")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the password to use when connecting to the broker");
-
-    public static final Option<String> QUEUE_NAME =
-            Options.key("queue_name")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the queue to write the message to");
 
     public static final Option<String> URL =
             Options.key("url")
@@ -187,56 +128,4 @@ public class RabbitmqBaseOptions implements Serializable {
                     .withDescription(
                             "true: The queue will be deleted automatically when the last consumer unsubscribes."
                                     + "false: The queue will not be automatically deleted.");
-
-    public RabbitmqBaseOptions(Config config) {
-        this.host = config.getString(HOST.key());
-        this.port = config.getInt(PORT.key());
-        this.queueName = config.getString(QUEUE_NAME.key());
-        if (config.hasPath(USERNAME.key())) {
-            this.username = config.getString(USERNAME.key());
-        }
-        if (config.hasPath(PASSWORD.key())) {
-            this.password = config.getString(PASSWORD.key());
-        }
-        if (config.hasPath(VIRTUAL_HOST.key())) {
-            this.virtualHost = config.getString(VIRTUAL_HOST.key());
-        }
-        if (config.hasPath(NETWORK_RECOVERY_INTERVAL.key())) {
-            this.networkRecoveryInterval = config.getInt(NETWORK_RECOVERY_INTERVAL.key());
-        }
-        if (config.hasPath(AUTOMATIC_RECOVERY_ENABLED.key())) {
-            this.automaticRecovery = config.getBoolean(AUTOMATIC_RECOVERY_ENABLED.key());
-        }
-        if (config.hasPath(TOPOLOGY_RECOVERY_ENABLED.key())) {
-            this.topologyRecovery = config.getBoolean(TOPOLOGY_RECOVERY_ENABLED.key());
-        }
-        if (config.hasPath(CONNECTION_TIMEOUT.key())) {
-            this.connectionTimeout = config.getInt(CONNECTION_TIMEOUT.key());
-        }
-
-        if (config.hasPath(ROUTING_KEY.key())) {
-            this.routingKey = config.getString(ROUTING_KEY.key());
-        }
-        if (config.hasPath(EXCHANGE.key())) {
-            this.exchange = config.getString(EXCHANGE.key());
-        }
-        if (config.hasPath(FOR_E2E_TESTING.key())) {
-            this.forE2ETesting = config.getBoolean(FOR_E2E_TESTING.key());
-        }
-        if (config.hasPath(USE_CORRELATION_ID.key())) {
-            this.usesCorrelationId = config.getBoolean(USE_CORRELATION_ID.key());
-        }
-        if (config.hasPath(DURABLE.key())) {
-            this.durable = config.getBoolean(DURABLE.key());
-        }
-        if (config.hasPath(EXCLUSIVE.key())) {
-            this.exclusive = config.getBoolean(EXCLUSIVE.key());
-        }
-        if (config.hasPath(PREFETCH_COUNT.key())) {
-            this.prefetchCount = config.getInt(PREFETCH_COUNT.key());
-        }
-    }
-
-    @VisibleForTesting
-    public RabbitmqBaseOptions() {}
 }

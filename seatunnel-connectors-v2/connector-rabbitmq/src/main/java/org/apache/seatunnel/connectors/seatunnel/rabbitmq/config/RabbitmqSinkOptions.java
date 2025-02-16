@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.config;
 
-import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -33,23 +32,15 @@ import java.util.Map;
 public class RabbitmqSinkOptions extends RabbitmqBaseOptions {
     private final Map<String, Object> sinkOptionProps = new HashMap<>();
 
-    private void parseSinkOptionProperties(Config pluginConfig) {
+    void parseSinkOptionProperties(Config pluginConfig) {
         if (CheckConfigUtil.isValidParam(pluginConfig, RABBITMQ_CONFIG.key())) {
             pluginConfig
                     .getObject(RABBITMQ_CONFIG.key())
                     .forEach(
                             (key, value) -> {
                                 final String configKey = key.toLowerCase();
-                                this.sinkOptionProps.put(configKey, value.unwrapped());
+                                sinkOptionProps.put(configKey, value.unwrapped());
                             });
         }
     }
-
-    public RabbitmqSinkOptions(Config config) {
-        super(config);
-        parseSinkOptionProperties(config);
-    }
-
-    @VisibleForTesting
-    public RabbitmqSinkOptions() {}
 }

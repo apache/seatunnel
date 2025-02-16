@@ -18,8 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.client;
 
 import org.apache.seatunnel.common.Handover;
-import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions;
-import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 
 import org.apache.commons.lang3.StringUtils;
@@ -48,12 +47,12 @@ import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.Rabbi
 @Slf4j
 @AllArgsConstructor
 public class RabbitmqClient {
-    private final RabbitmqBaseOptions config;
+    private final RabbitmqConfig config;
     private final ConnectionFactory connectionFactory;
     private final Connection connection;
     private final Channel channel;
 
-    public RabbitmqClient(RabbitmqBaseOptions config) {
+    public RabbitmqClient(RabbitmqConfig config) {
         this.config = config;
         try {
             this.connectionFactory = getConnectionFactory();
@@ -114,17 +113,17 @@ public class RabbitmqClient {
         if (config.getNetworkRecoveryInterval() != null) {
             factory.setNetworkRecoveryInterval(config.getNetworkRecoveryInterval());
         }
-        if (config instanceof RabbitmqSourceOptions) {
-            RabbitmqSourceOptions sourceConfig = (RabbitmqSourceOptions) config;
-            if (sourceConfig.getRequestedHeartbeat() != null) {
-                factory.setRequestedHeartbeat(sourceConfig.getRequestedHeartbeat());
-            }
-            if (sourceConfig.getRequestedChannelMax() != null) {
-                factory.setRequestedChannelMax(sourceConfig.getRequestedChannelMax());
-            }
-            if (sourceConfig.getRequestedFrameMax() != null) {
-                factory.setRequestedFrameMax(sourceConfig.getRequestedFrameMax());
-            }
+        if (config.getRequestedHeartbeat() != null) {
+            factory.setRequestedHeartbeat(config.getRequestedHeartbeat());
+        }
+        if (config.getTopologyRecovery() != null) {
+            factory.setTopologyRecoveryEnabled(config.getTopologyRecovery());
+        }
+        if (config.getRequestedChannelMax() != null) {
+            factory.setRequestedChannelMax(config.getRequestedChannelMax());
+        }
+        if (config.getRequestedFrameMax() != null) {
+            factory.setRequestedFrameMax(config.getRequestedFrameMax());
         }
         return factory;
     }
@@ -194,8 +193,7 @@ public class RabbitmqClient {
         }
     }
 
-    private void declareQueueDefaults(Channel channel, RabbitmqBaseOptions config)
-            throws IOException {
+    private void declareQueueDefaults(Channel channel, RabbitmqConfig config) throws IOException {
         channel.queueDeclare(
                 config.getQueueName(),
                 config.getDurable(),
