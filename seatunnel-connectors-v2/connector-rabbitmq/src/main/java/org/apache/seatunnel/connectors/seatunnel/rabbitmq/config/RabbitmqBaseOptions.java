@@ -25,8 +25,6 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.io.Serializable;
-import java.util.Collections;
-import java.util.Map;
 
 @Setter
 @Getter
@@ -76,56 +74,4 @@ public class RabbitmqBaseOptions implements Serializable {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("the exchange to publish the message to");
-
-    public static final Option<Boolean> FOR_E2E_TESTING =
-            Options.key("for_e2e_testing")
-                    .booleanType()
-                    .noDefaultValue()
-                    .withDescription("use to recognize E2E mode");
-
-    public static final Option<Map<String, String>> RABBITMQ_CONFIG =
-            Options.key("rabbitmq.config")
-                    .mapType()
-                    .defaultValue(Collections.emptyMap())
-                    .withDescription(
-                            "In addition to the above parameters that must be specified by the RabbitMQ client, the user can also specify multiple non-mandatory parameters for the client, "
-                                    + "covering [all the parameters specified in the official RabbitMQ document](https://www.rabbitmq.com/configure.html).");
-
-    public static final Option<Boolean> USE_CORRELATION_ID =
-            Options.key("use_correlation_id")
-                    .booleanType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Whether the messages received are supplied with a unique"
-                                    + " id to deduplicate messages (in case of failed acknowledgments).");
-
-    public static final Option<Boolean> DURABLE =
-            Options.key("durable")
-                    .booleanType()
-                    .defaultValue(true)
-                    .withDescription(
-                            "true: The queue will survive a server restart."
-                                    + " false: The queue will be deleted on server restart.");
-
-    public static final Option<Boolean> EXCLUSIVE =
-            Options.key("exclusive")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription(
-                            "true: The queue is used only by the current connection and will be deleted when the connection closes."
-                                    + " false: The queue can be used by multiple connections.");
-    public static final Option<Long> PREFETCH_COUNT =
-            Options.key("prefetch_count")
-                    .longType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "prefetchCount the max number of messages to receive without acknowledgement\n");
-
-    public static final Option<Boolean> AUTO_DELETE =
-            Options.key("auto_delete")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription(
-                            "true: The queue will be deleted automatically when the last consumer unsubscribes."
-                                    + "false: The queue will not be automatically deleted.");
 }

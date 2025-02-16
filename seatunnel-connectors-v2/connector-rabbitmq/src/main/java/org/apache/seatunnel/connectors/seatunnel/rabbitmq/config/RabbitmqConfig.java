@@ -29,7 +29,6 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.io.Serializable;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -98,18 +97,47 @@ public class RabbitmqConfig implements Serializable {
                     .noDefaultValue()
                     .withDescription("the password to use when connecting to the broker");
 
-    public static final Option<Map<String, String>> RABBITMQ_CONFIG =
-            Options.key("rabbitmq.config")
-                    .mapType()
-                    .defaultValue(Collections.emptyMap())
+    public static final Option<Boolean> AUTO_DELETE =
+            Options.key("auto_delete")
+                    .booleanType()
+                    .defaultValue(false)
                     .withDescription(
-                            "In addition to the above parameters that must be specified by the RabbitMQ client, the user can also specify multiple non-mandatory parameters for the client, "
-                                    + "covering [all the parameters specified in the official RabbitMQ document](https://www.rabbitmq.com/configure.html).");
+                            "true: The queue will be deleted automatically when the last consumer unsubscribes."
+                                    + "false: The queue will not be automatically deleted.");
+    public static final Option<Boolean> FOR_E2E_TESTING =
+            Options.key("for_e2e_testing")
+                    .booleanType()
+                    .noDefaultValue()
+                    .withDescription("use to recognize E2E mode");
+
+    public static final Option<Boolean> USE_CORRELATION_ID =
+            Options.key("use_correlation_id")
+                    .booleanType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Whether the messages received are supplied with a unique"
+                                    + " id to deduplicate messages (in case of failed acknowledgments).");
+
+    public static final Option<Boolean> DURABLE =
+            Options.key("durable")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "true: The queue will survive a server restart."
+                                    + " false: The queue will be deleted on server restart.");
+
+    public static final Option<Boolean> EXCLUSIVE =
+            Options.key("exclusive")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "true: The queue is used only by the current connection and will be deleted when the connection closes."
+                                    + " false: The queue can be used by multiple connections.");
 
     private void parseSinkOptionProperties(Config pluginConfig) {
-        if (CheckConfigUtil.isValidParam(pluginConfig, RABBITMQ_CONFIG.key())) {
+        if (CheckConfigUtil.isValidParam(pluginConfig, RabbitmqSinkOptions.RABBITMQ_CONFIG.key())) {
             pluginConfig
-                    .getObject(RABBITMQ_CONFIG.key())
+                    .getObject(RabbitmqSinkOptions.RABBITMQ_CONFIG.key())
                     .forEach(
                             (key, value) -> {
                                 final String configKey = key.toLowerCase();
@@ -154,21 +182,20 @@ public class RabbitmqConfig implements Serializable {
         if (config.hasPath(RabbitmqBaseOptions.EXCHANGE.key())) {
             this.exchange = config.getString(RabbitmqBaseOptions.EXCHANGE.key());
         }
-        if (config.hasPath(RabbitmqBaseOptions.FOR_E2E_TESTING.key())) {
-            this.forE2ETesting = config.getBoolean(RabbitmqBaseOptions.FOR_E2E_TESTING.key());
+        if (config.hasPath(FOR_E2E_TESTING.key())) {
+            this.forE2ETesting = config.getBoolean(FOR_E2E_TESTING.key());
         }
-        if (config.hasPath(RabbitmqBaseOptions.USE_CORRELATION_ID.key())) {
-            this.usesCorrelationId =
-                    config.getBoolean(RabbitmqBaseOptions.USE_CORRELATION_ID.key());
+        if (config.hasPath(USE_CORRELATION_ID.key())) {
+            this.usesCorrelationId = config.getBoolean(USE_CORRELATION_ID.key());
         }
-        if (config.hasPath(RabbitmqBaseOptions.DURABLE.key())) {
-            this.durable = config.getBoolean(RabbitmqBaseOptions.DURABLE.key());
+        if (config.hasPath(DURABLE.key())) {
+            this.durable = config.getBoolean(DURABLE.key());
         }
-        if (config.hasPath(RabbitmqBaseOptions.EXCLUSIVE.key())) {
-            this.exclusive = config.getBoolean(RabbitmqBaseOptions.EXCLUSIVE.key());
+        if (config.hasPath(EXCLUSIVE.key())) {
+            this.exclusive = config.getBoolean(EXCLUSIVE.key());
         }
-        if (config.hasPath(RabbitmqBaseOptions.PREFETCH_COUNT.key())) {
-            this.prefetchCount = config.getInt(RabbitmqBaseOptions.PREFETCH_COUNT.key());
+        if (config.hasPath(RabbitmqSourceOptions.PREFETCH_COUNT.key())) {
+            this.prefetchCount = config.getInt(RabbitmqSourceOptions.PREFETCH_COUNT.key());
         }
 
         if (config.hasPath(RabbitmqSourceOptions.REQUESTED_CHANNEL_MAX.key())) {

@@ -50,4 +50,10 @@ public class RabbitmqSourceOptions extends RabbitmqBaseOptions {
                     .intType()
                     .noDefaultValue()
                     .withDescription("deliveryTimeout maximum wait time");
+    public static final Option<Long> PREFETCH_COUNT =
+            Options.key("prefetch_count")
+                    .longType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "prefetchCount the max number of messages to receive without acknowledgement\n");
 }

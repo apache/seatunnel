@@ -17,9 +17,23 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.config;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.Collections;
+import java.util.Map;
+
 @Setter
 @Getter
-public class RabbitmqSinkOptions extends RabbitmqBaseOptions {}
+public class RabbitmqSinkOptions extends RabbitmqBaseOptions {
+    public static final Option<Map<String, String>> RABBITMQ_CONFIG =
+            Options.key("rabbitmq.config")
+                    .mapType()
+                    .defaultValue(Collections.emptyMap())
+                    .withDescription(
+                            "In addition to the above parameters that must be specified by the RabbitMQ client, the user can also specify multiple non-mandatory parameters for the client, "
+                                    + "covering [all the parameters specified in the official RabbitMQ document](https://www.rabbitmq.com/configure.html).");
+}
