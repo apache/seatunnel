@@ -201,7 +201,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("QdrantSinkOptions");
         whiteList.add("MilvusSourceOptions");
         whiteList.add("RocketMqSinkOptions");
-        whiteList.add("ClickhouseFileSinkOptions");
         whiteList.add("IcebergSinkOptions");
         whiteList.add("MaxcomputeSourceOptions");
         whiteList.add("InfluxDBSourceOptions");
@@ -209,12 +208,10 @@ public class ConnectorOptionCheckTest {
         whiteList.add("KuduSourceOptions");
         whiteList.add("SocketSinkOptions");
         whiteList.add("DataHubSinkOptions");
-        whiteList.add("ClickhouseSinkOptions");
         whiteList.add("SelectDBSinkOptions");
         whiteList.add("ConsoleSinkOptions");
         whiteList.add("PrometheusSinkOptions");
         whiteList.add("FirestoreSinkOptions");
-        whiteList.add("ClickhouseSourceOptions");
         whiteList.add("MilvusSinkOptions");
         whiteList.add("RocketMqSourceOptions");
         whiteList.add("TablestoreSinkOptions");

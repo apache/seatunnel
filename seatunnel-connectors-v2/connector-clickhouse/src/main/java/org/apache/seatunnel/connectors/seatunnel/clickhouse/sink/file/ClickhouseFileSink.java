@@ -30,7 +30,6 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -46,7 +45,6 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseProxy
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseUtil;
 
 import com.clickhouse.client.ClickHouseNode;
-import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -55,29 +53,32 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.CLICKHOUSE_LOCAL_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.COMPATIBLE_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.COPY_METHOD;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.FILE_FIELDS_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.FILE_TEMP_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.KEY_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.NODE_ADDRESS;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.NODE_FREE_PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.NODE_PASS;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SERVER_TIME_ZONE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SHARDING_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.SERVER_TIME_ZONE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileSinkOptions.CLICKHOUSE_LOCAL_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileSinkOptions.COMPATIBLE_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileSinkOptions.COPY_METHOD;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileSinkOptions.FILE_FIELDS_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileSinkOptions.FILE_TEMP_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileSinkOptions.KEY_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileSinkOptions.NODE_ADDRESS;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileSinkOptions.NODE_FREE_PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileSinkOptions.NODE_PASS;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.SHARDING_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.TABLE;
 
-@AutoService(SeaTunnelSink.class)
 public class ClickhouseFileSink
         implements SeaTunnelSink<
                 SeaTunnelRow, ClickhouseSinkState, CKFileCommitInfo, CKFileAggCommitInfo> {
 
     private FileReaderOption readerOption;
+
+    public ClickhouseFileSink(FileReaderOption readerOption) {
+        this.readerOption = readerOption;
+    }
 
     @Override
     public String getPluginName() {
@@ -190,11 +191,6 @@ public class ClickhouseFileSink
                         config.getString(FILE_TEMP_PATH.key()),
                         config.getString(FILE_FIELDS_DELIMITER.key()),
                         config.getString(KEY_PATH.key()));
-    }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.readerOption.setSeaTunnelRowType(seaTunnelRowType);
     }
 
     @Override
