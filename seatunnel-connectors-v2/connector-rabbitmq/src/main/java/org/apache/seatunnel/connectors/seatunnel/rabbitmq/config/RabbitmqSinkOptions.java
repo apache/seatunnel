@@ -17,30 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.HashMap;
-import java.util.Map;
-
 @Setter
 @Getter
-public class RabbitmqSinkOptions extends RabbitmqBaseOptions {
-    private final Map<String, Object> sinkOptionProps = new HashMap<>();
-
-    void parseSinkOptionProperties(Config pluginConfig) {
-        if (CheckConfigUtil.isValidParam(pluginConfig, RABBITMQ_CONFIG.key())) {
-            pluginConfig
-                    .getObject(RABBITMQ_CONFIG.key())
-                    .forEach(
-                            (key, value) -> {
-                                final String configKey = key.toLowerCase();
-                                sinkOptionProps.put(configKey, value.unwrapped());
-                            });
-        }
-    }
-}
+public class RabbitmqSinkOptions extends RabbitmqBaseOptions {}

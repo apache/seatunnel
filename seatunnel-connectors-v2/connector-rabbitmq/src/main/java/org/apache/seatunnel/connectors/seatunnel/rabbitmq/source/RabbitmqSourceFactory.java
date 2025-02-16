@@ -25,18 +25,18 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.AUTOMATIC_RECOVERY_ENABLED;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.CONNECTION_TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.EXCHANGE;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.NETWORK_RECOVERY_INTERVAL;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.PREFETCH_COUNT;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PORT;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.QUEUE_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.USERNAME;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.VIRTUAL_HOST;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions.AUTOMATIC_RECOVERY_ENABLED;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions.CONNECTION_TIMEOUT;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions.DELIVERY_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions.EXCHANGE;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions.NETWORK_RECOVERY_INTERVAL;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions.PREFETCH_COUNT;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions.REQUESTED_CHANNEL_MAX;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions.REQUESTED_FRAME_MAX;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions.REQUESTED_HEARTBEAT;

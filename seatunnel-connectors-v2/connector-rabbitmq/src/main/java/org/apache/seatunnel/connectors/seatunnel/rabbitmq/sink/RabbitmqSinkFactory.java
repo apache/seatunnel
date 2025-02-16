@@ -23,13 +23,6 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.AUTOMATIC_RECOVERY_ENABLED;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.CONNECTION_TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.EXCHANGE;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.NETWORK_RECOVERY_INTERVAL;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.ROUTING_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.TOPOLOGY_RECOVERY_ENABLED;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions.URL;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PORT;
@@ -37,6 +30,13 @@ import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.Rabbitmq
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.RABBITMQ_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.USERNAME;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.VIRTUAL_HOST;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSinkOptions.AUTOMATIC_RECOVERY_ENABLED;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSinkOptions.CONNECTION_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSinkOptions.EXCHANGE;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSinkOptions.NETWORK_RECOVERY_INTERVAL;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSinkOptions.ROUTING_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSinkOptions.TOPOLOGY_RECOVERY_ENABLED;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSinkOptions.URL;
 
 @AutoService(Factory.class)
 public class RabbitmqSinkFactory implements TableSinkFactory {
