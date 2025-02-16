@@ -20,8 +20,11 @@ package org.apache.seatunnel.connectors.selectdb.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum SelectDBConnectorErrorCode implements SeaTunnelErrorCode {
+    STREAM_LOAD_FAILED("SelectDB-00", "stream load error"),
     STAGE_LOAD_FAILED("SelectDB-01", "stage load file error"),
-    COMMIT_FAILED("SelectDB-02", "commit error");
+    COMMIT_FAILED("SelectDB-02", "commit error"),
+    SCHEMA_CHANGE_FAILED("SelectDB-03", "schema change failed"),
+    ;
 
     private final String code;
     private final String description;

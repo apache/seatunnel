@@ -21,11 +21,24 @@ package org.apache.seatunnel.connectors.selectdb.sink.writer;
 public class LabelGenerator {
     private String labelPrefix;
 
+    private boolean enable2PC;
+
     public LabelGenerator(String labelPrefix) {
         this.labelPrefix = labelPrefix;
     }
 
+    public LabelGenerator(String labelPrefix, boolean enable2PC) {
+        this.labelPrefix = labelPrefix;
+        this.enable2PC = enable2PC;
+    }
+
     public String generateLabel(long chkId, int fileNum) {
         return labelPrefix + "_" + chkId + "_" + fileNum;
+    }
+
+    public String generateLabel(long chkId) {
+        return enable2PC
+                ? labelPrefix + "_" + chkId
+                : labelPrefix + "_" + System.currentTimeMillis();
     }
 }

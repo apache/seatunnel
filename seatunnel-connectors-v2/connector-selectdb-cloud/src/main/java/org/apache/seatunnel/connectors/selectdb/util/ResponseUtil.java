@@ -30,11 +30,20 @@ public class ResponseUtil {
                     "errCode = 2, detailMessage = No files can be copied, matched (\\d+) files, "
                             + "filtered (\\d+) files because files may be loading or loaded");
 
+    public static final Pattern STREAMLOAD_COMMITTED_PATTERN =
+            Pattern.compile(
+                    "errCode = 2, detailMessage = transaction \\[(\\d+)\\] "
+                            + "is already \\b(COMMITTED|committed|VISIBLE|visible)\\b, not pre-committed.");
+
     public static final String RETRY_COMMIT =
             "submit task failed, queue size is full: SQL submitter with block policy";
 
     public static boolean isCommitted(String msg) {
         return COMMITTED_PATTERN.matcher(msg).matches();
+    }
+
+    public static boolean isStreamLoadCommitted(String msg) {
+        return STREAMLOAD_COMMITTED_PATTERN.matcher(msg).matches();
     }
 
     public static boolean needRetryCommit(String msg) {

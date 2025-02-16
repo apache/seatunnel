@@ -16,9 +16,7 @@
  */
 
 package org.apache.seatunnel.connectors.selectdb.sink;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
@@ -27,12 +25,18 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig;
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorException;
 import org.apache.seatunnel.connectors.selectdb.sink.committer.SelectDBCommitInfo;
 import org.apache.seatunnel.connectors.selectdb.sink.committer.SelectDBCommitInfoSerializer;
@@ -40,24 +44,30 @@ import org.apache.seatunnel.connectors.selectdb.sink.committer.SelectDBCommitter
 import org.apache.seatunnel.connectors.selectdb.sink.writer.SelectDBSinkState;
 import org.apache.seatunnel.connectors.selectdb.sink.writer.SelectDBSinkStateSerializer;
 import org.apache.seatunnel.connectors.selectdb.sink.writer.SelectDBSinkWriter;
+import org.apache.seatunnel.connectors.selectdb.sink.writer.SelectDBStreamLoadSinkWriter;
 
 import com.google.auto.service.AutoService;
-
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+
+
 import static org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig.CLUSTER_NAME;
 import static org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig.JDBC_URL;
 import static org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig.LOAD_URL;
+import static org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig.SINK_ENABLE_STREAM_LOAD;
 import static org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig.TABLE_IDENTIFIER;
 import static org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig.USERNAME;
 
 @AutoService(SeaTunnelSink.class)
 public class SelectDBSink
         implements SeaTunnelSink<
-                SeaTunnelRow, SelectDBSinkState, SelectDBCommitInfo, SelectDBCommitInfo> {
+        SeaTunnelRow, SelectDBSinkState, SelectDBCommitInfo, SelectDBCommitInfo>,
+        SupportMultiTableSink,
+        SupportSchemaEvolutionSink {
     private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
     private String jobId;
@@ -100,6 +110,15 @@ public class SelectDBSink
     @Override
     public SinkWriter<SeaTunnelRow, SelectDBCommitInfo, SelectDBSinkState> createWriter(
             SinkWriter.Context context) throws IOException {
+        if (pluginConfig.hasPath(SINK_ENABLE_STREAM_LOAD.key())) {
+            return new SelectDBStreamLoadSinkWriter(
+                    context,
+                    Collections.emptyList(),
+                    seaTunnelRowType,
+                    SelectDBConfig.loadConfig(pluginConfig),
+                    jobId);
+        }
+
         SelectDBSinkWriter selectDBSinkWriter =
                 new SelectDBSinkWriter(
                         context, Collections.emptyList(), seaTunnelRowType, pluginConfig, jobId);
@@ -110,6 +129,15 @@ public class SelectDBSink
     @Override
     public SinkWriter<SeaTunnelRow, SelectDBCommitInfo, SelectDBSinkState> restoreWriter(
             SinkWriter.Context context, List<SelectDBSinkState> states) throws IOException {
+        if (pluginConfig.hasPath(SINK_ENABLE_STREAM_LOAD.key())) {
+            return new SelectDBStreamLoadSinkWriter(
+                    context,
+                    states,
+                    seaTunnelRowType,
+                    SelectDBConfig.loadConfig(pluginConfig),
+                    jobId);
+        }
+
         SelectDBSinkWriter selectDBSinkWriter =
                 new SelectDBSinkWriter(context, states, seaTunnelRowType, pluginConfig, jobId);
         selectDBSinkWriter.initializeLoad(states);
@@ -133,7 +161,7 @@ public class SelectDBSink
 
     @Override
     public Optional<SinkAggregatedCommitter<SelectDBCommitInfo, SelectDBCommitInfo>>
-            createAggregatedCommitter() throws IOException {
+    createAggregatedCommitter() throws IOException {
         return Optional.empty();
     }
 
@@ -144,6 +172,24 @@ public class SelectDBSink
 
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
-        return SeaTunnelSink.super.getWriteCatalogTable();
+        SelectDBConfig selectDBConfig = SelectDBConfig.loadConfig(pluginConfig);
+        TablePath tablePath = TablePath.of(selectDBConfig.getTableIdentifier());
+        CatalogTable catalogTable =
+                CatalogTableUtil.getCatalogTable(
+                        selectDBConfig.getCatalog(),
+                        tablePath.getDatabaseName(),
+                        selectDBConfig.getSchema(),
+                        tablePath.getTableName(),
+                        seaTunnelRowType);
+        return Optional.of(catalogTable);
+    }
+
+    @Override
+    public List<SchemaChangeType> supports() {
+        return Arrays.asList(
+                SchemaChangeType.ADD_COLUMN,
+                SchemaChangeType.DROP_COLUMN,
+                SchemaChangeType.RENAME_COLUMN,
+                SchemaChangeType.UPDATE_COLUMN);
     }
 }

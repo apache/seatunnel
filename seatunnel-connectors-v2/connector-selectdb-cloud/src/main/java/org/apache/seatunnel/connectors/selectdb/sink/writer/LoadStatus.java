@@ -21,4 +21,7 @@ package org.apache.seatunnel.connectors.selectdb.sink.writer;
 public class LoadStatus {
     public static final int SUCCESS = 0;
     public static final String FAIL = "1";
+
+    public static final String PUBLISH_TIMEOUT = "Publish Timeout";
+    public static final String LABEL_ALREADY_EXIST = "Label Already Exists";
 }

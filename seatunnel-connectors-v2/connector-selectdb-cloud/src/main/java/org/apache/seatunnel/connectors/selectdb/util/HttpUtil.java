@@ -18,8 +18,10 @@
 package org.apache.seatunnel.connectors.selectdb.util;
 
 import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.DefaultRedirectStrategy;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.protocol.RequestContent;
 
 /** util to build http client. */
 public class HttpUtil {
@@ -30,5 +32,20 @@ public class HttpUtil {
 
     public static CloseableHttpClient getHttpClient() {
         return HTTP_CLIENT_BUILDER.build();
+    }
+
+    private static final HttpClientBuilder HTTP_CLIENT_REDIRECT_BUILDER =
+            HttpClients.custom()
+                    .setRedirectStrategy(
+                            new DefaultRedirectStrategy() {
+                                @Override
+                                protected boolean isRedirectable(String method) {
+                                    return true;
+                                }
+                            })
+                    .addInterceptorLast(new RequestContent(true));
+
+    public static CloseableHttpClient getHttpRedirectClient() {
+        return HTTP_CLIENT_REDIRECT_BUILDER.build();
     }
 }
