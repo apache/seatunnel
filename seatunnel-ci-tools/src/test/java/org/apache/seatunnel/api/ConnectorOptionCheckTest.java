@@ -178,7 +178,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("PulsarSinkOptions");
         whiteList.add("HttpSinkOptions");
         whiteList.add("SlsSinkOptions");
-        whiteList.add("DingTalkSinkOptions");
         whiteList.add("Neo4jSinkOptions");
         whiteList.add("SlackSinkOptions");
         whiteList.add("MaxcomputeSinkOptions");

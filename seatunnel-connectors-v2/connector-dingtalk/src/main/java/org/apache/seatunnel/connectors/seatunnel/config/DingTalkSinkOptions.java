@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class DingTalkConfig {
+public class DingTalkSinkOptions {
 
     public static final Option<String> URL =
             Options.key("url")
