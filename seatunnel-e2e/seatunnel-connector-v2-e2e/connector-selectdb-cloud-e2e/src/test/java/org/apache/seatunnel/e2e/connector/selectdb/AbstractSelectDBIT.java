@@ -20,27 +20,33 @@ package org.apache.seatunnel.e2e.connector.selectdb;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import java.sql.Connection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.sql.*;
+import java.time.Duration;
+import java.util.Properties;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
+import java.util.stream.Stream;
 
-
+import static org.awaitility.Awaitility.given;
 
 /**
 
  * @Title: AbstractSelectDBIT
-
  * @Author: baolin.guo
-
  * @Date: 2025/1/24
-
  * @description:
-
  */
-
 @Slf4j
 public abstract class AbstractSelectDBIT extends TestSuiteBase implements TestResource {
 
