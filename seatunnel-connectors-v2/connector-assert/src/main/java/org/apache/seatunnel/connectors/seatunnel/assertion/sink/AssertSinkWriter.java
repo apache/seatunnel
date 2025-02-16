@@ -68,7 +68,7 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         TABLE_NAMES.add(element.getTableId());
         List<AssertFieldRule> assertFieldRule = null;
         String tableName = null;
-        if (assertFieldRules.size() == 1 && assertRowRules.size() <= 1) {
+        if (assertFieldRules.size() == 1) {
             assertFieldRule = assertFieldRules.values().iterator().next();
         }
         if (assertRowRules.size() == 1) {
@@ -106,8 +106,10 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             assertRowRules.entrySet().stream()
                     .filter(
                             entry ->
-                                    entry.getKey().equals(this.catalogTableName)
-                                            && !entry.getValue().isEmpty())
+                                    !entry.getValue().isEmpty()
+                                            && (assertRowRules.size() == 1
+                                                    || entry.getKey()
+                                                            .equals(this.catalogTableName)))
                     .forEach(
                             entry -> {
                                 List<AssertFieldRule.AssertRule> assertRules = entry.getValue();
