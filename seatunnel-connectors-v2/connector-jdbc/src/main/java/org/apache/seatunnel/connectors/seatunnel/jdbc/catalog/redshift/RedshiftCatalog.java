@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
@@ -32,19 +31,14 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.redshift.
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 public class RedshiftCatalog extends AbstractJdbcCatalog {
 
     private final String SELECT_COLUMNS =
             "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME ='%s' ORDER BY ordinal_position ASC";
-
-    protected final Map<String, Connection> connectionMap;
 
     public RedshiftCatalog(
             String catalogName,
@@ -53,7 +47,6 @@ public class RedshiftCatalog extends AbstractJdbcCatalog {
             JdbcUrlUtil.UrlInfo urlInfo,
             String schema) {
         super(catalogName, username, pwd, urlInfo, schema);
-        this.connectionMap = new ConcurrentHashMap<>();
     }
 
     @Override
@@ -68,19 +61,6 @@ public class RedshiftCatalog extends AbstractJdbcCatalog {
                         + " where table_schema = '%s' and table_name = '%s'",
                 tablePath.getSchemaName(),
                 tablePath.getTableName());
-    }
-
-    @Override
-    public void close() throws CatalogException {
-        for (Map.Entry<String, Connection> entry : connectionMap.entrySet()) {
-            try {
-                entry.getValue().close();
-            } catch (SQLException e) {
-                throw new CatalogException(
-                        String.format("Failed to close %s via JDBC.", entry.getKey()), e);
-            }
-        }
-        super.close();
     }
 
     @Override

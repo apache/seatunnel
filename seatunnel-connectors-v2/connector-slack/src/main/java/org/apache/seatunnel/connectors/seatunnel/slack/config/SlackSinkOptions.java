@@ -15,22 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.config;
+package org.apache.seatunnel.connectors.seatunnel.slack.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class DingTalkConfig {
+import lombok.Data;
 
-    public static final Option<String> URL =
-            Options.key("url")
+import java.io.Serializable;
+
+@Data
+public class SlackSinkOptions implements Serializable {
+
+    public static final Option<String> WEBHOOKS_URL =
+            Options.key("webhooks_url")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription(
-                            "DingTalk robot address format is https://oapi.dingtalk.com/robot/send?access_token=XXXXXX");
-    public static final Option<String> SECRET =
-            Options.key("secret")
+                    .withDescription("Slack webhoooks url");
+
+    public static final Option<String> OAUTH_TOKEN =
+            Options.key("oauth_token")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("DingTalk robot secret");
+                    .withDescription("Slack oauth token");
+
+    public static final Option<String> SLACK_CHANNEL =
+            Options.key("slack_channel")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Slack slack channel");
 }
