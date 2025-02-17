@@ -225,7 +225,7 @@ sink {
 
 - 添加MongoDB源连接器
 
-### 2.3.1-release
+### 2.3.1-发布
 
 - [功能]重构mongodb源连接器([4620](https://github.com/apache/incubator-seatunnel/pull/4620))
 
