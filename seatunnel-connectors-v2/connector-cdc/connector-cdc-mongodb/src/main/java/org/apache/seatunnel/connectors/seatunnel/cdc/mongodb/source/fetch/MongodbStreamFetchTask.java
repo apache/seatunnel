@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbCo
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.offset.ChangeStreamDescriptor;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.offset.ChangeStreamOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils;
 
 import org.apache.kafka.common.utils.SystemTime;
 import org.apache.kafka.common.utils.Time;
@@ -117,7 +118,23 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
         this.taskRunning = true;
         try {
             while (taskRunning) {
-                Optional<BsonDocument> next = Optional.ofNullable(changeStreamCursor.tryNext());
+                Optional<BsonDocument> next;
+                try {
+                    next = Optional.ofNullable(changeStreamCursor.tryNext());
+                } catch (MongoCommandException e) {
+                    if (MongodbUtils.checkIfChangeStreamCursorExpires(e)) {
+                        log.warn("Change stream cursor has expired, trying to recreate cursor");
+                        boolean resumeTokenExpires = MongodbUtils.checkIfResumeTokenExpires(e);
+                        if (resumeTokenExpires) {
+                            log.warn(
+                                    "Resume token has expired, fallback to timestamp restart mode");
+                        }
+                        changeStreamCursor = openChangeStreamCursor(descriptor, resumeTokenExpires);
+                        next = Optional.ofNullable(changeStreamCursor.tryNext());
+                    } else {
+                        throw e;
+                    }
+                }
                 SourceRecord changeRecord = null;
                 if (!next.isPresent()) {
                     long untilNext = nextUpdate - time.milliseconds();
@@ -219,6 +236,11 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
 
     private MongoChangeStreamCursor<BsonDocument> openChangeStreamCursor(
             ChangeStreamDescriptor changeStreamDescriptor) {
+        return openChangeStreamCursor(changeStreamDescriptor, false);
+    }
+
+    private MongoChangeStreamCursor<BsonDocument> openChangeStreamCursor(
+            ChangeStreamDescriptor changeStreamDescriptor, boolean forceTimestampStartup) {
         ChangeStreamOffset offset =
                 new ChangeStreamOffset(streamSplit.getStartupOffset().getOffset());
 
@@ -228,7 +250,7 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
         BsonDocument resumeToken = offset.getResumeToken();
         BsonTimestamp timestamp = offset.getTimestamp();
 
-        if (resumeToken != null) {
+        if (resumeToken != null && !forceTimestampStartup) {
             if (supportsStartAfter) {
                 log.info("Open the change stream after the previous offset: {}", resumeToken);
                 changeStreamIterable.startAfter(resumeToken);
@@ -242,6 +264,11 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
             if (supportsStartAtOperationTime) {
                 log.info("Open the change stream at the timestamp: {}", timestamp);
                 changeStreamIterable.startAtOperationTime(timestamp);
+            } else if (forceTimestampStartup) {
+                log.error("Open change stream failed. Unable to resume from timestamp");
+                throw new MongodbConnectorException(
+                        ILLEGAL_ARGUMENT,
+                        "Open change stream failed. Unable to resume from timestamp");
             } else {
                 log.warn("Open the change stream of the latest offset");
             }
@@ -277,6 +304,9 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
                                 "Unauthorized $changeStream operation: %s %s",
                                 e.getErrorMessage(), e.getErrorCode()));
 
+            } else if (!forceTimestampStartup && MongodbUtils.checkIfResumeTokenExpires(e)) {
+                log.info("Failed to open cursor with resume token, fallback to timestamp startup");
+                return openChangeStreamCursor(changeStreamDescriptor, true);
             } else {
                 throw new MongodbConnectorException(ILLEGAL_ARGUMENT, "Open change stream failed");
             }
