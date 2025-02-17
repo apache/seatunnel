@@ -25,15 +25,15 @@
 
 ### accessId [string]
 
-`accessId` 您的Maxcompute accessId可以从阿里云访问哪个云。
+`accessId` 您的 Maxcompute 密钥 Id 可以从阿里云访问哪个云。
 
 ### accesskey [string]
 
-`accesskey` 您的Maxcompute accessKey可以从阿里云访问哪个云。
+`accesskey` Your Maxcompute 密钥, 可以从阿里云访问哪个云.
 
 ### endpoint [string]
 
-`endpoint` 您的Maxcompute端点以http开头。
+`endpoint` 您的 Maxcompute 端点以 http 开头。
 
 ### project [string]
 
@@ -41,7 +41,7 @@
 
 ### table_name [string]
 
-`table_name` 目标最大计算表名，例如：fake。
+`table_name` 目标Maxcompute表名，例如：fake.
 
 ### partition_spec [string]
 
@@ -80,13 +80,13 @@ CREATE TABLE IF NOT EXISTS `${table}`
 
  您可以使用以下占位符
 
- -database：用于获取上游模式中的数据库
- -table_name：用于获取上游模式中的表名
- -rowtype_fields：用于获取上游模式中的所有字段，我们将自动映射到该字段
+ - database：用于获取上游模式中的数据库
+ - table_name：用于获取上游模式中的表名
+ - rowtype_fields：用于获取上游模式中的所有字段，我们将自动映射到该字段
  MaxCompute的描述
- -rowtype_primary_key：用于获取上游模式中的主键（可能是列表）
- -rowtype_unique_key：用于获取上游模式中的唯一密钥（可能是列表）
- -comment：用于获取上游模式中的表注释
+ - rowtype_primary_key：用于获取上游模式中的主键（可能是列表）
+ - rowtype_unique_key：用于获取上游模式中的唯一密钥（可能是列表）
+ - comment：用于获取上游模式中的表注释
 
 ### schema_save_mode[Enum]
 
