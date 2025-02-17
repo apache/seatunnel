@@ -158,7 +158,7 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
                                     valueDocument);
                 }
 
-                if (changeRecord != null) {
+                if (changeRecord != null && !isBoundedRead()) {
                     queue.enqueue(new DataChangeEvent(changeRecord));
                 }
 
@@ -166,6 +166,10 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
                     ChangeStreamOffset currentOffset;
                     if (changeRecord != null) {
                         currentOffset = new ChangeStreamOffset(getResumeToken(changeRecord));
+                        // The log after the high watermark won't emit.
+                        if (currentOffset.isAtOrBefore(streamSplit.getStopOffset())) {
+                            queue.enqueue(new DataChangeEvent(changeRecord));
+                        }
                     } else {
                         // Heartbeat is not turned on or there is no update event
                         currentOffset = new ChangeStreamOffset(getCurrentClusterTime(mongoClient));
