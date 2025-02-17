@@ -38,7 +38,7 @@ jdbc:TAOS-RS://localhost:6041/
 
 ### password [string]
 
-选择时TD引擎的密码
+选择时TDengine的密码
 
 ### database [string]
 
@@ -46,7 +46,7 @@ jdbc:TAOS-RS://localhost:6041/
 
 ### stable [string]
 
-选择时TD引擎的稳定性
+选择时TDengine的稳定性
 
 ### timezone [string]
 
