@@ -78,7 +78,8 @@ public class ClickhouseFileSinkFactory implements TableSinkFactory {
                         COMPATIBLE_MODE,
                         FILE_FIELDS_DELIMITER,
                         FILE_TEMP_PATH,
-                        KEY_PATH)
+                        KEY_PATH,
+                        SERVER_TIME_ZONE)
                 .build();
     }
 

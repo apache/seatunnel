@@ -31,10 +31,15 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Clickh
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.SERVER_TIME_ZONE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.USERNAME;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.BULK_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.CUSTOM_SQL;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.DATA_SAVE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.PRIMARY_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.SAVE_MODE_CREATE_TEMPLATE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.SCHEMA_SAVE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.SHARDING_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.SPLIT_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.SUPPORT_UPSERT;
@@ -57,16 +62,20 @@ public class ClickhouseSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(HOST, DATABASE, TABLE)
+                .required(HOST, DATABASE, TABLE, USERNAME, PASSWORD)
                 .optional(
+                        SERVER_TIME_ZONE,
                         CLICKHOUSE_CONFIG,
                         BULK_SIZE,
                         SPLIT_MODE,
                         SHARDING_KEY,
                         PRIMARY_KEY,
                         SUPPORT_UPSERT,
-                        ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE)
-                .bundled(USERNAME, PASSWORD)
+                        ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE,
+                        SCHEMA_SAVE_MODE,
+                        DATA_SAVE_MODE,
+                        CUSTOM_SQL,
+                        SAVE_MODE_CREATE_TEMPLATE)
                 .build();
     }
 }
