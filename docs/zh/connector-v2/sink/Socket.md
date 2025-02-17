@@ -16,7 +16,7 @@
 
 用于向Socket Server发送数据。两者都支持流媒体和批处理模式。
 
-> 例如，如果来自上游的数据是[`age:12，name:jared`]，则发送到套接字服务器的内容如下：`{"name"："jared"，"age"：17}`
+> 例如，如果来自上游的数据是[`age:12，name:jared`]，则发送到Socket服务器的内容如下：`{"name"："jared"，"age"：17}`
 
 ## Sink 选项
 
