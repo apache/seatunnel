@@ -83,7 +83,8 @@ public class PaimonSink
         this.paimonHadoopConfiguration = PaimonSecurityContext.loadHadoopConfig(paimonSinkConfig);
         try (PaimonCatalog paimonCatalog = PaimonCatalog.loadPaimonCatalog(readonlyConfig)) {
             paimonCatalog.open();
-            boolean databaseExists = paimonCatalog.databaseExists(this.paimonSinkConfig.getNamespace());
+            boolean databaseExists =
+                    paimonCatalog.databaseExists(this.paimonSinkConfig.getNamespace());
             if (databaseExists) {
                 TablePath tablePath = catalogTable.getTablePath();
                 boolean tableExists = paimonCatalog.tableExists(tablePath);
