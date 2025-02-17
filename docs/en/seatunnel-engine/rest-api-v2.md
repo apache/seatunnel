@@ -36,6 +36,7 @@ seatunnel:
       port: 8080
       context-path: /seatunnel
 ```
+#### HTTPS
 Https can also be configured as follows:
 
 ```yaml

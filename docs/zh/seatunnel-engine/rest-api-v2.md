@@ -35,6 +35,41 @@ seatunnel:
       context-path: /seatunnel
 ```
 
+### HTTPS 配置
+
+除了上面的 HTTP 配置之外，你还可以通过在 `seatunnel.yaml` 中添加以下配置来启用 HTTPS 支持：
+
+```yaml
+seatunnel:
+  engine:
+    http:
+      enable-http: true
+      port: 8080
+      enable-https: true
+      https-port: 8443
+      keystore: /path/to/file.keystore
+      keystore-password: keystore_password
+      key-password: key_password
+```
+
+#### 可选：双向认证
+
+如果需要配置双向（客户端和服务端）认证，只需在上述 HTTPS 配置的基础上增加 truststore 相关配置，如下所示：
+
+```yaml
+seatunnel:
+  engine:
+    http:
+      enable-http: true
+      port: 8080
+      enable-https: true
+      https-port: 8443
+      keystore: /path/to/file.keystore
+      keystore-password: keystore_password
+      key-password: key_password
+      truststore: /path/to/file.truststore
+      truststore-password: truststore_password
+```
 ## API参考
 
 ### 返回Zeta集群的概览
