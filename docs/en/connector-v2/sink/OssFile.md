@@ -42,7 +42,7 @@ If write to `csv`, `text` file type, All column will be string.
 
 ### Orc File Type
 
-| SeaTunnel Data Type  |     Orc Data Type     |
+| SeaTunnel Data Type  | Orc Data Type         |
 |----------------------|-----------------------|
 | STRING               | STRING                |
 | BOOLEAN              | BOOLEAN               |
@@ -64,7 +64,7 @@ If write to `csv`, `text` file type, All column will be string.
 
 ### Parquet File Type
 
-| SeaTunnel Data Type  |   Parquet Data Type   |
+| SeaTunnel Data Type  | Parquet Data Type     |
 |----------------------|-----------------------|
 | STRING               | STRING                |
 | BOOLEAN              | BOOLEAN               |
@@ -111,6 +111,7 @@ If write to `csv`, `text` file type, All column will be string.
 | common-options                        | object  | no       | -                                          |                                                                                                                                                                        |
 | max_rows_in_memory                    | int     | no       | -                                          | Only used when file_format_type is excel.                                                                                                                              |
 | sheet_name                            | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                                                                                              |
+| csv_string_quote_mode                 | enum    | no       | MINIMAL                                    | Only used when file_format is csv.                                                                                                                                     |
 | xml_root_tag                          | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                                                                     |
 | xml_row_tag                           | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                                                                                     |
 | xml_use_attr_format                   | boolean | no       | -                                          | Only used when file_format is xml.                                                                                                                                     |
@@ -252,6 +253,14 @@ When File Format is Excel,The maximum number of data items that can be cached in
 
 Writer the sheet of the workbook
 
+### csv_string_quote_mode [string]
+
+When File Format is CSV,The string quote mode of CSV.
+
+- ALL: All String fields will be quoted.
+- MINIMAL: Quotes fields which contain special characters such as a the field delimiter, quote character or any of the characters in the line separator string.
+- NONE: Never quotes fields. When the delimiter occurs in data, the printer prefixes it with the escape character. If the escape character is not set, format validation throws an exception.
+
 ### xml_root_tag [string]
 
 Specifies the tag name of the root element within the XML file.
@@ -279,7 +288,8 @@ The encoding of the file to write. This param will be parsed by `Charset.forName
 
 ## How to Create an Oss Data Synchronization Jobs
 
-The following example demonstrates how to create a data synchronization job that reads data from Fake Source and writes it to the Oss:
+The following example demonstrates how to create a data synchronization job that reads data from Fake Source and writes
+it to the Oss:
 
 For text file format with `have_partition` and `custom_filename` and `sink_columns`
 
@@ -398,13 +408,15 @@ sink {
   }
 }
 ```
+
 ### enable_header_write [boolean]
 
 Only used when file_format_type is text,csv.false:don't write header,true:write header.
 
 ### Multiple Table
 
-For extract source metadata from upstream, you can use `${database_name}`, `${table_name}` and `${schema_name}` in the path.
+For extract source metadata from upstream, you can use `${database_name}`, `${table_name}` and `${schema_name}` in the
+path.
 
 ```bash
 
@@ -528,14 +540,16 @@ sink {
 
 - [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/seatunnel/pull/2980))
 - [BugFix] Fix filesystem get error ([3117](https://github.com/apache/seatunnel/pull/3117))
-- [BugFix] Solved the bug of can not parse '\t' as delimiter from config file ([3083](https://github.com/apache/seatunnel/pull/3083))
+- [BugFix] Solved the bug of can not parse '\t' as delimiter from config
+  file ([3083](https://github.com/apache/seatunnel/pull/3083))
 
 ### Next version
 
-- [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/seatunnel/pull/3258))
-  - When field from upstream is null it will throw NullPointerException
-  - Sink columns mapping failed
-  - When restore writer from states getting transaction directly failed
+- [BugFix] Fixed the following bugs that failed to write data to
+  files ([3258](https://github.com/apache/seatunnel/pull/3258))
+    - When field from upstream is null it will throw NullPointerException
+    - Sink columns mapping failed
+    - When restore writer from states getting transaction directly failed
 - [Improve] Support setting batch size for every file ([3625](https://github.com/apache/seatunnel/pull/3625))
 - [Improve] Support file compress ([3899](https://github.com/apache/seatunnel/pull/3899))
 

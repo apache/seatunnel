@@ -31,7 +31,7 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.slack.config.SlackConfig;
+import org.apache.seatunnel.connectors.seatunnel.slack.config.SlackSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.slack.exception.SlackConnectorException;
 
 import com.google.auto.service.AutoService;
@@ -67,9 +67,9 @@ public class SlackSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
         CheckResult checkResult =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
-                        SlackConfig.WEBHOOKS_URL.key(),
-                        SlackConfig.OAUTH_TOKEN.key(),
-                        SlackConfig.SLACK_CHANNEL.key());
+                        SlackSinkOptions.WEBHOOKS_URL.key(),
+                        SlackSinkOptions.OAUTH_TOKEN.key(),
+                        SlackSinkOptions.SLACK_CHANNEL.key());
         if (!checkResult.isSuccess()) {
             throw new SlackConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,

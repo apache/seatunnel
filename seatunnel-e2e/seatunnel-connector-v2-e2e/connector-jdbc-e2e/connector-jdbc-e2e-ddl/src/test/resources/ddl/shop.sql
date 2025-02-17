@@ -25,7 +25,7 @@ drop table if exists products;
 -- Create and populate our products using a single insert with many rows
 CREATE TABLE products (
   id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(255) NOT NULL DEFAULT 'SeaTunnel',
+  name VARCHAR(150) NOT NULL DEFAULT 'SeaTunnel',
   description VARCHAR(512),
   weight DECIMAL(8,2)
 );
@@ -33,7 +33,7 @@ CREATE TABLE products (
 drop table if exists mysql_cdc_e2e_sink_table_with_schema_change;
 CREATE TABLE if not exists mysql_cdc_e2e_sink_table_with_schema_change (
  id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,
- name VARCHAR(255) NOT NULL DEFAULT 'SeaTunnel',
+ name VARCHAR(150) NOT NULL DEFAULT 'SeaTunnel',
  description VARCHAR(512),
  weight DECIMAL(8,2)
 );
@@ -41,7 +41,7 @@ CREATE TABLE if not exists mysql_cdc_e2e_sink_table_with_schema_change (
 drop table if exists mysql_cdc_e2e_sink_table_with_schema_change_exactly_once;
 CREATE TABLE if not exists mysql_cdc_e2e_sink_table_with_schema_change_exactly_once (
  id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,
- name VARCHAR(255) NOT NULL DEFAULT 'SeaTunnel',
+ name VARCHAR(150) NOT NULL DEFAULT 'SeaTunnel',
  description VARCHAR(512),
  weight DECIMAL(8,2)
 );

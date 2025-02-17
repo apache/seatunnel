@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchConfig;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source.DefaultSeaTunnelRowDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source.ElasticsearchRecord;
@@ -76,7 +76,7 @@ public class ElasticsearchSourceReader
                 SeaTunnelRowType seaTunnelRowType = split.getSeaTunnelRowType();
                 SeaTunnelRowDeserializer deserializer =
                         new DefaultSeaTunnelRowDeserializer(seaTunnelRowType);
-                SourceConfig sourceIndexInfo = split.getSourceConfig();
+                ElasticsearchConfig sourceIndexInfo = split.getElasticsearchConfig();
                 ScrollResult scrollResult =
                         esRestClient.searchByScroll(
                                 sourceIndexInfo.getIndex(),
@@ -103,11 +103,11 @@ public class ElasticsearchSourceReader
 
     private void outputFromScrollResult(
             ScrollResult scrollResult,
-            SourceConfig sourceConfig,
+            ElasticsearchConfig elasticsearchConfig,
             Collector<SeaTunnelRow> output,
             SeaTunnelRowDeserializer deserializer) {
-        List<String> source = sourceConfig.getSource();
-        String tableId = sourceConfig.getCatalogTable().getTablePath().toString();
+        List<String> source = elasticsearchConfig.getSource();
+        String tableId = elasticsearchConfig.getCatalogTable().getTablePath().toString();
         for (Map<String, Object> doc : scrollResult.getDocs()) {
             SeaTunnelRow seaTunnelRow =
                     deserializer.deserialize(new ElasticsearchRecord(doc, source, tableId));

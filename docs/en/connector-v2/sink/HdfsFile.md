@@ -65,6 +65,7 @@ Output data to hdfs file
 | common-options                        | object  | no       | -                                          | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                              |
 | max_rows_in_memory                    | int     | no       | -                                          | Only used when file_format is excel.When File Format is Excel,The maximum number of data items that can be cached in the memory.                                                                                                                                                                                                                                                                                                                                                         |
 | sheet_name                            | string  | no       | Sheet${Random number}                      | Only used when file_format is excel.Writer the sheet of the workbook                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| csv_string_quote_mode                 | enum    | no       | MINIMAL                                    | Only used when file_format is csv.                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | xml_root_tag                          | string  | no       | RECORDS                                    | Only used when file_format is xml, specifies the tag name of the root element within the XML file.                                                                                                                                                                                                                                                                                                                                                                                       |
 | xml_row_tag                           | string  | no       | RECORD                                     | Only used when file_format is xml, specifies the tag name of the data rows within the XML file                                                                                                                                                                                                                                                                                                                                                                                           |
 | xml_use_attr_format                   | boolean | no       | -                                          | Only used when file_format is xml, specifies Whether to process data using the tag attribute format.                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -124,7 +125,7 @@ source {
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/category/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transform-v2
 }
 
 sink {
@@ -202,6 +203,14 @@ HdfsFile {
 ### enable_header_write [boolean]
 
 Only used when file_format_type is text,csv.false:don't write header,true:write header.
+
+### csv_string_quote_mode [string]
+
+When File Format is CSV,The string quote mode of CSV.
+
+- ALL: All String fields will be quoted.
+- MINIMAL: Quotes fields which contain special characters such as a the field delimiter, quote character or any of the characters in the line separator string.
+- NONE: Never quotes fields. When the delimiter occurs in data, the printer prefixes it with the escape character. If the escape character is not set, format validation throws an exception.
 
 ### For compress simple config
 

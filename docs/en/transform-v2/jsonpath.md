@@ -83,7 +83,8 @@ The data read from source is a table like this json:
     "c_decimal": 10.55,
     "c_date": "2023-10-29",
     "c_datetime": "16:12:43.459",
-    "c_array":["item1", "item2", "item3"]
+    "c_array":["item1", "item2", "item3"],
+    "c_map_array": [{"c_string_1":"c_string_1","c_string_2":"c_string_2","c_string_3":"c_string_3"},{"c_string_1":"c_string_1","c_string_2":"c_string_2","c_string_3":"c_string_3"}]
   }
 }
 ```
@@ -143,11 +144,17 @@ transform {
          "dest_field" = "c1_datetime"
          "dest_type" = "time"
       },
-			{
+      {
          "src_field" = "data"
          "path" = "$.data.c_array"
          "dest_field" = "c1_array"
          "dest_type" = "array<string>"        
+      },
+      {
+        "src_field" = "data"
+        "path" = "$.data.c_map_array"
+        "dest_field" = "c1_map_array"
+        "dest_type" = "array<map<string, string>>"
       }
     ]
   }

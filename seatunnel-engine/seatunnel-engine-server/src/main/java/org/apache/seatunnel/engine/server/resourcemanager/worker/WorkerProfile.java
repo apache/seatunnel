@@ -19,13 +19,13 @@ package org.apache.seatunnel.engine.server.resourcemanager.worker;
 
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SystemLoadInfo;
 import org.apache.seatunnel.engine.server.serializable.ResourceDataSerializerHook;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
-import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.IOException;
@@ -35,7 +35,6 @@ import java.util.Map;
  * Used to describe the status of the current Worker, including address and resource assign status
  */
 @Data
-@AllArgsConstructor
 public class WorkerProfile implements IdentifiedDataSerializable {
 
     private Address address;
@@ -52,9 +51,28 @@ public class WorkerProfile implements IdentifiedDataSerializable {
 
     private Map<String, String> attributes;
 
+    private SystemLoadInfo systemLoadInfo;
+
     public WorkerProfile(Address address) {
         this.address = address;
         this.unassignedResource = new ResourceProfile();
+    }
+
+    public WorkerProfile(
+            Address address,
+            ResourceProfile profile,
+            ResourceProfile unassignedResource,
+            boolean dynamicSlot,
+            SlotProfile[] assignedSlots,
+            SlotProfile[] unassignedSlots,
+            Map<String, String> attributes) {
+        this.address = address;
+        this.profile = profile;
+        this.unassignedResource = unassignedResource;
+        this.dynamicSlot = dynamicSlot;
+        this.assignedSlots = assignedSlots;
+        this.unassignedSlots = unassignedSlots;
+        this.attributes = attributes;
     }
 
     public WorkerProfile() {
@@ -86,6 +104,7 @@ public class WorkerProfile implements IdentifiedDataSerializable {
         }
         out.writeBoolean(dynamicSlot);
         out.writeObject(attributes);
+        out.writeObject(systemLoadInfo);
     }
 
     @Override
@@ -105,5 +124,6 @@ public class WorkerProfile implements IdentifiedDataSerializable {
         }
         dynamicSlot = in.readBoolean();
         attributes = in.readObject();
+        systemLoadInfo = in.readObject();
     }
 }

@@ -38,8 +38,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_INPUT;
-import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_OUTPUT;
+import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_INPUT;
+import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_OUTPUT;
 
 @Slf4j
 public abstract class SparkAbstractPluginExecuteProcessor<T>
@@ -48,7 +48,7 @@ public abstract class SparkAbstractPluginExecuteProcessor<T>
     protected final List<? extends Config> pluginConfigs;
     protected final JobContext jobContext;
     protected final List<T> plugins;
-    protected static final String ENGINE_TYPE = "seatunnel";
+    protected final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
 
     protected SparkAbstractPluginExecuteProcessor(
             SparkRuntimeEnvironment sparkRuntimeEnvironment,
