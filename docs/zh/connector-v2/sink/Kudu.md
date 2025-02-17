@@ -57,7 +57,7 @@
 
 ### 简单示例:
 
-> 以下示例引用了一个名为"kudu"的FakeSource cdc-write-kudu表"kudu_sink_table"
+> 以下示例引用了FakeSource kudu写入表kudu_sink_table
 
 ```hocon
 
