@@ -17,33 +17,28 @@
 
 package org.apache.seatunnel.connectors.seatunnel.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter.Context;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.exception.DingTalkConnectorException;
-
-import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.config.DingTalkConfig.SECRET;
-import static org.apache.seatunnel.connectors.seatunnel.config.DingTalkConfig.URL;
+import static org.apache.seatunnel.connectors.seatunnel.config.DingTalkSinkOptions.SECRET;
+import static org.apache.seatunnel.connectors.seatunnel.config.DingTalkSinkOptions.URL;
 
-/** DingTalk sink class */
-@AutoService(SeaTunnelSink.class)
 public class DingTalkSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
-    private Config pluginConfig;
-    private SeaTunnelRowType seaTunnelRowType;
+    private final ReadonlyConfig pluginConfig;
+    private final CatalogTable catalogTable;
+
+    public DingTalkSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
+        this.pluginConfig = pluginConfig;
+        this.catalogTable = catalogTable;
+    }
 
     @Override
     public String getPluginName() {
@@ -51,33 +46,12 @@ public class DingTalkSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        if (pluginConfig.getIsNull(URL.key())) {
-            throw new DingTalkConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("Config must include column : %s", URL.key()));
-        }
-        if (pluginConfig.getIsNull(SECRET.key())) {
-            throw new DingTalkConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("Config must include column : %s", SECRET.key()));
-        }
-        this.pluginConfig = pluginConfig;
-    }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
-    }
-
-    @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(Context context) throws IOException {
-        return new DingTalkWriter(
-                pluginConfig.getString(URL.key()), pluginConfig.getString(SECRET.key()));
+        return new DingTalkWriter(pluginConfig.get(URL), pluginConfig.get(SECRET));
     }
 
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
-        return super.getWriteCatalogTable();
+        return Optional.of(catalogTable);
     }
 }

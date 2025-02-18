@@ -179,11 +179,6 @@ public class DamengCatalog extends AbstractJdbcCatalog {
         return tablePath.getSchemaAndTableName();
     }
 
-    private List<String> listTables() {
-        List<String> databases = listDatabases();
-        return listTables(databases.get(0));
-    }
-
     @Override
     public List<String> listTables(String databaseName)
             throws CatalogException, DatabaseNotExistException {

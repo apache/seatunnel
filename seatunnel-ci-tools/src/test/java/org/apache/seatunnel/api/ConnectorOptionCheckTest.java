@@ -178,9 +178,7 @@ public class ConnectorOptionCheckTest {
         whiteList.add("PulsarSinkOptions");
         whiteList.add("HttpSinkOptions");
         whiteList.add("SlsSinkOptions");
-        whiteList.add("DingTalkSinkOptions");
         whiteList.add("Neo4jSinkOptions");
-        whiteList.add("SlackSinkOptions");
         whiteList.add("MaxcomputeSinkOptions");
         whiteList.add("PaimonSinkOptions");
         whiteList.add("TDengineSourceOptions");
@@ -208,10 +206,8 @@ public class ConnectorOptionCheckTest {
         whiteList.add("InfluxDBSinkOptions");
         whiteList.add("KuduSourceOptions");
         whiteList.add("SocketSinkOptions");
-        whiteList.add("DataHubSinkOptions");
         whiteList.add("ClickhouseSinkOptions");
         whiteList.add("SelectDBSinkOptions");
-        whiteList.add("ConsoleSinkOptions");
         whiteList.add("PrometheusSinkOptions");
         whiteList.add("FirestoreSinkOptions");
         whiteList.add("ClickhouseSourceOptions");

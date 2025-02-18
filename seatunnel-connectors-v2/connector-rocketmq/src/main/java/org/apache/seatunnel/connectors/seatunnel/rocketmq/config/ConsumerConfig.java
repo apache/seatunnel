@@ -86,4 +86,10 @@ public class ConsumerConfig extends Config {
                     .longType()
                     .defaultValue(DEFAULT_POLL_TIMEOUT_MILLIS)
                     .withDescription("The poll timeout in milliseconds.");
+
+    public static final Option<Boolean> IGNORE_PARSE_ERRORS =
+            Options.key("ignore_parse_errors")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Optional flag to skip parse errors instead of failing.");
 }

@@ -6,7 +6,7 @@ sidebar_position: 11
 
 :::caution warn
 
-推荐使用v2版本的Rest API。 v1 版本已弃用，并将在将来删除。
+推荐使用v2版本的Rest API。 v1 版本已弃用，并将在将来删除。 我们已经默认关闭了v1版本的API，如果您需要使用v1版本，请在`hazelcast.yaml`文件中启用它。
 
 :::
 
@@ -15,7 +15,8 @@ SeaTunnel有一个用于监控的API，可用于查询运行作业的状态和�
 ## 概述
 
 监控API是由运行的web服务提供的，它是节点运行的一部分，每个节点成员都可以提供rest API功能。
-默认情况下，该服务监听端口为5801，该端口可以在hazelcast.yaml中配置，如下所示：
+默认情况下，服务器禁用了RESTful API V1，可以通过在`hazelcast.yaml`文件中设置`rest-api.enabled`配置来启用它。
+该服务监听端口为5801，该端口可以在hazelcast.yaml中配置，如下所示：
 
 ```yaml
 network:
