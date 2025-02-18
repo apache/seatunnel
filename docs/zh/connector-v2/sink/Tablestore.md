@@ -4,7 +4,7 @@
 
 ## 描述
 
-用于将数据写入Tablestore
+用于将数据写入 Tablestore
 
 ## 主要特性
 
@@ -25,19 +25,19 @@
 
 ### end_point [string]
 
-endPoint用于写入Tablestore。
+endPoint 用于写入Tablestore。
 
 ### instanceName [string]
 
-Tablestore的实例名称。
+Tablestore 的实例名称。
 
 ### access_key_id [string]
 
-Tablestore的访问id。
+Tablestore 访问的id。
 
 ### access_key_secret [string]
 
-Tablestore的访问秘密。
+Tablestore 访问的密钥。
 
 ### table [string]
 
@@ -45,9 +45,9 @@ Tablestore的表。
 
 ### primaryKeys [array]
 
-Tablestore的主键。
+Tablestore 的主键。
 
-### common options [ config ]
+### common 选项 [ config ]
 
 Sink插件常用参数，请参考[Sink common Options]（../Sink common Options.md）了解详细信息。
 
