@@ -63,7 +63,7 @@ http://influxdb-host:8086
 
 ### batch_size [int]
 
-对于批量写入，当缓冲区的数量达到 `batch_size` 的数量或时间达到 `checkpoint.interval` 时，数据将被刷新到 influexDB 中
+对于批量写入，当缓冲区的数量达到 `batch_size` 的数量或时间达到 `checkpoint.interval` 时，数据将被刷新到 influxDB 中
 
 ### max_retries [int]
 
@@ -79,7 +79,7 @@ http://influxdb-host:8086
 
 ### connect_timeout_ms [long]
 
-连接到InfluxDB的超时时间（毫秒）
+连接到 InfluxDB 的超时时间（毫秒）
 
 ### common options
 
