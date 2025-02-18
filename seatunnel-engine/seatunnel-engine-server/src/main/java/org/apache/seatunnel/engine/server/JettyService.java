@@ -130,6 +130,7 @@ public class JettyService {
                 seaTunnelConfig.getEngineConfig().getHttpConfig().getKeyPassword());
 
         if (seaTunnelConfig.getEngineConfig().getHttpConfig().isTwoWayAuthEnabled()) {
+            sslContextFactory.setNeedClientAuth(true);
             sslContextFactory.setTrustStorePath(
                     seaTunnelConfig.getEngineConfig().getHttpConfig().getTruststore());
             sslContextFactory.setTrustStorePassword(
