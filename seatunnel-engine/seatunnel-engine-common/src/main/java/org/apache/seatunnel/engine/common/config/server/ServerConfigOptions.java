@@ -91,8 +91,8 @@ public class ServerConfigOptions {
                         .defaultValue(30)
                         .withDescription("The interval (in seconds) of job print event info");
 
-        public static final Option<Integer> EVENT_QUEUE_SIZE =
-                Options.key("event-queue-size")
+        public static final Option<Integer> JOB_EVENT_QUEUE_SIZE =
+                Options.key("job-event-queue-size")
                         .intType()
                         .defaultValue(100)
                         .withDescription("Queue size for storing events");
