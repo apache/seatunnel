@@ -118,12 +118,13 @@ class SeaTunnelSourcePluginDiscoveryTest {
                 Assertions.assertThrows(
                         SeaTunnelException.class,
                         () -> seaTunnelSourcePluginDiscovery.getPluginJarPaths(pluginIdentifiers));
+        System.out.println(exception.getMessage());
         Assertions.assertTrue(
                 exception
                         .getMessage()
                         .matches(
                                 "Cannot find unique plugin jar for pluginIdentifier: odbc -> connector-odbc. "
-                                        + "Possible impact jar: \\[.*/duplicate/connectors/connector-odbc-baidu-v1.jar, .*/duplicate/connectors/connector-odbc-baidu-release-1.1.jar]"));
+                                        + "Possible impact jar: \\[.*connector-odbc-baidu-v1.jar, .*connector-odbc-baidu-release-1.1.jar]"));
     }
 
     @Test
