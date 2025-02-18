@@ -53,6 +53,9 @@ public class PaimonSaveModeHandler extends DefaultSaveModeHandler {
         TablePath tablePath = catalogTable.getTablePath();
         Table paimonTable = ((PaimonCatalog) catalog).getPaimonTable(tablePath);
         // load paimon table and set it into paimon sink
-        this.supportLoadTable.setLoadTable(paimonTable);
+        Table loadTable = this.supportLoadTable.getLoadTable();
+        if (loadTable == null || this.schemaSaveMode == SchemaSaveMode.RECREATE_SCHEMA) {
+            this.supportLoadTable.setLoadTable(paimonTable);
+        }
     }
 }

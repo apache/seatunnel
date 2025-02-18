@@ -19,4 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.sink;
 
 public interface SupportLoadTable<T> {
     void setLoadTable(T table);
+
+    T getLoadTable();
 }

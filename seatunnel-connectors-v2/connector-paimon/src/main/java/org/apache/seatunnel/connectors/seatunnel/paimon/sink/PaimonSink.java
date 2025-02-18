@@ -166,6 +166,11 @@ public class PaimonSink
     }
 
     @Override
+    public Table getLoadTable() {
+        return this.paimonTable;
+    }
+
+    @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
         return Optional.ofNullable(catalogTable);
     }
