@@ -75,7 +75,7 @@ http://influxdb-host:8086
 
 ### max_retry_backoff_ms [int]
 
-向 influexDB 发送重试请求之前的等待时长
+向 influxDB 发送重试请求之前的等待时长
 
 ### connect_timeout_ms [long]
 
