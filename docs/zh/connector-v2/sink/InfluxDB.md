@@ -1,10 +1,10 @@
 # InfluxDB
 
-> InfluxDB数据接收器
+> InfluxDB 数据接收器
 
 ## 描述
 
-将数据写入InfluxDB。
+将数据写入 InfluxDB。
 
 ## 主要特性
 
@@ -30,7 +30,7 @@
 
 ### url
 
-连接到influexDB的url，例如。
+连接到 influexDB 的url，例如
 
 ```
 http://influxdb-host:8086
@@ -38,44 +38,44 @@ http://influxdb-host:8086
 
 ### database [string]
 
-“influexDB”数据库的名称
+`influexDB` 数据库的名称
 
 ### measurement [string]
 
-“influexDB”测量的名称
+`influexDB` 测量的名称
 
 ### username [string]
 
-`influxDB`用户用户名
+`influxDB` 用户名
 
 ### password [string]
 
-`influxDB`用户密码
+`influxDB` 用户密码
 
 ### key_time [string]
 
-在SeaTunnelRow中指定“influexDB”测量时间戳的字段名。如果未指定，则使用处理时间作为时间戳
+在SeaTunnelRow 中指定 `influexDB` 测量时间戳的字段名。如果未指定，则使用处理时间作为时间戳
 
 ### key_tags [array]
 
-指定SeaTunnelRow中“influexDB”测量标记的字段名。
-如果未指定，请包含所有具有“influexDB”测量字段的字段
+指定SeaTunnelRow中 `influexDB` 测量标记的字段名。
+如果未指定，请包含所有具有 `influexDB` 测量字段的字段
 
 ### batch_size [int]
 
-对于批写入，当缓冲区的数量达到“batch_size”的数量或时间达到“checkpoint.interval”时，数据将被刷新到influexDB中
+对于批量写入，当缓冲区的数量达到 `batch_size` 的数量或时间达到 `checkpoint.interval` 时，数据将被刷新到 influexDB 中
 
 ### max_retries [int]
 
-刷新的重试次数失败
+重刷失败的次数
 
 ### retry_backoff_multiplier_ms [int]
 
-用作生成下一个退避延迟的乘数
+用作生成下一个重试回退乘数
 
 ### max_retry_backoff_ms [int]
 
-在尝试重试对`influexDB的请求之前等待的时间量`
+向 influexDB 发送重试请求之前的等待时长
 
 ### connect_timeout_ms [long]
 
