@@ -51,6 +51,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -463,8 +464,8 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         if (resMatchedUrls.size() != 1) {
             throw new SeaTunnelException(
                     String.format(
-                            "Cannot find unique plugin jar for pluginIdentifier: %s -> %s",
-                            pluginName, pluginJarPrefix));
+                            "Cannot find unique plugin jar for pluginIdentifier: %s -> %s. Possible impact jar: %s",
+                            pluginName, pluginJarPrefix, Arrays.asList(targetPluginFiles)));
         } else {
             return Optional.of(resMatchedUrls.get(0));
         }
@@ -486,19 +487,25 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         if (pluginInstanceMap == null) {
             return Optional.empty();
         }
-        List<URL> matchedUrls = new ArrayList<>();
+        List<PluginIdentifier> matchedIdentifier = new ArrayList<>();
         for (Map.Entry<PluginIdentifier, String> entry : pluginInstanceMap.entrySet()) {
             if (file.getName().startsWith(entry.getValue())) {
-                try {
-                    matchedUrls.add(file.toURI().toURL());
-                } catch (MalformedURLException e) {
-                    log.warn("Cannot get plugin URL for pluginIdentifier: {}", file, e);
-                }
+                matchedIdentifier.add(entry.getKey());
             }
         }
 
-        if (matchedUrls.size() == 1) {
-            return Optional.of(matchedUrls.get(0));
+        if (matchedIdentifier.size() == 1) {
+            try {
+                return Optional.of(file.toURI().toURL());
+            } catch (MalformedURLException e) {
+                log.warn("Cannot get plugin URL for pluginIdentifier: {}", file, e);
+            }
+        }
+        if (log.isDebugEnabled()) {
+            log.debug(
+                    "File found: {}, matches more than one PluginIdentifier: {}",
+                    file.getName(),
+                    matchedIdentifier);
         }
         return Optional.empty();
     }
