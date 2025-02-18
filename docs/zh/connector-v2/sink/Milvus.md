@@ -4,11 +4,11 @@
 
 ## 描述
 
-这个Milvus sink连接器将数据写入Milvus或Zilliz Cloud，它具有以下功能：
+Milvus sink连接器将数据写入Milvus或Zilliz Cloud，它具有以下功能：
 - 支持按分区读写数据
 - 支持从元数据列写入动态模式数据
 - json数据将转换为json字符串，并将sink转换为json
-- 自动重试以绕过速率限制和grpc限制
+- 自动重试以绕过 ratelimit 限制 和 grpc 限制
 ## 主要特性
 
 - [x] [batch](../../concept/connector-v2-features.md)
@@ -39,7 +39,7 @@
 
 |         名字         | 类型    | 是否必传 |           默认值            | 描述                                               |
 |----------------------|---------|----------|------------------------------|-----------------------------------------------------------|
-| url                  | String  | 是      | -                            | 连接到Milvus或Zilliz的URL Cloud.             |
+| url                  | String  | 是      | -                            | 连接到Milvus或Zilliz Cloud的URL。             |
 | token                | String  | 是      | -                            | 用户：密码                                             |
 | database             | String  | 否       | -                            | 将数据写入哪个数据库，默认为源数据库。 |
 | schema_save_mode     | enum    | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST | 当表不存在时自动创建表。                   |
