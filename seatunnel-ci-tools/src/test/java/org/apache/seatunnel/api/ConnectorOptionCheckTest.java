@@ -205,8 +205,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("InfluxDBSinkOptions");
         whiteList.add("KuduSourceOptions");
         whiteList.add("SocketSinkOptions");
-        whiteList.add("DataHubSinkOptions");
-        whiteList.add("ClickhouseSinkOptions");
         whiteList.add("SelectDBSinkOptions");
         whiteList.add("PrometheusSinkOptions");
         whiteList.add("FirestoreSinkOptions");
