@@ -1,10 +1,10 @@
 # GoogleFirestore
 
-> GoogleFirestore 数据接收器
+> Google Firestore 数据接收器
 
 ## 描述
 
-用于将数据写入 GoogleFirestore
+用于将数据写入 Google Firestore
 
 ## 主要特性
 
@@ -28,7 +28,7 @@ Google Firestore 的合集。
 
 ### credentials [string]
 
-Google Cloud 服务帐户的凭据，使用base64编解码器。如果没有设置，需要检查 `GOOGLE APPLICATION CREDENTIALS` 环境是否存在。
+Google Cloud 服务帐户的凭据，使用base64编解码器。如果没有设置，需要检查 `GOOGLE APPLICATION CREDENTIALS` 环境中是否存在。
 
 ### common 选项
 
@@ -48,5 +48,5 @@ GoogleFirestore {
 
 ### 随后版本
 
-- 添加 GoogleFirestore 数据接收器
+- 添加 Google Firestore 数据接收器
 
