@@ -188,7 +188,7 @@ public class RestApiHttpsIT {
 
     // Two-way SSL: client presents its certificate.
     @Test
-    public void testHttpsTwoWayAuthentication() {
+    public void testHttpsTwoWayAuthenticationSuccess() {
         ports.forEach(
                 (memberPort, httpPort) -> {
                     given().keyStore(
