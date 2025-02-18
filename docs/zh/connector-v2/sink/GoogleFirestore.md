@@ -20,15 +20,15 @@
 
 ### project_id [string]
 
-GoogleFirestore 数据库项目的唯一标识符。
+Google Firestore 数据库项目的唯一标识符。
 
 ### collection [string]
 
-GoogleFirestore 的合集。
+Google Firestore 的合集。
 
 ### credentials [string]
 
-GoogleCloud 服务帐户的凭据，使用base64编解码器。如果没有设置，需要检查 `GOOGLE APPLICATION CREDENTIALS` 环境是否存在。
+Google Cloud 服务帐户的凭据，使用base64编解码器。如果没有设置，需要检查 `GOOGLE APPLICATION CREDENTIALS` 环境是否存在。
 
 ### common 选项
 
