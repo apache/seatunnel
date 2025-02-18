@@ -44,7 +44,7 @@ Https can also be configured as follows:
 seatunnel:
   engine:
     http:
-      enable-http: true
+      enable-http: false
       port: 8080
       enable-https: true
       https-port: 8443
