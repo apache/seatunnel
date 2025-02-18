@@ -1,6 +1,6 @@
 # Kingbase
 
-> JDBC Kingbase数据接收器
+> JDBC Kingbase 数据接收器
 
 ## 支持连接器版本
 
@@ -19,12 +19,12 @@
 
 ## 描述
 
->使用"Xa transactions"来确保"精确一次"。因此，数据库只支持"精确一次"，即
->支持"Xa transactions"。您可以设置`is_exactly_once=true `来启用它。Kingbase目前不支持
+>使用 "Xa transactions" 来确保 "精确一次"。因此，数据库只支持 "精确一次"，即
+>支持 "Xa transactions"。您可以设置 `is_exactly_once=true `来启用它。Kingbase 目前不支持
 
 ## 支持的数据源信息
 
-| Datasource | Supported versions |        Driver        |                   Url                    |                                             Maven                                              |
+| 数据源 | 支持的版本 |        驱动        |                   Url                    |                                             Maven                                              |
 |------------|--------------------|----------------------|------------------------------------------|------------------------------------------------------------------------------------------------|
 | Kingbase   | 8.6                | com.kingbase8.Driver | jdbc:kingbase8://localhost:54321/db_test | [Download](https://repo1.maven.org/maven2/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar) |
 
@@ -57,41 +57,42 @@
 |-------------------------------------------|---------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                       | String  | 是      | -       | JDBC连接的URL。请参考案例：jdbc:db2://127.0.0.1:50000/dbname                                                                                                                                                           |
 | driver                                    | String  | 是      | -       | 用于连接到远程数据源的jdbc类名，<br/>如果使用DB2，则值为 `com.ibm.db2.jdbc.app.DB2Driver`.                                                                                                            |
-| user                                      | String  | 否       | -       | 连接实例用户名                                                                                                                                                                                                                |
-| password                                  | String  | 否       | -       | 连接实例用密码                                                                                                                                                                                                                 |
-| query                                     | String  | 否       | -       | 使用此sql将上游输入数据写入数据库。例如`INSERT ...`,`query`具有更高的优先级                                                                                                                                       |
-| database                                  | String  | 否       | -       | 使用这个“database”和“table-name”自动生成sql并接收上游输入数据写入数据库<br/>此选项与“query”互斥，具有更高的优先级。                                                     |
-| table                                     | String  | 否       | -       | 使用数据库和此表名自动生成sql并接收上游输入数据写入数据库<br/>此选项与“query”互斥，具有更高的优先级。                                                         |
-| primary_keys                              | Array   | 否       | -       | 此选项用于在自动生成sql时支持`insert`, `delete` 和`update`等操作。                                                                                                                          |
-| support_upsert_by_query_primary_key_exist | Boolean | 否       | false   | 选择使用INSERT sql、UPDATE sql根据查询主键是否存在来处理更新事件（INSERT, UPDATE_AFTER）。此配置仅在数据库不支持升级语法时使用**注**：此方法性能低 |
-| connection_check_timeout_sec              | Int     | 否       | 30      | 等待用于验证连接的数据库操作完成的时间（秒）。                                                                                                                                          |
-| max_retries                               | Int     | 否       | 0       | 提交失败的重试次数（executeBatch）                                                                                                                                                                                        |
-| batch_size                                | Int     | 否       | 1000    | 对于批量写入，当缓冲记录的数量达到“batch_size”的数量或时间达到“checkpoint.interval”<br/>时，数据将被刷新到数据库中                                                         |
-| is_exactly_once                           | Boolean | 否       | false   | 是否启用精确一次语义，这将使用Xa事务。如果启用，则需要<br/>设置`xa_data_source_class_name`。Kingbase目前不支持                                                                        |
-| generate_sink_sql                         | Boolean | 否       | false   | 根据要写入的数据库表生成sql语句                                                                                                                                                                     |
-| xa_data_source_class_name                 | String  | 否       | -       | database Driver的xa数据源类名，Kingbase目前不支持                                                                                                                                                     |
+| user                                      | String  | 否       | -       | 连接实例的用户名                                                                                                                                                                                                                |
+| password                                  | String  | 否       | -       | 连接实例的密码                                                                                                                                                                                                                 |
+| query                                     | String  | 否       | -       | 使用此 sql 将上游输入数据写入数据库。例如`INSERT ...`,`query`具有更高的优先级                                                                                                                                       |
+| database                                  | String  | 否       | -       | 使用这个 `database` 和 `table-name` 自动生成sql 并接收上游输入数据写入数据库<br/>此选项与 `query` 互斥，具有更高的优先级。                                                     |
+| table                                     | String  | 否       | -       | 使用数据库和此表名自动生成 sql 并接收上游输入数据写入数据库<br/>此选项与 `query` 互斥，具有更高的优先级。                                                         |
+| primary_keys                              | Array   | 否       | -       | 此选项用于在自动生成 sql 时支持 `insert`, `delete` 和 `update` 等操作。                                                                                                                          |
+| support_upsert_by_query_primary_key_exist | Boolean | 否       | false   | 选择使用插入 sql、更新 sql 根据查询主键是否存在来处理更新事件（INSERT, UPDATE_AFTER）。此配置仅在数据库不支持升级语法时使用**注**：此方法性能低 |
+| connection_check_timeout_sec              | Int     | 否       | 30      | 用于验证连接的数据库操作完成的等待时间（秒）。                                                                                                                                          |
+| max_retries                               | Int     | 否       | 0       | 提交失败的重试次数（executeBatch）。                                                                                                                                                                                        |
+| batch_size                                | Int     | 否       | 1000    | 对于批量写入，当缓冲记录的数量达到 `batch_size` 或时间达到 `checkpoint.interval` <br/>时，数据将被刷新到数据库                                                         |
+| is_exactly_once                           | Boolean | 否       | false   | 是否启用精确一次语义，将使用 XA 事务。如果启用，您需要<br/>设置 `xa_data_source_class_name`。Kingbase目前不支
+持                                                                        |
+| generate_sink_sql                         | Boolean | 否       | false   | 根据要写入的数据库表生成 SQL 语句。                                                                                                                                                                     |
+| xa_data_source_class_name                 | String  | 否       | -       | 数据库驱动的 xa 数据源类名，Kingbase 目前不支持                                                                                                                                                     |
 | max_commit_attempts                       | Int     | 否       | 3       | 事务提交失败的重试次数                                                                                                                                                                                        |
 | transaction_timeout_sec                   | Int     | No       | -1      | 事务打开后的超时，默认值为-1（永不超时）。请注意，设置超时可能会影响＜br/＞精确一次语义                                                                                          |
-| auto_commit                               | Boolean | 否       | true    | 默认情况下启用自动事务提交                                                                                                                                                                                           |
+| auto_commit                               | Boolean | 否       | true    | 默认使用自动事务提交                                                                                                                                                                                           |
 | common-options                            |         | 否       | -       | Sink插件常用参数，详见[Sink common Options]（../Sink common Options.md）                                                                                                                                  |
-| enable_upsert                             | Boolean | 否       | true    | 通过primary_keys存在启用upstart，如果任务没有密钥重复数据，将此参数设置为“false”可以加快数据导入                                                                                                       |
+| enable_upsert                             | Boolean | 否       | true    | 通过主键存在启用 upsert，如果任务没有重复数据，设置此参数为 `false` 可以加快数据导入。                                                                                                       |
 
 ### 提示
 
-> 如果未设置partition_column，它将以单并发方式运行，如果设置了partition_coolumn，它将被执行
+> 如果未设置 partition_column，它将以单并发方式运行，如果设置了 partition_column，它将被执行
 > 根据任务的并发性并行执行。
 
 ## 任务示例
 
 ### 简单示例:
 
-> 此示例定义了一个SeaTunnel同步任务，该任务通过FakeSource自动生成数据并发送
-> 它连接到JDBC接收器。FakeSource总共生成16行数据（row.num=16），每行有12个字段。最终的目标表是test_table，表中也将有16行数据。
+> 此示例定义了一个 SeaTunnel 同步任务，该任务通过 FakeSource 自动生成数据并发送
+> 它连接到 JDBC接收器。FakeSource 总共生成16行数据（row.num=16），每行有12个字段。最终的目标表是 test_table，表中也将有16行数据。
 > 之前
-> 运行此作业，您需要在Kingbase中创建数据库测试和表test_table。如果你还没有安装和
-> 已部署SeaTunnel，您需要按照[安装SeaTunnel]中的说明进行操作（../../start-v2/local/deployment.md）
+> 运行此作业，您需要在 Kingbase 中创建数据库测试和表 test_table。如果你还没有安装和
+> 已部署 SeaTunnel，您需要按照[安装SeaTunnel]中的说明进行操作（../../start-v2/local/deployment.md）
 > to
-> 安装和部署SeaTunnel。然后按照指示进行
+> 安装和部署 SeaTunnel。然后按照指示进行
 > 在[快速启动SeaTunnel引擎]（../../Start-v2/locale/Quick-Start SeaTunnel Engine.md）中运行此作业。
 
 ```
@@ -148,8 +149,7 @@ sink {
 
 ### 生成Sink SQL
 
-> 此示例不需要编写复杂的sql语句，可以将数据库名称表名配置为自动
-> 为您生成add语句
+> 此示例不需要编写复杂的sql语句，您可以配置数据库名称表名以自动为您生成add语句
 
 ```
 sink {
