@@ -208,6 +208,9 @@ public class DynamicChunkSplitter extends ChunkSplitter {
     }
 
     private Long queryApproximateRowCnt(JdbcSourceTable table) throws SQLException {
+        if (StringUtils.isNotBlank(table.getWhereConditionClause())) {
+            return jdbcDialect.rowCntWithWhereCondition(getOrEstablishConnection(), table);
+        }
         return jdbcDialect.approximateRowCntStatement(getOrEstablishConnection(), table);
     }
 

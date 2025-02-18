@@ -112,16 +112,18 @@ public class PostgresDialect implements JdbcDialect {
 
         String quotedColumn = quoteIdentifier(columnName);
         quotedColumn = convertType(quotedColumn, column.getSourceType());
+        String whereConditionClause = StringUtils.isNotBlank(table.getWhereConditionClause()) ? table.getWhereConditionClause() + " AND" : "WHERE";
         String sqlQuery;
         if (StringUtils.isNotBlank(table.getQuery())) {
             sqlQuery =
                     String.format(
                             "SELECT MAX(%s) FROM ("
-                                    + "SELECT %s FROM (%s) AS T1 WHERE %s >= ? ORDER BY %s ASC LIMIT %s"
+                                    + "SELECT %s FROM (%s) AS T1 %s %s >= ? ORDER BY %s ASC LIMIT %s"
                                     + ") AS T2",
                             quotedColumn,
                             quotedColumn,
                             table.getQuery(),
+                            whereConditionClause,
                             quotedColumn,
                             quotedColumn,
                             chunkSize);
@@ -129,11 +131,12 @@ public class PostgresDialect implements JdbcDialect {
             sqlQuery =
                     String.format(
                             "SELECT MAX(%s) FROM ("
-                                    + "SELECT %s FROM %s WHERE %s >= ? ORDER BY %s ASC LIMIT %s"
+                                    + "SELECT %s FROM %s %s %s >= ? ORDER BY %s ASC LIMIT %s"
                                     + ") AS T",
                             quotedColumn,
                             quotedColumn,
                             tableIdentifier(table.getTablePath()),
+                            whereConditionClause,
                             quotedColumn,
                             quotedColumn,
                             chunkSize);

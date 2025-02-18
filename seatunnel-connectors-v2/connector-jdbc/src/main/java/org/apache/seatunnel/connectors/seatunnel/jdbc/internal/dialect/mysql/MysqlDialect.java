@@ -151,16 +151,17 @@ public class MysqlDialect implements JdbcDialect {
             int fetchSize)
             throws Exception {
         String sampleQuery;
+        String whereConditionClause = StringUtils.isNotBlank(table.getWhereConditionClause()) ? table.getWhereConditionClause() : "";
         if (StringUtils.isNotBlank(table.getQuery())) {
             sampleQuery =
                     String.format(
-                            "SELECT %s FROM (%s) AS T",
-                            quoteIdentifier(columnName), table.getQuery());
+                            ""SELECT %s FROM (%s) AS T %s",
+                            quoteIdentifier(columnName), table.getQuery(), whereConditionClause);
         } else {
             sampleQuery =
                     String.format(
-                            "SELECT %s FROM %s",
-                            quoteIdentifier(columnName), tableIdentifier(table.getTablePath()));
+                            "SELECT %s FROM %s %s",
+                            quoteIdentifier(columnName), tableIdentifier(table.getTablePath()), whereConditionClause);
         }
 
         try (Statement stmt =

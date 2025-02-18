@@ -317,6 +317,30 @@ public interface JdbcDialect extends Serializable {
     }
 
     /**
+     * Total number of entries in the lookup table with condition.
+     *
+     * @param connection The JDBC connection object used to connect to the database.
+     * @param table table info.
+     * @return row count
+     */
+    default Long rowCntWithWhereCondition(Connection connection, JdbcSourceTable table)
+            throws SQLException {
+        String subQuerySQL;
+        if (StringUtils.isNotBlank(table.getQuery())) {
+            subQuerySQL =
+                    String.format(
+                            "SELECT * FROM (%s) AS T %s",
+                            table.getQuery(), table.getWhereConditionClause());
+        } else {
+            subQuerySQL =
+                    String.format(
+                            "SELECT * FROM %s %s",
+                            tableIdentifier(table.getTablePath()), table.getWhereConditionClause());
+        }
+        return SQLUtils.countForSubquery(connection, subQuerySQL);
+    }
+
+    /**
      * Performs a sampling operation on the specified column of a table in a JDBC-connected
      * database.
      *
@@ -335,17 +359,18 @@ public interface JdbcDialect extends Serializable {
             int samplingRate,
             int fetchSize)
             throws Exception {
+        String whereConditionClause = StringUtils.isNotBlank(table.getWhereConditionClause()) ? table.getWhereConditionClause() : "";
         String sampleQuery;
         if (StringUtils.isNotBlank(table.getQuery())) {
             sampleQuery =
                     String.format(
-                            "SELECT %s FROM (%s) AS T",
-                            quoteIdentifier(columnName), table.getQuery());
+                            "SELECT %s FROM (%s) AS T %s",
+                            quoteIdentifier(columnName), table.getQuery(), whereConditionClause);
         } else {
             sampleQuery =
                     String.format(
-                            "SELECT %s FROM %s",
-                            quoteIdentifier(columnName), tableIdentifier(table.getTablePath()));
+                            "SELECT %s FROM %s %s",
+                            quoteIdentifier(columnName), tableIdentifier(table.getTablePath()), whereConditionClause);
         }
 
         try (PreparedStatement stmt = creatPreparedStatement(connection, sampleQuery, fetchSize)) {
@@ -390,16 +415,18 @@ public interface JdbcDialect extends Serializable {
             Object includedLowerBound)
             throws SQLException {
         String quotedColumn = quoteIdentifier(columnName);
+        String whereConditionClause = StringUtils.isNotBlank(table.getWhereConditionClause()) ? table.getWhereConditionClause() + " AND" : "WHERE";
         String sqlQuery;
         if (StringUtils.isNotBlank(table.getQuery())) {
             sqlQuery =
                     String.format(
                             "SELECT MAX(%s) FROM ("
-                                    + "SELECT %s FROM (%s) AS T1 WHERE %s >= ? ORDER BY %s ASC LIMIT %s"
+                                    + "SELECT %s FROM (%s) AS T1 %s %s >= ? ORDER BY %s ASC LIMIT %s"
                                     + ") AS T2",
                             quotedColumn,
                             quotedColumn,
                             table.getQuery(),
+                            whereConditionClause,
                             quotedColumn,
                             quotedColumn,
                             chunkSize);
@@ -407,11 +434,12 @@ public interface JdbcDialect extends Serializable {
             sqlQuery =
                     String.format(
                             "SELECT MAX(%s) FROM ("
-                                    + "SELECT %s FROM %s WHERE %s >= ? ORDER BY %s ASC LIMIT %s"
+                                    + "SELECT %s FROM %s %s %s >= ? ORDER BY %s ASC LIMIT %s"
                                     + ") AS T",
                             quotedColumn,
                             quotedColumn,
                             tableIdentifier(table.getTablePath()),
+                            whereConditionClause,
                             quotedColumn,
                             quotedColumn,
                             chunkSize);

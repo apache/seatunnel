@@ -40,4 +40,5 @@ public class JdbcSourceTable implements Serializable {
     private final Boolean useSelectCount;
     private final Boolean skipAnalyze;
     private final CatalogTable catalogTable;
+    private final String whereConditionClause;
 }

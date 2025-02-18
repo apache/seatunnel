@@ -64,6 +64,9 @@ public class JdbcSourceTableConfig implements Serializable {
     @JsonProperty("skip_analyze")
     private Boolean skipAnalyze;
 
+    @JsonProperty("where_condition")
+    private String whereConditionClause;
+
     @Tolerate
     public JdbcSourceTableConfig() {}
 
@@ -97,6 +100,8 @@ public class JdbcSourceTableConfig implements Serializable {
                     tableConfig.setUseSelectCount(
                             connectorConfig.get(JdbcSourceOptions.USE_SELECT_COUNT));
                     tableConfig.setSkipAnalyze(connectorConfig.get(JdbcSourceOptions.SKIP_ANALYZE));
+                    tableConfig.setWhereConditionClause(
+                            connectorConfig.get(JdbcSourceOptions.WHERE_CONDITION));
                 });
 
         if (tableList.size() > 1) {

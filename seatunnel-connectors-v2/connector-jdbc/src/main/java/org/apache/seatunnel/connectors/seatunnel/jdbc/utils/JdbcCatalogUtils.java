@@ -94,6 +94,7 @@ public class JdbcCatalogUtils {
                                         .partitionEnd(tableConfig.getPartitionEnd())
                                         .useSelectCount(tableConfig.getUseSelectCount())
                                         .skipAnalyze(tableConfig.getSkipAnalyze())
+                                        .whereConditionClause(tableConfig.getWhereConditionClause())
                                         .catalogTable(catalogTable)
                                         .build();
                         tables.put(tablePath, jdbcSourceTable);
@@ -143,6 +144,7 @@ public class JdbcCatalogUtils {
                                 .partitionEnd(tableConfig.getPartitionEnd())
                                 .useSelectCount(tableConfig.getUseSelectCount())
                                 .skipAnalyze(tableConfig.getSkipAnalyze())
+                                .whereConditionClause(tableConfig.getWhereConditionClause())
                                 .catalogTable(catalogTable)
                                 .build();
 

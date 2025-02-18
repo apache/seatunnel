@@ -258,16 +258,18 @@ public class OracleDialect implements JdbcDialect {
             Object includedLowerBound)
             throws SQLException {
         String quotedColumn = quoteIdentifier(columnName);
+        String whereConditionClause = StringUtils.isNotBlank(table.getWhereConditionClause()) ? table.getWhereConditionClause() + " AND" : "WHERE";
         String sqlQuery;
         if (StringUtils.isNotBlank(table.getQuery())) {
             sqlQuery =
                     String.format(
                             "SELECT MAX(%s) FROM ("
-                                    + "SELECT %s FROM (%s) WHERE %s >= ? ORDER BY %s ASC "
+                                    + "SELECT %s FROM (%s) %s %s >= ? ORDER BY %s ASC "
                                     + ") WHERE ROWNUM <= %s",
                             quotedColumn,
                             quotedColumn,
                             table.getQuery(),
+                            whereConditionClause,
                             quotedColumn,
                             quotedColumn,
                             chunkSize);
@@ -275,11 +277,12 @@ public class OracleDialect implements JdbcDialect {
             sqlQuery =
                     String.format(
                             "SELECT MAX(%s) FROM ("
-                                    + "SELECT %s FROM %s WHERE %s >= ? ORDER BY %s ASC "
+                                    + "SELECT %s FROM %s %s %s >= ? ORDER BY %s ASC "
                                     + ") WHERE ROWNUM <= %s",
                             quotedColumn,
                             quotedColumn,
                             tableIdentifier(table.getTablePath()),
+                            whereConditionClause,
                             quotedColumn,
                             quotedColumn,
                             chunkSize);
@@ -306,16 +309,17 @@ public class OracleDialect implements JdbcDialect {
             int samplingRate,
             int fetchSize)
             throws Exception {
+        String whereConditionClause = StringUtils.isNotBlank(table.getWhereConditionClause()) ? table.getWhereConditionClause() : "";
         String sampleQuery;
         if (StringUtils.isNotBlank(table.getQuery())) {
             sampleQuery =
                     String.format(
-                            "SELECT %s FROM (%s) T", quoteIdentifier(columnName), table.getQuery());
+                            "SELECT %s FROM (%s) T %s", quoteIdentifier(columnName), table.getQuery(), whereConditionClause);
         } else {
             sampleQuery =
                     String.format(
-                            "SELECT %s FROM %s",
-                            quoteIdentifier(columnName), tableIdentifier(table.getTablePath()));
+                            "SELECT %s FROM %s %s",
+                            quoteIdentifier(columnName), tableIdentifier(table.getTablePath()), whereConditionClause);
         }
 
         try (PreparedStatement stmt = creatPreparedStatement(connection, sampleQuery, fetchSize)) {

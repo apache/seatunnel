@@ -233,6 +233,11 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                             columnName,
                             jdbcDialect.tableIdentifier(table.getTablePath()));
         }
+
+        if (StringUtils.isNotBlank(config.getWhereConditionClause())) {
+            sqlQuery = String.format("%s %s", sqlQuery, config.getWhereConditionClause());
+        }
+
         try (Statement stmt = getOrEstablishConnection().createStatement()) {
             log.info("Split table, query min max: {}", sqlQuery);
             try (ResultSet resultSet = stmt.executeQuery(sqlQuery)) {
