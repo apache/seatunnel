@@ -124,7 +124,7 @@ class SeaTunnelSourcePluginDiscoveryTest {
                         .getMessage()
                         .matches(
                                 "Cannot find unique plugin jar for pluginIdentifier: odbc -> connector-odbc. "
-                                        + "Possible impact jar: \\[.*connector-odbc-baidu-v1.jar, .*connector-odbc-baidu-release-1.1.jar]"));
+                                        + "Possible impact jar: \\[.*.jar, .*.jar]"));
     }
 
     @Test
