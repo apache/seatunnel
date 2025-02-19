@@ -35,6 +35,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipParameters;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.fs.FileStatus;
 
 import lombok.extern.slf4j.Slf4j;
@@ -80,7 +81,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected List<String> readColumns = new ArrayList<>();
     protected boolean isMergePartition = true;
     protected long skipHeaderNumber = BaseSourceConfigOptions.SKIP_HEADER_ROW_NUMBER.defaultValue();
-    protected transient boolean isKerberosAuthorization = false;
+    protected String fileExtension;
     protected HadoopFileSystemProxy hadoopFileSystemProxy;
     protected ArchiveCompressFormat archiveCompressFormat =
             BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC.defaultValue();
@@ -136,7 +137,10 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 }
             }
         }
-
+        if (StringUtils.isNotEmpty(fileExtension)) {
+            this.fileNames.removeIf(fileName -> !fileName.endsWith(fileExtension));
+            fileNames.removeIf(fileName -> !fileName.endsWith(fileExtension));
+        }
         return fileNames;
     }
 
@@ -158,6 +162,9 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         if (pluginConfig.hasPath(BaseSourceConfigOptions.SKIP_HEADER_ROW_NUMBER.key())) {
             skipHeaderNumber =
                     pluginConfig.getLong(BaseSourceConfigOptions.SKIP_HEADER_ROW_NUMBER.key());
+        }
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.FILE_EXTENSION.key())) {
+            fileExtension = pluginConfig.getString(BaseSourceConfigOptions.FILE_EXTENSION.key());
         }
         if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_PARTITIONS.key())) {
             readPartitions.addAll(

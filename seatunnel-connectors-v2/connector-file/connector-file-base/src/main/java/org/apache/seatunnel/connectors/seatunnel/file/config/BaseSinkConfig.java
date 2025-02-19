@@ -214,6 +214,12 @@ public class BaseSinkConfig {
                     .defaultValue(FileFormat.CSV)
                     .withDescription("File format type, e.g. csv, orc, parquet, text");
 
+    public static final Option<String> FILE_EXTENSION =
+            Options.key("file_extension")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The file extension of files");
+
     public static final Option<String> ENCODING =
             Options.key("encoding")
                     .stringType()
