@@ -232,6 +232,26 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testTextFormatWithNoSchema(TestContainer container)
+            throws IOException, InterruptedException {
+        try {
+            for (int i = 0; i < 100; i++) {
+                ProducerRecord<byte[], byte[]> producerRecord =
+                        new ProducerRecord<>(
+                                "test_topic_text_no_schema", null, "abcdef".getBytes());
+                producer.send(producerRecord).get();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            producer.flush();
+        }
+        Container.ExecResult execResult =
+                container.executeJob("/textFormatIT/kafka_source_text_with_no_schema.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
     public void testSourceKafkaToAssertWithMaxPollRecords1(TestContainer container)
             throws IOException, InterruptedException {
         TextSerializationSchema serializer =

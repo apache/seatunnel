@@ -313,16 +313,16 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     @Override
     public Container.ExecResult executeJob(String confFile, List<String> variables)
             throws IOException, InterruptedException {
-        return executeJob(confFile, null, variables);
+        return doExecuteJob(confFile, null, variables);
     }
 
     @Override
-    public Container.ExecResult executeJob(String confFile, String jobId)
+    public Container.ExecResult executeJob(String confFile, String jobId, String... variables)
             throws IOException, InterruptedException {
-        return executeJob(confFile, jobId, null);
+        return doExecuteJob(confFile, jobId, variables != null ? Arrays.asList(variables) : null);
     }
 
-    private Container.ExecResult executeJob(String confFile, String jobId, List<String> variables)
+    private Container.ExecResult doExecuteJob(String confFile, String jobId, List<String> variables)
             throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
         List<String> beforeThreads = ContainerUtil.getJVMThreadNames(server);
@@ -498,10 +498,15 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     @Override
-    public Container.ExecResult restoreJob(String confFile, String jobId)
+    public Container.ExecResult restoreJob(String confFile, String jobId, String... variables)
             throws IOException, InterruptedException {
         runningCount.incrementAndGet();
-        Container.ExecResult result = restoreJob(server, confFile, jobId);
+        Container.ExecResult result =
+                restoreJob(
+                        server,
+                        confFile,
+                        jobId,
+                        variables != null ? Arrays.asList(variables) : null);
         runningCount.decrementAndGet();
         return result;
     }

@@ -17,24 +17,20 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.config;
 
-import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.io.Serializable;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 @Setter
 @Getter
+@NoArgsConstructor
 @AllArgsConstructor
 public class RabbitmqConfig implements Serializable {
     private String host;
@@ -63,241 +59,70 @@ public class RabbitmqConfig implements Serializable {
     private boolean forE2ETesting = false;
     private boolean usesCorrelationId = false;
 
-    private final Map<String, Object> sinkOptionProps = new HashMap<>();
+    private Map<String, String> sinkOptionProps = new HashMap<>();
 
-    public static final Option<String> HOST =
-            Options.key("host")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the default host to use for connections");
-
-    public static final Option<Integer> PORT =
-            Options.key("port")
-                    .intType()
-                    .noDefaultValue()
-                    .withDescription("the default port to use for connections");
-
-    public static final Option<String> VIRTUAL_HOST =
-            Options.key("virtual_host")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the virtual host to use when connecting to the broker");
-
-    public static final Option<String> USERNAME =
-            Options.key("username")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the AMQP user name to use when connecting to the broker");
-
-    public static final Option<String> PASSWORD =
-            Options.key("password")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the password to use when connecting to the broker");
-
-    public static final Option<String> QUEUE_NAME =
-            Options.key("queue_name")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the queue to write the message to");
-
-    public static final Option<String> URL =
-            Options.key("url")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "convenience method for setting the fields in an AMQP URI: host, port, username, password and virtual host");
-
-    public static final Option<Integer> NETWORK_RECOVERY_INTERVAL =
-            Options.key("network_recovery_interval")
-                    .intType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "how long will automatic recovery wait before attempting to reconnect, in ms");
-
-    public static final Option<Boolean> AUTOMATIC_RECOVERY_ENABLED =
-            Options.key("AUTOMATIC_RECOVERY_ENABLED")
-                    .booleanType()
-                    .noDefaultValue()
-                    .withDescription("if true, enables connection recovery");
-
-    public static final Option<Boolean> TOPOLOGY_RECOVERY_ENABLED =
-            Options.key("topology_recovery_enabled")
-                    .booleanType()
-                    .noDefaultValue()
-                    .withDescription("if true, enables topology recovery");
-
-    public static final Option<Integer> CONNECTION_TIMEOUT =
-            Options.key("connection_timeout")
-                    .intType()
-                    .noDefaultValue()
-                    .withDescription("connection TCP establishment timeout in milliseconds");
-
-    public static final Option<Integer> REQUESTED_CHANNEL_MAX =
-            Options.key("requested_channel_max")
-                    .intType()
-                    .noDefaultValue()
-                    .withDescription("initially requested maximum channel number");
-
-    public static final Option<Integer> REQUESTED_FRAME_MAX =
-            Options.key("requested_frame_max")
-                    .intType()
-                    .noDefaultValue()
-                    .withDescription("the requested maximum frame size");
-
-    public static final Option<Integer> REQUESTED_HEARTBEAT =
-            Options.key("requested_heartbeat")
-                    .intType()
-                    .noDefaultValue()
-                    .withDescription("the requested heartbeat timeout");
-
-    public static final Option<Long> PREFETCH_COUNT =
-            Options.key("prefetch_count")
-                    .longType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "prefetchCount the max number of messages to receive without acknowledgement\n");
-
-    public static final Option<Integer> DELIVERY_TIMEOUT =
-            Options.key("delivery_timeout")
-                    .intType()
-                    .noDefaultValue()
-                    .withDescription("deliveryTimeout maximum wait time");
-
-    public static final Option<String> ROUTING_KEY =
-            Options.key("routing_key")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the routing key to publish the message to");
-
-    public static final Option<String> EXCHANGE =
-            Options.key("exchange")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the exchange to publish the message to");
-
-    public static final Option<Boolean> FOR_E2E_TESTING =
-            Options.key("for_e2e_testing")
-                    .booleanType()
-                    .noDefaultValue()
-                    .withDescription("use to recognize E2E mode");
-
-    public static final Option<Map<String, String>> RABBITMQ_CONFIG =
-            Options.key("rabbitmq.config")
-                    .mapType()
-                    .defaultValue(Collections.emptyMap())
-                    .withDescription(
-                            "In addition to the above parameters that must be specified by the RabbitMQ client, the user can also specify multiple non-mandatory parameters for the client, "
-                                    + "covering [all the parameters specified in the official RabbitMQ document](https://www.rabbitmq.com/configure.html).");
-
-    public static final Option<Boolean> USE_CORRELATION_ID =
-            Options.key("use_correlation_id")
-                    .booleanType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Whether the messages received are supplied with a unique"
-                                    + "id to deduplicate messages (in case of failed acknowledgments).");
-
-    public static final Option<Boolean> DURABLE =
-            Options.key("durable")
-                    .booleanType()
-                    .defaultValue(true)
-                    .withDescription(
-                            "true: The queue will survive a server restart."
-                                    + "false: The queue will be deleted on server restart.");
-
-    public static final Option<Boolean> EXCLUSIVE =
-            Options.key("exclusive")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription(
-                            "true: The queue is used only by the current connection and will be deleted when the connection closes."
-                                    + "false: The queue can be used by multiple connections.");
-
-    public static final Option<Boolean> AUTO_DELETE =
-            Options.key("auto_delete")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription(
-                            "true: The queue will be deleted automatically when the last consumer unsubscribes."
-                                    + "false: The queue will not be automatically deleted.");
-
-    private void parseSinkOptionProperties(Config pluginConfig) {
-        if (CheckConfigUtil.isValidParam(pluginConfig, RABBITMQ_CONFIG.key())) {
-            pluginConfig
-                    .getObject(RABBITMQ_CONFIG.key())
-                    .forEach(
-                            (key, value) -> {
-                                final String configKey = key.toLowerCase();
-                                this.sinkOptionProps.put(configKey, value.unwrapped());
-                            });
+    public RabbitmqConfig(ReadonlyConfig config) {
+        this.host = config.get(RabbitmqBaseOptions.HOST);
+        this.port = config.get(RabbitmqBaseOptions.PORT);
+        this.queueName = config.get(RabbitmqBaseOptions.QUEUE_NAME);
+        if (config.getOptional(RabbitmqBaseOptions.USERNAME).isPresent()) {
+            this.username = config.get(RabbitmqBaseOptions.USERNAME);
         }
+        if (config.getOptional(RabbitmqBaseOptions.PASSWORD).isPresent()) {
+            this.password = config.get(RabbitmqBaseOptions.PASSWORD);
+        }
+        if (config.getOptional(RabbitmqBaseOptions.VIRTUAL_HOST).isPresent()) {
+            this.virtualHost = config.get(RabbitmqBaseOptions.VIRTUAL_HOST);
+        }
+        if (config.getOptional(RabbitmqBaseOptions.NETWORK_RECOVERY_INTERVAL).isPresent()) {
+            this.networkRecoveryInterval =
+                    config.get(RabbitmqBaseOptions.NETWORK_RECOVERY_INTERVAL);
+        }
+        if (config.getOptional(RabbitmqBaseOptions.AUTOMATIC_RECOVERY_ENABLED).isPresent()) {
+            this.automaticRecovery = config.get(RabbitmqBaseOptions.AUTOMATIC_RECOVERY_ENABLED);
+        }
+        if (config.getOptional(RabbitmqBaseOptions.TOPOLOGY_RECOVERY_ENABLED).isPresent()) {
+            this.topologyRecovery = config.get(RabbitmqBaseOptions.TOPOLOGY_RECOVERY_ENABLED);
+        }
+        if (config.getOptional(RabbitmqBaseOptions.CONNECTION_TIMEOUT).isPresent()) {
+            this.connectionTimeout = config.get(RabbitmqBaseOptions.CONNECTION_TIMEOUT);
+        }
+        if (config.getOptional(RabbitmqSourceOptions.REQUESTED_CHANNEL_MAX).isPresent()) {
+            this.requestedChannelMax = config.get(RabbitmqSourceOptions.REQUESTED_CHANNEL_MAX);
+        }
+        if (config.getOptional(RabbitmqSourceOptions.REQUESTED_FRAME_MAX).isPresent()) {
+            this.requestedFrameMax = config.get(RabbitmqSourceOptions.REQUESTED_FRAME_MAX);
+        }
+        if (config.getOptional(RabbitmqSourceOptions.REQUESTED_HEARTBEAT).isPresent()) {
+            this.requestedHeartbeat = config.get(RabbitmqSourceOptions.REQUESTED_HEARTBEAT);
+        }
+        if (config.getOptional(RabbitmqSourceOptions.PREFETCH_COUNT).isPresent()) {
+            this.prefetchCount = config.get(RabbitmqSourceOptions.PREFETCH_COUNT);
+        }
+        if (config.getOptional(RabbitmqSourceOptions.DELIVERY_TIMEOUT).isPresent()) {
+            this.deliveryTimeout = config.get(RabbitmqSourceOptions.DELIVERY_TIMEOUT);
+        }
+        if (config.getOptional(RabbitmqBaseOptions.ROUTING_KEY).isPresent()) {
+            this.routingKey = config.get(RabbitmqBaseOptions.ROUTING_KEY);
+        }
+        if (config.getOptional(RabbitmqBaseOptions.EXCHANGE).isPresent()) {
+            this.exchange = config.get(RabbitmqBaseOptions.EXCHANGE);
+        }
+        if (config.getOptional(RabbitmqBaseOptions.FOR_E2E_TESTING).isPresent()) {
+            this.forE2ETesting = config.get(RabbitmqBaseOptions.FOR_E2E_TESTING);
+        }
+        if (config.getOptional(RabbitmqSourceOptions.USE_CORRELATION_ID).isPresent()) {
+            this.usesCorrelationId = config.get(RabbitmqSourceOptions.USE_CORRELATION_ID);
+        }
+        if (config.getOptional(RabbitmqBaseOptions.DURABLE).isPresent()) {
+            this.durable = config.get(RabbitmqBaseOptions.DURABLE);
+        }
+        if (config.getOptional(RabbitmqBaseOptions.EXCLUSIVE).isPresent()) {
+            this.exclusive = config.get(RabbitmqBaseOptions.EXCLUSIVE);
+        }
+        if (config.getOptional(RabbitmqBaseOptions.AUTO_DELETE).isPresent()) {
+            this.autoDelete = config.get(RabbitmqBaseOptions.AUTO_DELETE);
+        }
+        this.sinkOptionProps = config.get(RabbitmqSinkOptions.RABBITMQ_CONFIG);
     }
-
-    public RabbitmqConfig(Config config) {
-        this.host = config.getString(HOST.key());
-        this.port = config.getInt(PORT.key());
-        this.queueName = config.getString(QUEUE_NAME.key());
-        if (config.hasPath(USERNAME.key())) {
-            this.username = config.getString(USERNAME.key());
-        }
-        if (config.hasPath(PASSWORD.key())) {
-            this.password = config.getString(PASSWORD.key());
-        }
-        if (config.hasPath(VIRTUAL_HOST.key())) {
-            this.virtualHost = config.getString(VIRTUAL_HOST.key());
-        }
-        if (config.hasPath(NETWORK_RECOVERY_INTERVAL.key())) {
-            this.networkRecoveryInterval = config.getInt(NETWORK_RECOVERY_INTERVAL.key());
-        }
-        if (config.hasPath(AUTOMATIC_RECOVERY_ENABLED.key())) {
-            this.automaticRecovery = config.getBoolean(AUTOMATIC_RECOVERY_ENABLED.key());
-        }
-        if (config.hasPath(TOPOLOGY_RECOVERY_ENABLED.key())) {
-            this.topologyRecovery = config.getBoolean(TOPOLOGY_RECOVERY_ENABLED.key());
-        }
-        if (config.hasPath(CONNECTION_TIMEOUT.key())) {
-            this.connectionTimeout = config.getInt(CONNECTION_TIMEOUT.key());
-        }
-        if (config.hasPath(REQUESTED_CHANNEL_MAX.key())) {
-            this.requestedChannelMax = config.getInt(REQUESTED_CHANNEL_MAX.key());
-        }
-        if (config.hasPath(REQUESTED_FRAME_MAX.key())) {
-            this.requestedFrameMax = config.getInt(REQUESTED_FRAME_MAX.key());
-        }
-        if (config.hasPath(REQUESTED_HEARTBEAT.key())) {
-            this.requestedHeartbeat = config.getInt(REQUESTED_HEARTBEAT.key());
-        }
-        if (config.hasPath(PREFETCH_COUNT.key())) {
-            this.prefetchCount = config.getInt(PREFETCH_COUNT.key());
-        }
-        if (config.hasPath(DELIVERY_TIMEOUT.key())) {
-            this.deliveryTimeout = config.getInt(DELIVERY_TIMEOUT.key());
-        }
-        if (config.hasPath(ROUTING_KEY.key())) {
-            this.routingKey = config.getString(ROUTING_KEY.key());
-        }
-        if (config.hasPath(EXCHANGE.key())) {
-            this.exchange = config.getString(EXCHANGE.key());
-        }
-        if (config.hasPath(FOR_E2E_TESTING.key())) {
-            this.forE2ETesting = config.getBoolean(FOR_E2E_TESTING.key());
-        }
-        if (config.hasPath(USE_CORRELATION_ID.key())) {
-            this.usesCorrelationId = config.getBoolean(USE_CORRELATION_ID.key());
-        }
-        if (config.hasPath(DURABLE.key())) {
-            this.durable = config.getBoolean(DURABLE.key());
-        }
-        if (config.hasPath(EXCLUSIVE.key())) {
-            this.exclusive = config.getBoolean(EXCLUSIVE.key());
-        }
-        if (config.hasPath(AUTO_DELETE.key())) {
-            this.autoDelete = config.getBoolean(AUTO_DELETE.key());
-        }
-        parseSinkOptionProperties(config);
-    }
-
-    @VisibleForTesting
-    public RabbitmqConfig() {}
 }

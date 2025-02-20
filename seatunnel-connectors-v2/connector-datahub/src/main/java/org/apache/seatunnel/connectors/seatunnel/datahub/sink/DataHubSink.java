@@ -17,41 +17,33 @@
 
 package org.apache.seatunnel.connectors.seatunnel.datahub.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter.Context;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.datahub.exception.DataHubConnectorException;
-
-import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.ACCESS_ID;
-import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.ACCESS_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.ENDPOINT;
-import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.PROJECT;
-import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.RETRY_TIMES;
-import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.TOPIC;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubSinkOptions.ACCESS_ID;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubSinkOptions.ACCESS_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubSinkOptions.ENDPOINT;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubSinkOptions.PROJECT;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubSinkOptions.RETRY_TIMES;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubSinkOptions.TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubSinkOptions.TOPIC;
 
-/** DataHub sink class */
-@AutoService(SeaTunnelSink.class)
 public class DataHubSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
-    private Config pluginConfig;
-    private SeaTunnelRowType seaTunnelRowType;
+    private final ReadonlyConfig pluginConfig;
+    private final CatalogTable catalogTable;
+
+    public DataHubSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
+        this.pluginConfig = pluginConfig;
+        this.catalogTable = catalogTable;
+    }
 
     @Override
     public String getPluginName() {
@@ -59,45 +51,20 @@ public class DataHubSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        ENDPOINT.key(),
-                        ACCESS_ID.key(),
-                        ACCESS_KEY.key(),
-                        PROJECT.key(),
-                        TOPIC.key());
-        if (!result.isSuccess()) {
-            throw new DataHubConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, result.getMsg()));
-        }
-        this.pluginConfig = pluginConfig;
-    }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
-    }
-
-    @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(Context context) throws IOException {
         return new DataHubWriter(
-                seaTunnelRowType,
-                pluginConfig.getString(ENDPOINT.key()),
-                pluginConfig.getString(ACCESS_ID.key()),
-                pluginConfig.getString(ACCESS_KEY.key()),
-                pluginConfig.getString(PROJECT.key()),
-                pluginConfig.getString(TOPIC.key()),
-                pluginConfig.getInt(TIMEOUT.key()),
-                pluginConfig.getInt(RETRY_TIMES.key()));
+                catalogTable.getSeaTunnelRowType(),
+                pluginConfig.get(ENDPOINT),
+                pluginConfig.get(ACCESS_ID),
+                pluginConfig.get(ACCESS_KEY),
+                pluginConfig.get(PROJECT),
+                pluginConfig.get(TOPIC),
+                pluginConfig.get(TIMEOUT),
+                pluginConfig.get(RETRY_TIMES));
     }
 
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
-        return super.getWriteCatalogTable();
+        return Optional.of(catalogTable);
     }
 }

@@ -17,26 +17,47 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileCopyMethod;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.FileReaderOption;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.NodePassConfig;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.ShardMetadata;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseProxy;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseUtil;
 
+import com.clickhouse.client.ClickHouseNode;
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.CLICKHOUSE_LOCAL_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.COMPATIBLE_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.COPY_METHOD;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.FILE_FIELDS_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.FILE_TEMP_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.KEY_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.NODE_FREE_PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.NODE_PASS;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SHARDING_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.USERNAME;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.SERVER_TIME_ZONE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileSinkOptions.CLICKHOUSE_LOCAL_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileSinkOptions.COMPATIBLE_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileSinkOptions.COPY_METHOD;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileSinkOptions.FILE_FIELDS_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileSinkOptions.FILE_TEMP_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileSinkOptions.KEY_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileSinkOptions.NODE_ADDRESS;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileSinkOptions.NODE_FREE_PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileSinkOptions.NODE_PASS;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.SHARDING_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.TABLE;
 
 @AutoService(Factory.class)
 public class ClickhouseFileSinkFactory implements TableSinkFactory {
@@ -57,7 +78,95 @@ public class ClickhouseFileSinkFactory implements TableSinkFactory {
                         COMPATIBLE_MODE,
                         FILE_FIELDS_DELIMITER,
                         FILE_TEMP_PATH,
-                        KEY_PATH)
+                        KEY_PATH,
+                        SERVER_TIME_ZONE)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        ReadonlyConfig readonlyConfig = context.getOptions();
+        CatalogTable catalogTable = context.getCatalogTable();
+
+        List<ClickHouseNode> nodes =
+                ClickhouseUtil.createNodes(
+                        readonlyConfig.get(HOST),
+                        readonlyConfig.get(DATABASE),
+                        readonlyConfig.get(SERVER_TIME_ZONE),
+                        readonlyConfig.get(USERNAME),
+                        readonlyConfig.get(PASSWORD),
+                        null);
+
+        ClickhouseProxy proxy = new ClickhouseProxy(nodes.get(0));
+        Map<String, String> tableSchema = proxy.getClickhouseTableSchema(readonlyConfig.get(TABLE));
+        ClickhouseTable table =
+                proxy.getClickhouseTable(
+                        proxy.getClickhouseConnection(),
+                        readonlyConfig.get(DATABASE),
+                        readonlyConfig.get(TABLE));
+        String shardKey = null;
+        String shardKeyType = null;
+        if (readonlyConfig.getOptional(SHARDING_KEY).isPresent()) {
+            shardKey = readonlyConfig.getOptional(SHARDING_KEY).get();
+            shardKeyType = tableSchema.get(shardKey);
+        }
+
+        ShardMetadata shardMetadata =
+                new ShardMetadata(
+                        shardKey,
+                        shardKeyType,
+                        readonlyConfig.get(DATABASE),
+                        readonlyConfig.get(TABLE),
+                        table.getEngine(),
+                        true,
+                        new Shard(1, 1, nodes.get(0)),
+                        readonlyConfig.get(USERNAME),
+                        readonlyConfig.get(PASSWORD));
+        List<String> fields = new ArrayList<>(tableSchema.keySet());
+
+        Map<String, String> nodeUser =
+                readonlyConfig.toConfig().getObjectList(NODE_PASS.key()).stream()
+                        .collect(
+                                Collectors.toMap(
+                                        configObject ->
+                                                configObject.toConfig().getString(NODE_ADDRESS),
+                                        configObject ->
+                                                configObject.toConfig().hasPath(USERNAME.key())
+                                                        ? configObject
+                                                                .toConfig()
+                                                                .getString(USERNAME.key())
+                                                        : "root"));
+
+        Map<String, String> nodePassword =
+                readonlyConfig.get(NODE_PASS).stream()
+                        .collect(
+                                Collectors.toMap(
+                                        NodePassConfig::getNodeAddress,
+                                        NodePassConfig::getPassword));
+
+        proxy.close();
+
+        if (readonlyConfig.get(FILE_FIELDS_DELIMITER).length() != 1) {
+            throw new ClickhouseConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    FILE_FIELDS_DELIMITER.key() + " must be a single character");
+        }
+        FileReaderOption readerOption =
+                new FileReaderOption(
+                        shardMetadata,
+                        tableSchema,
+                        fields,
+                        readonlyConfig.get(CLICKHOUSE_LOCAL_PATH),
+                        ClickhouseFileCopyMethod.from(readonlyConfig.get(COPY_METHOD).getName()),
+                        nodeUser,
+                        readonlyConfig.get(NODE_FREE_PASSWORD),
+                        nodePassword,
+                        readonlyConfig.get(COMPATIBLE_MODE),
+                        readonlyConfig.get(FILE_TEMP_PATH),
+                        readonlyConfig.get(FILE_FIELDS_DELIMITER),
+                        readonlyConfig.get(KEY_PATH));
+
+        readerOption.setSeaTunnelRowType(catalogTable.getSeaTunnelRowType());
+        return () -> new ClickhouseFileSink(readerOption);
     }
 }

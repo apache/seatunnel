@@ -26,12 +26,17 @@ import static com.hazelcast.internal.util.Preconditions.checkPositive;
 @Data
 public class SlotServiceConfig implements Serializable {
 
-    private boolean dynamicSlot = ServerConfigOptions.DYNAMIC_SLOT.defaultValue();
+    private AllocateStrategy allocateStrategy =
+            ServerConfigOptions.MasterServerConfigOptions.SLOT_ALLOCATE_STRATEGY.defaultValue();
 
-    private int slotNum = ServerConfigOptions.SLOT_NUM.defaultValue();
+    private boolean dynamicSlot =
+            ServerConfigOptions.WorkerServerConfigOptions.DYNAMIC_SLOT.defaultValue();
+
+    private int slotNum = ServerConfigOptions.WorkerServerConfigOptions.SLOT_NUM.defaultValue();
 
     public void setSlotNum(int slotNum) {
-        checkPositive(slotNum, ServerConfigOptions.SLOT_NUM + " must be > 0");
+        checkPositive(
+                slotNum, ServerConfigOptions.WorkerServerConfigOptions.SLOT_NUM + " must be > 0");
         this.slotNum = slotNum;
     }
 }

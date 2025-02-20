@@ -28,6 +28,7 @@ import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.format.csv.constant.CsvFormatConstant;
+import org.apache.seatunnel.format.csv.constant.CsvStringQuoteMode;
 import org.apache.seatunnel.format.csv.exception.SeaTunnelCsvFormatException;
 
 import org.apache.commons.csv.CSVFormat;
@@ -55,6 +56,7 @@ public class CsvSerializationSchema implements SerializationSchema {
     private final TimeUtils.Formatter timeFormatter;
     private final Charset charset;
     private final String nullValue;
+    private final CsvStringQuoteMode quoteMode;
 
     private CsvSerializationSchema(
             @NonNull SeaTunnelRowType seaTunnelRowType,
@@ -63,7 +65,8 @@ public class CsvSerializationSchema implements SerializationSchema {
             DateTimeUtils.Formatter dateTimeFormatter,
             TimeUtils.Formatter timeFormatter,
             Charset charset,
-            String nullValue) {
+            String nullValue,
+            CsvStringQuoteMode quoteMode) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.separators = separators;
         this.dateFormatter = dateFormatter;
@@ -71,6 +74,7 @@ public class CsvSerializationSchema implements SerializationSchema {
         this.timeFormatter = timeFormatter;
         this.charset = charset;
         this.nullValue = nullValue;
+        this.quoteMode = quoteMode;
     }
 
     public static Builder builder() {
@@ -86,6 +90,7 @@ public class CsvSerializationSchema implements SerializationSchema {
         private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
         private Charset charset = StandardCharsets.UTF_8;
         private String nullValue = "";
+        private CsvStringQuoteMode quoteMode = CsvStringQuoteMode.MINIMAL;
 
         private Builder() {}
 
@@ -129,6 +134,11 @@ public class CsvSerializationSchema implements SerializationSchema {
             return this;
         }
 
+        public Builder quoteMode(CsvStringQuoteMode quoteMode) {
+            this.quoteMode = quoteMode;
+            return this;
+        }
+
         public CsvSerializationSchema build() {
             return new CsvSerializationSchema(
                     seaTunnelRowType,
@@ -137,7 +147,8 @@ public class CsvSerializationSchema implements SerializationSchema {
                     dateTimeFormatter,
                     timeFormatter,
                     charset,
-                    nullValue);
+                    nullValue,
+                    quoteMode);
         }
     }
 
@@ -225,12 +236,25 @@ public class CsvSerializationSchema implements SerializationSchema {
     }
 
     private String addQuotesUsingCSVFormat(String fieldValue) {
-        CSVFormat format =
-                CSVFormat.DEFAULT
-                        .builder()
-                        .setQuoteMode(QuoteMode.MINIMAL)
-                        .setRecordSeparator("")
-                        .build();
+        CSVFormat.Builder builder = CSVFormat.DEFAULT.builder().setRecordSeparator("");
+        switch (quoteMode) {
+            case ALL:
+                builder.setQuoteMode(QuoteMode.ALL);
+                break;
+            case MINIMAL:
+                builder.setQuoteMode(QuoteMode.MINIMAL);
+                break;
+            case NONE:
+                builder.setQuoteMode(QuoteMode.NONE);
+                break;
+            default:
+                throw new SeaTunnelCsvFormatException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                        String.format(
+                                "SeaTunnel format csv not supported for parsing this type [%s]",
+                                quoteMode));
+        }
+        CSVFormat format = builder.build();
         StringWriter stringWriter = new StringWriter();
         try (CSVPrinter printer = new CSVPrinter(stringWriter, format)) {
             printer.printRecord(fieldValue);

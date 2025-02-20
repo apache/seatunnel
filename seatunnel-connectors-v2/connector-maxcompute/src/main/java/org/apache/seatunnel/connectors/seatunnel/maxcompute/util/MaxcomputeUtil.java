@@ -18,8 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.util;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
+
+import org.apache.commons.lang3.StringUtils;
 
 import com.aliyun.odps.Odps;
 import com.aliyun.odps.PartitionSpec;
@@ -72,6 +75,28 @@ public class MaxcomputeUtil {
                 session =
                         tunnel.createDownloadSession(
                                 readonlyConfig.get(PROJECT), readonlyConfig.get(TABLE_NAME));
+            }
+        } catch (Exception e) {
+            throw new MaxcomputeConnectorException(
+                    CommonErrorCodeDeprecated.READER_OPERATION_FAILED, e);
+        }
+        return session;
+    }
+
+    public static TableTunnel.DownloadSession getDownloadSession(
+            ReadonlyConfig readonlyConfig, TablePath tablePath, String partitionSpec) {
+        TableTunnel tunnel = getTableTunnel(readonlyConfig);
+        TableTunnel.DownloadSession session;
+        try {
+            if (StringUtils.isNotEmpty(partitionSpec)) {
+                PartitionSpec partition = new PartitionSpec(partitionSpec);
+                session =
+                        tunnel.createDownloadSession(
+                                tablePath.getDatabaseName(), tablePath.getTableName(), partition);
+            } else {
+                session =
+                        tunnel.createDownloadSession(
+                                tablePath.getDatabaseName(), tablePath.getTableName());
             }
         } catch (Exception e) {
             throw new MaxcomputeConnectorException(

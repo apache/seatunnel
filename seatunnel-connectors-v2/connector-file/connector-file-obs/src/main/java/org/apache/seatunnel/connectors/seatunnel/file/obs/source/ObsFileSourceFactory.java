@@ -18,8 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.file.obs.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
@@ -55,7 +55,7 @@ public class ObsFileSourceFactory implements TableSourceFactory {
                         BaseSourceConfigOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
                                 FileFormat.TEXT, FileFormat.JSON, FileFormat.EXCEL, FileFormat.CSV),
-                        TableSchemaOptions.SCHEMA)
+                        ConnectorCommonOptions.SCHEMA)
                 .optional(BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH)
                 .optional(BaseSourceConfigOptions.DATE_FORMAT)
                 .optional(BaseSourceConfigOptions.DATETIME_FORMAT)
