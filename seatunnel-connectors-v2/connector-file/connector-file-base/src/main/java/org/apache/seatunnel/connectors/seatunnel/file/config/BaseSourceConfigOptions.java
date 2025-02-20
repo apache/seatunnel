@@ -34,11 +34,11 @@ public class BaseSourceConfigOptions {
                     .withDescription(
                             "File format type, e.g. json, csv, text, parquet, orc, avro....");
 
-    public static final Option<String> FILE_EXTENSION =
-            Options.key("file_extension")
+    public static final Option<String> FILENAME_EXTENSION =
+            Options.key("filename_extension")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("The file extension of files");
+                    .withDescription("Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.");
 
     public static final Option<String> FILE_PATH =
             Options.key("path")

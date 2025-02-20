@@ -317,9 +317,9 @@ The result of this example matching is:
 /data/seatunnel/20241005/old_data.csv
 ```
 
-### file_extension [string]
+### filename_extension [string]
 
-Filter file extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.
+Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.
 
 ### compress_codec [string]
 

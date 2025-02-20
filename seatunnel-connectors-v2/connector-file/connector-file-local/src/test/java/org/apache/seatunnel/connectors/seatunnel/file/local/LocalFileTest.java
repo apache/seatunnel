@@ -246,7 +246,7 @@ public class LocalFileTest {
                         put("file_format_type", "text");
                     }
                 };
-        options.put("file_extension", "txt2");
+        options.put("filename_extension", "txt2");
         FileUtils.deleteFile("/tmp/seatunnel/LocalFileTest");
         SinkFlowTestUtils.runBatchWithCheckpointDisabled(
                 catalogTable,
@@ -259,7 +259,7 @@ public class LocalFileTest {
                 2,
                 (long) FileUtils.getFileLineNumber("/tmp/seatunnel/LocalFileTest/testFile_0.txt2"));
 
-        options.put("file_extension", ".ppp");
+        options.put("filename_extension", ".ppp");
         FileUtils.deleteFile("/tmp/seatunnel/LocalFileTest");
         SinkFlowTestUtils.runBatchWithCheckpointDisabled(
                 catalogTable,
@@ -280,13 +280,13 @@ public class LocalFileTest {
                         put("file_format_type", "text");
                     }
                 };
-        readOptions.put("file_extension", "ppp");
+        readOptions.put("filename_extension", "ppp");
         List<SeaTunnelRow> rows =
                 SourceFlowTestUtils.runBatchWithCheckpointDisabled(
                         ReadonlyConfig.fromMap(readOptions), new LocalFileSourceFactory());
         Assertions.assertEquals(2, rows.size());
 
-        readOptions.put("file_extension", "ppp2");
+        readOptions.put("filename_extension", "ppp2");
         List<SeaTunnelRow> emptyRows =
                 SourceFlowTestUtils.runBatchWithCheckpointDisabled(
                         ReadonlyConfig.fromMap(readOptions), new LocalFileSourceFactory());
