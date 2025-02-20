@@ -80,13 +80,13 @@ CREATE TABLE IF NOT EXISTS `${table}`
 
  您可以使用以下占位符
 
- - database：用于获取上游模式中的数据库
- - table_name：用于获取上游模式中的表名
- - rowtype_fields：用于获取上游模式中的所有字段，我们将自动映射到该字段
- MaxCompute的描述
- - rowtype_primary_key：用于获取上游模式中的主键（可能是列表）
- - rowtype_unique_key：用于获取上游模式中的唯一密钥（可能是列表）
- - comment：用于获取上游模式中的表注释
+- database：用于获取上游模式中的数据库
+- table_name：用于获取上游模式中的表名
+- rowtype_fields：用于获取上游模式中的所有字段，我们将自动映射到该字段
+  MaxCompute的描述
+- rowtype_primary_key：用于获取上游模式中的主键（可能是列表）
+- rowtype_unique_key：用于获取上游模式中的唯一密钥（可能是列表）
+- comment：用于获取上游模式中的表注释
 
 ### schema_save_mode[Enum]
 
