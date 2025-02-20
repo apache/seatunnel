@@ -15,22 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.config;
+package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class DingTalkConfig {
+public class ClickhouseSourceOptions {
 
-    public static final Option<String> URL =
-            Options.key("url")
+    public static final Option<String> SQL =
+            Options.key("sql")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription(
-                            "DingTalk robot address format is https://oapi.dingtalk.com/robot/send?access_token=XXXXXX");
-    public static final Option<String> SECRET =
-            Options.key("secret")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("DingTalk robot secret");
+                    .withDescription("Clickhouse sql used to query data");
 }

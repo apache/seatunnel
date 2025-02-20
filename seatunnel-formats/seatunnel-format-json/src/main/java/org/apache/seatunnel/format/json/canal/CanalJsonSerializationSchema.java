@@ -19,6 +19,7 @@
 package org.apache.seatunnel.format.json.canal;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -52,7 +53,7 @@ public class CanalJsonSerializationSchema implements SerializationSchema {
     public byte[] serialize(SeaTunnelRow row) {
         try {
             String opType = rowKind2String(row.getRowKind());
-            reuse.setField(0, row);
+            reuse.setField(0, new SeaTunnelRow[] {row});
             reuse.setField(1, opType);
             return jsonSerializer.serialize(reuse);
         } catch (Throwable t) {
@@ -81,6 +82,8 @@ public class CanalJsonSerializationSchema implements SerializationSchema {
         // and we don't need "old" , because can not support UPDATE_BEFORE,UPDATE_AFTER
         return new SeaTunnelRowType(
                 new String[] {"data", "type"},
-                new SeaTunnelDataType[] {databaseSchema, STRING_TYPE});
+                new SeaTunnelDataType[] {
+                    new ArrayType<>(SeaTunnelRowType[].class, databaseSchema), STRING_TYPE
+                });
     }
 }

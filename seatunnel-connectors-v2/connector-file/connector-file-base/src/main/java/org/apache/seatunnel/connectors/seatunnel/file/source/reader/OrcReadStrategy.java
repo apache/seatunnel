@@ -188,7 +188,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         } catch (IOException e) {
             String errorMsg = String.format("Create orc reader for this file [%s] failed", path);
             throw new FileConnectorException(
-                    CommonErrorCodeDeprecated.READER_OPERATION_FAILED, errorMsg);
+                    CommonErrorCodeDeprecated.READER_OPERATION_FAILED, errorMsg, e);
         }
     }
 

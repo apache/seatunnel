@@ -23,12 +23,7 @@ import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SaveModePlaceHolder;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
-import java.time.ZoneId;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-
-public class ClickhouseConfig {
+public class ClickhouseSinkOptions {
 
     /** Bulk size of clickhouse jdbc */
     public static final Option<Integer> BULK_SIZE =
@@ -37,55 +32,12 @@ public class ClickhouseConfig {
                     .defaultValue(20000)
                     .withDescription("Bulk size of clickhouse jdbc");
 
-    public static final Option<String> SQL =
-            Options.key("sql")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Clickhouse sql used to query data");
-
-    /** Clickhouse server host */
-    public static final Option<String> HOST =
-            Options.key("host")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Clickhouse server host");
-
     /** Clickhouse table name */
     public static final Option<String> TABLE =
             Options.key("table")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Clickhouse table name");
-
-    /** Clickhouse database name */
-    public static final Option<String> DATABASE =
-            Options.key("database")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Clickhouse database name");
-
-    /** Clickhouse server username */
-    public static final Option<String> USERNAME =
-            Options.key("username")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Clickhouse server username");
-
-    /** Clickhouse server password */
-    public static final Option<String> PASSWORD =
-            Options.key("password")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Clickhouse server password");
-
-    /** Clickhouse server timezone */
-    public static final Option<String> SERVER_TIME_ZONE =
-            Options.key("server_time_zone")
-                    .stringType()
-                    .defaultValue(ZoneId.systemDefault().getId())
-                    .withDescription(
-                            "The session time zone in database server."
-                                    + "If not set, then ZoneId.systemDefault() is used to determine the server time zone");
 
     /** Split mode when table is distributed engine */
     public static final Option<Boolean> SPLIT_MODE =
@@ -121,72 +73,6 @@ public class ClickhouseConfig {
                     .withDescription(
                             "Allow experimental lightweight delete based on `*MergeTree` table engine");
 
-    /** ClickhouseFile sink connector used clickhouse-local program's path */
-    public static final Option<String> CLICKHOUSE_LOCAL_PATH =
-            Options.key("clickhouse_local_path")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "ClickhouseFile sink connector used clickhouse-local program's path");
-
-    /** The method of copy Clickhouse file */
-    public static final Option<ClickhouseFileCopyMethod> COPY_METHOD =
-            Options.key("copy_method")
-                    .enumType(ClickhouseFileCopyMethod.class)
-                    .defaultValue(ClickhouseFileCopyMethod.SCP)
-                    .withDescription("The method of copy Clickhouse file");
-
-    public static final Option<Boolean> COMPATIBLE_MODE =
-            Options.key("compatible_mode")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription(
-                            "In the lower version of Clickhouse, the ClickhouseLocal program does not support the `--path` parameter, "
-                                    + "you need to use this mode to take other ways to realize the --path parameter function");
-
-    public static final String NODE_ADDRESS = "node_address";
-
-    public static final Option<Boolean> NODE_FREE_PASSWORD =
-            Options.key("node_free_password")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription(
-                            "Because seatunnel need to use scp or rsync for file transfer, "
-                                    + "seatunnel need clickhouse server-side access. If each spark node and clickhouse server are configured with password-free login, "
-                                    + "you can configure this option to true, otherwise you need to configure the corresponding node password in the node_pass configuration");
-    /** The password of Clickhouse server node */
-    public static final Option<List<NodePassConfig>> NODE_PASS =
-            Options.key("node_pass")
-                    .listType(NodePassConfig.class)
-                    .noDefaultValue()
-                    .withDescription("The password of Clickhouse server node");
-
-    public static final Option<Map<String, String>> CLICKHOUSE_CONFIG =
-            Options.key("clickhouse.config")
-                    .mapType()
-                    .defaultValue(Collections.emptyMap())
-                    .withDescription("Clickhouse custom config");
-
-    public static final Option<String> KEY_PATH =
-            Options.key("key_path")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The path of rsync/ssh key file");
-
-    public static final Option<String> FILE_FIELDS_DELIMITER =
-            Options.key("file_fields_delimiter")
-                    .stringType()
-                    .defaultValue("\t")
-                    .withDescription(
-                            "ClickhouseFile uses csv format to temporarily save data. If the data in the row contains the delimiter value of csv,"
-                                    + " it may cause program exceptions. Avoid this with this configuration. Value string has to be an exactly one character long");
-
-    public static final Option<String> FILE_TEMP_PATH =
-            Options.key("file_temp_path")
-                    .stringType()
-                    .defaultValue("/tmp/seatunnel/clickhouse-local/file")
-                    .withDescription(
-                            "The directory where ClickhouseFile stores temporary files locally.");
     public static final Option<SchemaSaveMode> SCHEMA_SAVE_MODE =
             Options.key("schema_save_mode")
                     .enumType(SchemaSaveMode.class)

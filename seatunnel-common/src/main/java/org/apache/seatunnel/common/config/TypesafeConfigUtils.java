@@ -77,7 +77,7 @@ public final class TypesafeConfigUtils {
                     ? (T) Boolean.valueOf(config.getString(configKey))
                     : defaultValue;
         }
-        if (defaultValue instanceof Map) {
+        if (defaultValue instanceof Map || defaultValue instanceof List) {
             return config.hasPath(configKey) ? (T) config.getAnyRef(configKey) : defaultValue;
         }
         throw new RuntimeException("Unsupported config type, configKey: " + configKey);
