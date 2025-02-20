@@ -24,7 +24,7 @@
 - `org.postgresql.Driver`
 - `com.pivotal.jdbc.GreenplumDriver`
 
-警告：为了符合许可证要求，如果您使用`GreenplumDriver`，则必须自己提供GreenplumJDBC驱动程序，例如复制Greenplum-xxx.jar到独立版的$SEATUNNEL_HOME/lib中。
+注意：为了符合许可证要求，如果您使用`GreenplumDriver`，则必须自己下载Greenplum JDBC驱动程序，然后将该驱动Greenplum-xxx.jar放到$SEATUNNEL_HOME/lib下。
 
 ### url [string]
 
