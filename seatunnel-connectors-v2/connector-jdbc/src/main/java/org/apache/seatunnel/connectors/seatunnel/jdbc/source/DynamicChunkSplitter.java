@@ -490,7 +490,14 @@ public class DynamicChunkSplitter extends ChunkSplitter {
 
         String splitQuery = split.getSplitQuery();
         if (StringUtils.isNotBlank(splitQuery)) {
-            splitQuery = String.format("SELECT * FROM (%s) tmp", splitQuery);
+            if (splitQuery.contains("/*+") && splitQuery.contains("*/")) {
+                String sqlHint =
+                        splitQuery.substring(
+                                splitQuery.indexOf("/*+"), splitQuery.indexOf("*/") + 2);
+                splitQuery = String.format("SELECT %s * FROM (%s) tmp", sqlHint, splitQuery);
+            } else {
+                splitQuery = String.format("SELECT * FROM (%s) tmp", splitQuery);
+            }
         } else {
             splitQuery =
                     String.format(

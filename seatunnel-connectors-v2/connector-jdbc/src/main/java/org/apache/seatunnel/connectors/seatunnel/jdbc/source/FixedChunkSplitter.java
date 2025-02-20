@@ -114,14 +114,31 @@ public class FixedChunkSplitter extends ChunkSplitter {
         for (int i = 0; i < table.getPartitionNumber(); i++) {
             String splitQuery;
             if (StringUtils.isNotBlank(table.getQuery())) {
-                splitQuery =
-                        String.format(
-                                "SELECT * FROM (%s) st_jdbc_splitter WHERE %s = ?",
-                                table.getQuery(),
-                                jdbcDialect.hashModForField(
-                                        column.getSourceType(),
-                                        splitKeyName,
-                                        table.getPartitionNumber()));
+                if (table.getQuery().contains("/*+") && table.getQuery().contains("*/")) {
+                    String sqlHint =
+                            table.getQuery()
+                                    .substring(
+                                            table.getQuery().indexOf("/*+"),
+                                            table.getQuery().indexOf("*/") + 2);
+                    splitQuery =
+                            String.format(
+                                    "SELECT %s * FROM (%s) st_jdbc_splitter WHERE %s = ?",
+                                    sqlHint,
+                                    table.getQuery(),
+                                    jdbcDialect.hashModForField(
+                                            column.getSourceType(),
+                                            splitKeyName,
+                                            table.getPartitionNumber()));
+                } else {
+                    splitQuery =
+                            String.format(
+                                    "SELECT * FROM (%s) st_jdbc_splitter WHERE %s = ?",
+                                    table.getQuery(),
+                                    jdbcDialect.hashModForField(
+                                            column.getSourceType(),
+                                            splitKeyName,
+                                            table.getPartitionNumber()));
+                }
             } else {
                 splitQuery =
                         String.format(
@@ -186,10 +203,24 @@ public class FixedChunkSplitter extends ChunkSplitter {
         String splitQuery;
         String splitKeyName = jdbcDialect.quoteIdentifier(split.getSplitKeyName());
         if (StringUtils.isNotBlank(split.getSplitQuery())) {
-            splitQuery =
-                    String.format(
-                            "SELECT * FROM (%s) st_jdbc_splitter WHERE %s >= ? AND %s <= ?",
-                            split.getSplitQuery(), splitKeyName, splitKeyName);
+            // check if the query contains sql hint
+            if (split.getSplitQuery().contains("/*+") && split.getSplitQuery().contains("*/")) {
+                String sqlHint =
+                        split.getSplitQuery()
+                                .substring(
+                                        split.getSplitQuery().indexOf("/*+"),
+                                        split.getSplitQuery().indexOf("*/") + 2);
+                splitQuery =
+                        String.format(
+                                "SELECT %s * FROM (%s) st_jdbc_splitter WHERE %s >= ? AND %s <= ?",
+                                sqlHint, split.getSplitQuery(), splitKeyName, splitKeyName);
+            } else {
+                splitQuery =
+                        String.format(
+                                "SELECT * FROM (%s) st_jdbc_splitter WHERE %s >= ? AND %s <= ?",
+                                split.getSplitQuery(), splitKeyName, splitKeyName);
+            }
+
         } else {
             splitQuery =
                     String.format(
