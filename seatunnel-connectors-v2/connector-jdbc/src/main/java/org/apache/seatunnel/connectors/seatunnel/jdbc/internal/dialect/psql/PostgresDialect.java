@@ -112,7 +112,10 @@ public class PostgresDialect implements JdbcDialect {
 
         String quotedColumn = quoteIdentifier(columnName);
         quotedColumn = convertType(quotedColumn, column.getSourceType());
-        String whereConditionClause = StringUtils.isNotBlank(table.getWhereConditionClause()) ? table.getWhereConditionClause() + " AND" : "WHERE";
+        String whereConditionClause =
+                StringUtils.isNotBlank(table.getWhereConditionClause())
+                        ? table.getWhereConditionClause() + " AND"
+                        : "WHERE";
         String sqlQuery;
         if (StringUtils.isNotBlank(table.getQuery())) {
             sqlQuery =

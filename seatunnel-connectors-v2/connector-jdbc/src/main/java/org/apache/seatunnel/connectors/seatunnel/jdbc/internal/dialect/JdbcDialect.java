@@ -359,7 +359,10 @@ public interface JdbcDialect extends Serializable {
             int samplingRate,
             int fetchSize)
             throws Exception {
-        String whereConditionClause = StringUtils.isNotBlank(table.getWhereConditionClause()) ? table.getWhereConditionClause() : "";
+        String whereConditionClause =
+                StringUtils.isNotBlank(table.getWhereConditionClause())
+                        ? table.getWhereConditionClause()
+                        : "";
         String sampleQuery;
         if (StringUtils.isNotBlank(table.getQuery())) {
             sampleQuery =
@@ -370,7 +373,9 @@ public interface JdbcDialect extends Serializable {
             sampleQuery =
                     String.format(
                             "SELECT %s FROM %s %s",
-                            quoteIdentifier(columnName), tableIdentifier(table.getTablePath()), whereConditionClause);
+                            quoteIdentifier(columnName),
+                            tableIdentifier(table.getTablePath()),
+                            whereConditionClause);
         }
 
         try (PreparedStatement stmt = creatPreparedStatement(connection, sampleQuery, fetchSize)) {
@@ -415,7 +420,10 @@ public interface JdbcDialect extends Serializable {
             Object includedLowerBound)
             throws SQLException {
         String quotedColumn = quoteIdentifier(columnName);
-        String whereConditionClause = StringUtils.isNotBlank(table.getWhereConditionClause()) ? table.getWhereConditionClause() + " AND" : "WHERE";
+        String whereConditionClause =
+                StringUtils.isNotBlank(table.getWhereConditionClause())
+                        ? table.getWhereConditionClause() + " AND"
+                        : "WHERE";
         String sqlQuery;
         if (StringUtils.isNotBlank(table.getQuery())) {
             sqlQuery =

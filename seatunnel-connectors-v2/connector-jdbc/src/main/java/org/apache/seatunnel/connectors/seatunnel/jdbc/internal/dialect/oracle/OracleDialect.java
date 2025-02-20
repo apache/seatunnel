@@ -258,7 +258,10 @@ public class OracleDialect implements JdbcDialect {
             Object includedLowerBound)
             throws SQLException {
         String quotedColumn = quoteIdentifier(columnName);
-        String whereConditionClause = StringUtils.isNotBlank(table.getWhereConditionClause()) ? table.getWhereConditionClause() + " AND" : "WHERE";
+        String whereConditionClause =
+                StringUtils.isNotBlank(table.getWhereConditionClause())
+                        ? table.getWhereConditionClause() + " AND"
+                        : "WHERE";
         String sqlQuery;
         if (StringUtils.isNotBlank(table.getQuery())) {
             sqlQuery =
@@ -309,17 +312,23 @@ public class OracleDialect implements JdbcDialect {
             int samplingRate,
             int fetchSize)
             throws Exception {
-        String whereConditionClause = StringUtils.isNotBlank(table.getWhereConditionClause()) ? table.getWhereConditionClause() : "";
+        String whereConditionClause =
+                StringUtils.isNotBlank(table.getWhereConditionClause())
+                        ? table.getWhereConditionClause()
+                        : "";
         String sampleQuery;
         if (StringUtils.isNotBlank(table.getQuery())) {
             sampleQuery =
                     String.format(
-                            "SELECT %s FROM (%s) T %s", quoteIdentifier(columnName), table.getQuery(), whereConditionClause);
+                            "SELECT %s FROM (%s) T %s",
+                            quoteIdentifier(columnName), table.getQuery(), whereConditionClause);
         } else {
             sampleQuery =
                     String.format(
                             "SELECT %s FROM %s %s",
-                            quoteIdentifier(columnName), tableIdentifier(table.getTablePath()), whereConditionClause);
+                            quoteIdentifier(columnName),
+                            tableIdentifier(table.getTablePath()),
+                            whereConditionClause);
         }
 
         try (PreparedStatement stmt = creatPreparedStatement(connection, sampleQuery, fetchSize)) {

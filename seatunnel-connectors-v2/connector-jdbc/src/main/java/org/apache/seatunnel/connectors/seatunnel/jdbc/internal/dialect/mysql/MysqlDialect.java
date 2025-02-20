@@ -151,7 +151,10 @@ public class MysqlDialect implements JdbcDialect {
             int fetchSize)
             throws Exception {
         String sampleQuery;
-        String whereConditionClause = StringUtils.isNotBlank(table.getWhereConditionClause()) ? table.getWhereConditionClause() : "";
+        String whereConditionClause =
+                StringUtils.isNotBlank(table.getWhereConditionClause())
+                        ? table.getWhereConditionClause()
+                        : "";
         if (StringUtils.isNotBlank(table.getQuery())) {
             sampleQuery =
                     String.format(
@@ -161,7 +164,9 @@ public class MysqlDialect implements JdbcDialect {
             sampleQuery =
                     String.format(
                             "SELECT %s FROM %s %s",
-                            quoteIdentifier(columnName), tableIdentifier(table.getTablePath()), whereConditionClause);
+                            quoteIdentifier(columnName),
+                            tableIdentifier(table.getTablePath()),
+                            whereConditionClause);
         }
 
         try (Statement stmt =
