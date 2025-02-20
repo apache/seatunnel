@@ -158,7 +158,7 @@ public class MysqlDialect implements JdbcDialect {
         if (StringUtils.isNotBlank(table.getQuery())) {
             sampleQuery =
                     String.format(
-                            ""SELECT %s FROM (%s) AS T %s",
+                            "SELECT %s FROM (%s) AS T %s",
                             quoteIdentifier(columnName), table.getQuery(), whereConditionClause);
         } else {
             sampleQuery =
