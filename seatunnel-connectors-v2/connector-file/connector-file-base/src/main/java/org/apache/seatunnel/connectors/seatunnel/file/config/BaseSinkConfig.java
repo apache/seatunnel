@@ -218,7 +218,8 @@ public class BaseSinkConfig {
             Options.key("filename_extension")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`");
+                    .withDescription(
+                            "Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`");
 
     public static final Option<String> ENCODING =
             Options.key("encoding")

@@ -164,7 +164,8 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                     pluginConfig.getLong(BaseSourceConfigOptions.SKIP_HEADER_ROW_NUMBER.key());
         }
         if (pluginConfig.hasPath(BaseSourceConfigOptions.FILENAME_EXTENSION.key())) {
-            filenameExtension = pluginConfig.getString(BaseSourceConfigOptions.FILENAME_EXTENSION.key());
+            filenameExtension =
+                    pluginConfig.getString(BaseSourceConfigOptions.FILENAME_EXTENSION.key());
         }
         if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_PARTITIONS.key())) {
             readPartitions.addAll(

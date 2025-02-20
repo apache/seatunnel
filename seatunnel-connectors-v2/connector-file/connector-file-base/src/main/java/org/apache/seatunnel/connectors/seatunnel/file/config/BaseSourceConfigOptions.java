@@ -38,7 +38,8 @@ public class BaseSourceConfigOptions {
             Options.key("filename_extension")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.");
+                    .withDescription(
+                            "Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.");
 
     public static final Option<String> FILE_PATH =
             Options.key("path")

@@ -104,7 +104,8 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
         }
 
         if (config.hasPath(BaseSinkConfig.FILENAME_EXTENSION.key())
-                && !StringUtils.isBlank(config.getString(BaseSinkConfig.FILENAME_EXTENSION.key()))) {
+                && !StringUtils.isBlank(
+                        config.getString(BaseSinkConfig.FILENAME_EXTENSION.key()))) {
             this.filenameExtension = config.getString(BaseSinkConfig.FILENAME_EXTENSION.key());
         }
 
