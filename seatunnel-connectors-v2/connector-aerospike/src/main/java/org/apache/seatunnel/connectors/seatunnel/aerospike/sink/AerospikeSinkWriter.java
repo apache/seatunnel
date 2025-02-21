@@ -4,7 +4,7 @@ import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeDataType;
-import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeParameters;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
@@ -24,18 +24,18 @@ import java.util.Objects;
 
 public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private final SeaTunnelRowType seaTunnelRowType;
-    private final AerospikeParameters aerospikeParameters;
+    private final ReadonlyConfig config;
     private final SerializationSchema serializationSchema;
     private final AerospikeClient aerospikeClient;
     private final WritePolicy writePolicy;
     private final AerospikeTypeConverter typeConverter;
 
     public AerospikeSinkWriter(
-            SeaTunnelRowType seaTunnelRowType, AerospikeParameters aerospikeParameters) {
+            SeaTunnelRowType seaTunnelRowType, ReadonlyConfig config) {
         this.seaTunnelRowType = seaTunnelRowType;
-        this.aerospikeParameters = aerospikeParameters;
+        this.config = config;
         this.serializationSchema = new JsonSerializationSchema(seaTunnelRowType);
-        this.aerospikeClient = aerospikeParameters.buildClient();
+        this.aerospikeClient = buildClient();
 
         // Create write policy locally
         this.writePolicy = new WritePolicy();
@@ -44,30 +44,30 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
         this.writePolicy.socketTimeout = 200;
         this.writePolicy.sleepBetweenRetries = 0;
         this.writePolicy.maxRetries = 0;
-        this.typeConverter = new AerospikeTypeConverter(seaTunnelRowType, aerospikeParameters);
+        this.typeConverter = new AerospikeTypeConverter(seaTunnelRowType, config);
     }
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         String data = new String(serializationSchema.serialize(element));
-        String keyField = aerospikeParameters.getKeyField();
+        String keyField = config.get(AerospikeConfig.KEY_FIELD);
         String key = element.getField(seaTunnelRowType.indexOf(keyField)).toString();
 
         Key aerospikeKey =
-                new Key(aerospikeParameters.getNamespace(), aerospikeParameters.getSet(), key);
+                new Key(config.get(AerospikeConfig.NAMESPACE), config.get(AerospikeConfig.SET), key);
 
         switch (aerospikeParameters.getDataFormatType()) {
             case MAP_FORMAT:
                 // 将整个JSON数据解析为Map结构
                 Map<String, Object> dataMap =
                         JSON.parseObject(data, new TypeReference<Map<String, Object>>() {});
-                Bin dataBin = new Bin(aerospikeParameters.getBinName(), dataMap);
+                Bin dataBin = new Bin(config.get(AerospikeConfig.BIN_NAME), dataMap);
                 aerospikeClient.put(writePolicy, aerospikeKey, dataBin);
                 break;
 
             case STRING_FORMAT:
                 // 直接使用字符串格式
-                Bin stringBin = new Bin(aerospikeParameters.getBinName(), data);
+                Bin stringBin = new Bin(config.get(AerospikeConfig.BIN_NAME), data);
                 aerospikeClient.put(writePolicy, aerospikeKey, stringBin);
                 break;
 
@@ -86,7 +86,7 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
 
             default:
                 throw new IllegalArgumentException(
-                        "Unsupported data format type: " + aerospikeParameters.getDataFormatType());
+                        "Unsupported data format type: " + config.get(AerospikeConfig.DATA_FORMAT));
         }
     }
 

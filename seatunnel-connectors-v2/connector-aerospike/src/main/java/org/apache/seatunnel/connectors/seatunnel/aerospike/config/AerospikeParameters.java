@@ -71,14 +71,16 @@ public class AerospikeParameters implements Serializable {
         }
     }
 
-    public AerospikeClient buildClient() {
+    private AerospikeClient buildClient() {
         ClientPolicy clientPolicy = new ClientPolicy();
-        clientPolicy.user = this.username;
-        clientPolicy.password = this.password;
+        clientPolicy.user = config.get(AerospikeConfig.USERNAME);
+        clientPolicy.password = config.get(AerospikeConfig.PASSWORD);
         clientPolicy.timeout = 200;
         clientPolicy.maxConnsPerNode = 300;
 
-        return new AerospikeClient(clientPolicy, host, port);
+        return new AerospikeClient(clientPolicy, 
+            config.get(AerospikeConfig.HOST),
+            config.get(AerospikeConfig.PORT));
     }
 
     public String getKeyField() {

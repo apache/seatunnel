@@ -8,7 +8,6 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeConfig;
-import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeParameters;
 
 import com.google.auto.service.AutoService;
 
@@ -39,8 +38,6 @@ public class AerospikeSinkFactory implements TableSinkFactory {
 
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
-        AerospikeParameters parameters = new AerospikeParameters();
-        parameters.buildWithConfig(context.getOptions());
-        return () -> new AerospikeSink(parameters, context.getCatalogTable());
+        return () -> new AerospikeSink(context.getOptions(), context.getCatalogTable());
     }
 }
