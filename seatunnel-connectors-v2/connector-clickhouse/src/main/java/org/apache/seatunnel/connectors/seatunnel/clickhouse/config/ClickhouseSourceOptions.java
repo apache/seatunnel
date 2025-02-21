@@ -17,8 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+
+import java.util.List;
+import java.util.Map;
 
 public class ClickhouseSourceOptions {
 
@@ -27,4 +32,17 @@ public class ClickhouseSourceOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Clickhouse sql used to query data");
+
+    /** clickhouse multi table */
+    public static final Option<List<Map<String, Object>>> TABLE_LIST =
+            Options.key("table_list")
+                    .type(new TypeReference<List<Map<String, Object>>>() {})
+                    .noDefaultValue()
+                    .withDescription("table list config");
+
+    public static final Option<String> TABLE_PATH =
+            Options.key("table_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("table full path");
 }

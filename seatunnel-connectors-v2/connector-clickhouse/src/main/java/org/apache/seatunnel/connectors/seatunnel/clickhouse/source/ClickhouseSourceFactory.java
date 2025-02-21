@@ -37,6 +37,7 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Clickh
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.SERVER_TIME_ZONE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.USERNAME;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceOptions.SQL;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceOptions.TABLE_LIST;
 
 @AutoService(Factory.class)
 public class ClickhouseSourceFactory implements TableSourceFactory {
@@ -57,7 +58,7 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
         return OptionRule.builder()
                 .required(HOST, DATABASE, SQL, USERNAME, PASSWORD)
                 .exclusive(SQL, TABLE_LIST)
-                .optional(CLICKHOUSE_CONFIG)
+                .optional(CLICKHOUSE_CONFIG, SERVER_TIME_ZONE)
                 .build();
     }
 
