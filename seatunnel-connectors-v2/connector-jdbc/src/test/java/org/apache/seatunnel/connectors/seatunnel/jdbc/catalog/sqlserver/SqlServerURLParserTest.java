@@ -22,6 +22,7 @@ import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class SqlServerURLParserTest {
     @Test
@@ -37,6 +38,76 @@ class SqlServerURLParserTest {
         assertEquals("myDB", urlInfo.getDefaultDatabase().get());
         assertEquals(
                 "jdbc:sqlserver://localhost:1433;encrypt=true;trustServerCertificate=false;loginTimeout=30",
+                urlInfo.getUrlWithoutDatabase());
+    }
+
+    @Test
+    public void testParse2() {
+        String url2 =
+                "jdbc:sqlserver://localhost\\instanceName;databaseName=myDB;encrypt=true;trustServerCertificate=false;loginTimeout=30;";
+        JdbcUrlUtil.UrlInfo urlInfo = SqlServerURLParser.parse(url2);
+        assertEquals("localhost", urlInfo.getHost());
+        assertNull(urlInfo.getPort());
+        assertEquals(url2, urlInfo.getOrigin());
+        assertEquals(
+                "encrypt=true;trustServerCertificate=false;loginTimeout=30", urlInfo.getSuffix());
+        assertEquals("myDB", urlInfo.getDefaultDatabase().get());
+        assertEquals(
+                "jdbc:sqlserver://localhost\\instanceName;encrypt=true;trustServerCertificate=false;loginTimeout=30",
+                urlInfo.getUrlWithoutDatabase());
+    }
+
+    @Test
+    public void testParse3() {
+        String url3 =
+                "jdbc:sqlserver://;serverName=localhost\\instanceName;databaseName=myDB;encrypt=true;trustServerCertificate=false;loginTimeout=30;";
+
+        JdbcUrlUtil.UrlInfo urlInfo = SqlServerURLParser.parse(url3);
+        assertEquals("localhost", urlInfo.getHost());
+        assertNull(urlInfo.getPort());
+        assertEquals(url3, urlInfo.getOrigin());
+        assertEquals(
+                "serverName=localhost\\instanceName;encrypt=true;trustServerCertificate=false;loginTimeout=30",
+                urlInfo.getSuffix());
+        assertEquals("myDB", urlInfo.getDefaultDatabase().get());
+        assertEquals(
+                "jdbc:sqlserver://localhost\\instanceName;serverName=localhost\\instanceName;encrypt=true;trustServerCertificate=false;loginTimeout=30",
+                urlInfo.getUrlWithoutDatabase());
+    }
+
+    @Test
+    public void testParse4() {
+        String url4 =
+                "jdbc:sqlserver://;serverName=localhost\\instanceName;port=1436;databaseName=myDB;encrypt=true;trustServerCertificate=false;loginTimeout=30;";
+
+        JdbcUrlUtil.UrlInfo urlInfo = SqlServerURLParser.parse(url4);
+        assertEquals("localhost", urlInfo.getHost());
+        assertEquals(1436, urlInfo.getPort());
+        assertEquals(url4, urlInfo.getOrigin());
+        assertEquals(
+                "serverName=localhost\\instanceName;port=1436;encrypt=true;trustServerCertificate=false;loginTimeout=30",
+                urlInfo.getSuffix());
+        assertEquals("myDB", urlInfo.getDefaultDatabase().get());
+        assertEquals(
+                "jdbc:sqlserver://localhost:1436;serverName=localhost\\instanceName;port=1436;encrypt=true;trustServerCertificate=false;loginTimeout=30",
+                urlInfo.getUrlWithoutDatabase());
+    }
+
+    @Test
+    public void testParse5() {
+        String url5 =
+                "jdbc:sqlserver://localhost\\instanceName;port=1436;databaseName=myDB;encrypt=true;trustServerCertificate=false;loginTimeout=30;";
+
+        JdbcUrlUtil.UrlInfo urlInfo = SqlServerURLParser.parse(url5);
+        assertEquals("localhost", urlInfo.getHost());
+        assertEquals(1436, urlInfo.getPort());
+        assertEquals(url5, urlInfo.getOrigin());
+        assertEquals(
+                "port=1436;encrypt=true;trustServerCertificate=false;loginTimeout=30",
+                urlInfo.getSuffix());
+        assertEquals("myDB", urlInfo.getDefaultDatabase().get());
+        assertEquals(
+                "jdbc:sqlserver://localhost:1436;port=1436;encrypt=true;trustServerCertificate=false;loginTimeout=30",
                 urlInfo.getUrlWithoutDatabase());
     }
 
