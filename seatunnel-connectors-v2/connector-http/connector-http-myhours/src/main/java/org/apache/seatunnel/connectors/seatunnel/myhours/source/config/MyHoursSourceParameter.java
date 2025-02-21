@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.myhours.source.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
 
@@ -43,15 +42,14 @@ public class MyHoursSourceParameter extends HttpParameter {
         // set method
         this.setMethod(HttpRequestMethod.valueOf(MyHoursSourceConfig.POST));
         // set body
-        Map<String, String> bodyParams = new HashMap<>();
+        Map<String, Object> bodyParams = new HashMap<>();
         String email = pluginConfig.getString(MyHoursSourceConfig.EMAIL.key());
         String password = pluginConfig.getString(MyHoursSourceConfig.PASSWORD.key());
         bodyParams.put(MyHoursSourceConfig.GRANT_TYPE, MyHoursSourceConfig.PASSWORD.key());
         bodyParams.put(MyHoursSourceConfig.EMAIL.key(), email);
         bodyParams.put(MyHoursSourceConfig.PASSWORD.key(), password);
         bodyParams.put(MyHoursSourceConfig.CLIENT_ID, MyHoursSourceConfig.API);
-        String body = JsonUtils.toJsonString(bodyParams);
-        this.setBody(body);
+        this.setBody(bodyParams);
         this.setRetryParameters(pluginConfig);
     }
 }

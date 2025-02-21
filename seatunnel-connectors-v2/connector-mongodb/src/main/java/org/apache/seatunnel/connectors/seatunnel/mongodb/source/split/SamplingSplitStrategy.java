@@ -33,6 +33,7 @@ import com.mongodb.client.model.Projections;
 import com.mongodb.client.model.Sorts;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -112,7 +113,7 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
         // fix issue https://github.com/apache/seatunnel/issues/7575
         long total =
                 Optional.ofNullable(count)
-                        .map(v -> Long.parseLong(String.valueOf(count)))
+                        .map(v -> new BigDecimal(String.valueOf(count)).longValue())
                         .orElse(0L);
         Object avgDocumentBytes = res.get("avgObjSize");
         long avgObjSize =

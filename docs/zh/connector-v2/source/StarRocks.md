@@ -19,23 +19,24 @@
 
 ## 配置选项
 
-| 名称                      | 类型     | 是否必须 | 默认值               |
-|-------------------------|--------|------|-------------------|
-| nodeUrls                | list   | 是    | -                 |
-| username                | string | 是    | -                 |
-| password                | string | 是    | -                 |
-| database                | string | 是    | -                 |
-| table                   | string | 是    | -                 |
-| scan_filter             | string | 否    | -                 |
-| schema                  | config | 是    | -                 |
-| request_tablet_size     | int    | 否   | Integer.MAX_VALUE |
-| scan_connect_timeout_ms | int    | 否   | 30000             |
-| scan_query_timeout_sec  | int    | 否   | 3600              |
-| scan_keep_alive_min     | int    | 否   | 10                |
-| scan_batch_rows         | int    | 否   | 1024              |
-| scan_mem_limit          | long   | 否   | 2147483648        |
-| max_retries             | int    | 否   | 3                 |
-| scan.params.*           | string | 否   | -                 |
+| 名称                      | 类型        | 是否必须  | 默认值               |
+|-------------------------|-----------|-------|-------------------|
+| nodeUrls                | list      | 是     | -                 |
+| username                | string    | 是     | -                 |
+| password                | string    | 是     | -                 |
+| database                | string    | 是     | -                 |
+| table                   | string    | 否     | -                 |
+| scan_filter             | string    | 否     | -                 |
+| schema                  | config    | 否     | -                 |
+| table_list              | array     | 否     | -                 |
+| request_tablet_size     | int       | 否     | Integer.MAX_VALUE |
+| scan_connect_timeout_ms | int       | 否     | 30000             |
+| scan_query_timeout_sec  | int       | 否     | 3600              |
+| scan_keep_alive_min     | int       | 否     | 10                |
+| scan_batch_rows         | int       | 否     | 1024              |
+| scan_mem_limit          | long      | 否     | 2147483648        |
+| max_retries             | int       | 否     | 3                 |
+| scan.params.*           | string    | 否     | -                 |
 
 ### nodeUrls [list]
 
@@ -83,6 +84,10 @@ schema {
     }
   }
 ```
+
+### table_list [array]
+
+`StarRocks` 表名列表，当需要同时读取多表时使用此配置代替 table
 
 ### request_tablet_size [int]
 
@@ -139,7 +144,7 @@ partition[5] 从 be_node_3 读取 tablet 数据：tablet[14,15]
 
 从 `BE` 节点扫描数据相关的参数。
 
-## 示例
+## 示例 1
 
 ```
 source {
@@ -175,9 +180,68 @@ source {
 }
 ```
 
+## 示例 2: 读取多表
+
+```
+source {
+  StarRocks {
+    nodeUrls = ["starrocks_e2e:8030"]
+    username = root
+    password = ""
+    database = "test"
+    table_list = [
+    {
+        table = "e2e_table_source"
+        schema = {
+            fields {
+               BIGINT_COL = BIGINT
+               LARGEINT_COL = STRING
+               SMALLINT_COL = SMALLINT
+               TINYINT_COL = TINYINT
+               BOOLEAN_COL = BOOLEAN
+               DECIMAL_COL = "DECIMAL(20, 1)"
+               DOUBLE_COL = DOUBLE
+               FLOAT_COL = FLOAT
+               INT_COL = INT
+               CHAR_COL = STRING
+               VARCHAR_11_COL = STRING
+               STRING_COL = STRING
+               DATETIME_COL = TIMESTAMP
+               DATE_COL = DATE
+            }
+        }
+    },
+    {
+        table = "e2e_table_source_2"
+        schema = {
+            fields {
+               BIGINT_COL_2 = BIGINT
+               LARGEINT_COL_2 = STRING
+               SMALLINT_COL_2 = SMALLINT
+               TINYINT_COL_2 = TINYINT
+               BOOLEAN_COL_2 = BOOLEAN
+               DECIMAL_COL_2 = "DECIMAL(20, 1)"
+               DOUBLE_COL_2 = DOUBLE
+               FLOAT_COL_2 = FLOAT
+               INT_COL_2 = INT
+               CHAR_COL_2 = STRING
+               VARCHAR_11_COL_2 = STRING
+               STRING_COL_2 = STRING
+               DATETIME_COL_2 = TIMESTAMP
+               DATE_COL_2 = DATE
+            }
+        }
+    }]
+    scan_batch_rows = 10
+    max_retries = 3
+    scan.params.scanner_thread_pool_thread_num = "3"
+    
+  }
+}
+```
+
 ## Changelog
 
 ### next version
 
 - Add StarRocks Source Connector
-

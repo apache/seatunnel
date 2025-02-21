@@ -19,58 +19,45 @@ package org.apache.seatunnel.connectors.doris.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.configuration.util.OptionRule;
 
-public interface DorisOptions {
+public class DorisBaseOptions {
 
-    String IDENTIFIER = "Doris";
-    String DORIS_DEFAULT_CLUSTER = "default_cluster";
-    int DORIS_BATCH_SIZE_DEFAULT = 1024;
+    public static final String IDENTIFIER = "Doris";
 
     // common option
-    Option<String> FENODES =
+    public static final Option<String> FENODES =
             Options.key("fenodes")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("doris fe http address.");
 
-    Option<Integer> QUERY_PORT =
+    public static final Option<Integer> QUERY_PORT =
             Options.key("query-port")
                     .intType()
                     .defaultValue(9030)
                     .withDescription("doris query port");
 
-    @Deprecated
-    Option<String> TABLE_IDENTIFIER =
-            Options.key("table.identifier")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the doris table name.");
-
-    Option<String> USERNAME =
+    public static final Option<String> USERNAME =
             Options.key("username")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("the doris user name.");
 
-    Option<String> PASSWORD =
+    public static final Option<String> PASSWORD =
             Options.key("password")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("the doris password.");
 
-    Option<String> TABLE =
+    public static final Option<String> TABLE =
             Options.key("table").stringType().noDefaultValue().withDescription("table");
 
-    Option<String> DATABASE =
+    public static final Option<String> DATABASE =
             Options.key("database").stringType().noDefaultValue().withDescription("database");
 
-    Option<Integer> DORIS_BATCH_SIZE =
+    public static final Option<Integer> DORIS_BATCH_SIZE =
             Options.key("doris.batch.size")
                     .intType()
-                    .defaultValue(DORIS_BATCH_SIZE_DEFAULT)
+                    .defaultValue(1024)
                     .withDescription("the batch size of the doris read/write.");
-
-    OptionRule.Builder CATALOG_RULE =
-            OptionRule.builder().required(FENODES, QUERY_PORT, USERNAME, PASSWORD);
 }
