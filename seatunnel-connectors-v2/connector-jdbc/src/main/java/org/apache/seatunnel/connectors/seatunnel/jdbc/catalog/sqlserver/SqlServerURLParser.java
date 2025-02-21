@@ -44,10 +44,17 @@ public class SqlServerURLParser {
         String[] split = url.split(";", 2);
         if (split.length > 1) {
             props = parseQueryParams(split[1], ";");
-            serverName = props.get("serverName");
-            dbInstance = props.getOrDefault("databaseName", props.get("database"));
-            if (props.containsKey("portNumber")) {
-                String portNumber = props.get("portNumber");
+            Map<String, String> propsWithUpperCaseKey =
+                    props.entrySet().stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            e -> e.getKey().toUpperCase(), Map.Entry::getValue));
+            serverName = propsWithUpperCaseKey.get("SERVERNAME");
+            dbInstance =
+                    propsWithUpperCaseKey.getOrDefault(
+                            "DATABASENAME", propsWithUpperCaseKey.get("DATABASE"));
+            if (propsWithUpperCaseKey.containsKey("PORTNUMBER")) {
+                String portNumber = propsWithUpperCaseKey.get("PORTNUMBER");
                 try {
                     port = Integer.parseInt(portNumber);
                 } catch (NumberFormatException e) {
@@ -79,8 +86,8 @@ public class SqlServerURLParser {
                 props.entrySet().stream()
                         .filter(
                                 e ->
-                                        !e.getKey().equals("databaseName")
-                                                && !e.getKey().equals("database"))
+                                        !e.getKey().equalsIgnoreCase("databaseName")
+                                                && !e.getKey().equalsIgnoreCase("database"))
                         .map(e -> e.getKey() + "=" + e.getValue())
                         .collect(Collectors.joining(";", "", ""));
         suffix = Optional.ofNullable(suffix).orElse("");

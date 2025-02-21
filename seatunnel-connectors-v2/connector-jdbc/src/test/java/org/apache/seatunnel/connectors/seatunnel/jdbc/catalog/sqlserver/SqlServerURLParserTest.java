@@ -39,4 +39,20 @@ class SqlServerURLParserTest {
                 "jdbc:sqlserver://localhost:1433;encrypt=true;trustServerCertificate=false;loginTimeout=30",
                 urlInfo.getUrlWithoutDatabase());
     }
+
+    @Test
+    public void testIgnoreCase() {
+        String url =
+                "jdbc:sqlserver://localhost;DataBAseNaME=myDB;trustServerCertificate=false;PortNumBer=999;loginTimeout=30;SERVERname=test;";
+        JdbcUrlUtil.UrlInfo urlInfo = SqlServerURLParser.parse(url);
+        assertEquals("myDB", urlInfo.getDefaultDatabase().get());
+        assertEquals(
+                "jdbc:sqlserver://localhost:999;trustServerCertificate=false;PortNumBer=999;loginTimeout=30;SERVERname=test",
+                urlInfo.getUrlWithoutDatabase());
+        assertEquals(
+                "trustServerCertificate=false;PortNumBer=999;loginTimeout=30;SERVERname=test",
+                urlInfo.getSuffix());
+        assertEquals("localhost", urlInfo.getHost());
+        assertEquals(999, urlInfo.getPort());
+    }
 }
