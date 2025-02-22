@@ -73,7 +73,10 @@ public class ChangeStreamOffset extends Offset {
     }
 
     public BsonTimestamp getTimestamp() {
-        long timestamp = Long.parseLong(offset.get(TIMESTAMP_FIELD));
+        long timestamp = System.currentTimeMillis();
+        if (offset.get(TIMESTAMP_FIELD) != null) {
+            timestamp = Long.parseLong(offset.get(TIMESTAMP_FIELD));
+        }
         return new BsonTimestamp(timestamp);
     }
 

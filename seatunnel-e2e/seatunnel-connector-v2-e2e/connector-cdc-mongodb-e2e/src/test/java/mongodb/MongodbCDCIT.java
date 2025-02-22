@@ -249,6 +249,47 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK and FLINK do not support restore")
+    public void testSavepointRecovery(TestContainer container)
+            throws InterruptedException, IOException {
+        cleanSourceTable();
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        String jobConfigFile = "/mongodbcdc_to_mysql.conf";
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob(jobConfigFile, jobId);
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException();
+                    }
+                    return null;
+                });
+        TimeUnit.SECONDS.sleep(10);
+        upsertDeleteSourceTable();
+        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+        TimeUnit.SECONDS.sleep(10);
+        // restore 1
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.restoreJob(jobConfigFile, jobId);
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+        mongodbContainer.executeCommandFileInDatabase("inventory", MONGODB_DATABASE);
+        TimeUnit.SECONDS.sleep(10);
+        // Verify data consistency after recovery
+        assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
+    }
+
     private void assertionsSourceAndSink(String mongodbCollection, String sinkMysqlQuery) {
         List<List<Object>> expected =
                 readMongodbData(mongodbCollection).stream()
