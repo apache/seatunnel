@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.hbase.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.sink.SinkCommonOptions;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -70,7 +70,7 @@ public class HbaseSinkFactory implements TableSinkFactory {
                         WRITE_BUFFER_SIZE,
                         ENCODING,
                         HBASE_EXTRA_CONFIG,
-                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
 

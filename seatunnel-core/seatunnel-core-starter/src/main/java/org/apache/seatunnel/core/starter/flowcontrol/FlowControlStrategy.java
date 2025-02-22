@@ -22,8 +22,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.apache.seatunnel.api.env.EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND;
-import static org.apache.seatunnel.api.env.EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND;
+import static org.apache.seatunnel.api.options.EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND;
+import static org.apache.seatunnel.api.options.EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND;
 
 public final class FlowControlStrategy {
 

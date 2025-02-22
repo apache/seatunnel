@@ -27,13 +27,16 @@ import static com.hazelcast.internal.util.Preconditions.checkPositive;
 @Data
 public class HttpConfig implements Serializable {
 
-    private boolean enabled = ServerConfigOptions.ENABLE_HTTP.defaultValue();
+    private boolean enabled =
+            ServerConfigOptions.MasterServerConfigOptions.ENABLE_HTTP.defaultValue();
 
-    private int port = ServerConfigOptions.PORT.defaultValue();
+    private int port = ServerConfigOptions.MasterServerConfigOptions.PORT.defaultValue();
 
-    private String contextPath = ServerConfigOptions.CONTEXT_PATH.defaultValue();
+    private String contextPath =
+            ServerConfigOptions.MasterServerConfigOptions.CONTEXT_PATH.defaultValue();
 
-    private boolean enableDynamicPort = ServerConfigOptions.ENABLE_DYNAMIC_PORT.defaultValue();
+    private boolean enableDynamicPort =
+            ServerConfigOptions.MasterServerConfigOptions.ENABLE_DYNAMIC_PORT.defaultValue();
 
     private int portRange = ServerConfigOptions.PORT_RANGE.defaultValue();
     private boolean requireClientAuth = ServerConfigOptions.REQUIRE_CLIENT_AUTH.defaultValue();
@@ -46,9 +49,10 @@ public class HttpConfig implements Serializable {
     private String keyPassword = ServerConfigOptions.KEY_PASSWORD.defaultValue();
     private String truststore = ServerConfigOptions.TRUSTSTORE.defaultValue();
     private String truststorePassword = ServerConfigOptions.TRUSTSTORE_PASSWORD.defaultValue();
+    private int portRange = ServerConfigOptions.MasterServerConfigOptions.PORT_RANGE.defaultValue();
 
     public void setPort(int port) {
-        checkPositive(port, ServerConfigOptions.HTTP + " must be > 0");
+        checkPositive(port, ServerConfigOptions.MasterServerConfigOptions.HTTP + " must be > 0");
         this.port = port;
     }
 

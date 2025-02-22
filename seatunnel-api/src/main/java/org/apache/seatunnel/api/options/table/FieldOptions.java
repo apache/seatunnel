@@ -15,33 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.slack.config;
+package org.apache.seatunnel.api.options.table;
+
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-import lombok.Data;
+import java.util.Map;
 
-import java.io.Serializable;
+// We should use ColumnOptions instead of FieldOptions
+@Deprecated
+public interface FieldOptions {
 
-@Data
-public class SlackConfig implements Serializable {
-
-    public static final Option<String> WEBHOOKS_URL =
-            Options.key("webhooks_url")
-                    .stringType()
+    Option<Map<String, Object>> FIELDS =
+            Options.key("schema.fields")
+                    .type(new TypeReference<Map<String, Object>>() {})
                     .noDefaultValue()
-                    .withDescription("Slack webhoooks url");
-
-    public static final Option<String> OAUTH_TOKEN =
-            Options.key("oauth_token")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Slack oauth token");
-
-    public static final Option<String> SLACK_CHANNEL =
-            Options.key("slack_channel")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Slack slack channel");
+                    .withDescription("SeaTunnel Schema Fields");
 }

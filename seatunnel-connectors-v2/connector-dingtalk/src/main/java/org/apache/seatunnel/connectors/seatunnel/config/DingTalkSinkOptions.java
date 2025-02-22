@@ -15,29 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.kerberos;
+package org.apache.seatunnel.connectors.seatunnel.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class KerberosConfig {
+public class DingTalkSinkOptions {
 
-    public static final Option<String> KERBEROS_PRINCIPAL =
-            Options.key("kerberos_principal")
+    public static final Option<String> URL =
+            Options.key("url")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("When use kerberos, we should set kerberos user principal");
-
-    public static final Option<String> KRB5_PATH =
-            Options.key("krb5_path")
-                    .stringType()
-                    .defaultValue("/etc/krb5.conf")
                     .withDescription(
-                            "When use kerberos, we should set krb5 path file path such as '/seatunnel/krb5.conf' or use the default path '/etc/krb5.conf'");
-
-    public static final Option<String> KERBEROS_KEYTAB_PATH =
-            Options.key("kerberos_keytab_path")
+                            "DingTalk robot address format is https://oapi.dingtalk.com/robot/send?access_token=XXXXXX");
+    public static final Option<String> SECRET =
+            Options.key("secret")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("When using kerberos, We should specify the keytab path");
+                    .withDescription("DingTalk robot secret");
 }

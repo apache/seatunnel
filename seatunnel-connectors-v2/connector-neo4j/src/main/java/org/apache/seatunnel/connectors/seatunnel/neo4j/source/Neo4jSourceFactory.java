@@ -18,8 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.neo4j.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
@@ -46,7 +46,7 @@ public class Neo4jSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(KEY_NEO4J_URI, KEY_DATABASE, KEY_QUERY, TableSchemaOptions.SCHEMA)
+                .required(KEY_NEO4J_URI, KEY_DATABASE, KEY_QUERY, ConnectorCommonOptions.SCHEMA)
                 .optional(
                         KEY_USERNAME,
                         KEY_PASSWORD,

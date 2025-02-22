@@ -169,7 +169,7 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 
 If you assign file type to `parquet` `orc`, schema option not required, connector can find the schema of upstream data automatically.
 
-|    Orc Data type     |                      SeaTunnel Data type                       |
+| Parquet Data type    | SeaTunnel Data type                                            |
 |----------------------|----------------------------------------------------------------|
 | INT_8                | BYTE                                                           |
 | INT_16               | SHORT                                                          |
