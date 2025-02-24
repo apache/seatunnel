@@ -49,7 +49,7 @@ Tablestore 的主键。
 
 ### common 选项 [ config ]
 
-Sink插件常用参数，请参考[Sink common Options]（../Sink common Options.md）了解详细信息。
+Sink插件常用参数，请参考[Sink common Options]（../sink-common-options.md）了解详细信息。
 
 ## 示例
 
