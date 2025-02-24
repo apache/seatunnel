@@ -112,6 +112,7 @@ public class GetEventOperation extends Operation implements IdentifiedDataSerial
                 while (ringBuffer.getCursor() >= nextSequence) {
                     try {
                         JobEvent jobEvent = ringBuffer.get(nextSequence);
+                        System.out.println("add Event:" + jobEvent.getEvent());
                         events.add(jobEvent.getEvent());
                         nextSequence++;
                     } catch (Exception e) {

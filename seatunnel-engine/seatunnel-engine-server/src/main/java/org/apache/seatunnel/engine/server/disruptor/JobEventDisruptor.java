@@ -25,18 +25,22 @@ public class JobEventDisruptor implements Closeable {
     private final int eventQueueSize;
 
     public JobEventDisruptor(int eventQueueSize) {
-        this.eventQueueSize = eventQueueSize;
+        this.eventQueueSize = findNextPowerOfTwo(eventQueueSize);
         ThreadFactory threadFactory = DaemonThreadFactory.INSTANCE;
         this.disruptor =
                 new Disruptor<>(
                         JobEvent.FACTORY,
-                        eventQueueSize,
+                        this.eventQueueSize,
                         threadFactory,
                         ProducerType.SINGLE,
                         new BlockingWaitStrategy());
 
         disruptor.start();
         this.ringBuffer = disruptor.getRingBuffer();
+    }
+
+    private int findNextPowerOfTwo(int value) {
+        return 1 << (32 - Integer.numberOfLeadingZeros(value - 1));
     }
 
     public boolean publish(Event event) {
