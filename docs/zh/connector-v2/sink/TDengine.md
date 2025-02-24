@@ -24,7 +24,7 @@
 
 ### url [string]
 
-选择TDengine时的TDengine的url
+TDengine的url
 
 例如
 
@@ -34,23 +34,23 @@ jdbc:TAOS-RS://localhost:6041/
 
 ### username [string]
 
-选择时TDengine的用户名
+TDengine的用户名
 
 ### password [string]
 
-选择时TDengine的密码
+TDengine的密码
 
 ### database [string]
 
-当您选择时，TDengine的数据库
+TDengine的数据库
 
 ### stable [string]
 
-选择时TDengine的稳定性
+TDengine的超级表
 
 ### timezone [string]
 
-TDengine服务器的时间对ts领域很重要
+TDengine服务器的时间，对ts字段很重要
 
 ## 示例
 
