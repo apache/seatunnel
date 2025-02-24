@@ -15,23 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.config.server;
+package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
 
-import lombok.Data;
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 
-import java.util.HashMap;
-import java.util.Map;
+public class ClickhouseSourceOptions {
 
-@Data
-public class CheckpointStorageConfig {
-
-    private String storage =
-            ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_STORAGE_TYPE.defaultValue();
-
-    private int maxRetainedCheckpoints =
-            ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_STORAGE_MAX_RETAINED
-                    .defaultValue();
-
-    /** Storage plugin instance configuration */
-    private Map<String, String> storagePluginConfig = new HashMap<>();
+    public static final Option<String> SQL =
+            Options.key("sql")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Clickhouse sql used to query data");
 }

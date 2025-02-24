@@ -33,7 +33,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.catalog.ClickhouseCatalog;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.catalog.ClickhouseCatalogFactory;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ReaderOption;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
@@ -54,18 +54,18 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.BULK_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.CLICKHOUSE_CONFIG;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.CUSTOM_SQL;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PRIMARY_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SHARDING_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SPLIT_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SUPPORT_UPSERT;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.CLICKHOUSE_CONFIG;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.BULK_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.CUSTOM_SQL;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.PRIMARY_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.SHARDING_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.SPLIT_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.SUPPORT_UPSERT;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.TABLE;
 
 public class ClickhouseSink
         implements SeaTunnelSink<SeaTunnelRow, ClickhouseSinkState, CKCommitInfo, CKAggCommitInfo>,
@@ -186,8 +186,8 @@ public class ClickhouseSink
         TablePath tablePath = TablePath.of(readonlyConfig.get(DATABASE), readonlyConfig.get(TABLE));
         ClickhouseCatalog clickhouseCatalog =
                 new ClickhouseCatalog(readonlyConfig, ClickhouseCatalogFactory.IDENTIFIER);
-        SchemaSaveMode schemaSaveMode = readonlyConfig.get(ClickhouseConfig.SCHEMA_SAVE_MODE);
-        DataSaveMode dataSaveMode = readonlyConfig.get(ClickhouseConfig.DATA_SAVE_MODE);
+        SchemaSaveMode schemaSaveMode = readonlyConfig.get(ClickhouseSinkOptions.SCHEMA_SAVE_MODE);
+        DataSaveMode dataSaveMode = readonlyConfig.get(ClickhouseSinkOptions.DATA_SAVE_MODE);
         return Optional.of(
                 new DefaultSaveModeHandler(
                         schemaSaveMode,

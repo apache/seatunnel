@@ -154,5 +154,5 @@ public class StarRocksSinkOptions extends StarRocksBaseOptions {
             Options.key("custom_sql")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("when schema_save_mode selects CUSTOM_PROCESSING custom SQL");
+                    .withDescription("when data_save_mode selects CUSTOM_PROCESSING custom SQL");
 }

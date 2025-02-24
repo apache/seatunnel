@@ -53,10 +53,10 @@ public class ConfDecryptCommand implements Command<AbstractCommandArgs> {
                         .resolveWith(
                                 ConfigFactory.systemProperties(),
                                 ConfigResolveOptions.defaults().setAllowUnresolved(true));
-        Config encryptConfig = ConfigShadeUtils.decryptConfig(config);
+        Config decryptConfig = ConfigShadeUtils.decryptConfig(config);
         log.info(
-                "Encrypt config: \n{}",
-                encryptConfig
+                "Decrypt config: \n{}",
+                decryptConfig
                         .root()
                         .render(ConfigRenderOptions.defaults().setOriginComments(false)));
     }
