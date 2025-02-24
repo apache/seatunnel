@@ -54,6 +54,7 @@ public class JobEventReportOperation extends Operation implements IdentifiedData
             JobMaster jobMaster = coordinatorService.getJobMaster(Long.parseLong(event.getJobId()));
             jobMaster.getEvents().add(event);
             jobMaster.getHistoryEvents().add(event);
+            jobMaster.getJobEventDisruptor().publish(event);
         }
     }
 

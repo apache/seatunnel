@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.disruptor.JobEvent;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.serializable.ResourceDataSerializerHook;
 
@@ -30,6 +31,7 @@ import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
+import com.lmax.disruptor.RingBuffer;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -51,6 +53,8 @@ public class GetEventOperation extends Operation implements IdentifiedDataSerial
 
     private Data response;
 
+    private long nextSequence;
+
     /**
      * @param jobId job id
      * @param isAll When isAll is true, retrieve all events; otherwise, retrieve the latest event
@@ -58,6 +62,7 @@ public class GetEventOperation extends Operation implements IdentifiedDataSerial
     public GetEventOperation(Long jobId, boolean isAll) {
         this.jobId = jobId;
         this.isAll = isAll;
+        this.nextSequence = 0;
     }
 
     @Override
@@ -89,9 +94,32 @@ public class GetEventOperation extends Operation implements IdentifiedDataSerial
         if (jobMaster != null) {
             log.debug("Retrieving events for active job {}, isAll: {}", jobId, isAll);
             if (isAll) {
-                Optional.ofNullable(jobMaster.getHistoryEvents()).ifPresent(events::addAll);
+                RingBuffer<JobEvent> ringBuffer = jobMaster.getJobEventDisruptor().getRingBuffer();
+                long nextSequence = 0;
+                while (ringBuffer.getCursor() >= nextSequence) {
+                    try {
+                        JobEvent jobEvent = ringBuffer.get(nextSequence);
+                        events.add(jobEvent.getEvent());
+                        nextSequence++;
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                //
+                // Optional.ofNullable(jobMaster.getHistoryEvents()).ifPresent(events::addAll);
             } else {
-                Optional.ofNullable(jobMaster.getEvents()).ifPresent(q -> q.drainTo(events));
+                RingBuffer<JobEvent> ringBuffer = jobMaster.getJobEventDisruptor().getRingBuffer();
+                while (ringBuffer.getCursor() >= nextSequence) {
+                    try {
+                        JobEvent jobEvent = ringBuffer.get(nextSequence);
+                        events.add(jobEvent.getEvent());
+                        nextSequence++;
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                //                Optional.ofNullable(jobMaster.getEvents()).ifPresent(q ->
+                // q.drainTo(events));
             }
         } else {
             log.debug("Job {} not active, retrieving from history", jobId);
