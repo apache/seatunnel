@@ -23,6 +23,7 @@ import com.alibaba.fastjson.TypeReference;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -70,12 +71,22 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                 case MAP:
                     Map<String, Object> dataMap =
                             JSON.parseObject(data, new TypeReference<Map<String, Object>>() {});
-                    Bin dataBin = new Bin(config.get(AerospikeConfig.BIN_NAME), dataMap);
+                    Map<String, Object> filteredMap = new HashMap<>();
+                    for (String fieldName : typeConverter.getFieldNames()) {
+                        filteredMap.put(fieldName, dataMap.get(fieldName));
+                    }
+                    Bin dataBin = new Bin(config.get(AerospikeConfig.BIN_NAME), filteredMap);
                     aerospikeClient.put(writePolicy, aerospikeKey, dataBin);
                     break;
 
                 case STRING:
-                    Bin stringBin = new Bin(config.get(AerospikeConfig.BIN_NAME), data);
+                    Map<String, Object> filteredDataMap = new HashMap<>();
+                    for (String fieldName : typeConverter.getFieldNames()) {
+                        int index = seaTunnelRowType.indexOf(fieldName);
+                        filteredDataMap.put(fieldName, element.getField(index));
+                    }
+                    String filteredData = JSON.toJSONString(filteredDataMap);
+                    Bin stringBin = new Bin(config.get(AerospikeConfig.BIN_NAME), filteredData);
                     aerospikeClient.put(writePolicy, aerospikeKey, stringBin);
                     break;
 
@@ -83,10 +94,12 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                     Map<String, Object> fieldsMap =
                             JSON.parseObject(data, new TypeReference<Map<String, Object>>() {});
                     List<Bin> bins = new ArrayList<>();
-                    for (Map.Entry<String, Object> entry : fieldsMap.entrySet()) {
-                        AerospikeDataType dataType = typeConverter.getFieldType(entry.getKey());
-                        Object value = convertValue(entry.getValue(), dataType);
-                        bins.add(new Bin(entry.getKey(), value));
+                    Map<String, String> configFieldTypes = config.get(AerospikeConfig.FIELD_TYPES);
+                    for (String fieldName : configFieldTypes.keySet()) {
+                        Object value = fieldsMap.get(fieldName);
+                        AerospikeDataType dataType = typeConverter.getFieldType(fieldName);
+                        Object convertedValue = convertValue(value, dataType);
+                        bins.add(new Bin(fieldName, convertedValue));
                     }
                     aerospikeClient.put(writePolicy, aerospikeKey, bins.toArray(new Bin[0]));
                     break;

@@ -1,6 +1,9 @@
 package org.apache.seatunnel.connectors.seatunnel.aerospike.sink;
 
+import lombok.Getter;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeConfig;
@@ -8,32 +11,48 @@ import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeDataT
 import org.apache.seatunnel.connectors.seatunnel.aerospike.exception.AerospikeErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.aerospike.exception.AerospikeConnectorException;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class AerospikeTypeConverter {
 
     private final Map<String, AerospikeDataType> fieldTypeMapping;
+    @Getter
+    private final List<String> fieldNames;
 
     public AerospikeTypeConverter(SeaTunnelRowType rowType, ReadonlyConfig config) {
         this.fieldTypeMapping = new HashMap<>();
-        Map<String, String> configFieldTypes =
-                config.getOptional(AerospikeConfig.FIELD_TYPES).orElse(new HashMap<>());
-        String[] fieldNames = rowType.getFieldNames();
-        SeaTunnelDataType<?>[] fieldTypes = rowType.getFieldTypes();
-
-        for (int i = 0; i < fieldNames.length; i++) {
-            String fieldName = fieldNames[i];
-            if (configFieldTypes.containsKey(fieldName)) {
+        Map<String, String> configFieldTypes = config.get(AerospikeConfig.FIELD_TYPES);
+        
+        if (configFieldTypes == null || configFieldTypes.isEmpty()) {
+            String[] allFields = rowType.getFieldNames();
+            this.fieldNames = Arrays.asList(allFields);
+            for (String field : allFields) {
+                int index = rowType.indexOf(field);
+                SeaTunnelDataType<?> seaTunnelType = rowType.getFieldType(index);
+                fieldTypeMapping.put(field, mapSeaTunnelType(seaTunnelType));
+            }
+        } else {
+            this.fieldNames = new ArrayList<>(configFieldTypes.keySet());
+            for (String fieldName : configFieldTypes.keySet()) {
+                int index = rowType.indexOf(fieldName);
+                if (index == -1) {
+                    throw new AerospikeConnectorException(
+                        AerospikeErrorCode.INVALID_CONFIG,
+                        "Field '" + fieldName + "' not found in source data");
+                }
                 fieldTypeMapping.put(
-                        fieldName, AerospikeDataType.valueOf(configFieldTypes.get(fieldName)));
-            } else {
-                fieldTypeMapping.put(fieldName, convertSeaTunnelType(fieldTypes[i]));
+                    fieldName, 
+                    AerospikeDataType.valueOf(configFieldTypes.get(fieldName))
+                );
             }
         }
     }
 
-    private AerospikeDataType convertSeaTunnelType(SeaTunnelDataType<?> seaTunnelType) {
+    private AerospikeDataType mapSeaTunnelType(SeaTunnelDataType<?> seaTunnelType) {
         switch (seaTunnelType.getSqlType()) {
             case STRING:
                 return AerospikeDataType.STRING;
@@ -48,12 +67,26 @@ public class AerospikeTypeConverter {
             case BOOLEAN:
                 return AerospikeDataType.BOOLEAN;
             case MAP:
+                if (!(seaTunnelType instanceof MapType)) {
+                    throw new AerospikeConnectorException(
+                        AerospikeErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Invalid MAP type: " + seaTunnelType.getClass().getSimpleName());
+                }
                 return AerospikeDataType.MAP;
             case ARRAY:
+                if (!(seaTunnelType instanceof ArrayType)) {
+                    throw new AerospikeConnectorException(
+                        AerospikeErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Invalid ARRAY type: " + seaTunnelType.getClass().getSimpleName());
+                }
                 return AerospikeDataType.LIST;
+            case DATE:
+            case TIMESTAMP:
+                return AerospikeDataType.LONG;
             default:
-                throw new UnsupportedOperationException(
-                        "Unsupported SeaTunnel data type: " + seaTunnelType);
+                throw new AerospikeConnectorException(
+                    AerospikeErrorCode.UNSUPPORTED_DATA_TYPE,
+                    "Unsupported SeaTunnel type: " + seaTunnelType.getSqlType());
         }
     }
 

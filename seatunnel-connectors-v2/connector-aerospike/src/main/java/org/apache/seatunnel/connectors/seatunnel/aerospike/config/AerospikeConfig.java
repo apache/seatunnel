@@ -80,8 +80,12 @@ public class AerospikeConfig {
                     .withDescription("Write timeout in milliseconds");
 
     public static final Option<Map<String, String>> FIELD_TYPES =
-            Options.key("schema.fields")
+            Options.key("schema.field")
                     .mapType()
                     .defaultValue(new HashMap<>())
-                    .withDescription("Field type mapping for Aerospike data format");
+                    .withDescription("Fields to be written with their Aerospike data types. Example:  \"schema\": {\n" +
+                            "        \"filed\": {\n" +
+                            "          \"name\": \"STRING\"\n" +
+                            "        }\n" +
+                            "      }");
 }
