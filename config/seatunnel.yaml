@@ -24,7 +24,7 @@ seatunnel:
     print-execution-info-interval: 60
     print-job-metrics-info-interval: 60
     print-job-event-info-interval: 30
-    job-event-queue-size: 100
+    job-event-queue-size: 128
     slot-service:
       dynamic-slot: true
     checkpoint:

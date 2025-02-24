@@ -94,8 +94,8 @@ public class ServerConfigOptions {
         public static final Option<Integer> JOB_EVENT_QUEUE_SIZE =
                 Options.key("job-event-queue-size")
                         .intType()
-                        .defaultValue(100)
-                        .withDescription("Queue size for storing events");
+                        .defaultValue((int) Math.pow(2, 7))
+                        .withDescription("Queue size for storing events, default: 128");
 
         public static final Option<Integer> JOB_METRICS_BACKUP_INTERVAL =
                 Options.key("job-metrics-backup-interval")
