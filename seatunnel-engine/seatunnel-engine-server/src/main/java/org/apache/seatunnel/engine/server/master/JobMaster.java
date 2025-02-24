@@ -143,8 +143,6 @@ public class JobMaster {
 
     private SeaTunnelServer seaTunnelServer;
 
-    //    @Getter private ArrayBlockingQueue<Event> events;
-    //    @Getter private ArrayBlockingQueue<Event> historyEvents;
     @Getter private JobEventDisruptor jobEventDisruptor;
     /**
      * we need store slot used by task in Hazelcast IMap and release or reuse it when a new master
@@ -218,8 +216,6 @@ public class JobMaster {
         this.metricsImap = metricsImap;
         this.seaTunnelServer = seaTunnelServer;
         this.releasedSlotWhenTaskGroupFinished = new ConcurrentHashMap<>();
-        //        this.events = new ArrayBlockingQueue<>(engineConfig.getEventQueueSize());
-        //        this.historyEvents = new ArrayBlockingQueue<>(engineConfig.getEventQueueSize());
         this.jobEventDisruptor = new JobEventDisruptor(engineConfig.getEventQueueSize());
     }
 

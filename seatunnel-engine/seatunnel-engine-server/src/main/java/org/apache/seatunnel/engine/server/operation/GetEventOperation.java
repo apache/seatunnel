@@ -39,6 +39,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 public class GetEventOperation extends Operation implements IdentifiedDataSerializable {
@@ -47,13 +48,11 @@ public class GetEventOperation extends Operation implements IdentifiedDataSerial
 
     private Boolean isAll;
 
-    private List<Event> events = new ArrayList<>();
-
     public GetEventOperation() {}
 
     private Data response;
 
-    private long nextSequence;
+    private AtomicInteger nextSequence;
 
     /**
      * @param jobId job id
@@ -62,7 +61,7 @@ public class GetEventOperation extends Operation implements IdentifiedDataSerial
     public GetEventOperation(Long jobId, boolean isAll) {
         this.jobId = jobId;
         this.isAll = isAll;
-        this.nextSequence = 0;
+        this.nextSequence = new AtomicInteger(0);
     }
 
     @Override
@@ -93,35 +92,9 @@ public class GetEventOperation extends Operation implements IdentifiedDataSerial
 
         if (jobMaster != null) {
             log.debug("Retrieving events for active job {}, isAll: {}", jobId, isAll);
-            if (isAll) {
-                RingBuffer<JobEvent> ringBuffer = jobMaster.getJobEventDisruptor().getRingBuffer();
-                long nextSequence = 0;
-                while (ringBuffer.getCursor() >= nextSequence) {
-                    try {
-                        JobEvent jobEvent = ringBuffer.get(nextSequence);
-                        events.add(jobEvent.getEvent());
-                        nextSequence++;
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-                //
-                // Optional.ofNullable(jobMaster.getHistoryEvents()).ifPresent(events::addAll);
-            } else {
-                RingBuffer<JobEvent> ringBuffer = jobMaster.getJobEventDisruptor().getRingBuffer();
-                while (ringBuffer.getCursor() >= nextSequence) {
-                    try {
-                        JobEvent jobEvent = ringBuffer.get(nextSequence);
-                        System.out.println("add Event:" + jobEvent.getEvent());
-                        events.add(jobEvent.getEvent());
-                        nextSequence++;
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-                //                Optional.ofNullable(jobMaster.getEvents()).ifPresent(q ->
-                // q.drainTo(events));
-            }
+            RingBuffer<JobEvent> ringBuffer = jobMaster.getJobEventDisruptor().getRingBuffer();
+            AtomicInteger sequenceToUse = isAll ? new AtomicInteger(0) : nextSequence;
+            collectEvents(ringBuffer, sequenceToUse, events);
         } else {
             log.debug("Job {} not active, retrieving from history", jobId);
             Optional.ofNullable(
@@ -133,6 +106,20 @@ public class GetEventOperation extends Operation implements IdentifiedDataSerial
         }
 
         return this.getNodeEngine().toData(events);
+    }
+
+    private void collectEvents(
+            RingBuffer<JobEvent> ringBuffer, AtomicInteger sequence, List<Event> events) {
+
+        while (ringBuffer.getCursor() >= sequence.get()) {
+            try {
+                JobEvent jobEvent = ringBuffer.get(sequence.get());
+                events.add(jobEvent.getEvent());
+                sequence.addAndGet(1);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     @Override
