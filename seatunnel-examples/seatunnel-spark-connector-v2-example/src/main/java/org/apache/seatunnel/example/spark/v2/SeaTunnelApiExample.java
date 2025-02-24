@@ -27,7 +27,6 @@ public class SeaTunnelApiExample {
     public static void main(String[] args)
             throws FileNotFoundException, URISyntaxException, CommandException {
         String configurePath = args.length > 0 ? args[0] : "/examples/spark.batch.conf";
-
         ExampleUtils.builder(configurePath);
     }
 }
