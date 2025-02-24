@@ -1,16 +1,19 @@
 package org.apache.seatunnel.connectors.seatunnel.aerospike.sink;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeConfig;
 import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeDataType;
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.aerospike.config.DataFormatType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import com.aerospike.client.AerospikeClient;
 import com.aerospike.client.Bin;
 import com.aerospike.client.Key;
+import com.aerospike.client.policy.ClientPolicy;
 import com.aerospike.client.policy.RecordExistsAction;
 import com.aerospike.client.policy.WritePolicy;
 import com.alibaba.fastjson.JSON;
@@ -30,8 +33,7 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
     private final WritePolicy writePolicy;
     private final AerospikeTypeConverter typeConverter;
 
-    public AerospikeSinkWriter(
-            SeaTunnelRowType seaTunnelRowType, ReadonlyConfig config) {
+    public AerospikeSinkWriter(SeaTunnelRowType seaTunnelRowType, ReadonlyConfig config) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.config = config;
         this.serializationSchema = new JsonSerializationSchema(seaTunnelRowType);
@@ -54,11 +56,14 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
         String key = element.getField(seaTunnelRowType.indexOf(keyField)).toString();
 
         Key aerospikeKey =
-                new Key(config.get(AerospikeConfig.NAMESPACE), config.get(AerospikeConfig.SET), key);
+                new Key(
+                        config.get(AerospikeConfig.NAMESPACE),
+                        config.get(AerospikeConfig.SET),
+                        key);
 
-        switch (aerospikeParameters.getDataFormatType()) {
+        DataFormatType formatType = DataFormatType.valueOf(config.get(AerospikeConfig.DATA_FORMAT));
+        switch (formatType) {
             case MAP_FORMAT:
-                // 将整个JSON数据解析为Map结构
                 Map<String, Object> dataMap =
                         JSON.parseObject(data, new TypeReference<Map<String, Object>>() {});
                 Bin dataBin = new Bin(config.get(AerospikeConfig.BIN_NAME), dataMap);
@@ -66,13 +71,11 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                 break;
 
             case STRING_FORMAT:
-                // 直接使用字符串格式
                 Bin stringBin = new Bin(config.get(AerospikeConfig.BIN_NAME), data);
                 aerospikeClient.put(writePolicy, aerospikeKey, stringBin);
                 break;
 
             case KEY_VALUE_FORMAT:
-                // 每个字段作为单独的bin
                 Map<String, Object> fieldsMap =
                         JSON.parseObject(data, new TypeReference<Map<String, Object>>() {});
                 List<Bin> bins = new ArrayList<>();
@@ -85,9 +88,19 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                 break;
 
             default:
-                throw new IllegalArgumentException(
-                        "Unsupported data format type: " + config.get(AerospikeConfig.DATA_FORMAT));
+                throw new IllegalArgumentException("Unsupported data format type: " + formatType);
         }
+    }
+
+    private AerospikeClient buildClient() {
+        ClientPolicy clientPolicy = new ClientPolicy();
+        clientPolicy.user = config.get(AerospikeConfig.USERNAME);
+        clientPolicy.password = config.get(AerospikeConfig.PASSWORD);
+        clientPolicy.timeout = 200;
+        clientPolicy.maxConnsPerNode = 300;
+
+        return new AerospikeClient(
+                clientPolicy, config.get(AerospikeConfig.HOST), config.get(AerospikeConfig.PORT));
     }
 
     private Object convertValue(Object value, AerospikeDataType dataType) {
