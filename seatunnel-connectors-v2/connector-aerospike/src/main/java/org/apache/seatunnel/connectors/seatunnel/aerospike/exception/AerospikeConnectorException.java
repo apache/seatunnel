@@ -12,8 +12,4 @@ public class AerospikeConnectorException extends SeaTunnelRuntimeException {
             SeaTunnelErrorCode errorCode, String errorMessage, Throwable cause) {
         super(errorCode, errorMessage, cause);
     }
-
-    public AerospikeConnectorException(SeaTunnelErrorCode errorCode, Throwable cause) {
-        super(errorCode, cause);
-    }
 }

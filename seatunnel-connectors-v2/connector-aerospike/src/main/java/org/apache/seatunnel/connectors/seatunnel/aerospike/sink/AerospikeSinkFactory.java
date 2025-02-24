@@ -14,7 +14,7 @@ public class AerospikeSinkFactory implements TableSinkFactory {
 
     @Override
     public String factoryIdentifier() {
-        return "Aerospike";
+        return "aerospike";
     }
 
     @Override
@@ -30,7 +30,8 @@ public class AerospikeSinkFactory implements TableSinkFactory {
                         AerospikeConfig.PASSWORD,
                         AerospikeConfig.KEY_FIELD,
                         AerospikeConfig.BIN_NAME,
-                        AerospikeConfig.DATA_FORMAT)
+                        AerospikeConfig.DATA_FORMAT,
+                        AerospikeConfig.WRITE_TIMEOUT)
                 .build();
     }
 

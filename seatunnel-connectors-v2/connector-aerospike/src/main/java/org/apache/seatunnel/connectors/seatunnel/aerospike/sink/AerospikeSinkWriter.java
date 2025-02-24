@@ -9,6 +9,8 @@ import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeDataT
 import org.apache.seatunnel.connectors.seatunnel.aerospike.config.DataFormatType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
+import org.apache.seatunnel.connectors.seatunnel.aerospike.exception.AerospikeErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.aerospike.exception.AerospikeConnectorException;
 
 import com.aerospike.client.AerospikeClient;
 import com.aerospike.client.Bin;
@@ -39,11 +41,10 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
         this.serializationSchema = new JsonSerializationSchema(seaTunnelRowType);
         this.aerospikeClient = buildClient();
 
-        // Create write policy locally
         this.writePolicy = new WritePolicy();
         this.writePolicy.recordExistsAction = RecordExistsAction.UPDATE;
-        this.writePolicy.totalTimeout = 200;
-        this.writePolicy.socketTimeout = 200;
+        this.writePolicy.totalTimeout = config.get(AerospikeConfig.WRITE_TIMEOUT);
+        this.writePolicy.socketTimeout = config.get(AerospikeConfig.WRITE_TIMEOUT);
         this.writePolicy.sleepBetweenRetries = 0;
         this.writePolicy.maxRetries = 0;
         this.typeConverter = new AerospikeTypeConverter(seaTunnelRowType, config);
@@ -51,44 +52,67 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        String data = new String(serializationSchema.serialize(element));
-        String keyField = config.get(AerospikeConfig.KEY_FIELD);
-        String key = element.getField(seaTunnelRowType.indexOf(keyField)).toString();
+        try {
+            String data = new String(serializationSchema.serialize(element));
+            String keyField = config.get(AerospikeConfig.KEY_FIELD);
+            String key = element.getField(seaTunnelRowType.indexOf(keyField)).toString();
 
-        Key aerospikeKey =
-                new Key(
-                        config.get(AerospikeConfig.NAMESPACE),
-                        config.get(AerospikeConfig.SET),
-                        key);
+            Key aerospikeKey =
+                    new Key(
+                            config.get(AerospikeConfig.NAMESPACE),
+                            config.get(AerospikeConfig.SET),
+                            key);
 
-        DataFormatType formatType = DataFormatType.valueOf(config.get(AerospikeConfig.DATA_FORMAT));
-        switch (formatType) {
-            case MAP_FORMAT:
-                Map<String, Object> dataMap =
-                        JSON.parseObject(data, new TypeReference<Map<String, Object>>() {});
-                Bin dataBin = new Bin(config.get(AerospikeConfig.BIN_NAME), dataMap);
-                aerospikeClient.put(writePolicy, aerospikeKey, dataBin);
-                break;
+            String formatValue = config.get(AerospikeConfig.DATA_FORMAT).toLowerCase();
+            DataFormatType formatType = DataFormatType.fromString(formatValue);
 
-            case STRING_FORMAT:
-                Bin stringBin = new Bin(config.get(AerospikeConfig.BIN_NAME), data);
-                aerospikeClient.put(writePolicy, aerospikeKey, stringBin);
-                break;
+            switch (formatType) {
+                case MAP:
+                    Map<String, Object> dataMap =
+                            JSON.parseObject(data, new TypeReference<Map<String, Object>>() {});
+                    Bin dataBin = new Bin(config.get(AerospikeConfig.BIN_NAME), dataMap);
+                    aerospikeClient.put(writePolicy, aerospikeKey, dataBin);
+                    break;
 
-            case KEY_VALUE_FORMAT:
-                Map<String, Object> fieldsMap =
-                        JSON.parseObject(data, new TypeReference<Map<String, Object>>() {});
-                List<Bin> bins = new ArrayList<>();
-                for (Map.Entry<String, Object> entry : fieldsMap.entrySet()) {
-                    AerospikeDataType dataType = typeConverter.getFieldType(entry.getKey());
-                    Object value = convertValue(entry.getValue(), dataType);
-                    bins.add(new Bin(entry.getKey(), value));
-                }
-                aerospikeClient.put(writePolicy, aerospikeKey, bins.toArray(new Bin[0]));
-                break;
+                case STRING:
+                    Bin stringBin = new Bin(config.get(AerospikeConfig.BIN_NAME), data);
+                    aerospikeClient.put(writePolicy, aerospikeKey, stringBin);
+                    break;
 
-            default:
-                throw new IllegalArgumentException("Unsupported data format type: " + formatType);
+                case KEY_VALUE:
+                    Map<String, Object> fieldsMap =
+                            JSON.parseObject(data, new TypeReference<Map<String, Object>>() {});
+                    List<Bin> bins = new ArrayList<>();
+                    for (Map.Entry<String, Object> entry : fieldsMap.entrySet()) {
+                        AerospikeDataType dataType = typeConverter.getFieldType(entry.getKey());
+                        Object value = convertValue(entry.getValue(), dataType);
+                        bins.add(new Bin(entry.getKey(), value));
+                    }
+                    aerospikeClient.put(writePolicy, aerospikeKey, bins.toArray(new Bin[0]));
+                    break;
+
+                default:
+                    throw new IllegalArgumentException("Unsupported data format type: " + formatType);
+            }
+        } catch (Exception e) {
+            throw new AerospikeConnectorException(
+                AerospikeErrorCode.WRITER_OPERATION_FAILED,
+                "Failed to write record",
+                e);
+        }
+    }
+
+    @Override
+    public void close() throws IOException {
+        try {
+            if (Objects.nonNull(aerospikeClient)) {
+                aerospikeClient.close();
+            }
+        } catch (Exception e) {
+            throw new AerospikeConnectorException(
+                AerospikeErrorCode.WRITER_CLOSE_FAILED,
+                "Failed to close writer",
+                e);
         }
     }
 
@@ -96,7 +120,7 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
         ClientPolicy clientPolicy = new ClientPolicy();
         clientPolicy.user = config.get(AerospikeConfig.USERNAME);
         clientPolicy.password = config.get(AerospikeConfig.PASSWORD);
-        clientPolicy.timeout = 200;
+        clientPolicy.timeout = config.get(AerospikeConfig.WRITE_TIMEOUT);
         clientPolicy.maxConnsPerNode = 300;
 
         return new AerospikeClient(
@@ -146,12 +170,6 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                         "Expected List type but got: " + value.getClass());
             default:
                 throw new IllegalArgumentException("Unsupported AEROSPIKE data type: " + dataType);
-        }
-    }
-
-    public void close() throws IOException {
-        if (Objects.nonNull(aerospikeClient)) {
-            aerospikeClient.close();
         }
     }
 }

@@ -5,6 +5,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeConfig;
 import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeDataType;
+import org.apache.seatunnel.connectors.seatunnel.aerospike.exception.AerospikeErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.aerospike.exception.AerospikeConnectorException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -56,6 +58,12 @@ public class AerospikeTypeConverter {
     }
 
     public AerospikeDataType getFieldType(String fieldName) {
-        return fieldTypeMapping.get(fieldName);
+        AerospikeDataType type = fieldTypeMapping.get(fieldName);
+        if (type == null) {
+            throw new AerospikeConnectorException(
+                AerospikeErrorCode.UNSUPPORTED_DATA_TYPE,
+                "No type mapping for field: " + fieldName);
+        }
+        return type;
     }
 }

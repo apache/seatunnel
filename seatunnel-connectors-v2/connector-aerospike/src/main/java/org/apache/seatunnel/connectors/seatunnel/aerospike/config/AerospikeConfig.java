@@ -70,8 +70,14 @@ public class AerospikeConfig {
     public static final Option<String> DATA_FORMAT =
             Options.key("data_format")
                     .stringType()
-                    .defaultValue("MAP_FORMAT")
-                    .withDescription("Data format: MAP_FORMAT/STRING_FORMAT/KEY_VALUE_FORMAT");
+                    .defaultValue("map")
+                    .withDescription("Data format: map/string/kv");
+
+    public static final Option<Integer> WRITE_TIMEOUT =
+            Options.key("write_timeout")
+                    .intType()
+                    .defaultValue(200)
+                    .withDescription("Write timeout in milliseconds");
 
     public static final Option<Map<String, String>> FIELD_TYPES =
             Options.key("schema.fields")
