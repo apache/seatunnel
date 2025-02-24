@@ -21,7 +21,6 @@ import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactor
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
-import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.api.event.EventHandler;
 import org.apache.seatunnel.api.event.EventProcessor;
 import org.apache.seatunnel.api.tracing.MDCExecutorService;
@@ -80,7 +79,6 @@ import com.hazelcast.ringbuffer.Ringbuffer;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.Getter;
 import lombok.NonNull;
-import lombok.Setter;
 import scala.Tuple2;
 
 import java.util.ArrayList;
@@ -92,7 +90,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -156,8 +153,6 @@ public class CoordinatorService {
      */
     @Getter private final Map<Long, JobMaster> runningJobMasterMap = new ConcurrentHashMap<>();
 
-    @Getter @Setter
-    private Map<Long, ArrayBlockingQueue<Event>> jobEventMap = new ConcurrentHashMap<>();
     /**
      * key: job id; <br>
      * value: job master;

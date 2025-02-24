@@ -52,10 +52,7 @@ public class JobEventReportOperation extends Operation implements IdentifiedData
         for (Event event : events) {
             processor.process(event);
             JobMaster jobMaster = coordinatorService.getJobMaster(Long.parseLong(event.getJobId()));
-            //            jobMaster.getEvents().add(event);
-            //            jobMaster.getHistoryEvents().add(event);
             jobMaster.getJobEventDisruptor().publish(event);
-            System.out.println("put 成功," + event);
         }
     }
 

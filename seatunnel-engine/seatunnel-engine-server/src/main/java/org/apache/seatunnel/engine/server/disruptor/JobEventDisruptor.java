@@ -84,18 +84,13 @@ public class JobEventDisruptor implements Closeable {
         disruptor.shutdown();
     }
 
-    /** */
     public ArrayBlockingQueue<Event> storeJobHistory() {
         ArrayBlockingQueue<Event> events = new ArrayBlockingQueue<>(eventQueueSize);
         long nextSequence = 0;
         while (ringBuffer.getCursor() >= nextSequence) {
-            try {
-                JobEvent event = ringBuffer.get(nextSequence);
-                events.add(event.getEvent());
-                nextSequence++;
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            JobEvent event = ringBuffer.get(nextSequence);
+            events.add(event.getEvent());
+            nextSequence++;
         }
         try {
             this.close();
