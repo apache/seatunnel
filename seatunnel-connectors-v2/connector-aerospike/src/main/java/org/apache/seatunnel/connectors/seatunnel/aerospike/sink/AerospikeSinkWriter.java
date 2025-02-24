@@ -79,7 +79,7 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                     aerospikeClient.put(writePolicy, aerospikeKey, stringBin);
                     break;
 
-                case KEY_VALUE:
+                case KV:
                     Map<String, Object> fieldsMap =
                             JSON.parseObject(data, new TypeReference<Map<String, Object>>() {});
                     List<Bin> bins = new ArrayList<>();

@@ -8,7 +8,7 @@ import java.io.Serializable;
 public enum DataFormatType implements Serializable {
     MAP("map"),
     STRING("string"),
-    KEY_VALUE("kv");
+    KV("kv");
 
     private final String format;
 

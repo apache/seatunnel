@@ -70,7 +70,7 @@ public class AerospikeConfig {
     public static final Option<String> DATA_FORMAT =
             Options.key("data_format")
                     .stringType()
-                    .defaultValue("map")
+                    .defaultValue("string")
                     .withDescription("Data format: map/string/kv");
 
     public static final Option<Integer> WRITE_TIMEOUT =
