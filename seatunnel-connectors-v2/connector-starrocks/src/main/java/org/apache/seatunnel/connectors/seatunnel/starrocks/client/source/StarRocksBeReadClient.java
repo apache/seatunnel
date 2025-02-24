@@ -92,7 +92,6 @@ public class StarRocksBeReadClient implements Serializable {
     }
 
     public void openScanner(QueryPartition partition, SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
         Set<Long> tabletIds = partition.getTabletIds();
         TScanOpenParams params = new TScanOpenParams();
         params.setTablet_ids(new ArrayList<>(tabletIds));
@@ -135,6 +134,10 @@ public class StarRocksBeReadClient implements Serializable {
                 contextId,
                 tabletIds.size(),
                 tabletIds);
+        this.eos.set(false);
+        this.rowBatch = null;
+        this.readerOffset = 0;
+        this.seaTunnelRowType = seaTunnelRowType;
     }
 
     public boolean hasNext() {
