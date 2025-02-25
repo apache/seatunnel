@@ -30,9 +30,9 @@
 ## 主要功能
 
 - [x] [精确一次](../../concept/connector-v2-features.md)
-- [ ] [流处理](../../concept/connector-v2-features.md)
+- [x] [cdc](../../concept/connector-v2-features.md)
 
->使用“Xa事务”来确保“恰好一次”。因此，数据库只支持“恰好一次”，即
+>使用“Xa事务”来确保“精准一次”。因此，数据库只支持“精准一次”，即
 >支持“Xa事务”。您可以设置`is_exactly_once=true `来启用它。
 
 ## 支持的数据源信息
@@ -100,7 +100,7 @@
 
 ### 简单的例子:
 
->此示例定义了一个SeaTunnel同步任务，该任务通过FakeSource自动生成数据并将其发送到JDBC Sink。FakeSource总共生成16行数据（row.num=16），每行有两个字段，name（字符串类型）和age（int类型）。最终的目标表是test_table，表中也将有16行数据。在运行此作业之前，您需要在mysql中创建数据库测试和表test_table。如果您尚未安装和部署SeaTunnel，则需要按照[安装SeaTunnel]（../../start-v2/local/deployment.md）中的说明安装和部署SeaTunnel。然后按照[快速启动SeaTunnel引擎]（../../Start-v2/locale/Quick-Start SeaTunnel Engine.md）中的说明运行此作业。
+>此示例定义了一个SeaTunnel同步任务，该任务通过FakeSource自动生成数据并将其发送到JDBC Sink。FakeSource总共生成16行数据（row.num=16），每行有两个字段，name（字符串类型）和age（int类型）。最终的目标表是test_table，表中也将有16行数据。在运行此作业之前，您需要在mysql中创建数据库测试表test_table。如果您尚未安装和部署SeaTunnel，则需要按照[安装SeaTunnel]（../../start-v2/local/deployment.md）中的说明安装和部署SeaTunnel。然后按照[快速启动SeaTunnel引擎]（../../Start-v2/locale/Quick-Start SeaTunnel Engine.md）中的说明运行此作业。
 
 ```
 # 定义运行时环境
@@ -163,9 +163,9 @@ sink {
 }
 ```
 
-### 正好一次：
+### 精准一次：
 
-为了准确的书写场景，我们保证一次准确
+为了准确的书写场景，我们保证准确一次
 
 ```
 sink {
