@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosConfigOptions;
@@ -46,18 +46,18 @@ public class CosFileSourceFactory implements TableSourceFactory {
                 .required(CosConfigOptions.SECRET_ID)
                 .required(CosConfigOptions.SECRET_KEY)
                 .required(CosConfigOptions.REGION)
-                .required(BaseSourceConfigOptions.FILE_FORMAT_TYPE)
+                .required(FileBaseSourceOptions.FILE_FORMAT_TYPE)
                 .conditional(
-                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
-                        BaseSourceConfigOptions.FIELD_DELIMITER)
+                        FileBaseSourceOptions.FIELD_DELIMITER)
                 .conditional(
-                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.XML,
-                        BaseSourceConfigOptions.XML_ROW_TAG,
-                        BaseSourceConfigOptions.XML_USE_ATTR_FORMAT)
+                        FileBaseSourceOptions.XML_ROW_TAG,
+                        FileBaseSourceOptions.XML_USE_ATTR_FORMAT)
                 .conditional(
-                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
                                 FileFormat.TEXT,
                                 FileFormat.JSON,
@@ -65,14 +65,14 @@ public class CosFileSourceFactory implements TableSourceFactory {
                                 FileFormat.CSV,
                                 FileFormat.XML),
                         ConnectorCommonOptions.SCHEMA)
-                .optional(BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH)
-                .optional(BaseSourceConfigOptions.DATE_FORMAT)
-                .optional(BaseSourceConfigOptions.DATETIME_FORMAT)
-                .optional(BaseSourceConfigOptions.TIME_FORMAT)
-                .optional(BaseSourceConfigOptions.FILE_FILTER_PATTERN)
-                .optional(BaseSourceConfigOptions.COMPRESS_CODEC)
-                .optional(BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC)
-                .optional(BaseSourceConfigOptions.NULL_FORMAT)
+                .optional(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH)
+                .optional(FileBaseSourceOptions.DATE_FORMAT)
+                .optional(FileBaseSourceOptions.DATETIME_FORMAT)
+                .optional(FileBaseSourceOptions.TIME_FORMAT)
+                .optional(FileBaseSourceOptions.FILE_FILTER_PATTERN)
+                .optional(FileBaseSourceOptions.COMPRESS_CODEC)
+                .optional(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC)
+                .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .build();
     }
 

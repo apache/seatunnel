@@ -23,7 +23,7 @@ import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
 import java.util.List;
 
-public class BaseSourceConfigOptions extends FileBaseOptions {
+public class FileBaseSourceOptions extends FileBaseOptions {
     public static final Option<FileFormat> FILE_FORMAT_TYPE =
             Options.key("file_format_type")
                     .objectType(FileFormat.class)

@@ -17,6 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.local.config;
 
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 
-public class LocalFileSourceOptions extends BaseSourceConfigOptions {}
+public class LocalFileSourceOptions extends FileBaseSourceOptions {}

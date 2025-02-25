@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.obs.sink;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.obs.config.ObsConfig;
@@ -42,47 +42,47 @@ public class ObsFileSinkFactory implements TableSinkFactory {
                 .required(ObsConfig.ACCESS_KEY)
                 .required(ObsConfig.ACCESS_SECRET)
                 .required(ObsConfig.ENDPOINT)
-                .optional(BaseSinkConfig.FILE_FORMAT_TYPE)
+                .optional(FileBaseSinkOptions.FILE_FORMAT_TYPE)
                 .conditional(
-                        BaseSinkConfig.FILE_FORMAT_TYPE,
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
-                        BaseSinkConfig.ROW_DELIMITER,
-                        BaseSinkConfig.FIELD_DELIMITER,
-                        BaseSinkConfig.TXT_COMPRESS)
+                        FileBaseSinkOptions.ROW_DELIMITER,
+                        FileBaseSinkOptions.FIELD_DELIMITER,
+                        FileBaseSinkOptions.TXT_COMPRESS)
                 .conditional(
-                        BaseSinkConfig.FILE_FORMAT_TYPE,
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
                         FileFormat.CSV,
-                        BaseSinkConfig.TXT_COMPRESS)
+                        FileBaseSinkOptions.TXT_COMPRESS)
                 .conditional(
-                        BaseSinkConfig.FILE_FORMAT_TYPE,
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
                         FileFormat.JSON,
-                        BaseSinkConfig.TXT_COMPRESS)
+                        FileBaseSinkOptions.TXT_COMPRESS)
                 .conditional(
-                        BaseSinkConfig.FILE_FORMAT_TYPE,
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
                         FileFormat.ORC,
-                        BaseSinkConfig.ORC_COMPRESS)
+                        FileBaseSinkOptions.ORC_COMPRESS)
                 .conditional(
-                        BaseSinkConfig.FILE_FORMAT_TYPE,
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
                         FileFormat.PARQUET,
-                        BaseSinkConfig.PARQUET_COMPRESS)
-                .optional(BaseSinkConfig.CUSTOM_FILENAME)
+                        FileBaseSinkOptions.PARQUET_COMPRESS)
+                .optional(FileBaseSinkOptions.CUSTOM_FILENAME)
                 .conditional(
-                        BaseSinkConfig.CUSTOM_FILENAME,
+                        FileBaseSinkOptions.CUSTOM_FILENAME,
                         true,
-                        BaseSinkConfig.FILE_NAME_EXPRESSION,
-                        BaseSinkConfig.FILENAME_TIME_FORMAT)
-                .optional(BaseSinkConfig.HAVE_PARTITION)
+                        FileBaseSinkOptions.FILE_NAME_EXPRESSION,
+                        FileBaseSinkOptions.FILENAME_TIME_FORMAT)
+                .optional(FileBaseSinkOptions.HAVE_PARTITION)
                 .conditional(
-                        BaseSinkConfig.HAVE_PARTITION,
+                        FileBaseSinkOptions.HAVE_PARTITION,
                         true,
-                        BaseSinkConfig.PARTITION_BY,
-                        BaseSinkConfig.PARTITION_DIR_EXPRESSION,
-                        BaseSinkConfig.IS_PARTITION_FIELD_WRITE_IN_FILE)
-                .optional(BaseSinkConfig.SINK_COLUMNS)
-                .optional(BaseSinkConfig.IS_ENABLE_TRANSACTION)
-                .optional(BaseSinkConfig.DATE_FORMAT)
-                .optional(BaseSinkConfig.DATETIME_FORMAT)
-                .optional(BaseSinkConfig.TIME_FORMAT)
+                        FileBaseSinkOptions.PARTITION_BY,
+                        FileBaseSinkOptions.PARTITION_DIR_EXPRESSION,
+                        FileBaseSinkOptions.IS_PARTITION_FIELD_WRITE_IN_FILE)
+                .optional(FileBaseSinkOptions.SINK_COLUMNS)
+                .optional(FileBaseSinkOptions.IS_ENABLE_TRANSACTION)
+                .optional(FileBaseSinkOptions.DATE_FORMAT)
+                .optional(FileBaseSinkOptions.DATETIME_FORMAT)
+                .optional(FileBaseSinkOptions.TIME_FORMAT)
                 .build();
     }
 }

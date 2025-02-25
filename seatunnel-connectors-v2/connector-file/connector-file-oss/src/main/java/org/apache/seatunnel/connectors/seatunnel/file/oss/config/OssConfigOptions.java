@@ -19,9 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.file.oss.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 
-public class OssConfigOptions extends BaseSourceConfigOptions {
+public class OssConfigOptions extends FileBaseSourceOptions {
     public static final Option<String> ACCESS_KEY =
             Options.key("access_key")
                     .stringType()

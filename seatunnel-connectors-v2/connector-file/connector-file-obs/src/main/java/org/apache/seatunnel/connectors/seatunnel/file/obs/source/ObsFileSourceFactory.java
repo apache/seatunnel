@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.obs.config.ObsConfig;
@@ -46,21 +46,21 @@ public class ObsFileSourceFactory implements TableSourceFactory {
                 .required(ObsConfig.ACCESS_KEY)
                 .required(ObsConfig.ACCESS_SECRET)
                 .required(ObsConfig.ENDPOINT)
-                .required(BaseSourceConfigOptions.FILE_FORMAT_TYPE)
+                .required(FileBaseSourceOptions.FILE_FORMAT_TYPE)
                 .conditional(
-                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
-                        BaseSourceConfigOptions.FIELD_DELIMITER)
+                        FileBaseSourceOptions.FIELD_DELIMITER)
                 .conditional(
-                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
                                 FileFormat.TEXT, FileFormat.JSON, FileFormat.EXCEL, FileFormat.CSV),
                         ConnectorCommonOptions.SCHEMA)
-                .optional(BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH)
-                .optional(BaseSourceConfigOptions.DATE_FORMAT)
-                .optional(BaseSourceConfigOptions.DATETIME_FORMAT)
-                .optional(BaseSourceConfigOptions.TIME_FORMAT)
-                .optional(BaseSourceConfigOptions.NULL_FORMAT)
+                .optional(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH)
+                .optional(FileBaseSourceOptions.DATE_FORMAT)
+                .optional(FileBaseSourceOptions.DATETIME_FORMAT)
+                .optional(FileBaseSourceOptions.TIME_FORMAT)
+                .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .build();
     }
 

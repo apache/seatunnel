@@ -26,7 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.VariablesSubstitute;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
@@ -173,7 +173,7 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
         List<Integer> partitionFieldsIndexInRow = fileSinkConfig.getPartitionFieldsIndexInRow();
         LinkedHashMap<String, List<String>> partitionDirAndValuesMap = new LinkedHashMap<>(1);
         if (CollectionUtils.isEmpty(partitionFieldsIndexInRow)) {
-            partitionDirAndValuesMap.put(BaseSinkConfig.NON_PARTITION, null);
+            partitionDirAndValuesMap.put(FileBaseSinkOptions.NON_PARTITION, null);
             return partitionDirAndValuesMap;
         }
         List<String> partitionFieldList = fileSinkConfig.getPartitionFieldList();
@@ -236,7 +236,7 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
         valuesMap.put(Constants.UUID, UUID.randomUUID().toString());
         valuesMap.put(Constants.NOW, formattedDate);
         valuesMap.put(timeFormat, formattedDate);
-        valuesMap.put(BaseSinkConfig.TRANSACTION_EXPRESSION, transactionId);
+        valuesMap.put(FileBaseSinkOptions.TRANSACTION_EXPRESSION, transactionId);
         String substitute = VariablesSubstitute.substitute(fileNameExpression, valuesMap);
         if (!singleFileMode) {
             substitute += "_" + partId;
@@ -309,13 +309,13 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
 
     private String getTransactionId(Long checkpointId) {
         return "T"
-                + BaseSinkConfig.TRANSACTION_ID_SPLIT
+                + FileBaseSinkOptions.TRANSACTION_ID_SPLIT
                 + jobId
-                + BaseSinkConfig.TRANSACTION_ID_SPLIT
+                + FileBaseSinkOptions.TRANSACTION_ID_SPLIT
                 + uuidPrefix
-                + BaseSinkConfig.TRANSACTION_ID_SPLIT
+                + FileBaseSinkOptions.TRANSACTION_ID_SPLIT
                 + subTaskIndex
-                + BaseSinkConfig.TRANSACTION_ID_SPLIT
+                + FileBaseSinkOptions.TRANSACTION_ID_SPLIT
                 + checkpointId;
     }
 
@@ -363,7 +363,7 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
     }
 
     public static String getTransactionDirPrefix(String tmpPath, String jobId, String uuidPrefix) {
-        String[] strings = new String[] {tmpPath, BaseSinkConfig.SEATUNNEL, jobId, uuidPrefix};
+        String[] strings = new String[] {tmpPath, FileBaseSinkOptions.SEATUNNEL, jobId, uuidPrefix};
         return String.join(File.separator, strings);
     }
 
@@ -375,7 +375,7 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
         LinkedHashMap<String, List<String>> dataPartitionDirAndValuesMap =
                 generatorPartitionDir(seaTunnelRow);
         boolean noPartition =
-                BaseSinkConfig.NON_PARTITION.equals(
+                FileBaseSinkOptions.NON_PARTITION.equals(
                         dataPartitionDirAndValuesMap.keySet().toArray()[0].toString());
         return getPathWithPartitionInfo(dataPartitionDirAndValuesMap, noPartition);
     }
@@ -384,7 +384,7 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
             LinkedHashMap<String, List<String>> dataPartitionDirAndValuesMap, boolean noPartition) {
         String beingWrittenFileKey =
                 noPartition
-                        ? BaseSinkConfig.NON_PARTITION
+                        ? FileBaseSinkOptions.NON_PARTITION
                         : dataPartitionDirAndValuesMap.keySet().toArray()[0].toString();
         // get filePath from beingWrittenFile
         String beingWrittenFilePath = beingWrittenFile.get(beingWrittenFileKey);
@@ -410,7 +410,7 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
                         Matcher.quoteReplacement(transactionDirectory),
                         Matcher.quoteReplacement(fileSinkConfig.getPath()));
         return tmpPath.replaceAll(
-                BaseSinkConfig.NON_PARTITION + Matcher.quoteReplacement(File.separator), "");
+                FileBaseSinkOptions.NON_PARTITION + Matcher.quoteReplacement(File.separator), "");
     }
 
     @Override

@@ -19,9 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.file.sftp.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 
-public class SftpConfigOptions extends BaseSourceConfigOptions {
+public class SftpConfigOptions extends FileBaseSourceOptions {
     public static final Option<String> SFTP_PASSWORD =
             Options.key("password")
                     .stringType()

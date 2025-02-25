@@ -33,7 +33,7 @@ import static org.apache.seatunnel.api.sink.DataSaveMode.APPEND_DATA;
 import static org.apache.seatunnel.api.sink.DataSaveMode.DROP_DATA;
 import static org.apache.seatunnel.api.sink.DataSaveMode.ERROR_WHEN_DATA_EXISTS;
 
-public class BaseSinkConfig extends FileBaseOptions {
+public class FileBaseSinkOptions extends FileBaseOptions {
     public static final String SEATUNNEL = "seatunnel";
     public static final String NON_PARTITION = "NON_PARTITION";
     public static final String TRANSACTION_ID_SPLIT = "_";
