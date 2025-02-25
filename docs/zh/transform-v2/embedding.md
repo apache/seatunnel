@@ -8,20 +8,21 @@
 
 ## 配置选项
 
-| 名称                             | 类型     | 是否必填 | 默认值 | 描述                                                               |
-|--------------------------------|--------|------|-----|------------------------------------------------------------------|
-| model_provider                 | enum   | 是    | -   | embedding模型的提供商。可选项包括 `QIANFAN`、`OPENAI` 等。                      |
-| api_key                        | string | 是    | -   | 用于验证embedding服务的API密钥。                                           |
-| secret_key                     | string | 是    | -   | 用于额外验证的密钥。一些提供商可能需要此密钥进行安全的API请求。                                |
-| single_vectorized_input_number | int    | 否    | 1   | 单次请求向量化的输入数量。默认值为1。                                              |
-| vectorization_fields           | map    | 是    | -   | 输入字段和相应的输出向量字段之间的映射。                                             |
-| model                          | string | 是    | -   | 要使用的具体embedding模型。例如，如果提供商为OPENAI，可以指定 `text-embedding-3-small`。 |
-| api_path                       | string | 否    | -   | embedding服务的API。通常由模型提供商提供。                                      |
-| oauth_path                     | string | 否    | -   | oauth 服务的 API 。                                                  |
-| custom_config                  | map    | 否    |     | 模型的自定义配置。                                                        |
-| custom_response_parse          | string | 否    |     | 使用 JsonPath 解析模型响应的方式。示例：`$.choices[*].message.content`。         |
-| custom_request_headers         | map    | 否    |     | 发送到模型的请求的自定义头信息。                                                 |
-| custom_request_body            | map    | 否    |     | 请求体的自定义配置。支持占位符如 `${model}`、`${input}`。                          |
+| 名称                               | 类型     | 是否必填 | 默认值    | 描述                                                                 |
+|----------------------------------|--------|------|--------|--------------------------------------------------------------------|
+| model_provider                   | enum   | 是    | -      | embedding模型的提供商。可选项包括 `QIANFAN`、`OPENAI` 等。                        |
+| api_key                          | string | 是    | -      | 用于验证embedding服务的API密钥。                                             |
+| secret_key                       | string | 是    | -      | 用于额外验证的密钥。一些提供商可能需要此密钥进行安全的API请求。                                  |
+| single_vectorized_input_number   | int    | 否    | 1      | 单次请求向量化的输入数量。默认值为1。                                                |
+| vectorization_fields             | map    | 是    | -      | 输入字段和相应的输出向量字段之间的映射。                                               |
+| model                            | string | 是    | -      | 要使用的具体embedding模型。例如，如果提供商为OPENAI，可以指定 `text-embedding-3-small`。   |
+| api_path                         | string | 否    | -      | embedding服务的API。通常由模型提供商提供。                                        |
+| dimension                        | int    | 否    | 2048   | 向量维度默认为 2048，Embedding-3模型支持自定义向量维度，建议选择256、512、1024或2048维度。       |
+| oauth_path                       | string | 否    | -      | oauth 服务的 API 。                                                    |
+| custom_config                    | map    | 否    |        | 模型的自定义配置。                                                          |
+| custom_response_parse            | string | 否    |        | 使用 JsonPath 解析模型响应的方式。示例：`$.choices[*].message.content`。           |
+| custom_request_headers           | map    | 否    |        | 发送到模型的请求的自定义头信息。                                                   |
+| custom_request_body              | map    | 否    |        | 请求体的自定义配置。支持占位符如 `${model}`、`${input}`。                            |
 
 ### embedding_model_provider
 
