@@ -18,6 +18,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.saphana;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 
@@ -26,6 +27,11 @@ import com.google.auto.service.AutoService;
 /** Dialect Factory of {@link SapHanaDialect} */
 @AutoService(JdbcDialectFactory.class)
 public class SapHanaDialectFactory implements JdbcDialectFactory {
+    @Override
+    public String dialectFactoryName() {
+        return DatabaseIdentifier.SAP_HANA;
+    }
+
     @Override
     public boolean acceptsURL(String url) {
         return url.startsWith("jdbc:sap://");
