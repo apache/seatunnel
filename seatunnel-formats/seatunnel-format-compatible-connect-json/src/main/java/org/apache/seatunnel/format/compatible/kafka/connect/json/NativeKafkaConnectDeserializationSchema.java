@@ -143,11 +143,9 @@ public class NativeKafkaConnectDeserializationSchema
 
         Map<String, Object> map = new HashMap<>();
         map.put("partition", msg.partition());
-        map.put("offset", msg.offset());
         map.put("key", msg.key());
         map.put("value", msg.value());
         map.put("timestamp", msg.timestamp());
-        map.put("timestampType", msg.timestampType().toString());
         map.put("headers", headersMap);
         return map;
     }
