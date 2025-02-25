@@ -208,6 +208,7 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
         if (config.hasPath(BaseSinkConfig.SHEET_NAME.key())) {
             this.sheetName = config.getString(BaseSinkConfig.SHEET_NAME.key());
         }
+        // this config is optional not required in some connectors, like s3FileSink
         if (config.hasPath(BaseSinkConfig.FILE_FORMAT_TYPE.key())
                 && StringUtils.isNotBlank(
                         config.getString(BaseSinkConfig.FILE_FORMAT_TYPE.key()))) {
