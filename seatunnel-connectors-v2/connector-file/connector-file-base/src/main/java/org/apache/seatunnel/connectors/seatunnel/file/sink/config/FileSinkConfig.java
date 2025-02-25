@@ -208,49 +208,52 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
         if (config.hasPath(BaseSinkConfig.SHEET_NAME.key())) {
             this.sheetName = config.getString(BaseSinkConfig.SHEET_NAME.key());
         }
+        if (config.hasPath(BaseSinkConfig.FILE_FORMAT_TYPE.key())
+                && StringUtils.isNotBlank(
+                        config.getString(BaseSinkConfig.FILE_FORMAT_TYPE.key()))) {
+            if (FileFormat.XML
+                    .name()
+                    .equalsIgnoreCase(config.getString(BaseSinkConfig.FILE_FORMAT_TYPE.key()))) {
+                if (!config.hasPath(BaseSinkConfig.XML_USE_ATTR_FORMAT.key())) {
+                    throw new FileConnectorException(
+                            CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                            "User must define xml_use_attr_format when file_format_type is xml");
+                }
 
-        if (FileFormat.XML
-                .name()
-                .equalsIgnoreCase(config.getString(BaseSinkConfig.FILE_FORMAT_TYPE.key()))) {
-            if (!config.hasPath(BaseSinkConfig.XML_USE_ATTR_FORMAT.key())) {
-                throw new FileConnectorException(
-                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                        "User must define xml_use_attr_format when file_format_type is xml");
+                this.xmlUseAttrFormat = config.getBoolean(BaseSinkConfig.XML_USE_ATTR_FORMAT.key());
+
+                if (config.hasPath(BaseSinkConfig.XML_ROOT_TAG.key())) {
+                    this.xmlRootTag = config.getString(BaseSinkConfig.XML_ROOT_TAG.key());
+                }
+
+                if (config.hasPath(BaseSinkConfig.XML_ROW_TAG.key())) {
+                    this.xmlRowTag = config.getString(BaseSinkConfig.XML_ROW_TAG.key());
+                }
             }
 
-            this.xmlUseAttrFormat = config.getBoolean(BaseSinkConfig.XML_USE_ATTR_FORMAT.key());
-
-            if (config.hasPath(BaseSinkConfig.XML_ROOT_TAG.key())) {
-                this.xmlRootTag = config.getString(BaseSinkConfig.XML_ROOT_TAG.key());
+            if (FileFormat.PARQUET
+                    .name()
+                    .equalsIgnoreCase(config.getString(BaseSinkConfig.FILE_FORMAT_TYPE.key()))) {
+                if (config.hasPath(BaseSinkConfig.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96.key())) {
+                    this.parquetWriteTimestampAsInt96 =
+                            config.getBoolean(
+                                    BaseSinkConfig.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96.key());
+                }
+                if (config.hasPath(BaseSinkConfig.PARQUET_AVRO_WRITE_FIXED_AS_INT96.key())) {
+                    this.parquetAvroWriteFixedAsInt96 =
+                            config.getStringList(
+                                    BaseSinkConfig.PARQUET_AVRO_WRITE_FIXED_AS_INT96.key());
+                }
             }
 
-            if (config.hasPath(BaseSinkConfig.XML_ROW_TAG.key())) {
-                this.xmlRowTag = config.getString(BaseSinkConfig.XML_ROW_TAG.key());
-            }
-        }
-
-        if (FileFormat.PARQUET
-                .name()
-                .equalsIgnoreCase(config.getString(BaseSinkConfig.FILE_FORMAT_TYPE.key()))) {
-            if (config.hasPath(BaseSinkConfig.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96.key())) {
-                this.parquetWriteTimestampAsInt96 =
-                        config.getBoolean(
-                                BaseSinkConfig.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96.key());
-            }
-            if (config.hasPath(BaseSinkConfig.PARQUET_AVRO_WRITE_FIXED_AS_INT96.key())) {
-                this.parquetAvroWriteFixedAsInt96 =
-                        config.getStringList(
-                                BaseSinkConfig.PARQUET_AVRO_WRITE_FIXED_AS_INT96.key());
-            }
-        }
-
-        if (FileFormat.CSV
-                .name()
-                .equalsIgnoreCase(config.getString(BaseSinkConfig.FILE_FORMAT_TYPE.key()))) {
-            if (config.hasPath(BaseSinkConfig.CSV_STRING_QUOTE_MODE.key())) {
-                this.csvStringQuoteMode =
-                        CsvStringQuoteMode.valueOf(
-                                config.getString(BaseSinkConfig.CSV_STRING_QUOTE_MODE.key()));
+            if (FileFormat.CSV
+                    .name()
+                    .equalsIgnoreCase(config.getString(BaseSinkConfig.FILE_FORMAT_TYPE.key()))) {
+                if (config.hasPath(BaseSinkConfig.CSV_STRING_QUOTE_MODE.key())) {
+                    this.csvStringQuoteMode =
+                            CsvStringQuoteMode.valueOf(
+                                    config.getString(BaseSinkConfig.CSV_STRING_QUOTE_MODE.key()));
+                }
             }
         }
     }
