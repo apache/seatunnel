@@ -56,7 +56,7 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(HOST, DATABASE, SQL, USERNAME, PASSWORD)
+                .required(HOST, DATABASE, USERNAME, PASSWORD)
                 .exclusive(SQL, TABLE_LIST)
                 .optional(CLICKHOUSE_CONFIG, SERVER_TIME_ZONE)
                 .build();
