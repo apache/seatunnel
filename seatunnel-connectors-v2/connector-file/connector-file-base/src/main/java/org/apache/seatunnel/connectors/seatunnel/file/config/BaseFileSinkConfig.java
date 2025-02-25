@@ -61,7 +61,8 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
             this.batchSize = config.getInt(FileBaseSinkOptions.BATCH_SIZE.key());
         }
         if (config.hasPath(FileBaseSinkOptions.FIELD_DELIMITER.key())
-                && StringUtils.isNotEmpty(config.getString(FileBaseSinkOptions.FIELD_DELIMITER.key()))) {
+                && StringUtils.isNotEmpty(
+                        config.getString(FileBaseSinkOptions.FIELD_DELIMITER.key()))) {
             this.fieldDelimiter = config.getString(FileBaseSinkOptions.FIELD_DELIMITER.key());
         }
 
@@ -82,7 +83,8 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
         if (config.hasPath(FileBaseSinkOptions.FILE_NAME_EXPRESSION.key())
                 && !StringUtils.isBlank(
                         config.getString(FileBaseSinkOptions.FILE_NAME_EXPRESSION.key()))) {
-            this.fileNameExpression = config.getString(FileBaseSinkOptions.FILE_NAME_EXPRESSION.key());
+            this.fileNameExpression =
+                    config.getString(FileBaseSinkOptions.FILE_NAME_EXPRESSION.key());
         }
 
         if (config.hasPath(FileBaseSinkOptions.SINGLE_FILE_MODE.key())) {
@@ -95,7 +97,8 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
         }
 
         if (config.hasPath(FileBaseSinkOptions.FILE_FORMAT_TYPE.key())
-                && !StringUtils.isBlank(config.getString(FileBaseSinkOptions.FILE_FORMAT_TYPE.key()))) {
+                && !StringUtils.isBlank(
+                        config.getString(FileBaseSinkOptions.FILE_FORMAT_TYPE.key()))) {
             this.fileFormat =
                     FileFormat.valueOf(
                             config.getString(FileBaseSinkOptions.FILE_FORMAT_TYPE.key())
@@ -104,7 +107,8 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
 
         if (config.hasPath(FileBaseSinkOptions.DATE_FORMAT.key())) {
             dateFormat =
-                    DateUtils.Formatter.parse(config.getString(FileBaseSinkOptions.DATE_FORMAT.key()));
+                    DateUtils.Formatter.parse(
+                            config.getString(FileBaseSinkOptions.DATE_FORMAT.key()));
         }
 
         if (config.hasPath(FileBaseSinkOptions.DATETIME_FORMAT.key())) {
@@ -115,7 +119,8 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
 
         if (config.hasPath(FileBaseSinkOptions.TIME_FORMAT.key())) {
             timeFormat =
-                    TimeUtils.Formatter.parse(config.getString(FileBaseSinkOptions.TIME_FORMAT.key()));
+                    TimeUtils.Formatter.parse(
+                            config.getString(FileBaseSinkOptions.TIME_FORMAT.key()));
         }
 
         if (config.hasPath(FileBaseSinkOptions.ENABLE_HEADER_WRITE.key())) {
