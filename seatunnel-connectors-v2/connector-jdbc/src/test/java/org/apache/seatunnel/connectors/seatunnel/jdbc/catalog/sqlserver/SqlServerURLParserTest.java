@@ -126,4 +126,14 @@ class SqlServerURLParserTest {
         assertEquals("localhost", urlInfo.getHost());
         assertEquals(999, urlInfo.getPort());
     }
+
+    @Test
+    public void testWithoutInstanceName() {
+        String url = "jdbc:sqlserver://sqlserver;encrypt=false;";
+        JdbcUrlUtil.UrlInfo urlInfo = SqlServerURLParser.parse(url);
+        assertEquals("sqlserver", urlInfo.getHost());
+        assertEquals(1433, urlInfo.getPort());
+        assertEquals(
+                "jdbc:sqlserver://sqlserver:1433;encrypt=false", urlInfo.getUrlWithoutDatabase());
+    }
 }

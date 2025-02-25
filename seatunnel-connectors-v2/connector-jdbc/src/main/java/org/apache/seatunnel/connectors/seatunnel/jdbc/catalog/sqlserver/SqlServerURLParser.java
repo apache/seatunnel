@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class SqlServerURLParser {
+    private static final int DEFAULT_PORT = 1433;
 
     public static JdbcUrlUtil.UrlInfo parse(String url) {
         String serverName = "";
@@ -97,12 +98,21 @@ public class SqlServerURLParser {
                         .collect(Collectors.joining(";", "", ""));
         suffix = Optional.ofNullable(suffix).orElse("");
 
-        String urlWithoutDatabase =
-                port != null
-                        ? String.format("jdbc:sqlserver://%s:%s", serverName, port) + ";" + suffix
-                        : String.format("jdbc:sqlserver://%s\\%s", serverName, instanceName)
-                                + ";"
-                                + suffix;
+        String urlWithoutDatabase;
+        if (port != null) {
+            urlWithoutDatabase =
+                    String.format("jdbc:sqlserver://%s:%s", serverName, port) + ";" + suffix;
+        } else if (instanceName != null) {
+            urlWithoutDatabase =
+                    String.format("jdbc:sqlserver://%s\\%s", serverName, instanceName)
+                            + ";"
+                            + suffix;
+        } else {
+            port = DEFAULT_PORT;
+            urlWithoutDatabase =
+                    String.format("jdbc:sqlserver://%s:%s", serverName, port) + ";" + suffix;
+        }
+
         return new JdbcUrlUtil.UrlInfo(
                 url, urlWithoutDatabase, serverName, port, dbInstance, suffix);
     }
