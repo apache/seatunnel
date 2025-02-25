@@ -59,11 +59,6 @@ public class LocalFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .optional(LocalFileSinkOptions.DATA_SAVE_MODE)
                 .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .conditional(
-                        LocalFileSinkOptions.FILE_FORMAT_TYPE,
-                        FileFormat.EXCEL,
-                        LocalFileSinkOptions.MAX_ROWS_IN_MEMORY,
-                        LocalFileSinkOptions.SHEET_NAME)
-                .conditional(
                         LocalFileSinkOptions.FILE_FORMAT_TYPE, FileFormat.XML, XML_USE_ATTR_FORMAT)
                 .optional(LocalFileSinkOptions.CUSTOM_FILENAME)
                 .optional(LocalFileSinkOptions.FILE_NAME_EXPRESSION)
@@ -88,6 +83,8 @@ public class LocalFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .optional(LocalFileSinkOptions.XML_ROW_TAG)
                 .optional(LocalFileSinkOptions.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96)
                 .optional(LocalFileSinkOptions.PARQUET_AVRO_WRITE_FIXED_AS_INT96)
+                .optional(LocalFileSinkOptions.MAX_ROWS_IN_MEMORY)
+                .optional(LocalFileSinkOptions.SHEET_NAME)
                 .optional(LocalFileSinkOptions.ENABLE_HEADER_WRITE)
                 .optional(LocalFileSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA)
                 .build();
