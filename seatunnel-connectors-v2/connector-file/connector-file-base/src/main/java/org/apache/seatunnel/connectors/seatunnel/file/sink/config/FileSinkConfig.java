@@ -135,7 +135,8 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
         if (config.hasPath(FileBaseSinkOptions.FILENAME_TIME_FORMAT.key())
                 && !StringUtils.isBlank(
                         config.getString(FileBaseSinkOptions.FILENAME_TIME_FORMAT.key()))) {
-            this.fileNameTimeFormat = config.getString(FileBaseSinkOptions.FILENAME_TIME_FORMAT.key());
+            this.fileNameTimeFormat =
+                    config.getString(FileBaseSinkOptions.FILENAME_TIME_FORMAT.key());
         }
 
         if (config.hasPath(FileBaseSinkOptions.IS_ENABLE_TRANSACTION.key())) {
@@ -218,7 +219,8 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
                         "User must define xml_use_attr_format when file_format_type is xml");
             }
 
-            this.xmlUseAttrFormat = config.getBoolean(FileBaseSinkOptions.XML_USE_ATTR_FORMAT.key());
+            this.xmlUseAttrFormat =
+                    config.getBoolean(FileBaseSinkOptions.XML_USE_ATTR_FORMAT.key());
 
             if (config.hasPath(FileBaseSinkOptions.XML_ROOT_TAG.key())) {
                 this.xmlRootTag = config.getString(FileBaseSinkOptions.XML_ROOT_TAG.key());

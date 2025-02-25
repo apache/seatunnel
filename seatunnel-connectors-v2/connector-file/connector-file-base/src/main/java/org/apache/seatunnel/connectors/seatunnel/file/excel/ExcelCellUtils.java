@@ -172,8 +172,7 @@ public class ExcelCellUtils implements Serializable {
 
     private Object parseRow(String fieldValue, SeaTunnelDataType<?> fieldType) {
         String delimiter =
-                ReadonlyConfig.fromConfig(pluginConfig)
-                        .get(FileBaseSourceOptions.FIELD_DELIMITER);
+                ReadonlyConfig.fromConfig(pluginConfig).get(FileBaseSourceOptions.FIELD_DELIMITER);
         String[] context = fieldValue.split(delimiter);
         SeaTunnelRowType ft = (SeaTunnelRowType) fieldType;
         int length = context.length;

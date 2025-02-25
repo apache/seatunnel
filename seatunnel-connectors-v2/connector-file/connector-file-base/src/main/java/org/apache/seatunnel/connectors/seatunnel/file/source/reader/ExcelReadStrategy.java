@@ -26,8 +26,8 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.ExcelEngine;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.excel.ExcelCellUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.excel.ExcelReaderListener;
@@ -97,16 +97,14 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
         }
 
         if (pluginConfig.hasPath(FileBaseSourceOptions.DATE_FORMAT.key())) {
-            dateFormatterPattern =
-                    pluginConfig.getString(FileBaseSourceOptions.DATE_FORMAT.key());
+            dateFormatterPattern = pluginConfig.getString(FileBaseSourceOptions.DATE_FORMAT.key());
         }
         if (pluginConfig.hasPath(FileBaseSourceOptions.DATETIME_FORMAT.key())) {
             dateTimeFormatterPattern =
                     pluginConfig.getString(FileBaseSourceOptions.DATETIME_FORMAT.key());
         }
         if (pluginConfig.hasPath(FileBaseSourceOptions.TIME_FORMAT.key())) {
-            timeFormatterPattern =
-                    pluginConfig.getString(FileBaseSourceOptions.TIME_FORMAT.key());
+            timeFormatterPattern = pluginConfig.getString(FileBaseSourceOptions.TIME_FORMAT.key());
         }
 
         ExcelCellUtils excelCellUtils =
@@ -154,8 +152,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             Sheet sheet =
                     pluginConfig.hasPath(FileBaseSourceOptions.SHEET_NAME.key())
                             ? workbook.getSheet(
-                                    pluginConfig.getString(
-                                            FileBaseSourceOptions.SHEET_NAME.key()))
+                                    pluginConfig.getString(FileBaseSourceOptions.SHEET_NAME.key()))
                             : workbook.getSheetAt(0);
             cellCount = seaTunnelRowType.getTotalFields();
             cellCount = partitionsMap.isEmpty() ? cellCount : cellCount + partitionsMap.size();

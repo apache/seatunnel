@@ -36,9 +36,7 @@ public class LocalFileCatalogFactory implements CatalogFactory {
         HadoopFileSystemProxy fileSystemUtils =
                 new HadoopFileSystemProxy(new LocalFileHadoopConf());
         return new LocalFileCatalog(
-                fileSystemUtils,
-                options.get(FileBaseSourceOptions.FILE_PATH),
-                factoryIdentifier());
+                fileSystemUtils, options.get(FileBaseSourceOptions.FILE_PATH), factoryIdentifier());
     }
 
     @Override

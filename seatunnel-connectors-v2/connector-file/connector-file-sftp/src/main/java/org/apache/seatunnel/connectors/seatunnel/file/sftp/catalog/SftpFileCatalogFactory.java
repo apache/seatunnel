@@ -36,9 +36,7 @@ public class SftpFileCatalogFactory implements CatalogFactory {
         HadoopFileSystemProxy fileSystemUtils =
                 new HadoopFileSystemProxy(SftpConf.buildWithConfig(options));
         return new SftpFileCatalog(
-                fileSystemUtils,
-                options.get(FileBaseSourceOptions.FILE_PATH),
-                factoryIdentifier());
+                fileSystemUtils, options.get(FileBaseSourceOptions.FILE_PATH), factoryIdentifier());
     }
 
     @Override

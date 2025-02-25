@@ -152,8 +152,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         }
         if (pluginConfig.hasPath(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH.key())) {
             isMergePartition =
-                    pluginConfig.getBoolean(
-                            FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH.key());
+                    pluginConfig.getBoolean(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH.key());
         }
         if (pluginConfig.hasPath(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER.key())) {
             skipHeaderNumber =
