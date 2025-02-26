@@ -106,7 +106,7 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
                                     .toUpperCase(Locale.ROOT));
         } else {
             // fall back to the default
-            this.fileFormat = BaseSinkConfig.FILE_FORMAT_TYPE.defaultValue();
+            this.fileFormat = FileBaseSinkOptions.FILE_FORMAT_TYPE.defaultValue();
         }
 
         if (config.hasPath(FileBaseSinkOptions.FILENAME_EXTENSION.key())

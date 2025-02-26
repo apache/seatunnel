@@ -228,9 +228,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("OracleIncrementalSourceOptions");
         whiteList.add("MySqlIncrementalSourceOptions");
         whiteList.add("MongodbIncrementalSourceOptions");
-        whiteList.add("OssFileSinkOptions");
-        whiteList.add("SftpFileSinkOptions");
-        whiteList.add("FtpFileSinkOptions");
         return whiteList;
     }
 }
