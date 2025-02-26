@@ -1,6 +1,6 @@
 # Vertica
 
-> JDBC Vertica 接收器连接器
+> JDBC Vertica Sink 连接器
 
 ## 支持的引擎
 
