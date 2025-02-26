@@ -1,6 +1,6 @@
 # DB2
 
-> JDBC DB2源端连接器
+> JDBC DB2 Source连接器
 
 ## 支持引擎
 
@@ -42,7 +42,7 @@
 ## 数据库相关性
 
 > 请下载“Maven”对应的支持列表，并将其复制到“$SEATUNNEL_HOME/plugins/jdbc/lib/”工作目录<br/>
-> 例如，DB2数据源：cp DB2-connector-java-xxx.jar$SEATUNNEL_HOME/plugins/jdbc/lib/
+> 例如，DB2数据源：cp DB2-connector-java-xxx.jar $SEATUNNEL_HOME/plugins/jdbc/lib/
 
 ## 数据类型映射
 
@@ -70,7 +70,7 @@
 | driver                       | String     | 是      | -               | 用于连接到远程数据源的jdbc类名，<br/>如果使用db2，则值为`com.ibm.db2.jdbc.app.DB2Driver`。                                                                                                                                 |
 | user                         | String     | 否       | -               | 连接实例用户名                                                                                                                                                                                                                                     |
 | password                     | String     | 否       | -               | 连接实例密码                                                                                                                                                                                                                                      |
-| query                        | String     | 是      | -               | 查询陈述                                                                                                                                                                                                                                                   |
+| query                        | String     | 是      | -               | 查询语句                                                                                                                                                                                                                                                   |
 | connection_check_timeout_sec | Int        | 否       | 30              | 等待用于验证连接的数据库操作完成的时间（秒）                                                                                                                                                               |
 | partition_column             | String     | 否       | -               | 并行分区的列名，只支持数值类型，只支持数字类型主键，只能配置一列。                                                                                                                    |
 | partition_lower_bound        | BigDecimal | 否       | -               | 扫描的partition_column最小值，如果未设置，SeaTunnel将查询数据库获取最小值。                                                                                                                                                                  |
@@ -82,7 +82,7 @@
 
 ### 小贴士
 
-> 如果未设置partition_column，它将以单并发运行，如果设置了partition_coolumn，它将根据任务的并发性并行执行。
+> 如果未设置partition_column，它将以单并发运行，如果设置了partition_column，它将根据任务的并发度并行执行。
 
 ## 任务示例
 
