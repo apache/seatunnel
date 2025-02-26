@@ -46,6 +46,14 @@ public class FileBaseSinkOptions extends FileBaseOptions {
     public static final String DEFAULT_FILE_NAME_EXPRESSION = "${transactionId}";
     public static final int DEFAULT_BATCH_SIZE = 1000000;
 
+    public static final Option<CompressFormat> TXT_COMPRESS =
+            Options.key("compress_codec")
+                    .singleChoice(
+                            CompressFormat.class,
+                            Arrays.asList(CompressFormat.NONE, CompressFormat.LZO))
+                    .defaultValue(CompressFormat.NONE)
+                    .withDescription("Txt file supported compression");
+
     public static final Option<CompressFormat> PARQUET_COMPRESS =
             Options.key("compress_codec")
                     .singleChoice(
