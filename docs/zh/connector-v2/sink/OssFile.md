@@ -13,18 +13,18 @@
 ### 适用于Spark/Flink引擎
 
 1. 您必须确保您的spark/flink集群已经集成了hadoop。测试的hadoop版本是2.x。
-2. 您必须确保`${SEATUNNEL_HOME}/plugins/`目录中的`hadoop aliyun xx.jar`、`aliyun sdk-oss-xx.jar`和`jdom-xx.jar'以及`hadoop-aliyun` jar需要的版本与您在spark/flink中使用的hadoop版本相同，`aliyun sdk-oss-x.x.jar`和`jdom-xx.jar `版本需要与`hadoop-aliyun`版本对应的版本。例如：hadoop-aliyun-3.1.4.jar依赖项aliyun-sdk-oss-3.4.1.jar和jdom-1.1.jar。
+2. 您必须确保`${SEATUNNEL_HOME}/plugins/`目录中的`hadoop-aliyun-xx.jar`, `aliyun-sdk-oss-xx.jar`和`jdom-xx.jar`的版本与您在spark/flink中使用的hadoop版本匹配，`aliyun-sdk-oss-x.x.jar`和`jdom-xx.jar`版本需要与`hadoop-aliyun`版本对应的版本。例如:`hadoop-aliyun-3.1.4.jar`依赖项`aliyun-sdk-oss-3.4.1.jar`和`jdom-1.1.jar`。
 
 ### 适用于SeaTunnel Zeta引擎
 
-1. 您必须确保在`${seatunnel_HOME}/lib/`目录中有`seatunnel-hadopp3-3.1.4-uber.jar `、`aliyun-sdk-oss-3.4.1.jar `、` hadoop-aliyun-3.1.4.jar `和`jdom-1.1.jar `。
+1. 您必须确保在`${seatunnel_HOME}/lib/`目录中有`seatunnel-hadopp3-3.1.4-uber.jar `、`aliyun-sdk-oss-3.4.1.jar `、` hadoop-aliyun-3.1.4.jar`和`jdom-1.1.jar `。
 
 ## 关键特性
 
-- [x] [精准一次](../../concept/connector-v2-features.md)
+- [x] [精确一次](../../concept/connector-v2-features.md)
 - [x] [支持多表写入](../../concept/connector-v2-features.md)
 
-默认情况下，我们使用2PC commit来确保“精准一次”
+默认情况下，我们使用2PC commit来确保`精确一次`
 
 - [x] 文件格式类型
   - [x] text
@@ -38,7 +38,7 @@
 
 ## 数据类型映射
 
-如果写入“csv”、“text”文件类型，则所有列将为字符串。
+如果写入`csv`、`text`文件类型，则所有列将为字符串。
 
 ### Orc 文件类型
 
@@ -89,7 +89,7 @@
 | 名称                                  | 类型    | 必需 | 默认值                                    | 描述                                                                                                                                                            |
 |---------------------------------------|---------|----------|--------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                                  | string  | 是      | 写入文件的oss路径。             |                                                                                                                                                                        |
-| tmp_path                              | string  | 否       | /tmp/seatunnel                             | 结果文件将首先写入tmp路径，然后使用`mv`将tmp-dir提交到目标dir。需要一个OSS dir。                                                      |
+| tmp_path                              | string  | 否       | /tmp/seatunnel                             | 结果文件将首先写入tmp路径，然后使用`mv`将tmp-dir提交到目标dir。因此需要一个OSS目录。                                                      |
 | bucket                                | string  | 是      | -                                          |                                                                                                                                                                        |
 | access_key                            | string  | 是      | -                                          |                                                                                                                                                                        |
 | access_secret                         | string  | 是      | -                                          |                                                                                                                                                                        |
@@ -117,8 +117,8 @@
 | xml_use_attr_format                   | boolean | 否       | -                                          | 仅在file_format为xml时使用。                                                                                                                                     |
 | single_file_mode                      | boolean | 否       | false                                      | 每个并行处理只会输出一个文件。启用此参数后，batch_size将不会生效。输出文件名没有文件块后缀。 |
 | create_empty_file_when_no_data        | boolean | 否       | false                                      | 当上游没有数据同步时，仍然会生成相应的数据文件。                                                                     |
-| parquet_avro_write_timestamp_as_int96 | boolean | 否       | false                                      | 仅在file_format为拼花地板时使用。                                                                                                                                 |
-| parquet_avro_write_fixed_as_int96     | array   | 否       | -                                          | 仅在file_format为拼花地板时使用。                                                                                                                                 |
+| parquet_avro_write_timestamp_as_int96 | boolean | 否       | false                                      | 仅在file_format为parquet时使用。                                                                                                                                 |
+| parquet_avro_write_fixed_as_int96     | array   | 否       | -                                          | 仅在file_format为parquet时使用。                                                                                                                                 |
 | enable_header_write                   | boolean | 否       | false                                      | 仅当file_format_type为文本、csv时使用<br/>false：不写标头，true：写标头。                                                                          |
 | encoding                              | string  | 否       | "UTF-8"                                    | 仅当file_format_type为json、text、csv、xml时使用。                                                                                                                 |
 
@@ -132,15 +132,15 @@ oss文件系统的bucket地址，例如：`oss://tyrantlucifer-image-bed`
 
 ### access_key [string]
 
-我们文件系统的访问密钥。
+oss文件系统的access_key。
 
 ### access_secret [string]
 
-oss文件系统的访问秘密。
+oss文件系统的access_secret。
 
 ### endpoint [string]
 
-oss文件系统的端点。
+oss文件系统的endpoint端点。
 
 ### custom_filename [boolean]
 
@@ -148,15 +148,15 @@ oss文件系统的端点。
 
 ### file_name_expression [string]
 
-仅在“custom_filename”为“true”时使用
+仅在`custom_filename`为`true`时使用
 
-`file_name_expression描述了将在`path`中创建的文件表达式。我们可以在“file_name_expression”中添加变量“${now}”或“${uuid}”，类似于“test_${uuid}_${now}“，”${now}“表示当前时间，其格式可以通过指定选项`filename_time_format`来定义。
+`file_name_expression描述了将在`path`中创建的文件表达式。我们可以在`file_name_expression`中添加变量`${now}`或`${uuid}`，类似于`test_${uuid}_${now}`，`${now}`表示当前时间，其格式可以通过指定选项`filename_time_format`来定义。
 
 请注意，如果`is_enable_transaction`为`true`，我们将自动添加`${transactionId}_`在文件的开头。
 
 ### filename_time_format [String]
 
-仅在“custom_filename”为“true”时使用`
+仅在`custom_filename`为`true`时使用`
 
 当`file_name_expression`参数中的格式为`xxxx-${Now}时，`filename_time_format`可以指定路径的时间格式，默认值为`yyyy.MM.dd。常用的时间格式如下：
 
@@ -175,15 +175,15 @@ oss文件系统的端点。
 
 `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`
 
-请注意，最终文件名将以file_format_type的后缀结尾，文本文件的后缀为“txt”。
+请注意，最终文件名将以file_format_type的后缀结尾，文本文件的后缀为`txt`。
 
 ### field_delimiter [string]
 
-数据行中列之间的分隔符。只需要“文本”文件格式。
+数据行中列之间的分隔符。只需要`文本`文件格式。
 
 ### row_delimiter [string]
 
-文件中行之间的分隔符。只需要“text”文件格式。
+文件中行之间的分隔符。只需要`text`文件格式。
 
 ### have_partition [boolean]
 
@@ -197,7 +197,7 @@ oss文件系统的端点。
 
 ### partition_dir_expression [string]
 
-仅在“have_partition”为“true”时使用。
+仅在`have_partition`为`true`时使用。
 
 如果指定了`partition_by`，我们将根据分区信息生成相应的分区目录，并将最终文件放置在分区目录中。
 
@@ -205,15 +205,15 @@ oss文件系统的端点。
 
 ### is_partition_field_write_in_file [boolean]
 
-仅在“have_partition”为“true”时使用。
+仅在`have_partition`为`true`时使用。
 
 如果`is_partition_field_write_in_file`为`true`，则分区字段及其值将写入数据文件。
 
-例如，如果你想写一个Hive数据文件，它的值应该是“false”。
+例如，如果你想写一个Hive数据文件，它的值应该是`false`。
 
 ### sink_columns [array]
 
-哪些列需要写入文件，默认值是从“Transform”或“Source”获取的所有列。
+哪些列需要写入文件，默认值是从`Transform`或`Source`获取的所有列。
 字段的顺序决定了文件实际写入的顺序。
 
 ### is_enable_transaction [boolean]
@@ -222,11 +222,11 @@ oss文件系统的端点。
 
 请注意，如果`is_enable_transaction`为`true`，我们将自动添加`${transactionId}_`在文件的开头。
 
-现在只支持“true”。
+现在只支持`true`。
 
 ### batch_size [int]
 
-文件中的最大行数。对于SeaTunnel引擎，文件中的行数由“batch_size”和“checkpoint.interval”共同决定。如果“checkpoint.interval”的值足够大，sink writer将在文件中写入行，直到文件中的行大于“batch_size”。如果“checkpoint.interval”较小，则接收器写入程序将在新的检查点触发时创建一个新文件。
+文件中的最大行数。对于SeaTunnel引擎，文件中的行数由`batch_size`和`checkpoint.interval`共同决定。如果`checkpoint.interval`的值足够大，sink writer将在文件中写入行，直到文件中的行大于`batch_size`。如果`checkpoint.interval`较小，则接收器写入程序将在新的检查点触发时创建一个新文件。
 
 ### compress_codec [string]
 
@@ -291,7 +291,7 @@ Sink插件常用参数，请参考[Sink common Options]（../Sink common Options
 以下示例演示了如何创建从假数据源读取数据并写入的数据同步作业
 把它发送到Oss：
 
-对于具有“have_partition”、“custom_filename”和“sink_columns”的文本文件格式
+对于具有`have_partition`、`custom_filename`和`sink_columns`的文本文件格式
 
 ```bash
 # 设置要执行的任务的基本配置
@@ -336,7 +336,7 @@ sink {
 }
 ```
 
-适用于带有“have_partition”和“sink_columns”的parquet文件格式
+适用于带有`have_partition`和`sink_columns`的parquet文件格式
 
 ```bash
 # 设置要执行的任务的基本配置
@@ -411,11 +411,11 @@ sink {
 
 ### enable_header_write [boolean]
 
-仅当file_format_type为文本时使用，csv.false：不写标头，true：写标头。
+仅当file_format_type为`text` `csv`时使用。false：不写标头，true：写标头。
 
 ### 多表
 
-用于从上游提取source元数据, 您可以在路径中使用“${databasename}”、“${tablename}”和“${schemaname}”。
+用于从上游提取source元数据, 您可以在路径中使用`${database_name}`, `${table_name}` 和 `${schema_name}`。
 
 ```bash
 
@@ -539,7 +539,7 @@ sink {
 
 - [Bug修复] 修复windows环境下路径错误的bug（[2980](https://github.com/apache/seatunnel/pull/2980))
 - [Bug修复] 修复文件系统获取错误（[3117](https://github.com/apache/seatunnel/pull/3117))
-- [Bug修复] 解决了无法从配置中将“\t”解析为分隔符的错误文件（[3083](https://github.com/apache/seatunnel/pull/3083))
+- [Bug修复] 解决了无法从配置中将`\t`解析为分隔符的错误文件（[3083](https://github.com/apache/seatunnel/pull/3083))
 
 ### 下个版本
 
