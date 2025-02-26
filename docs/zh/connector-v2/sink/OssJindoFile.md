@@ -11,7 +11,7 @@
 您需要下载[jindosdk-4.6.1.tar.gz](https://jindodata-binary.oss-cn-shanghai.aliyuncs.com/release/4.6.1/jindosdk-4.6.1.tar.gz)
 然后解压缩，将jindo-sdk-4.6.1.jar和jindo-core-4.6.1.jar从lib复制到${SEATUNNEL_HOME}/lib。
 
-如果你使用spark/flink，为了使用这个连接器，你必须确保你的spark/flilk集群已经集成了hadoop。测试的hadoop版本是2.x。
+如果你使用spark/flink，为了使用这个连接器，你必须确保你的spark/flink集群已经集成了hadoop。测试的hadoop版本是2.x。
 
 如果你使用SeaTunnel引擎，当你下载并安装SeaTunnel引擎时，它会自动集成hadoop jar。您可以在${SEATUNNEL_HOME}/lib下检查jar包以确认这一点。
 
@@ -21,9 +21,9 @@
 
 ## 关键特性
 
-- [x] [精准一次](../../concept/connector-v2-features.md)
+- [x] [精确一次](../../concept/connector-v2-features.md)
 
-默认情况下，我们使用2PC commit来确保“精准一次”
+默认情况下，我们使用2PC commit来确保“精确一次”
 
 - [x] 文件格式类型
   - [x] text
@@ -40,7 +40,7 @@
 | 名称                                  | 类型    | 必需 | 默认值                                    | 描述                                                                                                                                                            |
 |---------------------------------------|---------|----------|--------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                                  | string  | 是      | -                                          |                                                                                                                                                                        |
-| tmp_path                              | string  | 否       | /tmp/seatunnel                             | 结果文件将首先写入tmp路径，然后使用`mv`将tmp-dir提交到目标目录。需要一个OSS 目录。                                                     |
+| tmp_path                              | string  | 否       | /tmp/seatunnel                             | 结果文件将首先写入临时路径，然后使用`mv`将tmp-dir提交到目标目录。需要一个OSS 目录。                                                     |
 | bucket                                | string  | 是      | -                                          |                                                                                                                                                                        |
 | access_key                            | string  | 是      | -                                          |                                                                                                                                                                        |
 | access_secret                         | string  | 是      | -                                          |                                                                                                                                                                        |
@@ -82,11 +82,11 @@ oss文件系统的bucket地址，例如：`oss://tyrantlucifer-image-bed`
 
 ### access_key [string]
 
-访问oss文件系统key
+oss文件系统access_key
 
 ### access_secret [string]
 
-oss文件系统的访问密钥
+oss文件系统的access_secret
 
 ### endpoint [string]
 
@@ -193,7 +193,7 @@ oss文件系统的端点。
 
 ### common options
 
-Sink插件常用参数，请参考[Sink common Options]（../Sink common Options.md）了解详细信息。
+Sink插件常用参数，请参考[Sink common Options]（../sink-common-options.md）了解详细信息。
 
 ### max_rows_in_memory [int]
 
@@ -235,7 +235,7 @@ Sink插件常用参数，请参考[Sink common Options]（../Sink common Options
 ### encoding [string]
 
 仅当file_format_type为json、text、csv、xml时使用。
-要写入的文件的编码。此参数将由`Charset.forName（encoding）`解析。
+要写入的文件的编码。此参数将由`Charset.forName(encoding)`解析。
 
 ## 例子
 
