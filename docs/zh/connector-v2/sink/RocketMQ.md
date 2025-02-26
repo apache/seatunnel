@@ -37,7 +37,7 @@
 | format               | String  | 否       | json                     | 数据格式。默认格式为json。可选text格式。默认字段分隔符为“，”。如果自定义分隔符，请添加“field_delimiter”选项。 |
 | field.delimiter      | String  | 否       | ,                        | 自定义数据格式的字段分隔符。                                                                                                                      |
 | producer.send.sync   | Boolean | 否       | false                    | 如果为 true, 则消息将同步发送。                                                                                                                             |
-| common-options       | config  | 否       | -                        | Sink插件常用参数，请参考[Sink common Options]（../Sink common Options.md）了解详细信息。                                                        |
+| common-options       | config  | 否       | -                        | Sink插件常用参数，请参考[Sink common Options]（../Sink-common-Options.md）了解详细信息。                                                        |
 
 ### partition.key.fields [array]
 
