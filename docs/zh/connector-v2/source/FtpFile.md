@@ -1,6 +1,6 @@
 # FtpFile
 
-> Ftp 文件源连接器
+> Ftp 文件 Source 连接器
 
 ## 支持的引擎
 
