@@ -1,6 +1,6 @@
 # SQL Server
 
-> JDBC SQL Server 接收器连接器
+> JDBC SQLServer Sink 连接器
 
 ## 支持的 SQL Server 版本
 
