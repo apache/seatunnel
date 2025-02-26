@@ -170,6 +170,7 @@ Jdbc {
   is_exactly_once = "true"
   xa_data_source_class_name = "com.microsoft.sqlserver.jdbc.SQLServerXADataSource"
 }
+
 # 如果想了解更多关于如何配置 SeaTunnel 的信息，并查看完整的接收器插件列表，
 # 请访问 https://seatunnel.apache.org/docs/connector-v2/sink/Jdbc
 ```
