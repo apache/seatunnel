@@ -102,6 +102,7 @@ source {
     # 请访问 https://seatunnel.apache.org/docs/connector-v2/source
 }
 transform {
+
     # 如果您想了解更多关于如何配置SeaTunnel的信息，并查看完整的转换插件列表，
     # 请访问 https://seatunnel.apache.org/docs/transform-v2
 }
