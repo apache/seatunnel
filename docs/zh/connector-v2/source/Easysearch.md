@@ -1,6 +1,6 @@
 # Easysearch
 
-> Easysearch source连接器
+> Easysearch 源连接器
 
 ## 支持引擎
 
@@ -20,7 +20,7 @@
 
 - [x] [批处理](../../concept/connector-v2-features.md)
 - [ ] [流处理](../../concept/connector-v2-features.md)
-- [ ] [精准一次](../../concept/connector-v2-features.md)
+- [ ] [精确一次](../../concept/connector-v2-features.md)
 - [x] [列映射](../../concept/connector-v2-features.md)
 - [ ] [并行度](../../concept/connector-v2-features.md)
 - [ ] [支持用户自定义拆分](../../concept/connector-v2-features.md)
@@ -29,7 +29,7 @@
 
 支持的引擎
 
-* 支持由发布的所有版本 [INFINI Easysearch](https://www.infini.com/download/?product=easysearch).
+* 支持发布的所有版本 [INFINI Easysearch](https://www.infini.com/download/?product=easysearch).
 
 :::
 
@@ -49,7 +49,7 @@
 
 ### hosts [array]
 
-Easysearch集群http地址，格式为“host:port”，允许指定多个主机。例如`[“主机1:9200”，“主机2:9200”]`。
+Easysearch集群http地址，格式为“host:port”，允许指定多个主机。例如`[“host1:9200”，“host2:9200”]`。
 
 ### username [string]
 
@@ -113,7 +113,7 @@ PEM或JKS信任存储的路径。运行SeaTunnel的操作系统用户必须能�
 
 ### common options
 
-Source插件常用参数，详见[Source common Options]（../Source-common-Options.md）
+Source插件常用参数，详见[Source common Options]（../source-common-options.md）
 
 ## 示例
 
