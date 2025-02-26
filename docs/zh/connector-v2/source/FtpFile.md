@@ -330,7 +330,7 @@ SeaTunnel 将从源文件中跳过前 2 行。
 | TAR                    | txt,json,excel,xml | .tar                    |
 | TAR_GZ                 | txt,json,excel,xml | .tar.gz                 |
 | GZ                     | txt,json,excel,xml | .gz                     |
-| NONE                   | 所有                | .*                      |
+| NONE                   | all                | .*                      |
 
 注意：gz 压缩的 excel 文件需要压缩原始文件或指定文件后缀，例如 e2e.xls ->e2e_test.xls.gz
 
