@@ -34,6 +34,7 @@
         <httpcore.version>4.4.4</httpcore.version>
         <mockwebserver.version>3.6.0</mockwebserver.version>
         <zhipu.version>release-V4-2.3.0</zhipu.version>
+        <py4j.version>0.10.9.9</py4j.version>
     </properties>
 
     <dependencyManagement>
@@ -48,6 +49,11 @@
     </dependencyManagement>
 
     <dependencies>
+        <dependency>
+            <groupId>net.sf.py4j</groupId>
+            <artifactId>py4j</artifactId>
+            <version>${py4j.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-api</artifactId>
