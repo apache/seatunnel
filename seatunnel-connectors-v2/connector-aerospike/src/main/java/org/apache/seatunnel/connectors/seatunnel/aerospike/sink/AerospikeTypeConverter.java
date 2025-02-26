@@ -5,7 +5,7 @@ import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeConfig;
+import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeDataType;
 import org.apache.seatunnel.connectors.seatunnel.aerospike.exception.AerospikeConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.aerospike.exception.AerospikeErrorCode;
@@ -25,7 +25,7 @@ public class AerospikeTypeConverter {
 
     public AerospikeTypeConverter(SeaTunnelRowType rowType, ReadonlyConfig config) {
         this.fieldTypeMapping = new HashMap<>();
-        Map<String, String> configFieldTypes = config.get(AerospikeConfig.FIELD_TYPES);
+        Map<String, String> configFieldTypes = config.get(AerospikeSinkOptions.FIELD_TYPES);
 
         if (configFieldTypes == null || configFieldTypes.isEmpty()) {
             String[] allFields = rowType.getFieldNames();

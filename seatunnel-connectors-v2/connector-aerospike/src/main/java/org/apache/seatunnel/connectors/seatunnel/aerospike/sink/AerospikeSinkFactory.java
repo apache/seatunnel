@@ -5,7 +5,7 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeConfig;
+import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeSinkOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -21,17 +21,17 @@ public class AerospikeSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        AerospikeConfig.HOST,
-                        AerospikeConfig.PORT,
-                        AerospikeConfig.NAMESPACE,
-                        AerospikeConfig.SET)
+                        AerospikeSinkOptions.HOST,
+                        AerospikeSinkOptions.PORT,
+                        AerospikeSinkOptions.NAMESPACE,
+                        AerospikeSinkOptions.SET)
                 .optional(
-                        AerospikeConfig.USERNAME,
-                        AerospikeConfig.PASSWORD,
-                        AerospikeConfig.KEY_FIELD,
-                        AerospikeConfig.BIN_NAME,
-                        AerospikeConfig.DATA_FORMAT,
-                        AerospikeConfig.WRITE_TIMEOUT)
+                        AerospikeSinkOptions.USERNAME,
+                        AerospikeSinkOptions.PASSWORD,
+                        AerospikeSinkOptions.KEY_FIELD,
+                        AerospikeSinkOptions.BIN_NAME,
+                        AerospikeSinkOptions.DATA_FORMAT,
+                        AerospikeSinkOptions.WRITE_TIMEOUT)
                 .build();
     }
 

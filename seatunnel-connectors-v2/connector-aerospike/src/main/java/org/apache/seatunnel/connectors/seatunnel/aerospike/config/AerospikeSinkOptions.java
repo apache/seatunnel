@@ -10,7 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Getter
-public class AerospikeConfig {
+public class AerospikeSinkOptions {
     private final String host;
     private final int port;
     private final String namespace;
@@ -18,7 +18,7 @@ public class AerospikeConfig {
     private final String username;
     private final String password;
 
-    public AerospikeConfig(ReadonlyConfig config) {
+    public AerospikeSinkOptions(ReadonlyConfig config) {
         this.host = config.get(HOST);
         this.port = config.get(PORT);
         this.namespace = config.get(NAMESPACE);

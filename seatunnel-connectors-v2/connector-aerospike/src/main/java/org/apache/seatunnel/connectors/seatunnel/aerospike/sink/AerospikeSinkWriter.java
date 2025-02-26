@@ -4,7 +4,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeConfig;
+import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeDataType;
 import org.apache.seatunnel.connectors.seatunnel.aerospike.config.DataFormatType;
 import org.apache.seatunnel.connectors.seatunnel.aerospike.exception.AerospikeConnectorException;
@@ -44,8 +44,8 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
 
         this.writePolicy = new WritePolicy();
         this.writePolicy.recordExistsAction = RecordExistsAction.UPDATE;
-        this.writePolicy.totalTimeout = config.get(AerospikeConfig.WRITE_TIMEOUT);
-        this.writePolicy.socketTimeout = config.get(AerospikeConfig.WRITE_TIMEOUT);
+        this.writePolicy.totalTimeout = config.get(AerospikeSinkOptions.WRITE_TIMEOUT);
+        this.writePolicy.socketTimeout = config.get(AerospikeSinkOptions.WRITE_TIMEOUT);
         this.writePolicy.sleepBetweenRetries = 0;
         this.writePolicy.maxRetries = 0;
         this.typeConverter = new AerospikeTypeConverter(seaTunnelRowType, config);
@@ -55,16 +55,16 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
     public void write(SeaTunnelRow element) throws IOException {
         try {
             String data = new String(serializationSchema.serialize(element));
-            String keyField = config.get(AerospikeConfig.KEY_FIELD);
+            String keyField = config.get(AerospikeSinkOptions.KEY_FIELD);
             String key = element.getField(seaTunnelRowType.indexOf(keyField)).toString();
 
             Key aerospikeKey =
                     new Key(
-                            config.get(AerospikeConfig.NAMESPACE),
-                            config.get(AerospikeConfig.SET),
+                            config.get(AerospikeSinkOptions.NAMESPACE),
+                            config.get(AerospikeSinkOptions.SET),
                             key);
 
-            String formatValue = config.get(AerospikeConfig.DATA_FORMAT).toLowerCase();
+            String formatValue = config.get(AerospikeSinkOptions.DATA_FORMAT).toLowerCase();
             DataFormatType formatType = DataFormatType.fromString(formatValue);
 
             switch (formatType) {
@@ -75,7 +75,7 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                     for (String fieldName : typeConverter.getFieldNames()) {
                         filteredMap.put(fieldName, dataMap.get(fieldName));
                     }
-                    Bin dataBin = new Bin(config.get(AerospikeConfig.BIN_NAME), filteredMap);
+                    Bin dataBin = new Bin(config.get(AerospikeSinkOptions.BIN_NAME), filteredMap);
                     aerospikeClient.put(writePolicy, aerospikeKey, dataBin);
                     break;
 
@@ -86,7 +86,7 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                         filteredDataMap.put(fieldName, element.getField(index));
                     }
                     String filteredData = JSON.toJSONString(filteredDataMap);
-                    Bin stringBin = new Bin(config.get(AerospikeConfig.BIN_NAME), filteredData);
+                    Bin stringBin = new Bin(config.get(AerospikeSinkOptions.BIN_NAME), filteredData);
                     aerospikeClient.put(writePolicy, aerospikeKey, stringBin);
                     break;
 
@@ -94,7 +94,7 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                     Map<String, Object> fieldsMap =
                             JSON.parseObject(data, new TypeReference<Map<String, Object>>() {});
                     List<Bin> bins = new ArrayList<>();
-                    Map<String, String> configFieldTypes = config.get(AerospikeConfig.FIELD_TYPES);
+                    Map<String, String> configFieldTypes = config.get(AerospikeSinkOptions.FIELD_TYPES);
                     for (String fieldName : configFieldTypes.keySet()) {
                         Object value = fieldsMap.get(fieldName);
                         AerospikeDataType dataType = typeConverter.getFieldType(fieldName);
@@ -128,13 +128,13 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
 
     private AerospikeClient buildClient() {
         ClientPolicy clientPolicy = new ClientPolicy();
-        clientPolicy.user = config.get(AerospikeConfig.USERNAME);
-        clientPolicy.password = config.get(AerospikeConfig.PASSWORD);
-        clientPolicy.timeout = config.get(AerospikeConfig.WRITE_TIMEOUT);
+        clientPolicy.user = config.get(AerospikeSinkOptions.USERNAME);
+        clientPolicy.password = config.get(AerospikeSinkOptions.PASSWORD);
+        clientPolicy.timeout = config.get(AerospikeSinkOptions.WRITE_TIMEOUT);
         clientPolicy.maxConnsPerNode = 300;
 
         return new AerospikeClient(
-                clientPolicy, config.get(AerospikeConfig.HOST), config.get(AerospikeConfig.PORT));
+                clientPolicy, config.get(AerospikeSinkOptions.HOST), config.get(AerospikeSinkOptions.PORT));
     }
 
     private Object convertValue(Object value, AerospikeDataType dataType) {
