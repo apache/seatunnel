@@ -1,6 +1,6 @@
 # Snowflake
 
-> JDBC Snowflake 接收器连接器
+> JDBC Snowflake Sink连接器
 
 ## 支持的引擎
 
@@ -21,7 +21,7 @@
 
 | 数据源     | 支持的版本                                                   | 驱动类                                      | URL                                                          | Maven                                                                 |
 |------------|--------------------------------------------------------------|---------------------------------------------|--------------------------------------------------------------|---------------------------------------------------------------------------|
-| Snowflake  | 不同依赖版本对应不同的驱动类。                                 | net.snowflake.client.jdbc.SnowflakeDriver   | jdbc&#58;snowflake://<account_name>.snowflakecomputing.com   | [下载](https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc)   |
+| Snowflake  | 不同依赖版本对应不同的驱动类。                                 | net.snowflake.client.jdbc.SnowflakeDriver   | jdbc:snowflake://<account_name>.snowflakecomputing.com   | [下载](https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc)   |
 
 ## 数据库依赖
 
@@ -50,24 +50,24 @@
 
 | 名称                                      | 类型    | 必填 | 默认值 | 描述                                                                                                                                                                                                 |
 |-------------------------------------------|---------|------|--------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                       | 字符串  | 是   | -      | JDBC连接的URL。参考示例：jdbc&#58;snowflake://<account_name>.snowflakecomputing.com                                                                                                                 |
-| driver                                    | 字符串  | 是   | -      | 用于连接远程数据源的JDBC类名，<br/>如果使用Snowflake，值为`net.snowflake.client.jdbc.SnowflakeDriver`。                                                                                             |
-| user                                      | 字符串  | 否   | -      | 连接实例的用户名                                                                                                                                                                                     |
-| password                                  | 字符串  | 否   | -      | 连接实例的密码                                                                                                                                                                                       |
-| query                                     | 字符串  | 否   | -      | 使用此SQL将上游输入数据写入数据库。例如`INSERT ...`，`query`具有更高的优先级                                                                                                                         |
-| database                                  | 字符串  | 否   | -      | 使用此`database`和`table-name`自动生成SQL并接收上游输入数据写入数据库。<br/>此选项与`query`互斥，且具有更高的优先级。                                                                               |
-| table                                     | 字符串  | 否   | -      | 使用`database`和此`table-name`自动生成SQL并接收上游输入数据写入数据库。<br/>此选项与`query`互斥，且具有更高的优先级。                                                                               |
-| primary_keys                              | 数组    | 否   | -      | 此选项用于在自动生成SQL时支持`insert`、`delete`和`update`等操作。                                                                                                                                    |
-| support_upsert_by_query_primary_key_exist | 布尔值  | 否   | false  | 选择使用INSERT SQL、UPDATE SQL来处理更新事件（INSERT, UPDATE_AFTER），基于查询主键是否存在。此配置仅在数据库不支持upsert语法时使用。**注意**：此方法性能较低。                                       |
-| connection_check_timeout_sec              | 整数    | 否   | 30     | 用于验证连接的操作的等待时间（秒）。                                                                                                                                                                 |
-| max_retries                               | 整数    | 否   | 0      | 提交失败（executeBatch）的重试次数                                                                                                                                                                   |
-| batch_size                                | 整数    | 否   | 1000   | 对于批处理写入，当缓冲的记录数达到`batch_size`或时间达到`checkpoint.interval`时，<br/>数据将被刷新到数据库中                                                                                         |
-| max_commit_attempts                       | 整数    | 否   | 3      | 事务提交失败的重试次数                                                                                                                                                                               |
-| transaction_timeout_sec                   | 整数    | 否   | -1     | 事务打开后的超时时间，默认为-1（永不超时）。注意，设置超时可能会影响<br/>精确一次语义                                                                                                                |
-| auto_commit                               | 布尔值  | 否   | true   | 默认启用自动事务提交                                                                                                                                                                                 |
-| properties                                | 映射    | 否   | -      | 额外的连接配置参数，当properties和URL中有相同参数时，优先级由驱动程序的<br/>具体实现决定。例如，在MySQL中，properties优先于URL。                                                                     |
+| url                                       | String  | 是   | -      | JDBC连接的URL。参考示例：jdbc&#58;snowflake://<account_name>.snowflakecomputing.com                                                                                                                 |
+| driver                                    | String  | 是   | -      | 用于连接远程数据源的JDBC类名，<br/>如果使用Snowflake，值为`net.snowflake.client.jdbc.SnowflakeDriver`。                                                                                             |
+| user                                      | String  | 否   | -      | 连接实例的用户名                                                                                                                                                                                     |
+| password                                  | String  | 否   | -      | 连接实例的密码                                                                                                                                                                                       |
+| query                                     | String  | 否   | -      | 使用此SQL将上游输入数据写入数据库。例如`INSERT ...`，`query`具有更高的优先级                                                                                                                         |
+| database                                  | String  | 否   | -      | 使用此`database`和`table-name`自动生成SQL并接收上游输入数据写入数据库。<br/>此选项与`query`互斥，且具有更高的优先级。                                                                               |
+| table                                     | String  | 否   | -      | 使用`database`和此`table-name`自动生成SQL并接收上游输入数据写入数据库。<br/>此选项与`query`互斥，且具有更高的优先级。                                                                               |
+| primary_keys                              | Array    | 否   | -      | 此选项用于在自动生成SQL时支持`insert`、`delete`和`update`等操作。                                                                                                                                    |
+| support_upsert_by_query_primary_key_exist | Boolean  | 否   | false  | 选择使用INSERT SQL、UPDATE SQL来处理更新事件（INSERT, UPDATE_AFTER），基于查询主键是否存在。此配置仅在数据库不支持upsert语法时使用。**注意**：此方法性能较低。                                       |
+| connection_check_timeout_sec              | Int    | 否   | 30     | 用于验证连接的操作的等待时间（秒）。                                                                                                                                                                 |
+| max_retries                               | Int    | 否   | 0      | 提交失败（executeBatch）的重试次数                                                                                                                                                                   |
+| batch_size                                | Int    | 否   | 1000   | 对于批处理写入，当缓冲的记录数达到`batch_size`或时间达到`checkpoint.interval`时，<br/>数据将被刷新到数据库中                                                                                         |
+| max_commit_attempts                       | Int    | 否   | 3      | 事务提交失败的重试次数                                                                                                                                                                               |
+| transaction_timeout_sec                   | Int    | 否   | -1     | 事务打开后的超时时间，默认为-1（永不超时）。注意，设置超时可能会影响<br/>精确一次语义                                                                                                                |
+| auto_commit                               | Boolean  | 否   | true   | 默认启用自动事务提交                                                                                                                                                                                 |
+| properties                                | Map    | 否   | -      | 额外的连接配置参数，当properties和URL中有相同参数时，优先级由驱动程序的<br/>具体实现决定。例如，在MySQL中，properties优先于URL。                                                                     |
 | common-options                            |         | 否   | -      | 接收器插件通用参数，详情请参考[接收器通用选项](../sink-common-options.md)                                                                                                                           |
-| enable_upsert                             | 布尔值  | 否   | true   | 通过主键存在启用upsert，如果任务没有键重复数据，将此参数设置为`false`可以加快数据导入速度                                                                                                             |
+| enable_upsert                             | Boolean  | 否   | true   | 通过主键存在启用upsert，如果任务没有键重复数据，将此参数设置为`false`可以加快数据导入速度                                                                                                             |
 
 ## 提示
 
