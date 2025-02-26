@@ -16,6 +16,7 @@
 ## 描述
 
 用于将数据发送到 SelectDB Cloud。支持流式和批处理模式。
+
 SelectDB Cloud 接收器连接器的内部实现是在批量缓存后上传数据，并提交 CopyInto SQL 以将数据加载到表中。
 
 ## 支持的数据源信息
