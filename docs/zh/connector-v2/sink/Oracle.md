@@ -10,7 +10,7 @@
 
 ## 描述
 
-通过jdbc写入数据。支持批处理模式和流模式，支持并发写入，只支持一次
+通过jdbc写入数据。支持批处理模式和流模式，支持并发写入，支持“精确一次”
 语义（使用XA事务保证）。
 
 ## 依赖
@@ -28,7 +28,7 @@
 - [x] [精确一次](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
 
->使用“Xa事务”来确保“恰好一次”。因此，数据库只支持“恰好一次”，即
+>使用“Xa事务”来确保“精确一次”。因此，数据库只支持“精确一次”，即
 >支持“Xa事务”。您可以设置`is_exactly_once=true `来启用它。
 
 ## 支持的数据源信息
@@ -75,8 +75,8 @@
 | support_upsert_by_query_primary_key_exist | Boolean | 否       | false                        | 选择使用INSERT sql、UPDATE sql根据查询主键是否存在来处理更新事件（INSERT、UPDATE_AFTER）。此配置仅在数据库不支持升级语法时使用**注**：此方法性能低   |
 | connection_check_timeout_sec              | Int     | 否       | 30                           | 等待用于验证连接的数据库操作完成的时间（秒）。                                                                                                                                            |
 | max_retries                               | Int     | 否       | 0                            | 提交失败的重试次数（executeBatch）                                                                                                                                                                                          |
-| batch_size                                | Int     | 否       | 1000                         | 对于批量写入，当缓冲记录的数量达到“batch_size”的数量或时间达到“checkpoint.interval”<br/>时，数据将被刷新到数据库中                                                                  |
-| batch_interval_ms                         | Int     | 否       | 1000                         | 对于批写入，当缓冲区的数量达到“batch_size”的数量或时间达到“batch-interval_ms”时，数据将被刷新到数据库中                                                                           |
+| batch_size                                | Int     | 否       | 1000                         | 对于批量写入，当缓冲记录的数量达到“batch_size”的数量或时间达到“checkpoint.interval”<br/>时，数据将被刷新到数据库中。                                                                  |
+| batch_interval_ms                         | Int     | 否       | 1000                         | 对于批写入，当缓冲区的数量达到“batch_size”的数量或时间达到“batch-interval_ms”时，数据将被刷新到数据库中。                                                                           |
 | is_exactly_once                           | Boolean | 否       | false                        | 是否启用精确一次语义，这将使用Xa事务。如果启用，则需要<br/>设置`xa_data_source_class_name`。                                                                                                              |
 | generate_sink_sql                         | Boolean | 否       | false                        | 根据要写入的数据库表生成sql语句                                                                                                                                                                        |
 | xa_data_source_class_name                 | String  | 否       | -                            | 数据库Driver的xa数据源类名，例如Oracle，是`Oracle.jdbc.xa.client。OracleXADataSource和<br/>请参阅附录了解其他数据源                                                               |
@@ -92,16 +92,16 @@
 
 ### 提示
 
->如果未设置partition_column，它将以单并发运行，如果设置了partition_coolumn，它将根据任务的并发性并行执行。
+>如果未设置partition_column，它将以单并发运行，如果设置了partition_column，它将根据任务的并发数并行执行。
 
 ## 任务示例
 
 ### 简单的例子:
 
->此示例定义了一个SeaTunnel同步任务，该任务通过FakeSource自动生成数据并将其发送到JDBC Sink。FakeSource总共生成16行数据（row.num=16），每行有两个字段，name（字符串类型）和age（int类型）。最终的目标表是test_table，表中也将有16行数据。在运行此作业之前，您需要在Oracle中创建数据库测试和表test_table。如果您尚未安装和部署SeaTunnel，则需要按照[安装SeaTunnel]（../../start-v2/local/deployment.md）中的说明安装和部署SeaTunnel。然后按照[快速启动SeaTunnel引擎]（../../Start-v2/locale/Quick-Start SeaTunnel Engine.md）中的说明运行此作业。
+>此示例定义了一个SeaTunnel同步任务，该任务通过FakeSource自动生成数据并将其发送到JDBC Sink。FakeSource总共生成16行数据（row.num=16），每行有两个字段，name（字符串类型）和age（int类型）。最终的目标表是test_table，表中也将有16行数据。在运行此作业之前，您需要在Oracle中创建测试数据库和表test_table。如果您尚未安装和部署SeaTunnel，则需要按照[安装SeaTunnel]（../../start-v2/local/deployment.md）中的说明安装和部署SeaTunnel。然后按照[快速启动SeaTunnel引擎]（../../Start-v2/locale/Quick-Start-SeaTunnel-Engine.md）中的说明运行此作业。
 
 ```
-# 定义运行时环境
+# 定义运行环境
 env {
   parallelism = 1
   job.mode = "BATCH"
@@ -160,9 +160,9 @@ sink {
 }
 ```
 
-### 正好一次：
+### 精确一次：
 
-为了准确的书写场景，我们保证一次准确
+为了准确的写入场景，我们保证一次准确
 
 ```
 sink {
