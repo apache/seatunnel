@@ -78,7 +78,7 @@
 | partition_num                | Int        | 否      | job parallelism | 分区计数的数量，只支持正整数。默认值是作业并行性                                                                                                                                                                    |
 | fetch_size                   | Int        | 否       | 0               | 对于返回大量对象的查询，您可以配置查询中使用的行提取大小，通过减少满足选择条件所需的数据库请求次数来提高性能。0表示使用jdbc默认值。 |
 | properties                   | Map        | 否       | -               | 其他连接配置参数，当属性和URL具有相同的参数时，优先级由驱动程序的特定实现决定。例如，在MySQL中，属性优先于URL。                    |
-| common-options               |            | 否       | -               | source插件常用参数，详见[Source common Options]（../Source-common-Options.md）                                                                                                                                                 |
+| common-options               |            | 否       | -               | source插件常用参数，详见[Source common Options]（../source-common-options.md）                                                                                                                                                 |
 
 ### 小贴士
 
@@ -88,8 +88,7 @@
 
 ### 简单:
 
-> This example queries type_bin 'table' 16 data in your test "database" in single parallel and queries all of its fields. You can also specify which fields to query for final output to the console.
-此示例以单并行方式在您的测试“database”中查询类型容器（type_bin）'table'的16条数据。并查询其所有字段。您还可以指定要查询哪些字段以将最终输出到控制台。
+> 此示例以单并行方式在您的测试“database”中查询类型容器（type_bin）'table'的16条数据。并查询其所有字段。您还可以指定要查询哪些字段以将最终输出到控制台。
 
 ```
 # 定义运行时环境
@@ -118,7 +117,7 @@ sink {
 }
 ```
 
-### Parallel:
+### 并行度：
 
 > 并行读取您的查询表，利用您配置的分片字段以及分片数据。若您希望读取整个表，您可以采取此操作。
 ```
