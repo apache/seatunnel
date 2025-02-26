@@ -164,8 +164,8 @@ public interface JdbcOptions {
                     .defaultValue(false)
                     .withDescription("support copy in statement (postgresql)");
 
-    Option<String> APPOINT_DIALECT =
-            Options.key("appoint_dialect")
+    Option<String> DIALECT =
+            Options.key("dialect")
                     .stringType()
                     .noDefaultValue()
                     .withDescription(

@@ -66,7 +66,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         this.jdbcDialect =
                 JdbcDialectLoader.load(
                         config.getJdbcConnectionConfig().getUrl(),
-                        config.getJdbcConnectionConfig().getAppointDialect(),
+                        config.getJdbcConnectionConfig().getDialect(),
                         config.getCompatibleMode());
         this.connectionProvider =
                 jdbcDialect.getJdbcConnectionProvider(config.getJdbcConnectionConfig());

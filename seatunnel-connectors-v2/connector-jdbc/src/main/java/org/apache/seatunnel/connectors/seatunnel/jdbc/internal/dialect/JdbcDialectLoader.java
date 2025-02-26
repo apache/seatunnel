@@ -36,8 +36,8 @@ public final class JdbcDialectLoader {
 
     private JdbcDialectLoader() {}
 
-    public static JdbcDialect load(String url, String appointDialect, String compatibleMode) {
-        return load(url, compatibleMode, appointDialect, "");
+    public static JdbcDialect load(String url, String dialect, String compatibleMode) {
+        return load(url, compatibleMode, dialect, "");
     }
 
     /**
@@ -50,7 +50,7 @@ public final class JdbcDialectLoader {
      *     unambiguously process the given database URL.
      */
     public static JdbcDialect load(
-            String url, String compatibleMode, String appointDialect, String fieldIde) {
+            String url, String compatibleMode, String dialect, String fieldIde) {
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
         List<JdbcDialectFactory> foundFactories = discoverFactories(cl);
 
@@ -62,10 +62,10 @@ public final class JdbcDialectLoader {
                             JdbcDialectFactory.class.getName()));
         }
         List<JdbcDialectFactory> matchingFactories;
-        if (appointDialect != null) {
+        if (dialect != null) {
             matchingFactories =
                     foundFactories.stream()
-                            .filter(f -> f.dialectFactoryName().equalsIgnoreCase(appointDialect))
+                            .filter(f -> f.dialectFactoryName().equalsIgnoreCase(dialect))
                             .collect(Collectors.toList());
         } else {
             matchingFactories =

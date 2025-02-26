@@ -60,7 +60,7 @@ public class JdbcConnectionConfig implements Serializable {
 
     private String krb5Path = JdbcOptions.KRB5_PATH.defaultValue();
 
-    private String appointDialect = JdbcOptions.APPOINT_DIALECT.defaultValue();
+    private String dialect = JdbcOptions.DIALECT.defaultValue();
 
     private Map<String, String> properties;
 
@@ -90,7 +90,7 @@ public class JdbcConnectionConfig implements Serializable {
         config.getOptional(JdbcOptions.PROPERTIES).ifPresent(builder::properties);
         config.getOptional(JdbcOptions.DECIMAL_TYPE_NARROWING)
                 .ifPresent(builder::decimalTypeNarrowing);
-        config.getOptional(JdbcOptions.APPOINT_DIALECT).ifPresent(builder::appointDialect);
+        config.getOptional(JdbcOptions.DIALECT).ifPresent(builder::dialect);
         return builder.build();
     }
 
@@ -131,7 +131,7 @@ public class JdbcConnectionConfig implements Serializable {
         public String kerberosPrincipal;
         public String kerberosKeytabPath;
         public String krb5Path = JdbcOptions.KRB5_PATH.defaultValue();
-        public String appointDialect = JdbcOptions.APPOINT_DIALECT.defaultValue();
+        public String dialect = JdbcOptions.DIALECT.defaultValue();
 
         private Builder() {}
 
@@ -225,8 +225,8 @@ public class JdbcConnectionConfig implements Serializable {
             return this;
         }
 
-        public Builder appointDialect(String appointDialect) {
-            this.appointDialect = appointDialect;
+        public Builder dialect(String dialect) {
+            this.dialect = dialect;
             return this;
         }
 
@@ -254,7 +254,7 @@ public class JdbcConnectionConfig implements Serializable {
             jdbcConnectionConfig.kerberosPrincipal = this.kerberosPrincipal;
             jdbcConnectionConfig.kerberosKeytabPath = this.kerberosKeytabPath;
             jdbcConnectionConfig.krb5Path = this.krb5Path;
-            jdbcConnectionConfig.appointDialect = this.appointDialect;
+            jdbcConnectionConfig.dialect = this.dialect;
             jdbcConnectionConfig.properties =
                     this.properties == null ? new HashMap<>() : this.properties;
             return jdbcConnectionConfig;

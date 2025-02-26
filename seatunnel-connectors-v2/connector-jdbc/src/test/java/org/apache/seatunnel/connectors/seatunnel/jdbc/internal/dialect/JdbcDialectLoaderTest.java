@@ -41,7 +41,7 @@ public class JdbcDialectLoaderTest {
 
     /** Test for {@link JdbcDialectLoader} for appointDialect */
     @Test
-    public void shouldFindStarRocksDialect() throws Exception {
+    public void shouldFindPostgresSQLDialectByDialect() throws Exception {
         JdbcDialect jdbcDialect =
                 JdbcDialectLoader.load("error:errorurl://xxxxx:3306/test", "Postgres", "");
         Assertions.assertInstanceOf(PostgresDialect.class, jdbcDialect);

@@ -53,7 +53,6 @@ import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_DATA
 import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_SCHEMA_NAME_KEY;
 import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_TABLE_NAME_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions.CREATE_INDEX;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.APPOINT_DIALECT;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.AUTO_COMMIT;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.COMPATIBLE_MODE;
@@ -61,6 +60,7 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.CUSTOM_SQL;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.DATA_SAVE_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.DIALECT;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.DRIVER;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.GENERATE_SINK_SQL;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.IS_EXACTLY_ONCE;
@@ -235,7 +235,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
                 JdbcDialectLoader.load(
                         sinkConfig.getJdbcConnectionConfig().getUrl(),
                         sinkConfig.getJdbcConnectionConfig().getCompatibleMode(),
-                        sinkConfig.getJdbcConnectionConfig().getAppointDialect(),
+                        sinkConfig.getJdbcConnectionConfig().getDialect(),
                         fieldIdeEnum == null ? null : fieldIdeEnum.getValue());
         dialect.connectionUrlParse(
                 sinkConfig.getJdbcConnectionConfig().getUrl(),
@@ -272,7 +272,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         PRIMARY_KEYS,
                         COMPATIBLE_MODE,
                         MULTI_TABLE_SINK_REPLICA,
-                        APPOINT_DIALECT)
+                        DIALECT)
                 .conditional(
                         IS_EXACTLY_ONCE,
                         true,

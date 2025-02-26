@@ -39,7 +39,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | password                                  | String  | No       | -                            |
 | query                                     | String  | No       | -                            |
 | compatible_mode                           | String  | No       | -                            |
-| appoint_dialect,                          | String  | No       | -                            | 
+| dialect,                                  | String  | No       | -                            | 
 | database                                  | String  | No       | -                            |
 | table                                     | String  | No       | -                            |
 | primary_keys                              | Array   | No       | -                            |
@@ -91,9 +91,9 @@ For example, when using OceanBase database, you need to set it to 'mysql' or 'or
 
 Postgres 9.5 version or below,please set it to `postgresLow` to support cdc
 
-### appoint_dialect [string]
+### dialect [string]
 
-The appointed dialect, if it does not exist, is still obtained according to the url, and the priority is higher than the url. For example,when using starrocks, you need set it to `starrocks`.
+The appointed dialect, if it does not exist, is still obtained according to the url, and the priority is higher than the url. For example,when using starrocks, you need set it to `starrocks`. Similarly, when using mysql, you need to set its value to `mysql`.
 
 ### database [string]
 

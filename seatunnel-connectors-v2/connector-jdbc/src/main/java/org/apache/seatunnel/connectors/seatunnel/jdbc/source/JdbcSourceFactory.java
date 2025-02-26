@@ -33,9 +33,9 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.APPOINT_DIALECT;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.COMPATIBLE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.CONNECTION_CHECK_TIMEOUT_SEC;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.DIALECT;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.DRIVER;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.FETCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.PARTITION_COLUMN;
@@ -73,7 +73,7 @@ public class JdbcSourceFactory implements TableSourceFactory {
         JdbcDialect jdbcDialect =
                 JdbcDialectLoader.load(
                         config.getJdbcConnectionConfig().getUrl(),
-                        config.getJdbcConnectionConfig().getAppointDialect(),
+                        config.getJdbcConnectionConfig().getDialect(),
                         config.getJdbcConnectionConfig().getCompatibleMode());
         jdbcDialect.connectionUrlParse(
                 config.getJdbcConnectionConfig().getUrl(),
@@ -108,7 +108,7 @@ public class JdbcSourceFactory implements TableSourceFactory {
                         SPLIT_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
                         SPLIT_SAMPLE_SHARDING_THRESHOLD,
                         SPLIT_INVERSE_SAMPLING_RATE,
-                        APPOINT_DIALECT)
+                        DIALECT)
                 .build();
     }
 
