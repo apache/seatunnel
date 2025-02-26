@@ -1,6 +1,6 @@
 # SftpFile
 
-> Sftp file sink 连接器
+> Sftp file Sink 连接器
 
 ## 描述
 
