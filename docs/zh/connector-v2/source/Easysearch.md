@@ -31,7 +31,6 @@
 
 * 支持发布的所有版本 [INFINI Easysearch](https://www.infini.com/download/?product=easysearch).
 
-:::
 
 ## 数据类型映射
 
