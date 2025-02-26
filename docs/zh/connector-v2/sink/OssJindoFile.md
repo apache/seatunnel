@@ -101,7 +101,6 @@ oss文件系统的端点。
 仅在“custom_filename”为“true”时使用
 
 `file_name_expression描述了将在`path`中创建的文件表达式。我们可以在“file_name_expression”中添加变量“${now}”或“${uuid}”，类似于“test”_${uuid}_${now}`，`${now}`表示当前时间，其格式可以通过指定选项`filename_time_format`来定义。
-
 请注意，如果`is_enable_transaction`为`true`，我们将自动添加`${transactionId}_`在文件的开头。
 
 ### filename_time_format [string]
