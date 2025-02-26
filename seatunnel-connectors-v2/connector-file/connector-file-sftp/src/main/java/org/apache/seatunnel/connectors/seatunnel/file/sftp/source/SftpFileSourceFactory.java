@@ -28,7 +28,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.sftp.config.SftpConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.sftp.config.SftpFileSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -45,11 +45,11 @@ public class SftpFileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(SftpConfigOptions.FILE_PATH)
-                .optional(SftpConfigOptions.SFTP_HOST)
-                .optional(SftpConfigOptions.SFTP_PORT)
-                .optional(SftpConfigOptions.SFTP_USER)
-                .optional(SftpConfigOptions.SFTP_PASSWORD)
+                .optional(SftpFileSourceOptions.FILE_PATH)
+                .optional(SftpFileSourceOptions.SFTP_HOST)
+                .optional(SftpFileSourceOptions.SFTP_PORT)
+                .optional(SftpFileSourceOptions.SFTP_USER)
+                .optional(SftpFileSourceOptions.SFTP_PASSWORD)
                 .optional(FileBaseSourceOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,

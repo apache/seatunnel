@@ -28,7 +28,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpFileSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -51,12 +51,12 @@ public class FtpFileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(FtpConfigOptions.FILE_PATH)
-                .optional(FtpConfigOptions.FTP_HOST)
-                .optional(FtpConfigOptions.FTP_PORT)
-                .optional(FtpConfigOptions.FTP_USERNAME)
-                .optional(FtpConfigOptions.FTP_PASSWORD)
-                .optional(FtpConfigOptions.FILE_FORMAT_TYPE)
+                .optional(FtpFileSourceOptions.FILE_PATH)
+                .optional(FtpFileSourceOptions.FTP_HOST)
+                .optional(FtpFileSourceOptions.FTP_PORT)
+                .optional(FtpFileSourceOptions.FTP_USERNAME)
+                .optional(FtpFileSourceOptions.FTP_PASSWORD)
+                .optional(FileBaseSourceOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
@@ -81,7 +81,7 @@ public class FtpFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.TIME_FORMAT)
                 .optional(FileBaseSourceOptions.FILE_FILTER_PATTERN)
                 .optional(FileBaseSourceOptions.COMPRESS_CODEC)
-                .optional(FtpConfigOptions.FTP_CONNECTION_MODE)
+                .optional(FtpFileSourceOptions.FTP_CONNECTION_MODE)
                 .optional(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC)
                 .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .optional(FileBaseSourceOptions.FILENAME_EXTENSION)

@@ -29,7 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.factory.BaseMultipleTableFileSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.sftp.config.SftpConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.sftp.config.SftpFileSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
@@ -46,11 +46,11 @@ public class SftpFileSinkFactory extends BaseMultipleTableFileSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(SftpConfigOptions.FILE_PATH)
-                .required(SftpConfigOptions.SFTP_HOST)
-                .required(SftpConfigOptions.SFTP_PORT)
-                .required(SftpConfigOptions.SFTP_USER)
-                .required(SftpConfigOptions.SFTP_PASSWORD)
+                .required(SftpFileSinkOptions.FILE_PATH)
+                .required(SftpFileSinkOptions.SFTP_HOST)
+                .required(SftpFileSinkOptions.SFTP_PORT)
+                .required(SftpFileSinkOptions.SFTP_USER)
+                .required(SftpFileSinkOptions.SFTP_PASSWORD)
                 .optional(FileBaseSinkOptions.FILE_FORMAT_TYPE)
                 .optional(FileBaseSinkOptions.SCHEMA_SAVE_MODE)
                 .optional(FileBaseSinkOptions.DATA_SAVE_MODE)

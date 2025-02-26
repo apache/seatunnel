@@ -29,7 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.factory.BaseMultipleTableFileSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpFileSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
@@ -46,11 +46,11 @@ public class FtpFileSinkFactory extends BaseMultipleTableFileSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(FtpConfigOptions.FILE_PATH)
-                .required(FtpConfigOptions.FTP_HOST)
-                .required(FtpConfigOptions.FTP_PORT)
-                .required(FtpConfigOptions.FTP_USERNAME)
-                .required(FtpConfigOptions.FTP_PASSWORD)
+                .required(FtpFileSinkOptions.FILE_PATH)
+                .required(FtpFileSinkOptions.FTP_HOST)
+                .required(FtpFileSinkOptions.FTP_PORT)
+                .required(FtpFileSinkOptions.FTP_USERNAME)
+                .required(FtpFileSinkOptions.FTP_PASSWORD)
                 .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .optional(FileBaseSinkOptions.TMP_PATH)
                 .optional(FileBaseSinkOptions.FILE_FORMAT_TYPE)
@@ -104,7 +104,7 @@ public class FtpFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .optional(FileBaseSinkOptions.DATE_FORMAT)
                 .optional(FileBaseSinkOptions.DATETIME_FORMAT)
                 .optional(FileBaseSinkOptions.TIME_FORMAT)
-                .optional(FtpConfigOptions.FTP_CONNECTION_MODE)
+                .optional(FtpFileSinkOptions.FTP_CONNECTION_MODE)
                 .optional(FileBaseSinkOptions.SINGLE_FILE_MODE)
                 .optional(FileBaseSinkOptions.BATCH_SIZE)
                 .optional(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA)

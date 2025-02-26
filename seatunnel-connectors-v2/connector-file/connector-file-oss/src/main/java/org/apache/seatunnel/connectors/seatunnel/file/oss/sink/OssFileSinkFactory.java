@@ -24,11 +24,12 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.factory.BaseMultipleTableFileSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssFileSinkOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -49,11 +50,11 @@ public class OssFileSinkFactory extends BaseMultipleTableFileSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(OssConfigOptions.FILE_PATH)
-                .required(OssConfigOptions.BUCKET)
-                .required(OssConfigOptions.ACCESS_KEY)
-                .required(OssConfigOptions.ACCESS_SECRET)
-                .required(OssConfigOptions.ENDPOINT)
+                .required(FileBaseOptions.FILE_PATH)
+                .required(OssFileSinkOptions.BUCKET)
+                .required(OssFileSinkOptions.ACCESS_KEY)
+                .required(OssFileSinkOptions.ACCESS_SECRET)
+                .required(OssFileSinkOptions.ENDPOINT)
                 .optional(FileBaseSinkOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         FileBaseSinkOptions.FILE_FORMAT_TYPE,
