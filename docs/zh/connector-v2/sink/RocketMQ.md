@@ -20,7 +20,7 @@
 
 ## 描述
 
-将数据行写入Apache RocketMQ主题。
+将数据行写入Apache RocketMQ主题
 
 ## Sink 参数
 
