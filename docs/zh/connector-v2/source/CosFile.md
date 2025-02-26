@@ -1,6 +1,6 @@
 # CosFile
 
-> Cos 文件源连接器
+> CosFile source 连接器
 
 ## 支持引擎
 
@@ -39,14 +39,14 @@
 
 如果你使用SeaTunnel Engine，当你下载并安装SeaTunnel引擎时，它会自动集成hadoop jar。您可以在${SEATUNNEL_HOME}/lib下检查jar包以确认这一点.
 
-要使用此连接器，您需要将hadoop cos-{hadoop.version}-{version}.jar和cos_api-bundle-{version}.jar位于${SEATUNNEL_HOME}/lib目录中，下载：[Hoop cos发布](https://github.com/tencentyun/hadoop-cos/releases). 它只支持hadoop 2.6.5+和8.0.2版本+.
+要使用此连接器，您需要将hadoop-cos-{hadoop.version}-{version}.jar和cos_api-bundle-{version}.jar位于${SEATUNNEL_HOME}/lib目录中，下载：[Hadoop-Cos-release](https://github.com/tencentyun/hadoop-cos/releases). 它只支持hadoop 2.6.5+和8.0.2版本+.
 
 :::
 
 ## 选项
 
-| | 名称           |  类型  | 必需 | 默认值                                    | 描述         |
-|---------------------------|---------|----------|---------------------|
+|名称                        |  类型    | 必需    | 默认值                |
+|---------------------------|---------|---------|---------------------|
 | path                      | string  | 是      | -                   |
 | file_format_type          | string  | 是      | -                   |
 | bucket                    | string  | 是      | -                   |
@@ -80,7 +80,7 @@
 
 `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`
 
-如果您将文件类型分配给“json”，您还应该分配模式选项，告诉连接器如何将数据解析到所需的行。
+如果您将文件类型设置为“json”，您还应该分配模式选项，告诉连接器如何将数据解析到所需的行。
 
 例如:
 
@@ -101,7 +101,7 @@
 
 ```
 
-您应该按如下方式分配架构:
+您应该按如下方式设置schema架构:
 
 ```hocon
 
@@ -123,7 +123,7 @@ schema {
 
 如果您将文件类型指定为“parquet” “orc”，则不需要模式选项，连接器可以自动找到上游数据的模式。
 
-如果将文件类型指定为“text”“csv”，则可以选择是否指定架构信息。
+如果将文件类型指定为“text” “csv”，则可以选择是否指定schema架构信息。
 
 例如，上游数据如下:
 
@@ -133,7 +133,7 @@ tyrantlucifer#26#male
 
 ```
 
-如果不指定数据模式，连接器将按如下方式处理上游数据:
+如果不指定数据schema模式，连接器将按如下方式处理上游数据:
 
 |        content        |
 |-----------------------|
@@ -168,7 +168,7 @@ schema {
 
 ### bucket [string]
 
-Cos文件系统的bucket地址，例如: `Cos://tyrantlucifer-image-bed`
+Cos文件系统的bucket地址，例如: `cos://tyrantlucifer-image-bed`
 
 ### secret_id [string]
 
