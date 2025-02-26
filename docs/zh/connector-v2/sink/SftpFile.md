@@ -68,7 +68,7 @@
 | parquet_avro_write_fixed_as_int96     | array   | 否       | -                                          | 仅当file_format_type为parquet时使用                                                                                                                                 |
 | encoding                              | string  | 否       | "UTF-8"                                    | 仅当file_format_type为json、text、csv、xml时使用。                                                                                                                  |
 | schema_save_mode                      | string  | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有目录处理方式                                                                                                                                         |
-| data_save_mode                        | string  | 否       | APPEND_DATA                                | 现有目录处理方式                                                                                                                                        |
+| data_save_mode                        | string  | 否       | APPEND_DATA                                | 现有数据处理方式                                                                                                                                        |
 
 ### host [string]
 
@@ -230,12 +230,12 @@ Sink插件常用参数，请参考[Sink common Options]（../sink-common-options
 
 ### enable_header_write [boolean]
 
-仅当file_format_type为text时使用，csv.false：不写标头，true：写标头。
+仅当file_format_type为text、csv时使用。false：不写标头，true：写标头。
 
 ### encoding [string]
 
 仅当file_format_type为json、text、csv、xml时使用。
-要写入的文件的编码。此参数将由`Charset.forName（encoding）`解析。
+要写入的文件的编码。此参数将由`Charset.forName(encoding)`解析。
 ### schema_save_mode [string]
 
 现有的目录处理方法。
