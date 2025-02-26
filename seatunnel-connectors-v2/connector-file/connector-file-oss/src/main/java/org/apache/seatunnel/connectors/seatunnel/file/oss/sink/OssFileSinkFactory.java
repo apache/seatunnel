@@ -107,7 +107,7 @@ public class OssFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .optional(FileBaseSinkOptions.BATCH_SIZE)
                 .optional(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA)
                 .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
-                .optional(BaseSinkConfig.FILENAME_EXTENSION)
+                .optional(FileBaseSinkOptions.FILENAME_EXTENSION)
                 .build();
     }
 }

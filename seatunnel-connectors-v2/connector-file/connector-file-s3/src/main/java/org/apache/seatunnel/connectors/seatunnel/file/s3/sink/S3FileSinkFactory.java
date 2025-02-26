@@ -108,7 +108,7 @@ public class S3FileSinkFactory implements TableSinkFactory {
                 .optional(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA)
                 .optional(FileBaseSinkOptions.TMP_PATH)
                 .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
-                .optional(BaseSinkConfig.FILENAME_EXTENSION)
+                .optional(FileBaseSinkOptions.FILENAME_EXTENSION)
                 .build();
     }
 
