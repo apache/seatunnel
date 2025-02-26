@@ -12,7 +12,6 @@
 
 如果你使用SeaTunnel引擎，当你下载并安装SeaTunnel引擎时，它会自动集成hadoop jar包。您可以在${SEATUNNEL_HOME}/lib下找到jar包。
 
-:::
 
 ## 主要特性
 
