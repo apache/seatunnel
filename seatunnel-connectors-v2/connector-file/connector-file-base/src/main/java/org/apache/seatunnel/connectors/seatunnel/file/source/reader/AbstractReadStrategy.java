@@ -35,6 +35,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipParameters;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.fs.FileStatus;
 
 import lombok.extern.slf4j.Slf4j;
@@ -81,6 +82,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected boolean isMergePartition = true;
     protected long skipHeaderNumber = FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER.defaultValue();
     protected transient boolean isKerberosAuthorization = false;
+    protected String filenameExtension;
     protected HadoopFileSystemProxy hadoopFileSystemProxy;
     protected ArchiveCompressFormat archiveCompressFormat =
             FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC.defaultValue();
@@ -136,7 +138,10 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 }
             }
         }
-
+        if (StringUtils.isNotEmpty(filenameExtension)) {
+            this.fileNames.removeIf(fileName -> !fileName.endsWith(filenameExtension));
+            fileNames.removeIf(fileName -> !fileName.endsWith(filenameExtension));
+        }
         return fileNames;
     }
 
@@ -157,6 +162,10 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         if (pluginConfig.hasPath(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER.key())) {
             skipHeaderNumber =
                     pluginConfig.getLong(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER.key());
+        }
+        if (pluginConfig.hasPath(FileBaseSourceOptions.FILENAME_EXTENSION.key())) {
+            filenameExtension =
+                    pluginConfig.getString(FileBaseSourceOptions.FILENAME_EXTENSION.key());
         }
         if (pluginConfig.hasPath(FileBaseSourceOptions.READ_PARTITIONS.key())) {
             readPartitions.addAll(

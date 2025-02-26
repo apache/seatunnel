@@ -96,6 +96,7 @@ public class HdfsFileSinkFactory implements TableSinkFactory {
                 .optional(FileBaseSinkOptions.KRB5_PATH)
                 .optional(FileBaseSinkOptions.REMOTE_USER)
                 .optional(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA)
+                .optional(FileBaseSinkOptions.FILENAME_EXTENSION)
                 .build();
     }
 }

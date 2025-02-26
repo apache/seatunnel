@@ -106,6 +106,7 @@ public class SftpFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .optional(FileBaseSinkOptions.SINGLE_FILE_MODE)
                 .optional(FileBaseSinkOptions.BATCH_SIZE)
                 .optional(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA)
+                .optional(FileBaseSinkOptions.FILENAME_EXTENSION)
                 .build();
     }
 

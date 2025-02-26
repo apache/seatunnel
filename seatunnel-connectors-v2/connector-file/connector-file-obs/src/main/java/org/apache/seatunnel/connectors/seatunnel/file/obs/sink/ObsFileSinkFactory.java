@@ -83,6 +83,7 @@ public class ObsFileSinkFactory implements TableSinkFactory {
                 .optional(FileBaseSinkOptions.DATE_FORMAT)
                 .optional(FileBaseSinkOptions.DATETIME_FORMAT)
                 .optional(FileBaseSinkOptions.TIME_FORMAT)
+                .optional(FileBaseSinkOptions.FILENAME_EXTENSION)
                 .build();
     }
 }

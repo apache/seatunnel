@@ -61,6 +61,7 @@ public class ObsFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.DATETIME_FORMAT)
                 .optional(FileBaseSourceOptions.TIME_FORMAT)
                 .optional(FileBaseSourceOptions.NULL_FORMAT)
+                .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
                 .build();
     }
 

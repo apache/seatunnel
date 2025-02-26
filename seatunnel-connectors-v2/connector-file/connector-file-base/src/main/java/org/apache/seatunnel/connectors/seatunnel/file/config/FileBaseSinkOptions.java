@@ -21,7 +21,9 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
+import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
+import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.format.csv.constant.CsvStringQuoteMode;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
@@ -45,6 +47,19 @@ public class FileBaseSinkOptions extends FileBaseOptions {
     public static final String DEFAULT_TMP_PATH = "/tmp/seatunnel";
     public static final String DEFAULT_FILE_NAME_EXPRESSION = "${transactionId}";
     public static final int DEFAULT_BATCH_SIZE = 1000000;
+
+    public static final Option<CompressFormat> COMPRESS_CODEC =
+            Options.key("compress_codec")
+                    .enumType(CompressFormat.class)
+                    .defaultValue(CompressFormat.NONE)
+                    .withDescription("Compression codec");
+
+    // TODO：Compression is supported during write
+    public static final Option<ArchiveCompressFormat> ARCHIVE_COMPRESS_CODEC =
+            Options.key("archive_compress_codec")
+                    .enumType(ArchiveCompressFormat.class)
+                    .defaultValue(ArchiveCompressFormat.NONE)
+                    .withDescription("Archive compression codec");
 
     public static final Option<CompressFormat> TXT_COMPRESS =
             Options.key("compress_codec")
@@ -81,6 +96,30 @@ public class FileBaseSinkOptions extends FileBaseOptions {
                                     CompressFormat.ZLIB))
                     .defaultValue(CompressFormat.NONE)
                     .withDescription("Orc file supported compression");
+
+    public static final Option<DateUtils.Formatter> DATE_FORMAT =
+            Options.key("date_format")
+                    .enumType(DateUtils.Formatter.class)
+                    .defaultValue(DateUtils.Formatter.YYYY_MM_DD)
+                    .withDescription("Date format");
+
+    public static final Option<DateTimeUtils.Formatter> DATETIME_FORMAT =
+            Options.key("datetime_format")
+                    .enumType(DateTimeUtils.Formatter.class)
+                    .defaultValue(DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS)
+                    .withDescription("Datetime format");
+
+    public static final Option<TimeUtils.Formatter> TIME_FORMAT =
+            Options.key("time_format")
+                    .enumType(TimeUtils.Formatter.class)
+                    .defaultValue(TimeUtils.Formatter.HH_MM_SS)
+                    .withDescription("Time format");
+
+    public static final Option<String> FILE_PATH =
+            Options.key("path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The file path of target files");
 
     public static final Option<String> FIELD_DELIMITER =
             Options.key("field_delimiter")
@@ -175,6 +214,19 @@ public class FileBaseSinkOptions extends FileBaseOptions {
                     .defaultValue(FileFormat.CSV)
                     .withDescription("File format type, e.g. csv, orc, parquet, text");
 
+    public static final Option<String> FILENAME_EXTENSION =
+            Options.key("filename_extension")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`");
+
+    public static final Option<String> ENCODING =
+            Options.key("encoding")
+                    .stringType()
+                    .defaultValue("UTF-8")
+                    .withDescription("The encoding of output file, e.g. UTF-8, ISO-8859-1....");
+
     public static final Option<List<String>> SINK_COLUMNS =
             Options.key("sink_columns")
                     .listType()
@@ -193,11 +245,29 @@ public class FileBaseSinkOptions extends FileBaseOptions {
                     .defaultValue(DEFAULT_BATCH_SIZE)
                     .withDescription("The batch size of each split file");
 
+    public static final Option<String> HDFS_SITE_PATH =
+            Options.key("hdfs_site_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The path of hdfs-site.xml");
+
+    public static final Option<String> REMOTE_USER =
+            Options.key("remote_user")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The remote user name of hdfs");
+
     public static final Option<Integer> MAX_ROWS_IN_MEMORY =
             Options.key("max_rows_in_memory")
                     .intType()
                     .noDefaultValue()
                     .withDescription("Max rows in memory,only valid for excel files");
+
+    public static final Option<String> SHEET_NAME =
+            Options.key("sheet_name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("To be written sheet name,only valid for excel files");
 
     public static final Option<String> XML_ROOT_TAG =
             Options.key("xml_root_tag")
@@ -212,6 +282,13 @@ public class FileBaseSinkOptions extends FileBaseOptions {
                     .defaultValue("RECORD")
                     .withDescription(
                             "Specifies the tag name of the data rows within the XML file, only valid for xml files, default value is 'RECORD'");
+
+    public static final Option<Boolean> XML_USE_ATTR_FORMAT =
+            Options.key("xml_use_attr_format")
+                    .booleanType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Specifies whether to process data using the tag attribute format, only valid for XML files.");
 
     public static final Option<Boolean> ENABLE_HEADER_WRITE =
             Options.key("enable_header_write")
@@ -254,4 +331,23 @@ public class FileBaseSinkOptions extends FileBaseOptions {
                     .enumType(CsvStringQuoteMode.class)
                     .defaultValue(CsvStringQuoteMode.MINIMAL)
                     .withDescription("CSV file string quote mode, only valid for csv files");
+
+    public static final Option<String> KERBEROS_PRINCIPAL =
+            Options.key("kerberos_principal")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("When use kerberos, we should set kerberos user principal");
+
+    public static final Option<String> KRB5_PATH =
+            Options.key("krb5_path")
+                    .stringType()
+                    .defaultValue("/etc/krb5.conf")
+                    .withDescription(
+                            "When use kerberos, we should set krb5 path file path such as '/seatunnel/krb5.conf' or use the default path '/etc/krb5.conf'");
+
+    public static final Option<String> KERBEROS_KEYTAB_PATH =
+            Options.key("kerberos_keytab_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("When using kerberos, We should specify the keytab path");
 }

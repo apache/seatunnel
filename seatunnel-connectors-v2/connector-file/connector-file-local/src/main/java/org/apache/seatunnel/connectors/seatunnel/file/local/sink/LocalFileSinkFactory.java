@@ -62,8 +62,11 @@ public class LocalFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .conditional(
                         LocalFileSinkOptions.FILE_FORMAT_TYPE, FileFormat.XML, XML_USE_ATTR_FORMAT)
                 .optional(LocalFileSinkOptions.CUSTOM_FILENAME)
-                .optional(LocalFileSinkOptions.FILE_NAME_EXPRESSION)
-                .optional(LocalFileSinkOptions.FILENAME_TIME_FORMAT)
+                .conditional(
+                        LocalFileSinkOptions.CUSTOM_FILENAME,
+                        true,
+                        LocalFileSinkOptions.FILE_NAME_EXPRESSION,
+                        LocalFileSinkOptions.FILENAME_TIME_FORMAT)
                 .optional(LocalFileSinkOptions.HAVE_PARTITION)
                 .conditional(
                         LocalFileSinkOptions.HAVE_PARTITION,
@@ -88,6 +91,7 @@ public class LocalFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .optional(LocalFileSinkOptions.SHEET_NAME)
                 .optional(LocalFileSinkOptions.ENABLE_HEADER_WRITE)
                 .optional(LocalFileSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA)
+                .optional(LocalFileSinkOptions.FILENAME_EXTENSION)
                 .build();
     }
 

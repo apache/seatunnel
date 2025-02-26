@@ -90,6 +90,7 @@ public class LocalFileSourceFactory implements TableSourceFactory {
                 .optional(LocalFileSourceOptions.COMPRESS_CODEC)
                 .optional(LocalFileSourceOptions.ARCHIVE_COMPRESS_CODEC)
                 .optional(LocalFileSourceOptions.NULL_FORMAT)
+                .optional(LocalFileSourceOptions.FILENAME_EXTENSION)
                 .build();
     }
 
