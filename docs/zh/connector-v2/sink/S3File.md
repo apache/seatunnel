@@ -285,7 +285,7 @@ Sink 插件通用参数，请参考 [Sink 通用选项](../sink-common-options.m
 
 ### parquet_avro_write_fixed_as_int96 [array]
 
-支持将 12 字节字段写入 Parquet INT96，仅对 parquet 文件有效。
+支持将 12-byte 字段写入 Parquet INT96，仅对 parquet 文件有效。
 
 ### schema_save_mode[Enum]
 
