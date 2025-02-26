@@ -314,7 +314,7 @@ SftpFile {
 
 ### 2.3.0 2022-12-30
 
--添加SftpFile接收器连接器
+-添加SftpFile Sink连接器
 -[Bug修复]修复了以下无法写入数据的错误文件（[3258](https://github.com/apache/seatunnel/pull/3258))
 	-当上游的字段为空时，它将抛出NullPointerException
 	-接收器列映射失败
