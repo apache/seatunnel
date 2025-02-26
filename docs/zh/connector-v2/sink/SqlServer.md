@@ -1,4 +1,4 @@
-# SQL Server
+# SQLServer
 
 > JDBC SQLServer Sink 连接器
 
