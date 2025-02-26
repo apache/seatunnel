@@ -28,7 +28,7 @@
 
 从 FTP 文件服务器读取数据。
 
-:::tip
+:::提示
 
 如果您使用 Spark/Flink，为了使用此连接器，您必须确保您的 Spark/Flink 集群已经集成了 Hadoop。测试的 Hadoop 版本为 2.x。
 
