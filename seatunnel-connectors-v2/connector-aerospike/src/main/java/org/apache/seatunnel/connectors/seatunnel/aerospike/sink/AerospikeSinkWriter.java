@@ -1,11 +1,28 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.seatunnel.connectors.seatunnel.aerospike.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeDataType;
+import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.aerospike.config.DataFormatType;
 import org.apache.seatunnel.connectors.seatunnel.aerospike.exception.AerospikeConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.aerospike.exception.AerospikeErrorCode;
@@ -86,7 +103,8 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                         filteredDataMap.put(fieldName, element.getField(index));
                     }
                     String filteredData = JSON.toJSONString(filteredDataMap);
-                    Bin stringBin = new Bin(config.get(AerospikeSinkOptions.BIN_NAME), filteredData);
+                    Bin stringBin =
+                            new Bin(config.get(AerospikeSinkOptions.BIN_NAME), filteredData);
                     aerospikeClient.put(writePolicy, aerospikeKey, stringBin);
                     break;
 
@@ -94,7 +112,8 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                     Map<String, Object> fieldsMap =
                             JSON.parseObject(data, new TypeReference<Map<String, Object>>() {});
                     List<Bin> bins = new ArrayList<>();
-                    Map<String, String> configFieldTypes = config.get(AerospikeSinkOptions.FIELD_TYPES);
+                    Map<String, String> configFieldTypes =
+                            config.get(AerospikeSinkOptions.FIELD_TYPES);
                     for (String fieldName : configFieldTypes.keySet()) {
                         Object value = fieldsMap.get(fieldName);
                         AerospikeDataType dataType = typeConverter.getFieldType(fieldName);
@@ -134,7 +153,9 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
         clientPolicy.maxConnsPerNode = 300;
 
         return new AerospikeClient(
-                clientPolicy, config.get(AerospikeSinkOptions.HOST), config.get(AerospikeSinkOptions.PORT));
+                clientPolicy,
+                config.get(AerospikeSinkOptions.HOST),
+                config.get(AerospikeSinkOptions.PORT));
     }
 
     private Object convertValue(Object value, AerospikeDataType dataType) {
