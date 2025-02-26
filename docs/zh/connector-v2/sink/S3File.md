@@ -497,5 +497,4 @@ sink {
 ```
 
 ### enable_header_write [boolean]
-
 仅在 file_format_type 为 text 或 csv 时使用。false：不写入表头，true：写入表头。
