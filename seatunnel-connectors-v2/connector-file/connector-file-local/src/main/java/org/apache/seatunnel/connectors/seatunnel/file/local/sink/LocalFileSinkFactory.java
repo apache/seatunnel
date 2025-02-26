@@ -35,6 +35,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions.COMPRESS_CODEC;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions.DATETIME_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions.DATE_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions.ENCODING;
@@ -78,7 +79,7 @@ public class LocalFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .optional(ENCODING)
                 .optional(LocalFileSinkOptions.SINGLE_FILE_MODE)
                 .optional(LocalFileSinkOptions.BATCH_SIZE)
-                .optional(LocalFileSinkOptions.TXT_COMPRESS)
+                .optional(COMPRESS_CODEC)
                 .optional(LocalFileSinkOptions.XML_ROOT_TAG)
                 .optional(LocalFileSinkOptions.XML_ROW_TAG)
                 .optional(LocalFileSinkOptions.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96)
