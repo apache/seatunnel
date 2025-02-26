@@ -179,7 +179,7 @@ hadoop_s3_properties {
 
 ### common options
 
-Sink插件常用参数，请参考[Sink Common Options]（../Sink-common-options.md）了解详细信息。
+Sink插件常用参数，请参考[Sink Common Options]（../sink-common-options.md）了解详细信息。
 
 ## 示例
 
