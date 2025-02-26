@@ -32,7 +32,7 @@
 
 > 请下载"Maven"对应的支持列表，并将其复制到"$SEATUNNEL_HOME/plugins/jdbc/lib/"
 > 工作目录<br/>
-> 例如：cp-kingbase8-8.6.0.jar$SEATUNNEL_HOME/plugins/jdbc/lib/
+> 例如：cp kingbase8-8.6.0.jar $SEATUNNEL_HOME/plugins/jdbc/lib/
 
 ## 数据类型映射
 
