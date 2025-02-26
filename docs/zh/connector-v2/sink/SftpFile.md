@@ -10,7 +10,7 @@
 
 如果你使用spark/flink，为了使用这个连接器，你必须确保你的spark/flink集群已经集成了hadoop。测试的hadoop版本是2.x。
 
-如果你使用SeaTunnel Engine，当你下载并安装SeaTunnel引擎时，它会自动集成hadoop jar。您可以在${SEATUNNEL_HOME}/lib下检查jar包以确认这一点。
+如果你使用SeaTunnel引擎，当你下载并安装SeaTunnel引擎时，它会自动集成hadoop jar包。您可以在${SEATUNNEL_HOME}/lib下找到jar包。
 
 :::
 
@@ -39,7 +39,7 @@
 | user                                  | string  | 是      | -                                          |                                                                                                                                                                        |
 | password                              | string  | 是      | -                                          |                                                                                                                                                                        |
 | path                                  | string  | 是      | -                                          |                                                                                                                                                                        |
-| tmp_path                              | string  | 是      | /tmp/seatunnel                             | 结果文件将首先写入tmp路径，然后使用`mv`将tmp目录剪切到目标目录。需要一个FTP目录。                                                      |
+| tmp_path                              | string  | 是      | /tmp/seatunnel                             | 结果文件将首先写入临时路径，然后使用`mv`将临时目录剪切到目标目录。需要一个FTP目录。                                                      |
 | custom_filename                       | boolean | 否       | false                                      | 是否需要自定义文件名                                                                                                                                   |
 | file_name_expression                  | string  | 否       | "${transactionId}"                         | 仅在custom_filename为true时使用                                                                                                                                 |
 | filename_time_format                  | string  | 否       | "yyyy.MM.dd"                               | 仅在custom_filename为true时使用                                                                                                                                 |
@@ -204,9 +204,9 @@ Sink插件常用参数，请参考[Sink common Options]（../sink-common-options
 
 当文件格式为CSV时，CSV的字符串引用模式。
 
--ALL：所有字符串字段都将被引用。
--MINIMAL：包含特殊字符的引号字段，如字段分隔符、引号字符或行分隔符字符串中的任何字符。
--无：从不引用字段。当分隔符出现在数据中时，打印机会用转义符作为前缀。如果未设置转义符，格式验证将抛出异常。
+- ALL：所有字符串字段都将被引用。
+- MINIMAL：包含特殊字符的引号字段，如字段分隔符、引号字符或行分隔符字符串中的任何字符。
+- NONE：从不引用字段。当分隔符出现在数据中时，打印机会用转义符作为前缀。如果未设置转义符，格式验证将抛出异常。
 
 ### xml_root_tag [string]
 
@@ -240,10 +240,10 @@ Sink插件常用参数，请参考[Sink common Options]（../sink-common-options
 
 现有的目录处理方法。
 
--RECREATE_SCHEMA：当目录不存在时创建，当目录存在时删除并重新创建
--CREATE_SCHEMA_WHEN_NOT_EXIST：当目录不存在时创建，当目录存在时跳过
--ERROR_WHEN_SCHEMA_NOT_EXIST：当目录不存在时，将报告错误
--忽略：忽略桌子的处理
+- RECREATE_SCHEMA：当目录不存在时创建，当目录存在时删除并重新创建
+- CREATE_SCHEMA_WHEN_NOT_EXIST：当目录不存在时创建，当目录存在时跳过
+- ERROR_WHEN_SCHEMA_NOT_EXIST：当目录不存在时，将报告错误
+- IGNORE：忽略对表的处理
 
 ### data_save_mode [string]
 
@@ -316,7 +316,7 @@ SftpFile {
 ### 2.3.0 2022-12-30
 
 -添加SftpFile接收器连接器
--[BugFix]修复了以下无法写入数据的错误
+-[Bug修复]修复了以下无法写入数据的错误
 文件（[3258](https://github.com/apache/seatunnel/pull/3258))
 	-当上游的字段为空时，它将抛出NullPointerException
 	-接收器列映射失败
