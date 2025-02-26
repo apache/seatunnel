@@ -1,6 +1,6 @@
 # Clickhouse
 
-> Clickhouse 数据源连接器
+> Clickhouse source 连接器
 
 ## 支持引擎
 
@@ -12,7 +12,7 @@
 
 - [x] [批处理](../../concept/connector-v2-features.md)
 - [ ] [流处理](../../concept/connector-v2-features.md)
-- [ ] [精准一次](../../concept/connector-v2-features.md)
+- [ ] [精确一次](../../concept/connector-v2-features.md)
 - [x] [列映射](../../concept/connector-v2-features.md)
 - [ ] [并行度](../../concept/connector-v2-features.md)
 - [ ] [支持用户自定义拆分](../../concept/connector-v2-features.md)
@@ -50,14 +50,14 @@
 
 |       名称                   |   类型    | 是否必须 |  默认值         |                                                                                                                                                 描述                                                                                                                                                 |
 |-------------------|--------|----------|------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| host              | String | Yes      | -                      | `ClickHouse` 集群地址, 格式是`host:port` , 允许多个`hosts`配置. 例如 `"host1:8123,host2:8123"` .                                                                                                                                                                    |
-| database          | String | Yes      | -                      | The `ClickHouse` 数据库名称.                                                                                                                                                                                                                                                                                  |
-| sql               | String | Yes      | -                      | 用于通过Clickhouse服务搜索数据的查询sql.                                                                                                                                                                                                                                                 |
-| username          | String | Yes      | -                      | `ClickHouse` user 用户账号.                                                                                                                                                                                                                                                                                 |
-| password          | String | Yes      | -                      | `ClickHouse` user 用户密码.                                                                                                                                                                                                                                                                                 |
-| clickhouse.config | Map    | No       | -                      | 除了上述必须由 `clickhouse-jdbc` 指定的必填参数外，用户还可以指定多个可选参数，这些参数涵盖了 `clickhouse-jdbc` 提供的所有[参数](https://github.com/ClickHouse/clickhouse-jdbc/tree/master/clickhouse-client#configuration). |
-| server_time_zone  | String | No       | ZoneId.systemDefault() | 数据库服务中的会话时区。如果未设置，则使用ZoneId.systemDefault（）设置服务时区.                                                                                                                                                                                |
-| common-options    |        | No       | -                      | 源插件常用参数，详见 [源通用选项](../source-common-options.md).                                                                                                                                                                                          |
+| host              | String | 是      | -                      | `ClickHouse` 集群地址, 格式是`host:port` , 允许多个`hosts`配置. 例如 `"host1:8123,host2:8123"` .                                                                                                                                                                    |
+| database          | String | 是      | -                      | The `ClickHouse` 数据库名称.                                                                                                                                                                                                                                                                                  |
+| sql               | String | 是      | -                      | 用于通过Clickhouse服务搜索数据的查询sql.                                                                                                                                                                                                                                                 |
+| username          | String | 是      | -                      | `ClickHouse` user 用户账号.                                                                                                                                                                                                                                                                                 |
+| password          | String | 是      | -                      | `ClickHouse` user 用户密码.                                                                                                                                                                                                                                                                                 |
+| clickhouse.config | Map    | 否       | -                      | 除了上述必须由 `clickhouse-jdbc` 指定的必填参数外，用户还可以指定多个可选参数，这些参数涵盖了 `clickhouse-jdbc` 提供的所有[参数](https://github.com/ClickHouse/clickhouse-jdbc/tree/master/clickhouse-client#configuration). |
+| server_time_zone  | String | 否       | ZoneId.systemDefault() | 数据库服务中的会话时区。如果未设置，则使用ZoneId.systemDefault（）设置服务时区.                                                                                                                                                                                |
+| common-options    |        | 否       | -                      | 源插件常用参数，详见 [源通用选项](../source-common-options.md).                                                                                                                                                                                          |
 
 ## 如何创建Clickhouse数据同步作业
 
