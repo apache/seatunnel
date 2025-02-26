@@ -1,6 +1,6 @@
 # SelectDB Cloud
 
-> SelectDB Cloud 接收器连接器
+> SelectDB Cloud Sink 连接器
 
 ## 支持的引擎
 
