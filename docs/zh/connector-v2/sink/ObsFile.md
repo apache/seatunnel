@@ -14,9 +14,9 @@
 
 - [x] [精确一次](../../concept/connector-v2-features.md)
 
-默认情况下，我们使用2PC commit来确保“恰好一次”`
+默认情况下，我们使用2PC commit来确保“精确一次”`
 
-- [x] file format type
+- [x] 文件格式类型
   - [x] text
   - [x] csv
   - [x] parquet
@@ -27,15 +27,15 @@
 ## 描述
 
 将数据输出到华为云obs文件系统。
-如果你使用spark/flink，为了使用这个连接器，你必须确保你的spark/flilk集群已经集成了hadoop。测试的hadoop版本是2.x。
+如果你使用spark/flink，为了使用这个连接器，你必须确保你的spark/flink集群已经集成了hadoop。测试的hadoop版本是2.x。
 如果你使用SeaTunnel Engine，当你下载并安装SeaTunnel引擎时，它会自动集成hadoop jar。您可以在${SEATUNNEL_HOME}/lib下检查jar包以确认这一点。
 为了支持更多的文件类型，我们进行了一些权衡，因此我们使用HDFS协议对OBS进行内部访问，而这个连接器需要一些hadoop依赖。
 它只支持hadoop版本**2.9.X+**。
 
 ## 所需Jar包列表
 
-|        jar         |     支持的版本      | Maven下载链接                                                                                                 |
-|--------------------|-----------------------------|-------------------------------------------------------------------------------------------------------|
+|        jar         |     支持的版本              | Maven下载链接                                                                                         |
+|--------------------|-----------------------------|---------------------------------------------------------------------------------------------------|
 | hadoop-huaweicloud | support version >= 3.1.1.29 | [下载](https://repo.huaweicloud.com/artifactory/sdk_public/org/apache/hadoop/hadoop-huaweicloud/) |
 | esdk-obs-java      | support version >= 3.19.7.3 | [下载](https://repo.huaweicloud.com/artifactory/sdk_public/com/huawei/storage/esdk-obs-java/)     |
 | okhttp             | support version >= 3.11.0   | [下载](https://repo1.maven.org/maven2/com/squareup/okhttp3/okhttp/)                               |
@@ -59,11 +59,11 @@
 | filename_time_format             | string  | 否       | "yyyy.MM.dd"                               | 指定“path”的时间格式。仅在custom_filename为true时使用。[提示]（#filename_time_format）                                                           |
 | file_format_type                 | string  | 否       | "csv"                                      | 支持的文件类型。[提示]（#file_format_type）                                                                                                                        |
 | field_delimiter                  | string  | 否       | '\001'                                     | 数据行中列之间的分隔符。仅在file_format为文本时使用。                                                                                     |
-| row_delimiter                    | string  | 否       | "\n"                                       | 文件中行之间的分隔符。只需要“文本”文件格式。                                                                                               |
+| row_delimiter                    | string  | 否       | "\n"                                       | 文件中行之间的分隔符。仅被“text”文件格式需要。                                                                                               |
 | have_partition                   | boolean | 否       | false                                      | 是否需要处理分区。                                                                                                                                |
-| partition_by                     | array   | 否       | -                                          | 根据所选字段对数据进行分区。只有在have_partition为真时才使用。                                                                                        |
-| partition_dir_expression         | string  | 否       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | 只有在have_partition为真时才使用。[提示]（#partition_dir_expression）                                                                                                |
-| is_partition_field_write_in_file | boolean | 否       | false                                      | 只有在have_partition为真时才使用。[提示]（#is_partition_field_write_in_file）                                                                                        |
+| partition_by                     | array   | 否       | -                                          | 根据所选字段对数据进行分区。只有在have_partition为true时才使用。                                                                                        |
+| partition_dir_expression         | string  | 否       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | 只有在have_partition为真true时才使用。[提示]（#partition_dir_expression）                                                                                                |
+| is_partition_field_write_in_file | boolean | 否       | false                                      | 只有在have_partition为true时才使用。[提示]（#is_partition_field_write_in_file）                                                                                        |
 | sink_columns                     | array   | 否       |                                            | 当此参数为空时，所有字段都是接收列。[提示]（#sink_columns）                                                                                        |
 | is_enable_transaction            | boolean | 否       | true                                       | [提示](#is_enable_transaction)                                                                                                                                         |
 | batch_size                       | int     | 否       | 1000000                                    | [提示](#batch_size)                                                                                                                                                    |
@@ -72,26 +72,26 @@
 | compress_codec                   | string  | 否       | none                                       | [提示](#compress_codec)                                                                                                                                                |
 | common-options                   | object  | 否       | -                                          | [提示](#common_options)                                                                                                                                                |
 | max_rows_in_memory               | int     | 否       | -                                          | 当文件格式为Excel时，内存中可以缓存的最大数据项数。仅在file_format为excel时使用。                                      |
-| sheet_name                       | string  | 否       | Sheet${Random number}                      | 书写工作簿的纸张。仅在file_format为excel时使用。                                                                                                 |
+| sheet_name                       | string  | 否       | Sheet${Random number}                      | 标签页。仅在file_format为excel时使用。                                                                                                 |
 
 ### 提示
 
 #### <span id="file_name_expression"> file_name_expression </span>
 
->仅在“custom_filename”为“true”时使用`
+>仅在“custom_filename”为“true”时使用。
 >
 >`file_name_expression`描述了将在`path`中创建的文件表达式。
 >
->我们可以在“file_name_expression”中添加变量“${now}”或“${uuid}”，类似于“test”_${uuid}_${现在}`，
+>我们可以在“file_name_expression”中添加变量“${now}”或“${uuid}”，类似于“test_${uuid}_${now}”，
 >
 >“${now}”表示当前时间，其格式可以通过指定选项“filename_time_format”来定义。
 请注意，如果`is_enable_transaction`为`true`，我们将自动添加`${transactionId}_`在文件的开头。
 
 #### <span id="filename_time_format"> filename_time_format </span>
 
->仅在“custom_filename”为“true”时使用`
+>仅在“custom_filename”为“true”时使用。
 >
->当`file_name_expression`参数中的格式为`xxxx-${now}时，`filename_time_format`可以指定路径的时间格式，默认值为`yyyy。MM.dd。常用的时间格式如下：
+>当`file_name_expression`参数中的格式为`xxxx-${now}`时，`filename_time_format`可以指定路径的时间格式，默认值为`yyyy.MM.dd`。常用的时间格式如下：
 
 | Symbol |    Description     |
 |--------|--------------------|
@@ -116,7 +116,7 @@
 >
 >如果指定了`partition_by`，我们将根据分区信息生成相应的分区目录，并将最终文件放置在分区目录中。
 >
->默认的`partition_dir_expression`是`${k0}=${v0}/${k1}=${1v1}/.../${kn}=${vn}/``k0是第一个分区字段，v0是第一个划分字段的值。
+>默认的`partition_dir_expression`是`${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/`.`k0`是第一个分区字段，`v0`是第一个划分字段的值。
 
 #### <span id="is_partition_field_write_in_file"> is_partition_field_write_in_file </span>
 
@@ -133,7 +133,7 @@
 
 #### <span id="is_enable_transaction"> is_enable_transaction </span>
 
->如果`is_enable_transaction`为true，我们将确保数据在写入目标目录时不会丢失或重复。
+>如果`is_enable_transaction`为`true`，我们将确保数据在写入目标目录时不会丢失或重复。
 >
 >请注意，如果`is_enable_transaction`为`true`，我们将自动添加`${transactionId}_`在文件的开头。现在只支持“true”。
 
@@ -155,13 +155,13 @@
 
 #### <span id="common_options"> common options </span>
 
->Sink插件常用参数，请参考[Sink common Options]（../Sink common Options.md）了解详细信息。
+>Sink插件常用参数，请参考[Sink common Options]（../Sink-common-Options.md）了解详细信息。
 
 ## 任务示例
 
 ### text 文件
 
->对于具有“have_partition”、“custom_filename”和“sink_columns”的文本文件格式`
+>对于具有“have_partition”、“custom_filename”和“sink_columns”的文本文件格式。
 
 ```hocon
 
@@ -189,7 +189,7 @@
 
 ### parquet 文件
 
->适用于带有“have_partition”和“sink_columns”的拼花地板文件格式`
+>适用于带有“have_partition”和“sink_columns”的拼花地板文件格式。
 
 ```hocon
 
@@ -211,7 +211,7 @@
 
 ### orc 文件
 
->对于orc文件格式的简单配置
+>对于orc文件格式的简单配置。
 
 ```hocon
 
@@ -228,7 +228,7 @@
 
 ### json 文件
 
->对于json文件格式简单配置
+>对于json文件格式简单配置。
 
 ```hcocn
 
@@ -245,7 +245,7 @@
 
 ### excel 文件
 
->对于excel文件格式简单配置
+>对于excel文件格式简单配置。
 
 ```hcocn
 
@@ -262,7 +262,7 @@
 
 ### csv 文件
 
->对于csv文件格式简单配置
+>对于csv文件格式简单配置。
 
 ```hcocn
 
