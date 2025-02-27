@@ -71,7 +71,6 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
         return taskID;
     }
 
-    // todo 哪里用的
     public long getTaskVertexId() {
         return taskID;
     }
