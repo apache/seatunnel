@@ -66,14 +66,10 @@ public class RedisParameters implements Serializable {
     private int redisVersion;
 
     public void buildWithConfig(ReadonlyConfig config) {
-        if (config.getOptional(RedisBaseOptions.HOST).isPresent()) {
-            // set host
-            this.host = config.get(RedisBaseOptions.HOST);
-        }
-        if (config.getOptional(RedisBaseOptions.PORT).isPresent()) {
-            // set port
-            this.port = config.get(RedisBaseOptions.PORT);
-        }
+        // set host
+        this.host = config.get(RedisBaseOptions.HOST);
+        // set port
+        this.port = config.get(RedisBaseOptions.PORT);
         // set db_num
         this.dbNum = config.get(RedisBaseOptions.DB_NUM);
         // set hash key mode
