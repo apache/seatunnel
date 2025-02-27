@@ -17,18 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.sink;
 
+import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.client.DynamoDbClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig;
 
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutRequest;
 import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
 
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -49,18 +46,7 @@ public class DynamoDbSinkClient {
         if (initialize) {
             return;
         }
-        dynamoDbClient =
-                DynamoDbClient.builder()
-                        .endpointOverride(URI.create(amazondynamodbConfig.getUrl()))
-                        // The region is meaningless for local DynamoDb but required for client
-                        // builder validation
-                        .region(Region.of(amazondynamodbConfig.getRegion()))
-                        .credentialsProvider(
-                                StaticCredentialsProvider.create(
-                                        AwsBasicCredentials.create(
-                                                amazondynamodbConfig.getAccessKeyId(),
-                                                amazondynamodbConfig.getSecretAccessKey())))
-                        .build();
+        dynamoDbClient = DynamoDbClientProvider.createDynamoDBClient(amazondynamodbConfig);
         initialize = true;
     }
 

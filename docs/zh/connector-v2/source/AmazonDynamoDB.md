@@ -17,33 +17,33 @@
 
 ## 选项
 
-|         名称        |  类型  | 必需    | 默认值 |
-|-----------------------|--------|-------|---------------|
-| url                   | string | 是     | -             |
-| region                | string | 是     | -             |
-| access_key_id         | string | 是     | -             |
-| secret_access_key     | string | 是     | -             |
-| table                 | string | 是     | -             |
-| schema                | config | 是     | -             |
-| common-options        |        | 是     | -             |
-| scan_item_limit       |        | 否     | -             |
-| parallel_scan_threads |        | 否 | -             |
+|         名称        |  类型  | 必需 | 默认值 |
+|-----------------------|--------|----|---------------|
+| url                   | string | 否  | -             |
+| region                | string | 否  | -             |
+| access_key_id         | string | 否  | -             |
+| secret_access_key     | string | 否  | -             |
+| table                 | string | 是  | -             |
+| schema                | config | 是  | -             |
+| common-options        |        | 是  | -             |
+| scan_item_limit       |        | 否  | -             |
+| parallel_scan_threads |        | 否  | -             |
 
 ### url [string]
 
-读取Amazon Dynamodb的URL.
+读取Amazon Dynamodb的URL. 它将覆盖AWS DynamoDB的`endpoint`.
 
 ### region [string]
 
-Amazon DynamoDB 的分区.
+Amazon DynamoDB 的分区. DynamoDB客户端将使用该区域确定服务端点.
 
-### accessKeyId [string]
+### access_key_id [string]
 
-Amazon DynamoDB的访问id.
+Amazon DynamoDB的访问id. 如果未设置，插件将使用容器凭证提供程序链获取访问id.
 
-### secretAccessKey [string]
+### secret_access_key [string]
 
-Amazon DynamoDB的访问密钥.
+Amazon DynamoDB的访问密钥. 如果未设置，插件将使用容器凭证提供程序链获取访问密钥.
 
 ### table [string]
 

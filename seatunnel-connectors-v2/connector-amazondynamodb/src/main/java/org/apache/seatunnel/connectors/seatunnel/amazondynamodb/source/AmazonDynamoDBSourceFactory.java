@@ -50,8 +50,14 @@ public class AmazonDynamoDBSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(URL, REGION, ACCESS_KEY_ID, SECRET_ACCESS_KEY, TABLE, SCHEMA)
-                .optional(SCAN_ITEM_LIMIT, PARALLEL_SCAN_THREADS)
+                .required(TABLE, SCHEMA)
+                .optional(
+                        SCAN_ITEM_LIMIT,
+                        PARALLEL_SCAN_THREADS,
+                        ACCESS_KEY_ID,
+                        SECRET_ACCESS_KEY,
+                        URL,
+                        REGION)
                 .build();
     }
 

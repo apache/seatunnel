@@ -43,8 +43,8 @@ public class AmazonDynamoDBSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(URL, REGION, ACCESS_KEY_ID, SECRET_ACCESS_KEY, TABLE)
-                .optional(BATCH_SIZE)
+                .required(TABLE)
+                .optional(BATCH_SIZE, ACCESS_KEY_ID, SECRET_ACCESS_KEY, URL, REGION)
                 .build();
     }
 

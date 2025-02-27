@@ -14,33 +14,37 @@ Write data to Amazon DynamoDB
 
 |       Name        |  Type  | Required | Default value |
 |-------------------|--------|----------|---------------|
-| url               | string | yes      | -             |
-| region            | string | yes      | -             |
-| access_key_id     | string | yes      | -             |
-| secret_access_key | string | yes      | -             |
+| url               | string | no       | -             |
+| region            | string | no       | -             |
+| access_key_id     | string | no       | -             |
+| secret_access_key | string | no       | -             |
 | table             | string | yes      | -             |
 | batch_size        | string | no       | 25            |
 | common-options    |        | no       | -             |
 
 ### url [string]
 
-The URL to write to Amazon DynamoDB.
+The URL to write to Amazon DynamoDB. It will override the `endpoint` of AWS DynamoDB.
 
 ### region [string]
 
-The region of Amazon DynamoDB.
+The region of Amazon DynamoDB. The DynamoDB client will use the region to determine the service endpoint.
 
-### accessKeyId [string]
+### access_key_id [string]
 
-The access id of Amazon DynamoDB.
+The access id of Amazon DynamoDB. If you don't set it, the plugin will use the container credential provider chain to get the access id.
 
-### secretAccessKey [string]
+### secret_access_key [string]
 
-The access secret of Amazon DynamoDB.
+The access secret of Amazon DynamoDB. If you don't set it, the plugin will use the container credential provider chain to get the access secret.
 
 ### table [string]
 
 The table of Amazon DynamoDB.
+
+### batch_size [string]
+
+The number of records to write to Amazon DynamoDB in a batch. The default value is 25, and the maximum value is 25 because the Amazon DynamoDB batch write item limit is 25.
 
 ### common options
 
@@ -52,8 +56,8 @@ Sink plugin common parameters, please refer to [Sink Common Options](../sink-com
 Amazondynamodb {
     url = "http://127.0.0.1:8000"
     region = "us-east-1"
-    accessKeyId = "dummy-key"
-    secretAccessKey = "dummy-secret"
+    access_key_id = "dummy-key"
+    secret_access_key = "dummy-secret"
     table = "TableName"
   }
 ```

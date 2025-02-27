@@ -21,22 +21,20 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.client.DynamoDbClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize.DefaultSeaTunnelRowDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize.SeaTunnelRowDeserializer;
 
 import lombok.extern.slf4j.Slf4j;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.paginators.ScanIterable;
 
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
@@ -63,23 +61,12 @@ public class AmazonDynamoDBSourceReader
 
     @Override
     public void open() {
-        dynamoDbClient =
-                DynamoDbClient.builder()
-                        .endpointOverride(URI.create(amazondynamodbConfig.getUrl()))
-                        // The region is meaningless for local DynamoDb but required for client
-                        // builder validation
-                        .region(Region.of(amazondynamodbConfig.getRegion()))
-                        .credentialsProvider(
-                                StaticCredentialsProvider.create(
-                                        AwsBasicCredentials.create(
-                                                amazondynamodbConfig.getAccessKeyId(),
-                                                amazondynamodbConfig.getSecretAccessKey())))
-                        .build();
+        dynamoDbClient = DynamoDbClientProvider.createDynamoDBClient(amazondynamodbConfig);
     }
 
     @Override
     public void close() {
-        dynamoDbClient.close();
+        Optional.ofNullable(dynamoDbClient).ifPresent(DynamoDbClient::close);
     }
 
     @Override

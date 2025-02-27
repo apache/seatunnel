@@ -19,10 +19,10 @@ Read data from Amazon DynamoDB.
 
 |         name          |  type  | required | default value |
 |-----------------------|--------|----------|---------------|
-| url                   | string | yes      | -             |
-| region                | string | yes      | -             |
-| access_key_id         | string | yes      | -             |
-| secret_access_key     | string | yes      | -             |
+| url                   | string | no       | -             |
+| region                | string | no       | -             |
+| access_key_id         | string | no       | -             |
+| secret_access_key     | string | no       | -             |
 | table                 | string | yes      | -             |
 | schema                | config | yes      | -             |
 | common-options        |        | yes      | -             |
@@ -31,19 +31,19 @@ Read data from Amazon DynamoDB.
 
 ### url [string]
 
-The URL to read to Amazon Dynamodb.
+The URL to read to Amazon Dynamodb. It will override the `endpoint` of AWS DynamoDB. 
 
 ### region [string]
 
-The region of Amazon Dynamodb.
+The region of Amazon Dynamodb. The DynamoDB client will use the region to determine the service endpoint.
 
-### accessKeyId [string]
+### access_key_id [string]
 
-The access id of Amazon DynamoDB.
+The access id of Amazon DynamoDB. If you don't set it, the plugin will use the container credential provider chain to get the access id.
 
-### secretAccessKey [string]
+### secret_access_key [string]
 
-The access secret of Amazon DynamoDB.
+The access secret of Amazon DynamoDB. If you don't set it, the plugin will use the container credential provider chain to get the access secret.
 
 ### table [string]
 
@@ -53,7 +53,7 @@ The table of Amazon DynamoDB.
 
 #### fields [config]
 
-Amazon Dynamodb is a NOSQL database service of support keys-value storage and document data structure,there is no way to get the data type.Therefore, we must configure schema.
+Amazon Dynamodb is a NOSQL database service of support keys-value storage and document data structure, there is no way to get the data type. Therefore, we must configure schema.
 
 such as:
 
@@ -85,8 +85,8 @@ number of logical segments for parallel scan
 Amazondynamodb {
   url = "http://127.0.0.1:8000"
   region = "us-east-1"
-  accessKeyId = "dummy-key"
-  secretAccessKey = "dummy-secret"
+  access_key_id = "dummy-key"
+  secret_access_key = "dummy-secret"
   table = "TableName"
   schema = {
     fields {
