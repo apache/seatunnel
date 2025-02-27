@@ -353,6 +353,9 @@ public class KafkaSourceConfig implements Serializable {
                 .column(PhysicalColumn.of(TIMESTAMP, BasicType.LONG_TYPE, 0, false, null, null))
                 .column(
                         PhysicalColumn.of(
+                                TIMESTAMP_TYPE, BasicType.STRING_TYPE, 0, false, null, null))
+                .column(
+                        PhysicalColumn.of(
                                 VALUE, PrimitiveByteArrayType.INSTANCE, 0, false, null, null))
                 .build();
     }
