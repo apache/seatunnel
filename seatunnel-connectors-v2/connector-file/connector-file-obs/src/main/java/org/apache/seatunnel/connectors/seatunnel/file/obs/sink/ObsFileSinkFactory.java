@@ -20,10 +20,11 @@ package org.apache.seatunnel.connectors.seatunnel.file.obs.sink;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.obs.config.ObsConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.obs.config.ObsFileSinkOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -37,11 +38,11 @@ public class ObsFileSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(ObsConfig.FILE_PATH)
-                .required(ObsConfig.BUCKET)
-                .required(ObsConfig.ACCESS_KEY)
-                .required(ObsConfig.ACCESS_SECRET)
-                .required(ObsConfig.ENDPOINT)
+                .required(FileBaseOptions.FILE_PATH)
+                .required(ObsFileSinkOptions.BUCKET)
+                .required(ObsFileSinkOptions.ACCESS_KEY)
+                .required(ObsFileSinkOptions.ACCESS_SECRET)
+                .required(ObsFileSinkOptions.ENDPOINT)
                 .optional(FileBaseSinkOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         FileBaseSinkOptions.FILE_FORMAT_TYPE,

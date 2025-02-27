@@ -22,10 +22,11 @@ import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.obs.config.ObsConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.obs.config.ObsFileSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -41,11 +42,11 @@ public class ObsFileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(ObsConfig.FILE_PATH)
-                .required(ObsConfig.BUCKET)
-                .required(ObsConfig.ACCESS_KEY)
-                .required(ObsConfig.ACCESS_SECRET)
-                .required(ObsConfig.ENDPOINT)
+                .required(FileBaseOptions.FILE_PATH)
+                .required(ObsFileSourceOptions.BUCKET)
+                .required(ObsFileSourceOptions.ACCESS_KEY)
+                .required(ObsFileSourceOptions.ACCESS_SECRET)
+                .required(ObsFileSourceOptions.ENDPOINT)
                 .required(FileBaseSourceOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
