@@ -8,10 +8,15 @@
 > Flink<br/>
 > Seatunnel Zeta<br/>
 
+## License Compatibility Notice
+
+This connector depends on Aerospike Client Library which is licensed under AGPL 3.0.                                                                                                                                                
+When using this connector, you need to comply with AGPL 3.0 license terms.
+
 ## Key Features
 
-- [x] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [cdc](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [cdc](../../concept/connector-v2-features.md)
 
 ## Description
 
@@ -22,6 +27,25 @@ Sink connector for Aerospike database.
 | Datasource | Supported Versions | Maven                                                                                  |
 |------------|-----------------|----------------------------------------------------------------------------------------|
 | Aerospike  | 4.4.17+               | [Download](https://mvnrepository.com/artifact/com.aerospike/aerospike-client) |
+
+## Data Type Mapping
+
+| SeaTunnel Data Type | Aerospike Data Type | Storage Format                                                                 |
+|---------------------|---------------------|--------------------------------------------------------------------------------|
+| STRING              | STRING              | Direct string storage                                                          |
+| INT                 | INTEGER             | 32-bit integer                                                                 |
+| BIGINT              | LONG                | 64-bit integer                                                                 |
+| FLOAT               | FLOAT               | 32-bit floating point                                                          |
+| DOUBLE              | DOUBLE              | 64-bit floating point                                                          |
+| BOOLEAN             | BOOLEAN             | Stored as true/false values                                                    |
+| MAP                 | MAP                 | JSON-style map structure                                                       |
+| ARRAY               | LIST                | JSON-style array structure                                                     |
+| DATE                | LONG                | Milliseconds since epoch (1970-01-01 00:00:00 UTC)                             |
+| TIMESTAMP           | LONG                | Milliseconds since epoch (1970-01-01 00:00:00 UTC)                             |
+
+Note:
+- Complex types (MAP/LIST) require Aerospike server 4.4.0+ (matching connector dependency version)
+- DATE/TIMESTAMP will be automatically converted to LONG type
 
 ## Options
 
@@ -86,4 +110,3 @@ sink {
   }
 }
 ```
-

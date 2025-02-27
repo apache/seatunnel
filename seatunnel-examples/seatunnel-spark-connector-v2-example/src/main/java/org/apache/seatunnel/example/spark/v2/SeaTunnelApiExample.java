@@ -18,7 +18,6 @@
 package org.apache.seatunnel.example.spark.v2;
 
 import org.apache.seatunnel.core.starter.exception.CommandException;
-
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
 

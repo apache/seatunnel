@@ -2,6 +2,11 @@
 
 > Aerospike 数据写入连接器
 
+## 许可证兼容性通知
+
+此连接器依赖于根据AGPL 3.0许可的Aerospike客户端库。
+使用此连接器时，您需要遵守AGPL 3.0许可条款。
+
 ## 支持引擎
 
 > Spark<br/>
@@ -10,8 +15,8 @@
 
 ## 主要特性
 
-- [x] [精确一次](../../concept/connector-v2-features.md)
-- [x] [CDC](../../concept/connector-v2-features.md)
+- [ ] [精确一次](../../concept/connector-v2-features.md)
+- [ ] [CDC](../../concept/connector-v2-features.md)
 
 ## 描述
 
@@ -22,6 +27,25 @@
 |   数据源    | 支持版本 | Maven 依赖                                                              |
 |------------|---|-------------------------------------------------------------------------|
 | Aerospike  | 4.4.17+ | [下载](https://mvnrepository.com/artifact/com.aerospike/aerospike-client) |
+
+## 数据类型映射
+
+| SeaTunnel 数据类型 | Aerospike 数据类型 | 存储格式                                                                       |
+|--------------------|--------------------|------------------------------------------------------------------------------|
+| STRING             | STRING             | 直接存储字符串                                                               |
+| INT                | INTEGER            | 32位整型                                                                     |
+| BIGINT             | LONG               | 64位整型                                                                     |
+| FLOAT              | FLOAT              | 32位浮点数                                                                   |
+| DOUBLE             | DOUBLE             | 64位浮点数                                                                   |
+| BOOLEAN            | BOOLEAN            | 存储为 true/false 值                                                         |
+| MAP                | MAP                | JSON格式的Map结构                                                            |
+| ARRAY              | LIST               | JSON格式的数组结构                                                           |
+| DATE               | LONG               | 纪元时间毫秒数 (1970-01-01 00:00:00 UTC)                                    |
+| TIMESTAMP          | LONG               | 纪元时间毫秒数 (1970-01-01 00:00:00 UTC)                                    |
+
+注意事项：
+- 复杂类型（MAP/LIST）需要 Aerospike 服务端版本 4.4.0+ (与连接器依赖版本匹配)
+- DATE/TIMESTAMP 类型会自动转换为 LONG 类型存储
 
 ## 配置选项
 
