@@ -42,6 +42,7 @@ import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 
 public class TextWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream> {
     private final LinkedHashMap<String, FSDataOutputStream> beingWrittenOutputStream;
@@ -101,6 +102,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream>
                     serializationSchema.serialize(
                             seaTunnelRow.copy(
                                     sinkColumnsIndexInRow.stream()
+                                            .filter(Objects::nonNull)
                                             .mapToInt(Integer::intValue)
                                             .toArray())));
         } catch (IOException e) {
