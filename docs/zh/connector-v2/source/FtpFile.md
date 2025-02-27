@@ -31,7 +31,6 @@
 :::提示
 
 如果您使用 Spark/Flink，为了使用此连接器，您必须确保您的 Spark/Flink 集群已经集成了 Hadoop。测试的 Hadoop 版本为 2.x。
-
 如果您使用 SeaTunnel Engine，当您下载并安装 SeaTunnel Engine 时，它会自动集成 Hadoop 的 jar 包。您可以在 `${SEATUNNEL_HOME}/lib` 目录下检查 jar 包以确认这一点。
 
 :::
@@ -93,6 +92,7 @@
 以下是一些示例。
 
 文件结构示例：
+
 ```
 /data/seatunnel/20241001/report.txt
 /data/seatunnel/20241007/abch202410.csv
