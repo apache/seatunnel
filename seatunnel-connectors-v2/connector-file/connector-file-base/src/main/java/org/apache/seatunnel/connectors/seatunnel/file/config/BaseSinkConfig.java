@@ -214,6 +214,13 @@ public class BaseSinkConfig {
                     .defaultValue(FileFormat.CSV)
                     .withDescription("File format type, e.g. csv, orc, parquet, text");
 
+    public static final Option<String> FILENAME_EXTENSION =
+            Options.key("filename_extension")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`");
+
     public static final Option<String> ENCODING =
             Options.key("encoding")
                     .stringType()

@@ -40,6 +40,7 @@
 | file_name_expression                  | string  | 否    | "${transactionId}"                         | 仅在 custom_filename 为 true 时使用                                   |
 | filename_time_format                  | string  | 否    | "yyyy.MM.dd"                               | 仅在 custom_filename 为 true 时使用                                   |
 | file_format_type                      | string  | 否    | "csv"                                      | 文件格式类型                                                          |
+| filename_extension                    | string  | 否    | -                                          | 使用自定义的文件扩展名覆盖默认的文件扩展名。 例如：`.xml`, `.json`, `dat`, `.customtype` |
 | field_delimiter                       | string  | 否    | '\001'                                     | 仅在 file_format_type 为 text 时使用                                  |
 | row_delimiter                         | string  | 否    | "\n"                                       | 仅在 file_format_type 为 text 时使用                                  |
 | have_partition                        | boolean | 否    | false                                      | 是否需要处理分区                                                        |

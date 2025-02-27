@@ -186,7 +186,7 @@ public class ElasticsearchSourceSplitEnumerator
 
     @Override
     public void registerReader(int subtaskId) {
-        log.debug("Register reader {} to IoTDBSourceSplitEnumerator.", subtaskId);
+        log.debug("Register reader {} to ElasticsearchSourceSplitEnumerator.", subtaskId);
         if (!pendingSplit.isEmpty()) {
             assignSplit(Collections.singletonList(subtaskId));
         }

@@ -39,7 +39,7 @@ import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-import org.apache.seatunnel.connectors.doris.config.DorisOptions;
+import org.apache.seatunnel.connectors.doris.config.DorisBaseOptions;
 import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverterFactory;
 import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverterV2;
 import org.apache.seatunnel.connectors.doris.util.DorisCatalogUtil;
@@ -463,9 +463,9 @@ public class DorisCatalog implements Catalog {
     private Map<String, String> connectorOptions() {
         Map<String, String> options = new HashMap<>();
         options.put("connector", "doris");
-        options.put(DorisOptions.FENODES.key(), String.join(",", frontEndNodes));
-        options.put(DorisOptions.USERNAME.key(), username);
-        options.put(DorisOptions.PASSWORD.key(), password);
+        options.put(DorisBaseOptions.FENODES.key(), String.join(",", frontEndNodes));
+        options.put(DorisBaseOptions.USERNAME.key(), username);
+        options.put(DorisBaseOptions.PASSWORD.key(), password);
         return options;
     }
 

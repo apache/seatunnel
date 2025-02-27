@@ -209,9 +209,7 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
             this.sheetName = config.getString(BaseSinkConfig.SHEET_NAME.key());
         }
 
-        if (FileFormat.XML
-                .name()
-                .equalsIgnoreCase(config.getString(BaseSinkConfig.FILE_FORMAT_TYPE.key()))) {
+        if (FileFormat.XML.equals(this.fileFormat)) {
             if (!config.hasPath(BaseSinkConfig.XML_USE_ATTR_FORMAT.key())) {
                 throw new FileConnectorException(
                         CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
@@ -229,9 +227,7 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
             }
         }
 
-        if (FileFormat.PARQUET
-                .name()
-                .equalsIgnoreCase(config.getString(BaseSinkConfig.FILE_FORMAT_TYPE.key()))) {
+        if (FileFormat.PARQUET.equals(this.fileFormat)) {
             if (config.hasPath(BaseSinkConfig.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96.key())) {
                 this.parquetWriteTimestampAsInt96 =
                         config.getBoolean(
@@ -244,9 +240,7 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
             }
         }
 
-        if (FileFormat.CSV
-                .name()
-                .equalsIgnoreCase(config.getString(BaseSinkConfig.FILE_FORMAT_TYPE.key()))) {
+        if (FileFormat.CSV.equals(this.fileFormat)) {
             if (config.hasPath(BaseSinkConfig.CSV_STRING_QUOTE_MODE.key())) {
                 this.csvStringQuoteMode =
                         CsvStringQuoteMode.valueOf(
