@@ -91,7 +91,7 @@ public class PhysicalPlanGenerator {
 
     private final List<Pipeline> pipelines;
 
-    private final IdGenerator idGenerator = new IdGenerator();
+    private final IdGenerator taskGroupIdGenerator = new IdGenerator();
 
     private final JobImmutableInformation jobImmutableInformation;
 
@@ -274,15 +274,14 @@ public class PhysicalPlanGenerator {
                             }
                             // if sinkAggregatedCommitter is empty, don't create task.
                             if (sinkAggregatedCommitter.isPresent()) {
-                                long taskGroupID = idGenerator.getNextId();
-                                long taskTypeId = idGenerator.getNextId();
+                                long taskGroupID = taskGroupIdGenerator.getNextId();
                                 TaskGroupLocation taskGroupLocation =
                                         new TaskGroupLocation(
                                                 jobImmutableInformation.getJobId(),
                                                 pipelineIndex,
                                                 taskGroupID);
                                 TaskLocation taskLocation =
-                                        new TaskLocation(taskGroupLocation, taskTypeId, 0);
+                                        new TaskLocation(taskGroupLocation, 1, 0);
                                 SinkAggregatedCommitterTask<?, ?> t =
                                         new SinkAggregatedCommitterTask(
                                                 jobImmutableInformation.getJobId(),
@@ -342,6 +341,7 @@ public class PhysicalPlanGenerator {
                             if (shuffleStrategy instanceof ShuffleMultipleRowStrategy) {
                                 ShuffleMultipleRowStrategy shuffleMultipleRowStrategy =
                                         (ShuffleMultipleRowStrategy) shuffleStrategy;
+                                AtomicInteger atomicInteger = new AtomicInteger(1);
                                 for (Flow nextFlow : flow.getNext()) {
                                     PhysicalExecutionFlow sinkFlow =
                                             (PhysicalExecutionFlow) nextFlow;
@@ -349,10 +349,7 @@ public class PhysicalPlanGenerator {
                                     String sinkTableId =
                                             sinkAction.getConfig().getTablePath().toString();
 
-                                    long taskIDPrefix = idGenerator.getNextId();
-                                    long taskGroupIDPrefix = idGenerator.getNextId();
-                                    int parallelismIndex = 0;
-
+                                    int parallelismIndex = atomicInteger.getAndIncrement();
                                     ShuffleStrategy shuffleStrategyOfSinkFlow =
                                             shuffleMultipleRowStrategy
                                                     .toBuilder()
@@ -363,7 +360,6 @@ public class PhysicalPlanGenerator {
                                                     .toBuilder()
                                                     .shuffleStrategy(shuffleStrategyOfSinkFlow)
                                                     .build();
-                                    long shuffleActionId = idGenerator.getNextId();
                                     String shuffleActionName =
                                             String.format(
                                                     "%s -> %s -> %s",
@@ -372,7 +368,7 @@ public class PhysicalPlanGenerator {
                                                     sinkAction.getName());
                                     ShuffleAction shuffleActionOfSinkFlow =
                                             new ShuffleAction(
-                                                    shuffleActionId,
+                                                    parallelismIndex,
                                                     shuffleActionName,
                                                     shuffleConfigOfSinkFlow);
                                     shuffleActionOfSinkFlow.setParallelism(1);
@@ -382,9 +378,7 @@ public class PhysicalPlanGenerator {
                                                     Collections.singletonList(sinkFlow));
                                     setFlowConfig(shuffleFlow);
 
-                                    long taskGroupID =
-                                            mixIDPrefixAndIndex(
-                                                    taskGroupIDPrefix, parallelismIndex);
+                                    long taskGroupID = taskGroupIdGenerator.getNextId();
                                     TaskGroupLocation taskGroupLocation =
                                             new TaskGroupLocation(
                                                     jobImmutableInformation.getJobId(),
@@ -393,7 +387,7 @@ public class PhysicalPlanGenerator {
                                     TaskLocation taskLocation =
                                             new TaskLocation(
                                                     taskGroupLocation,
-                                                    taskIDPrefix,
+                                                    parallelismIndex,
                                                     parallelismIndex);
                                     SeaTunnelTask seaTunnelTask =
                                             new TransformSeaTunnelTask(
@@ -428,17 +422,15 @@ public class PhysicalPlanGenerator {
                                                     runningJobStateTimestampsIMap));
                                 }
                             } else {
-                                long taskIDPrefix = idGenerator.getNextId();
-                                long taskGroupIDPrefix = idGenerator.getNextId();
                                 for (int i = 0; i < flow.getAction().getParallelism(); i++) {
-                                    long taskGroupID = mixIDPrefixAndIndex(taskGroupIDPrefix, i);
+                                    long taskGroupID = taskGroupIdGenerator.getNextId();
                                     TaskGroupLocation taskGroupLocation =
                                             new TaskGroupLocation(
                                                     jobImmutableInformation.getJobId(),
                                                     pipelineIndex,
                                                     taskGroupID);
                                     TaskLocation taskLocation =
-                                            new TaskLocation(taskGroupLocation, taskIDPrefix, i);
+                                            new TaskLocation(taskGroupLocation, 1, i);
                                     setFlowConfig(flow);
                                     SeaTunnelTask seaTunnelTask =
                                             new TransformSeaTunnelTask(
@@ -483,15 +475,13 @@ public class PhysicalPlanGenerator {
         return sources.stream()
                 .map(
                         sourceAction -> {
-                            long taskGroupID = idGenerator.getNextId();
-                            long taskTypeId = idGenerator.getNextId();
+                            long taskGroupID = taskGroupIdGenerator.getNextId();
                             TaskGroupLocation taskGroupLocation =
                                     new TaskGroupLocation(
                                             jobImmutableInformation.getJobId(),
                                             pipelineIndex,
                                             taskGroupID);
-                            TaskLocation taskLocation =
-                                    new TaskLocation(taskGroupLocation, taskTypeId, 0);
+                            TaskLocation taskLocation = new TaskLocation(taskGroupLocation, 1, 0);
                             SourceSplitEnumeratorTask<?> t =
                                     new SourceSplitEnumeratorTask<>(
                                             jobImmutableInformation.getJobId(),
@@ -541,32 +531,25 @@ public class PhysicalPlanGenerator {
                             if (sourceWithSink(flow)) {
                                 flows.addAll(splitSinkFromFlow(flow));
                             }
-                            long taskGroupIDPrefix = idGenerator.getNextId();
-                            Map<Long, Long> flowTaskIDPrefixMap = new HashMap<>();
                             for (int i = 0; i < flow.getAction().getParallelism(); i++) {
+                                long taskGroupId = taskGroupIdGenerator.getNextId();
                                 int finalParallelismIndex = i;
-                                long taskGroupID = mixIDPrefixAndIndex(taskGroupIDPrefix, i);
                                 TaskGroupLocation taskGroupLocation =
                                         new TaskGroupLocation(
                                                 jobImmutableInformation.getJobId(),
                                                 pipelineIndex,
-                                                taskGroupID);
+                                                taskGroupId);
+                                AtomicInteger atomicInteger = new AtomicInteger(1);
                                 List<SeaTunnelTask> taskList =
                                         flows.stream()
                                                 .map(
                                                         f -> {
                                                             setFlowConfig(f);
-                                                            long taskIDPrefix =
-                                                                    flowTaskIDPrefixMap
-                                                                            .computeIfAbsent(
-                                                                                    f.getFlowID(),
-                                                                                    id ->
-                                                                                            idGenerator
-                                                                                                    .getNextId());
                                                             final TaskLocation taskLocation =
                                                                     new TaskLocation(
                                                                             taskGroupLocation,
-                                                                            taskIDPrefix,
+                                                                            atomicInteger
+                                                                                    .getAndIncrement(),
                                                                             finalParallelismIndex);
                                                             if (f
                                                                     instanceof
@@ -766,6 +749,10 @@ public class PhysicalPlanGenerator {
                         .map(PhysicalPlanGenerator::sourceWithSink)
                         .collect(Collectors.toList())
                         .contains(true);
+    }
+
+    private long generateTaskGroupParallelismGroupId(long taskGroupID, int parallelismIndex) {
+        return taskGroupID * 100 + parallelismIndex;
     }
 
     private long mixIDPrefixAndIndex(long idPrefix, int index) {
