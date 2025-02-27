@@ -88,7 +88,7 @@
 
 文件过滤模式，用于过滤文件。
 
-该模式遵循标准正则表达式。详情请参考：https://en.wikipedia.org/wiki/Regular_expression。
+该模式遵循标准正则表达式。详情请参考：https://en.wikipedia.org/wiki/Regular_expression.
 以下是一些示例。
 
 文件结构示例：
