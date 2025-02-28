@@ -41,6 +41,9 @@ public class KingbaseTypeConverter extends PostgresTypeConverter {
     public static final String KB_BLOB = "BLOB";
     public static final String KB_CLOB = "CLOB";
     public static final String KB_BIT = "BIT";
+    public static final String KB_INT = "INT";
+    public static final String KB_SMALLINT = "SMALLINT";
+    public static final String KB_BIGINT = "BIGINT";
 
     public static final KingbaseTypeConverter INSTANCE = new KingbaseTypeConverter();
 
@@ -87,6 +90,15 @@ public class KingbaseTypeConverter extends PostgresTypeConverter {
                     long byteLength = typeDefine.getLength() / 8;
                     byteLength += typeDefine.getLength() % 8 > 0 ? 1 : 0;
                     builder.columnLength(byteLength);
+                    break;
+                case KB_SMALLINT:
+                    builder.dataType(BasicType.SHORT_TYPE);
+                    break;
+                case KB_INT:
+                    builder.dataType(BasicType.INT_TYPE);
+                    break;
+                case KB_BIGINT:
+                    builder.dataType(BasicType.LONG_TYPE);
                     break;
                 default:
                     throw CommonError.convertToSeaTunnelTypeError(
