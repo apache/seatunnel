@@ -105,7 +105,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     + "  DATE_COL       DATE\n"
                     + ")ENGINE=OLAP\n"
                     + "DUPLICATE KEY(`BIGINT_COL`)\n"
-                    + "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 1\n"
+                    + "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 3\n"
                     + "PROPERTIES (\n"
                     + "\"replication_num\" = \"1\",\n"
                     + "\"in_memory\" = \"false\","
@@ -418,5 +418,12 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         starRocksCatalog.dropTable(tablePathStarRocksSink, true);
         Assertions.assertFalse(starRocksCatalog.tableExists(tablePathStarRocksSink));
         starRocksCatalog.close();
+    }
+
+    @TestTemplate
+    public void testStarRocksReadRowCount(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/starrocks-to-assert.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

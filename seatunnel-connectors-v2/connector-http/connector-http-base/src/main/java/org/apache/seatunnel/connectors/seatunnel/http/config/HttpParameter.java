@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.http.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import lombok.Data;
 
@@ -32,7 +33,10 @@ public class HttpParameter implements Serializable {
     protected HttpRequestMethod method;
     protected Map<String, String> headers;
     protected Map<String, String> params;
-    protected String body;
+    protected Map<String, Object> pageParams;
+    protected boolean keepParamsAsForm = false;
+    protected boolean keepPageParamAsHttpParam = false;
+    protected Map<String, Object> body;
     protected int pollIntervalMillis;
     protected int retry;
     protected int retryBackoffMultiplierMillis = HttpConfig.DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS;
@@ -44,6 +48,13 @@ public class HttpParameter implements Serializable {
     public void buildWithConfig(Config pluginConfig) {
         // set url
         this.setUrl(pluginConfig.getString(HttpConfig.URL.key()));
+        if (pluginConfig.hasPath(HttpConfig.KEEP_PARAMS_AS_FORM.key())) {
+            this.setKeepParamsAsForm(pluginConfig.getBoolean(HttpConfig.KEEP_PARAMS_AS_FORM.key()));
+        }
+        if (pluginConfig.hasPath(HttpConfig.KEEP_PAGE_PARAM_AS_HTTP_PARAM.key())) {
+            this.setKeepPageParamAsHttpParam(
+                    pluginConfig.getBoolean(HttpConfig.KEEP_PAGE_PARAM_AS_HTTP_PARAM.key()));
+        }
         // set method
         if (pluginConfig.hasPath(HttpConfig.METHOD.key())) {
             HttpRequestMethod httpRequestMethod =
@@ -75,7 +86,15 @@ public class HttpParameter implements Serializable {
         }
         // set body
         if (pluginConfig.hasPath(HttpConfig.BODY.key())) {
-            this.setBody(pluginConfig.getString(HttpConfig.BODY.key()));
+
+            this.setBody(
+                    ConfigFactory.parseString(pluginConfig.getString(HttpConfig.BODY.key()))
+                            .entrySet().stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            Map.Entry::getKey,
+                                            entry -> entry.getValue().unwrapped(),
+                                            (v1, v2) -> v2)));
         }
         if (pluginConfig.hasPath(HttpConfig.POLL_INTERVAL_MILLS.key())) {
             this.setPollIntervalMillis(pluginConfig.getInt(HttpConfig.POLL_INTERVAL_MILLS.key()));

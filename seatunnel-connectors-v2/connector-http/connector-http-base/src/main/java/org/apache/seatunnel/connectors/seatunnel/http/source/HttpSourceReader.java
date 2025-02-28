@@ -34,6 +34,8 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.PageInfo;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 
+import org.apache.commons.collections4.MapUtils;
+
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.Option;
@@ -116,7 +118,8 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                         this.httpParameter.getMethod().getMethod(),
                         this.httpParameter.getHeaders(),
                         this.httpParameter.getParams(),
-                        this.httpParameter.getBody());
+                        this.httpParameter.getBody(),
+                        this.httpParameter.isKeepParamsAsForm());
         if (response.getCode() >= 200 && response.getCode() <= 207) {
             String content = response.getContent();
             if (!Strings.isNullOrEmpty(content)) {
@@ -146,12 +149,27 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     private void updateRequestParam(PageInfo pageInfo) {
-        if (this.httpParameter.getParams() == null) {
-            httpParameter.setParams(new HashMap<>());
+        // keep page param as http param
+        if (this.httpParameter.isKeepPageParamAsHttpParam()) {
+            if (this.httpParameter.getParams() == null) {
+                httpParameter.setParams(new HashMap<>());
+            }
+            this.httpParameter
+                    .getParams()
+                    .put(pageInfo.getPageField(), pageInfo.getPageIndex().toString());
+            return;
         }
-        this.httpParameter
-                .getParams()
-                .put(pageInfo.getPageField(), pageInfo.getPageIndex().toString());
+
+        if (MapUtils.isNotEmpty(this.httpParameter.getParams())
+                && this.httpParameter.getParams().containsKey(pageInfo.getPageField())) {
+            this.httpParameter
+                    .getParams()
+                    .put(pageInfo.getPageField(), pageInfo.getPageIndex().toString());
+        }
+        if (MapUtils.isNotEmpty(this.httpParameter.getBody())
+                && this.httpParameter.getBody().containsKey(pageInfo.getPageField())) {
+            this.httpParameter.getBody().put(pageInfo.getPageField(), pageInfo.getPageIndex());
+        }
     }
 
     @Override

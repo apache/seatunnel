@@ -54,6 +54,7 @@ import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junitpioneer.jupiter.SetEnvironmentVariable;
 
 import com.hazelcast.map.IMap;
 
@@ -64,6 +65,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.Executors;
+
+import static org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService.SKIP_CHECK_JAR;
 
 public class TaskTest extends AbstractSeaTunnelServerTest {
 
@@ -81,8 +84,8 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                 new JobImmutableInformation(
                         jobId,
                         "Test",
-                        nodeEngine.getSerializationService().toData(testLogicalDag),
-                        config,
+                        nodeEngine.getSerializationService(),
+                        testLogicalDag,
                         Collections.emptyList(),
                         Collections.emptyList());
 
@@ -99,6 +102,7 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
+    @SetEnvironmentVariable(key = SKIP_CHECK_JAR, value = "true")
     public void testLogicalToPhysical() throws MalformedURLException {
 
         IdGenerator idGenerator = new IdGenerator();
@@ -143,22 +147,29 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
 
         LogicalEdge edge = new LogicalEdge(fakeVertex, consoleVertex);
 
-        LogicalDag logicalDag = new LogicalDag();
+        JobConfig config = new JobConfig();
+        config.setName("test");
+        LogicalDag logicalDag = new LogicalDag(config, idGenerator);
         logicalDag.addLogicalVertex(fakeVertex);
         logicalDag.addLogicalVertex(consoleVertex);
         logicalDag.addEdge(edge);
-
-        JobConfig config = new JobConfig();
-        config.setName("test");
 
         JobImmutableInformation jobImmutableInformation =
                 new JobImmutableInformation(
                         1,
                         "Test",
-                        nodeEngine.getSerializationService().toData(logicalDag),
-                        config,
+                        nodeEngine.getSerializationService(),
+                        logicalDag,
                         Collections.emptyList(),
                         Collections.emptyList());
+
+        Assertions.assertEquals(2, jobImmutableInformation.getLogicalVertexJarsList().size());
+        Assertions.assertIterableEquals(
+                Sets.newHashSet(new URL("file:///fake.jar")),
+                jobImmutableInformation.getLogicalVertexJarsList().get(0));
+        Assertions.assertIterableEquals(
+                Sets.newHashSet(new URL("file:///console.jar")),
+                jobImmutableInformation.getLogicalVertexJarsList().get(1));
 
         IMap<Object, Object> runningJobState =
                 nodeEngine.getHazelcastInstance().getMap("testRunningJobState");
@@ -172,6 +183,7 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                                 jobImmutableInformation,
                                 System.currentTimeMillis(),
                                 Executors.newCachedThreadPool(),
+                                server.getClassLoaderService(),
                                 instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
                                 runningJobState,
                                 runningJobStateTimestamp,
