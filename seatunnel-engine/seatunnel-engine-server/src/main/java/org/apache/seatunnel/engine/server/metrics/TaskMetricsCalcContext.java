@@ -131,7 +131,7 @@ public class TaskMetricsCalcContext {
             bytesPerSeconds.markEvent(row.getBytesSize());
 
             if (StringUtils.isNotBlank(tableId)) {
-                String tableName = TablePath.of(null, tableId).getFullName();
+                String tableName = TablePath.of(tableId).getFullName();
 
                 // Processing count
                 processMetrics(
