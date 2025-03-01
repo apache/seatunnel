@@ -25,13 +25,12 @@ import org.apache.seatunnel.connectors.seatunnel.hive.source.config.HiveSourceCo
 import org.apache.seatunnel.connectors.seatunnel.hive.source.config.MultipleTableHiveSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.source.split.MultipleTableHiveSourceSplitEnumerator;
 
-import org.apache.commons.compress.utils.Lists;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import com.google.common.collect.Maps;
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
