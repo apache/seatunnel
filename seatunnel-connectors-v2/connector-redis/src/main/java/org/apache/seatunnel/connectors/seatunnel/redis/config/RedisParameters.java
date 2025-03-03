@@ -46,7 +46,7 @@ import static org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisErr
 @Slf4j
 public class RedisParameters implements Serializable {
     private String host;
-    private int port;
+    private Integer port;
     private String auth = "";
     private int dbNum;
     private String user = "";
@@ -68,10 +68,8 @@ public class RedisParameters implements Serializable {
     public void buildWithConfig(ReadonlyConfig config) {
         // set host
         this.host = config.get(RedisBaseOptions.HOST);
-        if (config.getOptional(RedisBaseOptions.PORT).isPresent()) {
-            // set port
-            this.port = config.get(RedisBaseOptions.PORT);
-        }
+        // set port
+        this.port = config.get(RedisBaseOptions.PORT);
         // set db_num
         this.dbNum = config.get(RedisBaseOptions.DB_NUM);
         // set hash key mode
