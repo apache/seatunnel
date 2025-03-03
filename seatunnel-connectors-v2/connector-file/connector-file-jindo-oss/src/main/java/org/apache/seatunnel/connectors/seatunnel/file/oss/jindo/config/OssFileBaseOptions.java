@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 
-public class OssConfigOptions extends FileBaseSourceOptions {
+public class OssFileBaseOptions extends FileBaseSourceOptions {
     public static final Option<String> ACCESS_KEY =
             Options.key("access_key")
                     .stringType()

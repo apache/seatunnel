@@ -22,10 +22,11 @@ import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosFileSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -41,11 +42,11 @@ public class CosFileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(CosConfigOptions.FILE_PATH)
-                .required(CosConfigOptions.BUCKET)
-                .required(CosConfigOptions.SECRET_ID)
-                .required(CosConfigOptions.SECRET_KEY)
-                .required(CosConfigOptions.REGION)
+                .required(FileBaseOptions.FILE_PATH)
+                .required(CosFileSourceOptions.BUCKET)
+                .required(CosFileSourceOptions.SECRET_ID)
+                .required(CosFileSourceOptions.SECRET_KEY)
+                .required(CosFileSourceOptions.REGION)
                 .required(FileBaseSourceOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,

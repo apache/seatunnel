@@ -124,7 +124,15 @@ public class ConnectorOptionCheckTest {
                                                                         || extendedType
                                                                                 .getNameAsString()
                                                                                 .equals(
-                                                                                        "BaseMultipleTableFileSink")) {
+                                                                                        "BaseMultipleTableFileSink")
+                                                                        || extendedType
+                                                                                .getNameAsString()
+                                                                                .equals(
+                                                                                        "BaseFileSource")
+                                                                        || extendedType
+                                                                                .getNameAsString()
+                                                                                .equals(
+                                                                                        "BaseFileSink")) {
                                                                     connectorOptionFileNames.add(
                                                                             path.getFileName()
                                                                                     .toString()
