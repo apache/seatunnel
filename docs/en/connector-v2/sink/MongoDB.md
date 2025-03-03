@@ -65,7 +65,7 @@ The following table lists the field data type mapping from MongoDB BSON type to 
 | uri                   | String   | Yes      | -       | The MongoDB standard connection uri. eg. mongodb://user:password@hosts:27017/database?readPreference=secondary&slaveOk=true. |
 | database              | String   | Yes      | -       | The name of MongoDB database to read or write.                                                                               |
 | collection            | String   | Yes      | -       | The name of MongoDB collection to read or write.                                                                             |
-| schema                | String   | Yes      | -       | MongoDB's BSON and seatunnel data structure mapping.                                                                         |
+| schema                | String   | No      | -       | MongoDB's BSON and seatunnel data structure mapping.                                                                         |
 | buffer-flush.max-rows | String   | No       | 1000    | Specifies the maximum number of buffered rows per batch request.                                                             |
 | buffer-flush.interval | String   | No       | 30000   | Specifies the maximum interval of buffered rows per batch request, the unit is millisecond.                                  |
 | retry.max             | String   | No       | 3       | Specifies the max number of retry if writing records to database failed.                                                     |
