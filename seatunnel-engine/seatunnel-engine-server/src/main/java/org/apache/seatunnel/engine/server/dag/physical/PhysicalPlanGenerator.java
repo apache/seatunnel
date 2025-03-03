@@ -751,14 +751,6 @@ public class PhysicalPlanGenerator {
                         .contains(true);
     }
 
-    private long generateTaskGroupParallelismGroupId(long taskGroupID, int parallelismIndex) {
-        return taskGroupID * 100 + parallelismIndex;
-    }
-
-    private long mixIDPrefixAndIndex(long idPrefix, int index) {
-        return idPrefix * 10000 + index;
-    }
-
     private List<Flow> getNextWrapper(List<ExecutionEdge> edges, Action start) {
         List<Action> actions =
                 edges.stream()
