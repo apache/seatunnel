@@ -281,8 +281,7 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                     long expectedTaskId =
                             pipelineId * 10000L * 10000L * 10000L
                                     + taskGroupLocation.getTaskGroupId() * 10000L * 10000L
-                                    + (taskInGroupIndex + 1) * 10000L
-                                    + 1; // coordinator task parallelism always is 1
+                                    + taskInGroupIndex * 10000L;
                     Assertions.assertEquals(expectedTaskId, task.getTaskID());
                 }
             }
@@ -300,7 +299,7 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                     long expectedTaskIdPrefix =
                             pipelineId * 10000L * 10000L * 10000L
                                     + taskGroupLocation.getTaskGroupId() * 10000L * 10000L
-                                    + (taskInGroupIndex + 1) * 10000L;
+                                    + taskInGroupIndex * 10000L;
                     Assertions.assertEquals(
                             expectedTaskIdPrefix / 10000L, task.getTaskID() / 10000L);
                 }

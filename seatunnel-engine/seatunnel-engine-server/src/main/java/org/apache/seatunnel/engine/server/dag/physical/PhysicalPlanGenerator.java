@@ -281,7 +281,7 @@ public class PhysicalPlanGenerator {
                                                 pipelineIndex,
                                                 taskGroupID);
                                 TaskLocation taskLocation =
-                                        new TaskLocation(taskGroupLocation, 1, 0);
+                                        new TaskLocation(taskGroupLocation, 0, 0);
                                 SinkAggregatedCommitterTask<?, ?> t =
                                         new SinkAggregatedCommitterTask(
                                                 jobImmutableInformation.getJobId(),
@@ -341,7 +341,7 @@ public class PhysicalPlanGenerator {
                             if (shuffleStrategy instanceof ShuffleMultipleRowStrategy) {
                                 ShuffleMultipleRowStrategy shuffleMultipleRowStrategy =
                                         (ShuffleMultipleRowStrategy) shuffleStrategy;
-                                AtomicInteger atomicInteger = new AtomicInteger(1);
+                                AtomicInteger atomicInteger = new AtomicInteger(0);
                                 for (Flow nextFlow : flow.getNext()) {
                                     PhysicalExecutionFlow sinkFlow =
                                             (PhysicalExecutionFlow) nextFlow;
@@ -430,7 +430,7 @@ public class PhysicalPlanGenerator {
                                                     pipelineIndex,
                                                     taskGroupID);
                                     TaskLocation taskLocation =
-                                            new TaskLocation(taskGroupLocation, 1, i);
+                                            new TaskLocation(taskGroupLocation, 0, i);
                                     setFlowConfig(flow);
                                     SeaTunnelTask seaTunnelTask =
                                             new TransformSeaTunnelTask(
@@ -481,7 +481,7 @@ public class PhysicalPlanGenerator {
                                             jobImmutableInformation.getJobId(),
                                             pipelineIndex,
                                             taskGroupID);
-                            TaskLocation taskLocation = new TaskLocation(taskGroupLocation, 1, 0);
+                            TaskLocation taskLocation = new TaskLocation(taskGroupLocation, 0, 0);
                             SourceSplitEnumeratorTask<?> t =
                                     new SourceSplitEnumeratorTask<>(
                                             jobImmutableInformation.getJobId(),
@@ -539,7 +539,7 @@ public class PhysicalPlanGenerator {
                                                 jobImmutableInformation.getJobId(),
                                                 pipelineIndex,
                                                 taskGroupId);
-                                AtomicInteger atomicInteger = new AtomicInteger(1);
+                                AtomicInteger taskInTaskGroupIndex = new AtomicInteger(0);
                                 List<SeaTunnelTask> taskList =
                                         flows.stream()
                                                 .map(
@@ -548,7 +548,7 @@ public class PhysicalPlanGenerator {
                                                             final TaskLocation taskLocation =
                                                                     new TaskLocation(
                                                                             taskGroupLocation,
-                                                                            atomicInteger
+                                                                            taskInTaskGroupIndex
                                                                                     .getAndIncrement(),
                                                                             finalParallelismIndex);
                                                             if (f

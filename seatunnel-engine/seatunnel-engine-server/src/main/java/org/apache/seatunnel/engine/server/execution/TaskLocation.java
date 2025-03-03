@@ -50,8 +50,7 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
                 taskGroupLocation.getPipelineId() * SUB_PIPELINE_ID_FACTORY
                         + taskGroupLocation.getTaskGroupId() * GROUP_ID_FACTOR
                         + taskInGroupIndex * TASK_GROUP_FACTOR
-                        + taskParallelismIndex
-                        + 1;
+                        + taskParallelismIndex;
         this.index = taskParallelismIndex;
     }
 
