@@ -135,7 +135,7 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
             Integer fieldIndex = fieldIndexMap.get(name);
             Types.MinorType minorType = fieldVector.getMinorType();
             for (int i = 0; i < seatunnelRowBatch.size(); i++) {
-                // arrow field not in the Seatunnel Sechma field, skip it
+                // arrow field not in the Seatunnel Schema field, skip it
                 if (fieldIndex != null) {
                     SeaTunnelDataType<?> seaTunnelDataType = seaTunnelDataTypes[fieldIndex];
                     Object fieldValue =

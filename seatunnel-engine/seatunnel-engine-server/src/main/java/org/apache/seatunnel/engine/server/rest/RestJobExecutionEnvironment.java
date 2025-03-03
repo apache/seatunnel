@@ -119,8 +119,8 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
                 Long.parseLong(jobConfig.getJobContext().getJobId()),
                 jobConfig.getName(),
                 isStartWithSavePoint,
-                nodeEngine.getSerializationService().toData(getLogicalDag()),
-                jobConfig,
+                nodeEngine.getSerializationService(),
+                getLogicalDag(),
                 new ArrayList<>(jarUrls),
                 new ArrayList<>(connectorJarIdentifiers));
     }

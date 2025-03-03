@@ -19,7 +19,7 @@ hazelcast:
   cluster-name: seatunnel
   network:
     rest-api:
-      enabled: true
+      enabled: false
       endpoint-groups:
         CLUSTER_WRITE:
           enabled: true

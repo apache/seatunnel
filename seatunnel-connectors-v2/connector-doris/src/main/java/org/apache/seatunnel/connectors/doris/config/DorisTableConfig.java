@@ -35,9 +35,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DATABASE;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_BATCH_SIZE;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.TABLE;
+import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.DATABASE;
+import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.DORIS_BATCH_SIZE;
+import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.TABLE;
 import static org.apache.seatunnel.connectors.doris.config.DorisSourceOptions.DORIS_EXEC_MEM_LIMIT;
 import static org.apache.seatunnel.connectors.doris.config.DorisSourceOptions.DORIS_FILTER_QUERY;
 import static org.apache.seatunnel.connectors.doris.config.DorisSourceOptions.DORIS_READ_FIELD;

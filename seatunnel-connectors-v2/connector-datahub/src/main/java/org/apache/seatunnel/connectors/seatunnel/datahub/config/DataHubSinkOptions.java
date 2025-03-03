@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.datahub.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class DataHubConfig {
+public class DataHubSinkOptions {
 
     public static Option<String> ENDPOINT =
             Options.key("endpoint")

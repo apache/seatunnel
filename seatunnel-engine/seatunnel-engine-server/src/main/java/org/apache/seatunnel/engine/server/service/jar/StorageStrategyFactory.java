@@ -39,7 +39,7 @@ public class StorageStrategyFactory {
                         connectorJarStorageConfig, seaTunnelServer);
             default:
                 throw new IllegalArgumentException(
-                        ServerConfigOptions.CONNECTOR_JAR_STORAGE_MODE
+                        ServerConfigOptions.MasterServerConfigOptions.CONNECTOR_JAR_STORAGE_MODE
                                 + " must in [SHARED, ISOLATED]");
         }
     }

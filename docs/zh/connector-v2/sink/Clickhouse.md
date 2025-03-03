@@ -60,6 +60,7 @@
 | allow_experimental_lightweight_delete | Boolean | No   | false | 允许基于`MergeTree`表引擎实验性轻量级删除.                                                                                                                                                      |
 | schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | schema保存模式，请参考下面的`schema_save_mode`                                                                                                                    |
 | data_save_mode                 | Enum    | no       | APPEND_DATA                  | 数据保存模式，请参考下面的`data_save_mode`。                                                                                                                         |
+| custom_sql                  | String  | no   | -                            | 当data_save_mode设置为CUSTOM_PROCESSING时，必须同时设置CUSTOM_SQL参数。CUSTOM_SQL的值为可执行的SQL语句，在同步任务开启前SQL将会被执行                     |
 | save_mode_create_template      | string  | no       | see below                    | 见下文。                                                                                                                                                   |
 | common-options                        |         | No   | -     | Sink插件查用参数,详见[Sink常用选项](../sink-common-options.md).                                                                                                                              |
 
