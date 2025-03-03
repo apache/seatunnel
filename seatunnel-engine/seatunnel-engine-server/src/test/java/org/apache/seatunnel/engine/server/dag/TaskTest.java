@@ -61,7 +61,6 @@ import org.junit.jupiter.api.Test;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
 
 import com.hazelcast.map.IMap;
-import lombok.extern.slf4j.Slf4j;
 
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -73,7 +72,6 @@ import java.util.concurrent.Executors;
 
 import static org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService.SKIP_CHECK_JAR;
 
-@Slf4j
 public class TaskTest extends AbstractSeaTunnelServerTest {
 
     @Test
