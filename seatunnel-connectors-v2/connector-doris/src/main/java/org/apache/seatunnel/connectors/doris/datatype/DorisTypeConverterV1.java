@@ -27,7 +27,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.IDENTIFIER;
+import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.IDENTIFIER;
 
 /** Doris type converter for version 1.2.x */
 @Slf4j

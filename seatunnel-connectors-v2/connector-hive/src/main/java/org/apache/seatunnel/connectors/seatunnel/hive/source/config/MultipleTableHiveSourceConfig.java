@@ -20,8 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.hive.source.config;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.CatalogOptions;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 
 import lombok.Getter;
 
@@ -36,9 +35,9 @@ public class MultipleTableHiveSourceConfig implements Serializable {
     @Getter private List<HiveSourceConfig> hiveSourceConfigs;
 
     public MultipleTableHiveSourceConfig(ReadonlyConfig readonlyConfig) {
-        if (readonlyConfig.getOptional(CatalogOptions.TABLE_LIST).isPresent()) {
+        if (readonlyConfig.getOptional(ConnectorCommonOptions.TABLE_LIST).isPresent()) {
             parseFromLocalFileSourceByTableList(readonlyConfig);
-        } else if (readonlyConfig.getOptional(TableSchemaOptions.TABLE_CONFIGS).isPresent()) {
+        } else if (readonlyConfig.getOptional(ConnectorCommonOptions.TABLE_CONFIGS).isPresent()) {
             parseFromLocalFileSourceByTableConfigs(readonlyConfig);
         } else {
             parseFromLocalFileSourceConfig(readonlyConfig);
@@ -47,7 +46,7 @@ public class MultipleTableHiveSourceConfig implements Serializable {
 
     private void parseFromLocalFileSourceByTableList(ReadonlyConfig readonlyConfig) {
         this.hiveSourceConfigs =
-                readonlyConfig.get(CatalogOptions.TABLE_LIST).stream()
+                readonlyConfig.get(ConnectorCommonOptions.TABLE_LIST).stream()
                         .map(ReadonlyConfig::fromMap)
                         .map(HiveSourceConfig::new)
                         .collect(Collectors.toList());
@@ -56,7 +55,7 @@ public class MultipleTableHiveSourceConfig implements Serializable {
     @Deprecated
     private void parseFromLocalFileSourceByTableConfigs(ReadonlyConfig readonlyConfig) {
         this.hiveSourceConfigs =
-                readonlyConfig.get(TableSchemaOptions.TABLE_CONFIGS).stream()
+                readonlyConfig.get(ConnectorCommonOptions.TABLE_CONFIGS).stream()
                         .map(ReadonlyConfig::fromMap)
                         .map(HiveSourceConfig::new)
                         .collect(Collectors.toList());

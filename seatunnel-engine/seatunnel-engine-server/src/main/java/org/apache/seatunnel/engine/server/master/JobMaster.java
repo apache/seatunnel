@@ -20,13 +20,14 @@ package org.apache.seatunnel.engine.server.master;
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.env.EnvCommonOptions;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.SaveModeExecuteLocation;
 import org.apache.seatunnel.api.sink.SaveModeExecuteWrapper;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
@@ -67,7 +68,11 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+import org.apache.seatunnel.engine.server.resourcemanager.AbstractResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
+import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SlotAllocationStrategy;
+import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SlotRatioStrategy;
+import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SystemLoadStrategy;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
@@ -79,7 +84,6 @@ import com.hazelcast.core.OperationTimeoutException;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.jet.datamodel.Tuple2;
-import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.map.IMap;
@@ -87,6 +91,7 @@ import com.hazelcast.spi.impl.NodeEngine;
 import lombok.Getter;
 import lombok.NonNull;
 
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -230,19 +235,27 @@ public class JobMaster {
                         jobImmutableInformation.getJobId(),
                         jobImmutableInformation.getPluginJarsUrls()));
         ClassLoader appClassLoader = Thread.currentThread().getContextClassLoader();
-        ClassLoader classLoader =
-                seaTunnelServer
-                        .getClassLoaderService()
-                        .getClassLoader(
-                                jobImmutableInformation.getJobId(),
-                                jobImmutableInformation.getPluginJarsUrls());
+
+        List<Set<URL>> logicalVertexJarsList = jobImmutableInformation.getLogicalVertexJarsList();
+        List<ClassLoader> logicalVertexClassLoaders = new ArrayList<>();
+        for (Set<URL> urls : logicalVertexJarsList) {
+            logicalVertexClassLoaders.add(
+                    seaTunnelServer
+                            .getClassLoaderService()
+                            .getClassLoader(jobImmutableInformation.getJobId(), urls));
+        }
         logicalDag =
-                CustomClassLoadedObject.deserializeWithCustomClassLoader(
+                DAGUtils.restoreLogicalDag(
+                        jobImmutableInformation,
                         nodeEngine.getSerializationService(),
-                        classLoader,
-                        jobImmutableInformation.getLogicalDag());
+                        logicalVertexClassLoaders);
+
+        Map<Long, ClassLoader> logicalVertexIdClassLoaderMap = new HashMap<>();
+        int i = 0;
+        for (Long id : logicalDag.getLogicalVertexMap().keySet()) {
+            logicalVertexIdClassLoaderMap.put(id, logicalVertexClassLoaders.get(i++));
+        }
         try {
-            Thread.currentThread().setContextClassLoader(classLoader);
             if (!restart
                     && !logicalDag.isStartWithSavePoint()
                     && ReadonlyConfig.fromMap(logicalDag.getJobConfig().getEnvOptions())
@@ -251,8 +264,16 @@ public class JobMaster {
                 logicalDag.getLogicalVertexMap().values().stream()
                         .map(LogicalVertex::getAction)
                         .filter(action -> action instanceof SinkAction)
-                        .map(sink -> ((SinkAction<?, ?, ?, ?>) sink).getSink())
-                        .forEach(JobMaster::handleSaveMode);
+                        .forEach(
+                                sink -> {
+                                    Thread.currentThread()
+                                            .setContextClassLoader(
+                                                    logicalVertexIdClassLoaderMap.get(
+                                                            sink.getId()));
+                                    JobMaster.handleSaveMode(
+                                            ((SinkAction<?, ?, ?, ?>) sink).getSink());
+                                });
+                Thread.currentThread().setContextClassLoader(appClassLoader);
             }
 
             final Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> planTuple =
@@ -262,6 +283,7 @@ public class JobMaster {
                             jobImmutableInformation,
                             initializationTimestamp,
                             executorService,
+                            seaTunnelServer.getClassLoaderService(),
                             flakeIdGenerator,
                             runningJobStateIMap,
                             runningJobStateTimestampsIMap,
@@ -273,11 +295,11 @@ public class JobMaster {
         } finally {
             // revert to app class loader, it may be changed by PlanUtils.fromLogicalDAG
             Thread.currentThread().setContextClassLoader(appClassLoader);
-            seaTunnelServer
-                    .getClassLoaderService()
-                    .releaseClassLoader(
-                            jobImmutableInformation.getJobId(),
-                            jobImmutableInformation.getPluginJarsUrls());
+            for (Set<URL> urls : logicalVertexJarsList) {
+                seaTunnelServer
+                        .getClassLoaderService()
+                        .releaseClassLoader(jobImmutableInformation.getJobId(), urls);
+            }
         }
         Exception initException = null;
         try {
@@ -371,6 +393,24 @@ public class JobMaster {
      * @return true if apply resources successfully, otherwise false
      */
     public boolean preApplyResources(SubPlan subPlan) {
+
+        // When starting to apply for task resources, reset the worker's slot allocation information
+        // Mainly used in two scenarios:
+        // 1. When based on the SYSTEM_LOAD strategy, the system load cannot change dynamically, and
+        // the resources used by each slot need to be calculated and inferred
+        // 2. When based on the SLOT_RATIO strategy, registerWorker is not updated in real time, and
+        // is used to record the slot application status
+        //        ((AbstractResourceManager) resourceManager)
+        //                .setWorkerAssignedSlots(new ConcurrentHashMap<>());
+        SlotAllocationStrategy slotAllocationStrategy =
+                ((AbstractResourceManager) resourceManager).getSlotAllocationStrategy();
+        if (slotAllocationStrategy instanceof SlotRatioStrategy) {
+            ((SlotRatioStrategy) slotAllocationStrategy)
+                    .setWorkerAssignedSlots(new ConcurrentHashMap<>());
+        } else if (slotAllocationStrategy instanceof SystemLoadStrategy) {
+            ((SystemLoadStrategy) slotAllocationStrategy)
+                    .setWorkerAssignedSlots(new ConcurrentHashMap<>());
+        }
 
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures =
                 new HashMap<>();
@@ -469,6 +509,7 @@ public class JobMaster {
     private void preApplyResourcesForSubPlan(
             SubPlan subPlan,
             Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures) {
+
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> coordinatorFutures = new HashMap<>();
         subPlan.getCoordinatorVertexList()
                 .forEach(
@@ -489,6 +530,7 @@ public class JobMaster {
 
         preApplyResourceFutures.putAll(coordinatorFutures);
         preApplyResourceFutures.putAll(taskFutures);
+        LOGGER.fine("preApplyResourceFutures size: " + preApplyResourceFutures.size());
     }
 
     public void run() {
@@ -527,7 +569,7 @@ public class JobMaster {
                 }
             }
         } else if (sink instanceof MultiTableSink) {
-            Map<String, SeaTunnelSink> sinks = ((MultiTableSink) sink).getSinks();
+            Map<TablePath, SeaTunnelSink> sinks = ((MultiTableSink) sink).getSinks();
             for (SeaTunnelSink seaTunnelSink : sinks.values()) {
                 handleSaveMode(seaTunnelSink);
             }

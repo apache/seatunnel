@@ -19,16 +19,19 @@ package org.apache.seatunnel.api.common;
 
 import org.apache.seatunnel.common.constants.JobMode;
 
+import lombok.Getter;
+
 import java.io.Serializable;
 import java.util.UUID;
 
 /** This class is used to store the context of the job. e.g. the job id, job mode ...etc. */
+@Getter
 public final class JobContext implements Serializable {
 
     private static final long serialVersionUID = -1L;
 
     private JobMode jobMode;
-
+    private boolean enableCheckpoint;
     private final String jobId;
 
     public JobContext() {
@@ -44,11 +47,8 @@ public final class JobContext implements Serializable {
         return this;
     }
 
-    public JobMode getJobMode() {
-        return jobMode;
-    }
-
-    public String getJobId() {
-        return this.jobId;
+    public JobContext setEnableCheckpoint(boolean enableCheckpoint) {
+        this.enableCheckpoint = enableCheckpoint;
+        return this;
     }
 }

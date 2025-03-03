@@ -67,6 +67,7 @@ ${rowtype_primary_key},
 ${rowtype_fields}
 ) ENGINE=OLAP
 PRIMARY KEY (${rowtype_primary_key})
+COMMENT '${comment}'
 DISTRIBUTED BY HASH (${rowtype_primary_key})PROPERTIES (
 "replication_num" = "1"
 )
@@ -79,7 +80,9 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table}`
 (   
     id,
     ${rowtype_fields}
-) ENGINE = OLAP DISTRIBUTED BY HASH (${rowtype_primary_key})
+) ENGINE = OLAP 
+    COMMENT '${comment}'
+    DISTRIBUTED BY HASH (${rowtype_primary_key})
     PROPERTIES
 (
     "replication_num" = "1"
@@ -97,6 +100,7 @@ You can use the following placeholders
   description of StarRocks
 - rowtype_primary_key: Used to get the primary key in the upstream schema (maybe a list)
 - rowtype_unique_key: Used to get the unique key in the upstream schema (maybe a list)
+- comment: Used to get the table comment in the upstream schema
 
 ### table [string]
 

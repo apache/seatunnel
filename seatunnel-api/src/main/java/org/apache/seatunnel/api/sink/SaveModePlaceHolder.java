@@ -27,6 +27,7 @@ public enum SaveModePlaceHolder {
     ROWTYPE_FIELDS("rowtype_fields", "fields"),
     TABLE("table", "table"),
     DATABASE("database", "database"),
+    COMMENT("comment", "comment"),
     /** @deprecated instead by {@link #TABLE} todo remove this enum */
     @Deprecated
     TABLE_NAME("table_name", "table name");

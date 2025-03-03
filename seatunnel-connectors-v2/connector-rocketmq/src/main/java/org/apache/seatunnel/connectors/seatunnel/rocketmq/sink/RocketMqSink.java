@@ -43,6 +43,7 @@ import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.rocketmq.config.Config.ACCESS_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.rocketmq.config.Config.ACL_ENABLED;
+import static org.apache.seatunnel.connectors.seatunnel.rocketmq.config.Config.CONNECTOR_IDENTITY;
 import static org.apache.seatunnel.connectors.seatunnel.rocketmq.config.Config.DEFAULT_FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.rocketmq.config.Config.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.rocketmq.config.Config.FORMAT;
@@ -57,7 +58,7 @@ public class RocketMqSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public String getPluginName() {
-        return "Rocketmq";
+        return CONNECTOR_IDENTITY;
     }
 
     @Override

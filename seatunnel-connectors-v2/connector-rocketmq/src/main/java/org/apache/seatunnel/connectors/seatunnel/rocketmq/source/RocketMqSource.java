@@ -260,10 +260,14 @@ public class RocketMqSource
             if (config.hasPath(FORMAT.key())) {
                 format = SchemaFormat.find(config.getString(FORMAT.key()));
             }
+            boolean ignoreParseErrors = false;
+            if (config.hasPath(ConsumerConfig.IGNORE_PARSE_ERRORS.key())) {
+                ignoreParseErrors = config.getBoolean(ConsumerConfig.IGNORE_PARSE_ERRORS.key());
+            }
             switch (format) {
                 case JSON:
                     deserializationSchema =
-                            new JsonDeserializationSchema(catalogTable, false, false);
+                            new JsonDeserializationSchema(catalogTable, false, ignoreParseErrors);
                     break;
                 case TEXT:
                     String delimiter = DEFAULT_FIELD_DELIMITER;

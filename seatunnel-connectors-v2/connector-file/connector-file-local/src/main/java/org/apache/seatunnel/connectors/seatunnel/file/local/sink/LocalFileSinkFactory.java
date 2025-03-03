@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.local.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.sink.SinkCommonOptions;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -49,7 +49,7 @@ public class LocalFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .optional(BaseSinkConfig.FILE_FORMAT_TYPE)
                 .optional(BaseSinkConfig.SCHEMA_SAVE_MODE)
                 .optional(BaseSinkConfig.DATA_SAVE_MODE)
-                .optional(SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
@@ -98,6 +98,10 @@ public class LocalFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .optional(BaseSinkConfig.DATE_FORMAT)
                 .optional(BaseSinkConfig.DATETIME_FORMAT)
                 .optional(BaseSinkConfig.TIME_FORMAT)
+                .optional(BaseSinkConfig.SINGLE_FILE_MODE)
+                .optional(BaseSinkConfig.BATCH_SIZE)
+                .optional(BaseSinkConfig.CREATE_EMPTY_FILE_WHEN_NO_DATA)
+                .optional(BaseSinkConfig.FILENAME_EXTENSION)
                 .build();
     }
 

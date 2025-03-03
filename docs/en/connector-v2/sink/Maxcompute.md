@@ -62,7 +62,7 @@ Default template:
 ```sql
 CREATE TABLE IF NOT EXISTS `${table}` (
 ${rowtype_fields}
-);
+) COMMENT '${comment}';
 ```
 
 If a custom field is filled in the template, such as adding an `id` field
@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS `${table}`
 (   
     id,
     ${rowtype_fields}
-);
+) COMMENT '${comment}';
 ```
 
 The connector will automatically obtain the corresponding type from the upstream to complete the filling,
@@ -86,6 +86,7 @@ You can use the following placeholders
   description of MaxCompute
 - rowtype_primary_key: Used to get the primary key in the upstream schema (maybe a list)
 - rowtype_unique_key: Used to get the unique key in the upstream schema (maybe a list)
+- comment: Used to get the table comment in the upstream schema
 
 ### schema_save_mode[Enum]
 

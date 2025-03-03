@@ -20,16 +20,19 @@ package org.apache.seatunnel.core.starter.flink.execution;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.core.starter.enums.PluginType;
-import org.apache.seatunnel.core.starter.execution.PluginUtil;
+import org.apache.seatunnel.common.constants.EngineType;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.core.starter.execution.SourceTableInfo;
-import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
 import org.apache.seatunnel.translation.flink.source.FlinkSource;
@@ -39,20 +42,23 @@ import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
 import lombok.extern.slf4j.Slf4j;
+import scala.Tuple2;
 
+import java.io.Serializable;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 
-import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
-import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_OUTPUT;
+import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAME;
+import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_OUTPUT;
+import static org.apache.seatunnel.api.table.factory.FactoryUtil.ensureJobModeMatch;
 
 @Slf4j
 @SuppressWarnings("unchecked,rawtypes")
 public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<SourceTableInfo> {
-    private static final String PLUGIN_TYPE = PluginType.SOURCE.getType();
 
     public SourceExecuteProcessor(
             List<URL> jarPaths,
@@ -79,8 +85,8 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
                             WatermarkStrategy.noWatermarks(),
                             String.format("%s-Source", internalSource.getPluginName()));
 
-            if (pluginConfig.hasPath(CommonOptions.PARALLELISM.key())) {
-                int parallelism = pluginConfig.getInt(CommonOptions.PARALLELISM.key());
+            if (pluginConfig.hasPath(EnvCommonOptions.PARALLELISM.key())) {
+                int parallelism = pluginConfig.getInt(EnvCommonOptions.PARALLELISM.key());
                 sourceStream.setParallelism(parallelism);
             }
             sources.add(
@@ -95,28 +101,39 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
     @Override
     protected List<SourceTableInfo> initializePlugins(
             List<URL> jarPaths, List<? extends Config> pluginConfigs) {
-        SeaTunnelSourcePluginDiscovery sourcePluginDiscovery =
-                new SeaTunnelSourcePluginDiscovery(ADD_URL_TO_CLASSLOADER);
-
         SeaTunnelFactoryDiscovery factoryDiscovery =
                 new SeaTunnelFactoryDiscovery(TableSourceFactory.class, ADD_URL_TO_CLASSLOADER);
+        SeaTunnelSourcePluginDiscovery sourcePluginDiscovery =
+                new SeaTunnelSourcePluginDiscovery(ADD_URL_TO_CLASSLOADER);
+        Function<PluginIdentifier, SeaTunnelSource> fallbackCreateSource =
+                sourcePluginDiscovery::createPluginInstance;
 
         List<SourceTableInfo> sources = new ArrayList<>();
         Set<URL> jars = new HashSet<>();
         for (Config sourceConfig : pluginConfigs) {
             PluginIdentifier pluginIdentifier =
                     PluginIdentifier.of(
-                            ENGINE_TYPE, PLUGIN_TYPE, sourceConfig.getString(PLUGIN_NAME.key()));
+                            EngineType.SEATUNNEL.getEngine(),
+                            PluginType.SOURCE.getType(),
+                            sourceConfig.getString(PLUGIN_NAME.key()));
             jars.addAll(
                     sourcePluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
-            SourceTableInfo source =
-                    PluginUtil.createSource(
-                            factoryDiscovery,
-                            sourcePluginDiscovery,
-                            pluginIdentifier,
-                            sourceConfig,
-                            jobContext);
-            sources.add(source);
+
+            Tuple2<SeaTunnelSource<Object, SourceSplit, Serializable>, List<CatalogTable>> source =
+                    FactoryUtil.createAndPrepareSource(
+                            ReadonlyConfig.fromConfig(sourceConfig),
+                            classLoader,
+                            pluginIdentifier.getPluginName(),
+                            fallbackCreateSource,
+                            (TableSourceFactory)
+                                    factoryDiscovery
+                                            .createOptionalPluginInstance(pluginIdentifier)
+                                            .orElse(null));
+
+            source._1().setJobContext(jobContext);
+            ensureJobModeMatch(jobContext, source._1());
+
+            sources.add(new SourceTableInfo(source._1(), source._2()));
         }
         jarPaths.addAll(jars);
         return sources;

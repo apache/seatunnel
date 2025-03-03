@@ -30,6 +30,8 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableNameEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -132,16 +134,25 @@ public class AlterTableSchemaEventHandler implements TableSchemaChangeEventHandl
     private TableSchema applyModifyColumn(
             TableSchema schema, AlterTableModifyColumnEvent modifyColumnEvent) {
         List<String> fieldNames = Arrays.asList(schema.getFieldNames());
-        if (!fieldNames.contains(modifyColumnEvent.getColumn().getName())) {
+        Column modifyColumn = modifyColumnEvent.getColumn();
+        if (!fieldNames.contains(modifyColumn.getName())) {
             return schema;
         }
-
-        String modifyColumnName = modifyColumnEvent.getColumn().getName();
+        String modifyColumnName = modifyColumn.getName();
         int modifyColumnIndex = fieldNames.indexOf(modifyColumnName);
+        Column oldColumn = schema.getColumns().get(modifyColumnIndex);
+        String oldColumnSourceType = oldColumn.getSourceType();
+        String modifyColumnSourceType = modifyColumn.getSourceType();
+        if (StringUtils.isNoneEmpty(oldColumnSourceType)
+                && StringUtils.isNoneEmpty(modifyColumnSourceType)
+                && !oldColumnSourceType.split("\\(")[0].equals(
+                        modifyColumnSourceType.split("\\(")[0])) {
+            modifyColumnEvent.setTypeChanged(true);
+        }
         return applyModifyColumn(
                 schema,
                 modifyColumnIndex,
-                modifyColumnEvent.getColumn(),
+                modifyColumn,
                 modifyColumnEvent.isFirst(),
                 modifyColumnEvent.getAfterColumn());
     }

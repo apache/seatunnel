@@ -46,19 +46,19 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 | table                          | String  | Yes      | -                            | `Doris` 表名,  使用 `${table_name}`  表示上游表名。                                                                                                               |
 | table.identifier               | String  | Yes      | -                            | `Doris` 表的名称，2.3.5 版本后将弃用，请使用 `database` 和 `table` 代替。                                                                                                 |
 | sink.label-prefix              | String  | Yes      | -                            | stream load导入使用的标签前缀。 在2pc场景下，需要全局唯一性来保证SeaTunnel的EOS语义。                                                                                               |
-| sink.enable-2pc                | bool    | No       | false                        | 是否启用两阶段提交（2pc），默认为 false。 对于两阶段提交，请参考[此处](https://doris.apache.org/docs/dev/sql-manual/sql-statements/Data-Manipulation-Statements/Load/STREAM-LOAD/)。 |
+| sink.enable-2pc                | bool    | No       | false                        | 是否启用两阶段提交（2pc），默认为 false。 对于两阶段提交，请参考[此处](https://doris.apache.org/docs/data-operate/transaction?_highlight=two&_highlight=phase#stream-load-2pc)。 |
 | sink.enable-delete             | bool    | No       | -                            | 是否启用删除。 该选项需要Doris表开启批量删除功能（0.15+版本默认开启），且仅支持Unique模型。 您可以在此[link](https://doris.apache.org/docs/dev/data-operate/delete/batch-delete-manual/)获得更多详细信息 |
-| sink.check-interval            | int     | No       | 10000                        | 加载过程中检查异常时间间隔。                                                                                                                                         |
-| sink.max-retries               | int     | No       | 3                            | 向数据库写入记录失败时的最大重试次数。                                                                                                                                    |
-| sink.buffer-size               | int     | No       | 256 * 1024                   | 用于缓存stream load数据的缓冲区大小。                                                                                                                               |
-| sink.buffer-count              | int     | No       | 3                            | 用于缓存stream load数据的缓冲区计数。                                                                                                                               |
-| doris.batch.size               | int     | No       | 1024                         | 每次http请求写入doris的批量大小，当row达到该大小或者执行checkpoint时，缓存的数据就会写入服务器。                                                                                            |
-| needs_unsupported_type_casting | boolean | No       | false                        | 是否启用不支持的类型转换，例如 Decimal64 到 Double。                                                                                                                    |
-| schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | schema保存模式，请参考下面的`schema_save_mode`                                                                                                                    |
-| data_save_mode                 | Enum    | no       | APPEND_DATA                  | 数据保存模式，请参考下面的`data_save_mode`。                                                                                                                         |
-| save_mode_create_template      | string  | no       | see below                    | 见下文。                                                                                                                                                   |
-| custom_sql                     | String  | no       | -                            | 当data_save_mode选择CUSTOM_PROCESSING时，需要填写CUSTOM_SQL参数。 该参数通常填写一条可以执行的SQL。 SQL将在同步任务之前执行。                                                                |
-| doris.config                   | map     | yes      | -                            | 该选项用于支持自动生成sql时的insert、delete、update等操作，以及支持的格式。                                                                                                       |
+| sink.check-interval            | int     | No       | 10000                        | 加载过程中检查异常时间间隔。                                                                                                                                        |
+| sink.max-retries               | int     | No       | 3                            | 向数据库写入记录失败时的最大重试次数。                                                                                                                                   |
+| sink.buffer-size               | int     | No       | 256 * 1024                   | 用于缓存stream load数据的缓冲区大小。                                                                                                                              |
+| sink.buffer-count              | int     | No       | 3                            | 用于缓存stream load数据的缓冲区计数。                                                                                                                              |
+| doris.batch.size               | int     | No       | 1024                         | 每次http请求写入doris的批量大小，当row达到该大小或者执行checkpoint时，缓存的数据就会写入服务器。                                                                                           |
+| needs_unsupported_type_casting | boolean | No       | false                        | 是否启用不支持的类型转换，例如 Decimal64 到 Double。                                                                                                                   |
+| schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | schema保存模式，请参考下面的`schema_save_mode`                                                                                                                   |
+| data_save_mode                 | Enum    | no       | APPEND_DATA                  | 数据保存模式，请参考下面的`data_save_mode`。                                                                                                                        |
+| save_mode_create_template      | string  | no       | see below                    | 见下文。                                                                                                                                                  |
+| custom_sql                     | String  | no       | -                            | 当data_save_mode选择CUSTOM_PROCESSING时，需要填写CUSTOM_SQL参数。 该参数通常填写一条可以执行的SQL。 SQL将在同步任务之前执行。                                                               |
+| doris.config                   | map     | yes      | -                            | 该选项用于支持自动生成sql时的insert、delete、update等操作，以及支持的格式。                                                                                                      |
 
 ### schema_save_mode[Enum]
 
@@ -92,6 +92,7 @@ ${rowtype_primary_key},
 ${rowtype_fields}
 ) ENGINE=OLAP
  UNIQUE KEY (${rowtype_primary_key})
+COMMENT '${comment}'
 DISTRIBUTED BY HASH (${rowtype_primary_key})
  PROPERTIES (
 "replication_allocation" = "tag.location.default: 1",
@@ -109,6 +110,7 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
     id,
     ${rowtype_fields}
 ) ENGINE = OLAP UNIQUE KEY (${rowtype_primary_key})
+    COMMENT '${comment}'
     DISTRIBUTED BY HASH (${rowtype_primary_key})
     PROPERTIES
 (
@@ -124,8 +126,9 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 - database：用于获取上游schema中的数据库。
 - table_name：用于获取上游schema中的表名。
 - rowtype_fields：用于获取上游schema中的所有字段，自动映射到Doris的字段描述。
-- rowtype_primary_key：用于获取上游模式中的主键（可能是列表）
+- rowtype_primary_key：用于获取上游模式中的主键（可能是列表）。
 - rowtype_unique_key：用于获取上游模式中的唯一键（可能是列表）。
+- comment：用于获取上游模式中的表注释。
 
 ## 数据类型映射
 

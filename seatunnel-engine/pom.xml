@@ -38,6 +38,7 @@
     <properties>
         <!--  SeaTunnel Engine use     -->
         <disruptor.version>3.4.4</disruptor.version>
+        <oshi.version>6.6.5</oshi.version>
     </properties>
 
     <dependencyManagement>
@@ -55,6 +56,11 @@
                 <version>${disruptor.version}</version>
             </dependency>
             <!-- SeaTunnel engine use end -->
+            <dependency>
+                <groupId>com.github.oshi</groupId>
+                <artifactId>oshi-core</artifactId>
+                <version>${oshi.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

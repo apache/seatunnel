@@ -1,4 +1,4 @@
-# TableRename
+# TableMerge
 
 > TableMerge transform plugin
 

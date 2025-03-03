@@ -123,13 +123,13 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         boolean isMulti = sinkAction.getSink() instanceof MultiTableSink;
         if (isMulti) {
             sinkTables = ((MultiTableSink) sinkAction.getSink()).getSinkTables();
-            String[] upstreamTablePaths =
+            TablePath[] upstreamTablePaths =
                     ((MultiTableSink) sinkAction.getSink())
                             .getSinks()
                             .keySet()
-                            .toArray(new String[0]);
+                            .toArray(new TablePath[0]);
             for (int i = 0; i < ((MultiTableSink) sinkAction.getSink()).getSinks().size(); i++) {
-                tablesMaps.put(TablePath.of(upstreamTablePaths[i]), sinkTables.get(i));
+                tablesMaps.put(upstreamTablePaths[i], sinkTables.get(i));
             }
         } else {
             Optional<CatalogTable> catalogTable = sinkAction.getSink().getWriteCatalogTable();

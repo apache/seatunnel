@@ -49,7 +49,6 @@ public class PostgresSchemaChangeIT extends AbstractSchemaChangeBaseIT {
     @Override
     protected SchemaChangeCase getSchemaChangeCase() {
         return SchemaChangeCase.builder()
-                .dbType(DATABASE_TYPE)
                 .jdbcUrl(PG_JDBC_URL)
                 .username(PG_USER)
                 .password(PG_PASSWORD)
@@ -83,5 +82,10 @@ public class PostgresSchemaChangeIT extends AbstractSchemaChangeBaseIT {
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PG_IMAGE)));
         container.setPortBindings(Lists.newArrayList(String.format("%s:%s", PG_PORT, PG_PORT)));
         return container;
+    }
+
+    @Override
+    protected String sinkDatabaseType() {
+        return DATABASE_TYPE;
     }
 }
