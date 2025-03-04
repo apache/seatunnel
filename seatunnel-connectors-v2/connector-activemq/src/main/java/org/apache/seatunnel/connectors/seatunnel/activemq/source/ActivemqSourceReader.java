@@ -49,6 +49,7 @@ import java.util.TreeMap;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqOptions.QUEUE_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.USE_CORRELATION_ID;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.exception.ActivemqConnectorErrorCode.HANDLE_SHUTDOWN_SIGNAL_FAILED;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.exception.ActivemqConnectorErrorCode.MESSAGE_ACK_FAILED;
 
 @Slf4j
 public class ActivemqSourceReader<T> implements SourceReader<T, ActivemqSplit> {
@@ -116,20 +117,29 @@ public class ActivemqSourceReader<T> implements SourceReader<T, ActivemqSplit> {
                                     }
                                     massageIdsProcessedForCurrentSnapshot.add(
                                             message.getJMSMessageID());
-                                    if (deserializationSchema
-                                            instanceof JsonDeserializationSchema) {
-                                        ((JsonDeserializationSchema) deserializationSchema)
-                                                .collect(body, output);
-                                    } else {
-                                        deserializationSchema.deserialize(body, output);
+                                    try {
+                                        if (deserializationSchema
+                                                instanceof JsonDeserializationSchema) {
+                                            ((JsonDeserializationSchema) deserializationSchema)
+                                                    .collect(body, output);
+                                        } else {
+                                            deserializationSchema.deserialize(body, output);
+                                        }
+                                    } catch (IOException e) {
+                                        log.error("Failed to deserialize message", e);
                                     }
+                                    // verify that message processing is complete
+                                    textMessage.acknowledge();
                                 }
                             }
-                        } catch (JMSException | IOException e) {
+                        } catch (JMSException e) {
+                            throw new ActivemqConnectorException(MESSAGE_ACK_FAILED, e);
+                        } catch (Exception e) {
                             throw new ActivemqConnectorException(HANDLE_SHUTDOWN_SIGNAL_FAILED, e);
                         }
                     }
                 });
+        // source support streaming mode, this is for test
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
             // signal to the source that we have reached the end of the data.
             context.signalNoMoreElement();
