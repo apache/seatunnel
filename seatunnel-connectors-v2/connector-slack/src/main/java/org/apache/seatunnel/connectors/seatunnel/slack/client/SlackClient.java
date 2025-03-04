@@ -34,8 +34,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.List;
 
-import static org.apache.seatunnel.connectors.seatunnel.slack.config.SlackConfig.OAUTH_TOKEN;
-import static org.apache.seatunnel.connectors.seatunnel.slack.config.SlackConfig.SLACK_CHANNEL;
+import static org.apache.seatunnel.connectors.seatunnel.slack.config.SlackSinkOptions.OAUTH_TOKEN;
+import static org.apache.seatunnel.connectors.seatunnel.slack.config.SlackSinkOptions.SLACK_CHANNEL;
 
 @Slf4j
 public class SlackClient {

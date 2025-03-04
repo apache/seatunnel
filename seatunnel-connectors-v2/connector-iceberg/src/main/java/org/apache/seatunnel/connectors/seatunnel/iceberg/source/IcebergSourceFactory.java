@@ -19,13 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
@@ -70,7 +70,7 @@ public class IcebergSourceFactory implements TableSourceFactory {
                         CommonConfig.CATALOG_PROPS)
                 .exclusive(CommonConfig.KEY_TABLE, SourceConfig.KEY_TABLE_LIST)
                 .optional(
-                        TableSchemaOptions.SCHEMA,
+                        ConnectorCommonOptions.SCHEMA,
                         KEY_CASE_SENSITIVE,
                         KEY_START_SNAPSHOT_TIMESTAMP,
                         KEY_START_SNAPSHOT_ID,
@@ -88,7 +88,7 @@ public class IcebergSourceFactory implements TableSourceFactory {
         ReadonlyConfig options = context.getOptions();
         SourceConfig config = new SourceConfig(options);
         CatalogTable catalogTable;
-        if (options.get(TableSchemaOptions.SCHEMA) != null) {
+        if (options.get(ConnectorCommonOptions.SCHEMA) != null) {
             TablePath tablePath = config.getTableList().get(0).getTablePath();
             catalogTable = CatalogTableUtil.buildWithConfig(factoryIdentifier(), options);
             TableIdentifier tableIdentifier =

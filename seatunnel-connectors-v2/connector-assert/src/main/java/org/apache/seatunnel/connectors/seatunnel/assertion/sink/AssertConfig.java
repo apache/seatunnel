@@ -17,13 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
-
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
-
-import java.util.Map;
-
 public class AssertConfig {
 
     public static final String RULE_TYPE = "rule_type";
@@ -64,29 +57,12 @@ public class AssertConfig {
     public static final String COLUMN_DEFAULT_VALUE = "default_value";
     public static final String COLUMN_COMMENT = "comment";
 
+    public static final String TABLE_PATH = "table_path";
+
     public static class TableIdentifierRule {
         public static final String TABLE_IDENTIFIER_RULE = "table_identifier_rule";
 
         public static final String TABLE_IDENTIFIER_CATALOG_NAME = "catalog_name";
         public static final String TABLE_IDENTIFIER_TABLE_NAME = "table";
     }
-
-    public static final Option<String> COMMENT =
-            Options.key("comment")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("SeaTunnel Schema Column Comment");
-
-    public static final Option<Map<String, Object>> RULES =
-            Options.key("rules")
-                    .type(new TypeReference<Map<String, Object>>() {})
-                    .noDefaultValue()
-                    .withDescription(
-                            "Rule definition of user's available data. Each rule represents one field validation or row num validation.");
-
-    public static final Option<String> TABLE_PATH =
-            Options.key("table_path")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("table full path");
 }

@@ -19,10 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 
 import java.util.Map;
 
-public class KafkaBaseOptions {
+public class KafkaBaseOptions extends ConnectorCommonOptions {
 
     public static final String CONNECTOR_IDENTITY = "Kafka";
     /** The default field delimiter is “,” */

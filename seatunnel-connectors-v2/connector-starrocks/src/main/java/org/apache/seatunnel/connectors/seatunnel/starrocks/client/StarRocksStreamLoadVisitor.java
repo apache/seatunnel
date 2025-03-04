@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode;
@@ -71,7 +70,7 @@ public class StarRocksStreamLoadVisitor {
         String host = getAvailableHost();
         if (null == host) {
             throw new StarRocksConnectorException(
-                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    StarRocksConnectorErrorCode.HOST_IS_NULL,
                     "None of the host in `load_url` could be connected.");
         }
         String loadUrl =

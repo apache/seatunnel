@@ -22,15 +22,19 @@ Schema Evolution means that the schema of a data table can be changed and the da
 [Jdbc-Mysql](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/sink/Jdbc.md)
 [Jdbc-Oracle](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/sink/Jdbc.md)
 [Jdbc-Postgres](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/sink/Jdbc.md)
+[Jdbc-Dameng](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/sink/Jdbc.md)
 [StarRocks](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/sink/StarRocks.md)
 [Doris](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/sink/Doris.md)
 [Paimon](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/sink/Paimon.md#Schema-Evolution)
 [Elasticsearch](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/sink/Elasticsearch.md#Schema-Evolution)
 
-Note: The schema evolution is not support the transform at now. The schema evolution of different types of databases（Oracle-CDC -> Jdbc-Mysql）is currently not supported the default value of the column in ddl.
+Note:  
+* The schema evolution is not support the transform at now. The schema evolution of different types of databases（Oracle-CDC -> Jdbc-Mysql）is currently not supported the default value of the column in ddl.
 
-When you use the Oracle-CDC，you can not use the username named `SYS` or `SYSTEM` to modify the table schema, otherwise the ddl event will be filtered out which can lead to the schema evolution not working.
+* When you use the Oracle-CDC，you can not use the username named `SYS` or `SYSTEM` to modify the table schema, otherwise the ddl event will be filtered out which can lead to the schema evolution not working.
 Otherwise, If your table name start with `ORA_TEMP_` will also has the same problem.
+
+* Earlier versions of `Dameng` databases do not support the change of `Varchar` type fields to `Text` type fields.
 
 ## Enable schema evolution
 Schema evolution is disabled by default in CDC source. You need configure `schema-changes.enabled = true` which is only supported in CDC to enable it.
@@ -281,6 +285,47 @@ sink {
     generate_sink_sql = true
     database = shop
     table = "public.sink_table_with_schema_change"
+    primary_keys = ["id"]
+
+    # Validate ddl update for sink writer multi replica
+    multi_table_sink_replica = 2
+  }
+}
+```
+
+### Mysql-CDC -> Jdbc-Dameng
+```hocon
+env {
+  # You can set engine configuration here
+  parallelism = 5
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+  read_limit.bytes_per_second=7000000
+  read_limit.rows_per_second=400
+}
+
+source {
+  MySQL-CDC {
+    server-id = 5652-5657
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["shop.products"]
+    base-url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
+
+    schema-changes.enabled = true
+  }
+}
+
+sink {
+  jdbc {
+    url = "jdbc:dm://e2e_dmdb:5236"
+    driver = "dm.jdbc.driver.DmDriver"
+    connection_check_timeout_sec = 1000
+    user = "SYSDBA"
+    password = "SYSDBA"
+    generate_sink_sql = true
+    database = "DAMENG"
+    table = "SYSDBA.sink_table_with_schema_change"
     primary_keys = ["id"]
 
     # Validate ddl update for sink writer multi replica

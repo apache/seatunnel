@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -53,8 +53,9 @@ public class AmazonDynamoDBConfig implements Serializable {
         this.accessKeyId = config.get(AmazonDynamoDBBaseOptions.ACCESS_KEY_ID);
         this.secretAccessKey = config.get(AmazonDynamoDBBaseOptions.SECRET_ACCESS_KEY);
         this.table = config.get(AmazonDynamoDBBaseOptions.TABLE);
-        if (config.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
-            this.schema = ReadonlyConfig.fromMap(config.get(TableSchemaOptions.SCHEMA)).toConfig();
+        if (config.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
+            this.schema =
+                    ReadonlyConfig.fromMap(config.get(ConnectorCommonOptions.SCHEMA)).toConfig();
         }
         this.batchSize = config.get(AmazonDynamoDBSinkOptions.BATCH_SIZE);
         this.scanItemLimit = config.get(AmazonDynamoDBSourceOptions.SCAN_ITEM_LIMIT);

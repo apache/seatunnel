@@ -39,6 +39,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -124,6 +125,8 @@ public class FieldMapperTransform extends AbstractCatalogSupportMapTransform {
                     needReaderColIndex.add(fieldIndex);
                 });
 
+        final Set<String> originalColumnNames = fieldMapper.keySet();
+
         List<ConstraintKey> outputConstraintKeys =
                 inputCatalogTable.getTableSchema().getConstraintKeys().stream()
                         .filter(
@@ -134,20 +137,43 @@ public class FieldMapperTransform extends AbstractCatalogSupportMapTransform {
                                                             ConstraintKey.ConstraintKeyColumn
                                                                     ::getColumnName)
                                                     .collect(Collectors.toList());
-                                    return outputFieldNames.containsAll(constraintColumnNames);
+                                    return originalColumnNames.containsAll(constraintColumnNames);
                                 })
-                        .map(ConstraintKey::copy)
+                        .map(
+                                (it) -> {
+                                    List<ConstraintKey.ConstraintKeyColumn> mapperKeyColumns =
+                                            it.getColumnNames().stream()
+                                                    .map(
+                                                            (column) ->
+                                                                    ConstraintKey
+                                                                            .ConstraintKeyColumn.of(
+                                                                            fieldMapper.get(
+                                                                                    column
+                                                                                            .getColumnName()),
+                                                                            column.getSortType()))
+                                                    .collect(Collectors.toList());
+                                    return ConstraintKey.of(
+                                            it.getConstraintType(),
+                                            it.getConstraintName(),
+                                            mapperKeyColumns);
+                                })
                         .collect(Collectors.toList());
 
-        PrimaryKey copiedPrimaryKey = null;
-        if (inputCatalogTable.getTableSchema().getPrimaryKey() != null
-                && outputFieldNames.containsAll(
-                        inputCatalogTable.getTableSchema().getPrimaryKey().getColumnNames())) {
-            copiedPrimaryKey = inputCatalogTable.getTableSchema().getPrimaryKey().copy();
+        PrimaryKey newSchemaPrimaryKey = null;
+        if (inputCatalogTable.getTableSchema().getPrimaryKey() != null) {
+            PrimaryKey originalPrimaryKey = inputCatalogTable.getTableSchema().getPrimaryKey();
+            if (originalColumnNames.containsAll(originalPrimaryKey.getColumnNames())) {
+                newSchemaPrimaryKey =
+                        PrimaryKey.of(
+                                originalPrimaryKey.getPrimaryKey(),
+                                originalPrimaryKey.getColumnNames().stream()
+                                        .map(fieldMapper::get)
+                                        .collect(Collectors.toList()));
+            }
         }
 
         return TableSchema.builder()
-                .primaryKey(copiedPrimaryKey)
+                .primaryKey(newSchemaPrimaryKey)
                 .columns(outputColumns)
                 .constraintKey(outputConstraintKeys)
                 .build();

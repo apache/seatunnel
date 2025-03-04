@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.util;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions;
 
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -36,11 +36,11 @@ public class ClickhouseUtil {
 
     public static List<ClickHouseNode> createNodes(ReadonlyConfig config) {
         return createNodes(
-                config.get(ClickhouseConfig.HOST),
-                config.get(ClickhouseConfig.DATABASE),
-                config.get(ClickhouseConfig.SERVER_TIME_ZONE),
-                config.get(ClickhouseConfig.USERNAME),
-                config.get(ClickhouseConfig.PASSWORD),
+                config.get(ClickhouseBaseOptions.HOST),
+                config.get(ClickhouseBaseOptions.DATABASE),
+                config.get(ClickhouseBaseOptions.SERVER_TIME_ZONE),
+                config.get(ClickhouseBaseOptions.USERNAME),
+                config.get(ClickhouseBaseOptions.PASSWORD),
                 null);
     }
 

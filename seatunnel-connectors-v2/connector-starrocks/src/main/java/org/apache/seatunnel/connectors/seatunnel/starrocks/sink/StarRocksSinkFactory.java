@@ -25,9 +25,8 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksOptions;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSinkOptions;
 
 import org.apache.commons.lang3.StringUtils;
@@ -37,21 +36,21 @@ import com.google.auto.service.AutoService;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.apache.seatunnel.api.sink.SinkCommonOptions.MULTI_TABLE_SINK_REPLICA;
+import static org.apache.seatunnel.api.options.SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSinkOptions.DATA_SAVE_MODE;
 
 @AutoService(Factory.class)
 public class StarRocksSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return CommonConfig.CONNECTOR_IDENTITY;
+        return StarRocksBaseOptions.CONNECTOR_IDENTITY;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(StarRocksOptions.USERNAME, StarRocksOptions.PASSWORD)
-                .required(StarRocksSinkOptions.DATABASE, StarRocksOptions.BASE_URL)
+                .required(StarRocksSinkOptions.USERNAME, StarRocksSinkOptions.PASSWORD)
+                .required(StarRocksSinkOptions.DATABASE, StarRocksSinkOptions.BASE_URL)
                 .required(StarRocksSinkOptions.NODE_URLS)
                 .optional(
                         StarRocksSinkOptions.TABLE,
@@ -64,7 +63,7 @@ public class StarRocksSinkFactory implements TableSinkFactory {
                         StarRocksSinkOptions.STARROCKS_CONFIG,
                         StarRocksSinkOptions.ENABLE_UPSERT_DELETE,
                         StarRocksSinkOptions.SCHEMA_SAVE_MODE,
-                        StarRocksSinkOptions.DATA_SAVE_MODE,
+                        DATA_SAVE_MODE,
                         MULTI_TABLE_SINK_REPLICA,
                         StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE,
                         StarRocksSinkOptions.HTTP_SOCKET_TIMEOUT_MS)

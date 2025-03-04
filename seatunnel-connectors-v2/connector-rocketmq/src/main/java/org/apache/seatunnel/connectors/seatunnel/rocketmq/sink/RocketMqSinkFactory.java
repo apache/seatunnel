@@ -29,7 +29,7 @@ import com.google.auto.service.AutoService;
 public class RocketMqSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return "Rocketmq";
+        return Config.CONNECTOR_IDENTITY;
     }
 
     @Override

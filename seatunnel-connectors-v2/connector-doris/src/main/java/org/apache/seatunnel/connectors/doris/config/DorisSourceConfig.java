@@ -25,10 +25,10 @@ import lombok.experimental.SuperBuilder;
 import java.io.Serializable;
 import java.util.List;
 
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.FENODES;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.PASSWORD;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.QUERY_PORT;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.USERNAME;
+import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.FENODES;
+import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.QUERY_PORT;
+import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.USERNAME;
 import static org.apache.seatunnel.connectors.doris.config.DorisSourceOptions.DORIS_DESERIALIZE_ARROW_ASYNC;
 import static org.apache.seatunnel.connectors.doris.config.DorisSourceOptions.DORIS_DESERIALIZE_QUEUE_SIZE;
 import static org.apache.seatunnel.connectors.doris.config.DorisSourceOptions.DORIS_REQUEST_CONNECT_TIMEOUT_MS;

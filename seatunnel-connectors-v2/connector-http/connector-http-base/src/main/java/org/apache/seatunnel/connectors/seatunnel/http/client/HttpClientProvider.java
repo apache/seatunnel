@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.client;
 
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
+import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.http.HttpStatus;
@@ -67,6 +69,7 @@ import java.util.concurrent.TimeUnit;
 public class HttpClientProvider implements AutoCloseable {
     private static final String ENCODING = "UTF-8";
     private static final String APPLICATION_JSON = "application/json";
+    private static final String APPLICATION_FORM = "application/x-www-form-urlencoded";
     private static final int INITIAL_CAPACITY = 16;
     private RequestConfig requestConfig;
     private final CloseableHttpClient httpClient;
@@ -115,11 +118,26 @@ public class HttpClientProvider implements AutoCloseable {
             String method,
             Map<String, String> headers,
             Map<String, String> params,
-            String body)
+            Map<String, Object> body,
+            boolean keepParamsAsForm)
             throws Exception {
         // convert method option to uppercase
         method = method.toUpperCase(Locale.ROOT);
+        // Keep the original post  logic
+        if (HttpPost.METHOD_NAME.equals(method) && keepParamsAsForm) {
+            // Compatible with old versions
+            if (MapUtils.isNotEmpty(params)) {
+                headers = MapUtils.isEmpty(headers) ? new HashMap<>() : headers;
+                headers.putIfAbsent(HTTP.CONTENT_TYPE, APPLICATION_FORM);
+            }
+            if (MapUtils.isEmpty(body)) {
+                body = new HashMap<>();
+            }
+            body.putAll(params);
+            return doPost(url, headers, Collections.emptyMap(), body);
+        }
         if (HttpPost.METHOD_NAME.equals(method)) {
+            // Create access address
             return doPost(url, headers, params, body);
         }
         if (HttpGet.METHOD_NAME.equals(method)) {
@@ -292,7 +310,6 @@ public class HttpClientProvider implements AutoCloseable {
     /**
      * Send a post request with request headers , request parameters and request body
      *
-     * @param url request address
      * @param headers request header map
      * @param params request parameter map
      * @param body request body
@@ -300,16 +317,19 @@ public class HttpClientProvider implements AutoCloseable {
      * @throws Exception information
      */
     public HttpResponse doPost(
-            String url, Map<String, String> headers, Map<String, String> params, String body)
+            String url,
+            Map<String, String> headers,
+            Map<String, String> params,
+            Map<String, Object> body)
             throws Exception {
-        // create a new http get
-        HttpPost httpPost = new HttpPost(url);
+        URIBuilder uriBuilder = new URIBuilder(url);
+        // add parameter to uri
+        addParameters(uriBuilder, params);
+        HttpPost httpPost = new HttpPost(uriBuilder.build());
         // set default request config
         httpPost.setConfig(requestConfig);
         // set request header
         addHeaders(httpPost, headers);
-        // set request params
-        addParameters(httpPost, params);
         // add body in request
         addBody(httpPost, body);
         // return http response
@@ -427,6 +447,38 @@ public class HttpClientProvider implements AutoCloseable {
             return;
         }
         headers.forEach(request::addHeader);
+    }
+
+    private void addBody(HttpEntityEnclosingRequestBase request, Map<String, Object> body)
+            throws UnsupportedEncodingException {
+        if (MapUtils.isEmpty(body)) {
+            body = new HashMap<>();
+        }
+        boolean isFormSubmit =
+                request.getHeaders(HTTP.CONTENT_TYPE) != null
+                        && request.getHeaders(HTTP.CONTENT_TYPE).length > 0
+                        && APPLICATION_FORM.equalsIgnoreCase(
+                                request.getHeaders(HTTP.CONTENT_TYPE)[0].getValue());
+        if (isFormSubmit) {
+            if (MapUtils.isNotEmpty(body)) {
+                List<NameValuePair> parameters = new ArrayList<>();
+                Set<Map.Entry<String, Object>> entrySet = body.entrySet();
+                for (Map.Entry<String, Object> e : entrySet) {
+                    String name = e.getKey();
+                    String value = e.getValue().toString();
+                    NameValuePair pair = new BasicNameValuePair(name, value);
+                    parameters.add(pair);
+                }
+                // Set to the request's http object
+                request.setEntity(new UrlEncodedFormEntity(parameters, ENCODING));
+            }
+        } else {
+            request.addHeader(HTTP.CONTENT_TYPE, APPLICATION_JSON);
+            StringEntity entity =
+                    new StringEntity(JsonUtils.toJsonString(body), ContentType.APPLICATION_JSON);
+            entity.setContentEncoding(new BasicHeader(HTTP.CONTENT_TYPE, APPLICATION_JSON));
+            request.setEntity(entity);
+        }
     }
 
     private boolean checkAlreadyHaveContentType(HttpEntityEnclosingRequestBase request) {
