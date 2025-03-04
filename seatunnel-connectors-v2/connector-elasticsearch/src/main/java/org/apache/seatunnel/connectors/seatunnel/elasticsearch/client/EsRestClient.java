@@ -17,24 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.client;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
-
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
-import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchBaseOptions;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.ElasticsearchClusterInfo;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.IndexDocsCount;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.util.SSLUtils;
-
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpHost;
@@ -48,25 +31,41 @@ import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.ssl.SSLContexts;
 import org.apache.http.util.Asserts;
 import org.apache.http.util.EntityUtils;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.ElasticsearchClusterInfo;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.CursorResult;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.IndexDocsCount;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.util.SSLUtils;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 
-import lombok.extern.slf4j.Slf4j;
-
 import javax.net.ssl.SSLContext;
-
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.AGGREGATE_METRIC_DOUBLE;
@@ -274,8 +273,8 @@ public class EsRestClient implements Closeable {
     /**
      * first time to request search documents by scroll call /${index}/_search?scroll=${scroll}
      *
-     * @param index index name
-     * @param source select fields
+     * @param index      index name
+     * @param source     select fields
      * @param scrollTime such as:1m
      * @param scrollSize fetch documents count in one request
      */
@@ -288,16 +287,55 @@ public class EsRestClient implements Closeable {
         Map<String, Object> param = new HashMap<>();
         param.put("query", query);
         param.put("_source", source);
-        param.put("sort", new String[] {"_doc"});
+        param.put("sort", new String[]{"_doc"});
         param.put("size", scrollSize);
         String endpoint = "/" + index + "/_search?scroll=" + scrollTime;
         return getDocsFromScrollRequest(endpoint, JsonUtils.toJsonString(param));
     }
 
     /**
+     * first time to request search documents by scroll call /_sql?format=json
+     *
+     * @param scrollSize fetch documents count in one request
+     */
+    public CursorResult searchBySql(String query, int scrollSize) {
+        Map<String, Object> param = new HashMap<>();
+        param.put("query", query);
+        param.put("fetch_size", scrollSize);
+        String endpoint = "/_sql?format=json";
+        return getDocsFromCursorResult(endpoint, JsonUtils.toJsonString(param), null);
+    }
+
+    /**
+     * first time to request search documents by scroll call /_sql?format=json
+     */
+    public Map<String, BasicTypeDefine<EsType>> getSqlMapping(String query, List<String> source) {
+        Map<String, Object> param = new HashMap<>();
+        String limitRegex = "(?i)\\s+LIMIT\\s+\\d+";
+        Pattern pattern = Pattern.compile(limitRegex);
+        Matcher matcher = pattern.matcher(query);
+        if (matcher.find()) {
+            query = matcher.replaceAll(" LIMIT 0");
+        } else {
+            query = query.trim() + " LIMIT 0";
+        }
+        param.put("query", query);
+        String endpoint = "/_sql?format=json";
+        CursorResult cursorResult =
+                getDocsFromCursorResult(endpoint, JsonUtils.toJsonString(param), null);
+        JsonNode columnNodes = cursorResult.getColumnNodes();
+        Map<String, Object> columnMap = new LinkedHashMap<>();
+        for (JsonNode columnNode : columnNodes) {
+            String fieldName = columnNode.get("name").asText();
+            columnMap.put(fieldName, columnNode);
+        }
+        return getFieldTypeMappingFromProperties(JsonUtils.toJsonNode(columnMap), source);
+    }
+
+    /**
      * scroll to get result call _search/scroll
      *
-     * @param scrollId the scroll id of the last request
+     * @param scrollId   the scroll id of the last request
      * @param scrollTime such as:1m
      */
     public ScrollResult searchWithScrollId(String scrollId, String scrollTime) {
@@ -305,6 +343,43 @@ public class EsRestClient implements Closeable {
         param.put("scroll_id", scrollId);
         param.put("scroll", scrollTime);
         return getDocsFromScrollRequest("/_search/scroll", JsonUtils.toJsonString(param));
+    }
+
+    public CursorResult searchWithCursor(String cursor, JsonNode columnNodes) {
+        Map<String, String> param = new HashMap<>();
+        param.put("cursor", cursor);
+        String endpoint = "/_sql?format=json";
+        return getDocsFromCursorResult(endpoint, JsonUtils.toJsonString(param), columnNodes);
+    }
+
+    private CursorResult getDocsFromCursorResult(
+            String endpoint, String requestBody, JsonNode columnNodes) {
+        Request request = new Request("POST", endpoint);
+        request.setJsonEntity(requestBody);
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.SCROLL_REQUEST_ERROR,
+                        "POST " + endpoint + " response null");
+            }
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                String entity = EntityUtils.toString(response.getEntity());
+                ObjectNode responseJson = JsonUtils.parseObject(entity);
+                return getDocsFromCursorResponse(responseJson, columnNodes);
+            } else {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.SCROLL_REQUEST_ERROR,
+                        String.format(
+                                "POST %s response status code=%d,request body=%s",
+                                endpoint, response.getStatusLine().getStatusCode(), requestBody));
+            }
+        } catch (IOException e) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.SCROLL_REQUEST_ERROR,
+                    String.format("POST %s error,request body=%s", endpoint, requestBody),
+                    e);
+        }
     }
 
     private ScrollResult getDocsFromScrollRequest(String endpoint, String requestBody) {
@@ -346,6 +421,38 @@ public class EsRestClient implements Closeable {
         }
     }
 
+    private CursorResult getDocsFromCursorResponse(ObjectNode responseJson, JsonNode columnNodes) {
+        CursorResult cursorResult = new CursorResult();
+        if (responseJson.get("cursor") != null) {
+            cursorResult.setCursor(responseJson.get("cursor").asText());
+        }
+        if (columnNodes == null) {
+            columnNodes = responseJson.get("columns");
+        }
+        JsonNode valueNodes = responseJson.get("rows");
+        List<Map<String, Object>> docs = new ArrayList<>();
+        if (valueNodes != null) {
+
+            for (int i = 0; i < valueNodes.size(); i++) {
+                JsonNode valueNode = valueNodes.get(i);
+                Map<String, Object> doc = new HashMap<>();
+                for (int j = 0; j < columnNodes.size(); j++) {
+                    String fieldName = columnNodes.get(j).get("name").asText();
+                    if (valueNode.get(j) instanceof TextNode) {
+                        doc.put(fieldName, valueNode.get(j).textValue());
+                    } else {
+                        doc.put(fieldName, valueNode.get(j));
+                    }
+                }
+                docs.add(doc);
+            }
+        }
+        cursorResult.setRows(docs);
+        cursorResult.setColumnNodes(columnNodes);
+
+        return cursorResult;
+    }
+
     private ScrollResult getDocsFromScrollResponse(ObjectNode responseJson) {
         ScrollResult scrollResult = new ScrollResult();
         String scrollId = responseJson.get("_scroll_id").asText();
@@ -361,7 +468,7 @@ public class EsRestClient implements Closeable {
             doc.put("_id", jsonNode.get("_id").textValue());
             JsonNode source = jsonNode.get("_source");
             for (Iterator<Map.Entry<String, JsonNode>> iterator = source.fields();
-                    iterator.hasNext(); ) {
+                 iterator.hasNext(); ) {
                 Map.Entry<String, JsonNode> entry = iterator.next();
                 String fieldName = entry.getKey();
                 if (entry.getValue() instanceof TextNode) {
@@ -701,7 +808,7 @@ public class EsRestClient implements Closeable {
     /**
      * Add a new field to an existing index
      *
-     * @param index index name
+     * @param index           index name
      * @param fieldTypeDefine field type definition
      */
     public void addField(String index, BasicTypeDefine<EsType> fieldTypeDefine) {

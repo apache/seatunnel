@@ -55,6 +55,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions.SEARCH_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions.SQL_QUERY;
+
 @Slf4j
 public class ElasticsearchSource
         implements SeaTunnelSource<
@@ -69,6 +72,15 @@ public class ElasticsearchSource
         this.connectionConfig = config;
         boolean multiSource = config.getOptional(ElasticsearchSourceOptions.INDEX_LIST).isPresent();
         boolean singleSource = config.getOptional(ElasticsearchSourceOptions.INDEX).isPresent();
+
+        boolean sqlQuery = config.getOptional(SQL_QUERY).isPresent();
+
+        if ("sql".equalsIgnoreCase(config.get(SEARCH_TYPE)) && !sqlQuery) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.SOURCE_CONFIG_ERROR_02,
+                    ElasticsearchConnectorErrorCode.SOURCE_CONFIG_ERROR_02.getDescription());
+        }
+
         if (multiSource && singleSource) {
             log.warn(
                     "Elasticsearch Source config warn: when both 'index' and 'index_list' are present in the configuration, only the 'index_list' configuration will take effect");
@@ -116,7 +128,13 @@ public class ElasticsearchSource
         } else {
             source = readonlyConfig.get(ElasticsearchSourceOptions.SOURCE);
             arrayColumn = readonlyConfig.get(ElasticsearchSourceOptions.ARRAY_COLUMN);
-            Map<String, BasicTypeDefine<EsType>> esFieldType = getFieldTypeMapping(index, source);
+            Map<String, BasicTypeDefine<EsType>> esFieldType;
+            if ("sql".equalsIgnoreCase(readonlyConfig.get(SEARCH_TYPE))) {
+                esFieldType = getSqlFieldTypeMapping(readonlyConfig.get(SQL_QUERY), source);
+            } else {
+                esFieldType = getFieldTypeMapping(index, source);
+            }
+
             if (CollectionUtils.isEmpty(source)) {
                 source = new ArrayList<>(esFieldType.keySet());
             }
@@ -155,7 +173,8 @@ public class ElasticsearchSource
                             Collections.emptyList(),
                             "");
         }
-
+        String searchType = readonlyConfig.get(SEARCH_TYPE);
+        String sqlQuery = readonlyConfig.get(ElasticsearchSourceOptions.SQL_QUERY);
         String scrollTime = readonlyConfig.get(ElasticsearchSourceOptions.SCROLL_TIME);
         int scrollSize = readonlyConfig.get(ElasticsearchSourceOptions.SCROLL_SIZE);
         ElasticsearchConfig elasticsearchConfig = new ElasticsearchConfig();
@@ -166,6 +185,8 @@ public class ElasticsearchSource
         elasticsearchConfig.setScrollSize(scrollSize);
         elasticsearchConfig.setIndex(index);
         elasticsearchConfig.setCatalogTable(catalogTable);
+        elasticsearchConfig.setSqlQuery(sqlQuery);
+        elasticsearchConfig.setSearchType(searchType);
         return elasticsearchConfig;
     }
 
@@ -220,6 +241,15 @@ public class ElasticsearchSource
             fieldTypes[i] = seaTunnelDataType;
         }
         return fieldTypes;
+    }
+
+    private Map<String, BasicTypeDefine<EsType>> getSqlFieldTypeMapping(
+            String query, List<String> source) {
+        // EsRestClient#getFieldTypeMapping may throw runtime exception
+        // so here we use try-resources-finally to close the resource
+        try (EsRestClient esRestClient = EsRestClient.createInstance(connectionConfig)) {
+            return esRestClient.getSqlMapping(query, source);
+        }
     }
 
     private Map<String, BasicTypeDefine<EsType>> getFieldTypeMapping(
