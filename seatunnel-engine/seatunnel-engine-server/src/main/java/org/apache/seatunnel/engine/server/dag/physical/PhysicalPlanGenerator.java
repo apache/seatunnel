@@ -386,9 +386,7 @@ public class PhysicalPlanGenerator {
                                                     taskGroupID);
                                     TaskLocation taskLocation =
                                             new TaskLocation(
-                                                    taskGroupLocation,
-                                                    parallelismIndex,
-                                                    parallelismIndex);
+                                                    taskGroupLocation, 0, parallelismIndex);
                                     SeaTunnelTask seaTunnelTask =
                                             new TransformSeaTunnelTask(
                                                     jobImmutableInformation.getJobId(),
