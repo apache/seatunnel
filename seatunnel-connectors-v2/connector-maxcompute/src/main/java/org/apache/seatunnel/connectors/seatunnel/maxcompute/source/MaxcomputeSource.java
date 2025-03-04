@@ -100,7 +100,9 @@ public class MaxcomputeSource
                                         .getOptional(PARTITION_SPEC)
                                         .orElse(readonlyConfig.get(PARTITION_SPEC));
 
-                        if (subReadonlyConfig.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
+                        if (subReadonlyConfig
+                                .getOptional(ConnectorCommonOptions.SCHEMA)
+                                .isPresent()) {
                             CatalogTable catalogTable =
                                     CatalogTableUtil.buildWithConfig(subReadonlyConfig);
                             catalogTable =
