@@ -17,7 +17,25 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.client;
 
-import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.ElasticsearchClusterInfo;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.CursorResult;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.IndexDocsCount;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.util.SSLUtils;
+
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpHost;
@@ -31,29 +49,16 @@ import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.ssl.SSLContexts;
 import org.apache.http.util.Asserts;
 import org.apache.http.util.EntityUtils;
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
-import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchBaseOptions;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.ElasticsearchClusterInfo;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.CursorResult;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.IndexDocsCount;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.util.SSLUtils;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
+
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 
+import lombok.extern.slf4j.Slf4j;
+
 import javax.net.ssl.SSLContext;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -273,8 +278,8 @@ public class EsRestClient implements Closeable {
     /**
      * first time to request search documents by scroll call /${index}/_search?scroll=${scroll}
      *
-     * @param index      index name
-     * @param source     select fields
+     * @param index index name
+     * @param source select fields
      * @param scrollTime such as:1m
      * @param scrollSize fetch documents count in one request
      */
@@ -287,7 +292,7 @@ public class EsRestClient implements Closeable {
         Map<String, Object> param = new HashMap<>();
         param.put("query", query);
         param.put("_source", source);
-        param.put("sort", new String[]{"_doc"});
+        param.put("sort", new String[] {"_doc"});
         param.put("size", scrollSize);
         String endpoint = "/" + index + "/_search?scroll=" + scrollTime;
         return getDocsFromScrollRequest(endpoint, JsonUtils.toJsonString(param));
@@ -306,9 +311,7 @@ public class EsRestClient implements Closeable {
         return getDocsFromCursorResult(endpoint, JsonUtils.toJsonString(param), null);
     }
 
-    /**
-     * first time to request search documents by scroll call /_sql?format=json
-     */
+    /** first time to request search documents by scroll call /_sql?format=json */
     public Map<String, BasicTypeDefine<EsType>> getSqlMapping(String query, List<String> source) {
         Map<String, Object> param = new HashMap<>();
         String limitRegex = "(?i)\\s+LIMIT\\s+\\d+";
@@ -335,7 +338,7 @@ public class EsRestClient implements Closeable {
     /**
      * scroll to get result call _search/scroll
      *
-     * @param scrollId   the scroll id of the last request
+     * @param scrollId the scroll id of the last request
      * @param scrollTime such as:1m
      */
     public ScrollResult searchWithScrollId(String scrollId, String scrollTime) {
@@ -468,7 +471,7 @@ public class EsRestClient implements Closeable {
             doc.put("_id", jsonNode.get("_id").textValue());
             JsonNode source = jsonNode.get("_source");
             for (Iterator<Map.Entry<String, JsonNode>> iterator = source.fields();
-                 iterator.hasNext(); ) {
+                    iterator.hasNext(); ) {
                 Map.Entry<String, JsonNode> entry = iterator.next();
                 String fieldName = entry.getKey();
                 if (entry.getValue() instanceof TextNode) {
@@ -808,7 +811,7 @@ public class EsRestClient implements Closeable {
     /**
      * Add a new field to an existing index
      *
-     * @param index           index name
+     * @param index index name
      * @param fieldTypeDefine field type definition
      */
     public void addField(String index, BasicTypeDefine<EsType> fieldTypeDefine) {
