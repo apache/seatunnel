@@ -40,8 +40,7 @@ public class MongodbSinkFactory implements TableSinkFactory {
                 .required(
                         MongodbConfig.URI,
                         MongodbConfig.DATABASE,
-                        MongodbConfig.COLLECTION,
-                        ConnectorCommonOptions.SCHEMA)
+                        MongodbConfig.COLLECTION)
                 .optional(
                         MongodbConfig.BUFFER_FLUSH_INTERVAL,
                         MongodbConfig.BUFFER_FLUSH_MAX_ROWS,
