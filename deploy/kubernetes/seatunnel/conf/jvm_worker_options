@@ -14,20 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# use for access seatunnel from outside system via rest api
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ include "seatunnel.fullname" . }}-master
-  labels:
-    {{- include "seatunnel.master.labels" . | nindent 4 }}
-  namespace: {{ .Values.namespace }}
-spec:
-  clusterIP: "None"
-  ports:
-    - name: "master-port"
-      port: 8080
-      targetPort: 8080
-      protocol: TCP
-  selector:
-    {{- include "seatunnel.master.labels" . | nindent 4 }}
+
+# JVM Heap
+# -Xms2g
+# -Xmx2g
+
+# JVM Dump
+-XX:+HeapDumpOnOutOfMemoryError
+-XX:HeapDumpPath=/tmp/seatunnel/dump/zeta-server
+
+# Metaspace
+-XX:MaxMetaspaceSize=2g
+
+# G1GC
+-XX:+UseG1GC
