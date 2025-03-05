@@ -37,15 +37,11 @@ public class ClickhouseSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     private final String sql;
     private final SeaTunnelRowType rowTypeInfo;
 
-    public ClickhouseSource(
-            List<ClickHouseNode> servers,
-            CatalogTable catalogTable,
-            String sql,
-            SeaTunnelRowType rowTypeInfo) {
+    public ClickhouseSource(List<ClickHouseNode> servers, CatalogTable catalogTable, String sql) {
         this.servers = servers;
         this.catalogTable = catalogTable;
         this.sql = sql;
-        this.rowTypeInfo = rowTypeInfo;
+        this.rowTypeInfo = catalogTable.getSeaTunnelRowType();
     }
 
     @Override
