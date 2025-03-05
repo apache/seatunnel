@@ -50,6 +50,20 @@ public class FileSinkConfigTest {
     }
 
     @Test
+    public void testConfigInitDefault() throws Exception {
+        URL conf = OrcReadStrategyTest.class.getResource("/test_write_hdfs_default_format.conf");
+        Assertions.assertNotNull(conf);
+        String confPath = Paths.get(conf.toURI()).toString();
+        Config config = ConfigFactory.parseFile(new File(confPath));
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"data", "ts"},
+                        new SeaTunnelDataType[] {BasicType.STRING_TYPE, BasicType.STRING_TYPE});
+        Assertions.assertDoesNotThrow(() -> new FileSinkConfig(config, rowType));
+    }
+
+    @Test
     public void testSinkColumnsGreaterThanSource() throws Exception {
         URL conf = OrcReadStrategyTest.class.getResource("/test_write_hive.conf");
         Assertions.assertNotNull(conf);

@@ -16,10 +16,13 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.opengauss;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialectFactory;
 
 import com.google.auto.service.AutoService;
+
+import javax.annotation.Nonnull;
 
 @AutoService(JdbcDialectFactory.class)
 public class OpenGaussDialectFactory extends PostgresDialectFactory {
@@ -27,5 +30,15 @@ public class OpenGaussDialectFactory extends PostgresDialectFactory {
     @Override
     public boolean acceptsURL(String url) {
         return url.startsWith("jdbc:opengauss:");
+    }
+
+    @Override
+    public JdbcDialect create() {
+        return new OpenGaussDialect();
+    }
+
+    @Override
+    public JdbcDialect create(@Nonnull String compatibleMode, String fieldIde) {
+        return new OpenGaussDialect();
     }
 }

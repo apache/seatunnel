@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
+import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
@@ -41,6 +42,7 @@ public class PlanUtils {
             @NonNull JobImmutableInformation jobImmutableInformation,
             long initializationTimestamp,
             @NonNull ExecutorService executorService,
+            @NonNull ClassLoaderService classLoaderService,
             @NonNull FlakeIdGenerator flakeIdGenerator,
             @NonNull IMap runningJobStateIMap,
             @NonNull IMap runningJobStateTimestampsIMap,
@@ -54,6 +56,7 @@ public class PlanUtils {
                         jobImmutableInformation,
                         initializationTimestamp,
                         executorService,
+                        classLoaderService,
                         flakeIdGenerator,
                         runningJobStateIMap,
                         runningJobStateTimestampsIMap,

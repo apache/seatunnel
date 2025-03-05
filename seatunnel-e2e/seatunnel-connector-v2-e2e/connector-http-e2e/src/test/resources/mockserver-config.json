@@ -4478,6 +4478,35 @@
   },
   {
     "httpRequest": {
+      "method" : "POST",
+      "path": "/example/jsonBody/dynamic/param",
+      "body": {
+        "type": "JSON",
+        "json": {
+          "id": 1,
+          "pageIndex": 2
+        },
+        "matchType": "STRICT"
+      }
+    },
+    "httpResponse": {
+      "body": [
+        {
+          "name": "lzl",
+          "age": 18
+        },
+        {
+          "name": "pizz",
+          "age": 19
+        }
+      ],
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  },
+  {
+    "httpRequest": {
       "path": "/example/formBody",
       "method": "POST",
       "body": {

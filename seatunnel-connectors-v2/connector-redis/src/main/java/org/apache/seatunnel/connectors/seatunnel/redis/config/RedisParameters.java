@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisSingleClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.core.util.Assert;
 
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -171,21 +172,18 @@ public class RedisParameters implements Serializable {
                 return jedis;
             case CLUSTER:
                 HashSet<HostAndPort> nodes = new HashSet<>();
-                HostAndPort node = new HostAndPort(host, port);
-                nodes.add(node);
-                if (!redisNodes.isEmpty()) {
-                    for (String redisNode : redisNodes) {
-                        String[] splits = redisNode.split(":");
-                        if (splits.length != 2) {
-                            throw new RedisConnectorException(
-                                    INVALID_CONFIG,
-                                    "Invalid redis node information,"
-                                            + "redis node information must like as the following: [host:port]");
-                        }
-                        HostAndPort hostAndPort =
-                                new HostAndPort(splits[0], Integer.parseInt(splits[1]));
-                        nodes.add(hostAndPort);
+                Assert.requireNonEmpty(redisNodes, "nodes parameter must not be empty");
+                for (String redisNode : redisNodes) {
+                    String[] splits = redisNode.split(":");
+                    if (splits.length != 2) {
+                        throw new RedisConnectorException(
+                                INVALID_CONFIG,
+                                "Invalid redis node information,"
+                                        + "redis node information must like as the following: [host:port]");
                     }
+                    HostAndPort hostAndPort =
+                            new HostAndPort(splits[0], Integer.parseInt(splits[1]));
+                    nodes.add(hostAndPort);
                 }
                 ConnectionPoolConfig connectionPoolConfig = new ConnectionPoolConfig();
                 JedisCluster jedisCluster;
