@@ -42,8 +42,8 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.*;
 
-@AutoService(Factory.class)
-public class ClickhouseSourceFactory implements TableSourceFactory {
+@AutoService(Factory.class) public class ClickhouseSourceFactory
+        implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
         return "Clickhouse";
@@ -59,7 +59,7 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
         String sql = readonlyConfig.get(SQL);
         ClickHouseNode currentServer = nodes.get(ThreadLocalRandom.current().nextInt(nodes.size()));
         try (ClickHouseClient client = ClickHouseClient.newInstance(currentServer.getProtocol());
-                ClickHouseResponse response =
+             ClickHouseResponse response =
                         client.connect(currentServer)
                                 .format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
                                 .query(modifySQLToLimit1(sql))
