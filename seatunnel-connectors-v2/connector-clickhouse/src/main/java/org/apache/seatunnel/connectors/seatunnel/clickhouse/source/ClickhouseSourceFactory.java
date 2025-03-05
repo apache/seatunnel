@@ -17,13 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
-import com.clickhouse.client.ClickHouseClient;
-import com.clickhouse.client.ClickHouseColumn;
-import com.clickhouse.client.ClickHouseException;
-import com.clickhouse.client.ClickHouseFormat;
-import com.clickhouse.client.ClickHouseNode;
-import com.clickhouse.client.ClickHouseResponse;
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
@@ -41,6 +34,14 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseUtil;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.TypeConvertUtil;
+
+import com.clickhouse.client.ClickHouseClient;
+import com.clickhouse.client.ClickHouseColumn;
+import com.clickhouse.client.ClickHouseException;
+import com.clickhouse.client.ClickHouseFormat;
+import com.clickhouse.client.ClickHouseNode;
+import com.clickhouse.client.ClickHouseResponse;
+import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 import java.util.Collections;
