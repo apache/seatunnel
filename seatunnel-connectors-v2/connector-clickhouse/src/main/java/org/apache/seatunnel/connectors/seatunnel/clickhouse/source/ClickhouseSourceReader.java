@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.TypeConvertUtil;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
+import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
 import com.clickhouse.client.ClickHouseClient;
 import com.clickhouse.client.ClickHouseFormat;
@@ -29,8 +31,6 @@ import com.clickhouse.client.ClickHouseNode;
 import com.clickhouse.client.ClickHouseRequest;
 import com.clickhouse.client.ClickHouseResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
-import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
 import java.io.IOException;
 import java.util.List;
@@ -45,7 +45,6 @@ public class ClickhouseSourceReader extends AbstractSingleSplitReader<SeaTunnelR
     private final SingleSplitReaderContext readerContext;
     private ClickHouseRequest<?> request;
     private final String sql;
-
 
     ClickhouseSourceReader(
             List<ClickHouseNode> servers,
@@ -76,7 +75,6 @@ public class ClickhouseSourceReader extends AbstractSingleSplitReader<SeaTunnelR
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         synchronized (output.getCheckpointLock()) {
-
             try (ClickHouseResponse response = this.request.query(sql).executeAndWait()) {
                 response.stream()
                         .forEach(

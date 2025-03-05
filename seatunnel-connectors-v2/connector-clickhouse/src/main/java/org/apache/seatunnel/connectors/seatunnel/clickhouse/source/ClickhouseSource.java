@@ -21,11 +21,11 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-
-import com.clickhouse.client.ClickHouseNode;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+
+import com.clickhouse.client.ClickHouseNode;
 
 import java.util.Collections;
 import java.util.List;
@@ -37,7 +37,11 @@ public class ClickhouseSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     private final String sql;
     private final SeaTunnelRowType rowTypeInfo;
 
-    public ClickhouseSource(List<ClickHouseNode> servers, CatalogTable catalogTable, String sql, SeaTunnelRowType rowTypeInfo) {
+    public ClickhouseSource(
+            List<ClickHouseNode> servers,
+            CatalogTable catalogTable,
+            String sql,
+            SeaTunnelRowType rowTypeInfo) {
         this.servers = servers;
         this.catalogTable = catalogTable;
         this.sql = sql;
@@ -58,7 +62,6 @@ public class ClickhouseSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     public List<CatalogTable> getProducedCatalogTables() {
         return Collections.singletonList(catalogTable);
     }
-
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
+import com.clickhouse.client.*;
+import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
@@ -33,25 +35,12 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.Clickhouse
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseUtil;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.TypeConvertUtil;
 
-import com.clickhouse.client.ClickHouseClient;
-import com.clickhouse.client.ClickHouseColumn;
-import com.clickhouse.client.ClickHouseException;
-import com.clickhouse.client.ClickHouseFormat;
-import com.clickhouse.client.ClickHouseNode;
-import com.clickhouse.client.ClickHouseResponse;
-import com.google.auto.service.AutoService;
-
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.CLICKHOUSE_CONFIG;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SQL;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.*;
 
 @AutoService(Factory.class)
 public class ClickhouseSourceFactory implements TableSourceFactory {
@@ -65,7 +54,8 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         ReadonlyConfig readonlyConfig = context.getOptions();
         List<ClickHouseNode> nodes = ClickhouseUtil.createNodes(readonlyConfig);
-        SeaTunnelRowType rowTypeInfo = CatalogTableUtil.buildWithConfig(readonlyConfig).getSeaTunnelRowType();
+        SeaTunnelRowType rowTypeInfo =
+                CatalogTableUtil.buildWithConfig(readonlyConfig).getSeaTunnelRowType();
         String sql = readonlyConfig.get(SQL);
         ClickHouseNode currentServer = nodes.get(ThreadLocalRandom.current().nextInt(nodes.size()));
         try (ClickHouseClient client = ClickHouseClient.newInstance(currentServer.getProtocol());
