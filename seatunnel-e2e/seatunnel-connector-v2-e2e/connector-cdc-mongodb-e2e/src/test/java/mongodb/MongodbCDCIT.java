@@ -359,7 +359,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
     public void testResumeTokenFailureRecovery(TestContainer container) throws Exception {
         cleanSourceTable();
         String jobId = String.valueOf(JobIdGenerator.newJobId());
-        String jobConfigFile = "/mongodbcdc_to_mysql.conf"; // 使用与其他测试相同的配置
+        String jobConfigFile = "/mongodbcdc_to_mysql.conf";
 
         CompletableFuture.supplyAsync(
                 () -> {
@@ -382,7 +382,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
 
         // savepoint
         Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
-        TimeUnit.SECONDS.sleep(5); // 等待savepoint完成
+        TimeUnit.SECONDS.sleep(5);
 
         // modify resume token
         modifyResumeTokenInCheckpoint(jobId, container);
