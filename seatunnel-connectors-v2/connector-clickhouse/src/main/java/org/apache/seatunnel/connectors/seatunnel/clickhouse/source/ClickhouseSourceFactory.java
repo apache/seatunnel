@@ -22,14 +22,12 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
-import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.catalog.*;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseUtil;
@@ -67,7 +65,7 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         ReadonlyConfig readonlyConfig = context.getOptions();
         List<ClickHouseNode> nodes = ClickhouseUtil.createNodes(readonlyConfig);
-
+        SeaTunnelRowType rowTypeInfo = CatalogTableUtil.buildWithConfig(readonlyConfig).getSeaTunnelRowType();
         String sql = readonlyConfig.get(SQL);
         ClickHouseNode currentServer = nodes.get(ThreadLocalRandom.current().nextInt(nodes.size()));
         try (ClickHouseClient client = ClickHouseClient.newInstance(currentServer.getProtocol());
@@ -103,7 +101,7 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
                             catalogName);
             return () ->
                     (SeaTunnelSource<T, SplitT, StateT>)
-                            new ClickhouseSource(nodes, catalogTable, sql);
+                            new ClickhouseSource(nodes, catalogTable, sql, rowTypeInfo);
         } catch (ClickHouseException e) {
             throw new ClickhouseConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
