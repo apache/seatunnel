@@ -45,16 +45,12 @@ public class SftpFileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(SftpFileSourceOptions.FILE_PATH)
-                .optional(SftpFileSourceOptions.SFTP_HOST)
-                .optional(SftpFileSourceOptions.SFTP_PORT)
-                .optional(SftpFileSourceOptions.SFTP_USER)
-                .optional(SftpFileSourceOptions.SFTP_PASSWORD)
-                .optional(FileBaseSourceOptions.FILE_FORMAT_TYPE)
-                .conditional(
-                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
-                        FileFormat.TEXT,
-                        FileBaseSourceOptions.FIELD_DELIMITER)
+                .required(SftpFileSourceOptions.FILE_PATH)
+                .required(SftpFileSourceOptions.SFTP_HOST)
+                .required(SftpFileSourceOptions.SFTP_PORT)
+                .required(SftpFileSourceOptions.SFTP_USER)
+                .required(SftpFileSourceOptions.SFTP_PASSWORD)
+                .required(FileBaseSourceOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.XML,
@@ -69,13 +65,16 @@ public class SftpFileSourceFactory implements TableSourceFactory {
                                 FileFormat.CSV,
                                 FileFormat.XML),
                         ConnectorCommonOptions.SCHEMA)
+                .optional(FileBaseSourceOptions.ENCODING)
+                .optional(FileBaseSourceOptions.READ_COLUMNS)
+                .optional(FileBaseSourceOptions.FIELD_DELIMITER)
+                .optional(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
                 .optional(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH)
                 .optional(FileBaseSourceOptions.DATE_FORMAT)
                 .optional(FileBaseSourceOptions.DATETIME_FORMAT)
                 .optional(FileBaseSourceOptions.TIME_FORMAT)
+                .optional(FileBaseSourceOptions.SHEET_NAME)
                 .optional(FileBaseSourceOptions.FILE_FILTER_PATTERN)
-                .optional(FileBaseSourceOptions.COMPRESS_CODEC)
-                .optional(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC)
                 .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
                 .build();

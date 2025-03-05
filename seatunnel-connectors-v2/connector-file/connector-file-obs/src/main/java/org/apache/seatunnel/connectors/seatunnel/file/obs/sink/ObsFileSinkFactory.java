@@ -46,32 +46,13 @@ public class ObsFileSinkFactory implements TableSinkFactory {
                 .optional(FileBaseSinkOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         FileBaseSinkOptions.FILE_FORMAT_TYPE,
-                        FileFormat.TEXT,
-                        FileBaseSinkOptions.ROW_DELIMITER,
-                        FileBaseSinkOptions.FIELD_DELIMITER,
-                        FileBaseSinkOptions.TXT_COMPRESS)
-                .conditional(
-                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
-                        FileFormat.CSV,
-                        FileBaseSinkOptions.TXT_COMPRESS)
-                .conditional(
-                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
-                        FileFormat.JSON,
-                        FileBaseSinkOptions.TXT_COMPRESS)
-                .conditional(
-                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
-                        FileFormat.ORC,
-                        FileBaseSinkOptions.ORC_COMPRESS)
-                .conditional(
-                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
-                        FileFormat.PARQUET,
-                        FileBaseSinkOptions.PARQUET_COMPRESS)
+                        FileFormat.XML,
+                        FileBaseSinkOptions.XML_USE_ATTR_FORMAT)
                 .optional(FileBaseSinkOptions.CUSTOM_FILENAME)
                 .conditional(
                         FileBaseSinkOptions.CUSTOM_FILENAME,
                         true,
-                        FileBaseSinkOptions.FILE_NAME_EXPRESSION,
-                        FileBaseSinkOptions.FILENAME_TIME_FORMAT)
+                        FileBaseSinkOptions.FILE_NAME_EXPRESSION)
                 .optional(FileBaseSinkOptions.HAVE_PARTITION)
                 .conditional(
                         FileBaseSinkOptions.HAVE_PARTITION,
@@ -80,10 +61,21 @@ public class ObsFileSinkFactory implements TableSinkFactory {
                         FileBaseSinkOptions.PARTITION_DIR_EXPRESSION,
                         FileBaseSinkOptions.IS_PARTITION_FIELD_WRITE_IN_FILE)
                 .optional(FileBaseSinkOptions.SINK_COLUMNS)
+                .optional(FileBaseSinkOptions.COMPRESS_CODEC)
+                .optional(FileBaseSinkOptions.ENABLE_HEADER_WRITE)
+                .optional(FileBaseSinkOptions.FIELD_DELIMITER)
+                .optional(FileBaseSinkOptions.ROW_DELIMITER)
                 .optional(FileBaseSinkOptions.IS_ENABLE_TRANSACTION)
+                .optional(FileBaseSinkOptions.FILENAME_TIME_FORMAT)
+                .optional(FileBaseSinkOptions.MAX_ROWS_IN_MEMORY)
+                .optional(FileBaseSinkOptions.SHEET_NAME)
                 .optional(FileBaseSinkOptions.DATE_FORMAT)
                 .optional(FileBaseSinkOptions.DATETIME_FORMAT)
                 .optional(FileBaseSinkOptions.TIME_FORMAT)
+                .optional(FileBaseSinkOptions.SINGLE_FILE_MODE)
+                .optional(FileBaseSinkOptions.ENCODING)
+                .optional(FileBaseSinkOptions.BATCH_SIZE)
+                .optional(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA)
                 .optional(FileBaseSinkOptions.FILENAME_EXTENSION)
                 .build();
     }

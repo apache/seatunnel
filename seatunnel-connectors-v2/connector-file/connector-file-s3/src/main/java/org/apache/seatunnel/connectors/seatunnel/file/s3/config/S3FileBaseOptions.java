@@ -23,7 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptio
 
 import java.util.Map;
 
-public class S3ConfigOptions extends FileBaseSourceOptions {
+public class S3FileBaseOptions extends FileBaseSourceOptions {
     public static final Option<String> S3_ACCESS_KEY =
             Options.key("access_key")
                     .stringType()

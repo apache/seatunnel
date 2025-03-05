@@ -50,17 +50,18 @@ public class ObsFileSourceFactory implements TableSourceFactory {
                 .required(FileBaseSourceOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
-                        FileFormat.TEXT,
-                        FileBaseSourceOptions.FIELD_DELIMITER)
-                .conditional(
-                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
                                 FileFormat.TEXT, FileFormat.JSON, FileFormat.EXCEL, FileFormat.CSV),
                         ConnectorCommonOptions.SCHEMA)
+                .optional(FileBaseSourceOptions.ENCODING)
+                .optional(FileBaseSourceOptions.READ_COLUMNS)
                 .optional(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH)
+                .optional(FileBaseSourceOptions.FIELD_DELIMITER)
+                .optional(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
                 .optional(FileBaseSourceOptions.DATE_FORMAT)
                 .optional(FileBaseSourceOptions.DATETIME_FORMAT)
                 .optional(FileBaseSourceOptions.TIME_FORMAT)
+                .optional(FileBaseSourceOptions.SHEET_NAME)
                 .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
                 .build();

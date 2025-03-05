@@ -58,14 +58,8 @@ public class LocalFileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(ConnectorCommonOptions.TABLE_CONFIGS)
-                .optional(FILE_PATH)
-                .optional(LocalFileSourceOptions.FILE_FORMAT_TYPE)
-                .optional(ENCODING)
-                .conditional(
-                        LocalFileSourceOptions.FILE_FORMAT_TYPE,
-                        FileFormat.TEXT,
-                        LocalFileSourceOptions.FIELD_DELIMITER)
+                .required(FILE_PATH)
+                .required(LocalFileSourceOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         LocalFileSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.XML,
@@ -80,15 +74,18 @@ public class LocalFileSourceFactory implements TableSourceFactory {
                                 FileFormat.CSV,
                                 FileFormat.XML),
                         ConnectorCommonOptions.SCHEMA)
+                .optional(ConnectorCommonOptions.TABLE_CONFIGS)
+                .optional(ENCODING)
+                .optional(LocalFileSourceOptions.READ_COLUMNS)
                 .optional(LocalFileSourceOptions.PARSE_PARTITION_FROM_PATH)
+                .optional(LocalFileSourceOptions.FIELD_DELIMITER)
+                .optional(LocalFileSourceOptions.SKIP_HEADER_ROW_NUMBER)
                 .optional(DATE_FORMAT)
                 .optional(DATETIME_FORMAT)
                 .optional(TIME_FORMAT)
                 .optional(SHEET_NAME)
                 .optional(LocalFileSourceOptions.EXCEL_ENGINE)
                 .optional(LocalFileSourceOptions.FILE_FILTER_PATTERN)
-                .optional(LocalFileSourceOptions.COMPRESS_CODEC)
-                .optional(LocalFileSourceOptions.ARCHIVE_COMPRESS_CODEC)
                 .optional(LocalFileSourceOptions.NULL_FORMAT)
                 .optional(LocalFileSourceOptions.FILENAME_EXTENSION)
                 .build();

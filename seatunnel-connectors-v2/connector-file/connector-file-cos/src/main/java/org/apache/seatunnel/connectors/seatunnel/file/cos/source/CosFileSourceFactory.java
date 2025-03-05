@@ -50,10 +50,6 @@ public class CosFileSourceFactory implements TableSourceFactory {
                 .required(FileBaseSourceOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
-                        FileFormat.TEXT,
-                        FileBaseSourceOptions.FIELD_DELIMITER)
-                .conditional(
-                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.XML,
                         FileBaseSourceOptions.XML_ROW_TAG,
                         FileBaseSourceOptions.XML_USE_ATTR_FORMAT)
@@ -66,13 +62,16 @@ public class CosFileSourceFactory implements TableSourceFactory {
                                 FileFormat.CSV,
                                 FileFormat.XML),
                         ConnectorCommonOptions.SCHEMA)
+                .optional(FileBaseSourceOptions.ENCODING)
+                .optional(FileBaseSourceOptions.READ_COLUMNS)
+                .optional(FileBaseSourceOptions.FIELD_DELIMITER)
+                .optional(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
                 .optional(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH)
                 .optional(FileBaseSourceOptions.DATE_FORMAT)
                 .optional(FileBaseSourceOptions.DATETIME_FORMAT)
                 .optional(FileBaseSourceOptions.TIME_FORMAT)
+                .optional(FileBaseSourceOptions.SHEET_NAME)
                 .optional(FileBaseSourceOptions.FILE_FILTER_PATTERN)
-                .optional(FileBaseSourceOptions.COMPRESS_CODEC)
-                .optional(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC)
                 .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
                 .build();

@@ -51,16 +51,12 @@ public class FtpFileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(FtpFileSourceOptions.FILE_PATH)
-                .optional(FtpFileSourceOptions.FTP_HOST)
-                .optional(FtpFileSourceOptions.FTP_PORT)
-                .optional(FtpFileSourceOptions.FTP_USERNAME)
-                .optional(FtpFileSourceOptions.FTP_PASSWORD)
-                .optional(FileBaseSourceOptions.FILE_FORMAT_TYPE)
-                .conditional(
-                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
-                        FileFormat.TEXT,
-                        FileBaseSourceOptions.FIELD_DELIMITER)
+                .required(FtpFileSourceOptions.FILE_PATH)
+                .required(FtpFileSourceOptions.FTP_HOST)
+                .required(FtpFileSourceOptions.FTP_PORT)
+                .required(FtpFileSourceOptions.FTP_USERNAME)
+                .required(FtpFileSourceOptions.FTP_PASSWORD)
+                .required(FileBaseSourceOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.XML,
@@ -75,14 +71,17 @@ public class FtpFileSourceFactory implements TableSourceFactory {
                                 FileFormat.CSV,
                                 FileFormat.XML),
                         ConnectorCommonOptions.SCHEMA)
+                .optional(FileBaseSourceOptions.ENCODING)
+                .optional(FileBaseSourceOptions.READ_COLUMNS)
                 .optional(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH)
+                .optional(FileBaseSourceOptions.FIELD_DELIMITER)
+                .optional(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
                 .optional(FileBaseSourceOptions.DATE_FORMAT)
                 .optional(FileBaseSourceOptions.DATETIME_FORMAT)
                 .optional(FileBaseSourceOptions.TIME_FORMAT)
+                .optional(FileBaseSourceOptions.SHEET_NAME)
                 .optional(FileBaseSourceOptions.FILE_FILTER_PATTERN)
-                .optional(FileBaseSourceOptions.COMPRESS_CODEC)
                 .optional(FtpFileSourceOptions.FTP_CONNECTION_MODE)
-                .optional(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC)
                 .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
                 .build();

@@ -54,7 +54,7 @@ public class LocalFileSinkFactory extends BaseMultipleTableFileSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(FILE_PATH)
-                .required(LocalFileSinkOptions.FILE_FORMAT_TYPE)
+                .optional(LocalFileSinkOptions.FILE_FORMAT_TYPE)
                 .optional(LocalFileSinkOptions.TMP_PATH)
                 .optional(LocalFileSinkOptions.SCHEMA_SAVE_MODE)
                 .optional(LocalFileSinkOptions.DATA_SAVE_MODE)
@@ -65,8 +65,7 @@ public class LocalFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .conditional(
                         LocalFileSinkOptions.CUSTOM_FILENAME,
                         true,
-                        LocalFileSinkOptions.FILE_NAME_EXPRESSION,
-                        LocalFileSinkOptions.FILENAME_TIME_FORMAT)
+                        LocalFileSinkOptions.FILE_NAME_EXPRESSION)
                 .optional(LocalFileSinkOptions.HAVE_PARTITION)
                 .conditional(
                         LocalFileSinkOptions.HAVE_PARTITION,
@@ -76,6 +75,7 @@ public class LocalFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                         LocalFileSinkOptions.IS_PARTITION_FIELD_WRITE_IN_FILE)
                 .optional(LocalFileSinkOptions.SINK_COLUMNS)
                 .optional(LocalFileSinkOptions.IS_ENABLE_TRANSACTION)
+                .optional(LocalFileSinkOptions.FILENAME_TIME_FORMAT)
                 .optional(DATE_FORMAT)
                 .optional(DATETIME_FORMAT)
                 .optional(TIME_FORMAT)

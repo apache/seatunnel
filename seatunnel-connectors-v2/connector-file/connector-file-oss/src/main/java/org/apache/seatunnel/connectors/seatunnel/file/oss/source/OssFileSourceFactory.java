@@ -53,16 +53,12 @@ public class OssFileSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .optional(ConnectorCommonOptions.TABLE_CONFIGS)
-                .optional(FileBaseOptions.FILE_PATH)
-                .optional(OssFileSourceOptions.BUCKET)
-                .optional(OssFileSourceOptions.ACCESS_KEY)
-                .optional(OssFileSourceOptions.ACCESS_SECRET)
-                .optional(OssFileSourceOptions.ENDPOINT)
-                .optional(FileBaseSourceOptions.FILE_FORMAT_TYPE)
-                .conditional(
-                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
-                        FileFormat.TEXT,
-                        FileBaseSourceOptions.FIELD_DELIMITER)
+                .required(FileBaseOptions.FILE_PATH)
+                .required(OssFileSourceOptions.BUCKET)
+                .required(OssFileSourceOptions.ACCESS_KEY)
+                .required(OssFileSourceOptions.ACCESS_SECRET)
+                .required(OssFileSourceOptions.ENDPOINT)
+                .required(FileBaseSourceOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.XML,
@@ -77,13 +73,16 @@ public class OssFileSourceFactory implements TableSourceFactory {
                                 FileFormat.CSV,
                                 FileFormat.XML),
                         ConnectorCommonOptions.SCHEMA)
+                .optional(FileBaseSourceOptions.ENCODING)
+                .optional(FileBaseSourceOptions.READ_COLUMNS)
                 .optional(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH)
+                .optional(FileBaseSourceOptions.FIELD_DELIMITER)
+                .optional(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
                 .optional(FileBaseSourceOptions.DATE_FORMAT)
                 .optional(FileBaseSourceOptions.DATETIME_FORMAT)
                 .optional(FileBaseSourceOptions.TIME_FORMAT)
+                .optional(FileBaseSourceOptions.SHEET_NAME)
                 .optional(FileBaseSourceOptions.FILE_FILTER_PATTERN)
-                .optional(FileBaseSourceOptions.COMPRESS_CODEC)
-                .optional(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC)
                 .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
                 .build();

@@ -40,32 +40,7 @@ public class HdfsFileSinkFactory implements TableSinkFactory {
                 .required(HdfsSourceConfigOptions.DEFAULT_FS)
                 .required(FileBaseSinkOptions.FILE_PATH)
                 .optional(FileBaseSinkOptions.FILE_FORMAT_TYPE)
-                .conditional(
-                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
-                        FileFormat.TEXT,
-                        FileBaseSinkOptions.ROW_DELIMITER,
-                        FileBaseSinkOptions.FIELD_DELIMITER,
-                        FileBaseSinkOptions.TXT_COMPRESS,
-                        FileBaseSinkOptions.ENABLE_HEADER_WRITE)
-                .conditional(
-                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
-                        FileFormat.CSV,
-                        FileBaseSinkOptions.TXT_COMPRESS,
-                        FileBaseSinkOptions.ENABLE_HEADER_WRITE)
-                .conditional(
-                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
-                        FileFormat.JSON,
-                        FileBaseSinkOptions.TXT_COMPRESS)
-                .conditional(
-                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
-                        FileFormat.ORC,
-                        FileBaseSinkOptions.ORC_COMPRESS)
-                .conditional(
-                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
-                        FileFormat.PARQUET,
-                        FileBaseSinkOptions.PARQUET_COMPRESS,
-                        FileBaseSinkOptions.PARQUET_AVRO_WRITE_FIXED_AS_INT96,
-                        FileBaseSinkOptions.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96)
+                .optional(FileBaseSinkOptions.TMP_PATH)
                 .conditional(
                         FileBaseSinkOptions.FILE_FORMAT_TYPE,
                         FileFormat.XML,
@@ -74,8 +49,7 @@ public class HdfsFileSinkFactory implements TableSinkFactory {
                 .conditional(
                         FileBaseSinkOptions.CUSTOM_FILENAME,
                         true,
-                        FileBaseSinkOptions.FILE_NAME_EXPRESSION,
-                        FileBaseSinkOptions.FILENAME_TIME_FORMAT)
+                        FileBaseSinkOptions.FILE_NAME_EXPRESSION)
                 .optional(FileBaseSinkOptions.HAVE_PARTITION)
                 .conditional(
                         FileBaseSinkOptions.HAVE_PARTITION,
@@ -84,11 +58,23 @@ public class HdfsFileSinkFactory implements TableSinkFactory {
                         FileBaseSinkOptions.PARTITION_DIR_EXPRESSION,
                         FileBaseSinkOptions.IS_PARTITION_FIELD_WRITE_IN_FILE)
                 .optional(FileBaseSinkOptions.SINK_COLUMNS)
+                .optional(FileBaseSinkOptions.COMPRESS_CODEC)
+                .optional(FileBaseSinkOptions.ENABLE_HEADER_WRITE)
+                .optional(FileBaseSinkOptions.FIELD_DELIMITER)
+                .optional(FileBaseSinkOptions.ROW_DELIMITER)
                 .optional(FileBaseSinkOptions.IS_ENABLE_TRANSACTION)
+                .optional(FileBaseSinkOptions.FILENAME_TIME_FORMAT)
+                .optional(FileBaseSinkOptions.MAX_ROWS_IN_MEMORY)
+                .optional(FileBaseSinkOptions.SHEET_NAME)
                 .optional(FileBaseSinkOptions.DATE_FORMAT)
                 .optional(FileBaseSinkOptions.DATETIME_FORMAT)
                 .optional(FileBaseSinkOptions.TIME_FORMAT)
+                .optional(FileBaseSinkOptions.XML_ROOT_TAG)
+                .optional(FileBaseSinkOptions.XML_ROW_TAG)
+                .optional(FileBaseSinkOptions.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96)
+                .optional(FileBaseSinkOptions.PARQUET_AVRO_WRITE_FIXED_AS_INT96)
                 .optional(FileBaseSinkOptions.SINGLE_FILE_MODE)
+                .optional(FileBaseSinkOptions.ENCODING)
                 .optional(FileBaseSinkOptions.BATCH_SIZE)
                 .optional(FileBaseSinkOptions.HDFS_SITE_PATH)
                 .optional(FileBaseSinkOptions.KERBEROS_PRINCIPAL)
