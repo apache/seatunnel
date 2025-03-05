@@ -42,7 +42,6 @@ import com.aerospike.client.policy.WritePolicy;
 import com.alibaba.fastjson.JSON;
 
 import java.time.Duration;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public abstract class AbstractAerospikeIT extends TestSuiteBase implements TestResource {
 
