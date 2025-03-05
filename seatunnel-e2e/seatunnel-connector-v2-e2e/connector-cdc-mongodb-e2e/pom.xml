@@ -27,6 +27,7 @@
 
     <properties>
         <mysql.version>8.0.16</mysql.version>
+        <hadoop.version>3.3.4</hadoop.version>
     </properties>
 
     <dependencies>
@@ -73,6 +74,12 @@
             <artifactId>seatunnel-transforms-v2</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-common</artifactId>
+            <version>${hadoop.version}</version>
         </dependency>
 
         <dependency>
