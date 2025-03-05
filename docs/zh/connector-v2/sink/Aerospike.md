@@ -31,21 +31,21 @@
 ## 数据类型映射
 
 | SeaTunnel 数据类型 | Aerospike 数据类型 | 存储格式                                                                       |
-|--------------------|--------------------|------------------------------------------------------------------------------|
-| STRING             | STRING             | 直接存储字符串                                                               |
-| INT                | INTEGER            | 32位整型                                                                     |
-| BIGINT             | LONG               | 64位整型                                                                     |
-| FLOAT              | FLOAT              | 32位浮点数                                                                   |
-| DOUBLE             | DOUBLE             | 64位浮点数                                                                   |
-| BOOLEAN            | BOOLEAN            | 存储为 true/false 值                                                         |
-| MAP                | MAP                | JSON格式的Map结构                                                            |
-| ARRAY              | LIST               | JSON格式的数组结构                                                           |
-| DATE               | LONG               | 纪元时间毫秒数 (1970-01-01 00:00:00 UTC)                                    |
-| TIMESTAMP          | LONG               | 纪元时间毫秒数 (1970-01-01 00:00:00 UTC)                                    |
+|----------------|--------------------|------------------------------------------------------------------------------|
+| STRING         | STRING             | 直接存储字符串                                                               |
+| INT            | INTEGER            | 32位整型                                                                     |
+| BIGINT         | LONG               | 64位整型                                                                     |
+| DOUBLE         | DOUBLE             | 64位浮点数                                                                   |
+| BOOLEAN        | BOOLEAN            | 存储为 true/false 值                                                         |
+| ARRAY          | BYTEARRAY          | 仅支持字节数组类型                                                           |
+| LIST           | LIST               | 支持泛型列表类型                                                             |
+| DATE           | LONG               | 转换为纪元时间毫秒数                                                        |
+| TIMESTAMP      | LONG               | 转换为纪元时间毫秒数                                                        |
 
 注意事项：
-- 复杂类型（MAP/LIST）需要 Aerospike 服务端版本 4.4.0+ (与连接器依赖版本匹配)
-- DATE/TIMESTAMP 类型会自动转换为 LONG 类型存储
+- 使用ARRAY类型时，SeaTunnel数组元素必须是byte类型
+- LIST类型支持可序列化的任意元素类型
+- DATE/TIMESTAMP转换使用系统默认时区
 
 ## 配置选项
 

@@ -39,11 +39,17 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.TypeReference;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private final SeaTunnelRowType seaTunnelRowType;
@@ -92,7 +98,14 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                     for (String fieldName : typeConverter.getFieldNames()) {
                         filteredMap.put(fieldName, dataMap.get(fieldName));
                     }
-                    Bin dataBin = new Bin(config.get(AerospikeSinkOptions.BIN_NAME), filteredMap);
+                    Map<String, Object> convertedMap = new HashMap<>();
+                    for (Map.Entry<String, Object> entry : filteredMap.entrySet()) {
+                        String fieldName = entry.getKey();
+                        Object value = entry.getValue();
+                        AerospikeDataType dataType = typeConverter.getFieldType(fieldName);
+                        convertedMap.put(fieldName, convertValue(value, dataType));
+                    }
+                    Bin dataBin = new Bin(config.get(AerospikeSinkOptions.BIN_NAME), convertedMap);
                     aerospikeClient.put(writePolicy, aerospikeKey, dataBin);
                     break;
 
@@ -174,13 +187,14 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
             case LONG:
                 if (value instanceof Number) {
                     return ((Number) value).longValue();
+                } else if (value instanceof TemporalAccessor) {
+                    return convertTimestampToLong(value);
+                } else if (value instanceof String) {
+                    Optional<Long> timestamp = tryParseDateTime((String) value);
+                    return timestamp.orElseGet(() -> Long.parseLong((String) value));
+                } else {
+                    return Long.parseLong(value.toString());
                 }
-                return Long.parseLong(value.toString());
-            case FLOAT:
-                if (value instanceof Number) {
-                    return ((Number) value).floatValue();
-                }
-                return Float.parseFloat(value.toString());
             case DOUBLE:
                 if (value instanceof Number) {
                     return ((Number) value).doubleValue();
@@ -191,8 +205,12 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                     return value;
                 }
                 return Boolean.parseBoolean(value.toString());
-            case MAP:
-                return value;
+            case BYTEARRAY:
+                if (value.getClass().isArray()) {
+                    return value;
+                }
+                throw new IllegalArgumentException(
+                        "Expected Array type but got: " + value.getClass());
             case LIST:
                 if (value instanceof Iterable) {
                     return value;
@@ -202,5 +220,36 @@ public class AerospikeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
             default:
                 throw new IllegalArgumentException("Unsupported AEROSPIKE data type: " + dataType);
         }
+    }
+
+    private long parseDateTimeString(String datetime) {
+        try {
+            return LocalDateTime.parse(datetime)
+                    .atZone(ZoneId.systemDefault())
+                    .toInstant()
+                    .toEpochMilli();
+        } catch (DateTimeParseException e) {
+            try {
+                return Instant.parse(datetime).toEpochMilli();
+            } catch (DateTimeParseException ex) {
+                throw new IllegalArgumentException("Unsupported datetime format: " + datetime);
+            }
+        }
+    }
+
+    private Optional<Long> tryParseDateTime(String datetime) {
+        try {
+            return Optional.of(parseDateTimeString(datetime));
+        } catch (DateTimeParseException e) {
+            return Optional.empty();
+        }
+    }
+
+    private long convertTimestampToLong(Object timestamp) {
+        if (timestamp instanceof TemporalAccessor) {
+            Instant instant = Instant.from((TemporalAccessor) timestamp);
+            return instant.toEpochMilli();
+        }
+        throw new IllegalArgumentException("Unsupported timestamp type: " + timestamp.getClass());
     }
 }

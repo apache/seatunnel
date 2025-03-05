@@ -32,20 +32,20 @@ Sink connector for Aerospike database.
 
 | SeaTunnel Data Type | Aerospike Data Type | Storage Format                                                                 |
 |---------------------|---------------------|--------------------------------------------------------------------------------|
-| STRING              | STRING              | Direct string storage                                                          |
-| INT                 | INTEGER             | 32-bit integer                                                                 |
-| BIGINT              | LONG                | 64-bit integer                                                                 |
-| FLOAT               | FLOAT               | 32-bit floating point                                                          |
-| DOUBLE              | DOUBLE              | 64-bit floating point                                                          |
-| BOOLEAN             | BOOLEAN             | Stored as true/false values                                                    |
-| MAP                 | MAP                 | JSON-style map structure                                                       |
-| ARRAY               | LIST                | JSON-style array structure                                                     |
-| DATE                | LONG                | Milliseconds since epoch (1970-01-01 00:00:00 UTC)                             |
-| TIMESTAMP           | LONG                | Milliseconds since epoch (1970-01-01 00:00:00 UTC)                             |
+| STRING              | STRING              | Direct string storage                                                         |
+| INT                 | INTEGER             | 32-bit integer                                                                |
+| BIGINT              | LONG                | 64-bit integer                                                                |
+| DOUBLE              | DOUBLE              | 64-bit floating point                                                         |
+| BOOLEAN             | BOOLEAN             | Stored as true/false values                                                   |
+| ARRAY               | BYTEARRAY           | Only support byte array type                                                  |
+| LIST                | LIST                | Support generic list types                                                   |
+| DATE                | LONG                | Converted to epoch milliseconds                                              |
+| TIMESTAMP           | LONG                | Converted to epoch milliseconds                                              |
 
 Note:
-- Complex types (MAP/LIST) require Aerospike server 4.4.0+ (matching connector dependency version)
-- DATE/TIMESTAMP will be automatically converted to LONG type
+- When using ARRAY type, SeaTunnel's array elements must be byte type
+- LIST type supports any element types that can be serialized
+- DATE/TIMESTAMP conversion uses system default time zone
 
 ## Options
 

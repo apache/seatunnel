@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.aerospike.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeDataType;
@@ -75,26 +74,17 @@ public class AerospikeTypeConverter {
                 return AerospikeDataType.INTEGER;
             case BIGINT:
                 return AerospikeDataType.LONG;
-            case FLOAT:
-                return AerospikeDataType.FLOAT;
             case DOUBLE:
                 return AerospikeDataType.DOUBLE;
             case BOOLEAN:
                 return AerospikeDataType.BOOLEAN;
-            case MAP:
-                if (!(seaTunnelType instanceof MapType)) {
-                    throw new AerospikeConnectorException(
-                            AerospikeErrorCode.UNSUPPORTED_DATA_TYPE,
-                            "Invalid MAP type: " + seaTunnelType.getClass().getSimpleName());
-                }
-                return AerospikeDataType.MAP;
             case ARRAY:
                 if (!(seaTunnelType instanceof ArrayType)) {
                     throw new AerospikeConnectorException(
                             AerospikeErrorCode.UNSUPPORTED_DATA_TYPE,
                             "Invalid ARRAY type: " + seaTunnelType.getClass().getSimpleName());
                 }
-                return AerospikeDataType.LIST;
+                return AerospikeDataType.BYTEARRAY;
             case DATE:
             case TIMESTAMP:
                 return AerospikeDataType.LONG;
