@@ -64,7 +64,8 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | sheet_name                | string  | no       | -                   |
 | xml_row_tag               | string  | no       | -                   |
 | xml_use_attr_format       | boolean | no       | -                   |
-| file_filter_pattern       | string  | no       |                     |
+| file_filter_pattern       | string  | no       | -                   |
+| filename_extension            | string  | no       | -                   |
 | compress_codec            | string  | no       | none                |
 | archive_compress_codec    | string  | no       | none                |
 | encoding                  | string  | no       | UTF-8               |
@@ -323,6 +324,10 @@ The result of this example matching is:
 /data/seatunnel/20241002/abcg202410.csv
 /data/seatunnel/20241005/old_data.csv
 ```
+
+### filename_extension [string]
+
+Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.
 
 ### compress_codec [string]
 

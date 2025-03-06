@@ -159,7 +159,8 @@ public class ExecutionPlanGenerator {
                     return 0;
                 });
         for (LogicalEdge logicalEdge : sortedLogicalEdges) {
-            LogicalVertex logicalInputVertex = logicalEdge.getInputVertex();
+            LogicalVertex logicalInputVertex =
+                    logicalPlan.getLogicalVertexMap().get(logicalEdge.getInputVertexId());
             ExecutionVertex executionInputVertex =
                     logicalVertexIdToExecutionVertexMap.computeIfAbsent(
                             logicalInputVertex.getVertexId(),
@@ -176,7 +177,8 @@ public class ExecutionPlanGenerator {
                                         logicalInputVertex.getParallelism());
                             });
 
-            LogicalVertex logicalTargetVertex = logicalEdge.getTargetVertex();
+            LogicalVertex logicalTargetVertex =
+                    logicalPlan.getLogicalVertexMap().get(logicalEdge.getTargetVertexId());
             ExecutionVertex executionTargetVertex =
                     logicalVertexIdToExecutionVertexMap.computeIfAbsent(
                             logicalTargetVertex.getVertexId(),

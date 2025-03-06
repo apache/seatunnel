@@ -354,7 +354,9 @@ public class SystemLoadCalculateTest {
         when(rm.getEngineConfig().getSlotServiceConfig())
                 .thenReturn(Mockito.mock(SlotServiceConfig.class));
         when(rm.getEngineConfig().getSlotServiceConfig().getAllocateStrategy())
-                .thenReturn(ServerConfigOptions.SLOT_ALLOCATE_STRATEGY.defaultValue());
+                .thenReturn(
+                        ServerConfigOptions.MasterServerConfigOptions.SLOT_ALLOCATE_STRATEGY
+                                .defaultValue());
         // Simulate ResourceRequestHandler to call calculateWeight to calculate weight
         SystemLoadStrategy systemLoadStrategy = new SystemLoadStrategy(workerLoadMap);
         systemLoadStrategy.calculateWeight(workerProfile2, workerAssignedSlots2);
@@ -459,7 +461,9 @@ public class SystemLoadCalculateTest {
         when(rm.getEngineConfig().getSlotServiceConfig())
                 .thenReturn(Mockito.mock(SlotServiceConfig.class));
         when(rm.getEngineConfig().getSlotServiceConfig().getAllocateStrategy())
-                .thenReturn(ServerConfigOptions.SLOT_ALLOCATE_STRATEGY.defaultValue());
+                .thenReturn(
+                        ServerConfigOptions.MasterServerConfigOptions.SLOT_ALLOCATE_STRATEGY
+                                .defaultValue());
 
         WorkerProfile workerProfile1 = Mockito.mock(WorkerProfile.class);
         when(workerProfile1.getAssignedSlots()).thenReturn(new SlotProfile[0]);

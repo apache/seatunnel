@@ -84,7 +84,6 @@ import com.hazelcast.core.OperationTimeoutException;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.jet.datamodel.Tuple2;
-import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.map.IMap;
@@ -92,6 +91,7 @@ import com.hazelcast.spi.impl.NodeEngine;
 import lombok.Getter;
 import lombok.NonNull;
 
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -235,19 +235,27 @@ public class JobMaster {
                         jobImmutableInformation.getJobId(),
                         jobImmutableInformation.getPluginJarsUrls()));
         ClassLoader appClassLoader = Thread.currentThread().getContextClassLoader();
-        ClassLoader classLoader =
-                seaTunnelServer
-                        .getClassLoaderService()
-                        .getClassLoader(
-                                jobImmutableInformation.getJobId(),
-                                jobImmutableInformation.getPluginJarsUrls());
+
+        List<Set<URL>> logicalVertexJarsList = jobImmutableInformation.getLogicalVertexJarsList();
+        List<ClassLoader> logicalVertexClassLoaders = new ArrayList<>();
+        for (Set<URL> urls : logicalVertexJarsList) {
+            logicalVertexClassLoaders.add(
+                    seaTunnelServer
+                            .getClassLoaderService()
+                            .getClassLoader(jobImmutableInformation.getJobId(), urls));
+        }
         logicalDag =
-                CustomClassLoadedObject.deserializeWithCustomClassLoader(
+                DAGUtils.restoreLogicalDag(
+                        jobImmutableInformation,
                         nodeEngine.getSerializationService(),
-                        classLoader,
-                        jobImmutableInformation.getLogicalDag());
+                        logicalVertexClassLoaders);
+
+        Map<Long, ClassLoader> logicalVertexIdClassLoaderMap = new HashMap<>();
+        int i = 0;
+        for (Long id : logicalDag.getLogicalVertexMap().keySet()) {
+            logicalVertexIdClassLoaderMap.put(id, logicalVertexClassLoaders.get(i++));
+        }
         try {
-            Thread.currentThread().setContextClassLoader(classLoader);
             if (!restart
                     && !logicalDag.isStartWithSavePoint()
                     && ReadonlyConfig.fromMap(logicalDag.getJobConfig().getEnvOptions())
@@ -256,8 +264,16 @@ public class JobMaster {
                 logicalDag.getLogicalVertexMap().values().stream()
                         .map(LogicalVertex::getAction)
                         .filter(action -> action instanceof SinkAction)
-                        .map(sink -> ((SinkAction<?, ?, ?, ?>) sink).getSink())
-                        .forEach(JobMaster::handleSaveMode);
+                        .forEach(
+                                sink -> {
+                                    Thread.currentThread()
+                                            .setContextClassLoader(
+                                                    logicalVertexIdClassLoaderMap.get(
+                                                            sink.getId()));
+                                    JobMaster.handleSaveMode(
+                                            ((SinkAction<?, ?, ?, ?>) sink).getSink());
+                                });
+                Thread.currentThread().setContextClassLoader(appClassLoader);
             }
 
             final Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> planTuple =
@@ -267,6 +283,7 @@ public class JobMaster {
                             jobImmutableInformation,
                             initializationTimestamp,
                             executorService,
+                            seaTunnelServer.getClassLoaderService(),
                             flakeIdGenerator,
                             runningJobStateIMap,
                             runningJobStateTimestampsIMap,
@@ -278,11 +295,11 @@ public class JobMaster {
         } finally {
             // revert to app class loader, it may be changed by PlanUtils.fromLogicalDAG
             Thread.currentThread().setContextClassLoader(appClassLoader);
-            seaTunnelServer
-                    .getClassLoaderService()
-                    .releaseClassLoader(
-                            jobImmutableInformation.getJobId(),
-                            jobImmutableInformation.getPluginJarsUrls());
+            for (Set<URL> urls : logicalVertexJarsList) {
+                seaTunnelServer
+                        .getClassLoaderService()
+                        .releaseClassLoader(jobImmutableInformation.getJobId(), urls);
+            }
         }
         Exception initException = null;
         try {

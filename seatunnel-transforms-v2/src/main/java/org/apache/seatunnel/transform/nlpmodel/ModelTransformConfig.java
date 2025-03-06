@@ -79,6 +79,9 @@ public class ModelTransformConfig implements Serializable {
                     .withFallbackKeys("inference_batch_size")
                     .withDescription("The row batch size of each process");
 
+    public static final Option<Integer> DIMENSION =
+            Options.key("dimension").intType().defaultValue(2048).withDescription("dimension");
+
     public static class CustomRequestConfig {
 
         // Custom response parsing

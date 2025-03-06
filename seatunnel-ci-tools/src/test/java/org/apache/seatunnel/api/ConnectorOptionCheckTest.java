@@ -171,7 +171,6 @@ public class ConnectorOptionCheckTest {
         Set<String> whiteList = new HashSet<>();
         whiteList.add("JdbcSinkOptions");
         whiteList.add("TypesenseSourceOptions");
-        whiteList.add("RabbitmqSourceOptions");
         whiteList.add("TypesenseSinkOptions");
         whiteList.add("EmailSinkOptions");
         whiteList.add("HudiSinkOptions");
@@ -188,7 +187,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("MongodbSinkOptions");
         whiteList.add("IoTDBSinkOptions");
         whiteList.add("EasysearchSourceOptions");
-        whiteList.add("RabbitmqSinkOptions");
         whiteList.add("IcebergSourceOptions");
         whiteList.add("HbaseSourceOptions");
         whiteList.add("PaimonSourceOptions");
@@ -199,18 +197,15 @@ public class ConnectorOptionCheckTest {
         whiteList.add("QdrantSinkOptions");
         whiteList.add("MilvusSourceOptions");
         whiteList.add("RocketMqSinkOptions");
-        whiteList.add("ClickhouseFileSinkOptions");
         whiteList.add("IcebergSinkOptions");
         whiteList.add("MaxcomputeSourceOptions");
         whiteList.add("InfluxDBSourceOptions");
         whiteList.add("InfluxDBSinkOptions");
         whiteList.add("KuduSourceOptions");
         whiteList.add("SocketSinkOptions");
-        whiteList.add("ClickhouseSinkOptions");
         whiteList.add("SelectDBSinkOptions");
         whiteList.add("PrometheusSinkOptions");
         whiteList.add("FirestoreSinkOptions");
-        whiteList.add("ClickhouseSourceOptions");
         whiteList.add("MilvusSinkOptions");
         whiteList.add("RocketMqSourceOptions");
         whiteList.add("TablestoreSinkOptions");

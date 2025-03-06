@@ -22,7 +22,7 @@ TableMerge transform plugin for merge sharding-tables.
 ```hocon
 env {
     parallelism = 1
-    job.mode = "BATCH"
+    job.mode = "STREAMING"
 }
 
 source {

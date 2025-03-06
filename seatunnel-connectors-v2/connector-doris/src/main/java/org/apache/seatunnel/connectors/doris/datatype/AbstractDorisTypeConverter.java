@@ -31,7 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Locale;
 
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.IDENTIFIER;
+import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.IDENTIFIER;
 
 @Slf4j
 public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicTypeDefine> {

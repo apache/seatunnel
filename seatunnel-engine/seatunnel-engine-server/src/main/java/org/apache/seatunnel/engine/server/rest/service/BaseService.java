@@ -63,7 +63,6 @@ import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.json.JsonValue;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.internal.util.JsonUtil;
-import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
@@ -131,15 +130,11 @@ public abstract class BaseService {
                 seaTunnelServer == null
                         ? getSeaTunnelServer(false).getClassLoaderService()
                         : seaTunnelServer.getClassLoaderService();
-        ClassLoader classLoader =
-                classLoaderService.getClassLoader(
-                        jobId, jobImmutableInformation.getPluginJarsUrls());
         LogicalDag logicalDag =
-                CustomClassLoadedObject.deserializeWithCustomClassLoader(
+                DAGUtils.restoreLogicalDag(
+                        jobImmutableInformation,
                         nodeEngine.getSerializationService(),
-                        classLoader,
-                        jobImmutableInformation.getLogicalDag());
-        classLoaderService.releaseClassLoader(jobId, jobImmutableInformation.getPluginJarsUrls());
+                        classLoaderService);
 
         String jobMetrics;
         JobStatus jobStatus;
