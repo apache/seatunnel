@@ -64,7 +64,7 @@ public class ElasticsearchSourceOptions extends ElasticsearchBaseOptions {
     public static final Option<SearchTypeEnum> SEARCH_TYPE =
             Options.key("search_type")
                     .enumType(SearchTypeEnum.class)
-                    .defaultValue(SearchTypeEnum.SQL)
+                    .defaultValue(SearchTypeEnum.DSL)
                     .withDescription("Choose dsl syntax or x-pack sql.");
 
     public static final Option<String> SQL_QUERY =
