@@ -37,7 +37,7 @@ public class ElasticsearchConfig implements Serializable {
     private Map<String, Object> query;
     private String scrollTime;
     private int scrollSize;
-    private String searchType;
+    private SearchTypeEnum searchType;
     private String sqlQuery;
 
     private CatalogTable catalogTable;

@@ -249,7 +249,7 @@ source {
 ```
 
 案例六 : sql 方式查询
-notes: sql does not support map and array types
+注意: sql查询不支持map和数组类型
 ```hocon
 source {
   Elasticsearch {

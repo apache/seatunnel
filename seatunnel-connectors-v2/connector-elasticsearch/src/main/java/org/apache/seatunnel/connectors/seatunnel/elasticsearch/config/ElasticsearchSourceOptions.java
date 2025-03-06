@@ -61,10 +61,10 @@ public class ElasticsearchSourceOptions extends ElasticsearchBaseOptions {
                     .withDescription(
                             "Amount of time Elasticsearch will keep the search context alive for scroll requests");
 
-    public static final Option<String> SEARCH_TYPE =
+    public static final Option<SearchTypeEnum> SEARCH_TYPE =
             Options.key("search_type")
-                    .stringType()
-                    .defaultValue("dsl")
+                    .enumType(SearchTypeEnum.class)
+                    .defaultValue(SearchTypeEnum.SQL)
                     .withDescription("Choose dsl syntax or x-pack sql.");
 
     public static final Option<String> SQL_QUERY =

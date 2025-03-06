@@ -41,6 +41,7 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClie
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchConfig;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SearchTypeEnum;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
 
@@ -75,7 +76,7 @@ public class ElasticsearchSource
 
         boolean sqlQuery = config.getOptional(SQL_QUERY).isPresent();
 
-        if ("sql".equalsIgnoreCase(config.get(SEARCH_TYPE)) && !sqlQuery) {
+        if (SearchTypeEnum.SQL.equals(config.get(SEARCH_TYPE)) && !sqlQuery) {
             throw new ElasticsearchConnectorException(
                     ElasticsearchConnectorErrorCode.SOURCE_CONFIG_ERROR_02,
                     ElasticsearchConnectorErrorCode.SOURCE_CONFIG_ERROR_02.getDescription());
@@ -129,7 +130,7 @@ public class ElasticsearchSource
             source = readonlyConfig.get(ElasticsearchSourceOptions.SOURCE);
             arrayColumn = readonlyConfig.get(ElasticsearchSourceOptions.ARRAY_COLUMN);
             Map<String, BasicTypeDefine<EsType>> esFieldType;
-            if ("sql".equalsIgnoreCase(readonlyConfig.get(SEARCH_TYPE))) {
+            if (SearchTypeEnum.SQL.equals(readonlyConfig.get(SEARCH_TYPE))) {
                 esFieldType = getSqlFieldTypeMapping(readonlyConfig.get(SQL_QUERY), source);
             } else {
                 esFieldType = getFieldTypeMapping(index, source);
@@ -173,7 +174,7 @@ public class ElasticsearchSource
                             Collections.emptyList(),
                             "");
         }
-        String searchType = readonlyConfig.get(SEARCH_TYPE);
+        SearchTypeEnum searchType = readonlyConfig.get(SEARCH_TYPE);
         String sqlQuery = readonlyConfig.get(ElasticsearchSourceOptions.SQL_QUERY);
         String scrollTime = readonlyConfig.get(ElasticsearchSourceOptions.SCROLL_TIME);
         int scrollSize = readonlyConfig.get(ElasticsearchSourceOptions.SCROLL_SIZE);
