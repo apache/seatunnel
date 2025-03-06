@@ -195,7 +195,8 @@ public class PrometheusSourceReader extends AbstractSingleSplitReader<SeaTunnelR
                         this.httpParameter.getMethod().getMethod(),
                         this.httpParameter.getHeaders(),
                         this.httpParameter.getParams(),
-                        this.httpParameter.getBody());
+                        this.httpParameter.getBody(),
+                        this.httpParameter.isKeepParamsAsForm());
         if (response.getCode() >= 200 && response.getCode() <= 207) {
             String content = response.getContent();
             if (!Strings.isNullOrEmpty(content)) {

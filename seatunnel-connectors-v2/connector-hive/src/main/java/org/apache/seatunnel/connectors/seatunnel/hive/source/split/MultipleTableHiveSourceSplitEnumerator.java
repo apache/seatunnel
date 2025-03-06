@@ -29,10 +29,13 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -40,9 +43,10 @@ public class MultipleTableHiveSourceSplitEnumerator
         implements SourceSplitEnumerator<FileSourceSplit, FileSourceState> {
 
     private final SourceSplitEnumerator.Context<FileSourceSplit> context;
-    private final Set<FileSourceSplit> pendingSplit;
+    private final Set<FileSourceSplit> allSplit;
     private final Set<FileSourceSplit> assignedSplit;
     private final Map<String, List<String>> filePathMap;
+    private final AtomicInteger assignCount = new AtomicInteger(0);
 
     public MultipleTableHiveSourceSplitEnumerator(
             SourceSplitEnumerator.Context<FileSourceSplit> context,
@@ -60,7 +64,7 @@ public class MultipleTableHiveSourceSplitEnumerator
                                                         .toString(),
                                         HiveSourceConfig::getFilePaths));
         this.assignedSplit = new HashSet<>();
-        this.pendingSplit = new HashSet<>();
+        this.allSplit = new TreeSet<>(Comparator.comparing(FileSourceSplit::splitId));
     }
 
     public MultipleTableHiveSourceSplitEnumerator(
@@ -76,13 +80,13 @@ public class MultipleTableHiveSourceSplitEnumerator
         if (CollectionUtils.isEmpty(splits)) {
             return;
         }
-        pendingSplit.addAll(splits);
+        allSplit.addAll(splits);
         assignSplit(subtaskId);
     }
 
     @Override
     public int currentUnassignedSplitSize() {
-        return pendingSplit.size();
+        return allSplit.size() - assignedSplit.size();
     }
 
     @Override
@@ -94,7 +98,7 @@ public class MultipleTableHiveSourceSplitEnumerator
             String tableId = filePathEntry.getKey();
             List<String> filePaths = filePathEntry.getValue();
             for (String filePath : filePaths) {
-                pendingSplit.add(new FileSourceSplit(tableId, filePath));
+                allSplit.add(new FileSourceSplit(tableId, filePath));
             }
         }
         assignSplit(subtaskId);
@@ -114,13 +118,14 @@ public class MultipleTableHiveSourceSplitEnumerator
         List<FileSourceSplit> currentTaskSplits = new ArrayList<>();
         if (context.currentParallelism() == 1) {
             // if parallelism == 1, we should assign all the splits to reader
-            currentTaskSplits.addAll(pendingSplit);
+            currentTaskSplits.addAll(allSplit);
         } else {
-            // if parallelism > 1, according to hashCode of split's id to determine whether to
+            // if parallelism > 1, according to polling strategy to determine whether to
             // allocate the current task
-            for (FileSourceSplit fileSourceSplit : pendingSplit) {
+            assignCount.set(0);
+            for (FileSourceSplit fileSourceSplit : allSplit) {
                 int splitOwner =
-                        getSplitOwner(fileSourceSplit.splitId(), context.currentParallelism());
+                        getSplitOwner(assignCount.getAndIncrement(), context.currentParallelism());
                 if (splitOwner == taskId) {
                     currentTaskSplits.add(fileSourceSplit);
                 }
@@ -130,19 +135,19 @@ public class MultipleTableHiveSourceSplitEnumerator
         context.assignSplit(taskId, currentTaskSplits);
         // save the state of assigned splits
         assignedSplit.addAll(currentTaskSplits);
-        // remove the assigned splits from pending splits
-        currentTaskSplits.forEach(pendingSplit::remove);
+
         log.info(
-                "SubTask {} is assigned to [{}]",
+                "SubTask {} is assigned to [{}], size {}",
                 taskId,
                 currentTaskSplits.stream()
                         .map(FileSourceSplit::splitId)
-                        .collect(Collectors.joining(",")));
+                        .collect(Collectors.joining(",")),
+                currentTaskSplits.size());
         context.signalNoMoreSplits(taskId);
     }
 
-    private static int getSplitOwner(String tp, int numReaders) {
-        return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
+    private static int getSplitOwner(int assignCount, int numReaders) {
+        return assignCount % numReaders;
     }
 
     @Override
