@@ -54,7 +54,6 @@ public class S3FileSinkFactory implements TableSinkFactory {
                         S3FileSinkOptions.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
                         S3FileSinkOptions.S3_ACCESS_KEY,
                         S3FileSinkOptions.S3_SECRET_KEY)
-                .optional(S3FileSinkOptions.S3_PROPERTIES)
                 .optional(FileBaseSinkOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         FileBaseSinkOptions.FILE_FORMAT_TYPE,

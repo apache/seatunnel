@@ -61,7 +61,6 @@ public class S3FileSourceFactory implements TableSourceFactory {
                         S3FileSourceOptions.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
                         S3FileSourceOptions.S3_ACCESS_KEY,
                         S3FileSourceOptions.S3_SECRET_KEY)
-                .optional(S3FileSourceOptions.S3_PROPERTIES)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.XML,
