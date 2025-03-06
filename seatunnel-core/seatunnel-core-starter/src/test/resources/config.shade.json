@@ -1,7 +1,8 @@
 {
   "env" : {
     "shade.identifier" : "base64",
-    "parallelism" : 1
+    "parallelism" : 1,
+    "shade.options": ["username", "password", "f1", "config1.f1",  "config2.list", "f2"]
   },
   "source" : [
     {
@@ -22,7 +23,13 @@
           "sex" : "boolean"
         }
       },
-      "plugin_output" : "fake"
+      "plugin_output" : "fake",
+      "f1": "c2VhdHVubmVs",
+      "config1.f1": "c2VhdHVubmVs",
+      "config2.list": ["c2VhdHVubmVsX3Bhc3N3b3Jk", "c2VhdHVubmVsX3Bhc3N3b3Jk", "c2VhdHVubmVsX3Bhc3N3b3Jk"],
+      "config3": {
+        "f2": "c2VhdHVubmVs"
+      }
     }
   ],
   "transform" : [],

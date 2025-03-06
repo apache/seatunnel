@@ -169,7 +169,7 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 
 If you assign file type to `parquet` `orc`, schema option not required, connector can find the schema of upstream data automatically.
 
-|    Orc Data type     |                      SeaTunnel Data type                       |
+| Parquet Data type    | SeaTunnel Data type                                            |
 |----------------------|----------------------------------------------------------------|
 | INT_8                | BYTE                                                           |
 | INT_16               | SHORT                                                          |
@@ -222,6 +222,7 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | encoding                        | string  | no       | UTF-8                                                 |                                                                                                                                                                                                                                                                                                                                                                                                            |
 | null_format                     | string  | no       | -                                                     | Only used when file_format_type is text. null_format to define which strings can be represented as null. e.g: `\N`                                                                                                                                                                                                                                                                                         |
 | file_filter_pattern             | string  | no       |                                                       | Filter pattern, which used for filtering files.                                                                                                                                                                                                                                                                                                                                                            |
+| filename_extension              | string  | no       | -                                                     | Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.                                                                                                                                                                                                                                                                                    |
 | common-options                  |         | no       | -                                                     | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                                                                                                                                                         |
 
 ### delimiter/field_delimiter [string]
