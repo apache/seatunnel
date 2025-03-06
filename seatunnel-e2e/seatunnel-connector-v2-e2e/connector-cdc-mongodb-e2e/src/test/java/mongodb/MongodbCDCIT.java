@@ -18,6 +18,7 @@
 package mongodb;
 
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
+import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
@@ -426,6 +427,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                     @Override
                     public void extend(GenericContainer<?> container)
                             throws IOException, InterruptedException {
+                        FileUtils.createNewDir(DEFAULT_CHECKPOINT_PATH);
                         container.execInContainer(
                                 "sh",
                                 "-c",
