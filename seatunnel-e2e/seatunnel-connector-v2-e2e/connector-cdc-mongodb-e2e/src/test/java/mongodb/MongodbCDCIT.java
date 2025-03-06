@@ -227,6 +227,28 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         TimeUnit.SECONDS.sleep(20);
         assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
         assertionsSourceAndSink(MONGODB_COLLECTION_2, SINK_SQL_ORDERS);
+
+        mongodbContainer.executeCommandFileInDatabase("inventory", MONGODB_DATABASE);
+
+        // test drop collection
+        mongodbContainer.executeCommandInDatabase(
+                "db." + MONGODB_COLLECTION_2 + ".drop", MONGODB_DATABASE);
+
+        MongoDatabase mongoDatabase = client.getDatabase(MONGODB_DATABASE);
+        MongoCollection<Document> collection1 = mongoDatabase.getCollection(MONGODB_COLLECTION_1);
+
+        Document document = new Document();
+        document.put("name", "soap5677");
+        document.put("description", "versatile cleaning essential for home and industry");
+        document.put("weight", "4000");
+        collection1.insertOne(document);
+
+        collection1.updateOne(
+                Filters.eq("name", "soap5677"),
+                Updates.set("description", "versatile cleaning essential"));
+
+        TimeUnit.SECONDS.sleep(10);
+        assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
     }
 
     @TestTemplate
@@ -306,48 +328,6 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         mongodbContainer.executeCommandFileInDatabase("inventory", MONGODB_DATABASE);
         TimeUnit.SECONDS.sleep(10);
         // Verify data consistency after recovery
-        assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
-    }
-
-    @TestTemplate
-    public void testMongodbCdcDropCollectionToMysqlE2e(TestContainer container)
-            throws InterruptedException {
-        cleanSourceTable();
-        CompletableFuture.supplyAsync(
-                () -> {
-                    try {
-                        container.executeJob("/mongodb_multi_table_cdc_to_mysql.conf");
-                    } catch (Exception e) {
-                        log.error("Commit task exception :" + e.getMessage());
-                        throw new RuntimeException();
-                    }
-                    return null;
-                });
-        TimeUnit.SECONDS.sleep(10);
-        // insert update delete
-        upsertDeleteSourceTable();
-        TimeUnit.SECONDS.sleep(30);
-        assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
-        assertionsSourceAndSink(MONGODB_COLLECTION_2, SINK_SQL_ORDERS);
-
-        // drop collection
-        mongodbContainer.executeCommandInDatabase(
-                "db." + MONGODB_COLLECTION_2 + ".drop", MONGODB_DATABASE);
-
-        MongoDatabase mongoDatabase = client.getDatabase(MONGODB_DATABASE);
-        MongoCollection<Document> collection1 = mongoDatabase.getCollection(MONGODB_COLLECTION_1);
-
-        Document document = new Document();
-        document.put("name", "soap5677");
-        document.put("description", "versatile cleaning essential for home and industry");
-        document.put("weight", "4000");
-        collection1.insertOne(document);
-
-        collection1.updateOne(
-                Filters.eq("name", "soap5677"),
-                Updates.set("description", "versatile cleaning essential"));
-
-        TimeUnit.SECONDS.sleep(10);
         assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
     }
 
