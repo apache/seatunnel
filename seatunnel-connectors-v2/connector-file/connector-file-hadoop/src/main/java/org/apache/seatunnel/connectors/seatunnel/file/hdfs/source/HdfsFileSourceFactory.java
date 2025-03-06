@@ -84,7 +84,8 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
     }
 
     @Override
-    public <T, SplitT extends SourceSplit, StateT extends Serializable> TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         return () -> (SeaTunnelSource<T, SplitT, StateT>) new HdfsFileSource();
     }
 }
