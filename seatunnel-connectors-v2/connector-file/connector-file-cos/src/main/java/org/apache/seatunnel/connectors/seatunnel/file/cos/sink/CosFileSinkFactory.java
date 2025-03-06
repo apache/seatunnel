@@ -18,8 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.file.cos.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
@@ -96,5 +98,10 @@ public class CosFileSinkFactory implements TableSinkFactory {
                 .optional(BaseSinkConfig.CREATE_EMPTY_FILE_WHEN_NO_DATA)
                 .optional(BaseSinkConfig.FILENAME_EXTENSION)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        return () -> new CosFileSink();
     }
 }

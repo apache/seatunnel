@@ -20,8 +20,11 @@ package org.apache.seatunnel.connectors.seatunnel.file.hdfs.source;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
@@ -29,6 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSou
 
 import com.google.auto.service.AutoService;
 
+import java.io.Serializable;
 import java.util.Arrays;
 
 @AutoService(Factory.class)
@@ -77,5 +81,10 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
     @Override
     public Class<? extends SeaTunnelSource> getSourceClass() {
         return HdfsFileSource.class;
+    }
+
+    @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable> TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new HdfsFileSource();
     }
 }
