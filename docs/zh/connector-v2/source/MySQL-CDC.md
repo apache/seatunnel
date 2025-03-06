@@ -1,6 +1,6 @@
 # MySQL CDC
 
-> MySQL CDC 源连接器
+> MySQL CDC Source 连接器
 
 ## 支持这些引擎
 
