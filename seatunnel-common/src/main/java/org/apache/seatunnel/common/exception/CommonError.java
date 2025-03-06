@@ -27,6 +27,7 @@ import org.apache.commons.collections4.map.SingletonMap;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.apache.seatunnel.common.exception.CommonErrorCode.CLOSE_FAILED;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_CONNECTOR_TYPE_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_CONNECTOR_TYPE_ERROR_SIMPLE;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_SEATUNNEL_PROPS_BLANK_ERROR;
@@ -36,8 +37,10 @@ import static org.apache.seatunnel.common.exception.CommonErrorCode.FILE_NOT_EXI
 import static org.apache.seatunnel.common.exception.CommonErrorCode.FILE_OPERATION_FAILED;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.GET_CATALOG_TABLES_WITH_UNSUPPORTED_TYPE_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.GET_CATALOG_TABLE_WITH_UNSUPPORTED_TYPE_ERROR;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.ILLEGAL_ARGUMENT;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.JSON_OPERATION_FAILED;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.OPERATION_NOT_SUPPORTED;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.SEATUNNEL_ROW_SERIALIZE_FAILED;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.SQL_TEMPLATE_HANDLED_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_ARRAY_GENERIC_TYPE;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_DATA_TYPE;
@@ -292,5 +295,25 @@ public class CommonError {
         params.put("identifier", identifier);
         params.put("methodName", methodName);
         return new SeaTunnelRuntimeException(CommonErrorCode.UNSUPPORTED_METHOD, params);
+    }
+
+    public static SeaTunnelRuntimeException illegalArgument(String argument, String operation) {
+        Map<String, String> params = new HashMap<>();
+        params.put("argument", argument);
+        params.put("operation", operation);
+        return new SeaTunnelRuntimeException(ILLEGAL_ARGUMENT, params);
+    }
+
+    public static SeaTunnelRuntimeException closeFailed(String identifier, Throwable cause) {
+        Map<String, String> params = new HashMap<>();
+        params.put("identifier", identifier);
+        return new SeaTunnelRuntimeException(CLOSE_FAILED, params, cause);
+    }
+
+    public static SeaTunnelRuntimeException seatunnelRowSerializeFailed(
+            String row, Throwable cause) {
+        Map<String, String> params = new HashMap<>();
+        params.put("row", row);
+        return new SeaTunnelRuntimeException(SEATUNNEL_ROW_SERIALIZE_FAILED, params, cause);
     }
 }

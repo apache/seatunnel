@@ -98,7 +98,7 @@ public class StarRocksBeReadClient implements Serializable {
         params.setOpaqued_query_plan(partition.getQueryPlan());
         params.setCluster(DEFAULT_CLUSTER_NAME);
         params.setDatabase(sourceConfig.getDatabase());
-        params.setTable(sourceConfig.getTable());
+        params.setTable(partition.getTable());
         params.setUser(sourceConfig.getUsername());
         params.setPasswd(sourceConfig.getPassword());
         params.setBatch_size(sourceConfig.getBatchRows());
