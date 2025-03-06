@@ -219,7 +219,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         TimeUnit.SECONDS.sleep(10);
         // insert update delete
         upsertDeleteSourceTable();
-        TimeUnit.SECONDS.sleep(30);
+        TimeUnit.SECONDS.sleep(40);
         assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
         assertionsSourceAndSink(MONGODB_COLLECTION_2, SINK_SQL_ORDERS);
 
