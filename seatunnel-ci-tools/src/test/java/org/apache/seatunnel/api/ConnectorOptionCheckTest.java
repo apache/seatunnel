@@ -215,7 +215,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("Neo4jSourceOptions");
         whiteList.add("HttpSourceOptions");
         whiteList.add("QdrantSourceOptions");
-        whiteList.add("SheetsSourceOptions");
         whiteList.add("SocketSourceOptions");
         whiteList.add("OpenMldbSourceOptions");
         whiteList.add("Web3jSourceOptions");

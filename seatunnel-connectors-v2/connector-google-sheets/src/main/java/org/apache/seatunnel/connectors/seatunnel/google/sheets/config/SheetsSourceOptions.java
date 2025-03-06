@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.google.sheets.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class SheetsConfig {
+public class SheetsSourceOptions {
 
     public static final Option<String> SERVICE_ACCOUNT_KEY =
             Options.key("service_account_key")
