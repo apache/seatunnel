@@ -61,7 +61,6 @@ public class CosFileSinkFactory implements TableSinkFactory {
                         FileBaseSinkOptions.PARTITION_DIR_EXPRESSION,
                         FileBaseSinkOptions.IS_PARTITION_FIELD_WRITE_IN_FILE)
                 .optional(FileBaseSinkOptions.TMP_PATH)
-                .optional(FileBaseSinkOptions.SINK_COLUMNS)
                 .optional(FileBaseSinkOptions.COMPRESS_CODEC)
                 .optional(FileBaseSinkOptions.ENABLE_HEADER_WRITE)
                 .optional(FileBaseSinkOptions.SINK_COLUMNS)
