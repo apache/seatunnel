@@ -95,8 +95,6 @@ public class ClickhouseSourceReader extends AbstractSingleSplitReader<SeaTunnelR
                                 });
             }
             signalNoMoreElement();
-            if (Boundedness.BOUNDED.equals(readerContext.getBoundedness())) {
-                signalNoMoreElement();
             }
         }
     }
