@@ -46,7 +46,6 @@ public class S3FileSinkFactory implements TableSinkFactory {
                 .required(S3FileSinkOptions.S3_BUCKET)
                 .required(S3FileSinkOptions.FS_S3A_ENDPOINT)
                 .required(S3FileSinkOptions.S3A_AWS_CREDENTIALS_PROVIDER)
-                .optional(FileBaseSinkOptions.TMP_PATH)
                 .optional(FileBaseSinkOptions.SCHEMA_SAVE_MODE)
                 .optional(FileBaseSinkOptions.DATA_SAVE_MODE)
                 .conditional(
