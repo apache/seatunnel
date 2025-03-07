@@ -16,25 +16,25 @@ rem limitations under the License.
 
 setlocal enabledelayedexpansion
 
-set "SEATUNNEL_DEFAULT_CLUSTER_NAME=seatunnel_default_cluster"
-set "SHOW_USAGE=Usage: stop-seatunnel-cluster.bat \n Options: \n -cn, --cluster The name of the cluster to shut down (default: $SEATUNNEL_DEFAULT_CLUSTER_NAME) \n -h, --help Show the usage message"
+set "SHOW_USAGE=Usage: stop-seatunnel-cluster.bat \n Options: \n -cn, --cluster The name of the cluster to shut down\n -h, --help Show the usage message"
 set "APP_MAIN=org.apache.seatunnel.core.starter.seatunnel.SeaTunnelServer"
 set "CLUSTER_NAME="
 
 if "%~1"=="" (
-  echo !SHOW_USAGE!
-  exit /B 1
+  set "query=commandline like '%%%%!APP_MAIN!%%%%' AND name ^!= 'wmic.exe'"
+  wmic process where "!query!" delete
+  exit /B 0
 )
 
 :parse_args
 if "%~1"=="-cn" (
   shift
-  set "CLUSTER_NAME=%~1"
+  set "CLUSTER_NAME=%~2"
   shift
   goto :parse_args
 ) else if "%~1"=="--cluster" (
   shift
-  set "CLUSTER_NAME=%~1"
+  set "CLUSTER_NAME=%~2"
   shift
   goto :parse_args
 ) else if "%~1"=="-h" (
@@ -45,14 +45,9 @@ if "%~1"=="-cn" (
   exit /B 0
 )
 
-if not defined CLUSTER_NAME (
-  for /f %%i in ('tasklist /fi "imagename eq java.exe" ^| find "!APP_MAIN!"') do (
-    taskkill /F /PID %%i
-  )
-) else (
-  for /f %%i in ('tasklist /fi "imagename eq java.exe" ^| find "!APP_MAIN!" ^| find "!CLUSTER_NAME!"') do (
-    taskkill /F /PID %%i
-  )
-)
+
+set "query=(commandline like '%%%%-cn !CLUSTER_NAME!%%%%' OR commandline like '%%%%--cluster !CLUSTER_NAME!%%%%') AND commandline like '%%%%!APP_MAIN!%%%%' AND name ^!= 'wmic.exe'"
+
+wmic process where "!query!" delete
 
 exit /B 0
