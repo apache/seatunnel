@@ -55,21 +55,22 @@ if not defined SEATUNNEL_CONFIG (
 )
 
 if defined JvmOption (
-    set "JAVA_OPTS=%JAVA_OPTS% %JvmOption%"
+    set "JAVA_OPTS=!JAVA_OPTS! %JvmOption%"
 )
 
-set "JAVA_OPTS=%JAVA_OPTS% -Dhazelcast.client.config=%HAZELCAST_CLIENT_CONFIG%"
-set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.config=%SEATUNNEL_CONFIG%"
-set "JAVA_OPTS=%JAVA_OPTS% -Dhazelcast.config=%HAZELCAST_CONFIG%"
+set "JAVA_OPTS=!JAVA_OPTS! -Dhazelcast.client.config=%HAZELCAST_CLIENT_CONFIG%"
+set "JAVA_OPTS=!JAVA_OPTS! -Dseatunnel.config=%SEATUNNEL_CONFIG%"
+set "JAVA_OPTS=!JAVA_OPTS! -Dhazelcast.config=%HAZELCAST_CONFIG%"
 
 REM if you want to debug, please
-REM set "JAVA_OPTS=%JAVA_OPTS% -Xdebug -Xrunjdwp:transport=dt_socket,server=y,address=5000,suspend=n"
+REM set "JAVA_OPTS=!JAVA_OPTS! -Xdebug -Xrunjdwp:transport=dt_socket,server=y,address=5000,suspend=n"
 
 REM Log4j2 Config
-set "JAVA_OPTS=%JAVA_OPTS% -Dlog4j2.isThreadContextMapInheritable=true"
+set "JAVA_OPTS=!JAVA_OPTS! -Dlog4j2.isThreadContextMapInheritable=true"
 if exist "%CONF_DIR%\log4j2_client.properties" (
-    set "JAVA_OPTS=%JAVA_OPTS% -Dhazelcast.logging.type=log4j2 -Dlog4j2.configurationFile=%CONF_DIR%\log4j2_client.properties"
-    set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.logs.path=%APP_DIR%\logs"
+    set "JAVA_OPTS=!JAVA_OPTS! -Dhazelcast.logging.type=log4j2"
+    set "JAVA_OPTS=!JAVA_OPTS! -Dlog4j2.configurationFile=%CONF_DIR%\log4j2_client.properties"
+    set "JAVA_OPTS=!JAVA_OPTS! -Dseatunnel.logs.path=%APP_DIR%\logs"
     for %%i in (%args%) do (
         set "arg=%%i"
         if "!arg!"=="-m" set "is_local_mode=true"
@@ -81,9 +82,9 @@ if exist "%CONF_DIR%\log4j2_client.properties" (
         for /f "tokens=1-3 delims=:" %%A in ('echo %time%') do (
             set "ntime=%%A%%B%%C"
         )
-        set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.logs.file_name=seatunnel-starter-client-!date:~0,4!!date:~5,2!!date:~8,2!-!time:~0,2!!time:~3,2!!time:~6,2!!ntime!"
+        set "JAVA_OPTS=!JAVA_OPTS! -Dseatunnel.logs.file_name=seatunnel-starter-client-!date:~0,4!!date:~5,2!!date:~8,2!-!time:~0,2!!time:~3,2!!time:~6,2!!ntime!"
     ) else (
-        set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.logs.file_name=seatunnel-starter-client"
+        set "JAVA_OPTS=!JAVA_OPTS! -Dseatunnel.logs.file_name=seatunnel-starter-client"
     )
 )
 
@@ -107,4 +108,4 @@ for %%i in (%*) do (
 )
 :break_loop
 
-java %JAVA_OPTS% -cp %CLASS_PATH% %APP_MAIN% %args%
+java !JAVA_OPTS! -cp %CLASS_PATH% %APP_MAIN% %args%
