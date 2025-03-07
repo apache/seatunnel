@@ -91,25 +91,11 @@ connector will generate data as the following:
 
 ### Text Or CSV File Type
 
-If you assign file type to `text` `csv`, you can choose to specify the schema information or not.
+If you set the `file_format_type` to `text`,`excel`,`csv`,`xml`. Then it's required to set the `schema` field to tell connector how to parse data to the row.
 
-For example, upstream data is the following:
+If you set the `schema` field, you should also set the option `field_delimiter`, except the `file_format_type` is `csv`, `xml`, `excel`
 
-```text
-
-tyrantlucifer#26#male
-
-```
-
-If you do not assign data schema connector will treat the upstream data as the following:
-
-|        content        |
-|-----------------------|
-| tyrantlucifer#26#male |
-
-If you assign data schema, you should also assign the option `field_delimiter` too except CSV file type
-
-you should assign schema and delimiter as the following:
+you can set schema and delimiter as the following:
 
 ```hocon
 
