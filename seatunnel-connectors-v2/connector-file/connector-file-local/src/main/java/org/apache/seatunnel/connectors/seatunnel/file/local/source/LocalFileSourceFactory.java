@@ -74,7 +74,6 @@ public class LocalFileSourceFactory implements TableSourceFactory {
                                 FileFormat.CSV,
                                 FileFormat.XML),
                         ConnectorCommonOptions.SCHEMA)
-                .optional(ConnectorCommonOptions.TABLE_CONFIGS)
                 .optional(ENCODING)
                 .optional(LocalFileSourceOptions.READ_COLUMNS)
                 .optional(LocalFileSourceOptions.PARSE_PARTITION_FROM_PATH)
