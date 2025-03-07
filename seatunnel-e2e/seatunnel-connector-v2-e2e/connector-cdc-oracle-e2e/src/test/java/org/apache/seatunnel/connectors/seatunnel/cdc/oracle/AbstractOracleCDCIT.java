@@ -93,15 +93,14 @@ public class AbstractOracleCDCIT extends TestSuiteBase {
                             new Slf4jLogConsumer(
                                     DockerLoggerFactory.getLogger("oracle-docker-image")));
 
-    private static String getImage(){
-        //If the current environment is ARM architecture, then use the ARM image
+    private static String getImage() {
+        // If the current environment is ARM architecture, then use the ARM image
         if (System.getProperty("os.arch").equals("aarch64")) {
             return ORACLE_IMAGE_ARM;
         } else {
             return ORACLE_IMAGE;
         }
     }
-
 
     protected String oracleDriverUrl() {
         return "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar";
