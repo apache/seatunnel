@@ -25,6 +25,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.util.Map;
 
 public class EncryptConfigServlet extends BaseServlet {
 
@@ -37,6 +38,7 @@ public class EncryptConfigServlet extends BaseServlet {
 
     @Override
     public void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        writeJson(resp, encryptConfigService.encryptConfig(requestBody(req)));
+        Map<String, String> model = getParameterMap(req);
+        writeJson(resp, encryptConfigService.encryptConfig(requestBody(req), model));
     }
 }

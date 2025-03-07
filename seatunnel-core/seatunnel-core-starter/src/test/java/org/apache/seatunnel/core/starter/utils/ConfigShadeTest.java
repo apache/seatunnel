@@ -25,6 +25,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
 import org.apache.seatunnel.api.configuration.ConfigShade;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.core.starter.enums.CryptoMode;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
 import org.junit.jupiter.api.Assertions;
@@ -309,7 +310,7 @@ public class ConfigShadeTest {
         Assertions.assertEquals(
                 rawPassword, decryptedProps.getConfigList("source").get(0).getString("password"));
 
-        Config encryptedConfig = ConfigShadeUtils.encryptConfig(decryptedProps);
+        Config encryptedConfig = ConfigShadeUtils.encryptConfig(decryptedProps, CryptoMode.DEFAULT);
         Assertions.assertEquals(
                 rawUsername + suffix,
                 encryptedConfig.getConfigList("source").get(0).getString("username"));

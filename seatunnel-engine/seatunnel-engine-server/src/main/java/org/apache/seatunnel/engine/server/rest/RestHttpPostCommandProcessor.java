@@ -85,7 +85,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
             } else if (uri.startsWith(CONTEXT_PATH + REST_URL_STOP_JOB)) {
                 handleStopJob(httpPostCommand);
             } else if (uri.startsWith(CONTEXT_PATH + REST_URL_ENCRYPT_CONFIG)) {
-                handleEncrypt(httpPostCommand);
+                handleEncrypt(httpPostCommand, uri);
             } else if (uri.startsWith(CONTEXT_PATH + REST_URL_UPDATE_TAGS)) {
                 handleUpdateTags(httpPostCommand);
             } else {
@@ -123,9 +123,12 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         this.prepareResponse(httpPostCommand, jobInfoService.stopJob(httpPostCommand.getData()));
     }
 
-    private void handleEncrypt(HttpPostCommand httpPostCommand) {
+    private void handleEncrypt(HttpPostCommand httpPostCommand, String uri) {
+        Map<String, String> requestParams = new HashMap<>();
+        RestUtil.buildRequestParams(requestParams, uri);
         this.prepareResponse(
-                httpPostCommand, encryptConfigService.encryptConfig(httpPostCommand.getData()));
+                httpPostCommand,
+                encryptConfigService.encryptConfig(httpPostCommand.getData(), requestParams));
     }
 
     private void handleUpdateTags(HttpPostCommand httpPostCommand) {

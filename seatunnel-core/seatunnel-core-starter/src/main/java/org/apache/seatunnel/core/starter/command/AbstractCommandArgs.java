@@ -19,7 +19,9 @@ package org.apache.seatunnel.core.starter.command;
 
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.core.starter.enums.CryptoMode;
 
+import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -64,14 +66,36 @@ public abstract class AbstractCommandArgs extends CommandArgs {
     @Parameter(
             names = {"--encrypt"},
             description =
-                    "Encrypt config file, when both --decrypt and --encrypt are specified, only --encrypt will take effect")
+                    "Enable encryption. If set, encryption is applied with default rule unless --crypto-mode is specified.",
+            arity = 0)
     protected boolean encrypt = false;
 
     @Parameter(
             names = {"--decrypt"},
             description =
-                    "Decrypt config file, When both --decrypt and --encrypt are specified, only --encrypt will take effect")
+                    "Enable decryption. If set, decryption is applied with default rule unless --crypto-mode is specified.",
+            arity = 0)
     protected boolean decrypt = false;
 
+    @Parameter(
+            names = {"--crypto-mode"},
+            description =
+                    "Encryption/Decryption mode: 'default' or 'legacy'. When provided, the specified mode is applied.",
+            converter = EncryptionModeConverter.class)
+    protected CryptoMode cryptoMode = CryptoMode.DEFAULT;
+
     public abstract DeployMode getDeployMode();
+
+    /** Custom converter for --encrypt and --decrypt parameters. */
+    public static class EncryptionModeConverter implements IStringConverter<CryptoMode> {
+        @Override
+        public CryptoMode convert(String value) {
+            // If no value is provided, treat it as DEFAULT
+            if (value == null || value.isEmpty()) {
+                return CryptoMode.DEFAULT;
+            }
+            // Otherwise, parse the value as a string and convert to EncryptionMode
+            return CryptoMode.fromValue(value);
+        }
+    }
 }

@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.configuration.ConfigShade;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.core.starter.enums.CryptoMode;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -97,7 +98,7 @@ public final class ConfigShadeUtils {
         return configShade.decrypt(content);
     }
 
-    public static Config decryptConfig(Config config) {
+    public static Config decryptConfig(Config config, CryptoMode cryptoMode) {
         String identifier =
                 TypesafeConfigUtils.getConfig(
                         config.hasPath(Constants.ENV)
@@ -112,10 +113,10 @@ public final class ConfigShadeUtils {
                                 : ConfigFactory.empty(),
                         SHADE_PROPS_OPTION,
                         new HashMap<>());
-        return decryptConfig(identifier, config, props);
+        return decryptConfig(identifier, config, props, cryptoMode);
     }
 
-    public static Config encryptConfig(Config config) {
+    public static Config encryptConfig(Config config, CryptoMode cryptoMode) {
         String identifier =
                 TypesafeConfigUtils.getConfig(
                         config.hasPath(Constants.ENV)
@@ -130,28 +131,37 @@ public final class ConfigShadeUtils {
                                 : ConfigFactory.empty(),
                         SHADE_PROPS_OPTION,
                         new HashMap<>());
-        return encryptConfig(identifier, config, props);
+        return encryptConfig(identifier, config, props, cryptoMode);
     }
 
     private static Config decryptConfig(
-            String identifier, Config config, Map<String, Object> props) {
-        return processConfig(identifier, config, true, props);
+            String identifier, Config config, Map<String, Object> props, CryptoMode cryptoMode) {
+        return processConfig(identifier, config, true, props, cryptoMode);
     }
 
     private static Config encryptConfig(
-            String identifier, Config config, Map<String, Object> props) {
-        return processConfig(identifier, config, false, props);
+            String identifier, Config config, Map<String, Object> props, CryptoMode cryptoMode) {
+        return processConfig(identifier, config, false, props, cryptoMode);
     }
 
     @SuppressWarnings("unchecked")
     private static Config processConfig(
-            String identifier, Config config, boolean isDecrypted, Map<String, Object> props) {
+            String identifier,
+            Config config,
+            boolean isDecrypted,
+            Map<String, Object> props,
+            CryptoMode cryptoMode) {
         ConfigShade configShade = CONFIG_SHADES.getOrDefault(identifier, DEFAULT_SHADE);
         // call open method before the encrypt/decrypt
         configShade.open(props);
 
         Set<String> sensitiveOptions = new HashSet<>(getSensitiveOptions(config));
         sensitiveOptions.addAll(Arrays.asList(configShade.sensitiveOptions()));
+        if (cryptoMode == CryptoMode.DEFAULT) {
+            Set<String> uniqueKeys = new HashSet<>(sensitiveOptions);
+            sensitiveOptions.clear();
+            sensitiveOptions.addAll(uniqueKeys);
+        }
         BiFunction<String, Object, Object> processFunction =
                 (key, value) -> {
                     if (value instanceof List) {

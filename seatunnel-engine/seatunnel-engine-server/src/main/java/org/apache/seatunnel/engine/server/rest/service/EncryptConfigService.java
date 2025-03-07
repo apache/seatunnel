@@ -20,21 +20,27 @@ package org.apache.seatunnel.engine.server.rest.service;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
+import org.apache.seatunnel.core.starter.enums.CryptoMode;
 import org.apache.seatunnel.core.starter.utils.ConfigShadeUtils;
+import org.apache.seatunnel.engine.server.rest.RestConstant;
 import org.apache.seatunnel.engine.server.utils.RestUtil;
 
 import com.hazelcast.internal.json.Json;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
+import java.util.Map;
+
 public class EncryptConfigService extends BaseService {
     public EncryptConfigService(NodeEngineImpl nodeEngine) {
         super(nodeEngine);
     }
 
-    public JsonObject encryptConfig(byte[] requestBody) {
+    public JsonObject encryptConfig(byte[] requestBody, Map<String, String> model) {
         Config config = RestUtil.buildConfig(requestHandle(requestBody), true);
-        Config encryptConfig = ConfigShadeUtils.encryptConfig(config);
+        Config encryptConfig =
+                ConfigShadeUtils.encryptConfig(
+                        config, CryptoMode.fromValue(model.get(RestConstant.CRYPTO_MODE)));
         String encryptString =
                 encryptConfig.root().render(ConfigRenderOptions.concise().setJson(true));
         return Json.parse(encryptString).asObject();

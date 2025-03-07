@@ -47,6 +47,8 @@ public class RestConstant {
 
     public static final String METRICS = "metrics";
 
+    public static final String CRYPTO_MODE = "cryptoMode";
+
     public static final String HOCON = "hocon";
 
     public static final String TABLE_SOURCE_RECEIVED_COUNT = "TableSourceReceivedCount";
