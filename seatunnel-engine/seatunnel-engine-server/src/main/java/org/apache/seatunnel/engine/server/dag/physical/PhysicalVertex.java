@@ -162,30 +162,16 @@ public class PhysicalVertex {
         this.currExecutionState = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
 
         this.nodeEngine = nodeEngine;
-        if (log.isDebugEnabled() || log.isTraceEnabled()) {
-            this.taskFullName =
-                    String.format(
-                            "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)], taskGroupLocation: [%s]",
-                            jobImmutableInformation.getJobConfig().getName(),
-                            jobImmutableInformation.getJobId(),
-                            pipelineId,
-                            totalPipelineNum,
-                            taskGroup.getTaskGroupName(),
-                            subTaskGroupIndex + 1,
-                            parallelism,
-                            taskGroupLocation);
-        } else {
-            this.taskFullName =
-                    String.format(
-                            "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)]",
-                            jobImmutableInformation.getJobConfig().getName(),
-                            jobImmutableInformation.getJobId(),
-                            pipelineId,
-                            totalPipelineNum,
-                            taskGroup.getTaskGroupName(),
-                            subTaskGroupIndex + 1,
-                            parallelism);
-        }
+        this.taskFullName =
+                String.format(
+                        "Job (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)], taskGroupLocation: [%s]",
+                        jobImmutableInformation.getJobId(),
+                        pipelineId,
+                        totalPipelineNum,
+                        taskGroup.getTaskGroupName(),
+                        subTaskGroupIndex + 1,
+                        parallelism,
+                        taskGroupLocation);
 
         this.taskFuture = new CompletableFuture<>();
 
