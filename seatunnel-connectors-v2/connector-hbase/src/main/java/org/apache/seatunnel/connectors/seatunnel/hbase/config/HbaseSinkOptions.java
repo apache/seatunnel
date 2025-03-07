@@ -30,24 +30,15 @@ import static org.apache.seatunnel.api.sink.DataSaveMode.APPEND_DATA;
 import static org.apache.seatunnel.api.sink.DataSaveMode.DROP_DATA;
 import static org.apache.seatunnel.api.sink.DataSaveMode.ERROR_WHEN_DATA_EXISTS;
 
-public class HbaseConfig {
-
-    private static final Integer DEFAULT_BUFFER_SIZE = 8 * 1024 * 1024;
-
-    public static final Option<String> ZOOKEEPER_QUORUM =
-            Options.key("zookeeper_quorum")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Hbase zookeeper quorum");
-
-    public static final Option<String> TABLE =
-            Options.key("table").stringType().noDefaultValue().withDescription("Hbase table name");
+public class HbaseSinkOptions extends HbaseBaseOptions {
 
     public static final Option<List<String>> ROWKEY_COLUMNS =
             Options.key("rowkey_column")
                     .listType()
                     .noDefaultValue()
                     .withDescription("Hbase rowkey column");
+
+    private static final Integer DEFAULT_BUFFER_SIZE = 8 * 1024 * 1024;
 
     public static final Option<String> ROWKEY_DELIMITER =
             Options.key("rowkey_delimiter")
@@ -149,6 +140,4 @@ public class HbaseConfig {
         UTF8,
         GBK;
     }
-
-    private HbaseConfig() {}
 }
