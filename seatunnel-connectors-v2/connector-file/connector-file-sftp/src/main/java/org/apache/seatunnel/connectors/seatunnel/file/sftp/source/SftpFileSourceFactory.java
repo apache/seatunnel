@@ -45,12 +45,13 @@ public class SftpFileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(SftpFileSourceOptions.FILE_PATH)
-                .required(SftpFileSourceOptions.SFTP_HOST)
-                .required(SftpFileSourceOptions.SFTP_PORT)
-                .required(SftpFileSourceOptions.SFTP_USER)
-                .required(SftpFileSourceOptions.SFTP_PASSWORD)
-                .required(FileBaseSourceOptions.FILE_FORMAT_TYPE)
+                .exclusive(SftpFileSourceOptions.TABLE_CONFIGS,SftpFileSourceOptions.FILE_PATH)
+                .optional(SftpFileSourceOptions.FILE_PATH)
+                .optional(SftpFileSourceOptions.SFTP_HOST)
+                .optional(SftpFileSourceOptions.SFTP_PORT)
+                .optional(SftpFileSourceOptions.SFTP_USER)
+                .optional(SftpFileSourceOptions.SFTP_PASSWORD)
+                .optional(FileBaseSourceOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.XML,
