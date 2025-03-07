@@ -46,7 +46,6 @@ public class SftpFileSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .exclusive(SftpFileSourceOptions.TABLE_CONFIGS, SftpFileSourceOptions.FILE_PATH)
-                .optional(SftpFileSourceOptions.FILE_PATH)
                 .optional(SftpFileSourceOptions.SFTP_HOST)
                 .optional(SftpFileSourceOptions.SFTP_PORT)
                 .optional(SftpFileSourceOptions.SFTP_USER)

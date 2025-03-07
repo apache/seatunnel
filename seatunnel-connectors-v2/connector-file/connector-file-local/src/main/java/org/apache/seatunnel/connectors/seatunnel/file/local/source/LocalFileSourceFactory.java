@@ -59,7 +59,6 @@ public class LocalFileSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .exclusive(LocalFileSourceOptions.TABLE_CONFIGS, FILE_PATH)
-                .optional(FILE_PATH)
                 .optional(LocalFileSourceOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         LocalFileSourceOptions.FILE_FORMAT_TYPE,
