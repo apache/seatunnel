@@ -246,6 +246,11 @@ public class DynamicChunkSplitterTest {
                         DynamicChunkSplitter.ChunkRange.of(6, null)));
     }
 
+    @Test
+    public void testMinMax(){
+
+    }
+
     private void check(
             List<DynamicChunkSplitter.ChunkRange> a, List<DynamicChunkSplitter.ChunkRange> b) {
         checkRule(b);
