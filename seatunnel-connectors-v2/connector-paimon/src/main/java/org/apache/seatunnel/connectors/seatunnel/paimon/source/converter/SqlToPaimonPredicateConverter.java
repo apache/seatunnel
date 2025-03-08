@@ -227,11 +227,15 @@ public class SqlToPaimonPredicateConverter {
             return PredicateBuilder.or(leftPredicate, rightPredicate);
         } else if (expression instanceof Between) {
             Between between = (Between) expression;
-            Object startVal = getJSQLParserDataTypeValue(between.getBetweenExpressionStart());
-            Object endVal = getJSQLParserDataTypeValue(between.getBetweenExpressionEnd());
             Column column = (Column) between.getLeftExpression();
             int columnIndex = getColumnIndex(builder, column);
-            return builder.between(columnIndex, startVal, endVal);
+            Object jsqlStartVal = getJSQLParserDataTypeValue(between.getBetweenExpressionStart());
+            Object paimonStartVal =
+                    convertValueByPaimonDataType(rowType, column.getColumnName(), jsqlStartVal);
+            Object jsqlEndVal = getJSQLParserDataTypeValue(between.getBetweenExpressionEnd());
+            Object paimonEndVal =
+                    convertValueByPaimonDataType(rowType, column.getColumnName(), jsqlEndVal);
+            return builder.between(columnIndex, paimonStartVal, paimonEndVal);
         } else if (expression instanceof Parenthesis) {
             Parenthesis parenthesis = (Parenthesis) expression;
             return parseExpressionToPredicate(builder, rowType, parenthesis.getExpression());
