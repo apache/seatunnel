@@ -202,7 +202,6 @@ source {
         query = "select * from type_bin"
         partition_column = "id"
         partition_num = 10 # Replace split.size with partition_num
-        split.size = 10000
         # Read start boundary
         #partition_lower_bound = ...
         # Read end boundary
