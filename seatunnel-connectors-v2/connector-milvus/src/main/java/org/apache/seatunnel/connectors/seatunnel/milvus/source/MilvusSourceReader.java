@@ -162,12 +162,16 @@ public class MilvusSourceReader implements SourceReader<SeaTunnelRow, MilvusSour
                     MilvusConnectionErrorCode.SOURCE_TABLE_SCHEMA_IS_NULL);
         }
 
-        R<GetLoadStateResponse> loadStateResponse =
-                client.getLoadState(
-                        GetLoadStateParam.newBuilder()
-                                .withDatabaseName(tablePath.getDatabaseName())
-                                .withCollectionName(tablePath.getTableName())
-                                .build());
+        GetLoadStateParam.Builder loadStateParam =
+                GetLoadStateParam.newBuilder()
+                        .withDatabaseName(tablePath.getDatabaseName())
+                        .withCollectionName(tablePath.getTableName());
+
+        if (StringUtils.isNotEmpty(partitionName)) {
+            loadStateParam.withPartitionNames(Collections.singletonList(partitionName));
+        }
+
+        R<GetLoadStateResponse> loadStateResponse = client.getLoadState(loadStateParam.build());
         if (loadStateResponse.getStatus() != R.Status.Success.getCode()) {
             throw new MilvusConnectorException(
                     MilvusConnectionErrorCode.SERVER_RESPONSE_FAILED,
