@@ -202,7 +202,13 @@ public class SqlServerCreateTableSqlBuilder {
         }
         // nullable
         if (column.isNullable()) {
-            columnSqls.add("NULL");
+            if (createIndex
+                    && primaryKey != null
+                    && primaryKey.getColumnNames().contains(column.getName())) {
+                columnSqls.add("NOT NULL");
+            } else {
+                columnSqls.add("NULL");
+            }
         } else {
             columnSqls.add("NOT NULL");
         }
