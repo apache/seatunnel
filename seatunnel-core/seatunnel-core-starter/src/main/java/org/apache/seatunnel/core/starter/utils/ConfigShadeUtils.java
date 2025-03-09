@@ -173,28 +173,42 @@ public final class ConfigShadeUtils {
         String jsonString = config.root().render(ConfigRenderOptions.concise());
         ObjectNode jsonNodes = JsonUtils.parseObject(jsonString);
         Map<String, Object> configMap = JsonUtils.toMap(jsonNodes);
-        List<Map<String, Object>> sources =
-                (ArrayList<Map<String, Object>>) configMap.get(Constants.SOURCE);
-        List<Map<String, Object>> sinks =
-                (ArrayList<Map<String, Object>>) configMap.get(Constants.SINK);
-        Preconditions.checkArgument(
-                !sources.isEmpty(), "Miss <Source> config! Please check the config file.");
-        Preconditions.checkArgument(
-                !sinks.isEmpty(), "Miss <Sink> config! Please check the config file.");
-        sources.forEach(
-                source -> {
-                    for (String sensitiveOption : sensitiveOptions) {
-                        source.computeIfPresent(sensitiveOption, processFunction);
-                    }
-                });
-        sinks.forEach(
-                sink -> {
-                    for (String sensitiveOption : sensitiveOptions) {
-                        sink.computeIfPresent(sensitiveOption, processFunction);
-                    }
-                });
-        configMap.put(Constants.SOURCE, sources);
-        configMap.put(Constants.SINK, sinks);
+        if (configMap.containsKey(Constants.CONNECTION)) {
+            Map<String, Map<String, Object>> connects =
+                    (Map<String, Map<String, Object>>) configMap.get(Constants.CONNECTION);
+            connects.forEach(
+                    (conn_id, connect) -> {
+                        Map<String, Object> conn_dit = new HashMap<>(connect.size());
+                        for (String sensitiveOption : sensitiveOptions) {
+                            conn_dit.computeIfPresent(sensitiveOption, processFunction);
+                        }
+                        connect = conn_dit;
+                    });
+            configMap.put(Constants.CONNECTION, connects);
+        } else {
+            List<Map<String, Object>> sources =
+                    (ArrayList<Map<String, Object>>) configMap.get(Constants.SOURCE);
+            List<Map<String, Object>> sinks =
+                    (ArrayList<Map<String, Object>>) configMap.get(Constants.SINK);
+            Preconditions.checkArgument(
+                    !sources.isEmpty(), "Miss <Source> config! Please check the config file.");
+            Preconditions.checkArgument(
+                    !sinks.isEmpty(), "Miss <Sink> config! Please check the config file.");
+            sources.forEach(
+                    source -> {
+                        for (String sensitiveOption : sensitiveOptions) {
+                            source.computeIfPresent(sensitiveOption, processFunction);
+                        }
+                    });
+            sinks.forEach(
+                    sink -> {
+                        for (String sensitiveOption : sensitiveOptions) {
+                            sink.computeIfPresent(sensitiveOption, processFunction);
+                        }
+                    });
+            configMap.put(Constants.SOURCE, sources);
+            configMap.put(Constants.SINK, sinks);
+        }
         return ConfigFactory.parseMap(configMap);
     }
 

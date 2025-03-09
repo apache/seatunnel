@@ -45,6 +45,8 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
 
     private final String jobFilePath;
 
+    private final String connFilePath;
+
     private final List<String> variables;
 
     private final SeaTunnelHazelcastClient seaTunnelHazelcastClient;
@@ -63,9 +65,11 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
             SeaTunnelHazelcastClient seaTunnelHazelcastClient,
             SeaTunnelConfig seaTunnelConfig,
             boolean isStartWithSavePoint,
-            Long jobId) {
+            Long jobId,
+            String connFilePath) {
         super(jobConfig, isStartWithSavePoint);
         this.jobFilePath = jobFilePath;
+        this.connFilePath = connFilePath;
         this.variables = variables;
         this.seaTunnelHazelcastClient = seaTunnelHazelcastClient;
         this.jobClient = new JobClient(seaTunnelHazelcastClient);
@@ -86,6 +90,25 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
             List<String> variables,
             SeaTunnelHazelcastClient seaTunnelHazelcastClient,
             SeaTunnelConfig seaTunnelConfig,
+            boolean isStartWithSavePoint,
+            Long jobId) {
+        this(
+                jobConfig,
+                jobFilePath,
+                variables,
+                seaTunnelHazelcastClient,
+                seaTunnelConfig,
+                isStartWithSavePoint,
+                jobId,
+                null);
+    }
+
+    public ClientJobExecutionEnvironment(
+            JobConfig jobConfig,
+            String jobFilePath,
+            List<String> variables,
+            SeaTunnelHazelcastClient seaTunnelHazelcastClient,
+            SeaTunnelConfig seaTunnelConfig,
             Long jobId) {
         this(
                 jobConfig,
@@ -94,7 +117,8 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
                 seaTunnelHazelcastClient,
                 seaTunnelConfig,
                 false,
-                jobId);
+                jobId,
+                null);
     }
 
     /** Search all jars in SEATUNNEL_HOME/plugins */
@@ -114,7 +138,8 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
                 jobConfig,
                 commonPluginJars,
                 isStartWithSavePoint,
-                pipelineCheckpoints);
+                pipelineCheckpoints,
+                connFilePath);
     }
 
     @VisibleForTesting

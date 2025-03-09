@@ -38,6 +38,12 @@ public abstract class AbstractCommandArgs extends CommandArgs {
             description = "Config file")
     protected String configFile;
 
+    /** connect file path */
+    @Parameter(
+            names = {"-conn", "--connect"},
+            description = "Connect Config file")
+    protected String connectFile;
+
     /** user-defined parameters */
     @Parameter(
             names = {"-i", "--variable"},

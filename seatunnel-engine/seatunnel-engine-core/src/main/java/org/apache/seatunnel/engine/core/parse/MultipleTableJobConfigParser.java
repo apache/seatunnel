@@ -107,6 +107,7 @@ public class MultipleTableJobConfigParser {
 
     private final List<URL> commonPluginJars;
     private final Config seaTunnelJobConfig;
+    private final Config seaTunnelConnConfig;
 
     private final ReadonlyConfig envOptions;
 
@@ -142,7 +143,8 @@ public class MultipleTableJobConfigParser {
                 jobConfig,
                 commonPluginJars,
                 isStartWithSavePoint,
-                Collections.emptyList());
+                Collections.emptyList(),
+                null);
     }
 
     public MultipleTableJobConfigParser(
@@ -152,12 +154,14 @@ public class MultipleTableJobConfigParser {
             JobConfig jobConfig,
             List<URL> commonPluginJars,
             boolean isStartWithSavePoint,
-            List<JobPipelineCheckpointData> pipelineCheckpoints) {
+            List<JobPipelineCheckpointData> pipelineCheckpoints,
+            String connFilePath) {
         this.idGenerator = idGenerator;
         this.jobConfig = jobConfig;
         this.commonPluginJars = commonPluginJars;
         this.isStartWithSavePoint = isStartWithSavePoint;
         this.seaTunnelJobConfig = ConfigBuilder.of(Paths.get(jobDefineFilePath), variables);
+        this.seaTunnelConnConfig = ConfigBuilder.of(Paths.get(connFilePath), variables);
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         this.pipelineCheckpoints = pipelineCheckpoints;
     }
@@ -176,19 +180,41 @@ public class MultipleTableJobConfigParser {
         this.seaTunnelJobConfig = seaTunnelJobConfig;
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         this.pipelineCheckpoints = pipelineCheckpoints;
+        this.seaTunnelConnConfig = null;
+    }
+
+    private Config mergeWithConnectionConfig(Config pluginConfig, Config connConfig) {
+        if (pluginConfig.hasPath("conn_id")) {
+            String connId = pluginConfig.getString("conn_id");
+            Config connectionConfig = connConfig.getConfig("connection").getConfig(connId);
+            if (connectionConfig == null) {
+                throw new IllegalArgumentException("Connection ID not found: " + connId);
+            }
+            // support conn_id replace to real connect configuration
+            return pluginConfig.withoutPath("conn_id").withFallback(connectionConfig);
+        } else {
+            return pluginConfig;
+        }
     }
 
     public ImmutablePair<List<Action>, Set<URL>> parse(ClassLoaderService classLoaderService) {
         this.fillJobConfigAndCommonJars();
-        List<? extends Config> sourceConfigs =
+        ArrayList<Config> sourceConfigs = new ArrayList<>();
+        for (Config sink :
                 TypesafeConfigUtils.getConfigList(
-                        seaTunnelJobConfig, "source", Collections.emptyList());
+                        seaTunnelJobConfig, "source", Collections.emptyList())) {
+            sourceConfigs.add(this.mergeWithConnectionConfig(sink, this.seaTunnelConnConfig));
+        }
+
         List<? extends Config> transformConfigs =
                 TypesafeConfigUtils.getConfigList(
                         seaTunnelJobConfig, "transform", Collections.emptyList());
-        List<? extends Config> sinkConfigs =
+        ArrayList<Config> sinkConfigs = new ArrayList<>();
+        for (Config sink :
                 TypesafeConfigUtils.getConfigList(
-                        seaTunnelJobConfig, "sink", Collections.emptyList());
+                        seaTunnelJobConfig, "sink", Collections.emptyList())) {
+            sinkConfigs.add(this.mergeWithConnectionConfig(sink, this.seaTunnelConnConfig));
+        }
 
         List<URL> sourceConnectorJars = getConnectorJarList(sourceConfigs, PluginType.SOURCE);
         List<URL> transformConnectorJars =

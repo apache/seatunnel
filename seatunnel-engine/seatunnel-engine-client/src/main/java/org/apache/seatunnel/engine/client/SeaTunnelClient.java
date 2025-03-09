@@ -79,6 +79,25 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
     }
 
     @Override
+    public ClientJobExecutionEnvironment createExecutionContext(
+            @NonNull String filePath,
+            List<String> variables,
+            @NonNull JobConfig jobConfig,
+            @NonNull SeaTunnelConfig seaTunnelConfig,
+            Long jobId,
+            String connPath) {
+        return new ClientJobExecutionEnvironment(
+                jobConfig,
+                filePath,
+                variables,
+                hazelcastClient,
+                seaTunnelConfig,
+                false,
+                jobId,
+                connPath);
+    }
+
+    @Override
     public ClientJobExecutionEnvironment restoreExecutionContext(
             @NonNull String filePath,
             @NonNull JobConfig jobConfig,
@@ -96,6 +115,25 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
             @NonNull Long jobId) {
         return new ClientJobExecutionEnvironment(
                 jobConfig, filePath, variables, hazelcastClient, seaTunnelConfig, true, jobId);
+    }
+
+    @Override
+    public ClientJobExecutionEnvironment restoreExecutionContext(
+            @NonNull String filePath,
+            List<String> variables,
+            @NonNull JobConfig jobConfig,
+            @NonNull SeaTunnelConfig seaTunnelConfig,
+            @NonNull Long jobId,
+            String connPath) {
+        return new ClientJobExecutionEnvironment(
+                jobConfig,
+                filePath,
+                variables,
+                hazelcastClient,
+                seaTunnelConfig,
+                true,
+                jobId,
+                connPath);
     }
 
     @Override

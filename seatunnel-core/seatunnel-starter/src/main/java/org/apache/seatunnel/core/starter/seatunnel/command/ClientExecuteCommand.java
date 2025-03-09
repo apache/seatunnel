@@ -52,6 +52,7 @@ import com.hazelcast.internal.util.ConcurrencyUtil;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -136,6 +137,14 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             } else {
                 Path configFile = FileUtils.getConfigPath(clientCommandArgs);
                 checkConfigExist(configFile);
+
+                String str_conn_path = null;
+                if (null != clientCommandArgs.getConnectFile()) {
+                    Path connFile = Paths.get(clientCommandArgs.getConnectFile());
+                    checkConfigExist(connFile);
+                    str_conn_path = connFile.toAbsolutePath().toString();
+                }
+
                 JobConfig jobConfig = new JobConfig();
                 ClientJobExecutionEnvironment jobExecutionEnv;
                 jobConfig.setName(clientCommandArgs.getJobName());
@@ -146,7 +155,8 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                                     clientCommandArgs.getVariables(),
                                     jobConfig,
                                     seaTunnelConfig,
-                                    Long.parseLong(clientCommandArgs.getRestoreJobId()));
+                                    Long.parseLong(clientCommandArgs.getRestoreJobId()),
+                                    str_conn_path);
                 } else {
                     jobExecutionEnv =
                             engineClient.createExecutionContext(
@@ -156,7 +166,8 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                                     seaTunnelConfig,
                                     clientCommandArgs.getCustomJobId() != null
                                             ? Long.parseLong(clientCommandArgs.getCustomJobId())
-                                            : null);
+                                            : null,
+                                    str_conn_path);
                 }
 
                 // get job start time

@@ -29,6 +29,8 @@ public final class Constants {
 
     public static final String SINK = "sink";
 
+    public static final String CONNECTION = "connection";
+
     public static final String SOURCE_SERIALIZATION = "source.serialization";
 
     public static final String SINK_SERIALIZATION = "sink.serialization";
