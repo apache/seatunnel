@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-redis.md';
+
 # Redis
 
 > Redis sink connector
@@ -250,11 +252,5 @@ Redis {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Redis Sink Connector
-
-### next version
-
-- [Improve] Support redis cluster mode connection and user authentication [3188](https://github.com/apache/seatunnel/pull/3188)
+<ChangeLog />
 

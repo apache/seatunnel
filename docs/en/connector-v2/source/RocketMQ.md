@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-rocketmq.md';
+
 # RocketMQ
 
 > RocketMQ source connector
@@ -218,3 +220,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

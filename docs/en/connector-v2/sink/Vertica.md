@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # Vertica
 
 > JDBC Vertica Sink Connector
@@ -181,3 +183,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

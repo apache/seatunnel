@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-doris.md';
+
 # Doris
 
 > Doris sink 连接器
@@ -361,3 +363,7 @@ sink {
 PR 4235 is an incompatible modification to PR 3856. Please refer to PR 4235 to use the new Doris connector
 
 :::
+
+## 变更日志
+
+<ChangeLog />

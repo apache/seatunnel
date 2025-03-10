@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-neo4j.md';
+
 # Neo4j
 
 > Neo4j source connector
@@ -101,7 +103,4 @@ source {
 
 ## Changelog
 
-### next version
-
-- Add Neo4j Source Connector
-
+<ChangeLog />

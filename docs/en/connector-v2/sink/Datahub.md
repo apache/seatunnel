@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-datahub.md';
+
 # DataHub
 
 > DataHub sink connector
@@ -73,7 +75,5 @@ sink {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add DataHub Sink Connector
+<ChangeLog />
 

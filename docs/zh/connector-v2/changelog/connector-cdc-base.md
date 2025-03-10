@@ -1,0 +1,118 @@
+| Change | Commit |
+| --- | --- |
+|[Improve][CDC] Filter heartbeat event (#8569)|https://github.com/apache/seatunnel/commit/1870653393|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|
+|[Fix][MySQL-CDC]fix recovery task failure caused by binlog deletion (#8587)|https://github.com/apache/seatunnel/commit/087087e592|
+|[Feature] [Postgre CDC]support array type (#8560)|https://github.com/apache/seatunnel/commit/021af147cc|
+|[Feature][MySQL-CDC] Support database/table wildcards scan read (#8323)|https://github.com/apache/seatunnel/commit/2116843ce8|
+|[Feature][CDC] Add 'schema-changes.enabled' options (#8285)|https://github.com/apache/seatunnel/commit/8e29ecf54f|
+|Revert "[Feature][Redis] Flush data when the time reaches checkpoint interval" and "[Feature][CDC] Add 'schema-changes.enabled' options" (#8278)|https://github.com/apache/seatunnel/commit/fcb2938286|
+|[Feature][CDC] Add 'schema-changes.enabled' options (#8252)|https://github.com/apache/seatunnel/commit/d783f9447c|
+|[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|
+|[Improve][Connector-V2] Add pre-check for table enable cdc (#8152)|https://github.com/apache/seatunnel/commit/9a5da78176|
+|[Feature][Connector-V2]Jdbc chunk split add  snapshotSplitColumn config #7794 (#7840)|https://github.com/apache/seatunnel/commit/b6c6dc0438|
+|[Feature][Core] Support cdc task ddl restore for zeta (#7463)|https://github.com/apache/seatunnel/commit/8e322281ed|
+|[Feature][Transform-v2] Add metadata transform (#7899)|https://github.com/apache/seatunnel/commit/699d16552a|
+|[Feature][Connector-v2] Support schema evolution for Oracle connector (#7908)|https://github.com/apache/seatunnel/commit/79406bcc2f|
+|[Fix][Connector-V2] Fix cdc use default value when value is null (#7950)|https://github.com/apache/seatunnel/commit/3b432125ae|
+|[Hotfix][CDC] Fix occasional database connection leak when read snapshot split (#7918)|https://github.com/apache/seatunnel/commit/a8d0d4ce77|
+|[Fix][Connector-V2] Fix some throwable error not be caught (#7657)|https://github.com/apache/seatunnel/commit/e19d73282e|
+|[Improve][Connector-V2] Close all ResultSet after used (#7389)|https://github.com/apache/seatunnel/commit/853e973212|
+|[Feature][Connector-V2] Support jdbc hana catalog and type convertor (#6950)|https://github.com/apache/seatunnel/commit/d663398739|
+|[Fix][Connector-V2][CDC] SeaTunnelRowDebeziumDeserializationConverters NPE (#7119)|https://github.com/apache/seatunnel/commit/ae81879213|
+|[Improve][Connector-V2] Support schema evolution for mysql-cdc and mysql-jdbc (#6929)|https://github.com/apache/seatunnel/commit/cf91e51fc7|
+|[Hotfix][CDC] Fix split schema change stream (#7003)|https://github.com/apache/seatunnel/commit/0c3044e3f6|
+|[Improve][CDC] Bump the version of debezium to 1.9.8.Final (#6740)|https://github.com/apache/seatunnel/commit/c3ac953524|
+|[Improve][CDC] Close idle subtasks gorup(reader/writer) in increment phase (#6526)|https://github.com/apache/seatunnel/commit/454c339b9c|
+|[Improve][JDBC Source] Fix Split can not be cancel (#6825)|https://github.com/apache/seatunnel/commit/ee3b7c3723|
+|[Hotfix][Postgres-CDC/OpenGauss-CDC] Fix read data missing when restore (#6785)|https://github.com/apache/seatunnel/commit/67c32607e7|
+|[Hotfix][Jdbc/CDC] Fix postgresql uuid type in jdbc read (#6684)|https://github.com/apache/seatunnel/commit/868ba4d7c7|
+|[Chore] remove useless interface (#6746)|https://github.com/apache/seatunnel/commit/3c1aeb3785|
+|[Feature] Support listening for message delayed events in cdc source (#6634)|https://github.com/apache/seatunnel/commit/01159ec923|
+|[Improve][CDC] Optimize split state memory allocation in increment phase (#6554)|https://github.com/apache/seatunnel/commit/fe33422161|
+|[Improve][CDC] Improve read performance when record not contains schema field (#6571)|https://github.com/apache/seatunnel/commit/e60beb28ec|
+|[Feature][Core] Support event listener for job (#6419)|https://github.com/apache/seatunnel/commit/831d0022eb|
+|[Improve][CDC] Optimize memory allocation for snapshot split reading (#6281)|https://github.com/apache/seatunnel/commit/4856645837|
+|[Improve][API] Unify type system api(data & type) (#5872)|https://github.com/apache/seatunnel/commit/b38c7edcc9|
+|[Feature] Supports iceberg sink #6198 (#6265)|https://github.com/apache/seatunnel/commit/18d3e86194|
+|[Bugfix][cdc base] Fix negative values in CDCRecordEmitDelay metric (#6259)|https://github.com/apache/seatunnel/commit/68978dbb4e|
+|[BugFix][CDC Base] Fix added columns cannot be parsed after job restore (#6118)|https://github.com/apache/seatunnel/commit/0c593a39e3|
+|[Feature][JDBC、CDC] Support Short and Byte Type in spliter (#6027)|https://github.com/apache/seatunnel/commit/6f8d0a5040|
+|[Improve][CDC] Disable exactly_once by default to improve stability (#6244)|https://github.com/apache/seatunnel/commit/f47495554b|
+|[Bugfix][JDBC、CDC] Fix Spliter Error in Case of Extensive Duplicate Data (#6026)|https://github.com/apache/seatunnel/commit/635c24e8b2|
+| [Feature][Connector-V2][Postgres-cdc]Support for Postgres cdc (#5986)|https://github.com/apache/seatunnel/commit/97438b9402|
+|[Bugfix][CDC Base] Fix NPE caused by adding a table for restore job (#6145)|https://github.com/apache/seatunnel/commit/8d3f8e4627|
+|[Feature][CDC] Support custom table primary key (#6106)|https://github.com/apache/seatunnel/commit/1312a1dd27|
+|[Bugfix][CDC base] Fix CDC job cannot consume incremental data After restore run (#625) (#6094)|https://github.com/apache/seatunnel/commit/37567ebb7e|
+|[Feature][CDC] Support read no primary key table (#6098)|https://github.com/apache/seatunnel/commit/b42d78de3f|
+|[Improve][CDC] Disable memory buffering when `exactly_once` is turned off (#6017)|https://github.com/apache/seatunnel/commit/300a624c5b|
+|[Improve][Zeta] Remove assert key words (#5947)|https://github.com/apache/seatunnel/commit/dcb4549109|
+|[Bug][CDC] Fix state recovery error when switching a single table to multiple tables (#5784)|https://github.com/apache/seatunnel/commit/37fcff347e|
+|[Fix] Fix MultiTableSink restore failed when add new table (#5746)|https://github.com/apache/seatunnel/commit/21503bd771|
+|[improve][mysql-cdc] Optimize the default value range of mysql server-id to reduce conflicts. (#5550)|https://github.com/apache/seatunnel/commit/5174639463|
+|[Improve] Add default implement for `SeaTunnelSource::getProducedType` (#5670)|https://github.com/apache/seatunnel/commit/a04add6991|
+|[Improve][Pom] Add junit4 to the root pom (#5611)|https://github.com/apache/seatunnel/commit/7b4f7db2a2|
+|[Hotfix][CDC] Fix thread-unsafe collection container in cdc enumerator (#5614)|https://github.com/apache/seatunnel/commit/b2f70fd40b|
+|[Improve][CDC] Use Source to output the CatalogTable (#5626)|https://github.com/apache/seatunnel/commit/3e6a20acfa|
+|Support config column/primaryKey/constraintKey in schema (#5564)|https://github.com/apache/seatunnel/commit/eac76b4e50|
+|[Fix]: fix the cdc bug about NPE when the original table deletes a field (#5579)|https://github.com/apache/seatunnel/commit/f5ed47795d|
+|[Improve] Refactor CatalogTable and add `SeaTunnelSource::getProducedCatalogTables` (#5562)|https://github.com/apache/seatunnel/commit/41173357f8|
+|[Feature][CDC] Support for preferring numeric fields as split keys (#5384)|https://github.com/apache/seatunnel/commit/c687050d88|
+|[Feature][Connector-V2][CDC] Support flink running cdc job (#4918)|https://github.com/apache/seatunnel/commit/5e378831ee|
+|[Improve][CheckStyle] Remove useless 'SuppressWarnings' annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
+|[Hotfix] Fix com.google.common.base.Preconditions to seatunnel shade one (#5284)|https://github.com/apache/seatunnel/commit/ed5eadcf73|
+|[Imporve] [CDC Base] Add a fast sampling method that supports character types (#5179)|https://github.com/apache/seatunnel/commit/c0422dbfeb|
+|[Bugfix][cdc] Fix mysql bit column to java byte (#4817)|https://github.com/apache/seatunnel/commit/aae3e913d0|
+|[Feature][CDC][Zeta] Support schema evolution framework(DDL) (#5125)|https://github.com/apache/seatunnel/commit/4f89c1d272|
+|[Improve][CDC] support exactly-once of cdc and fix the BinlogOffset comparing bug (#5057)|https://github.com/apache/seatunnel/commit/0e4190ab2e|
+|[Hotfix][MongodbCDC]Refine data format to adapt to universal logic (#5162)|https://github.com/apache/seatunnel/commit/4b4b5f9640|
+|[Feature][Connector-V2][CDC] Support string type shard fields. (#5147)|https://github.com/apache/seatunnel/commit/e1be9d7f8a|
+|[Feature][CDC] Support tables without primary keys (with unique keys) (#163) (#5150)|https://github.com/apache/seatunnel/commit/32b7f2b690|
+|[Feature][connector-v2][mongodbcdc]Support source mongodb cdc (#4923)|https://github.com/apache/seatunnel/commit/d729fcba4c|
+|[Chore] Modify repeat des (#5088)|https://github.com/apache/seatunnel/commit/936afc2a9e|
+|[Feature][Connector-V2][cdc] Change the time zone to the default time zone (#5030)|https://github.com/apache/seatunnel/commit/3cff923a79|
+|[Bugfix][zeta] Fix cdc connection does not close (#4922)|https://github.com/apache/seatunnel/commit/a2d2f2dda8|
+|[Feature][CDC] Support disable/enable exactly once for INITIAL (#4921)|https://github.com/apache/seatunnel/commit/6d9a3e5957|
+|[Improve] Documentation and partial word optimization. (#4936)|https://github.com/apache/seatunnel/commit/6e8de0e2a6|
+|[Bugfix][zeta] Fix the deadlock issue with JDBC driver loading (#4878)|https://github.com/apache/seatunnel/commit/c30a2a1b1c|
+|[improve][CDC base] Implement Sample-based Sharding Strategy with Configurable Sampling Rate (#4856)|https://github.com/apache/seatunnel/commit/d827c700f0|
+|[Bugfix][CDC Base] Solving the ConcurrentModificationException caused by snapshotState being modified concurrently. (#4877)|https://github.com/apache/seatunnel/commit/9a2efa51c7|
+|[Hotfix][CDC] Fix chunk start/end parameter type error (#4777)|https://github.com/apache/seatunnel/commit/c13c031995|
+|[Bug][CDC] Fix TemporalConversions (#4542)|https://github.com/apache/seatunnel/commit/d2094bf2e1|
+|[Feature][CDC][SqlServer] Support multi-table read (#4377)|https://github.com/apache/seatunnel/commit/c4e3f2dc03|
+|[Improve][CDC] Improve startup.mode/stop.mode options (#4360)|https://github.com/apache/seatunnel/commit/b71d8739d5|
+|[Improve][CDC] Optimize options & add docs for compatible_debezium_json (#4351)|https://github.com/apache/seatunnel/commit/336f590498|
+|Update CDC StartupMode and StopMode option to SingleChoiceOption (#4357)|https://github.com/apache/seatunnel/commit/f60ac1a5e9|
+|[bugfix][cdc-base] Fix cdc base shutdown thread not cleared (#4327)|https://github.com/apache/seatunnel/commit/ac61409bd8|
+|[Feature][CDC] Support export debezium-json format to kafka (#4339)|https://github.com/apache/seatunnel/commit/5817ec07bf|
+|[Feature][CDC] Support add & dorp tables when restore cdc jobs (#4254)|https://github.com/apache/seatunnel/commit/add75d7d5d|
+|[Feature][CDC][Mysql] Support read database list (#4255)|https://github.com/apache/seatunnel/commit/3ca60c6fed|
+|[improve][zeta] fix zeta bugs|https://github.com/apache/seatunnel/commit/3a82e8b39f|
+|[Improve] Support MySqlCatalog Use JDBC URL With Custom Suffix|https://github.com/apache/seatunnel/commit/210d0ff1f8|
+|Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
+|[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
+|[Hotfix][Zeta] Fix shuffle checkpoint (#4224)|https://github.com/apache/seatunnel/commit/507ca85611|
+|[improve][cdc] support sharding-tables (#4207)|https://github.com/apache/seatunnel/commit/5c3f0c9b00|
+|[Hotfix][CDC] Fix multiple-table data read (#4200)|https://github.com/apache/seatunnel/commit/7f5671d2ce|
+|[hotfix][zeta] fix zeta multi-table parser error (#4193)|https://github.com/apache/seatunnel/commit/98f2ad0c19|
+|[Feature][Zeta] Support shuffle multiple rows by tableId (#4147)|https://github.com/apache/seatunnel/commit/8348f1a108|
+|[Feature][API] Add Metrics for Connector-V2 (#4017)|https://github.com/apache/seatunnel/commit/32e1f91c7a|
+|[Improve][build] Give the maven module a human readable name (#4114)|https://github.com/apache/seatunnel/commit/d7cd601051|
+|[Improve][Project] Code format with spotless plugin. (#4101)|https://github.com/apache/seatunnel/commit/a2ab166561|
+|[Feature][CDC] MySQL CDC supports deserialization of multi-tables (#4067)|https://github.com/apache/seatunnel/commit/21ef45fcca|
+|fix cdc option rule error (#4018)|https://github.com/apache/seatunnel/commit/ea160429df|
+|[Bug][CDC] Fix concurrent modify of splits (#3937)|https://github.com/apache/seatunnel/commit/29b04e2405|
+|[Improve][CDC][base] Guaranteed to be exactly-once in the process of switching from SnapshotTask to IncrementalTask (#3837)|https://github.com/apache/seatunnel/commit/8379aaf876|
+|[Hotfix][SqlServer CDC] fix SqlServerCDC IT failure (#3807)|https://github.com/apache/seatunnel/commit/fd66de5f98|
+|[Improve][CDC] Add mysql-cdc source factory (#3791)|https://github.com/apache/seatunnel/commit/356538de8a|
+|[feature][connector-v2] add sqlServer CDC (#3686)|https://github.com/apache/seatunnel/commit/0f0afb58af|
+|[doc][connector][cdc] add MySQL CDC Source doc (#3707)|https://github.com/apache/seatunnel/commit/555905b0b8|
+|[feature][cdc] Fixed error in mysql cdc under real-time job (#3666)|https://github.com/apache/seatunnel/commit/2238fda300|
+|[feature][connector][cdc] add SeaTunnelRowDebeziumDeserializeSchema (#3499)|https://github.com/apache/seatunnel/commit/ff44db116e|
+|[feature][connector][mysql-cdc] add MySQL CDC enumerator (#3481)|https://github.com/apache/seatunnel/commit/ff4b32dc28|
+|[feature][connector] add mysql cdc reader (#3455)|https://github.com/apache/seatunnel/commit/ae981df675|
+|[feature][connector][cdc] add cdc reader jdbc related (#3433)|https://github.com/apache/seatunnel/commit/7bf00fb19f|
+|[feature][connector][cdc] add CDC enumerator base classes (#3419)|https://github.com/apache/seatunnel/commit/9b1821f476|
+|[feature][Connector-v2][cdc] Add cdc base reader (#3407)|https://github.com/apache/seatunnel/commit/e454b80dcd|
+|[bigfix][Connector-v2][cdc] move version to 1.6.4 (#3389)|https://github.com/apache/seatunnel/commit/b50b543c3e|
+|[feature][connector][cdc] CDC base classes (#3363)|https://github.com/apache/seatunnel/commit/2586f305b4|

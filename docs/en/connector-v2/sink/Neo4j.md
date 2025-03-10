@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-neo4j.md';
+
 # Neo4j
 
 > Neo4j sink connector
@@ -137,11 +139,4 @@ sink {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Neo4j Sink Connector
-
-### issue ##4835
-
-- Sink supports batch write
-
+<ChangeLog />

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-mongodb.md';
+
 # MongoDB
 
 > MongoDB Sink Connector
@@ -221,15 +223,5 @@ sink {
 
 ## Changelog
 
-### 2.2.0-beta
-
-- Add MongoDB Source Connector
-
-### 2.3.1-release
-
-- [Feature]Refactor mongodb source connector([4620](https://github.com/apache/incubator-seatunnel/pull/4620))
-
-### Next Version
-
-- [Feature]Mongodb support cdc sink([4833](https://github.com/apache/seatunnel/pull/4833))
+<ChangeLog />
 

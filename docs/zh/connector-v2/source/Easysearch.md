@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-easysearch.md';
+
 # Easysearch
 
 > Easysearch 源连接器
@@ -200,9 +202,4 @@ source {
 
 ## 变更日志
 
-### 下个版本
-
-- 添加 Easysearch source连接器
-- 支持https协议
-- 支持DSL
-
+<ChangeLog />

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-socket.md';
+
 # Socket
 
 > Socket sink connector
@@ -73,7 +75,5 @@ nc -l -v 9999
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Socket Sink Connector
+<ChangeLog />
 

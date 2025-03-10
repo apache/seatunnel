@@ -12,46 +12,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
+
 
 import os
 import subprocess
@@ -61,6 +22,12 @@ from pathlib import Path
 def generate_log_info():
     directory = os.path.dirname(os.path.abspath(Path(__file__).parent.parent))
     connector_v2 = os.path.join(directory, 'seatunnel-connectors-v2')
+
+    result = subprocess.run(['git', 'fetch', 'https://github.com/apache/seatunnel.git', '--tags', '--force'],
+                            cwd=directory, stdout=subprocess.PIPE)
+    if result.returncode != 0:
+        print("Failed to fetch tags")
+        return
 
     connector_changes = {}
     for root, dirs, files in os.walk(connector_v2):
@@ -75,7 +42,9 @@ def generate_log_info():
 
 def get_git_changes(directory):
     result = subprocess.run(['git', 'log', '--pretty=format:%s%n'
-                                           'https://github.com/apache/seatunnel/commit/%h', '--', directory],
+                                           'https://github.com/apache/seatunnel/commit/%h',
+                             '--',
+                             directory],
                             cwd=directory, stdout=subprocess.PIPE)
     logs = result.stdout.decode('utf-8').splitlines()
 
@@ -90,13 +59,19 @@ def main():
     changes = generate_log_info()
     directory = os.path.dirname(os.path.abspath(Path(__file__).parent.parent))
     changelog_dir = os.path.join(directory, 'docs', 'en', 'connector-v2', 'changelog')
+    zh_changelog_dir = os.path.join(directory, 'docs', 'zh', 'connector-v2', 'changelog')
     for connector, prs in changes.items():
-        with open(changelog_dir + '/' + connector + '.mdx', 'w') as file:
-            file.write('| Change | Commit |\n')
-            file.write('| --- | --- |\n')
-            for pr in prs:
-                file.write('|' + pr[0] + '|' + pr[1] + '|\n')
-            file.close()
+        write_commit(connector, prs, changelog_dir)
+        write_commit(connector, prs, zh_changelog_dir)
+
+
+def write_commit(connector, prs, changelog_dir):
+    with open(changelog_dir + '/' + connector + '.md', 'w') as file:
+        file.write('| Change | Commit |\n')
+        file.write('| --- | --- |\n')
+        for pr in prs:
+            file.write('|' + pr[0] + '|' + pr[1] + '|\n')
+        file.close()
 
 
 if __name__ == "__main__":

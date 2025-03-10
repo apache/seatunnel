@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-paimon.md';
+
 # Paimon
 
 > Paimon sink connector
@@ -515,3 +517,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

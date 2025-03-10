@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-redis.md';
+
 # Redis
 
 > Redis source connector
@@ -284,11 +286,4 @@ sink {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Redis Source Connector
-
-### next version
-
-- [Improve] Support redis cluster mode connection and user authentication [3188](https://github.com/apache/seatunnel/pull/3188)
--  [Bug] Redis scan command supports versions 5, 6, 7 [7666](https://github.com/apache/seatunnel/pull/7666)
+<ChangeLog />

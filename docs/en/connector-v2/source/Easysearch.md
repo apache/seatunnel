@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-easysearch.md';
+
 # Easysearch
 
 > Easysearch source connector
@@ -201,9 +203,4 @@ source {
 
 ## Changelog
 
-### next version
-
-- Add Easysearch Source Connector
-- Support https protocol
-- Support DSL
-
+<ChangeLog />

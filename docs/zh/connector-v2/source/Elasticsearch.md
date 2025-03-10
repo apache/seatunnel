@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-elasticsearch.md';
+
 # Elasticsearch
 
 > Elasticsearch source 连接器
@@ -245,3 +247,7 @@ source {
     }
 }
 ```
+
+## 变更日志
+
+<ChangeLog />

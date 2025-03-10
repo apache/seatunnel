@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-elasticsearch.md';
+
 # Elasticsearch
 
 ## Description
@@ -275,3 +277,7 @@ sink {
   }
 }
 ```
+
+## Changelog
+
+<ChangeLog />
