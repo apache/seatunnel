@@ -27,6 +27,9 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReader
 import org.apache.seatunnel.connectors.seatunnel.google.sheets.config.SheetsParameters;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
+import java.util.Collections;
+import java.util.List;
+
 public class SheetsSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     private final CatalogTable catalogTable;
@@ -49,6 +52,11 @@ public class SheetsSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     @Override
     public Boundedness getBoundedness() {
         return Boundedness.BOUNDED;
+    }
+
+    @Override
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(catalogTable);
     }
 
     @Override
