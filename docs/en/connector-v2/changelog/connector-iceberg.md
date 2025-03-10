@@ -1,7 +1,15 @@
+<details><summary>dev</summary>
+
 | Change | Commit |
 | --- | --- |
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|
 |[Feature][Iceberg] Support read multi-table (#8524)|https://github.com/apache/seatunnel/commit/2bfb97e502|
+
+</details>
+<details><summary>2.3.9</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Improve][Iceberg] Filter catalog table primaryKey is empty (#8413)|https://github.com/apache/seatunnel/commit/857aab5e83|
 |[Improve][Connector-V2] Reduce the create times of iceberg sink writer (#8155)|https://github.com/apache/seatunnel/commit/45a7a715a2|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|
@@ -10,6 +18,12 @@
 |[Feature][Core] Support cdc task ddl restore for zeta (#7463)|https://github.com/apache/seatunnel/commit/8e322281ed|
 |[Improve][Iceberg] Support table comment for catalog (#7936)|https://github.com/apache/seatunnel/commit/72ab38f317|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|
+
+</details>
+<details><summary>2.3.8</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Fix][Connector-V2] Fix iceberg throw java: package sun.security.krb5 does not exist when use jdk 11 (#7734)|https://github.com/apache/seatunnel/commit/116af4febc|
 |[Hotfix][Connector-V2] Release resources when task is closed for iceberg sinkwriter (#7729)|https://github.com/apache/seatunnel/commit/ff281183bd|
 |[Fix][Connector-V2] Fixed iceberg sink can not handle uppercase fields (#7660)|https://github.com/apache/seatunnel/commit/b7be0cb4a1|
@@ -19,15 +33,39 @@
 |[Improve][Connector-V2] Remove hard code iceberg table format version (#7500)|https://github.com/apache/seatunnel/commit/f49b263e65|
 |[Improve][API] Move catalog open to SaveModeHandler (#7439)|https://github.com/apache/seatunnel/commit/8c2c5c79a1|
 |[Feature][Connector-V2][Iceberg] Support Iceberg Kerberos (#7246)|https://github.com/apache/seatunnel/commit/e3001207c8|
+
+</details>
+<details><summary>2.3.7</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Improve][Connector] Add multi-table sink option check (#7360)|https://github.com/apache/seatunnel/commit/2489f6446b|
+
+</details>
+<details><summary>2.3.6</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Core] Support using upstream table placeholders in sink options and auto replacement (#7131)|https://github.com/apache/seatunnel/commit/c4ca74122c|
 |[Bug][Connector-Iceberg]fix create iceberg v2 table with pks (#6895)|https://github.com/apache/seatunnel/commit/40d2c1b213|
 |[Feature][Connector-V2] Iceberg-sink supports writing data to branches (#6697)|https://github.com/apache/seatunnel/commit/e3103535cc|
+
+</details>
+<details><summary>2.3.5</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Fix][Connector-V2] Fix connector support SPI but without no args constructor (#6551)|https://github.com/apache/seatunnel/commit/5f3c9c36a5|
 |[Improve] Add SaveMode log of process detail (#6375)|https://github.com/apache/seatunnel/commit/b0d70ce224|
 |[Improve][Zeta] Add classloader cache mode to fix metaspace leak (#6355)|https://github.com/apache/seatunnel/commit/9c3c2f183d|
 |[Improve][API] Unify type system api(data & type) (#5872)|https://github.com/apache/seatunnel/commit/b38c7edcc9|
 |[Feature] Supports iceberg sink #6198 (#6265)|https://github.com/apache/seatunnel/commit/18d3e86194|
+
+</details>
+<details><summary>2.3.4</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Test][E2E] Add thread leak check for connector (#5773)|https://github.com/apache/seatunnel/commit/1f2f3fc5f0|
 |[Improve][Common] Introduce new error define rule (#5793)|https://github.com/apache/seatunnel/commit/9d1b2582b2|
 |[BUG][Connector-V2] Iceberg source lost data with parallelism option (#5732)|https://github.com/apache/seatunnel/commit/7f3b4be075|
@@ -35,8 +73,26 @@
 |[Improve][Pom] Add junit4 to the root pom (#5611)|https://github.com/apache/seatunnel/commit/7b4f7db2a2|
 |Support config column/primaryKey/constraintKey in schema (#5564)|https://github.com/apache/seatunnel/commit/eac76b4e50|
 |[Doc][Iceberg] Improved iceberg documentation (#5335)|https://github.com/apache/seatunnel/commit/659a68a0be|
+
+</details>
+<details><summary>2.3.3</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Hotfix] Fix com.google.common.base.Preconditions to seatunnel shade one (#5284)|https://github.com/apache/seatunnel/commit/ed5eadcf73|
+
+</details>
+<details><summary>2.3.2</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Hotfix][Connector][Iceberg] Fix iceberg source stream mode init error (#4638)|https://github.com/apache/seatunnel/commit/64760eed4d|
+
+</details>
+<details><summary>2.3.1</summary>
+
+| Change | Commit |
+| --- | --- |
 |Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
 |[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
 |[Improve][SourceConnector] Unifie Iceberg source fields to schema (#3959)|https://github.com/apache/seatunnel/commit/20e1255fab|
@@ -46,9 +102,29 @@
 |[Improve][Connector-V2][Iceberg] Unified exception for iceberg source connector (#3677)|https://github.com/apache/seatunnel/commit/e24843515f|
 |[Feature][Connector] add get source method to all source connector (#3846)|https://github.com/apache/seatunnel/commit/417178fb84|
 |[Feature][API & Connector & Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
+
+</details>
+<details><summary>2.3.0</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Hotfix][OptionRule] Fix option rule about all connectors (#3592)|https://github.com/apache/seatunnel/commit/226dc6a119|
 |[Feature][Connector-V2][Iceberg] Modify the scope of flink-shaded-hadoop-2 to provided to be compatible with hadoop3.x (#3046)|https://github.com/apache/seatunnel/commit/b38c50789f|
 |[Feature][Connector V2] expose configurable options in Iceberg (#3394)|https://github.com/apache/seatunnel/commit/bd9a313ded|
+
+</details>
+<details><summary>2.3.0-beta</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Improve][Connector][Iceberg] Improve code. (#3065)|https://github.com/apache/seatunnel/commit/9f38e3da74|
 |[Code-Improve][Iceberg] Use automatic resource management to replace 'try - finally' code block. (#2909)|https://github.com/apache/seatunnel/commit/b7f640724b|
+
+</details>
+<details><summary>2.2.0-beta</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Connector-V2] Add iceberg source connector (#2615)|https://github.com/apache/seatunnel/commit/ffc6088a79|
+
+</details>

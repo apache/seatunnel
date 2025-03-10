@@ -1,3 +1,5 @@
+<details><summary>dev</summary>
+
 | Change | Commit |
 | --- | --- |
 |[Feature][Kafka] Support native format read/write kafka record (#8724)|https://github.com/apache/seatunnel/commit/86e2d6fcfa|
@@ -5,6 +7,12 @@
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|
 |[improve] kafka connector options (#8616)|https://github.com/apache/seatunnel/commit/aadfe99f88|
 |[Fix] [Kafka Source] kafka source use topic as table name instead of fullName (#8401)|https://github.com/apache/seatunnel/commit/3d4f4bb33a|
+
+</details>
+<details><summary>2.3.9</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Kafka] Add `debezium_record_table_filter` and fix error (#8391)|https://github.com/apache/seatunnel/commit/b27a30a5aa|
 |[Bug][Kafka] kafka reads repeatedly (#8465)|https://github.com/apache/seatunnel/commit/f67f27279a|
 |[Hotfix][Connector-V2][kafka] fix kafka sink config exactly-once  exception (#7857)|https://github.com/apache/seatunnel/commit/92b3253a5b|
@@ -15,17 +23,47 @@
 |[Feature][Core] Support cdc task ddl restore for zeta (#7463)|https://github.com/apache/seatunnel/commit/8e322281ed|
 |[Fix][Connector-V2] Fix kafka `format_error_handle_way` not work (#7838)|https://github.com/apache/seatunnel/commit/63c7b4e9cc|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|
+
+</details>
+<details><summary>2.3.8</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][kafka] Add arg  poll.timeout  for interval poll messages (#7606)|https://github.com/apache/seatunnel/commit/09d12fc40e|
 |[Improve][Kafka] kafka source refactored some reader read logic (#6408)|https://github.com/apache/seatunnel/commit/10598b6aec|
 |[Feature][connector-v2]Add Kafka Protobuf Data Parsing Support (#7361)|https://github.com/apache/seatunnel/commit/51c8e1a834|
+
+</details>
+<details><summary>2.3.7</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Hotfix][Connector] Fix kafka consumer log next startup offset (#7312)|https://github.com/apache/seatunnel/commit/891652399e|
+
+</details>
+<details><summary>2.3.6</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Fix][Connector kafka]Fix Kafka consumer stop fetching after TM node restarted (#7233)|https://github.com/apache/seatunnel/commit/7dc3fa8a13|
 |[Fix][Connector-V2] Fix kafka batch mode can not read all message (#7135)|https://github.com/apache/seatunnel/commit/1784c01a35|
 |[Feature][connector][kafka] Support read Maxwell format message from kafka #4415 (#4428)|https://github.com/apache/seatunnel/commit/4281b867ac|
 |[Hotfix][Connector-V2][kafka]Kafka consumer group automatically commits offset logic error fix (#6961)|https://github.com/apache/seatunnel/commit/181f01ee52|
 |[Improve][CDC] Bump the version of debezium to 1.9.8.Final (#6740)|https://github.com/apache/seatunnel/commit/c3ac953524|
 |[Feature][Kafka] Support multi-table source read  (#5992)|https://github.com/apache/seatunnel/commit/60104602d1|
+
+</details>
+<details><summary>2.3.5</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Fix][Kafka-Sink] fix kafka sink factory option rule (#6657)|https://github.com/apache/seatunnel/commit/37578e103f|
+
+</details>
+<details><summary>2.3.4</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Connector-V2] Remove useless code for kafka connector (#6157)|https://github.com/apache/seatunnel/commit/0f286d1627|
 |[Feature] support avro format (#5084)|https://github.com/apache/seatunnel/commit/93a006156d|
 |[Improve][Common] Introduce new error define rule (#5793)|https://github.com/apache/seatunnel/commit/9d1b2582b2|
@@ -36,8 +74,20 @@
 |KafkaSource use Factory to create source (#5635)|https://github.com/apache/seatunnel/commit/1c6176e518|
 |[Improve] Refactor CatalogTable and add `SeaTunnelSource::getProducedCatalogTables` (#5562)|https://github.com/apache/seatunnel/commit/41173357f8|
 |[Improve][CheckStyle] Remove useless 'SuppressWarnings' annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
+
+</details>
+<details><summary>2.3.3</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Connector-V2] connector-kafka source support data conversion extracted by kafka connect source (#4516)|https://github.com/apache/seatunnel/commit/bd74989099|
 |[Feature][connector][kafka] Support read debezium format message from kafka (#5066)|https://github.com/apache/seatunnel/commit/53a1f0c6c1|
+
+</details>
+<details><summary>2.3.2</summary>
+
+| Change | Commit |
+| --- | --- |
 |[hotfix][kafka] Fix the problem that the partition information cannot be obtained when kafka is restored (#4764)|https://github.com/apache/seatunnel/commit/c203ef5f8d|
 |Fix the processing bug of abnormal parsing method of kafkaSource format. (#4687)|https://github.com/apache/seatunnel/commit/228257b2e2|
 |[hotfix][e2e][kafka] Fix the job not stopping (#4600)|https://github.com/apache/seatunnel/commit/93471c9ade|
@@ -48,6 +98,12 @@
 |[Bug][Connector-v2][KafkaSource]Fix KafkaConsumerThread exit caused by commit offset error. (#4379)|https://github.com/apache/seatunnel/commit/71f4d0c784|
 |[Bug][Connector-v2][KafkaSink]Fix the permission problem caused by client.id. (#4246)|https://github.com/apache/seatunnel/commit/3cdb7cfa4d|
 |Fix KafkaProducer resources have never been released. (#4302)|https://github.com/apache/seatunnel/commit/f99f02caa2|
+
+</details>
+<details><summary>2.3.1</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Improve][CDC] Optimize options & add docs for compatible_debezium_json (#4351)|https://github.com/apache/seatunnel/commit/336f590498|
 |[Hotfix][Zeta] Fix TaskExecutionService Deploy Failed The Job Can't Stop (#4265)|https://github.com/apache/seatunnel/commit/cf55b070bb|
 |[Feature][CDC] Support export debezium-json format to kafka (#4339)|https://github.com/apache/seatunnel/commit/5817ec07bf|
@@ -74,6 +130,12 @@
 |[Bug][KafkaSource]Fix the default value of commit_on_checkpoint. (#3831)|https://github.com/apache/seatunnel/commit/df969849f6|
 |[Bug][KafkaSource]Failed to parse offset format (#3810)|https://github.com/apache/seatunnel/commit/8e1196accf|
 |[Improve] [Connector-V2] Kafka client user configured clientid is preferred (#3783)|https://github.com/apache/seatunnel/commit/aacf0abc04|
+
+</details>
+<details><summary>2.3.0</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Improve] [Connector-V2] Fix Kafka sink can't run EXACTLY_ONCE semantics (#3724)|https://github.com/apache/seatunnel/commit/5e3f196e29|
 |[Improve] [Connector-V2] fix kafka admin client can't get property config (#3721)|https://github.com/apache/seatunnel/commit/74c3351700|
 |[Improve][Connector-V2][Kafka] Add text format for kafka sink connector (#3711)|https://github.com/apache/seatunnel/commit/74bbd76b65|
@@ -85,15 +147,29 @@
 |[Feature][Connector-V2][Kafka] Add Kafka option rules (#3388)|https://github.com/apache/seatunnel/commit/cc0cb8cdb8|
 |[Improve][Connector-V2][Kafka]Improve kafka metadata code format (#3397)|https://github.com/apache/seatunnel/commit/379da3097f|
 |[Improve][Connector-V2-kafka] Support setting read starting offset or time at startup config (#3157)|https://github.com/apache/seatunnel/commit/3da19d4444|
+
+</details>
+<details><summary>2.3.0-beta</summary>
+
+| Change | Commit |
+| --- | --- |
 |update (#3150)|https://github.com/apache/seatunnel/commit/2b44992750|
 |[Feature][connectors-v2][kafka] Kafka supports custom schema #2371 (#2783)|https://github.com/apache/seatunnel/commit/6506e306eb|
 |[feature][connector][kafka] Support extract partition from SeaTunnelRow fields (#3085)|https://github.com/apache/seatunnel/commit/385e1f42c0|
 |[Improve][connector][kafka] sink support custom partition (#3041)|https://github.com/apache/seatunnel/commit/ebddc18c41|
 |[Improve][all] change Log to @Slf4j (#3001)|https://github.com/apache/seatunnel/commit/6016100f12|
 |[Imporve][Connector-V2]Parameter verification for connector V2 kafka sink (#2866)|https://github.com/apache/seatunnel/commit/254223fdb9|
+
+</details>
+<details><summary>2.2.0-beta</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Connector-V2] [Kafka] Fix Kafka Streaming problem (#2759)|https://github.com/apache/seatunnel/commit/e92e7b7283|
 |[Improve][Connector-V2] Fix kafka connector (#2745)|https://github.com/apache/seatunnel/commit/90ce3851db|
 |[DEV][Api] Replace SeaTunnelContext with JobContext and remove singleton pattern (#2706)|https://github.com/apache/seatunnel/commit/cbf82f755c|
 |[#2606]Dependency management split (#2630)|https://github.com/apache/seatunnel/commit/fc047be69b|
 |StateT of SeaTunnelSource should extend `Serializable` (#2214)|https://github.com/apache/seatunnel/commit/8c426ef850|
 |[api-draft][Optimize] Optimize module name (#2062)|https://github.com/apache/seatunnel/commit/f79e3112b1|
+
+</details>

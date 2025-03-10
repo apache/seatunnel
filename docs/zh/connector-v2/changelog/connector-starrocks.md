@@ -1,3 +1,5 @@
+<details><summary>dev</summary>
+
 | Change | Commit |
 | --- | --- |
 |[Feature][Connector-v2] Support multi starrocks source (#8789)|https://github.com/apache/seatunnel/commit/26b5529aaf|
@@ -7,6 +9,12 @@
 |[improve] add StarRocks options (#8639)|https://github.com/apache/seatunnel/commit/da8d9cbd35|
 |[Fix][Connector-V2] fix starRocks automatically creates tables with comment (#8568)|https://github.com/apache/seatunnel/commit/c4cb1fc4a3|
 |[Fix][Connector-V2] Fixed adding table comments (#8514)|https://github.com/apache/seatunnel/commit/edca75b0d6|
+
+</details>
+<details><summary>2.3.9</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Connector-V2] Starrocks implements multi table sink (#8467)|https://github.com/apache/seatunnel/commit/55eebfa8af|
 |[Improve][Connector-V2] Add pre-check starrocks version before exeucte alter table field name (#8237)|https://github.com/apache/seatunnel/commit/c24e3b12ba|
 |[Fix][Connector-starrocks] Fix drop column bug for starrocks (#8216)|https://github.com/apache/seatunnel/commit/082814da1f|
@@ -16,14 +24,32 @@
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|
 |[Improve][Connector-V2] Add doris/starrocks create table with comment (#7847)|https://github.com/apache/seatunnel/commit/207b8c16fd|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|
+
+</details>
+<details><summary>2.3.8</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Improve][API] Move catalog open to SaveModeHandler (#7439)|https://github.com/apache/seatunnel/commit/8c2c5c79a1|
 |[Improve][Connector-V2] Reuse connection in StarRocksCatalog (#7342)|https://github.com/apache/seatunnel/commit/8ee129d20f|
 |[Improve][Connector-V2] Remove system table limit (#7391)|https://github.com/apache/seatunnel/commit/adf888e008|
 |[Improve][Connector-V2] Close all ResultSet after used (#7389)|https://github.com/apache/seatunnel/commit/853e973212|
+
+</details>
+<details><summary>2.3.6</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Core] Support using upstream table placeholders in sink options and auto replacement (#7131)|https://github.com/apache/seatunnel/commit/c4ca74122c|
 |[Fix][Connector-V2] Fix starrocks Content-Length header already present error (#7034)|https://github.com/apache/seatunnel/commit/a485a74eff|
 |[Feature][Connector-V2]Support StarRocks Fe Node HA|https://github.com/apache/seatunnel/commit/9c36c45819|
 |[Fix][Connector-v2] Fix the sql statement error of create table for doris and starrocks (#6679)|https://github.com/apache/seatunnel/commit/88263cd69f|
+
+</details>
+<details><summary>2.3.5</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Fix][StarRocks] Fix NPE when upstream catalogtable table path only have table name part (#6540)|https://github.com/apache/seatunnel/commit/5795b265cc|
 |[Fix][Connector-V2] Fixed doris/starrocks create table sql parse error (#6580)|https://github.com/apache/seatunnel/commit/f2ed1fbde0|
 |[Fix][Connector-V2] Fix connector support SPI but without no args constructor (#6551)|https://github.com/apache/seatunnel/commit/5f3c9c36a5|
@@ -31,6 +57,12 @@
 |[Improve][Connector-V2] Support TableSourceFactory on StarRocks (#6498)|https://github.com/apache/seatunnel/commit/aded56299c|
 |[Improve] StarRocksSourceReader  use the existing client  (#6480)|https://github.com/apache/seatunnel/commit/1a02c571a9|
 |[Improve][API] Unify type system api(data & type) (#5872)|https://github.com/apache/seatunnel/commit/b38c7edcc9|
+
+</details>
+<details><summary>2.3.4</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Connector] add starrocks save_mode (#6029)|https://github.com/apache/seatunnel/commit/66b0f1e1d2|
 |[Feature] Add unsupported datatype check for all catalog (#5890)|https://github.com/apache/seatunnel/commit/b9791285a0|
 |[Improve] StarRocks support create table template with unique key (#5905)|https://github.com/apache/seatunnel/commit/25b01125e4|
@@ -47,15 +79,33 @@
 |[Hotfix][Connector-V2][StarRocks] fix starrocks template sql parser #5071 (#5332)|https://github.com/apache/seatunnel/commit/23d79b0d17|
 |[Improve] [Connector-V2] Remove scheduler in StarRocks sink (#5269)|https://github.com/apache/seatunnel/commit/cb7b794914|
 |[Improve][CheckStyle] Remove useless 'SuppressWarnings' annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
+
+</details>
+<details><summary>2.3.3</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Hotfix] Fix com.google.common.base.Preconditions to seatunnel shade one (#5284)|https://github.com/apache/seatunnel/commit/ed5eadcf73|
 |Fix StarRocksJsonSerializer will transform array/map/row to string (#5281)|https://github.com/apache/seatunnel/commit/f941953774|
 |[Improve] Improve savemode api (#4767)|https://github.com/apache/seatunnel/commit/4acd370d48|
+
+</details>
+<details><summary>2.3.2</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Improve] [Connector-V2] Improve StarRocks Auto Create Table To Support Use Primary Key Template In Field (#4487)|https://github.com/apache/seatunnel/commit/e601cd4c37|
 |Revert "[Improve][Catalog] refactor catalog (#4540)" (#4628)|https://github.com/apache/seatunnel/commit/2d1933195d|
 |[hotfix][starrocks] fix error on get starrocks source typeInfo (#4619)|https://github.com/apache/seatunnel/commit/f7b094f9eb|
 |[Improve][Catalog] refactor catalog (#4540)|https://github.com/apache/seatunnel/commit/b0a701cb83|
 |[Improve] [Connector-V2] Throw StarRocks Serialize Error To Client (#4484)|https://github.com/apache/seatunnel/commit/e2c107323b|
 |[Improve] [Connector-V2] Improve StarRocks Serialize Error Message (#4458)|https://github.com/apache/seatunnel/commit/465e75cbf5|
+
+</details>
+<details><summary>2.3.1</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Hotfix][Zeta] Adapt StarRocks With Multi-Table And Single-Table Mode (#4324)|https://github.com/apache/seatunnel/commit/c11c171d36|
 |[improve][zeta] fix zeta bugs|https://github.com/apache/seatunnel/commit/3a82e8b39f|
 |[Improve] [Zeta] Improve Client Job Info Message|https://github.com/apache/seatunnel/commit/56febf0118|
@@ -84,9 +134,17 @@
 |[Improve][Project] Code format with spotless plugin. (#4101)|https://github.com/apache/seatunnel/commit/a2ab166561|
 |[Feature][Connector-v2][StarRocks] Support write cdc changelog event(INSERT/UPDATE/DELETE) (#3865)|https://github.com/apache/seatunnel/commit/8e3d158c03|
 |[Improve] [Connector-V2] Change Connector Custom Config Prefix To Map (#3719)|https://github.com/apache/seatunnel/commit/ef1b8b1bb5|
+
+</details>
+<details><summary>2.3.0</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Improve][Connector-V2][StarRocks] Unified exception for StarRocks source and sink (#3593)|https://github.com/apache/seatunnel/commit/612d0297a0|
 |[Improve][Connector-V2][StarRocks] Delete the Mapper may not be used (#3579)|https://github.com/apache/seatunnel/commit/1e868ecf28|
 |[Hotfix][OptionRule] Fix option rule about all connectors (#3592)|https://github.com/apache/seatunnel/commit/226dc6a119|
 |[Improve][Connector-V2][StarRocks]Add StarRocks connector option rules (#3402)|https://github.com/apache/seatunnel/commit/5d187f69b7|
 |[Bugfix][Connector-V2][StarRocks]Fix StarRocks StreamLoad retry bug and fix doc (#3406)|https://github.com/apache/seatunnel/commit/071f9aa055|
 |[Feature][Connector-V2] Starrocks sink connector (#3164)|https://github.com/apache/seatunnel/commit/3e6caf7053|
+
+</details>

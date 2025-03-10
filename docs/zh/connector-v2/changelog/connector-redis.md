@@ -1,8 +1,16 @@
+<details><summary>dev</summary>
+
 | Change | Commit |
 | --- | --- |
 |[Improve][Redis] Optimized Redis connection params (#8841)|https://github.com/apache/seatunnel/commit/e56f06cdf0|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|
 |[improve] update Redis connector config option (#8631)|https://github.com/apache/seatunnel/commit/f1c313eea6|
+
+</details>
+<details><summary>2.3.9</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Redis] Flush data when the time reaches checkpoint.interval and update test case (#8308)|https://github.com/apache/seatunnel/commit/e15757bcd7|
 |Revert "[Feature][Redis] Flush data when the time reaches checkpoint interval" and "[Feature][CDC] Add 'schema-changes.enabled' options" (#8278)|https://github.com/apache/seatunnel/commit/fcb2938286|
 |[Feature][Redis] Flush data when the time reaches checkpoint.interval (#8198)|https://github.com/apache/seatunnel/commit/2e24941e6a|
@@ -11,25 +19,73 @@
 |[Feature] [Connector-Redis] Redis connector support delete data (#7994)|https://github.com/apache/seatunnel/commit/02a35c3979|
 |[Improve][Connector-V2] Redis support custom key and value (#7888)|https://github.com/apache/seatunnel/commit/ef2c3c7283|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|
+
+</details>
+<details><summary>2.3.8</summary>
+
+| Change | Commit |
+| --- | --- |
 |[improve][Redis]Redis scan command supports versions 5, 6, 7 (#7666)|https://github.com/apache/seatunnel/commit/6e70cbe334|
+
+</details>
+<details><summary>2.3.7</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Improve][Connector] Add multi-table sink option check (#7360)|https://github.com/apache/seatunnel/commit/2489f6446b|
+
+</details>
+<details><summary>2.3.6</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Core] Support using upstream table placeholders in sink options and auto replacement (#7131)|https://github.com/apache/seatunnel/commit/c4ca74122c|
 |[Improve][Redis] Redis reader use scan cammnd instead of keys, single mode reader/writer support batch (#7087)|https://github.com/apache/seatunnel/commit/be37f05c07|
 |[Feature][Kafka] Support multi-table source read  (#5992)|https://github.com/apache/seatunnel/commit/60104602d1|
+
+</details>
+<details><summary>2.3.5</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Improve][Connector-V2]Support multi-table sink feature for redis (#6314)|https://github.com/apache/seatunnel/commit/fed89ae3fc|
+
+</details>
+<details><summary>2.3.4</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Core] Upgrade flink source translation (#5100)|https://github.com/apache/seatunnel/commit/5aabb14a94|
 |[Feature][Connector-V2] Support TableSourceFactory/TableSinkFactory on redis  (#5901)|https://github.com/apache/seatunnel/commit/e84dcb8c10|
 |[Improve][Common] Introduce new error define rule (#5793)|https://github.com/apache/seatunnel/commit/9d1b2582b2|
 |[Improve] Remove use `SeaTunnelSink::getConsumedType` method and mark it as deprecated (#5755)|https://github.com/apache/seatunnel/commit/8de7408100|
 |[Improve][Connector-v2][Redis] Redis support select db (#5570)|https://github.com/apache/seatunnel/commit/77fbbbd0ee|
 |Support config column/primaryKey/constraintKey in schema (#5564)|https://github.com/apache/seatunnel/commit/eac76b4e50|
+
+</details>
+<details><summary>2.3.3</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Connector-v2][RedisSink]Support redis to set expiration time. (#4975)|https://github.com/apache/seatunnel/commit/b5321ff1d2|
+
+</details>
+<details><summary>2.3.1</summary>
+
+| Change | Commit |
+| --- | --- |
 |Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
 |[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
 |[improve][api] Refactoring schema parse (#4157)|https://github.com/apache/seatunnel/commit/b2f573a13e|
 |[Improve][build] Give the maven module a human readable name (#4114)|https://github.com/apache/seatunnel/commit/d7cd601051|
 |[Improve][Project] Code format with spotless plugin. (#4101)|https://github.com/apache/seatunnel/commit/a2ab166561|
 |[Feature][Connector] add get source method to all source connector (#3846)|https://github.com/apache/seatunnel/commit/417178fb84|
+
+</details>
+<details><summary>2.3.0</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Hotfix][OptionRule] Fix option rule about all connectors (#3592)|https://github.com/apache/seatunnel/commit/226dc6a119|
 |[Improve][Connector-V2][Redis] Unified exception for redis source & sink exception (#3517)|https://github.com/apache/seatunnel/commit/205f782585|
 |options in conditional need add to required or optional options (#3501)|https://github.com/apache/seatunnel/commit/51d5bcba10|
@@ -37,7 +93,15 @@
 |[Feature][Redis Connector V2] Add Redis Connector Option Rules & Improve Redis Connector doc (#3320)|https://github.com/apache/seatunnel/commit/1c10aacb30|
 |[Connector-V2] [ElasticSearch] Add ElasticSearch Source/Sink Factory (#3325)|https://github.com/apache/seatunnel/commit/38254e3f26|
 |[Improve][Connector-V2][Redis] Support redis cluster connection & user authentication (#3188)|https://github.com/apache/seatunnel/commit/c7275a49cc|
+
+</details>
+<details><summary>2.2.0-beta</summary>
+
+| Change | Commit |
+| --- | --- |
 |[DEV][Api] Replace SeaTunnelContext with JobContext and remove singleton pattern (#2706)|https://github.com/apache/seatunnel/commit/cbf82f755c|
 |[Feature][Connector-V2] Add redis sink connector (#2647)|https://github.com/apache/seatunnel/commit/71a9e4b019|
 |[#2606]Dependency management split (#2630)|https://github.com/apache/seatunnel/commit/fc047be69b|
 |[Feature][Connector-V2] Add redis source connector (#2569)|https://github.com/apache/seatunnel/commit/405f7d6f99|
+
+</details>

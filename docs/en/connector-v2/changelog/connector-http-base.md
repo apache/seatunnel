@@ -1,20 +1,58 @@
+<details><summary>dev</summary>
+
 | Change | Commit |
 | --- | --- |
 |[Fix][connector-http] fix when post have param (#8434)|https://github.com/apache/seatunnel/commit/c1b2675ab0|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|
+
+</details>
+<details><summary>2.3.9</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|
 |[Feature][Connector-V2] Add prometheus source and sink (#7265)|https://github.com/apache/seatunnel/commit/dde6f9fcbd|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|
+
+</details>
+<details><summary>2.3.8</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Fix][Connector-V2] Fix http source can not read streaming (#7703)|https://github.com/apache/seatunnel/commit/a0ffa7ba02|
 |[Feature][Connector-V2] Suport choose the start page in http paging (#7180)|https://github.com/apache/seatunnel/commit/ed15f0dcf9|
+
+</details>
+<details><summary>2.3.7</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Improve][Connector] Add multi-table sink option check (#7360)|https://github.com/apache/seatunnel/commit/2489f6446b|
 |[Improve][API] Make sure the table name in TablePath not be null (#7252)|https://github.com/apache/seatunnel/commit/764d8b0bc8|
+
+</details>
+<details><summary>2.3.6</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Core] Support using upstream table placeholders in sink options and auto replacement (#7131)|https://github.com/apache/seatunnel/commit/c4ca74122c|
 |[Feature][Kafka] Support multi-table source read  (#5992)|https://github.com/apache/seatunnel/commit/60104602d1|
 |[Improve][CDC] Close idle subtasks gorup(reader/writer) in increment phase (#6526)|https://github.com/apache/seatunnel/commit/454c339b9c|
 |Fix HttpSource bug (#6824)|https://github.com/apache/seatunnel/commit/c3ab84caa4|
+
+</details>
+<details><summary>2.3.5</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Hotfix] fix http source can not read yyyy-MM-dd HH:mm:ss format bug & Improve DateTime Utils (#6601)|https://github.com/apache/seatunnel/commit/19888e7969|
 |[Improve][Connector-V2]Support multi-table sink feature for httpsink (#6316)|https://github.com/apache/seatunnel/commit/e6c51a95c7|
+
+</details>
+<details><summary>2.3.4</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Improve][HttpConnector]Increase custom configuration timeout. (#6223)|https://github.com/apache/seatunnel/commit/fa5b7d3d83|
 |[Feature][Core] Upgrade flink source translation (#5100)|https://github.com/apache/seatunnel/commit/5aabb14a94|
 |[BUG][Connector-V2][Http] fix bug http config no schema option and improve e2e test add case (#5939)|https://github.com/apache/seatunnel/commit/8a71b9e072|
@@ -27,13 +65,31 @@
 |[improve][Connector-V2][http] improve http e2e test  (#5655)|https://github.com/apache/seatunnel/commit/f5867adcaa|
 |Support config column/primaryKey/constraintKey in schema (#5564)|https://github.com/apache/seatunnel/commit/eac76b4e50|
 |[BUG][Connector-V2][http] fix httpheader cover (#5446)|https://github.com/apache/seatunnel/commit/cdd8e0a65e|
+
+</details>
+<details><summary>2.3.2</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Connector][Http] Support multi-line text splits (#4698)|https://github.com/apache/seatunnel/commit/6a524981cb|
+
+</details>
+<details><summary>2.3.1</summary>
+
+| Change | Commit |
+| --- | --- |
 |Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
 |[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
 |[improve][api] Refactoring schema parse (#4157)|https://github.com/apache/seatunnel/commit/b2f573a13e|
 |[Improve][build] Give the maven module a human readable name (#4114)|https://github.com/apache/seatunnel/commit/d7cd601051|
 |[Improve][Project] Code format with spotless plugin. (#4101)|https://github.com/apache/seatunnel/commit/a2ab166561|
 |[Feature][Connector] add get source method to all source connector (#3846)|https://github.com/apache/seatunnel/commit/417178fb84|
+
+</details>
+<details><summary>2.3.0</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Hotfix] [seatunnel-connectors-v2] [connector-http] fix http json request error (#3629)|https://github.com/apache/seatunnel/commit/54f594d6ca|
 |[Improve][Connector-V2][Http]Improve json parse option rule for all http connector (#3627)|https://github.com/apache/seatunnel/commit/589e4161ec|
 |[Feature][Connector-V2][HTTP] Use json-path parsing (#3510)|https://github.com/apache/seatunnel/commit/1807eb6c95|
@@ -43,9 +99,21 @@
 |[Improve][Connector-V2][My Hours]Add http method enum && Improve My Hours connector option rule (#3390)|https://github.com/apache/seatunnel/commit/a86c9d90f7|
 |[Feature][Connector-V2][Http] Add option rules && Improve Myhours sink connector (#3351)|https://github.com/apache/seatunnel/commit/cc8bb60c83|
 |[Feature][Connector-V2][My Hours] Add My Hours Source Connector (#3228)|https://github.com/apache/seatunnel/commit/4104a3e30e|
+
+</details>
+<details><summary>2.3.0-beta</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Improve][all] change Log to @Slf4j (#3001)|https://github.com/apache/seatunnel/commit/6016100f12|
 |[Bug][format][json] Fix jackson package conflict with spark (#2934)|https://github.com/apache/seatunnel/commit/1a92b8369b|
 |[Bug][Connector-V2] Fix wechat sink data serialization (#2856)|https://github.com/apache/seatunnel/commit/3aee11fc16|
+
+</details>
+<details><summary>2.2.0-beta</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Improve][Connector-V2] Improve http connector (#2833)|https://github.com/apache/seatunnel/commit/5b3957bc52|
 |[DEV][Api] Replace SeaTunnelContext with JobContext and remove singleton pattern (#2706)|https://github.com/apache/seatunnel/commit/cbf82f755c|
 |[Improve][build] Improved scope of maven-shade-plugin (#2665)|https://github.com/apache/seatunnel/commit/93bc8bd116|
@@ -56,3 +124,5 @@
 |[Improve][Connector-V2] Format SeaTunnelRow use seatunnel-format-json (#2435)|https://github.com/apache/seatunnel/commit/e4e8f7fbff|
 |[Improve][Connector-V2] Make the attribute of http-connector from private to protected (#2418)|https://github.com/apache/seatunnel/commit/f3b00ef696|
 |[Feature][Connector-V2] Add feishu sink (#2381)|https://github.com/apache/seatunnel/commit/0fec8ca438|
+
+</details>

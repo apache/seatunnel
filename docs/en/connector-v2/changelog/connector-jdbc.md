@@ -1,3 +1,5 @@
+<details><summary>dev</summary>
+
 | Change | Commit |
 | --- | --- |
 |[Fix][Connector-V2] Fix parse SqlServer JDBC Url error (#8784)|https://github.com/apache/seatunnel/commit/373d2162d3|
@@ -9,6 +11,12 @@
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|
 |[Improve][Jdbc] Remove oracle 'v$database' query (#8571)|https://github.com/apache/seatunnel/commit/3cf09f61ca|
 |[Fix] [Connector-V2] Postgres support for multiple primary keys (#8526)|https://github.com/apache/seatunnel/commit/04db40d973|
+
+</details>
+<details><summary>2.3.9</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][JDBC source] pg support char types (#8420)|https://github.com/apache/seatunnel/commit/776ac94478|
 |[Feature][Jdbc] Support sink ddl for postgresql (#8276)|https://github.com/apache/seatunnel/commit/353bbd21a1|
 |[Feature][Connector-V2] Support the jdbc connector for highgo db (#8282)|https://github.com/apache/seatunnel/commit/aa381cbfb4|
@@ -34,6 +42,12 @@
 |[Feature][connector-v2]Support opengauss jdbc connnector using opengauss driver. (#7622)|https://github.com/apache/seatunnel/commit/bbf643772e|
 |[Improve][Jdbc] Support save mode for the sink of jdbc-dm (#7814)|https://github.com/apache/seatunnel/commit/b87d732c81|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|
+
+</details>
+<details><summary>2.3.8</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Connector-V2] SqlServer support user-defined type (#7706)|https://github.com/apache/seatunnel/commit/fb89033273|
 |[Hotfix][CDC] Fix ddl duplicate execution error when config multi_table_sink_replica (#7634)|https://github.com/apache/seatunnel/commit/23ab3edbbb|
 |[Feature][Connector-Paimon] Support dynamic bucket splitting improves Paimon writing efficiency (#7335)|https://github.com/apache/seatunnel/commit/bc0326cba8|
@@ -58,12 +72,24 @@
 |[Improve][Connector-V2] Close all ResultSet after used (#7389)|https://github.com/apache/seatunnel/commit/853e973212|
 |[Hotifx][Jdbc] Fix MySQL unsupport 'ZEROFILL' column type (#7407)|https://github.com/apache/seatunnel/commit/7130382123|
 |[Improvement] add starrocks jdbc dialect (#7294)|https://github.com/apache/seatunnel/commit/b5140f598e|
+
+</details>
+<details><summary>2.3.7</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Hotfix][Connector] Fix jdbc compile error (#7359)|https://github.com/apache/seatunnel/commit/2769ed5029|
 |[Fix][Connector-V2][OceanBase] Remove OceanBase catalog's dependency on mysql driver (#7311)|https://github.com/apache/seatunnel/commit/3130ae089e|
 |[Improve][Jdbc] Skip all index when auto create table to improve performance of write (#7288)|https://github.com/apache/seatunnel/commit/dc3c23981b|
 |[Improve][Jdbc] Remove MysqlType references in JdbcDialect (#7333)|https://github.com/apache/seatunnel/commit/16eeb1c123|
 |[Improve][Jdbc] Merge user config primary key when create table (#7313)|https://github.com/apache/seatunnel/commit/819c685651|
 |[Improve][Connector-v2] Optimize the way of databases and tables are checked for existence (#7261)|https://github.com/apache/seatunnel/commit/f012b2a6f0|
+
+</details>
+<details><summary>2.3.6</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Jdbc] Support hive compatibleMode add inceptor dialect (#7262)|https://github.com/apache/seatunnel/commit/31e59cdf82|
 |[Improve][Connector-v2] Optimize the count table rows for jdbc-oracle and oracle-cdc (#7248)|https://github.com/apache/seatunnel/commit/0d08b20061|
 |[Feature][Core] Support using upstream table placeholders in sink options and auto replacement (#7131)|https://github.com/apache/seatunnel/commit/c4ca74122c|
@@ -93,6 +119,12 @@
 |[Hotfix][Jdbc] Fix table/query columns order merge for jdbc catalog (#6771)|https://github.com/apache/seatunnel/commit/df1954d520|
 |[Fix] Fix Oracle type converter handle negative scale in number type (#6758)|https://github.com/apache/seatunnel/commit/6d710690c5|
 |[Improve][mysql-cdc] Support mysql 5.5 versions (#6710)|https://github.com/apache/seatunnel/commit/058f5594a3|
+
+</details>
+<details><summary>2.3.5</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Improve][Jdbc] Add quote identifier for sql (#6669)|https://github.com/apache/seatunnel/commit/849d748d3d|
 |[Improve][Jdbc] Increase tyepe converter when auto creating tables (#6617)|https://github.com/apache/seatunnel/commit/cc660206d8|
 |[feature][connector-v2] add xugudb connector (#6561)|https://github.com/apache/seatunnel/commit/80f392afbb|
@@ -104,6 +136,12 @@
 |feat: jdbc support copy in statement. (#6443)|https://github.com/apache/seatunnel/commit/ca4a65fc00|
 |[Improve][Jdbc] Using varchar2 datatype store string in oracle (#6392)|https://github.com/apache/seatunnel/commit/14405fa8d4|
 |[Improve][API] Unify type system api(data & type) (#5872)|https://github.com/apache/seatunnel/commit/b38c7edcc9|
+
+</details>
+<details><summary>2.3.4</summary>
+
+| Change | Commit |
+| --- | --- |
 |Fix Jdbc sink target table name error (#6269)|https://github.com/apache/seatunnel/commit/2f62235e38|
 |[Improve][JDBC] Use PreparedStatement to sample data from column (#6242)|https://github.com/apache/seatunnel/commit/bd0e66d533|
 |[Improve][JDBC-sink] Improve query Approximate Total Row Count of a Table (#5972)|https://github.com/apache/seatunnel/commit/8156036a2f|
@@ -165,6 +203,12 @@
 |[Feature][Jdbc] Jdbc database support identifier (#5089)|https://github.com/apache/seatunnel/commit/38b6d6e4bb|
 |[Improve][Connector-v2][Jdbc] Refactor AbstractJdbcCatalog (#5096)|https://github.com/apache/seatunnel/commit/dde3104f76|
 |[Improve][CheckStyle] Remove useless 'SuppressWarnings' annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
+
+</details>
+<details><summary>2.3.3</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Hotfix] Fix com.google.common.base.Preconditions to seatunnel shade one (#5284)|https://github.com/apache/seatunnel/commit/ed5eadcf73|
 |[bug][jdbc][oracle]Fix the Oracle number type mapping problem (#5209)|https://github.com/apache/seatunnel/commit/9d3c3de90d|
 |[BUG][Connector-V2][Jdbc] support postgresql json type  (#5194)|https://github.com/apache/seatunnel/commit/7a862d14b7|
@@ -183,6 +227,12 @@
 |[Improve][CDC]Remove  driver for cdc connector (#4952)|https://github.com/apache/seatunnel/commit/b65f40c3c9|
 |[Improve] Documentation and partial word optimization. (#4936)|https://github.com/apache/seatunnel/commit/6e8de0e2a6|
 |[Improve][Connector-V2][Jdbc-Source] Support for Decimal types as splict keys  (#4634)|https://github.com/apache/seatunnel/commit/d56bb1ba1c|
+
+</details>
+<details><summary>2.3.2</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Bugfix][zeta] Fix the deadlock issue with JDBC driver loading (#4878)|https://github.com/apache/seatunnel/commit/c30a2a1b1c|
 |[Hotfix][Jdbc] Fix XA DataSource crash(Oracle/Dameng/SqlServer) (#4866)|https://github.com/apache/seatunnel/commit/bde19b6377|
 |[Feature][Connector-v2] Add Snowflake Source&Sink connector (#4470)|https://github.com/apache/seatunnel/commit/06c59a25f3|
@@ -216,6 +266,12 @@
 |[Hotfix][Connector] Fix sqlserver catalog (#4441)|https://github.com/apache/seatunnel/commit/8540c7f9f3|
 |[Feature][CDC][SqlServer] Support multi-table read (#4377)|https://github.com/apache/seatunnel/commit/c4e3f2dc03|
 |[Improve][JdbcSink]Fix connection failure caused by connection timeout. (#4322)|https://github.com/apache/seatunnel/commit/e1f6d3b3fd|
+
+</details>
+<details><summary>2.3.1</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Hotfix][Connector-V2][Jdbc] Field aliases are not supported in the query of jdbc source. (#4158) (#4210)|https://github.com/apache/seatunnel/commit/3d7ff831f9|
 |Change file type to file_format_type in file source/sink (#4249)|https://github.com/apache/seatunnel/commit/973a2fae3c|
 |Change redshift type to lowercase (#4248)|https://github.com/apache/seatunnel/commit/10447ae103|
@@ -252,6 +308,12 @@
 |[Improve][Connector-V2][JDBC] Add exactly-once for JDBC source connector (#3750)|https://github.com/apache/seatunnel/commit/5328e9d847|
 |[Improve][Connector-v2] Remove unused options for jdbc source factory (#3794)|https://github.com/apache/seatunnel/commit/861004d309|
 |[Feature][Connector-jdbc] Fix JDBC Connector Throw Exception Error. (#3796)|https://github.com/apache/seatunnel/commit/38646b11b8|
+
+</details>
+<details><summary>2.3.0</summary>
+
+| Change | Commit |
+| --- | --- |
 |[hotfix][ST-Engine] fix jdbc connector exactly-once null pointer (#3730)|https://github.com/apache/seatunnel/commit/0c5986fbec|
 |[Improve][connector-jdbc] Add config item enable upsert by query (#3708)|https://github.com/apache/seatunnel/commit/e1f951f782|
 |[Hotfix][connector-v2] fix SemanticXidGenerator#generateXid indexOutOfBounds #3701 (#3705)|https://github.com/apache/seatunnel/commit/f351ceaf4b|
@@ -277,6 +339,12 @@
 |[Bug][Connector-V2][JDBC]fix jdbc split bug (#3220)|https://github.com/apache/seatunnel/commit/40d67ab902|
 |[Feature][Connector-V2][JDBC] Support DB2 Source & Sink (#2410)|https://github.com/apache/seatunnel/commit/bf1ef69e84|
 |update org.postgresql:postgresql 42.3.3 to 42.4.1 (#3097)|https://github.com/apache/seatunnel/commit/2852516490|
+
+</details>
+<details><summary>2.3.0-beta</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Connector-V2][Jdbc] support gbase 8a  (#3026)|https://github.com/apache/seatunnel/commit/dc6e85d06f|
 |[Bug] [sqlserver] timestamp convert exception (#3024)|https://github.com/apache/seatunnel/commit/99ac1a655e|
 |[Feature][Connector-V2] oracle connector (#2550)|https://github.com/apache/seatunnel/commit/384ece1913|
@@ -287,6 +355,12 @@
 |[Improve][e2e] Improve jdbc driver management (#2770)|https://github.com/apache/seatunnel/commit/f907927a35|
 |[hotfix][connector][jdbc] fix JDBC split exception (#2904)|https://github.com/apache/seatunnel/commit/57342c6545|
 |[Improve][connector-jdbc] Calculate splits only once in JdbcSourceSplitEnumerator (#2900)|https://github.com/apache/seatunnel/commit/7622f28999|
+
+</details>
+<details><summary>2.2.0-beta</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature] [Connector-V2 E2E] Add mysql and postgres e2e test and bug fix (#2838)|https://github.com/apache/seatunnel/commit/db434adc15|
 |fix XAConnection being wrongly submitted (#2805)|https://github.com/apache/seatunnel/commit/d9a6039fd3|
 |fix spark execute exception is not thrown (#2791)|https://github.com/apache/seatunnel/commit/b1711c984e|
@@ -305,3 +379,5 @@
 |[API-DRAFT] [MERGE] fix merge error|https://github.com/apache/seatunnel/commit/3c0e984648|
 |merge dev to api-draft|https://github.com/apache/seatunnel/commit/d265597c64|
 |[api-draft][Optimize] Optimize module name (#2062)|https://github.com/apache/seatunnel/commit/f79e3112b1|
+
+</details>

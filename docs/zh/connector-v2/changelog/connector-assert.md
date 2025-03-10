@@ -1,7 +1,15 @@
+<details><summary>dev</summary>
+
 | Change | Commit |
 | --- | --- |
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|
 |[improve] add assert options (#8620)|https://github.com/apache/seatunnel/commit/b159cc0c75|
+
+</details>
+<details><summary>2.3.9</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][API] Support timestamp with timezone offset (#8367)|https://github.com/apache/seatunnel/commit/e18bfeabd2|
 |[fix][connector-v2][connector-assert] Optimize Assert Sink verification method (#8356)|https://github.com/apache/seatunnel/commit/5c9159d7cd|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|
@@ -10,11 +18,41 @@
 |[Improve][API] Unified tables_configs and table_list (#8100)|https://github.com/apache/seatunnel/commit/84c0b8d660|
 |[Fix][API] Fix column length can not be long (#8039)|https://github.com/apache/seatunnel/commit/16cf632d3e|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|
+
+</details>
+<details><summary>2.3.8</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Connector-V2] Assert support multi-table check (#7687)|https://github.com/apache/seatunnel/commit/c4778a2497|
 |[Feature][Transform] Add embedding transform (#7534)|https://github.com/apache/seatunnel/commit/3310cfcd34|
+
+</details>
+<details><summary>2.3.7</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Improve][Connector] Add multi-table sink option check (#7360)|https://github.com/apache/seatunnel/commit/2489f6446b|
+
+</details>
+<details><summary>2.3.6</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Core] Support using upstream table placeholders in sink options and auto replacement (#7131)|https://github.com/apache/seatunnel/commit/c4ca74122c|
+
+</details>
+<details><summary>2.3.5</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Hotfix] fix http source can not read yyyy-MM-dd HH:mm:ss format bug & Improve DateTime Utils (#6601)|https://github.com/apache/seatunnel/commit/19888e7969|
+
+</details>
+<details><summary>2.3.4</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Connector-V2][Assert] Support field type assert and field value equality assert for full data types (#6275)|https://github.com/apache/seatunnel/commit/576919bfab|
 |[Feature][Connector-V2][Assert] Support check the precision and scale of Decimal type. (#6110)|https://github.com/apache/seatunnel/commit/dd64ed52d4|
 |[Hotfix][SQL Transform] Fix cast to timestamp, date, time bug (#5812)|https://github.com/apache/seatunnel/commit/de181de02a|
@@ -28,16 +66,42 @@
 |Support config column/primaryKey/constraintKey in schema (#5564)|https://github.com/apache/seatunnel/commit/eac76b4e50|
 |[Improve][connector-assert]support 'DECIMAL' type and fix 'Number' type precision issue (#5479)|https://github.com/apache/seatunnel/commit/d308e27733|
 |[Improve][CheckStyle] Remove useless 'SuppressWarnings' annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
+
+</details>
+<details><summary>2.3.1</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Transform] Add SimpleSQL transform plugin (#4148)|https://github.com/apache/seatunnel/commit/b914d49abf|
 |[Improve][build] Give the maven module a human readable name (#4114)|https://github.com/apache/seatunnel/commit/d7cd601051|
 |[Improve][Project] Code format with spotless plugin. (#4101)|https://github.com/apache/seatunnel/commit/a2ab166561|
+
+</details>
+<details><summary>2.3.0</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Hotfix][OptionRule] Fix option rule about all connectors (#3592)|https://github.com/apache/seatunnel/commit/226dc6a119|
 |[Improve][Connector-V2][Assert] Unified exception for assert connector (#3331)|https://github.com/apache/seatunnel/commit/e74c9bc6fd|
 |[improve][connector] The Factory#factoryIdentifier must be consistent with PluginIdentifierInterface#getPluginName (#3328)|https://github.com/apache/seatunnel/commit/d9519d696a|
 |[Improve][Connector-V2] Add Clickhouse and Assert Source/Sink Factory (#3306)|https://github.com/apache/seatunnel/commit/9e4a128381|
+
+</details>
+<details><summary>2.3.0-beta</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Connector-v2] improve assert sink connector (#2844)|https://github.com/apache/seatunnel/commit/967fec0e93|
+
+</details>
+<details><summary>2.2.0-beta</summary>
+
+| Change | Commit |
+| --- | --- |
 |[DEV][Api] Replace SeaTunnelContext with JobContext and remove singleton pattern (#2706)|https://github.com/apache/seatunnel/commit/cbf82f755c|
 |[improve][UT] Upgrade junit to 5.+ (#2305)|https://github.com/apache/seatunnel/commit/362319ff3e|
 |[checkstyle] Improved validation scope of MagicNumber (#2194)|https://github.com/apache/seatunnel/commit/6d08b5f369|
 |[API-DRAFT] [MERGE] update license and pom.xml|https://github.com/apache/seatunnel/commit/5ae8865b7c|
 |add assert sink to Api draft (#2071)|https://github.com/apache/seatunnel/commit/fc640b52bd|
+
+</details>

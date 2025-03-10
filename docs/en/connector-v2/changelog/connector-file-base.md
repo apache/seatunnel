@@ -1,3 +1,5 @@
+<details><summary>dev</summary>
+
 | Change | Commit |
 | --- | --- |
 |[Fix][Connector-File] Fix conflicting `file_format_type` requirement (#8823)|https://github.com/apache/seatunnel/commit/6e0d630f7c|
@@ -9,6 +11,12 @@
 |[Fix][File] Fix Multi-file with binary format synchronization failed (#8546)|https://github.com/apache/seatunnel/commit/6e4ee468a5|
 |[Feature][Connector-V2] Support create emtpy file when no data (#8543)|https://github.com/apache/seatunnel/commit/275db78918|
 |[Feature][Connector-V2] Support single file mode in file sink (#8518)|https://github.com/apache/seatunnel/commit/e893deed50|
+
+</details>
+<details><summary>2.3.9</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Improve][Connector-file-base] Improved file allocation algorithm for subtasks. (#8453)|https://github.com/apache/seatunnel/commit/d61cba233e|
 |[Bug] [connector-file] When the data source field is less than the target (Hive) field，it will throw null pointer exception#8150 (#8200)|https://github.com/apache/seatunnel/commit/25b8a02b76|
 |[Fix] Set all snappy dependency use one version (#8423)|https://github.com/apache/seatunnel/commit/3ac977c8d3|
@@ -25,9 +33,21 @@
 |[Improve][Connector-V2] Change File Read/WriteStrategy `setSeaTunnelRowTypeInfo` to `setCatalogTable` (#7829)|https://github.com/apache/seatunnel/commit/6b5f74e524|
 |[Bug] [connectors-v2] The Hadoop Source/Sink fails with Unable to find valid Kerberos Ticket. (#7809)|https://github.com/apache/seatunnel/commit/a8bdea24cc|
 |[Fix][Connector-V2] Fix When reading Excel data, string and date type conversion errors (#7796)|https://github.com/apache/seatunnel/commit/749b2fe364|
+
+</details>
+<details><summary>2.3.8</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Improve][Connector-V2] Support read archive compress file (#7633)|https://github.com/apache/seatunnel/commit/3f98cd8a16|
 |[Improve] Refactor S3FileCatalog and it's factory (#7457)|https://github.com/apache/seatunnel/commit/d928e8b113|
 |[Feature][Connector-V2][Iceberg] Support Iceberg Kerberos (#7246)|https://github.com/apache/seatunnel/commit/e3001207c8|
+
+</details>
+<details><summary>2.3.6</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Core] Support using upstream table placeholders in sink options and auto replacement (#7131)|https://github.com/apache/seatunnel/commit/c4ca74122c|
 |[feature][connector-file-local] add save mode function for localfile (#7080)|https://github.com/apache/seatunnel/commit/7b2f538310|
 |[Hotfix][Hive Connector] Fix Hive hdfs-site.xml and hive-site.xml not be load error (#7069)|https://github.com/apache/seatunnel/commit/c23a577f34|
@@ -37,6 +57,12 @@
 |[Feature][Connector-V2] Supports the transfer of any file (#6826)|https://github.com/apache/seatunnel/commit/c1401787b3|
 |[Feature][Doris] Add Doris type converter (#6354)|https://github.com/apache/seatunnel/commit/5189991843|
 |[Improve][Connector-v2] The hive connector support multiple filesystem (#6648)|https://github.com/apache/seatunnel/commit/8a4c01fe35|
+
+</details>
+<details><summary>2.3.5</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Improve] Improve read with parquet type convert error (#6683)|https://github.com/apache/seatunnel/commit/6c65805699|
 |[Hotfix] fix http source can not read yyyy-MM-dd HH:mm:ss format bug & Improve DateTime Utils (#6601)|https://github.com/apache/seatunnel/commit/19888e7969|
 |[Bug] Fix OrcWriteStrategy/ParquetWriteStrategy doesn't login with kerberos (#6472)|https://github.com/apache/seatunnel/commit/24441c876d|
@@ -45,6 +71,12 @@
 |[Chore] Fix `file` spell errors (#6606)|https://github.com/apache/seatunnel/commit/2599d3b736|
 |[Feature][Connectors-V2][File]support assign encoding for file source/sink (#6489)|https://github.com/apache/seatunnel/commit/d159fbe086|
 |Add support for XML file type to various file connectors such as SFTP, FTP, LocalFile, HdfsFile, and more. (#6327)|https://github.com/apache/seatunnel/commit/ec533ecd9a|
+
+</details>
+<details><summary>2.3.4</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Test][E2E] Add thread leak check for connector (#5773)|https://github.com/apache/seatunnel/commit/1f2f3fc5f0|
 |Fix HiveMetaStoreProxy#enableKerberos will return true if doesn't enable kerberos (#6307)|https://github.com/apache/seatunnel/commit/1dad6f7061|
 |[Feature][Connector]add s3file save mode function (#6131)|https://github.com/apache/seatunnel/commit/81c51073bf|
@@ -74,14 +106,32 @@
 |Revert "[fix][hive-source][bug] fix An error occurred reading an empty directory (#5427)" (#5487)|https://github.com/apache/seatunnel/commit/093901068e|
 |[fix][hive-source][bug] fix An error occurred reading an empty directory (#5427)|https://github.com/apache/seatunnel/commit/de7b86a5dd|
 |[Improve][CheckStyle] Remove useless 'SuppressWarnings' annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
+
+</details>
+<details><summary>2.3.3</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Hotfix] Fix com.google.common.base.Preconditions to seatunnel shade one (#5284)|https://github.com/apache/seatunnel/commit/ed5eadcf73|
 |[Feature][Connector V2][File] Add config of 'file_filter_pattern', which used for filtering files. (#5153)|https://github.com/apache/seatunnel/commit/a3c13e59eb|
 |[bugfix] [File Base] Fix Hadoop Kerberos authentication related issues. (#5171)|https://github.com/apache/seatunnel/commit/2a85525f4c|
 |[Feature][Connector-V2][File] Add cos source&sink (#4979)|https://github.com/apache/seatunnel/commit/1f94676436|
 |[Improve][Connector[File] Optimize files commit order (#5045)|https://github.com/apache/seatunnel/commit/1e18a8c530|
 |[Feature][E2E][FtpFile] add ftp file e2e test case (#4647)|https://github.com/apache/seatunnel/commit/b1b1f5e7e0|
+
+</details>
+<details><summary>2.3.2</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Bugfix] [Connector-V2] [File] Fix read temp file (#4876)|https://github.com/apache/seatunnel/commit/5e03d22d6c|
 | [Feature][ConnectorV2]add file excel sink and source (#4164)|https://github.com/apache/seatunnel/commit/e3b97ae5d2|
+
+</details>
+<details><summary>2.3.1</summary>
+
+| Change | Commit |
+| --- | --- |
 |Change file type to file_format_type in file source/sink (#4249)|https://github.com/apache/seatunnel/commit/973a2fae3c|
 |[improve][zeta] fix zeta bugs|https://github.com/apache/seatunnel/commit/3a82e8b39f|
 |[chore] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/291214ad6f|
@@ -102,6 +152,12 @@
 |[Improve][Connector-V2][File] File Connector add lzo compression way. (#3782)|https://github.com/apache/seatunnel/commit/8875d02589|
 |[Improve][Connector-V2] The log outputs detailed exception stack information (#3805)|https://github.com/apache/seatunnel/commit/d0c6217f27|
 |fix file source connector option rule bug (#3804)|https://github.com/apache/seatunnel/commit/cab42f6eb1|
+
+</details>
+<details><summary>2.3.0</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Shade] Add seatunnel hadoop3 uber (#3755)|https://github.com/apache/seatunnel/commit/5a024bdf8f|
 |[Improve][Connector-V2][HDFS] Support setting hdfs-site.xml (#3778)|https://github.com/apache/seatunnel/commit/c8d59ecac1|
 |[Feature][Connector-V2][File] Optimize filesystem utils (#3749)|https://github.com/apache/seatunnel/commit/ac4e880fb5|
@@ -118,6 +174,12 @@
 |[Hotfix][Connector-V2][Hive] Fix the bug that when write data to hive throws NullPointerException (#3258)|https://github.com/apache/seatunnel/commit/777bf6b42e|
 |[Bug]add 3node worker done test and fix some bug (#3115)|https://github.com/apache/seatunnel/commit/bc852a4dff|
 |[Feature][Connector-V2][SFTP] Add SFTP file source & sink connector (#3006)|https://github.com/apache/seatunnel/commit/9e496383b8|
+
+</details>
+<details><summary>2.3.0-beta</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Feature][Connector-V2][S3] Add S3 file source & sink connector (#3119)|https://github.com/apache/seatunnel/commit/f27d68ca9c|
 |[Feature][Connector-V2][File] Fix filesystem get error (#3117)|https://github.com/apache/seatunnel/commit/7404c180de|
 |[Improve][Connector-v2][file] Reuse array type container when read row data (#3123)|https://github.com/apache/seatunnel/commit/da0646ac6d|
@@ -133,6 +195,12 @@
 |[Improve][all] change Log to @Slf4j (#3001)|https://github.com/apache/seatunnel/commit/6016100f12|
 |[Bug][connector-file-base] Fix source split assigning reader to negative number (#2921)|https://github.com/apache/seatunnel/commit/0b5a2852fb|
 |[Improve][Connector-V2] Improve orc write strategy to support all data types (#2860)|https://github.com/apache/seatunnel/commit/4d048cc23e|
+
+</details>
+<details><summary>2.2.0-beta</summary>
+
+| Change | Commit |
+| --- | --- |
 |[Fix] [Connector-V2-File] Fix file connector bug (#2858)|https://github.com/apache/seatunnel/commit/e0459bbab6|
 |[Fix][Connector-V2] Fix HiveSource Connector read orc table error (#2845)|https://github.com/apache/seatunnel/commit/61720306e7|
 |[Improve][Connector-V2] Improve read parquet (#2841)|https://github.com/apache/seatunnel/commit/e19bc82f9b|
@@ -158,3 +226,5 @@
 |[Connector-V2] Add parquet writer in file connector (#2273)|https://github.com/apache/seatunnel/commit/c95cc72cfa|
 |[Connector-V2] Add Hive sink connector v2 (#2158)|https://github.com/apache/seatunnel/commit/23ad4ee735|
 |[Connector-V2] Add File Sink Connector (#2117)|https://github.com/apache/seatunnel/commit/e2283da64f|
+
+</details>
