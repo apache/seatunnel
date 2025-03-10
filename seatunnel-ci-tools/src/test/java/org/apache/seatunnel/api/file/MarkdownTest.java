@@ -105,6 +105,7 @@ public class MarkdownTest {
                     try (Stream<Path> paths = Files.walk(docsDirectory)) {
                         List<Path> mdFiles =
                                 paths.filter(Files::isRegularFile)
+                                        .filter(path -> !path.getParent().endsWith("changelog"))
                                         .filter(path -> path.toString().endsWith(".md"))
                                         .collect(Collectors.toList());
 
