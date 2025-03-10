@@ -80,11 +80,7 @@ public class ElasticsearchSourceReader
             if (split != null) {
                 SeaTunnelRowType seaTunnelRowType = split.getSeaTunnelRowType();
                 ElasticsearchConfig sourceIndexInfo = split.getElasticsearchConfig();
-                if (SearchTypeEnum.SQL.equals(sourceIndexInfo.getSearchType())) {
-                    cursorSearchResult(seaTunnelRowType, sourceIndexInfo, output);
-                } else {
-                    scrollSearchResult(seaTunnelRowType, sourceIndexInfo, output);
-                }
+                scrollSearchResult(seaTunnelRowType, sourceIndexInfo, output);
             } else if (noMoreSplit) {
                 // signal to the source that we have reached the end of the data.
                 log.info("Closed the bounded ELasticsearch source");
@@ -102,41 +98,34 @@ public class ElasticsearchSourceReader
 
         SeaTunnelRowDeserializer deserializer =
                 new DefaultSeaTunnelRowDeserializer(seaTunnelRowType);
+        // sql client
+        if (SearchTypeEnum.SQL.equals(sourceIndexInfo.getSearchType())) {
+            ScrollResult scrollResult =
+                    esRestClient.searchBySql(
+                            sourceIndexInfo.getSqlQuery(), sourceIndexInfo.getScrollSize());
 
-        ScrollResult scrollResult =
-                esRestClient.searchByScroll(
-                        sourceIndexInfo.getIndex(),
-                        sourceIndexInfo.getSource(),
-                        sourceIndexInfo.getQuery(),
-                        sourceIndexInfo.getScrollTime(),
-                        sourceIndexInfo.getScrollSize());
-        outputFromScrollResult(scrollResult, sourceIndexInfo, output, deserializer);
-        while (scrollResult.getDocs() != null && !scrollResult.getDocs().isEmpty()) {
-            scrollResult =
-                    esRestClient.searchWithScrollId(
-                            scrollResult.getScrollId(), sourceIndexInfo.getScrollTime());
             outputFromScrollResult(scrollResult, sourceIndexInfo, output, deserializer);
-        }
-    }
-
-    private void cursorSearchResult(
-            SeaTunnelRowType seaTunnelRowType,
-            ElasticsearchConfig sourceIndexInfo,
-            Collector<SeaTunnelRow> output) {
-
-        SeaTunnelRowDeserializer deserializer =
-                new DefaultSeaTunnelRowDeserializer(seaTunnelRowType);
-
-        ScrollResult scrollResult =
-                esRestClient.searchBySql(
-                        sourceIndexInfo.getSqlQuery(), sourceIndexInfo.getScrollSize());
-
-        outputFromCursorResult(scrollResult, sourceIndexInfo, output, deserializer);
-        while (StringUtils.isNotEmpty(scrollResult.getScrollId())) {
-            scrollResult =
-                    esRestClient.searchWithCursor(
-                            scrollResult.getScrollId(), scrollResult.getColumnNodes());
-            outputFromCursorResult(scrollResult, sourceIndexInfo, output, deserializer);
+            while (StringUtils.isNotEmpty(scrollResult.getScrollId())) {
+                scrollResult =
+                        esRestClient.searchWithSql(
+                                scrollResult.getScrollId(), scrollResult.getColumnNodes());
+                outputFromScrollResult(scrollResult, sourceIndexInfo, output, deserializer);
+            }
+        } else {
+            ScrollResult scrollResult =
+                    esRestClient.searchByScroll(
+                            sourceIndexInfo.getIndex(),
+                            sourceIndexInfo.getSource(),
+                            sourceIndexInfo.getQuery(),
+                            sourceIndexInfo.getScrollTime(),
+                            sourceIndexInfo.getScrollSize());
+            outputFromScrollResult(scrollResult, sourceIndexInfo, output, deserializer);
+            while (scrollResult.getDocs() != null && !scrollResult.getDocs().isEmpty()) {
+                scrollResult =
+                        esRestClient.searchWithScrollId(
+                                scrollResult.getScrollId(), sourceIndexInfo.getScrollTime());
+                outputFromScrollResult(scrollResult, sourceIndexInfo, output, deserializer);
+            }
         }
     }
 
@@ -148,20 +137,6 @@ public class ElasticsearchSourceReader
         List<String> source = elasticsearchConfig.getSource();
         String tableId = elasticsearchConfig.getCatalogTable().getTablePath().toString();
         for (Map<String, Object> doc : scrollResult.getDocs()) {
-            SeaTunnelRow seaTunnelRow =
-                    deserializer.deserialize(new ElasticsearchRecord(doc, source, tableId));
-            output.collect(seaTunnelRow);
-        }
-    }
-
-    private void outputFromCursorResult(
-            ScrollResult cursorResult,
-            ElasticsearchConfig elasticsearchConfig,
-            Collector<SeaTunnelRow> output,
-            SeaTunnelRowDeserializer deserializer) {
-        List<String> source = elasticsearchConfig.getSource();
-        String tableId = elasticsearchConfig.getCatalogTable().getTablePath().toString();
-        for (Map<String, Object> doc : cursorResult.getDocs()) {
             SeaTunnelRow seaTunnelRow =
                     deserializer.deserialize(new ElasticsearchRecord(doc, source, tableId));
             output.collect(seaTunnelRow);

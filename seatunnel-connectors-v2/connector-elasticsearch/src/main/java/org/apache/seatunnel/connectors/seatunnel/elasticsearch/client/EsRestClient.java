@@ -307,7 +307,7 @@ public class EsRestClient implements Closeable {
         param.put("query", query);
         param.put("fetch_size", scrollSize);
         String endpoint = "/_sql?format=json";
-        return getDocsFromCursorResult(endpoint, JsonUtils.toJsonString(param), null);
+        return getDocsFromSqlResult(endpoint, JsonUtils.toJsonString(param), null);
     }
 
     /** first time to request search documents by scroll call /_sql?format=json */
@@ -323,9 +323,9 @@ public class EsRestClient implements Closeable {
         }
         param.put("query", query);
         String endpoint = "/_sql?format=json";
-        ScrollResult cursorResult =
-                getDocsFromCursorResult(endpoint, JsonUtils.toJsonString(param), null);
-        JsonNode columnNodes = cursorResult.getColumnNodes();
+        ScrollResult scrollResult =
+                getDocsFromSqlResult(endpoint, JsonUtils.toJsonString(param), null);
+        JsonNode columnNodes = scrollResult.getColumnNodes();
         Map<String, Object> columnMap = new LinkedHashMap<>();
         for (JsonNode columnNode : columnNodes) {
             String fieldName = columnNode.get("name").asText();
@@ -347,14 +347,14 @@ public class EsRestClient implements Closeable {
         return getDocsFromScrollRequest("/_search/scroll", JsonUtils.toJsonString(param));
     }
 
-    public ScrollResult searchWithCursor(String cursor, JsonNode columnNodes) {
+    public ScrollResult searchWithSql(String scrollId, JsonNode columnNodes) {
         Map<String, String> param = new HashMap<>();
-        param.put("cursor", cursor);
+        param.put("cursor", scrollId);
         String endpoint = "/_sql?format=json";
-        return getDocsFromCursorResult(endpoint, JsonUtils.toJsonString(param), columnNodes);
+        return getDocsFromSqlResult(endpoint, JsonUtils.toJsonString(param), columnNodes);
     }
 
-    private ScrollResult getDocsFromCursorResult(
+    private ScrollResult getDocsFromSqlResult(
             String endpoint, String requestBody, JsonNode columnNodes) {
         Request request = new Request("POST", endpoint);
         request.setJsonEntity(requestBody);
@@ -368,7 +368,7 @@ public class EsRestClient implements Closeable {
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
                 String entity = EntityUtils.toString(response.getEntity());
                 ObjectNode responseJson = JsonUtils.parseObject(entity);
-                return getDocsFromCursorResponse(responseJson, columnNodes);
+                return getDocsFromSqlResponse(responseJson, columnNodes);
             } else {
                 throw new ElasticsearchConnectorException(
                         ElasticsearchConnectorErrorCode.SCROLL_REQUEST_ERROR,
@@ -423,10 +423,10 @@ public class EsRestClient implements Closeable {
         }
     }
 
-    private ScrollResult getDocsFromCursorResponse(ObjectNode responseJson, JsonNode columnNodes) {
-        ScrollResult cursorResult = new ScrollResult();
+    private ScrollResult getDocsFromSqlResponse(ObjectNode responseJson, JsonNode columnNodes) {
+        ScrollResult scrollResult = new ScrollResult();
         if (responseJson.get("cursor") != null) {
-            cursorResult.setScrollId(responseJson.get("cursor").asText());
+            scrollResult.setScrollId(responseJson.get("cursor").asText());
         }
         if (columnNodes == null) {
             columnNodes = responseJson.get("columns");
@@ -449,10 +449,10 @@ public class EsRestClient implements Closeable {
                 docs.add(doc);
             }
         }
-        cursorResult.setDocs(docs);
-        cursorResult.setColumnNodes(columnNodes);
+        scrollResult.setDocs(docs);
+        scrollResult.setColumnNodes(columnNodes);
 
-        return cursorResult;
+        return scrollResult;
     }
 
     private ScrollResult getDocsFromScrollResponse(ObjectNode responseJson) {
