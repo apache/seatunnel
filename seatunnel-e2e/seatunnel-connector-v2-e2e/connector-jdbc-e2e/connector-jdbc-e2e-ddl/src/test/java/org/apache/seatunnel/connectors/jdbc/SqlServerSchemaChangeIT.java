@@ -97,7 +97,7 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
             container.execInContainer(
                     "/opt/mssql-tools/bin/sqlcmd",
                     "-S",
-                    "localhost",
+                    SQLSERVER_CONTAINER_HOST,
                     "-U",
                     SQLSERVER_USER,
                     "-P",
