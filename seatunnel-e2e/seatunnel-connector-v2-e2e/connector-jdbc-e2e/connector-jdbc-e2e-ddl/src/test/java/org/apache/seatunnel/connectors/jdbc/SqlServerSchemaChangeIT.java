@@ -103,7 +103,8 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
                     SQLSERVER_PASSWORD,
                     "-Q",
                     "IF NOT EXISTS (SELECT * FROM sys.objects WHERE name = 'xp_sqljdbc_xa_init_ex') "
-                            + "EXEC sp_sqljdbc_xa_install");
+                            + "EXEC sp_sqljdbc_xa_install; "
+                            + "EXEC sys.sp_configure 'remote access', 1; RECONFIGURE");
         } catch (IOException | InterruptedException e) {
             log.error("Failed to install XA procedures :" + e.getMessage());
             throw new RuntimeException(e);

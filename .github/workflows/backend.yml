@@ -1143,14 +1143,6 @@ jobs:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     runs-on: ${{ matrix.os }}
-    services:
-      sqlserver:
-        image: kurthunter/sqlserver:v2
-        env:
-          ACCEPT_EULA: Y
-          SA_PASSWORD: paanssy1234$
-        ports:
-          - 1433:1433
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
