@@ -82,7 +82,11 @@ if exist "%CONF_DIR%\log4j2_client.properties" (
         for /f "tokens=1-3 delims=:" %%A in ('echo %time%') do (
             set "ntime=%%A%%B%%C"
         )
-        set "JAVA_OPTS=!JAVA_OPTS! -Dseatunnel.logs.file_name=seatunnel-starter-client-!date:~0,4!!date:~5,2!!date:~8,2!-!time:~0,2!!time:~3,2!!time:~6,2!!ntime!"
+        for /f "tokens=2 delims==" %%A in ('wmic os get localdatetime /value') do (
+            set datetime=%%A
+            set ndate=!datetime:~0,4!!datetime:~4,2!!datetime:~6,2!
+        )
+        set "JAVA_OPTS=!JAVA_OPTS! -Dseatunnel.logs.file_name=seatunnel-starter-client-!ndate!-!time:~0,2!!time:~3,2!!time:~6,2!!ntime:~0,6!"
     ) else (
         set "JAVA_OPTS=!JAVA_OPTS! -Dseatunnel.logs.file_name=seatunnel-starter-client"
     )
