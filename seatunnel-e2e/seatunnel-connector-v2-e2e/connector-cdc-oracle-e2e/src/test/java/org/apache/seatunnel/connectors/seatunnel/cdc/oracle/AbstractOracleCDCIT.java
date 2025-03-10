@@ -55,6 +55,8 @@ public class AbstractOracleCDCIT extends TestSuiteBase {
 
     protected static final String ORACLE_IMAGE = "goodboy008/oracle-19.3.0-ee:non-cdb";
 
+    protected static final String ORACLE_IMAGE_ARM = "goodboy008/oracle-19.3.0-ee:arm-non-cdb";
+
     protected static final String HOST = "oracle-host";
 
     protected static final Integer ORACLE_PORT = 1521;
@@ -80,7 +82,7 @@ public class AbstractOracleCDCIT extends TestSuiteBase {
     protected static final String SOURCE_TABLE2 = "FULL_TYPES2";
 
     protected static final OracleContainer ORACLE_CONTAINER =
-            new OracleContainer(ORACLE_IMAGE)
+            new OracleContainer(getImage())
                     .withUsername(CONNECTOR_USER)
                     .withPassword(CONNECTOR_PWD)
                     .withDatabaseName("ORCLCDB")
@@ -90,6 +92,15 @@ public class AbstractOracleCDCIT extends TestSuiteBase {
                     .withLogConsumer(
                             new Slf4jLogConsumer(
                                     DockerLoggerFactory.getLogger("oracle-docker-image")));
+
+    private static String getImage() {
+        // If the current environment is ARM architecture, then use the ARM image
+        if (System.getProperty("os.arch").equals("aarch64")) {
+            return ORACLE_IMAGE_ARM;
+        } else {
+            return ORACLE_IMAGE;
+        }
+    }
 
     protected String oracleDriverUrl() {
         return "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar";

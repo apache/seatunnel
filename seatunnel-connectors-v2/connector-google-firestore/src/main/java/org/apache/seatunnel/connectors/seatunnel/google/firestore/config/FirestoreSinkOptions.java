@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.google.firestore.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class FirestoreConfig {
+public class FirestoreSinkOptions {
 
     public static final Option<String> PROJECT_ID =
             Options.key("project_id")
