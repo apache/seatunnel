@@ -183,12 +183,10 @@ public class ConnectorOptionCheckTest {
         whiteList.add("TDengineSourceOptions");
         whiteList.add("PulsarSourceOptions");
         whiteList.add("FakeSourceOptions");
-        whiteList.add("HbaseSinkOptions");
         whiteList.add("MongodbSinkOptions");
         whiteList.add("IoTDBSinkOptions");
         whiteList.add("EasysearchSourceOptions");
         whiteList.add("IcebergSourceOptions");
-        whiteList.add("HbaseSourceOptions");
         whiteList.add("PaimonSourceOptions");
         whiteList.add("IoTDBSourceOptions");
         whiteList.add("SlsSourceOptions");
@@ -205,7 +203,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("SocketSinkOptions");
         whiteList.add("SelectDBSinkOptions");
         whiteList.add("PrometheusSinkOptions");
-        whiteList.add("FirestoreSinkOptions");
         whiteList.add("MilvusSinkOptions");
         whiteList.add("RocketMqSourceOptions");
         whiteList.add("TablestoreSinkOptions");
@@ -215,7 +212,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("Neo4jSourceOptions");
         whiteList.add("HttpSourceOptions");
         whiteList.add("QdrantSourceOptions");
-        whiteList.add("SheetsSourceOptions");
         whiteList.add("SocketSourceOptions");
         whiteList.add("OpenMldbSourceOptions");
         whiteList.add("Web3jSourceOptions");

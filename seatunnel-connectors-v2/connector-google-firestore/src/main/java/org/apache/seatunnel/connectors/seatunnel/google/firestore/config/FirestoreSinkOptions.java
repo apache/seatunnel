@@ -15,31 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.google.sheets.config;
+package org.apache.seatunnel.connectors.seatunnel.google.firestore.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class SheetsConfig {
+public class FirestoreSinkOptions {
 
-    public static final Option<String> SERVICE_ACCOUNT_KEY =
-            Options.key("service_account_key")
+    public static final Option<String> PROJECT_ID =
+            Options.key("project_id")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Google Sheets login service account key");
-    public static final Option<String> SHEET_ID =
-            Options.key("sheet_id")
+                    .withDescription("Google Firestore project id");
+
+    public static final Option<String> CREDENTIALS =
+            Options.key("credentials")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Google Sheets sheet id");
-    public static final Option<String> SHEET_NAME =
-            Options.key("sheet_name")
+                    .withDescription("Google Firestore credentials");
+
+    public static final Option<String> COLLECTION =
+            Options.key("collection")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Google Sheets sheet name that you want to import");
-    public static final Option<String> RANGE =
-            Options.key("range")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Google Sheets sheet range that you want to import");
+                    .withDescription("Google Firestore collection");
 }
