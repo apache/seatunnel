@@ -84,7 +84,6 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
                         .withNetworkAliases(SQLSERVER_CONTAINER_HOST)
                         .withEnv(ACCEPT_EULA, Y)
                         .withEnv(SA_PASSWORD, SQLSERVER_PASSWORD)
-                        .withExposedPorts(SQLSERVER_PORT)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(SQLSERVER_IMAGE)));
