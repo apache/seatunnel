@@ -21,11 +21,13 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.time.Duration;
 
 @Slf4j
 public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
@@ -84,31 +86,18 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
                         .withNetworkAliases(SQLSERVER_CONTAINER_HOST)
                         .withEnv(ACCEPT_EULA, Y)
                         .withEnv(SA_PASSWORD, SQLSERVER_PASSWORD)
+                        .withCommand("sh", "-c",
+                                "/opt/mssql/bin/sqlservr & " +
+                                        "/opt/mssql-tools/bin/sqlcmd -U sa -P " + SQLSERVER_PASSWORD + " -Q \"" +
+                                        "IF NOT EXISTS (SELECT * FROM sys.objects WHERE name = 'xp_sqljdbc_xa_init_ex') " +
+                                        "EXEC sp_sqljdbc_xa_install; " +
+                                        "EXEC sys.sp_configure 'remote access', 1; RECONFIGURE\"; " +
+                                        "wait $(pidof sqlservr)")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(SQLSERVER_IMAGE)));
         container.setPortBindings(
                 Lists.newArrayList(String.format("%d:%d", SQLSERVER_PORT, SQLSERVER_PORT)));
-
-        // Execute initialization commands for XA after the container starts
-        container.start();
-        try {
-            container.execInContainer(
-                    "/opt/mssql-tools/bin/sqlcmd",
-                    "-S",
-                    SQLSERVER_CONTAINER_HOST,
-                    "-U",
-                    SQLSERVER_USER,
-                    "-P",
-                    SQLSERVER_PASSWORD,
-                    "-Q",
-                    "IF NOT EXISTS (SELECT * FROM sys.objects WHERE name = 'xp_sqljdbc_xa_init_ex') "
-                            + "EXEC sp_sqljdbc_xa_install; "
-                            + "EXEC sys.sp_configure 'remote access', 1; RECONFIGURE");
-        } catch (IOException | InterruptedException e) {
-            log.error("Failed to install XA procedures :" + e.getMessage());
-            throw new RuntimeException(e);
-        }
         return container;
     }
 
