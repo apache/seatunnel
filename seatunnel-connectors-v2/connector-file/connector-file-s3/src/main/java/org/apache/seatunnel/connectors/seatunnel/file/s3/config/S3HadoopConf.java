@@ -83,7 +83,7 @@ public class S3HadoopConf extends HadoopConf {
 
     private void putS3SK(Map<String, String> s3Options, ReadonlyConfig config) {
         if (!config.getOptional(S3FileBaseOptions.S3_ACCESS_KEY).isPresent()
-                && config.getOptional(S3FileBaseOptions.S3_SECRET_KEY).isPresent()) {
+                && !config.getOptional(S3FileBaseOptions.S3_SECRET_KEY).isPresent()) {
             return;
         }
         String accessKey = config.get(S3FileBaseOptions.S3_ACCESS_KEY);
