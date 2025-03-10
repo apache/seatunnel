@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.connectors.seatunnel.hbase.catalog.HbaseCatalog;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
+import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseSinkOptions;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -111,7 +112,7 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         Map<String, Object> config = new HashMap<>();
         config.put(HbaseBaseOptions.ZOOKEEPER_QUORUM.key(), hbaseCluster.getZookeeperQuorum());
         config.put(HbaseBaseOptions.ROWKEY_COLUMNS.key(), "id");
-        config.put(HbaseBaseOptions.FAMILY_NAME.key(), Maps.of("all_columns", FAMILY_NAME));
+        config.put(HbaseSinkOptions.FAMILY_NAME.key(), Maps.of("all_columns", FAMILY_NAME));
         config.put(HbaseBaseOptions.TABLE.key(), TABLE_NAME);
         // config.put(HbaseConfig.)
 
