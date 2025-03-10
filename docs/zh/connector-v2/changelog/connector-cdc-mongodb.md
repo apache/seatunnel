@@ -13,7 +13,7 @@
 |[Bug][connectors-v2] fix mongodb bson convert exception (#8044)|https://github.com/apache/seatunnel/commit/b222c13f2f|
 |[Feature][Core] Support cdc task ddl restore for zeta (#7463)|https://github.com/apache/seatunnel/commit/8e322281ed|
 |[Feature][Transform-v2] Add metadata transform (#7899)|https://github.com/apache/seatunnel/commit/699d16552a|
-|[Bug][Connector-v2] MongoDB CDC Set SeatunnelRow's tableId (#7935)|https://github.com/apache/seatunnel/commit/f3970d6188|
+|[Bug][Connector-v2] MongoDB CDC Set SeatunnelRow&#x27;s tableId (#7935)|https://github.com/apache/seatunnel/commit/f3970d6188|
 
 </details>
 <details><summary>2.3.6</summary>

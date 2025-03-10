@@ -3,7 +3,7 @@
 | Change | Commit |
 | --- | --- |
 |[Feature][Kafka] Support native format read/write kafka record (#8724)|https://github.com/apache/seatunnel/commit/86e2d6fcfa|
-|[improve] update kafka source default schema from content<ROW<content STRING>> to content<STRING> (#8642)|https://github.com/apache/seatunnel/commit/db6e2994d4|
+|[improve] update kafka source default schema from content&lt;ROW&lt;content STRING&gt;&gt; to content&lt;STRING&gt; (#8642)|https://github.com/apache/seatunnel/commit/db6e2994d4|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|
 |[improve] kafka connector options (#8616)|https://github.com/apache/seatunnel/commit/aadfe99f88|
 |[Fix] [Kafka Source] kafka source use topic as table name instead of fullName (#8401)|https://github.com/apache/seatunnel/commit/3d4f4bb33a|
@@ -73,7 +73,7 @@
 |[Improve] Add default implement for `SeaTunnelSink::setTypeInfo` (#5682)|https://github.com/apache/seatunnel/commit/86cba87450|
 |KafkaSource use Factory to create source (#5635)|https://github.com/apache/seatunnel/commit/1c6176e518|
 |[Improve] Refactor CatalogTable and add `SeaTunnelSource::getProducedCatalogTables` (#5562)|https://github.com/apache/seatunnel/commit/41173357f8|
-|[Improve][CheckStyle] Remove useless 'SuppressWarnings' annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
+|[Improve][CheckStyle] Remove useless &#x27;SuppressWarnings&#x27; annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
 
 </details>
 <details><summary>2.3.3</summary>
@@ -92,7 +92,7 @@
 |Fix the processing bug of abnormal parsing method of kafkaSource format. (#4687)|https://github.com/apache/seatunnel/commit/228257b2e2|
 |[hotfix][e2e][kafka] Fix the job not stopping (#4600)|https://github.com/apache/seatunnel/commit/93471c9ade|
 |[Improve][connector][kafka] Set default value for partition option (#4524)|https://github.com/apache/seatunnel/commit/884f733c3d|
-|[chore] delete unavailable S3 & Kafka Catalogs (#4477)|https://github.com/apache/seatunnel/commit/e0aec5ecec|
+|[chore] delete unavailable S3 &amp; Kafka Catalogs (#4477)|https://github.com/apache/seatunnel/commit/e0aec5ecec|
 |[Feature][API] Add options check before create source and sink and transform in FactoryUtil (#4424)|https://github.com/apache/seatunnel/commit/38f1903be2|
 |[Feature][Connector-V2][Kafka] Kafka source supports data deserialization failure skipping (#4364)|https://github.com/apache/seatunnel/commit/e1ed22b153|
 |[Bug][Connector-v2][KafkaSource]Fix KafkaConsumerThread exit caused by commit offset error. (#4379)|https://github.com/apache/seatunnel/commit/71f4d0c784|
@@ -104,16 +104,16 @@
 
 | Change | Commit |
 | --- | --- |
-|[Improve][CDC] Optimize options & add docs for compatible_debezium_json (#4351)|https://github.com/apache/seatunnel/commit/336f590498|
-|[Hotfix][Zeta] Fix TaskExecutionService Deploy Failed The Job Can't Stop (#4265)|https://github.com/apache/seatunnel/commit/cf55b070bb|
+|[Improve][CDC] Optimize options &amp; add docs for compatible_debezium_json (#4351)|https://github.com/apache/seatunnel/commit/336f590498|
+|[Hotfix][Zeta] Fix TaskExecutionService Deploy Failed The Job Can&#x27;t Stop (#4265)|https://github.com/apache/seatunnel/commit/cf55b070bb|
 |[Feature][CDC] Support export debezium-json format to kafka (#4339)|https://github.com/apache/seatunnel/commit/5817ec07bf|
 |[Improve]]Connector-V2\[Kafka] Set kafka consumer default group (#4271)|https://github.com/apache/seatunnel/commit/82c784a3ef|
-|[chore] Fix the words of `canal` & `kafka` (#4261)|https://github.com/apache/seatunnel/commit/077a8d27a7|
-|Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
+|[chore] Fix the words of `canal` &amp; `kafka` (#4261)|https://github.com/apache/seatunnel/commit/077a8d27a7|
+|Merge branch &#x27;dev&#x27; into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
 |[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
 |[Improve] [Connector-V2] [StarRocks] Starrocks Support Auto Create Table (#4177)|https://github.com/apache/seatunnel/commit/7e0008e6fb|
 |[improve][api] Refactoring schema parse (#4157)|https://github.com/apache/seatunnel/commit/b2f573a13e|
-|[Imprve][Connector-V2][Hive] Support read text table & Column projection (#4105)|https://github.com/apache/seatunnel/commit/717620f542|
+|[Imprve][Connector-V2][Hive] Support read text table &amp; Column projection (#4105)|https://github.com/apache/seatunnel/commit/717620f542|
 |[Improve][build] Give the maven module a human readable name (#4114)|https://github.com/apache/seatunnel/commit/d7cd601051|
 |Add convertor factory (#4119)|https://github.com/apache/seatunnel/commit/cbdea45d95|
 |Add ElasticSearch catalog (#4108)|https://github.com/apache/seatunnel/commit/9ee4d8394c|
@@ -126,7 +126,7 @@
 |fix commit kafka offset bug. (#3933)|https://github.com/apache/seatunnel/commit/e60ad938be|
 |[Feature][Connector] add get source method to all source connector (#3846)|https://github.com/apache/seatunnel/commit/417178fb84|
 |[Improve] [Connector-V2] Change Connector Custom Config Prefix To Map (#3719)|https://github.com/apache/seatunnel/commit/ef1b8b1bb5|
-|[Feature][API & Connector & Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
+|[Feature][API &amp; Connector &amp; Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
 |[Bug][KafkaSource]Fix the default value of commit_on_checkpoint. (#3831)|https://github.com/apache/seatunnel/commit/df969849f6|
 |[Bug][KafkaSource]Failed to parse offset format (#3810)|https://github.com/apache/seatunnel/commit/8e1196accf|
 |[Improve] [Connector-V2] Kafka client user configured clientid is preferred (#3783)|https://github.com/apache/seatunnel/commit/aacf0abc04|
@@ -136,13 +136,13 @@
 
 | Change | Commit |
 | --- | --- |
-|[Improve] [Connector-V2] Fix Kafka sink can't run EXACTLY_ONCE semantics (#3724)|https://github.com/apache/seatunnel/commit/5e3f196e29|
-|[Improve] [Connector-V2] fix kafka admin client can't get property config (#3721)|https://github.com/apache/seatunnel/commit/74c3351700|
+|[Improve] [Connector-V2] Fix Kafka sink can&#x27;t run EXACTLY_ONCE semantics (#3724)|https://github.com/apache/seatunnel/commit/5e3f196e29|
+|[Improve] [Connector-V2] fix kafka admin client can&#x27;t get property config (#3721)|https://github.com/apache/seatunnel/commit/74c3351700|
 |[Improve][Connector-V2][Kafka] Add text format for kafka sink connector (#3711)|https://github.com/apache/seatunnel/commit/74bbd76b65|
 |[Hotfix][OptionRule] Fix option rule about all connectors (#3592)|https://github.com/apache/seatunnel/commit/226dc6a119|
 |[Improve][Connector-V2][Kafka]Unified exception for Kafka source and sink connector (#3574)|https://github.com/apache/seatunnel/commit/3b573798db|
 |options in conditional need add to required or optional options (#3501)|https://github.com/apache/seatunnel/commit/51d5bcba10|
-|[Improve][Connector-V2-kafka] Support for dynamic discover topic & partition in streaming mode (#3125)|https://github.com/apache/seatunnel/commit/999cfd6069|
+|[Improve][Connector-V2-kafka] Support for dynamic discover topic &amp; partition in streaming mode (#3125)|https://github.com/apache/seatunnel/commit/999cfd6069|
 |[Improve][Connector-V2][Kafka] Support to specify multiple partition keys (#3230)|https://github.com/apache/seatunnel/commit/f65f44f44c|
 |[Feature][Connector-V2][Kafka] Add Kafka option rules (#3388)|https://github.com/apache/seatunnel/commit/cc0cb8cdb8|
 |[Improve][Connector-V2][Kafka]Improve kafka metadata code format (#3397)|https://github.com/apache/seatunnel/commit/379da3097f|

@@ -41,13 +41,13 @@
 
 | Change | Commit |
 | --- | --- |
-|Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
+|Merge branch &#x27;dev&#x27; into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
 |[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
 |[improve][api] Refactoring schema parse (#4157)|https://github.com/apache/seatunnel/commit/b2f573a13e|
 |[Improve][build] Give the maven module a human readable name (#4114)|https://github.com/apache/seatunnel/commit/d7cd601051|
 |[Improve][Project] Code format with spotless plugin. (#4101)|https://github.com/apache/seatunnel/commit/a2ab166561|
 |[Feature][Connector] add get source method to all source connector (#3846)|https://github.com/apache/seatunnel/commit/417178fb84|
-|[Feature][API & Connector & Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
+|[Feature][API &amp; Connector &amp; Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
 
 </details>
 <details><summary>2.3.0</summary>
@@ -55,7 +55,7 @@
 | Change | Commit |
 | --- | --- |
 |[Hotfix][OptionRule] Fix option rule about all connectors (#3592)|https://github.com/apache/seatunnel/commit/226dc6a119|
-|[Improve][Connector-V2][Neo4j] Unified exception for Neo4j source & sink connector (#3565)|https://github.com/apache/seatunnel/commit/58584eefb1|
+|[Improve][Connector-V2][Neo4j] Unified exception for Neo4j source &amp; sink connector (#3565)|https://github.com/apache/seatunnel/commit/58584eefb1|
 |[Feature][Connector][Neo4j] expose configurable options in Neo4j (#3342)|https://github.com/apache/seatunnel/commit/efa04b38fe|
 |[Connector-V2] [ElasticSearch] Add ElasticSearch Source/Sink Factory (#3325)|https://github.com/apache/seatunnel/commit/38254e3f26|
 |[Feature][Connector-v2] Neo4j source connector (#2777)|https://github.com/apache/seatunnel/commit/38b0daf8b7|

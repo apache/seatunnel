@@ -55,7 +55,7 @@
 |Support config tableIdentifier for schema (#5628)|https://github.com/apache/seatunnel/commit/652921fb75|
 |[Feature] Add `table-names` from FakeSource/Assert to produce/assert multi-table (#5604)|https://github.com/apache/seatunnel/commit/2c67cd8f3e|
 |Support config column/primaryKey/constraintKey in schema (#5564)|https://github.com/apache/seatunnel/commit/eac76b4e50|
-|[Improve][CheckStyle] Remove useless 'SuppressWarnings' annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
+|[Improve][CheckStyle] Remove useless &#x27;SuppressWarnings&#x27; annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
 
 </details>
 <details><summary>2.3.1</summary>
@@ -64,7 +64,7 @@
 | --- | --- |
 |[improve][zeta] fix zeta bugs|https://github.com/apache/seatunnel/commit/3a82e8b39f|
 |[chore] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/291214ad6f|
-|Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
+|Merge branch &#x27;dev&#x27; into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
 |[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
 |[improve][api] Refactoring schema parse (#4157)|https://github.com/apache/seatunnel/commit/b2f573a13e|
 |[Improve][build] Give the maven module a human readable name (#4114)|https://github.com/apache/seatunnel/commit/d7cd601051|
@@ -73,7 +73,7 @@
 |[Improve][Connector-V2][Fake] Improve fake connector (#3932)|https://github.com/apache/seatunnel/commit/31f12431d9|
 |[Feature][Connector-v2][StarRocks] Support write cdc changelog event(INSERT/UPDATE/DELETE) (#3865)|https://github.com/apache/seatunnel/commit/8e3d158c03|
 |[Feature][Connector] add get source method to all source connector (#3846)|https://github.com/apache/seatunnel/commit/417178fb84|
-|[Feature][API & Connector & Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
+|[Feature][API &amp; Connector &amp; Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
 
 </details>
 <details><summary>2.3.0</summary>

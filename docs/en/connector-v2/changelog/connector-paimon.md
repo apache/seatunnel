@@ -2,6 +2,7 @@
 
 | Change | Commit |
 | --- | --- |
+|[Feature][Paimon] Customize the hadoop user  (#8888)|https://github.com/apache/seatunnel/commit/2657626f93|
 |[Improve][Connector-v2][Paimon]PaimonCatalog close error message update (#8640)|https://github.com/apache/seatunnel/commit/48253da8d6|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|
 
@@ -17,7 +18,7 @@
 |[Feature][transform] transform support explode (#7928)|https://github.com/apache/seatunnel/commit/132278c06a|
 |[Feature][Connector-V2] Piamon Sink supports changelog-procuder is lookup and full-compaction mode (#7834)|https://github.com/apache/seatunnel/commit/c0f27c2f76|
 |[Fix][connector-v2]Fix Paimon table connector  Error log information. (#7873)|https://github.com/apache/seatunnel/commit/a3b49e6354|
-|[Improve][Connector-v2] Use checkpointId as the commit's identifier instead of the hash for streaming write of paimon sink (#7835)|https://github.com/apache/seatunnel/commit/c7a384af2b|
+|[Improve][Connector-v2] Use checkpointId as the commit&#x27;s identifier instead of the hash for streaming write of paimon sink (#7835)|https://github.com/apache/seatunnel/commit/c7a384af2b|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|
 
 </details>

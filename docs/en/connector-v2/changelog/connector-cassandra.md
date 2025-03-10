@@ -40,7 +40,7 @@
 | --- | --- |
 |[Improve][build] Give the maven module a human readable name (#4114)|https://github.com/apache/seatunnel/commit/d7cd601051|
 |[Improve][Project] Code format with spotless plugin. (#4101)|https://github.com/apache/seatunnel/commit/a2ab166561|
-|[Feature][API & Connector & Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
+|[Feature][API &amp; Connector &amp; Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
 |[Improve][Connector-V2] The log outputs detailed exception stack information (#3805)|https://github.com/apache/seatunnel/commit/d0c6217f27|
 
 </details>
@@ -48,7 +48,7 @@
 
 | Change | Commit |
 | --- | --- |
-|[Improve][Connector-V2][Cassandra] Unified exception for cassandra source & sink connector (#3435)|https://github.com/apache/seatunnel/commit/28868797b7|
+|[Improve][Connector-V2][Cassandra] Unified exception for cassandra source &amp; sink connector (#3435)|https://github.com/apache/seatunnel/commit/28868797b7|
 |[Feature][Connector-V2][Cassandra] Add Cassandra Source And Sink Connector (#3229)|https://github.com/apache/seatunnel/commit/12268a6f4b|
 
 </details>

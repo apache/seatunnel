@@ -53,7 +53,7 @@
 |[Feature] Support multi-table sink (#5620)|https://github.com/apache/seatunnel/commit/81ac173189|
 |[Improve] Refactor CatalogTable and add `SeaTunnelSource::getProducedCatalogTables` (#5562)|https://github.com/apache/seatunnel/commit/41173357f8|
 |[Feature] [api env] Add job-level configuration for checkpoint timeout. (#5222)|https://github.com/apache/seatunnel/commit/3c13275ed9|
-|[Improve][CheckStyle] Remove useless 'SuppressWarnings' annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
+|[Improve][CheckStyle] Remove useless &#x27;SuppressWarnings&#x27; annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
 
 </details>
 <details><summary>2.3.3</summary>
@@ -67,7 +67,7 @@
 
 | Change | Commit |
 | --- | --- |
-|Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
+|Merge branch &#x27;dev&#x27; into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
 |[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
 |[hotfix][zeta] fix zeta multi-table parser error (#4193)|https://github.com/apache/seatunnel/commit/98f2ad0c19|
 |[Feature][Zeta] Support shuffle multiple rows by tableId (#4147)|https://github.com/apache/seatunnel/commit/8348f1a108|

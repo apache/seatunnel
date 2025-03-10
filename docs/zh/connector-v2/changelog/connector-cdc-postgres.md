@@ -2,6 +2,7 @@
 
 | Change | Commit |
 | --- | --- |
+|[Improve][CDC] Extract duplicate code (#8906)|https://github.com/apache/seatunnel/commit/b922bb90e6|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|
 
 </details>
@@ -36,7 +37,7 @@
 |[Fix][Connector-V2] Fix connector support SPI but without no args constructor (#6551)|https://github.com/apache/seatunnel/commit/5f3c9c36a5|
 |[Improve][CDC-Connector]Fix CDC option rule. (#6454)|https://github.com/apache/seatunnel/commit/1ea27afa87|
 |[Improve][CDC] Optimize memory allocation for snapshot split reading (#6281)|https://github.com/apache/seatunnel/commit/4856645837|
-|[Improve][API] Unify type system api(data & type) (#5872)|https://github.com/apache/seatunnel/commit/b38c7edcc9|
+|[Improve][API] Unify type system api(data &amp; type) (#5872)|https://github.com/apache/seatunnel/commit/b38c7edcc9|
 |[Feature][Connector]update pgsql-cdc publication for add table (#6309)|https://github.com/apache/seatunnel/commit/2ad7d65236|
 
 </details>

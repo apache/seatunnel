@@ -58,7 +58,7 @@
 |[Fix][Connector-V2] Fix connector support SPI but without no args constructor (#6551)|https://github.com/apache/seatunnel/commit/5f3c9c36a5|
 |[Improve] Add SaveMode log of process detail (#6375)|https://github.com/apache/seatunnel/commit/b0d70ce224|
 |[Improve][Zeta] Add classloader cache mode to fix metaspace leak (#6355)|https://github.com/apache/seatunnel/commit/9c3c2f183d|
-|[Improve][API] Unify type system api(data & type) (#5872)|https://github.com/apache/seatunnel/commit/b38c7edcc9|
+|[Improve][API] Unify type system api(data &amp; type) (#5872)|https://github.com/apache/seatunnel/commit/b38c7edcc9|
 |[Feature] Supports iceberg sink #6198 (#6265)|https://github.com/apache/seatunnel/commit/18d3e86194|
 
 </details>
@@ -93,7 +93,7 @@
 
 | Change | Commit |
 | --- | --- |
-|Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
+|Merge branch &#x27;dev&#x27; into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
 |[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
 |[Improve][SourceConnector] Unifie Iceberg source fields to schema (#3959)|https://github.com/apache/seatunnel/commit/20e1255fab|
 |[improve][api] Refactoring schema parse (#4157)|https://github.com/apache/seatunnel/commit/b2f573a13e|
@@ -101,7 +101,7 @@
 |[Improve][Project] Code format with spotless plugin. (#4101)|https://github.com/apache/seatunnel/commit/a2ab166561|
 |[Improve][Connector-V2][Iceberg] Unified exception for iceberg source connector (#3677)|https://github.com/apache/seatunnel/commit/e24843515f|
 |[Feature][Connector] add get source method to all source connector (#3846)|https://github.com/apache/seatunnel/commit/417178fb84|
-|[Feature][API & Connector & Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
+|[Feature][API &amp; Connector &amp; Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
 
 </details>
 <details><summary>2.3.0</summary>
@@ -118,7 +118,7 @@
 | Change | Commit |
 | --- | --- |
 |[Improve][Connector][Iceberg] Improve code. (#3065)|https://github.com/apache/seatunnel/commit/9f38e3da74|
-|[Code-Improve][Iceberg] Use automatic resource management to replace 'try - finally' code block. (#2909)|https://github.com/apache/seatunnel/commit/b7f640724b|
+|[Code-Improve][Iceberg] Use automatic resource management to replace &#x27;try - finally&#x27; code block. (#2909)|https://github.com/apache/seatunnel/commit/b7f640724b|
 
 </details>
 <details><summary>2.2.0-beta</summary>

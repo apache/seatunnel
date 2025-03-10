@@ -30,7 +30,7 @@
 |[Fixbug] doris custom sql work (#7464)|https://github.com/apache/seatunnel/commit/5c6a7c6984|
 |[Improve][API] Move catalog open to SaveModeHandler (#7439)|https://github.com/apache/seatunnel/commit/8c2c5c79a1|
 |[Improve][Connector-V2] Close all ResultSet after used (#7389)|https://github.com/apache/seatunnel/commit/853e973212|
-|Revert "[Fix][Connector-V2] Fix doris primary key order and fields order are inconsistent (#7377)" (#7402)|https://github.com/apache/seatunnel/commit/bb72d91770|
+|Revert &quot;[Fix][Connector-V2] Fix doris primary key order and fields order are inconsistent (#7377)&quot; (#7402)|https://github.com/apache/seatunnel/commit/bb72d91770|
 
 </details>
 <details><summary>2.3.7</summary>
@@ -41,7 +41,7 @@
 |[Bugfix][Doris-connector] Fix Json serialization, null value causes data error problem|https://github.com/apache/seatunnel/commit/7b19df585f|
 |[Improve][Connector-V2] Improve doris error msg (#7343)|https://github.com/apache/seatunnel/commit/16950a67cd|
 |[Fix][Doris] Fix the abnormality of deleting data in CDC scenario. (#7315)|https://github.com/apache/seatunnel/commit/bb2c912404|
-|fix [Bug] Unable to create a source for identifier 'Iceberg'. #7182 (#7279)|https://github.com/apache/seatunnel/commit/4897491708|
+|fix [Bug] Unable to create a source for identifier &#x27;Iceberg&#x27;. #7182 (#7279)|https://github.com/apache/seatunnel/commit/4897491708|
 
 </details>
 <details><summary>2.3.6</summary>
@@ -70,7 +70,7 @@
 |[Improve] Add SaveMode log of process detail (#6375)|https://github.com/apache/seatunnel/commit/b0d70ce224|
 |[Feature] Support nanosecond in Doris DateTimeV2 type (#6358)|https://github.com/apache/seatunnel/commit/76967066bf|
 |[Fix][Connector-V2] Fix doris source select fields loss primary key information (#6339)|https://github.com/apache/seatunnel/commit/78abe2f202|
-|[Improve][API] Unify type system api(data & type) (#5872)|https://github.com/apache/seatunnel/commit/b38c7edcc9|
+|[Improve][API] Unify type system api(data &amp; type) (#5872)|https://github.com/apache/seatunnel/commit/b38c7edcc9|
 |[Fix] Fix doris stream load failed not reported error (#6315)|https://github.com/apache/seatunnel/commit/a09a5a2bb8|
 
 </details>

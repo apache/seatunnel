@@ -2,6 +2,7 @@
 
 | Change | Commit |
 | --- | --- |
+|[Improve][CDC] Extract duplicate code (#8906)|https://github.com/apache/seatunnel/commit/b922bb90e6|
 |[Improve][CDC] Filter heartbeat event (#8569)|https://github.com/apache/seatunnel/commit/1870653393|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|
 |[Fix][MySQL-CDC]fix recovery task failure caused by binlog deletion (#8587)|https://github.com/apache/seatunnel/commit/087087e592|
@@ -13,9 +14,9 @@
 | Change | Commit |
 | --- | --- |
 |[Feature][MySQL-CDC] Support database/table wildcards scan read (#8323)|https://github.com/apache/seatunnel/commit/2116843ce8|
-|[Feature][CDC] Add 'schema-changes.enabled' options (#8285)|https://github.com/apache/seatunnel/commit/8e29ecf54f|
-|Revert "[Feature][Redis] Flush data when the time reaches checkpoint interval" and "[Feature][CDC] Add 'schema-changes.enabled' options" (#8278)|https://github.com/apache/seatunnel/commit/fcb2938286|
-|[Feature][CDC] Add 'schema-changes.enabled' options (#8252)|https://github.com/apache/seatunnel/commit/d783f9447c|
+|[Feature][CDC] Add &#x27;schema-changes.enabled&#x27; options (#8285)|https://github.com/apache/seatunnel/commit/8e29ecf54f|
+|Revert &quot;[Feature][Redis] Flush data when the time reaches checkpoint interval&quot; and &quot;[Feature][CDC] Add &#x27;schema-changes.enabled&#x27; options&quot; (#8278)|https://github.com/apache/seatunnel/commit/fcb2938286|
+|[Feature][CDC] Add &#x27;schema-changes.enabled&#x27; options (#8252)|https://github.com/apache/seatunnel/commit/d783f9447c|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|
 |[Improve][Connector-V2] Add pre-check for table enable cdc (#8152)|https://github.com/apache/seatunnel/commit/9a5da78176|
 |[Feature][Connector-V2]Jdbc chunk split add  snapshotSplitColumn config #7794 (#7840)|https://github.com/apache/seatunnel/commit/b6c6dc0438|
@@ -59,7 +60,7 @@
 |[Improve][CDC] Improve read performance when record not contains schema field (#6571)|https://github.com/apache/seatunnel/commit/e60beb28ec|
 |[Feature][Core] Support event listener for job (#6419)|https://github.com/apache/seatunnel/commit/831d0022eb|
 |[Improve][CDC] Optimize memory allocation for snapshot split reading (#6281)|https://github.com/apache/seatunnel/commit/4856645837|
-|[Improve][API] Unify type system api(data & type) (#5872)|https://github.com/apache/seatunnel/commit/b38c7edcc9|
+|[Improve][API] Unify type system api(data &amp; type) (#5872)|https://github.com/apache/seatunnel/commit/b38c7edcc9|
 |[Feature] Supports iceberg sink #6198 (#6265)|https://github.com/apache/seatunnel/commit/18d3e86194|
 
 </details>
@@ -91,7 +92,7 @@
 |[Improve] Refactor CatalogTable and add `SeaTunnelSource::getProducedCatalogTables` (#5562)|https://github.com/apache/seatunnel/commit/41173357f8|
 |[Feature][CDC] Support for preferring numeric fields as split keys (#5384)|https://github.com/apache/seatunnel/commit/c687050d88|
 |[Feature][Connector-V2][CDC] Support flink running cdc job (#4918)|https://github.com/apache/seatunnel/commit/5e378831ee|
-|[Improve][CheckStyle] Remove useless 'SuppressWarnings' annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
+|[Improve][CheckStyle] Remove useless &#x27;SuppressWarnings&#x27; annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
 
 </details>
 <details><summary>2.3.3</summary>
@@ -131,15 +132,15 @@
 | Change | Commit |
 | --- | --- |
 |[Improve][CDC] Improve startup.mode/stop.mode options (#4360)|https://github.com/apache/seatunnel/commit/b71d8739d5|
-|[Improve][CDC] Optimize options & add docs for compatible_debezium_json (#4351)|https://github.com/apache/seatunnel/commit/336f590498|
+|[Improve][CDC] Optimize options &amp; add docs for compatible_debezium_json (#4351)|https://github.com/apache/seatunnel/commit/336f590498|
 |Update CDC StartupMode and StopMode option to SingleChoiceOption (#4357)|https://github.com/apache/seatunnel/commit/f60ac1a5e9|
 |[bugfix][cdc-base] Fix cdc base shutdown thread not cleared (#4327)|https://github.com/apache/seatunnel/commit/ac61409bd8|
 |[Feature][CDC] Support export debezium-json format to kafka (#4339)|https://github.com/apache/seatunnel/commit/5817ec07bf|
-|[Feature][CDC] Support add & dorp tables when restore cdc jobs (#4254)|https://github.com/apache/seatunnel/commit/add75d7d5d|
+|[Feature][CDC] Support add &amp; dorp tables when restore cdc jobs (#4254)|https://github.com/apache/seatunnel/commit/add75d7d5d|
 |[Feature][CDC][Mysql] Support read database list (#4255)|https://github.com/apache/seatunnel/commit/3ca60c6fed|
 |[improve][zeta] fix zeta bugs|https://github.com/apache/seatunnel/commit/3a82e8b39f|
 |[Improve] Support MySqlCatalog Use JDBC URL With Custom Suffix|https://github.com/apache/seatunnel/commit/210d0ff1f8|
-|Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
+|Merge branch &#x27;dev&#x27; into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
 |[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
 |[Hotfix][Zeta] Fix shuffle checkpoint (#4224)|https://github.com/apache/seatunnel/commit/507ca85611|
 |[improve][cdc] support sharding-tables (#4207)|https://github.com/apache/seatunnel/commit/5c3f0c9b00|

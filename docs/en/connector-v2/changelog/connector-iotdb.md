@@ -35,14 +35,14 @@
 
 | Change | Commit |
 | --- | --- |
-|Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
+|Merge branch &#x27;dev&#x27; into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
 |[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
 |[improve][api] Refactoring schema parse (#4157)|https://github.com/apache/seatunnel/commit/b2f573a13e|
 |[Improve][build] Give the maven module a human readable name (#4114)|https://github.com/apache/seatunnel/commit/d7cd601051|
 |[Improve][Project] Code format with spotless plugin. (#4101)|https://github.com/apache/seatunnel/commit/a2ab166561|
 |[Improve][SourceConnector] Unified schema parameter, update IoTDB sou… (#3896)|https://github.com/apache/seatunnel/commit/a0959c5fd1|
 |[Feature][Connector] add get source method to all source connector (#3846)|https://github.com/apache/seatunnel/commit/417178fb84|
-|[Feature][API & Connector & Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
+|[Feature][API &amp; Connector &amp; Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
 
 </details>
 <details><summary>2.3.0</summary>
@@ -50,7 +50,7 @@
 | Change | Commit |
 | --- | --- |
 |[Hotfix][OptionRule] Fix option rule about all connectors (#3592)|https://github.com/apache/seatunnel/commit/226dc6a119|
-|[Improve][Connector-V2][Iotdb] Unified exception for iotdb source & sink connector (#3557)|https://github.com/apache/seatunnel/commit/7353fed6d6|
+|[Improve][Connector-V2][Iotdb] Unified exception for iotdb source &amp; sink connector (#3557)|https://github.com/apache/seatunnel/commit/7353fed6d6|
 |[Feature][Connector V2] expose configurable options in IoTDB (#3387)|https://github.com/apache/seatunnel/commit/06359ea76a|
 |[Improve][Connector-V2][IotDB]Add IotDB sink parameter check (#3412)|https://github.com/apache/seatunnel/commit/91240a3dcb|
 

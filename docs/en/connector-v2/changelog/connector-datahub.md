@@ -32,7 +32,7 @@
 | Change | Commit |
 | --- | --- |
 |[Hotfix][OptionRule] Fix option rule about all connectors (#3592)|https://github.com/apache/seatunnel/commit/226dc6a119|
-|[Improve][Connector-V2][DataHub] Unified exception for DataHub sink connector & change package name of DataHub (#3446)|https://github.com/apache/seatunnel/commit/395635fa18|
+|[Improve][Connector-V2][DataHub] Unified exception for DataHub sink connector &amp; change package name of DataHub (#3446)|https://github.com/apache/seatunnel/commit/395635fa18|
 |[improve][connector] The Factory#factoryIdentifier must be consistent with PluginIdentifierInterface#getPluginName (#3328)|https://github.com/apache/seatunnel/commit/d9519d696a|
 |[Improve][Connector-V2][DataHub] Add DataHub Sink Factory (#3323)|https://github.com/apache/seatunnel/commit/685978d061|
 

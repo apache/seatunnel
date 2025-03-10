@@ -58,7 +58,7 @@
 
 | Change | Commit |
 | --- | --- |
-|[Feature][Connector V2][File] Add config of 'file_filter_pattern', which used for filtering files. (#5153)|https://github.com/apache/seatunnel/commit/a3c13e59eb|
-|[Feature][Connector-V2][File] Add cos source&sink (#4979)|https://github.com/apache/seatunnel/commit/1f94676436|
+|[Feature][Connector V2][File] Add config of &#x27;file_filter_pattern&#x27;, which used for filtering files. (#5153)|https://github.com/apache/seatunnel/commit/a3c13e59eb|
+|[Feature][Connector-V2][File] Add cos source&amp;sink (#4979)|https://github.com/apache/seatunnel/commit/1f94676436|
 
 </details>

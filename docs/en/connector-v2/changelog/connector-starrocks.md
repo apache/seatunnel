@@ -2,6 +2,7 @@
 
 | Change | Commit |
 | --- | --- |
+|[Improve][Connector-V2] Random pick the starrocks fe address which can be connected (#8898)|https://github.com/apache/seatunnel/commit/bef76078f9|
 |[Feature][Connector-v2] Support multi starrocks source (#8789)|https://github.com/apache/seatunnel/commit/26b5529aaf|
 |[Fix][Connector-V2] Fix possible data loss in scenarios of request_tablet_size is less than the number of BUCKETS (#8768)|https://github.com/apache/seatunnel/commit/3c6f216135|
 |[Fix][Connector-V2]Fix Descriptions for CUSTOM_SQL in Connector (#8778)|https://github.com/apache/seatunnel/commit/96b610eb7e|
@@ -56,7 +57,7 @@
 |[Improve] Add SaveMode log of process detail (#6375)|https://github.com/apache/seatunnel/commit/b0d70ce224|
 |[Improve][Connector-V2] Support TableSourceFactory on StarRocks (#6498)|https://github.com/apache/seatunnel/commit/aded56299c|
 |[Improve] StarRocksSourceReader  use the existing client  (#6480)|https://github.com/apache/seatunnel/commit/1a02c571a9|
-|[Improve][API] Unify type system api(data & type) (#5872)|https://github.com/apache/seatunnel/commit/b38c7edcc9|
+|[Improve][API] Unify type system api(data &amp; type) (#5872)|https://github.com/apache/seatunnel/commit/b38c7edcc9|
 
 </details>
 <details><summary>2.3.4</summary>
@@ -78,7 +79,7 @@
 |[Improve] Refactor CatalogTable and add `SeaTunnelSource::getProducedCatalogTables` (#5562)|https://github.com/apache/seatunnel/commit/41173357f8|
 |[Hotfix][Connector-V2][StarRocks] fix starrocks template sql parser #5071 (#5332)|https://github.com/apache/seatunnel/commit/23d79b0d17|
 |[Improve] [Connector-V2] Remove scheduler in StarRocks sink (#5269)|https://github.com/apache/seatunnel/commit/cb7b794914|
-|[Improve][CheckStyle] Remove useless 'SuppressWarnings' annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
+|[Improve][CheckStyle] Remove useless &#x27;SuppressWarnings&#x27; annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
 
 </details>
 <details><summary>2.3.3</summary>
@@ -95,7 +96,7 @@
 | Change | Commit |
 | --- | --- |
 |[Improve] [Connector-V2] Improve StarRocks Auto Create Table To Support Use Primary Key Template In Field (#4487)|https://github.com/apache/seatunnel/commit/e601cd4c37|
-|Revert "[Improve][Catalog] refactor catalog (#4540)" (#4628)|https://github.com/apache/seatunnel/commit/2d1933195d|
+|Revert &quot;[Improve][Catalog] refactor catalog (#4540)&quot; (#4628)|https://github.com/apache/seatunnel/commit/2d1933195d|
 |[hotfix][starrocks] fix error on get starrocks source typeInfo (#4619)|https://github.com/apache/seatunnel/commit/f7b094f9eb|
 |[Improve][Catalog] refactor catalog (#4540)|https://github.com/apache/seatunnel/commit/b0a701cb83|
 |[Improve] [Connector-V2] Throw StarRocks Serialize Error To Client (#4484)|https://github.com/apache/seatunnel/commit/e2c107323b|
@@ -113,12 +114,12 @@
 |[Improve] Support StarRocksCatalog Use JDBC URL With Custom Suffix|https://github.com/apache/seatunnel/commit/d00ced6ecd|
 |[Improve] Support MySqlCatalog Use JDBC URL With Custom Suffix|https://github.com/apache/seatunnel/commit/210d0ff1f8|
 |[Improve] Change StarRocks Sink Default Format To Json|https://github.com/apache/seatunnel/commit/8703357830|
-|[Fix] Fix StarRocks Default Url Can't Use|https://github.com/apache/seatunnel/commit/67c45d353a|
+|[Fix] Fix StarRocks Default Url Can&#x27;t Use|https://github.com/apache/seatunnel/commit/67c45d353a|
 |[hotfix] fixed schema options import error|https://github.com/apache/seatunnel/commit/656805f2df|
 |[chore] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/291214ad6f|
-|Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
+|Merge branch &#x27;dev&#x27; into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
 |[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
-|[Fix] Fix StarRocks Default Url Can't Use (#4229)|https://github.com/apache/seatunnel/commit/ed74d11090|
+|[Fix] Fix StarRocks Default Url Can&#x27;t Use (#4229)|https://github.com/apache/seatunnel/commit/ed74d11090|
 |[Bug] Remove StarRocks Auto Creat Table Default Value (#4220)|https://github.com/apache/seatunnel/commit/80b5cd40ae|
 |[Feature] Add SaveMode For StarRocks (#4217)|https://github.com/apache/seatunnel/commit/0674f10a53|
 |[Improve] Improve StarRocks Catalog Base Url (#4215)|https://github.com/apache/seatunnel/commit/6632a40473|

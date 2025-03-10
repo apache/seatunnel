@@ -1,3 +1,10 @@
+<details><summary>dev</summary>
+
+| Change | Commit |
+| --- | --- |
+|[Improve] filestore options (#8921)|https://github.com/apache/seatunnel/commit/b60ef97c95|
+
+</details>
 <details><summary>2.3.9</summary>
 
 | Change | Commit |

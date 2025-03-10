@@ -2,6 +2,8 @@
 
 | Change | Commit |
 | --- | --- |
+|[Improve][CDC] Filter ddl for snapshot phase (#8911)|https://github.com/apache/seatunnel/commit/641cc72f2f|
+|[Improve][CDC] Extract duplicate code (#8906)|https://github.com/apache/seatunnel/commit/b922bb90e6|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|
 |[Fix][mysql-cdc] Fix GTIDs on startup to correctly recover from checkpoint (#8528)|https://github.com/apache/seatunnel/commit/82e4096c08|
 
@@ -12,9 +14,9 @@
 | --- | --- |
 |[Feature][MySQL-CDC] Support database/table wildcards scan read (#8323)|https://github.com/apache/seatunnel/commit/2116843ce8|
 |[Feature][Jdbc] Support sink ddl for postgresql (#8276)|https://github.com/apache/seatunnel/commit/353bbd21a1|
-|[Feature][CDC] Add 'schema-changes.enabled' options (#8285)|https://github.com/apache/seatunnel/commit/8e29ecf54f|
-|Revert "[Feature][Redis] Flush data when the time reaches checkpoint interval" and "[Feature][CDC] Add 'schema-changes.enabled' options" (#8278)|https://github.com/apache/seatunnel/commit/fcb2938286|
-|[Feature][CDC] Add 'schema-changes.enabled' options (#8252)|https://github.com/apache/seatunnel/commit/d783f9447c|
+|[Feature][CDC] Add &#x27;schema-changes.enabled&#x27; options (#8285)|https://github.com/apache/seatunnel/commit/8e29ecf54f|
+|Revert &quot;[Feature][Redis] Flush data when the time reaches checkpoint interval&quot; and &quot;[Feature][CDC] Add &#x27;schema-changes.enabled&#x27; options&quot; (#8278)|https://github.com/apache/seatunnel/commit/fcb2938286|
+|[Feature][CDC] Add &#x27;schema-changes.enabled&#x27; options (#8252)|https://github.com/apache/seatunnel/commit/d783f9447c|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|
 |[Feature][Connector-V2]Jdbc chunk split add  snapshotSplitColumn config #7794 (#7840)|https://github.com/apache/seatunnel/commit/b6c6dc0438|
 |[Feature][Core] Support cdc task ddl restore for zeta (#7463)|https://github.com/apache/seatunnel/commit/8e322281ed|
@@ -58,7 +60,7 @@
 |[Fix][Connector-V2] Fix connector support SPI but without no args constructor (#6551)|https://github.com/apache/seatunnel/commit/5f3c9c36a5|
 |[Improve][CDC-Connector]Fix CDC option rule. (#6454)|https://github.com/apache/seatunnel/commit/1ea27afa87|
 |[Improve][CDC] Optimize memory allocation for snapshot split reading (#6281)|https://github.com/apache/seatunnel/commit/4856645837|
-|[Improve][API] Unify type system api(data & type) (#5872)|https://github.com/apache/seatunnel/commit/b38c7edcc9|
+|[Improve][API] Unify type system api(data &amp; type) (#5872)|https://github.com/apache/seatunnel/commit/b38c7edcc9|
 
 </details>
 <details><summary>2.3.4</summary>
@@ -77,7 +79,7 @@
 |[Improve] Refactor CatalogTable and add `SeaTunnelSource::getProducedCatalogTables` (#5562)|https://github.com/apache/seatunnel/commit/41173357f8|
 |[Improve][connector-cdc-mysql] avoid listing tables under unnecessary databases (#5365)|https://github.com/apache/seatunnel/commit/3e5d018b35|
 |[Improve][Docs] Refactor MySQL-CDC docs (#5302)|https://github.com/apache/seatunnel/commit/74530a0461|
-|[Improve][CheckStyle] Remove useless 'SuppressWarnings' annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
+|[Improve][CheckStyle] Remove useless &#x27;SuppressWarnings&#x27; annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
 
 </details>
 <details><summary>2.3.3</summary>
@@ -125,7 +127,7 @@
 |[improve][zeta] fix zeta bugs|https://github.com/apache/seatunnel/commit/3a82e8b39f|
 |[Improve] Support MySqlCatalog Use JDBC URL With Custom Suffix|https://github.com/apache/seatunnel/commit/210d0ff1f8|
 |[chore] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/291214ad6f|
-|Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
+|Merge branch &#x27;dev&#x27; into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
 |[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
 |[improve][jdbc] Reduce jdbc options configuration (#4218)|https://github.com/apache/seatunnel/commit/ddd8f808b5|
 |[improve][cdc] support sharding-tables (#4207)|https://github.com/apache/seatunnel/commit/5c3f0c9b00|
@@ -138,7 +140,7 @@
 |fix cdc option rule error (#4018)|https://github.com/apache/seatunnel/commit/ea160429df|
 |[Improve][CDC][base] Guaranteed to be exactly-once in the process of switching from SnapshotTask to IncrementalTask (#3837)|https://github.com/apache/seatunnel/commit/8379aaf876|
 |[Feature][Connector] add get source method to all source connector (#3846)|https://github.com/apache/seatunnel/commit/417178fb84|
-|[Feature][API & Connector & Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
+|[Feature][API &amp; Connector &amp; Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
 |[Improve][CDC] Add mysql-cdc source factory (#3791)|https://github.com/apache/seatunnel/commit/356538de8a|
 
 </details>

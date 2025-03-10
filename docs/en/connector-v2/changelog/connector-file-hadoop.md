@@ -52,7 +52,7 @@
 
 | Change | Commit |
 | --- | --- |
-|[Feature][Connector V2][File] Add config of 'file_filter_pattern', which used for filtering files. (#5153)|https://github.com/apache/seatunnel/commit/a3c13e59eb|
+|[Feature][Connector V2][File] Add config of &#x27;file_filter_pattern&#x27;, which used for filtering files. (#5153)|https://github.com/apache/seatunnel/commit/a3c13e59eb|
 
 </details>
 <details><summary>2.3.2</summary>
@@ -67,7 +67,7 @@
 | Change | Commit |
 | --- | --- |
 |Change file type to file_format_type in file source/sink (#4249)|https://github.com/apache/seatunnel/commit/973a2fae3c|
-|Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
+|Merge branch &#x27;dev&#x27; into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
 |[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
 |[improve][api] Refactoring schema parse (#4157)|https://github.com/apache/seatunnel/commit/b2f573a13e|
 |[Improve][build] Give the maven module a human readable name (#4114)|https://github.com/apache/seatunnel/commit/d7cd601051|
@@ -105,7 +105,7 @@
 |[Feature][Connector-V2] Add hdfs file json support (#2451)|https://github.com/apache/seatunnel/commit/84f6b17c15|
 |[Improve][Connector-V2] Refactor the package of hdfs file connector (#2402)|https://github.com/apache/seatunnel/commit/87d0624c5b|
 |[Feature][Connector-V2] Add hdfs file source connector (#2420)|https://github.com/apache/seatunnel/commit/4fb6f2a216|
-|[Feature][Connector-V2] Add json file sink & json format (#2385)|https://github.com/apache/seatunnel/commit/dd68c06b0a|
+|[Feature][Connector-V2] Add json file sink &amp; json format (#2385)|https://github.com/apache/seatunnel/commit/dd68c06b0a|
 |[Imporve][Connector-V2] Remove redundant type judge logic because of pr #2315 (#2370)|https://github.com/apache/seatunnel/commit/42e8c25e50|
 |[Feature][Connector-V2] Support orc file format in file connector (#2369)|https://github.com/apache/seatunnel/commit/f44fe1e033|
 |[improve][UT] Upgrade junit to 5.+ (#2305)|https://github.com/apache/seatunnel/commit/362319ff3e|

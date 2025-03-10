@@ -9,7 +9,7 @@
 
 | Change | Commit |
 | --- | --- |
-|[Improve][Transform] Rename sql transform table name from 'fake' to 'dual' (#8298)|https://github.com/apache/seatunnel/commit/e6169684fb|
+|[Improve][Transform] Rename sql transform table name from &#x27;fake&#x27; to &#x27;dual&#x27; (#8298)|https://github.com/apache/seatunnel/commit/e6169684fb|
 |[Feature][Core] Rename `result_table_name`/`source_table_name` to `plugin_input/plugin_output` (#8072)|https://github.com/apache/seatunnel/commit/c7bbd322db|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|
 

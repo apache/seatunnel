@@ -9,7 +9,7 @@
 
 | Change | Commit |
 | --- | --- |
-|[Improve][Transform] Rename sql transform table name from 'fake' to 'dual' (#8298)|https://github.com/apache/seatunnel/commit/e6169684fb|
+|[Improve][Transform] Rename sql transform table name from &#x27;fake&#x27; to &#x27;dual&#x27; (#8298)|https://github.com/apache/seatunnel/commit/e6169684fb|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|
 |[Improve][API] Unified tables_configs and table_list (#8100)|https://github.com/apache/seatunnel/commit/84c0b8d660|
 |[Feature][Core] Rename `result_table_name`/`source_table_name` to `plugin_input/plugin_output` (#8072)|https://github.com/apache/seatunnel/commit/c7bbd322db|
@@ -54,7 +54,7 @@
 |[Improve][Project] Code format with spotless plugin. (#4101)|https://github.com/apache/seatunnel/commit/a2ab166561|
 |[Hotfix][Connector-V2] Fix connector source snapshot state NPE (#4027)|https://github.com/apache/seatunnel/commit/e39c4988cc|
 |[Feature][Connector] add get source method to all source connector (#3846)|https://github.com/apache/seatunnel/commit/417178fb84|
-|[Feature][API & Connector & Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
+|[Feature][API &amp; Connector &amp; Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
 
 </details>
 <details><summary>2.3.0</summary>
@@ -63,7 +63,7 @@
 | --- | --- |
 |[Hotfix][OptionRule] Fix option rule about all connectors (#3592)|https://github.com/apache/seatunnel/commit/226dc6a119|
 |[Improve] [Connector-V2] Bad smell ToArrayCallWithZeroLengthArrayArgument: (#3577)|https://github.com/apache/seatunnel/commit/cc448d98c4|
-|[Improve][Connector-V2][Kudu] Unified exception for kudu source & sink connector (#3564)|https://github.com/apache/seatunnel/commit/273418ddc9|
+|[Improve][Connector-V2][Kudu] Unified exception for kudu source &amp; sink connector (#3564)|https://github.com/apache/seatunnel/commit/273418ddc9|
 |[Connector] [Dependency] Add Miss Dependency Cassandra And Change Kudu Plugin Name (#3432)|https://github.com/apache/seatunnel/commit/6ac6a0a0cd|
 |[Feature][Connector V2] expose configurable options in Kudu (#3365)|https://github.com/apache/seatunnel/commit/c422210e2c|
 

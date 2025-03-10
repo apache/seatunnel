@@ -25,7 +25,7 @@
 | Change | Commit |
 | --- | --- |
 |[Feature][Kafka] Support multi-table source read  (#5992)|https://github.com/apache/seatunnel/commit/60104602d1|
-|[Fix][connector-rocketmq] commit a correct offset to broker & reduce ThreadInterruptedException log (#6668)|https://github.com/apache/seatunnel/commit/b7480e1a89|
+|[Fix][connector-rocketmq] commit a correct offset to broker &amp; reduce ThreadInterruptedException log (#6668)|https://github.com/apache/seatunnel/commit/b7480e1a89|
 
 </details>
 <details><summary>2.3.5</summary>
@@ -43,7 +43,7 @@
 |[Fix] [Connector] Rocketmq source startOffset greater than endOffset error (#6287)|https://github.com/apache/seatunnel/commit/cd44b5894e|
 |[Improve][Common] Introduce new error define rule (#5793)|https://github.com/apache/seatunnel/commit/9d1b2582b2|
 |[Improve] Remove use `SeaTunnelSink::getConsumedType` method and mark it as deprecated (#5755)|https://github.com/apache/seatunnel/commit/8de7408100|
-|[Improve][CheckStyle] Remove useless 'SuppressWarnings' annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
+|[Improve][CheckStyle] Remove useless &#x27;SuppressWarnings&#x27; annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
 
 </details>
 <details><summary>2.3.2</summary>

@@ -2,6 +2,9 @@
 
 | Change | Commit |
 | --- | --- |
+|[Improve][CDC] Filter ddl for snapshot phase (#8911)|https://github.com/apache/seatunnel/commit/641cc72f2f|
+|[Improve][Oracle-CDC] Support ReadOnlyLogWriterFlushStrategy (#8912)|https://github.com/apache/seatunnel/commit/6aebdc0384|
+|[Improve][CDC] Extract duplicate code (#8906)|https://github.com/apache/seatunnel/commit/b922bb90e6|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|
 
 </details>
@@ -11,9 +14,9 @@
 | --- | --- |
 |[hotfix] [connector-cdc-oracle ] support read partition table (#8265)|https://github.com/apache/seatunnel/commit/91b86b2faf|
 |[Improve][E2E] improve oracle e2e (#8292)|https://github.com/apache/seatunnel/commit/9f761b9d32|
-|[Feature][CDC] Add 'schema-changes.enabled' options (#8285)|https://github.com/apache/seatunnel/commit/8e29ecf54f|
-|Revert "[Feature][Redis] Flush data when the time reaches checkpoint interval" and "[Feature][CDC] Add 'schema-changes.enabled' options" (#8278)|https://github.com/apache/seatunnel/commit/fcb2938286|
-|[Feature][CDC] Add 'schema-changes.enabled' options (#8252)|https://github.com/apache/seatunnel/commit/d783f9447c|
+|[Feature][CDC] Add &#x27;schema-changes.enabled&#x27; options (#8285)|https://github.com/apache/seatunnel/commit/8e29ecf54f|
+|Revert &quot;[Feature][Redis] Flush data when the time reaches checkpoint interval&quot; and &quot;[Feature][CDC] Add &#x27;schema-changes.enabled&#x27; options&quot; (#8278)|https://github.com/apache/seatunnel/commit/fcb2938286|
+|[Feature][CDC] Add &#x27;schema-changes.enabled&#x27; options (#8252)|https://github.com/apache/seatunnel/commit/d783f9447c|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|
 |[Feature][Connector-V2]Jdbc chunk split add  snapshotSplitColumn config #7794 (#7840)|https://github.com/apache/seatunnel/commit/b6c6dc0438|
 |[Feature][Core] Support cdc task ddl restore for zeta (#7463)|https://github.com/apache/seatunnel/commit/8e322281ed|
@@ -48,7 +51,7 @@
 |[Improve][CDC] Optimize split state memory allocation in increment phase (#6554)|https://github.com/apache/seatunnel/commit/fe33422161|
 |[Improve][CDC-Connector]Fix CDC option rule. (#6454)|https://github.com/apache/seatunnel/commit/1ea27afa87|
 |[Improve][CDC] Optimize memory allocation for snapshot split reading (#6281)|https://github.com/apache/seatunnel/commit/4856645837|
-|[Improve][API] Unify type system api(data & type) (#5872)|https://github.com/apache/seatunnel/commit/b38c7edcc9|
+|[Improve][API] Unify type system api(data &amp; type) (#5872)|https://github.com/apache/seatunnel/commit/b38c7edcc9|
 
 </details>
 <details><summary>2.3.4</summary>

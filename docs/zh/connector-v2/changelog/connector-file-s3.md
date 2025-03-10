@@ -2,6 +2,7 @@
 
 | Change | Commit |
 | --- | --- |
+|[Fix][Connector-V2] Fixed incorrectly setting s3 key in some cases (#8885)|https://github.com/apache/seatunnel/commit/cf4bab5be2|
 |[Feature][Connector-V2] Add `filename_extension` parameter for read/write file (#8769)|https://github.com/apache/seatunnel/commit/78b23c0ef5|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|
 | [improve] update S3File connector config option  (#8615)|https://github.com/apache/seatunnel/commit/80cc9fa6ff|
@@ -23,7 +24,7 @@
 | Change | Commit |
 | --- | --- |
 |[Improve][Connector-V2] Support read archive compress file (#7633)|https://github.com/apache/seatunnel/commit/3f98cd8a16|
-|[Improve] Refactor S3FileCatalog and it's factory (#7457)|https://github.com/apache/seatunnel/commit/d928e8b113|
+|[Improve] Refactor S3FileCatalog and it&#x27;s factory (#7457)|https://github.com/apache/seatunnel/commit/d928e8b113|
 
 </details>
 <details><summary>2.3.7</summary>
@@ -72,14 +73,14 @@
 
 | Change | Commit |
 | --- | --- |
-|[Feature][Connector V2][File] Add config of 'file_filter_pattern', which used for filtering files. (#5153)|https://github.com/apache/seatunnel/commit/a3c13e59eb|
+|[Feature][Connector V2][File] Add config of &#x27;file_filter_pattern&#x27;, which used for filtering files. (#5153)|https://github.com/apache/seatunnel/commit/a3c13e59eb|
 
 </details>
 <details><summary>2.3.2</summary>
 
 | Change | Commit |
 | --- | --- |
-|[chore] delete unavailable S3 & Kafka Catalogs (#4477)|https://github.com/apache/seatunnel/commit/e0aec5ecec|
+|[chore] delete unavailable S3 &amp; Kafka Catalogs (#4477)|https://github.com/apache/seatunnel/commit/e0aec5ecec|
 | [Feature][ConnectorV2]add file excel sink and source (#4164)|https://github.com/apache/seatunnel/commit/e3b97ae5d2|
 
 </details>
@@ -90,7 +91,7 @@
 |Change file type to file_format_type in file source/sink (#4249)|https://github.com/apache/seatunnel/commit/973a2fae3c|
 |[Chore] Upgrade guava to 27.0-jre (#4238)|https://github.com/apache/seatunnel/commit/4851bee575|
 |Add redshift datatype convertor (#4245)|https://github.com/apache/seatunnel/commit/b19011517f|
-|Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
+|Merge branch &#x27;dev&#x27; into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
 |[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
 |[improve][api] Refactoring schema parse (#4157)|https://github.com/apache/seatunnel/commit/b2f573a13e|
 |[Improve][build] Give the maven module a human readable name (#4114)|https://github.com/apache/seatunnel/commit/d7cd601051|
@@ -108,10 +109,10 @@
 |[Feature][Shade] Add seatunnel hadoop3 uber (#3755)|https://github.com/apache/seatunnel/commit/5a024bdf8f|
 |[Engine][Checkpoint]Unified naming style (#3714)|https://github.com/apache/seatunnel/commit/bc0bd3bec3|
 |[Connector][File-S3]Set AK is not required (#3713)|https://github.com/apache/seatunnel/commit/da3c526172|
-|[Connector&Engine]Set S3 AK to optional (#3688)|https://github.com/apache/seatunnel/commit/4710918b02|
+|[Connector&amp;Engine]Set S3 AK to optional (#3688)|https://github.com/apache/seatunnel/commit/4710918b02|
 |[Connector][S3]Support s3a protocol (#3632)|https://github.com/apache/seatunnel/commit/ae4cc9c1ec|
 |[Hotfix][OptionRule] Fix option rule about all connectors (#3592)|https://github.com/apache/seatunnel/commit/226dc6a119|
-|[Improve][Connector-V2][File] Unified excetion for file source & sink connectors (#3525)|https://github.com/apache/seatunnel/commit/031e8e263c|
+|[Improve][Connector-V2][File] Unified excetion for file source &amp; sink connectors (#3525)|https://github.com/apache/seatunnel/commit/031e8e263c|
 |[Feature][Connector-V2][File] Add option and factory for file connectors (#3375)|https://github.com/apache/seatunnel/commit/db286e8631|
 |[Improve][Connector-V2][File] Improve code structure (#3238)|https://github.com/apache/seatunnel/commit/dd5c353881|
 |[Connector-V2] [ElasticSearch] Add ElasticSearch Source/Sink Factory (#3325)|https://github.com/apache/seatunnel/commit/38254e3f26|
@@ -121,6 +122,6 @@
 
 | Change | Commit |
 | --- | --- |
-|[Feature][Connector-V2][S3] Add S3 file source & sink connector (#3119)|https://github.com/apache/seatunnel/commit/f27d68ca9c|
+|[Feature][Connector-V2][S3] Add S3 file source &amp; sink connector (#3119)|https://github.com/apache/seatunnel/commit/f27d68ca9c|
 
 </details>

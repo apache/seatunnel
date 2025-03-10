@@ -2,6 +2,7 @@
 
 | Change | Commit |
 | --- | --- |
+|[Improve] sink mongodb schema is not required (#8887)|https://github.com/apache/seatunnel/commit/3cfe8c12b9|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|
 |[Fix][Connector-Mongodb] close MongodbClient when close MongodbReader (#8592)|https://github.com/apache/seatunnel/commit/06b2fc0e06|
 
@@ -65,13 +66,13 @@
 
 | Change | Commit |
 | --- | --- |
-|Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
+|Merge branch &#x27;dev&#x27; into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
 |[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
 |[improve][api] Refactoring schema parse (#4157)|https://github.com/apache/seatunnel/commit/b2f573a13e|
 |[Improve][build] Give the maven module a human readable name (#4114)|https://github.com/apache/seatunnel/commit/d7cd601051|
 |[Improve][Project] Code format with spotless plugin. (#4101)|https://github.com/apache/seatunnel/commit/a2ab166561|
 |[Feature][Connector] add get source method to all source connector (#3846)|https://github.com/apache/seatunnel/commit/417178fb84|
-|[Feature][API & Connector & Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
+|[Feature][API &amp; Connector &amp; Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
 |[Improve] mongodb connector v2 add source query capability (#3697)|https://github.com/apache/seatunnel/commit/8a7fe6fcb6|
 
 </details>
@@ -80,7 +81,7 @@
 | Change | Commit |
 | --- | --- |
 |[Hotfix][OptionRule] Fix option rule about all connectors (#3592)|https://github.com/apache/seatunnel/commit/226dc6a119|
-|[Improve][Connector-V2][MongoDB] Unified exception for MongoDB source & sink connector (#3522)|https://github.com/apache/seatunnel/commit/5af632e32b|
+|[Improve][Connector-V2][MongoDB] Unified exception for MongoDB source &amp; sink connector (#3522)|https://github.com/apache/seatunnel/commit/5af632e32b|
 |[Feature][Connector V2] expose configurable options in MongoDB (#3347)|https://github.com/apache/seatunnel/commit/ffd5778efc|
 
 </details>

@@ -54,7 +54,7 @@
 
 | Change | Commit |
 | --- | --- |
-|[Feature][Connector V2][File] Add config of 'file_filter_pattern', which used for filtering files. (#5153)|https://github.com/apache/seatunnel/commit/a3c13e59eb|
+|[Feature][Connector V2][File] Add config of &#x27;file_filter_pattern&#x27;, which used for filtering files. (#5153)|https://github.com/apache/seatunnel/commit/a3c13e59eb|
 |[Improve][Connector-V2][OSS-Jindo] Optimize jindo oss connector (#4964)|https://github.com/apache/seatunnel/commit/5fbfd05061|
 
 </details>

@@ -2,6 +2,7 @@
 
 | Change | Commit |
 | --- | --- |
+|[Improve][connector-hive] Improved hive file allocation algorithm for subtasks (#8876)|https://github.com/apache/seatunnel/commit/89d1878ade|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|
 |[Fix][Hive] Writing parquet files supports the optional timestamp int96 (#8509)|https://github.com/apache/seatunnel/commit/856aea1952|
 
@@ -55,7 +56,7 @@
 
 | Change | Commit |
 | --- | --- |
-|Fix HiveMetaStoreProxy#enableKerberos will return true if doesn't enable kerberos (#6307)|https://github.com/apache/seatunnel/commit/1dad6f7061|
+|Fix HiveMetaStoreProxy#enableKerberos will return true if doesn&#x27;t enable kerberos (#6307)|https://github.com/apache/seatunnel/commit/1dad6f7061|
 |[Feature][Engine] Unify job env parameters (#6003)|https://github.com/apache/seatunnel/commit/2410ab38f0|
 |[Refactor][File Connector] Put Multiple Table File API to File Base Module (#6033)|https://github.com/apache/seatunnel/commit/c324d663b4|
 |Support using multiple hadoop account (#5903)|https://github.com/apache/seatunnel/commit/d69d88d1aa|
@@ -80,9 +81,9 @@
 |Change file type to file_format_type in file source/sink (#4249)|https://github.com/apache/seatunnel/commit/973a2fae3c|
 |[hotfix] fixed schema options import error|https://github.com/apache/seatunnel/commit/656805f2df|
 |[chore] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/291214ad6f|
-|Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
+|Merge branch &#x27;dev&#x27; into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
 |[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
-|[Imprve][Connector-V2][Hive] Support read text table & Column projection (#4105)|https://github.com/apache/seatunnel/commit/717620f542|
+|[Imprve][Connector-V2][Hive] Support read text table &amp; Column projection (#4105)|https://github.com/apache/seatunnel/commit/717620f542|
 |[Hotfix][Connector-V2][Hive] Fix hive unknownhost (#4141)|https://github.com/apache/seatunnel/commit/f1a1dfe4af|
 |[Improve][build] Give the maven module a human readable name (#4114)|https://github.com/apache/seatunnel/commit/d7cd601051|
 |[Improve][Project] Code format with spotless plugin. (#4101)|https://github.com/apache/seatunnel/commit/a2ab166561|
@@ -101,7 +102,7 @@
 |[Feature][Connector-V2][File] Optimize filesystem utils (#3749)|https://github.com/apache/seatunnel/commit/ac4e880fb5|
 |[Hotfix][OptionRule] Fix option rule about all connectors (#3592)|https://github.com/apache/seatunnel/commit/226dc6a119|
 |[Hotfix][Connector-V2][Hive] Fix npe of getting file system (#3506)|https://github.com/apache/seatunnel/commit/e1fc3d1b01|
-|[Improve][Connector-V2][Hive] Unified exceptions for hive source & sink connector (#3541)|https://github.com/apache/seatunnel/commit/12c0fb91d2|
+|[Improve][Connector-V2][Hive] Unified exceptions for hive source &amp; sink connector (#3541)|https://github.com/apache/seatunnel/commit/12c0fb91d2|
 |[Feature][Connector-V2][File] Add option and factory for file connectors (#3375)|https://github.com/apache/seatunnel/commit/db286e8631|
 |[Hotfix][Connector-V2][Hive] Fix the bug that when write data to hive throws NullPointerException (#3258)|https://github.com/apache/seatunnel/commit/777bf6b42e|
 
@@ -113,7 +114,7 @@
 |[Improve][Connector-V2][Hive] Hive Sink Support msck partitions (#3133)|https://github.com/apache/seatunnel/commit/a8738ef3c4|
 |unify `flatten-maven-plugin` version (#3078)|https://github.com/apache/seatunnel/commit/ed743fddcc|
 |[Engine][Merge] fix merge problem|https://github.com/apache/seatunnel/commit/0e9ceeefc9|
-|Merge remote-tracking branch 'upstream/dev' into st-engine|https://github.com/apache/seatunnel/commit/ca80df779a|
+|Merge remote-tracking branch &#x27;upstream/dev&#x27; into st-engine|https://github.com/apache/seatunnel/commit/ca80df779a|
 
 </details>
 <details><summary>2.2.0-beta</summary>
@@ -124,7 +125,7 @@
 |[Bug][Connector-V2] Fix hive sink bug (#2870)|https://github.com/apache/seatunnel/commit/d661fa011e|
 |[Fix][Connector-V2] Fix HiveSource Connector read orc table error (#2845)|https://github.com/apache/seatunnel/commit/61720306e7|
 |[Bug][Connector-V2] Fix hive source text table name (#2797)|https://github.com/apache/seatunnel/commit/563637ebd1|
-|[Improve][Connector-V2] Refactor hive source & sink connector (#2708)|https://github.com/apache/seatunnel/commit/a357dca365|
+|[Improve][Connector-V2] Refactor hive source &amp; sink connector (#2708)|https://github.com/apache/seatunnel/commit/a357dca365|
 
 </details>
 <details><summary>2.3.0-beta</summary>
@@ -164,7 +165,7 @@
 | Change | Commit |
 | --- | --- |
 |StateT of SeaTunnelSource should extend `Serializable` (#2214)|https://github.com/apache/seatunnel/commit/8c426ef850|
-|[Bug][connector-hive] filter '_SUCCESS' file in file list (#2235) (#2236)|https://github.com/apache/seatunnel/commit/db04651523|
+|[Bug][connector-hive] filter &#x27;_SUCCESS&#x27; file in file list (#2235) (#2236)|https://github.com/apache/seatunnel/commit/db04651523|
 |[Bug][hive-connector-v2] Resolve the schema inconsistency bug (#2229) (#2230)|https://github.com/apache/seatunnel/commit/62ca075915|
 |[Bug][spark-connector-v2-example] fix the bug of no class found. (#2191) (#2192)|https://github.com/apache/seatunnel/commit/5dbc2df17e|
 |[Connector-V2] Add Hive sink connector v2 (#2158)|https://github.com/apache/seatunnel/commit/23ad4ee735|

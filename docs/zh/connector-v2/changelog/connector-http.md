@@ -45,7 +45,7 @@
 
 | Change | Commit |
 | --- | --- |
-|[Hotfix] fix http source can not read yyyy-MM-dd HH:mm:ss format bug & Improve DateTime Utils (#6601)|https://github.com/apache/seatunnel/commit/19888e7969|
+|[Hotfix] fix http source can not read yyyy-MM-dd HH:mm:ss format bug &amp; Improve DateTime Utils (#6601)|https://github.com/apache/seatunnel/commit/19888e7969|
 |[Improve][Connector-V2]Support multi-table sink feature for httpsink (#6316)|https://github.com/apache/seatunnel/commit/e6c51a95c7|
 
 </details>
@@ -78,7 +78,7 @@
 
 | Change | Commit |
 | --- | --- |
-|Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
+|Merge branch &#x27;dev&#x27; into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
 |[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
 |[Feature][Connector-V2][Github] Adding Github Source Connector (#4155)|https://github.com/apache/seatunnel/commit/49d9172b10|
 |[improve][api] Refactoring schema parse (#4157)|https://github.com/apache/seatunnel/commit/b2f573a13e|
@@ -97,7 +97,7 @@
 |[Improve][Connector-V2][Http]Improve json parse option rule for all http connector (#3627)|https://github.com/apache/seatunnel/commit/589e4161ec|
 |[Improve][Connector-V2][OneSignal]Unified exception for OneSignal connector (#3609)|https://github.com/apache/seatunnel/commit/97cce8c255|
 |[Feature][Connector-V2][HTTP] Use json-path parsing (#3510)|https://github.com/apache/seatunnel/commit/1807eb6c95|
-|[Improve][Connector-V2][Http]Unified exception for http source & sink… (#3594)|https://github.com/apache/seatunnel/commit/d798cd8670|
+|[Improve][Connector-V2][Http]Unified exception for http source &amp; sink… (#3594)|https://github.com/apache/seatunnel/commit/d798cd8670|
 |[Hotfix][OptionRule] Fix option rule about all connectors (#3592)|https://github.com/apache/seatunnel/commit/226dc6a119|
 |[Improve][Connector-V2][MyHours]Unified exception for MyHours connector (#3538)|https://github.com/apache/seatunnel/commit/48ab7c97d5|
 |[Improve][Connector-V2][Gitlab] Unified excetion for Gitlab connector and improve optione rule (#3533)|https://github.com/apache/seatunnel/commit/77f68f1eef|
@@ -109,8 +109,8 @@
 |[Feature][Connector-V2][Klaviyo]Add Klaviyo source connector (#3443)|https://github.com/apache/seatunnel/commit/fc00a2866b|
 |[Feature][Connector-V2][Lemlist]Add Lemlist source connector (#3346)|https://github.com/apache/seatunnel/commit/12d66b4247|
 |[HotFix][Core][API] Fix OptionValidation error code (#3439)|https://github.com/apache/seatunnel/commit/ace219f376|
-|[Improve][Connector-V2][My Hours]Add http method enum && Improve My Hours connector option rule (#3390)|https://github.com/apache/seatunnel/commit/a86c9d90f7|
-|[Feature][Connector-V2][Http] Add option rules && Improve Myhours sink connector (#3351)|https://github.com/apache/seatunnel/commit/cc8bb60c83|
+|[Improve][Connector-V2][My Hours]Add http method enum &amp;&amp; Improve My Hours connector option rule (#3390)|https://github.com/apache/seatunnel/commit/a86c9d90f7|
+|[Feature][Connector-V2][Http] Add option rules &amp;&amp; Improve Myhours sink connector (#3351)|https://github.com/apache/seatunnel/commit/cc8bb60c83|
 |[Feature][Connector-V2][My Hours] Add My Hours Source Connector (#3228)|https://github.com/apache/seatunnel/commit/4104a3e30e|
 
 </details>
@@ -142,7 +142,7 @@
 |[Improve][Http Connector-V2-Source] Refactor the code and make code more clearly (#2322)|https://github.com/apache/seatunnel/commit/a9a797ad85|
 |[Improve][Connector-V2] Fix the log information (#2317)|https://github.com/apache/seatunnel/commit/736983a708|
 |[Improve][Connector-V2] Http client provider improve (#2312)|https://github.com/apache/seatunnel/commit/cc950007c8|
-|[Improve][Connector-V2] Fix 'Singleton' word error (#2309)|https://github.com/apache/seatunnel/commit/12ebcb4a0d|
+|[Improve][Connector-V2] Fix &#x27;Singleton&#x27; word error (#2309)|https://github.com/apache/seatunnel/commit/12ebcb4a0d|
 |[api-draft][Optimize] Optimize module name (#2062)|https://github.com/apache/seatunnel/commit/f79e3112b1|
 
 </details>

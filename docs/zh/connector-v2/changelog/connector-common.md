@@ -37,7 +37,7 @@
 |[Improve][CDC] Optimize split state memory allocation in increment phase (#6554)|https://github.com/apache/seatunnel/commit/fe33422161|
 |[Feature][Core] Support event listener for job (#6419)|https://github.com/apache/seatunnel/commit/831d0022eb|
 |[Improve] Improve MultiTableSinkWriter prepare commit performance (#6495)|https://github.com/apache/seatunnel/commit/2086b0e8a6|
-|[Improve][API] Unify type system api(data & type) (#5872)|https://github.com/apache/seatunnel/commit/b38c7edcc9|
+|[Improve][API] Unify type system api(data &amp; type) (#5872)|https://github.com/apache/seatunnel/commit/b38c7edcc9|
 
 </details>
 <details><summary>2.3.4</summary>
@@ -71,7 +71,7 @@
 | Change | Commit |
 | --- | --- |
 |[improve][zeta] fix zeta bugs|https://github.com/apache/seatunnel/commit/3a82e8b39f|
-|Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
+|Merge branch &#x27;dev&#x27; into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
 |[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
 |[Improve][SeaTunnelSchema] Complete data type prompt. (#4181)|https://github.com/apache/seatunnel/commit/9e92593709|
 |[improve][api] Refactoring schema parse (#4157)|https://github.com/apache/seatunnel/commit/b2f573a13e|
@@ -92,7 +92,7 @@
 |[Feature][Connector-V2][SeaTunnelSchema] Improve code structure (#3384)|https://github.com/apache/seatunnel/commit/98b9168d5a|
 |[feature][connector][common] Add  `SingleThreadMultiplexSourceReaderBase (#3335)|https://github.com/apache/seatunnel/commit/f4e33b5912|
 |[Connector-V2] [ElasticSearch] Add ElasticSearch Source/Sink Factory (#3325)|https://github.com/apache/seatunnel/commit/38254e3f26|
-|[Feature][Connector-V2] [Amazondynamodb Connector]add amazondynamodb source & sink connnector (#3166)|https://github.com/apache/seatunnel/commit/183bac02f0|
+|[Feature][Connector-V2] [Amazondynamodb Connector]add amazondynamodb source &amp; sink connnector (#3166)|https://github.com/apache/seatunnel/commit/183bac02f0|
 
 </details>
 <details><summary>2.3.0-beta</summary>
@@ -100,9 +100,9 @@
 | Change | Commit |
 | --- | --- |
 |unify `flatten-maven-plugin` version (#3078)|https://github.com/apache/seatunnel/commit/ed743fddcc|
-|Merge remote-tracking branch 'upstream/dev' into st-engine|https://github.com/apache/seatunnel/commit/73a699d47b|
+|Merge remote-tracking branch &#x27;upstream/dev&#x27; into st-engine|https://github.com/apache/seatunnel/commit/73a699d47b|
 |[Imporve][Connector-V2] Imporve iotdb connector (#2917)|https://github.com/apache/seatunnel/commit/3da11ce19b|
-|Merge remote-tracking branch 'upstream/dev' into st-engine|https://github.com/apache/seatunnel/commit/ca80df779a|
+|Merge remote-tracking branch &#x27;upstream/dev&#x27; into st-engine|https://github.com/apache/seatunnel/commit/ca80df779a|
 
 </details>
 <details><summary>2.2.0-beta</summary>

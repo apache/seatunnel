@@ -2,6 +2,9 @@
 
 | Change | Commit |
 | --- | --- |
+|[Improve][CDC] Filter ddl for snapshot phase (#8911)|https://github.com/apache/seatunnel/commit/641cc72f2f|
+|[Improve][Oracle-CDC] Support ReadOnlyLogWriterFlushStrategy (#8912)|https://github.com/apache/seatunnel/commit/6aebdc0384|
+|[Improve][CDC] Extract duplicate code (#8906)|https://github.com/apache/seatunnel/commit/b922bb90e6|
 |[Improve][CDC] Filter heartbeat event (#8569)|https://github.com/apache/seatunnel/commit/1870653393|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|
 |[Fix][MySQL-CDC]fix recovery task failure caused by binlog deletion (#8587)|https://github.com/apache/seatunnel/commit/087087e592|
@@ -17,9 +20,9 @@
 |[hotfix] [connector-cdc-oracle ] support read partition table (#8265)|https://github.com/apache/seatunnel/commit/91b86b2faf|
 |[Feature][Jdbc] Support sink ddl for postgresql (#8276)|https://github.com/apache/seatunnel/commit/353bbd21a1|
 |[Improve][E2E] improve oracle e2e (#8292)|https://github.com/apache/seatunnel/commit/9f761b9d32|
-|[Feature][CDC] Add 'schema-changes.enabled' options (#8285)|https://github.com/apache/seatunnel/commit/8e29ecf54f|
-|Revert "[Feature][Redis] Flush data when the time reaches checkpoint interval" and "[Feature][CDC] Add 'schema-changes.enabled' options" (#8278)|https://github.com/apache/seatunnel/commit/fcb2938286|
-|[Feature][CDC] Add 'schema-changes.enabled' options (#8252)|https://github.com/apache/seatunnel/commit/d783f9447c|
+|[Feature][CDC] Add &#x27;schema-changes.enabled&#x27; options (#8285)|https://github.com/apache/seatunnel/commit/8e29ecf54f|
+|Revert &quot;[Feature][Redis] Flush data when the time reaches checkpoint interval&quot; and &quot;[Feature][CDC] Add &#x27;schema-changes.enabled&#x27; options&quot; (#8278)|https://github.com/apache/seatunnel/commit/fcb2938286|
+|[Feature][CDC] Add &#x27;schema-changes.enabled&#x27; options (#8252)|https://github.com/apache/seatunnel/commit/d783f9447c|
 |[Feature][Mongodb-CDC] Support multi-table read (#8029)|https://github.com/apache/seatunnel/commit/49cbaeb9b3|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|
 |[Improve][Connector-V2] Add pre-check for table enable cdc (#8152)|https://github.com/apache/seatunnel/commit/9a5da78176|
@@ -29,7 +32,7 @@
 |[Feature][Core] Support cdc task ddl restore for zeta (#7463)|https://github.com/apache/seatunnel/commit/8e322281ed|
 |[Feature][Transform-v2] Add metadata transform (#7899)|https://github.com/apache/seatunnel/commit/699d16552a|
 |[Feature][Connector-v2] Support schema evolution for Oracle connector (#7908)|https://github.com/apache/seatunnel/commit/79406bcc2f|
-|[Bug][Connector-v2] MongoDB CDC Set SeatunnelRow's tableId (#7935)|https://github.com/apache/seatunnel/commit/f3970d6188|
+|[Bug][Connector-v2] MongoDB CDC Set SeatunnelRow&#x27;s tableId (#7935)|https://github.com/apache/seatunnel/commit/f3970d6188|
 |[Fix][Connector-V2] Fix cdc use default value when value is null (#7950)|https://github.com/apache/seatunnel/commit/3b432125ae|
 |[Hotfix][CDC] Fix occasional database connection leak when read snapshot split (#7918)|https://github.com/apache/seatunnel/commit/a8d0d4ce77|
 |[Improve][PostgreSQL CDC]-PostgresSourceOptions description error (#7813)|https://github.com/apache/seatunnel/commit/57f47c2064|
@@ -92,7 +95,7 @@
 |[Improve][CDC-Connector]Fix CDC option rule. (#6454)|https://github.com/apache/seatunnel/commit/1ea27afa87|
 |[Improve][CDC] Optimize memory allocation for snapshot split reading (#6281)|https://github.com/apache/seatunnel/commit/4856645837|
 |[Fix][Connector-V2] Fix mongodb cdc start up mode option values not right (#6338)|https://github.com/apache/seatunnel/commit/c07f56fbc4|
-|[Improve][API] Unify type system api(data & type) (#5872)|https://github.com/apache/seatunnel/commit/b38c7edcc9|
+|[Improve][API] Unify type system api(data &amp; type) (#5872)|https://github.com/apache/seatunnel/commit/b38c7edcc9|
 |[Feature] Supports iceberg sink #6198 (#6265)|https://github.com/apache/seatunnel/commit/18d3e86194|
 |[Feature][Connector]update pgsql-cdc publication for add table (#6309)|https://github.com/apache/seatunnel/commit/2ad7d65236|
 
@@ -147,7 +150,7 @@
 |[Feature][Connector-V2][CDC] Support flink running cdc job (#4918)|https://github.com/apache/seatunnel/commit/5e378831ee|
 |[Improve][connector-cdc-mysql] avoid listing tables under unnecessary databases (#5365)|https://github.com/apache/seatunnel/commit/3e5d018b35|
 |[Improve][Docs] Refactor MySQL-CDC docs (#5302)|https://github.com/apache/seatunnel/commit/74530a0461|
-|[Improve][CheckStyle] Remove useless 'SuppressWarnings' annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
+|[Improve][CheckStyle] Remove useless &#x27;SuppressWarnings&#x27; annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
 
 </details>
 <details><summary>2.3.3</summary>
@@ -201,18 +204,18 @@
 | --- | --- |
 |[Improve][CDC] Optimize jdbc fetch-size options (#4352)|https://github.com/apache/seatunnel/commit/fbb60ce1be|
 |[Improve][CDC] Improve startup.mode/stop.mode options (#4360)|https://github.com/apache/seatunnel/commit/b71d8739d5|
-|[Improve][CDC] Optimize options & add docs for compatible_debezium_json (#4351)|https://github.com/apache/seatunnel/commit/336f590498|
+|[Improve][CDC] Optimize options &amp; add docs for compatible_debezium_json (#4351)|https://github.com/apache/seatunnel/commit/336f590498|
 |Update CDC StartupMode and StopMode option to SingleChoiceOption (#4357)|https://github.com/apache/seatunnel/commit/f60ac1a5e9|
 |[bugfix][cdc-base] Fix cdc base shutdown thread not cleared (#4327)|https://github.com/apache/seatunnel/commit/ac61409bd8|
 |[Feature][CDC] Support export debezium-json format to kafka (#4339)|https://github.com/apache/seatunnel/commit/5817ec07bf|
-|[Feature][CDC] Support add & dorp tables when restore cdc jobs (#4254)|https://github.com/apache/seatunnel/commit/add75d7d5d|
+|[Feature][CDC] Support add &amp; dorp tables when restore cdc jobs (#4254)|https://github.com/apache/seatunnel/commit/add75d7d5d|
 |[Improve][CDC][MySQL] Ennable binlog watermark compare (#4293)|https://github.com/apache/seatunnel/commit/b22fb259c8|
 |[Feature][CDC][Mysql] Support read database list (#4255)|https://github.com/apache/seatunnel/commit/3ca60c6fed|
 |Add redshift datatype convertor (#4245)|https://github.com/apache/seatunnel/commit/b19011517f|
 |[improve][zeta] fix zeta bugs|https://github.com/apache/seatunnel/commit/3a82e8b39f|
 |[Improve] Support MySqlCatalog Use JDBC URL With Custom Suffix|https://github.com/apache/seatunnel/commit/210d0ff1f8|
 |[chore] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/291214ad6f|
-|Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
+|Merge branch &#x27;dev&#x27; into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
 |[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
 |[Hotfix][Zeta] Fix shuffle checkpoint (#4224)|https://github.com/apache/seatunnel/commit/507ca85611|
 |[improve][jdbc] Reduce jdbc options configuration (#4218)|https://github.com/apache/seatunnel/commit/ddd8f808b5|
@@ -230,7 +233,7 @@
 |[Bug][CDC] Fix concurrent modify of splits (#3937)|https://github.com/apache/seatunnel/commit/29b04e2405|
 |[Improve][CDC][base] Guaranteed to be exactly-once in the process of switching from SnapshotTask to IncrementalTask (#3837)|https://github.com/apache/seatunnel/commit/8379aaf876|
 |[Feature][Connector] add get source method to all source connector (#3846)|https://github.com/apache/seatunnel/commit/417178fb84|
-|[Feature][API & Connector & Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
+|[Feature][API &amp; Connector &amp; Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
 |[Hotfix][SqlServer CDC] fix SqlServerCDC IT failure (#3807)|https://github.com/apache/seatunnel/commit/fd66de5f98|
 |[Improve][CDC] Add mysql-cdc source factory (#3791)|https://github.com/apache/seatunnel/commit/356538de8a|
 

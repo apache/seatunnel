@@ -24,7 +24,7 @@
 
 | Change | Commit |
 | --- | --- |
-|[Feature][Connector-V2][Http] Add option rules && Improve Myhours sink connector (#3351)|https://github.com/apache/seatunnel/commit/cc8bb60c83|
+|[Feature][Connector-V2][Http] Add option rules &amp;&amp; Improve Myhours sink connector (#3351)|https://github.com/apache/seatunnel/commit/cc8bb60c83|
 
 </details>
 <details><summary>2.2.0-beta</summary>

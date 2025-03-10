@@ -22,7 +22,7 @@
 | Change | Commit |
 | --- | --- |
 |[Improve][Connector-V2] Support read archive compress file (#7633)|https://github.com/apache/seatunnel/commit/3f98cd8a16|
-|[Improve] Added OSSFileCatalog and it's factory (#7458)|https://github.com/apache/seatunnel/commit/9006a205db|
+|[Improve] Added OSSFileCatalog and it&#x27;s factory (#7458)|https://github.com/apache/seatunnel/commit/9006a205db|
 
 </details>
 <details><summary>2.3.7</summary>
@@ -69,7 +69,7 @@
 
 | Change | Commit |
 | --- | --- |
-|[Feature][Connector V2][File] Add config of 'file_filter_pattern', which used for filtering files. (#5153)|https://github.com/apache/seatunnel/commit/a3c13e59eb|
+|[Feature][Connector V2][File] Add config of &#x27;file_filter_pattern&#x27;, which used for filtering files. (#5153)|https://github.com/apache/seatunnel/commit/a3c13e59eb|
 
 </details>
 <details><summary>2.3.2</summary>
@@ -85,7 +85,7 @@
 | Change | Commit |
 | --- | --- |
 |Change file type to file_format_type in file source/sink (#4249)|https://github.com/apache/seatunnel/commit/973a2fae3c|
-|Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
+|Merge branch &#x27;dev&#x27; into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
 |[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
 |[improve][api] Refactoring schema parse (#4157)|https://github.com/apache/seatunnel/commit/b2f573a13e|
 |[Improve][build] Give the maven module a human readable name (#4114)|https://github.com/apache/seatunnel/commit/d7cd601051|
@@ -100,7 +100,7 @@
 | Change | Commit |
 | --- | --- |
 |[Hotfix][OptionRule] Fix option rule about all connectors (#3592)|https://github.com/apache/seatunnel/commit/226dc6a119|
-|[Improve][Connector-V2][File] Unified excetion for file source & sink connectors (#3525)|https://github.com/apache/seatunnel/commit/031e8e263c|
+|[Improve][Connector-V2][File] Unified excetion for file source &amp; sink connectors (#3525)|https://github.com/apache/seatunnel/commit/031e8e263c|
 |[Feature][Connector-V2][File] Add option and factory for file connectors (#3375)|https://github.com/apache/seatunnel/commit/db286e8631|
 |[Improve][Connector-V2][File] Improve code structure (#3238)|https://github.com/apache/seatunnel/commit/dd5c353881|
 |[Connector-V2] [ElasticSearch] Add ElasticSearch Source/Sink Factory (#3325)|https://github.com/apache/seatunnel/commit/38254e3f26|

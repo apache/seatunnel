@@ -36,8 +36,8 @@
 |[Hotfix][OptionRule] Fix option rule about all connectors (#3592)|https://github.com/apache/seatunnel/commit/226dc6a119|
 |[Improve][Connector-V2][MyHours]Unified exception for MyHours connector (#3538)|https://github.com/apache/seatunnel/commit/48ab7c97d5|
 |[HotFix][Core][API] Fix OptionValidation error code (#3439)|https://github.com/apache/seatunnel/commit/ace219f376|
-|[Improve][Connector-V2][My Hours]Add http method enum && Improve My Hours connector option rule (#3390)|https://github.com/apache/seatunnel/commit/a86c9d90f7|
-|[Feature][Connector-V2][Http] Add option rules && Improve Myhours sink connector (#3351)|https://github.com/apache/seatunnel/commit/cc8bb60c83|
+|[Improve][Connector-V2][My Hours]Add http method enum &amp;&amp; Improve My Hours connector option rule (#3390)|https://github.com/apache/seatunnel/commit/a86c9d90f7|
+|[Feature][Connector-V2][Http] Add option rules &amp;&amp; Improve Myhours sink connector (#3351)|https://github.com/apache/seatunnel/commit/cc8bb60c83|
 |[Feature][Connector-V2][My Hours] Add My Hours Source Connector (#3228)|https://github.com/apache/seatunnel/commit/4104a3e30e|
 
 </details>

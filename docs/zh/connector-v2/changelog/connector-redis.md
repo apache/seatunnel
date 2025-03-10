@@ -12,7 +12,7 @@
 | Change | Commit |
 | --- | --- |
 |[Feature][Redis] Flush data when the time reaches checkpoint.interval and update test case (#8308)|https://github.com/apache/seatunnel/commit/e15757bcd7|
-|Revert "[Feature][Redis] Flush data when the time reaches checkpoint interval" and "[Feature][CDC] Add 'schema-changes.enabled' options" (#8278)|https://github.com/apache/seatunnel/commit/fcb2938286|
+|Revert &quot;[Feature][Redis] Flush data when the time reaches checkpoint interval&quot; and &quot;[Feature][CDC] Add &#x27;schema-changes.enabled&#x27; options&quot; (#8278)|https://github.com/apache/seatunnel/commit/fcb2938286|
 |[Feature][Redis] Flush data when the time reaches checkpoint.interval (#8198)|https://github.com/apache/seatunnel/commit/2e24941e6a|
 |[Hotfix] Fix redis sink NPE (#8171)|https://github.com/apache/seatunnel/commit/6b9074e769|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|
@@ -74,7 +74,7 @@
 
 | Change | Commit |
 | --- | --- |
-|Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
+|Merge branch &#x27;dev&#x27; into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
 |[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
 |[improve][api] Refactoring schema parse (#4157)|https://github.com/apache/seatunnel/commit/b2f573a13e|
 |[Improve][build] Give the maven module a human readable name (#4114)|https://github.com/apache/seatunnel/commit/d7cd601051|
@@ -87,12 +87,12 @@
 | Change | Commit |
 | --- | --- |
 |[Hotfix][OptionRule] Fix option rule about all connectors (#3592)|https://github.com/apache/seatunnel/commit/226dc6a119|
-|[Improve][Connector-V2][Redis] Unified exception for redis source & sink exception (#3517)|https://github.com/apache/seatunnel/commit/205f782585|
+|[Improve][Connector-V2][Redis] Unified exception for redis source &amp; sink exception (#3517)|https://github.com/apache/seatunnel/commit/205f782585|
 |options in conditional need add to required or optional options (#3501)|https://github.com/apache/seatunnel/commit/51d5bcba10|
 |[feature][api] add option validation for the ReadonlyConfig (#3417)|https://github.com/apache/seatunnel/commit/4f824fea36|
-|[Feature][Redis Connector V2] Add Redis Connector Option Rules & Improve Redis Connector doc (#3320)|https://github.com/apache/seatunnel/commit/1c10aacb30|
+|[Feature][Redis Connector V2] Add Redis Connector Option Rules &amp; Improve Redis Connector doc (#3320)|https://github.com/apache/seatunnel/commit/1c10aacb30|
 |[Connector-V2] [ElasticSearch] Add ElasticSearch Source/Sink Factory (#3325)|https://github.com/apache/seatunnel/commit/38254e3f26|
-|[Improve][Connector-V2][Redis] Support redis cluster connection & user authentication (#3188)|https://github.com/apache/seatunnel/commit/c7275a49cc|
+|[Improve][Connector-V2][Redis] Support redis cluster connection &amp; user authentication (#3188)|https://github.com/apache/seatunnel/commit/c7275a49cc|
 
 </details>
 <details><summary>2.2.0-beta</summary>

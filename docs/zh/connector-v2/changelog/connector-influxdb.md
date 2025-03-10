@@ -47,26 +47,26 @@
 | Change | Commit |
 | --- | --- |
 |[Test][E2E] Add thread leak check for connector (#5773)|https://github.com/apache/seatunnel/commit/1f2f3fc5f0|
-|[BugFix] [InfluxDBSource] Resolve invalid SQL in initColumnsIndex method caused by direct QUERY_LIMIT appendage with 'tz' function. (#4829)|https://github.com/apache/seatunnel/commit/deed9c62c3|
+|[BugFix] [InfluxDBSource] Resolve invalid SQL in initColumnsIndex method caused by direct QUERY_LIMIT appendage with &#x27;tz&#x27; function. (#4829)|https://github.com/apache/seatunnel/commit/deed9c62c3|
 |[Improve][Common] Introduce new error define rule (#5793)|https://github.com/apache/seatunnel/commit/9d1b2582b2|
 |[Improve] Remove use `SeaTunnelSink::getConsumedType` method and mark it as deprecated (#5755)|https://github.com/apache/seatunnel/commit/8de7408100|
 |Support config column/primaryKey/constraintKey in schema (#5564)|https://github.com/apache/seatunnel/commit/eac76b4e50|
 |[Improve] [Connector-V2] Remove scheduler in InfluxDB sink (#5271)|https://github.com/apache/seatunnel/commit/f459f500cb|
-|[Improve][CheckStyle] Remove useless 'SuppressWarnings' annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
+|[Improve][CheckStyle] Remove useless &#x27;SuppressWarnings&#x27; annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
 
 </details>
 <details><summary>2.3.1</summary>
 
 | Change | Commit |
 | --- | --- |
-|Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
+|Merge branch &#x27;dev&#x27; into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
 |[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
 |[improve][api] Refactoring schema parse (#4157)|https://github.com/apache/seatunnel/commit/b2f573a13e|
 |[Improve][build] Give the maven module a human readable name (#4114)|https://github.com/apache/seatunnel/commit/d7cd601051|
 |[Improve][Project] Code format with spotless plugin. (#4101)|https://github.com/apache/seatunnel/commit/a2ab166561|
 |[Improve][SourceConnector] Unifie InfluxDB source fields to schema (#3897)|https://github.com/apache/seatunnel/commit/85a984a64f|
 |[Feature][Connector] add get source method to all source connector (#3846)|https://github.com/apache/seatunnel/commit/417178fb84|
-|[Feature][API & Connector & Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
+|[Feature][API &amp; Connector &amp; Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
 
 </details>
 <details><summary>2.3.0</summary>
@@ -74,7 +74,7 @@
 | Change | Commit |
 | --- | --- |
 |[Hotfix][OptionRule] Fix option rule about all connectors (#3592)|https://github.com/apache/seatunnel/commit/226dc6a119|
-|[Improve][Connector-V2][Influxdb] Unified exception for influxdb source & sink connector (#3558)|https://github.com/apache/seatunnel/commit/4686f35d68|
+|[Improve][Connector-V2][Influxdb] Unified exception for influxdb source &amp; sink connector (#3558)|https://github.com/apache/seatunnel/commit/4686f35d68|
 |[Feature][Connector][influx] Expose configurable options in influx db (#3392)|https://github.com/apache/seatunnel/commit/b247ff0aef|
 |[Feature][Connector-V2] influxdb sink connector (#3174)|https://github.com/apache/seatunnel/commit/630e884791|
 

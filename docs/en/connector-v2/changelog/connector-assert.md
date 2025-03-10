@@ -46,7 +46,7 @@
 
 | Change | Commit |
 | --- | --- |
-|[Hotfix] fix http source can not read yyyy-MM-dd HH:mm:ss format bug & Improve DateTime Utils (#6601)|https://github.com/apache/seatunnel/commit/19888e7969|
+|[Hotfix] fix http source can not read yyyy-MM-dd HH:mm:ss format bug &amp; Improve DateTime Utils (#6601)|https://github.com/apache/seatunnel/commit/19888e7969|
 
 </details>
 <details><summary>2.3.4</summary>
@@ -64,8 +64,8 @@
 |[Feature] Add `table-names` from FakeSource/Assert to produce/assert multi-table (#5604)|https://github.com/apache/seatunnel/commit/2c67cd8f3e|
 |[Improve] Remove useless ReadonlyConfig flatten feature (#5612)|https://github.com/apache/seatunnel/commit/243edfef3d|
 |Support config column/primaryKey/constraintKey in schema (#5564)|https://github.com/apache/seatunnel/commit/eac76b4e50|
-|[Improve][connector-assert]support 'DECIMAL' type and fix 'Number' type precision issue (#5479)|https://github.com/apache/seatunnel/commit/d308e27733|
-|[Improve][CheckStyle] Remove useless 'SuppressWarnings' annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
+|[Improve][connector-assert]support &#x27;DECIMAL&#x27; type and fix &#x27;Number&#x27; type precision issue (#5479)|https://github.com/apache/seatunnel/commit/d308e27733|
+|[Improve][CheckStyle] Remove useless &#x27;SuppressWarnings&#x27; annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
 
 </details>
 <details><summary>2.3.1</summary>

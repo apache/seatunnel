@@ -2,6 +2,7 @@
 
 | Change | Commit |
 | --- | --- |
+|[Fix] [Clickhouse] Parallelism makes data duplicate (#8916)|https://github.com/apache/seatunnel/commit/45345f2738|
 |[Fix][Connector-V2]Fix Descriptions for CUSTOM_SQL in Connector (#8778)|https://github.com/apache/seatunnel/commit/96b610eb7e|
 |[improve] update clickhouse connector config option (#8755)|https://github.com/apache/seatunnel/commit/b964189b75|
 |[Fix][Connector-V2] fix starRocks automatically creates tables with comment (#8568)|https://github.com/apache/seatunnel/commit/c4cb1fc4a3|
@@ -21,7 +22,7 @@
 |[Improve][ClickhouseFile Connector] Unified specifying clickhouse file generation path (#8302)|https://github.com/apache/seatunnel/commit/455f1ed760|
 |[Improve][ClickhouseFile] Clickhouse supports option configuration when connecting to shard nodes (#8297)|https://github.com/apache/seatunnel/commit/1ded1b6206|
 |[Imporve][ClickhouseFile] Improve clickhousefile generation parameter configuration (#8293)|https://github.com/apache/seatunnel/commit/753e058fee|
-|[Improve][ClickhouseFile] ClickhouseFile Connector's rsync transmission supports specifying users (#8236)|https://github.com/apache/seatunnel/commit/e012bd0a4f|
+|[Improve][ClickhouseFile] ClickhouseFile Connector&#x27;s rsync transmission supports specifying users (#8236)|https://github.com/apache/seatunnel/commit/e012bd0a4f|
 |[Feature][Clickhouse] Support sink savemode  (#8086)|https://github.com/apache/seatunnel/commit/e6f92fd79b|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|
 |[Fix][Connecotr-V2] Fix clickhouse sink does not support composite primary key (#8021)|https://github.com/apache/seatunnel/commit/24d0542595|
@@ -61,7 +62,7 @@
 |[Hotfix][connector-v2][clickhouse] Fixed an out-of-order BUG with output data fields of clickhouse-sink (#5346)|https://github.com/apache/seatunnel/commit/fce9ddaa2b|
 |[Bugfix][Clickhouse] Fix clickhouse sink flush bug (#5448)|https://github.com/apache/seatunnel/commit/cef03f6673|
 |[Hotfix][Clickhouse] Fix clickhouse old version compatibility (#5326)|https://github.com/apache/seatunnel/commit/1da49f5a2b|
-|[Improve][CheckStyle] Remove useless 'SuppressWarnings' annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
+|[Improve][CheckStyle] Remove useless &#x27;SuppressWarnings&#x27; annotation of checkstyle. (#5260)|https://github.com/apache/seatunnel/commit/51c0d709ba|
 
 </details>
 <details><summary>2.3.3</summary>
@@ -98,7 +99,7 @@
 |[Improve][Connector-V2][clickhouse] Special characters in column names are supported (#3881)|https://github.com/apache/seatunnel/commit/9069609c17|
 |[Feature][Connector] add get source method to all source connector (#3846)|https://github.com/apache/seatunnel/commit/417178fb84|
 |[Improve] [Connector-V2] Change Connector Custom Config Prefix To Map (#3719)|https://github.com/apache/seatunnel/commit/ef1b8b1bb5|
-|[Feature][API & Connector & Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
+|[Feature][API &amp; Connector &amp; Doc] add parallelism and column projection interface (#3829)|https://github.com/apache/seatunnel/commit/b9164b8ba1|
 |[Bug] [Connector-V2] Fix ClickhouseFile Committer Serializable Problems (#3803)|https://github.com/apache/seatunnel/commit/1b26192cb3|
 
 </details>
@@ -109,7 +110,7 @@
 |[feature][connector-v2][clickhouse] Support write cdc changelog event in clickhouse sink (#3653)|https://github.com/apache/seatunnel/commit/6093c213bf|
 |[Connector-V2] [Clickhouse] Improve Clickhouse File Connector (#3416)|https://github.com/apache/seatunnel/commit/e07e9a7cc2|
 |[Hotfix][OptionRule] Fix option rule about all connectors (#3592)|https://github.com/apache/seatunnel/commit/226dc6a119|
-|[Improve][Connector-V2][Clickhouse] Unified exception for Clickhouse source & sink connector (#3563)|https://github.com/apache/seatunnel/commit/04e1743d9e|
+|[Improve][Connector-V2][Clickhouse] Unified exception for Clickhouse source &amp; sink connector (#3563)|https://github.com/apache/seatunnel/commit/04e1743d9e|
 |options in conditional need add to required or optional options (#3501)|https://github.com/apache/seatunnel/commit/51d5bcba10|
 |[Feature][Connector-V2][Clickhouse]Optimize clickhouse connector data type inject (#3471)|https://github.com/apache/seatunnel/commit/9bd0fc8ee2|
 |[improve][connector-v2][clickhouse] Fix DoubleInjectFunction (#3441)|https://github.com/apache/seatunnel/commit/9781a6a385|
@@ -136,7 +137,7 @@
 |[Connector-V2] [Clickhouse] Fix Clickhouse Type Mapping and Spark Map reconvert Bug (#2767)|https://github.com/apache/seatunnel/commit/f0a1f5013a|
 |[DEV][Api] Replace SeaTunnelContext with JobContext and remove singleton pattern (#2706)|https://github.com/apache/seatunnel/commit/cbf82f755c|
 |[#2606]Dependency management split (#2630)|https://github.com/apache/seatunnel/commit/fc047be69b|
-|[Feature][Connector-V1 & V2] Support unauthorized ClickHouse (#2393)|https://github.com/apache/seatunnel/commit/0e4e2b1230|
+|[Feature][Connector-V1 &amp; V2] Support unauthorized ClickHouse (#2393)|https://github.com/apache/seatunnel/commit/0e4e2b1230|
 |[Feature][connector] clickhousefile sink connector support non-root username for fileTransfer (#2263)|https://github.com/apache/seatunnel/commit/704661f1fd|
 |StateT of SeaTunnelSource should extend `Serializable` (#2214)|https://github.com/apache/seatunnel/commit/8c426ef850|
 |[Bug] [connector-v2] When outputting data to clickhouse, a ClassCastException was encountered (#2160)|https://github.com/apache/seatunnel/commit/a3a2b5d189|

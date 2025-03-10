@@ -26,7 +26,7 @@
 | Change | Commit |
 | --- | --- |
 |[Hotfix][OptionRule] Fix option rule about all connectors (#3592)|https://github.com/apache/seatunnel/commit/226dc6a119|
-|[Improve][Connector-V2][Socket] Unified exception for socket source & sink connector (#3511)|https://github.com/apache/seatunnel/commit/581292f210|
+|[Improve][Connector-V2][Socket] Unified exception for socket source &amp; sink connector (#3511)|https://github.com/apache/seatunnel/commit/581292f210|
 |[feature][connector][socket] Add Socket Connector Option Rules (#3317)|https://github.com/apache/seatunnel/commit/b85317bcbe|
 
 </details>

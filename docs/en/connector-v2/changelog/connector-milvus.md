@@ -24,6 +24,6 @@
 
 | Change | Commit |
 | --- | --- |
-|[Feature][Connector-V2][Milvus] Support Milvus source & sink (#7158)|https://github.com/apache/seatunnel/commit/0c69b9166e|
+|[Feature][Connector-V2][Milvus] Support Milvus source &amp; sink (#7158)|https://github.com/apache/seatunnel/commit/0c69b9166e|
 
 </details>

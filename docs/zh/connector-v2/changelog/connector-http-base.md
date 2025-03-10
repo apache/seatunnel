@@ -45,7 +45,7 @@
 
 | Change | Commit |
 | --- | --- |
-|[Hotfix] fix http source can not read yyyy-MM-dd HH:mm:ss format bug & Improve DateTime Utils (#6601)|https://github.com/apache/seatunnel/commit/19888e7969|
+|[Hotfix] fix http source can not read yyyy-MM-dd HH:mm:ss format bug &amp; Improve DateTime Utils (#6601)|https://github.com/apache/seatunnel/commit/19888e7969|
 |[Improve][Connector-V2]Support multi-table sink feature for httpsink (#6316)|https://github.com/apache/seatunnel/commit/e6c51a95c7|
 
 </details>
@@ -78,7 +78,7 @@
 
 | Change | Commit |
 | --- | --- |
-|Merge branch 'dev' into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
+|Merge branch &#x27;dev&#x27; into merge/cdc|https://github.com/apache/seatunnel/commit/4324ee1912|
 |[Improve][Project] Code format with spotless plugin.|https://github.com/apache/seatunnel/commit/423b583038|
 |[improve][api] Refactoring schema parse (#4157)|https://github.com/apache/seatunnel/commit/b2f573a13e|
 |[Improve][build] Give the maven module a human readable name (#4114)|https://github.com/apache/seatunnel/commit/d7cd601051|
@@ -93,11 +93,11 @@
 |[Hotfix] [seatunnel-connectors-v2] [connector-http] fix http json request error (#3629)|https://github.com/apache/seatunnel/commit/54f594d6ca|
 |[Improve][Connector-V2][Http]Improve json parse option rule for all http connector (#3627)|https://github.com/apache/seatunnel/commit/589e4161ec|
 |[Feature][Connector-V2][HTTP] Use json-path parsing (#3510)|https://github.com/apache/seatunnel/commit/1807eb6c95|
-|[Improve][Connector-V2][Http]Unified exception for http source & sink… (#3594)|https://github.com/apache/seatunnel/commit/d798cd8670|
+|[Improve][Connector-V2][Http]Unified exception for http source &amp; sink… (#3594)|https://github.com/apache/seatunnel/commit/d798cd8670|
 |[Hotfix][OptionRule] Fix option rule about all connectors (#3592)|https://github.com/apache/seatunnel/commit/226dc6a119|
 |[Feature][Connector-V2][Lemlist]Add Lemlist source connector (#3346)|https://github.com/apache/seatunnel/commit/12d66b4247|
-|[Improve][Connector-V2][My Hours]Add http method enum && Improve My Hours connector option rule (#3390)|https://github.com/apache/seatunnel/commit/a86c9d90f7|
-|[Feature][Connector-V2][Http] Add option rules && Improve Myhours sink connector (#3351)|https://github.com/apache/seatunnel/commit/cc8bb60c83|
+|[Improve][Connector-V2][My Hours]Add http method enum &amp;&amp; Improve My Hours connector option rule (#3390)|https://github.com/apache/seatunnel/commit/a86c9d90f7|
+|[Feature][Connector-V2][Http] Add option rules &amp;&amp; Improve Myhours sink connector (#3351)|https://github.com/apache/seatunnel/commit/cc8bb60c83|
 |[Feature][Connector-V2][My Hours] Add My Hours Source Connector (#3228)|https://github.com/apache/seatunnel/commit/4104a3e30e|
 
 </details>

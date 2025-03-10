@@ -2,6 +2,7 @@
 
 | Change | Commit |
 | --- | --- |
+|[Improve] hbase options (#8923)|https://github.com/apache/seatunnel/commit/b6a702b58f|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|
 
 </details>

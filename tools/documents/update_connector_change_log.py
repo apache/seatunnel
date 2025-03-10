@@ -16,6 +16,7 @@
 
 import os
 import subprocess
+import html
 from packaging.version import Version
 from pathlib import Path
 
@@ -109,7 +110,7 @@ def write_commit(connector, prs, changelog_dir, commit_version_map):
                     file.write('<details><summary>' + last_version + '</summary>\n\n')
                     file.write('| Change | Commit |\n')
                     file.write('| --- | --- |\n')
-            file.write('|' + pr[0] + '|' + pr[1] + '|\n')
+            file.write('|' + html.escape(pr[0]) + '|' + pr[1] + '|\n')
         file.write('\n</details>\n')
         file.close()
 
