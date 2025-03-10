@@ -51,12 +51,12 @@ public class FtpFileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(FtpFileSourceOptions.FILE_PATH)
-                .required(FtpFileSourceOptions.FTP_HOST)
-                .required(FtpFileSourceOptions.FTP_PORT)
-                .required(FtpFileSourceOptions.FTP_USERNAME)
-                .required(FtpFileSourceOptions.FTP_PASSWORD)
-                .required(FileBaseSourceOptions.FILE_FORMAT_TYPE)
+                .exclusive(FtpFileSourceOptions.TABLE_CONFIGS, FtpFileSourceOptions.FILE_PATH)
+                .optional(FtpFileSourceOptions.FTP_HOST)
+                .optional(FtpFileSourceOptions.FTP_PORT)
+                .optional(FtpFileSourceOptions.FTP_USERNAME)
+                .optional(FtpFileSourceOptions.FTP_PASSWORD)
+                .optional(FileBaseSourceOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.XML,
