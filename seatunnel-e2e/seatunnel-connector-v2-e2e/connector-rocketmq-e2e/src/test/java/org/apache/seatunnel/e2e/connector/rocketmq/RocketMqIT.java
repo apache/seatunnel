@@ -49,7 +49,10 @@ import org.apache.rocketmq.common.admin.TopicOffset;
 import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.common.message.MessageQueue;
+import org.apache.rocketmq.common.protocol.route.QueueData;
+import org.apache.rocketmq.common.protocol.route.TopicRouteData;
 import org.apache.rocketmq.remoting.protocol.LanguageCode;
+import org.apache.rocketmq.tools.admin.DefaultMQAdminExt;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -77,6 +80,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.e2e.connector.rocketmq.RocketMqContainer.NAMESRV_PORT;
 
@@ -207,14 +211,16 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testSourceRocketMqTextTagToConsole(TestContainer container)
             throws IOException, InterruptedException {
+        String topic = "test_topic_text_tag";
+        String tag = "tag_test";
+
+        // delete topic if exist
+        deleteTopicIfExist(topic);
+
         DefaultSeaTunnelRowSerializer serializer =
                 new DefaultSeaTunnelRowSerializer(
-                        "test_topic_text_tag",
-                        "tag_test",
-                        SEATUNNEL_ROW_TYPE,
-                        SchemaFormat.TEXT,
-                        DEFAULT_FIELD_DELIMITER);
-        generateTestData(serializer::serializeRow, "test_topic_text_tag", 0, 100);
+                        topic, tag, SEATUNNEL_ROW_TYPE, SchemaFormat.TEXT, DEFAULT_FIELD_DELIMITER);
+        generateTestData(serializer::serializeRow, topic, 0, 32);
         Container.ExecResult execResult =
                 container.executeJob("/rocketmq-source_text_tag_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -223,14 +229,16 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testSourceRocketMqTextErrorTagToConsole(TestContainer container)
             throws IOException, InterruptedException {
+        String topic = "test_topic_text_error_tag";
+        String tag = "test_error_tag";
+
+        // delete topic if exist
+        deleteTopicIfExist(topic);
+
         DefaultSeaTunnelRowSerializer serializer =
                 new DefaultSeaTunnelRowSerializer(
-                        "test_topic_text_error_tag",
-                        "test_error_tag",
-                        SEATUNNEL_ROW_TYPE,
-                        SchemaFormat.TEXT,
-                        DEFAULT_FIELD_DELIMITER);
-        generateTestData(serializer::serializeRow, "test_topic_text_error_tag", 0, 100);
+                        topic, tag, SEATUNNEL_ROW_TYPE, SchemaFormat.TEXT, DEFAULT_FIELD_DELIMITER);
+        generateTestData(serializer::serializeRow, topic, 0, 32);
         Container.ExecResult execResult =
                 container.executeJob("/rocketmq-source_text_error_tag_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -489,5 +497,33 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
 
     interface ProducerRecordConverter {
         Message convert(SeaTunnelRow row);
+    }
+
+    private void deleteTopicIfExist(String topicName) {
+        DefaultMQAdminExt admin = new DefaultMQAdminExt();
+        admin.setInstanceName(UUID.randomUUID().toString());
+        try {
+            admin.start();
+            TopicRouteData topicRouteData = admin.examineTopicRouteInfo(topicName);
+            if (topicRouteData != null
+                    && topicRouteData.getQueueDatas() != null
+                    && !topicRouteData.getQueueDatas().isEmpty()) {
+                Set<String> brokerNames =
+                        topicRouteData.getQueueDatas().stream()
+                                .map(QueueData::getBrokerName)
+                                .collect(Collectors.toSet());
+                admin.deleteTopicInBroker(brokerNames, topicName);
+                admin.deleteTopicInNameServer(brokerNames, topicName, "delete_topic");
+                log.info("Deleted topic: {}", topicName);
+            } else {
+                log.info("Topic {} does not exist", topicName);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to delete topic {}: {}", topicName, e.getMessage());
+        } finally {
+            if (admin != null) {
+                admin.shutdown();
+            }
+        }
     }
 }
