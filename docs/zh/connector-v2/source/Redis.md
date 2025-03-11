@@ -20,7 +20,7 @@
 | 名称                  | 类型     | 是否必须               | 默认值    |
 |---------------------|--------|--------------------|--------|
 | host                | string | `mode=single`时必须   | -      |
-| port                | int    | `mode=single`时必须   | -      |
+| port                | int    | 否                  | 6379   |
 | keys                | string | 是                  | -      |
 | batch_size          | int    | 是                  | 10     |
 | data_type           | string | 是                  | -      |

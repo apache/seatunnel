@@ -14,8 +14,8 @@
 
 | name               | type    |       required        | default value |
 |--------------------|---------|-----------------------|---------------|
-| host               | string  | `mode=single`时必须    | -             |
-| port               | int     | `mode=single`时必须    | -             |
+| host               | string  | `mode=single`时必须      | -             |
+| port               | int     | no                    | 6379          |
 | key                | string  | yes                   | -             |
 | data_type          | string  | yes                   | -             |
 | batch_size         | int     | no                    | 10            |
