@@ -15,29 +15,6 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.google.firestore.config;
+package org.apache.seatunnel.connectors.seatunnel.hbase.config;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-
-import lombok.Data;
-
-import java.io.Serializable;
-
-@Data
-public class FirestoreParameters implements Serializable {
-
-    private String projectId;
-
-    private String credentials;
-
-    private String collection;
-
-    public FirestoreParameters buildWithConfig(ReadonlyConfig config) {
-        this.projectId = config.get(FirestoreSinkOptions.PROJECT_ID);
-        this.collection = config.get(FirestoreSinkOptions.COLLECTION);
-        if (config.getOptional(FirestoreSinkOptions.CREDENTIALS).isPresent()) {
-            this.credentials = config.get(FirestoreSinkOptions.CREDENTIALS);
-        }
-        return this;
-    }
-}
+public class HbaseSourceOptions extends HbaseBaseOptions {}

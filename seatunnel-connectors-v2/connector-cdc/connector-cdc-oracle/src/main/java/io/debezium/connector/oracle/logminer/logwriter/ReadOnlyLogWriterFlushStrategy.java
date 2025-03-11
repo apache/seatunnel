@@ -15,13 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
+package io.debezium.connector.oracle.logminer.logwriter;
 
-import org.apache.seatunnel.api.source.SourceSplit;
+import io.debezium.DebeziumException;
+import io.debezium.connector.oracle.Scn;
 
-public class ClickhouseSourceSplit implements SourceSplit {
+public class ReadOnlyLogWriterFlushStrategy implements LogWriterFlushStrategy {
     @Override
-    public String splitId() {
-        return null;
+    public String getHost() {
+        throw new DebeziumException("Not applicable when using read-only flushing strategy");
+    }
+
+    @Override
+    public void flush(Scn currentScn) throws InterruptedException {
+        // no operation
+    }
+
+    @Override
+    public void close() throws Exception {
+        // no operation
     }
 }
