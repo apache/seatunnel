@@ -37,7 +37,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | password                                  | String  | 否    | -                            |
 | query                                     | String  | 否    | -                            |
 | compatible_mode                           | String  | 否    | -                            |
-| dialect,                                  | String  | 否    | -                            | 
+| dialect                                   | String  | 否    | -                            | 
 | database                                  | String  | 否    | -                            |
 | table                                     | String  | 否    | -                            |
 | primary_keys                              | Array   | 否    | -                            |
@@ -91,6 +91,20 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 ### dialect [string]
 
 指定的方言，如果不存在，仍然按照url获取，优先级高于url。例如，当使用 starrocks 时，你需要将其值设置为 starrocks，同理，当使用mysql时，你需要将其值设置为mysql。
+
+#### 示例可选
+
+|           | 方言名称       |          |
+|-----------|------------|----------|
+| Greenplum | DB2        | Dameng   |
+| Gbase8a   | HIVE       | KingBase |
+| MySQL     | StarRocks  | Oracle   |
+| Phoenix   | Postgres   | Redshift |
+| SapHana   | Snowflake  | Sqlite   |
+| SqlServer | Tablestore | Teradata |
+| Vertica   | OceanBase  | XUGU     |
+| IRIS      | Inceptor   | Highgo   |
+
 
 ### database [string]
 
