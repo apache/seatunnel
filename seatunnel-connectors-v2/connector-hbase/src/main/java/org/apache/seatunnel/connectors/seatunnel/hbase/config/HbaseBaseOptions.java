@@ -15,28 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.google.firestore.config;
+package org.apache.seatunnel.connectors.seatunnel.hbase.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class FirestoreConfig {
+import java.util.List;
 
-    public static final Option<String> PROJECT_ID =
-            Options.key("project_id")
+public class HbaseBaseOptions {
+
+    public static final Option<String> ZOOKEEPER_QUORUM =
+            Options.key("zookeeper_quorum")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Google Firestore project id");
+                    .withDescription("Hbase zookeeper quorum");
 
-    public static final Option<String> CREDENTIALS =
-            Options.key("credentials")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Google Firestore credentials");
+    public static final Option<String> TABLE =
+            Options.key("table").stringType().noDefaultValue().withDescription("Hbase table name");
 
-    public static final Option<String> COLLECTION =
-            Options.key("collection")
-                    .stringType()
+    public static final Option<List<String>> ROWKEY_COLUMNS =
+            Options.key("rowkey_column")
+                    .listType()
                     .noDefaultValue()
-                    .withDescription("Google Firestore collection");
+                    .withDescription("Hbase rowkey column");
 }
