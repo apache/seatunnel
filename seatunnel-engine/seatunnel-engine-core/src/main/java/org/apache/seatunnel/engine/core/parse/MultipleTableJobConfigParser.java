@@ -161,7 +161,11 @@ public class MultipleTableJobConfigParser {
         this.commonPluginJars = commonPluginJars;
         this.isStartWithSavePoint = isStartWithSavePoint;
         this.seaTunnelJobConfig = ConfigBuilder.of(Paths.get(jobDefineFilePath), variables);
-        this.seaTunnelConnConfig = ConfigBuilder.of(Paths.get(connFilePath), variables);
+        if (null != connFilePath) {
+            this.seaTunnelConnConfig = ConfigBuilder.of(Paths.get(connFilePath), variables);
+        } else {
+            this.seaTunnelConnConfig = null;
+        }
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         this.pipelineCheckpoints = pipelineCheckpoints;
     }
@@ -186,12 +190,17 @@ public class MultipleTableJobConfigParser {
     private Config mergeWithConnectionConfig(Config pluginConfig, Config connConfig) {
         if (pluginConfig.hasPath("conn_id")) {
             String connId = pluginConfig.getString("conn_id");
-            Config connectionConfig = connConfig.getConfig("connection").getConfig(connId);
-            if (connectionConfig == null) {
-                throw new IllegalArgumentException("Connection ID not found: " + connId);
+            if (null != connConfig) {
+                Config connectionConfig = connConfig.getConfig("connection").getConfig(connId);
+
+                if (connectionConfig == null) {
+                    throw new IllegalArgumentException("Connection ID not found: " + connId);
+                }
+                // support conn_id replace to real connect configuration
+                return pluginConfig.withoutPath("conn_id").withFallback(connectionConfig);
+            } else {
+                return pluginConfig;
             }
-            // support conn_id replace to real connect configuration
-            return pluginConfig.withoutPath("conn_id").withFallback(connectionConfig);
         } else {
             return pluginConfig;
         }
