@@ -50,6 +50,10 @@ public class OracleConnectionUtils {
     /** show current scn sql in oracle. */
     private static final String SHOW_CURRENT_SCN = "SELECT CURRENT_SCN FROM V$DATABASE";
 
+    /** show current container name sql in oracle */
+    private static final String SHOW_CON_NAME =
+            "SELECT SYS_CONTEXT('USERENV', 'CON_NAME') CON_NAME FROM DUAL";
+
     /** Creates a new {@link OracleConnection}, but not open the connection. */
     public static OracleConnection createOracleConnection(JdbcConfiguration dbzConfiguration) {
         Configuration configuration = dbzConfiguration.subset(DATABASE_CONFIG_PREFIX, true);
@@ -119,5 +123,29 @@ public class OracleConnectionUtils {
         }
 
         return capturedTableIds;
+    }
+
+    /** Show current container name in Oracle Server. */
+    public static String getCurrentContainerName(JdbcConnection jdbcConnection) {
+        try {
+            return jdbcConnection.queryAndMap(
+                    SHOW_CON_NAME,
+                    rs -> {
+                        if (rs.next()) {
+                            return rs.getString(1);
+                        } else {
+                            throw new SeaTunnelException(
+                                    "Cannot read the container name via '"
+                                            + SHOW_CON_NAME
+                                            + "'. Makesure your server is correctly configured");
+                        }
+                    });
+        } catch (SQLException e) {
+            throw new SeaTunnelException(
+                    "Cannot read the container name via '"
+                            + SHOW_CON_NAME
+                            + "'. Makesure your server is correctly configured",
+                    e);
+        }
     }
 }

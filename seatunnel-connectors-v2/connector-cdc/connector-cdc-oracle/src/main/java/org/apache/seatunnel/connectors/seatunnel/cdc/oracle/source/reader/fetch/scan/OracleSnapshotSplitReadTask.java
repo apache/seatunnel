@@ -24,6 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLo
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleConnectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleUtils;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.connect.errors.ConnectException;
 
 import org.slf4j.Logger;
@@ -164,6 +165,13 @@ public class OracleSnapshotSplitReadTask
     @Override
     protected SnapshotContext<OraclePartition, OracleOffsetContext> prepare(
             OraclePartition partition) throws Exception {
+        String currentContainerName = OracleConnectionUtils.getCurrentContainerName(jdbcConnection);
+        String pdbName = connectorConfig.getPdbName();
+        if (pdbName != null) {
+            if (StringUtils.equalsAnyIgnoreCase(currentContainerName, "cdb$root")) {
+                jdbcConnection.setSessionToPdb(connectorConfig.getPdbName());
+            }
+        }
         return new OracleSnapshotContext(partition);
     }
 
