@@ -52,9 +52,16 @@ public class SinkConfig extends InfluxDBConfig {
         setKeyTime(config.get(InfluxDBSinkOptions.KEY_TIME));
         setKeyTags(config.get(InfluxDBSinkOptions.KEY_TAGS));
         setBatchSize(config.get(InfluxDBSinkOptions.BATCH_SIZE));
-        setMaxRetries(config.get(InfluxDBSinkOptions.MAX_RETRIES));
-        setRetryBackoffMultiplierMs(config.get(InfluxDBSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS));
-        setMaxRetryBackoffMs(config.get(InfluxDBSinkOptions.MAX_RETRY_BACKOFF_MS));
+        if (config.getOptional(InfluxDBSinkOptions.MAX_RETRIES).isPresent()) {
+            setMaxRetries(config.get(InfluxDBSinkOptions.MAX_RETRIES));
+        }
+        if (config.getOptional(InfluxDBSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS).isPresent()) {
+            setRetryBackoffMultiplierMs(
+                    config.get(InfluxDBSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS));
+        }
+        if (config.getOptional(InfluxDBSinkOptions.MAX_RETRY_BACKOFF_MS).isPresent()) {
+            setMaxRetryBackoffMs(config.get(InfluxDBSinkOptions.MAX_RETRY_BACKOFF_MS));
+        }
         setWriteTimeout(config.get(InfluxDBSinkOptions.WRITE_TIMEOUT));
         setRp(config.get(InfluxDBSinkOptions.RETENTION_POLICY));
         setPrecision(TimePrecision.getPrecision(config.get(InfluxDBSinkOptions.EPOCH)));
