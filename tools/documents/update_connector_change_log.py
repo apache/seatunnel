@@ -96,21 +96,14 @@ def main():
 
 def write_commit(connector, prs, changelog_dir, commit_version_map):
     with open(changelog_dir + '/' + connector + '.md', 'w') as file:
-        last_version = 'dev'
-        if prs[0][2] in commit_version_map:
-            last_version = commit_version_map[prs[0][2]]
-        file.write('<details><summary>' + last_version + '</summary>\n\n')
-        file.write('| Change | Commit |\n')
-        file.write('| --- | --- |\n')
+        file.write('<details><summary> Change Log </summary>\n\n')
+        file.write('| Change | Commit | Version |\n')
+        file.write('| --- | --- | --- |\n')
         for pr in prs:
             if pr[2] in commit_version_map:
-                if commit_version_map[pr[2]] != last_version:
-                    last_version = commit_version_map[pr[2]]
-                    file.write('\n</details>\n')
-                    file.write('<details><summary>' + last_version + '</summary>\n\n')
-                    file.write('| Change | Commit |\n')
-                    file.write('| --- | --- |\n')
-            file.write('|' + html.escape(pr[0]) + '|' + pr[1] + '|\n')
+                file.write('|' + html.escape(pr[0]) + '|' + pr[1] + '|' + commit_version_map[pr[2]] + '|\n')
+            else:
+                file.write('|' + html.escape(pr[0]) + '|' + pr[1] + '| dev |\n')
         file.write('\n</details>\n')
         file.close()
 
