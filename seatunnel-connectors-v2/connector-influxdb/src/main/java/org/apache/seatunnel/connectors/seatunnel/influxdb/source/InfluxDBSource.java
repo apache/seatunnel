@@ -39,6 +39,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -89,6 +90,11 @@ public class InfluxDBSource
             InfluxDBSourceState checkpointState)
             throws Exception {
         return new InfluxDBSourceSplitEnumerator(enumeratorContext, checkpointState, sourceConfig);
+    }
+
+    @Override
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(catalogTable);
     }
 
     private List<Integer> initColumnsIndex(InfluxDB influxdb) {
