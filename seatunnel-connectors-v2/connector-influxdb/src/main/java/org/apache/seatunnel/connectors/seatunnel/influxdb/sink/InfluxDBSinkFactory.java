@@ -55,7 +55,12 @@ public class InfluxDBSinkFactory implements TableSinkFactory {
                         InfluxDBSinkOptions.KEY_TIME,
                         InfluxDBSinkOptions.BATCH_SIZE,
                         InfluxDBSinkOptions.MAX_RETRIES,
+                        InfluxDBSinkOptions.WRITE_TIMEOUT,
                         InfluxDBSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS,
+                        InfluxDBSinkOptions.MAX_RETRY_BACKOFF_MS,
+                        InfluxDBSinkOptions.RETENTION_POLICY,
+                        InfluxDBSinkOptions.QUERY_TIMEOUT_SEC,
+                        InfluxDBSinkOptions.EPOCH,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }

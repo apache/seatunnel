@@ -51,6 +51,7 @@ public class SinkConfig extends InfluxDBConfig {
     public void loadConfig(ReadonlyConfig config) {
         setKeyTime(config.get(InfluxDBSinkOptions.KEY_TIME));
         setKeyTags(config.get(InfluxDBSinkOptions.KEY_TAGS));
+        setBatchSize(config.get(InfluxDBSinkOptions.BATCH_SIZE));
         setMaxRetries(config.get(InfluxDBSinkOptions.MAX_RETRIES));
         setRetryBackoffMultiplierMs(config.get(InfluxDBSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS));
         setMaxRetryBackoffMs(config.get(InfluxDBSinkOptions.MAX_RETRY_BACKOFF_MS));

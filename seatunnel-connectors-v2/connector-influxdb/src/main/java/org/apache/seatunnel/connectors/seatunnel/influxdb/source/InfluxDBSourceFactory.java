@@ -56,6 +56,7 @@ public class InfluxDBSourceFactory implements TableSourceFactory {
                         InfluxDBSourceOptions.SPLIT_COLUMN)
                 .optional(
                         InfluxDBSourceOptions.EPOCH,
+                        InfluxDBSourceOptions.SQL_WHERE,
                         InfluxDBSourceOptions.CONNECT_TIMEOUT_MS,
                         InfluxDBSourceOptions.QUERY_TIMEOUT_SEC)
                 .build();
