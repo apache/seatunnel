@@ -54,8 +54,6 @@ public class ElasticsearchSourceReader
     Deque<ElasticsearchSourceSplit> splits = new LinkedList<>();
     boolean noMoreSplit;
 
-    private final String SQL_TYPE = "sql";
-
     private final long pollNextWaitTime = 1000L;
 
     public ElasticsearchSourceReader(SourceReader.Context context, ReadonlyConfig connConfig) {
