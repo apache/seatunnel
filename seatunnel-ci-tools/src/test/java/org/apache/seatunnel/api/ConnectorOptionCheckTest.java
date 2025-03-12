@@ -196,8 +196,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("RocketMqSinkOptions");
         whiteList.add("IcebergSinkOptions");
         whiteList.add("MaxcomputeSourceOptions");
-        whiteList.add("InfluxDBSourceOptions");
-        whiteList.add("InfluxDBSinkOptions");
         whiteList.add("KuduSourceOptions");
         whiteList.add("SocketSinkOptions");
         whiteList.add("SelectDBSinkOptions");
