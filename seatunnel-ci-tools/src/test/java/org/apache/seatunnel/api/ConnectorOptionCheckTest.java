@@ -183,7 +183,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("PulsarSourceOptions");
         whiteList.add("MongodbSinkOptions");
         whiteList.add("IoTDBSinkOptions");
-        whiteList.add("IcebergSourceOptions");
         whiteList.add("PaimonSourceOptions");
         whiteList.add("IoTDBSourceOptions");
         whiteList.add("SlsSourceOptions");
@@ -191,7 +190,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("QdrantSinkOptions");
         whiteList.add("MilvusSourceOptions");
         whiteList.add("RocketMqSinkOptions");
-        whiteList.add("IcebergSinkOptions");
         whiteList.add("MaxcomputeSourceOptions");
         whiteList.add("InfluxDBSourceOptions");
         whiteList.add("InfluxDBSinkOptions");

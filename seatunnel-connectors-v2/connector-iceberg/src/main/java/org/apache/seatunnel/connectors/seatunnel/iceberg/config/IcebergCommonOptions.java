@@ -19,22 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.common.config.ConfigRuntimeException;
 
-import lombok.Getter;
-import lombok.ToString;
-
-import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
-
-@Getter
-@ToString
-public class CommonConfig implements Serializable {
-    private static final long serialVersionUID = 239821141534421580L;
+public class IcebergCommonOptions {
 
     public static final Option<String> KEY_CATALOG_NAME =
             Options.key("catalog_name")
@@ -98,56 +87,4 @@ public class CommonConfig implements Serializable {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("When using kerberos, We should specify the keytab path");
-
-    private String catalogName;
-    private String namespace;
-    private String table;
-    private boolean caseSensitive;
-
-    private Map<String, String> catalogProps;
-    private Map<String, String> hadoopProps;
-    private String hadoopConfPath;
-
-    // kerberos
-
-    private String kerberosPrincipal;
-    private String kerberosKeytabPath;
-    private String kerberosKrb5ConfPath;
-
-    public CommonConfig(ReadonlyConfig pluginConfig) {
-        this.catalogName = checkArgumentNotNull(pluginConfig.get(KEY_CATALOG_NAME));
-        this.namespace = pluginConfig.get(KEY_NAMESPACE);
-        this.table = pluginConfig.get(KEY_TABLE);
-        this.catalogProps = pluginConfig.get(CATALOG_PROPS);
-        this.hadoopProps = pluginConfig.get(HADOOP_PROPS);
-        this.hadoopConfPath = pluginConfig.get(HADOOP_CONF_PATH_PROP);
-        if (pluginConfig.toConfig().hasPath(KEY_CASE_SENSITIVE.key())) {
-            this.caseSensitive = pluginConfig.get(KEY_CASE_SENSITIVE);
-        }
-        if (pluginConfig.getOptional(KERBEROS_PRINCIPAL).isPresent()) {
-            this.kerberosPrincipal = pluginConfig.getOptional(KERBEROS_PRINCIPAL).get();
-        }
-        if (pluginConfig.getOptional(KRB5_PATH).isPresent()) {
-            this.kerberosKrb5ConfPath = pluginConfig.getOptional(KRB5_PATH).get();
-        }
-        if (pluginConfig.getOptional(KERBEROS_KEYTAB_PATH).isPresent()) {
-            this.kerberosKeytabPath = pluginConfig.getOptional(KERBEROS_KEYTAB_PATH).get();
-        }
-        validate();
-    }
-
-    protected <T> T checkArgumentNotNull(T argument) {
-        checkNotNull(argument);
-        return argument;
-    }
-
-    private void validate() {
-        checkState(!catalogProps.isEmpty(), "Must specify iceberg catalog config");
-    }
-
-    private void checkState(boolean condition, String msg) {
-        if (!condition) {
-            throw new ConfigRuntimeException(msg);
-        }
-    }
 }

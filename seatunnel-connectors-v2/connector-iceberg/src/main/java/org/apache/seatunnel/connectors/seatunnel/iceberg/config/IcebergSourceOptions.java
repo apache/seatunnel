@@ -21,23 +21,13 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.IcebergStreamScanStrategy;
 
-import lombok.Getter;
-import lombok.ToString;
-
-import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.IcebergStreamScanStrategy.FROM_LATEST_SNAPSHOT;
 
-@Getter
-@ToString
-public class SourceConfig extends CommonConfig {
-    private static final long serialVersionUID = -1965861967575264253L;
+public class IcebergSourceOptions extends IcebergCommonOptions {
 
     public static final Option<Long> KEY_START_SNAPSHOT_TIMESTAMP =
             Options.key("start_snapshot_timestamp")
@@ -86,42 +76,4 @@ public class SourceConfig extends CommonConfig {
                     .longType()
                     .defaultValue(2000L)
                     .withDescription(" the interval of increment scan(mills)");
-
-    private long incrementScanInterval;
-    private List<SourceTableConfig> tableList;
-
-    public SourceConfig(ReadonlyConfig readonlyConfig) {
-        super(readonlyConfig);
-        this.incrementScanInterval = readonlyConfig.get(KEY_INCREMENT_SCAN_INTERVAL);
-        if (this.getTable() != null) {
-            SourceTableConfig tableConfig =
-                    SourceTableConfig.builder()
-                            .namespace(this.getNamespace())
-                            .table(this.getTable())
-                            .startSnapshotTimestamp(
-                                    readonlyConfig.get(KEY_START_SNAPSHOT_TIMESTAMP))
-                            .startSnapshotId(readonlyConfig.get(KEY_START_SNAPSHOT_ID))
-                            .endSnapshotId(readonlyConfig.get(KEY_END_SNAPSHOT_ID))
-                            .useSnapshotId(readonlyConfig.get(KEY_USE_SNAPSHOT_ID))
-                            .useSnapshotTimestamp(readonlyConfig.get(KEY_USE_SNAPSHOT_TIMESTAMP))
-                            .streamScanStrategy(readonlyConfig.get(KEY_STREAM_SCAN_STRATEGY))
-                            .build();
-            this.tableList = Collections.singletonList(tableConfig);
-        } else {
-            this.tableList =
-                    readonlyConfig.get(KEY_TABLE_LIST).stream()
-                            .map(
-                                    tableConfig ->
-                                            tableConfig.setNamespace(
-                                                    SourceConfig.this.getNamespace()))
-                            .collect(Collectors.toList());
-        }
-    }
-
-    public SourceTableConfig getTableConfig(TablePath tablePath) {
-        return tableList.stream()
-                .filter(tableConfig -> tableConfig.getTablePath().equals(tablePath))
-                .findFirst()
-                .get();
-    }
 }
