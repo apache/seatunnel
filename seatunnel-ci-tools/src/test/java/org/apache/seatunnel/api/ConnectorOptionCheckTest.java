@@ -185,13 +185,11 @@ public class ConnectorOptionCheckTest {
         whiteList.add("FakeSourceOptions");
         whiteList.add("MongodbSinkOptions");
         whiteList.add("IoTDBSinkOptions");
-        whiteList.add("EasysearchSourceOptions");
         whiteList.add("IcebergSourceOptions");
         whiteList.add("PaimonSourceOptions");
         whiteList.add("IoTDBSourceOptions");
         whiteList.add("SlsSourceOptions");
         whiteList.add("SentrySinkOptions");
-        whiteList.add("EasysearchSinkOptions");
         whiteList.add("QdrantSinkOptions");
         whiteList.add("MilvusSourceOptions");
         whiteList.add("RocketMqSinkOptions");
