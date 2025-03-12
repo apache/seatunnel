@@ -15,26 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.notion.source.config;
+package org.apache.seatunnel.connectors.seatunnel.jira.source.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
 
-public class NotionSourceConfig extends HttpConfig {
+public class JiraSourceOptions extends HttpCommonOptions {
     public static final String AUTHORIZATION = "Authorization";
-    public static final String BEARER = "Bearer";
-    public static final String NOTION_VERSION = "Notion-Version";
+    public static final Option<String> EMAIL =
+            Options.key("email").stringType().noDefaultValue().withDescription("Jira email");
 
-    public static final Option<String> PASSWORD =
-            Options.key("password")
+    public static final Option<String> API_TOKEN =
+            Options.key("api_token")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Notion login api key");
-    public static final Option<String> VERSION =
-            Options.key("version")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "The Notion API is versioned. API versions are named for the date the version is released");
+                    .withDescription("Jira API Token");
 }

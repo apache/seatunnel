@@ -15,21 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.onesignal.source.config;
+package org.apache.seatunnel.connectors.seatunnel.github.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
 
-public class OneSignalSourceConfig extends HttpConfig {
-    public static final String AUTHORIZATION = "Authorization";
-    public static final String CONTENT_TYPE = "Content-Type";
-    public static final String APPLICATION_JSON = "application/json";
-    public static final String BASIC = "Basic";
+public class GithubSourceOptions extends HttpCommonOptions {
 
-    public static final Option<String> PASSWORD =
-            Options.key("password")
+    public static final String AUTHORIZATION_KEY = "Authorization";
+    public static final String BEARER_KEY = "Bearer";
+
+    public static final Option<String> ACCESS_TOKEN =
+            Options.key("access_token")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("OneSignal login auth key");
+                    .withDescription("Github access_token");
 }

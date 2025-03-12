@@ -19,9 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.myhours.source.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
 
-public class MyHoursSourceConfig extends HttpConfig {
+public class MyHoursSourceOptions extends HttpCommonOptions {
     public static final String POST = "POST";
     public static final String GRANT_TYPE = "grantType";
     public static final String CLIENT_ID = "clientId";
@@ -30,6 +30,7 @@ public class MyHoursSourceConfig extends HttpConfig {
     public static final String ACCESS_TOKEN = "accessToken";
     public static final String ACCESS_TOKEN_PREFIX = "Bearer";
     public static final String AUTHORIZATION_URL = "https://api2.myhours.com/api/tokens/login";
+
     public static final Option<String> EMAIL =
             Options.key("email")
                     .stringType()

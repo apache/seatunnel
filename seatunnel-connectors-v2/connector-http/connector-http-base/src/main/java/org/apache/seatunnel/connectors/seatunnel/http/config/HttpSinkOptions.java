@@ -15,17 +15,6 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.lemlist.source.config;
+package org.apache.seatunnel.connectors.seatunnel.http.config;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
-
-public class LemlistSourceConfig extends HttpConfig {
-    public static final String AUTHORIZATION = "Authorization";
-    public static final Option<String> PASSWORD =
-            Options.key("password")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Lemlist login api key");
-}
+public class HttpSinkOptions extends HttpCommonOptions {}

@@ -15,29 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.http.config;
+package org.apache.seatunnel.connectors.seatunnel.gitlab.source.config;
 
-public class HttpConfig {
-    public static final String BASIC = "Basic";
-    public static final String CONNECTOR_IDENTITY = "Http";
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
 
-    public enum ResponseFormat {
-        JSON("json"),
-        TEXT("text");
+public class GitlabSourceOptions extends HttpCommonOptions {
 
-        private String format;
+    public static final String PRIVATE_TOKEN = "PRIVATE-TOKEN";
 
-        ResponseFormat(String format) {
-            this.format = format;
-        }
-
-        public String getFormat() {
-            return format;
-        }
-
-        @Override
-        public String toString() {
-            return format;
-        }
-    }
+    public static final Option<String> ACCESS_TOKEN =
+            Options.key("access_token")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Gitlab access_token");
 }

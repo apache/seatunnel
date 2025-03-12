@@ -15,20 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jira.source.config;
+package org.apache.seatunnel.connectors.seatunnel.onesignal.source.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
 
-public class JiraSourceConfig extends HttpConfig {
+public class OneSignalSourceOptions extends HttpCommonOptions {
     public static final String AUTHORIZATION = "Authorization";
-    public static final Option<String> EMAIL =
-            Options.key("email").stringType().noDefaultValue().withDescription("Jira email");
+    public static final String CONTENT_TYPE = "Content-Type";
+    public static final String APPLICATION_JSON = "application/json";
+    public static final String BASIC = "Basic";
 
-    public static final Option<String> API_TOKEN =
-            Options.key("api_token")
+    public static final Option<String> PASSWORD =
+            Options.key("password")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Jira API Token");
+                    .withDescription("OneSignal login auth key");
 }

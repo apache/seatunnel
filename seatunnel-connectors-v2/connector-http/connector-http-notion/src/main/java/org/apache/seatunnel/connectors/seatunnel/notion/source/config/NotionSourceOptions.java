@@ -15,26 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.klaviyo.source.config;
+package org.apache.seatunnel.connectors.seatunnel.notion.source.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
 
-public class KlaviyoSourceConfig extends HttpConfig {
-    public static final String KLAVIYO_API_KEY = "Klaviyo-API-Key";
+public class NotionSourceOptions extends HttpCommonOptions {
     public static final String AUTHORIZATION = "Authorization";
-    public static final String ACCEPT = "Accept";
-    public static final String APPLICATION_JSON = "application/json";
+    public static final String BEARER = "Bearer";
+    public static final String NOTION_VERSION = "Notion-Version";
 
-    public static final Option<String> PRIVATE_KEY =
-            Options.key("private_key")
+    public static final Option<String> PASSWORD =
+            Options.key("password")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Klaviyo login private key");
-    public static final Option<String> REVISION =
-            Options.key("revision")
+                    .withDescription("Notion login api key");
+    public static final Option<String> VERSION =
+            Options.key("version")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("API endpoint revision (format: YYYY-MM-DD)");
+                    .withDescription(
+                            "The Notion API is versioned. API versions are named for the date the version is released");
 }

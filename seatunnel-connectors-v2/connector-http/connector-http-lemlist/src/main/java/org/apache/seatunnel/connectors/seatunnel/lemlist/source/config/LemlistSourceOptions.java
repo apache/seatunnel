@@ -15,20 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.github.config;
+package org.apache.seatunnel.connectors.seatunnel.lemlist.source.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
 
-public class GithubSourceConfig extends HttpConfig {
-
-    public static final String AUTHORIZATION_KEY = "Authorization";
-    public static final String BEARER_KEY = "Bearer";
-
-    public static final Option<String> ACCESS_TOKEN =
-            Options.key("access_token")
+public class LemlistSourceOptions extends HttpCommonOptions {
+    public static final String AUTHORIZATION = "Authorization";
+    public static final Option<String> PASSWORD =
+            Options.key("password")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Github access_token");
+                    .withDescription("Lemlist login api key");
 }

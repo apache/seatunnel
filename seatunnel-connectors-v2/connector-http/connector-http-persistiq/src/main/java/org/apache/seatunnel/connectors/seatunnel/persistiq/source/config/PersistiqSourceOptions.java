@@ -15,19 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.gitlab.source.config;
+package org.apache.seatunnel.connectors.seatunnel.persistiq.source.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpSourceOptions;
 
-public class GitlabSourceConfig extends HttpConfig {
+public class PersistiqSourceOptions extends HttpSourceOptions {
 
-    public static final String PRIVATE_TOKEN = "PRIVATE-TOKEN";
-
-    public static final Option<String> ACCESS_TOKEN =
-            Options.key("access_token")
+    public static final Option<String> PASSWORD =
+            Options.key("password")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Gitlab access_token");
+                    .withDescription("Persistiq login api key");
 }

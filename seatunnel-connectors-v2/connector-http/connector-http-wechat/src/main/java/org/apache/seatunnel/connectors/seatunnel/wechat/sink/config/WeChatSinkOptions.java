@@ -15,18 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.persistiq.source.config;
+package org.apache.seatunnel.connectors.seatunnel.wechat.sink.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
 
-public class PersistiqSourceConfig extends HttpConfig {
-    public static final String X_API_KEY = "x-api-key";
+import java.util.List;
 
-    public static final Option<String> PASSWORD =
-            Options.key("password")
-                    .stringType()
+public class WeChatSinkOptions extends HttpCommonOptions {
+
+    public static final Option<List<String>> MENTIONED_LIST =
+            Options.key("mentioned_list")
+                    .listType()
                     .noDefaultValue()
-                    .withDescription("Persistiq login api key");
+                    .withDescription(
+                            "A list of userids to remind the specified members in the group (@ a member), @ all means to remind everyone");
+    public static final Option<List<String>> MENTIONED_MOBILE_LIST =
+            Options.key("mentioned_mobile_list")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Mobile phone number list, remind the group member corresponding to the mobile phone number (@ a member), @ all means remind everyone");
 }

@@ -30,8 +30,8 @@ public class GitlabSourceParameter extends HttpParameter {
         super.buildWithConfig(pluginConfig);
         this.headers = this.getHeaders() == null ? new HashMap<>() : this.getHeaders();
         this.headers.put(
-                GitlabSourceConfig.PRIVATE_TOKEN,
-                pluginConfig.getString(GitlabSourceConfig.ACCESS_TOKEN.key()));
+                GitlabSourceOptions.PRIVATE_TOKEN,
+                pluginConfig.getString(GitlabSourceOptions.ACCESS_TOKEN.key()));
         this.setHeaders(this.headers);
     }
 }

@@ -15,29 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.http.config;
+package org.apache.seatunnel.connectors.seatunnel.feishu.sink;
 
-public class HttpConfig {
-    public static final String BASIC = "Basic";
-    public static final String CONNECTOR_IDENTITY = "Http";
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
 
-    public enum ResponseFormat {
-        JSON("json"),
-        TEXT("text");
-
-        private String format;
-
-        ResponseFormat(String format) {
-            this.format = format;
-        }
-
-        public String getFormat() {
-            return format;
-        }
-
-        @Override
-        public String toString() {
-            return format;
-        }
-    }
-}
+public class FeishuSinkOptions extends HttpCommonOptions {}

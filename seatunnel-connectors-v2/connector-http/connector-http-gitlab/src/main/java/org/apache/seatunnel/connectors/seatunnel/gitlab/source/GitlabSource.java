@@ -17,20 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.gitlab.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
-import org.apache.seatunnel.connectors.seatunnel.gitlab.source.config.GitlabSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.gitlab.source.config.GitlabSourceParameter;
-import org.apache.seatunnel.connectors.seatunnel.gitlab.source.exception.GitlabConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSource;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
 
@@ -40,20 +33,8 @@ import lombok.extern.slf4j.Slf4j;
 public class GitlabSource extends HttpSource {
     private final GitlabSourceParameter gitlabSourceParameter = new GitlabSourceParameter();
 
-    public GitlabSource(Config pluginConfig) {
+    public GitlabSource(ReadonlyConfig pluginConfig) {
         super(pluginConfig);
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        GitlabSourceConfig.URL.key(),
-                        GitlabSourceConfig.ACCESS_TOKEN.key());
-        if (!result.isSuccess()) {
-            throw new GitlabConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
         this.gitlabSourceParameter.buildWithConfig(pluginConfig);
     }
 
