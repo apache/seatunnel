@@ -26,6 +26,7 @@ import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.exception.TaskGroupDeployException;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
@@ -58,7 +59,6 @@ import java.net.URL;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -162,30 +162,16 @@ public class PhysicalVertex {
         this.currExecutionState = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
 
         this.nodeEngine = nodeEngine;
-        if (log.isDebugEnabled() || log.isTraceEnabled()) {
-            this.taskFullName =
-                    String.format(
-                            "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)], taskGroupLocation: [%s]",
-                            jobImmutableInformation.getJobConfig().getName(),
-                            jobImmutableInformation.getJobId(),
-                            pipelineId,
-                            totalPipelineNum,
-                            taskGroup.getTaskGroupName(),
-                            subTaskGroupIndex + 1,
-                            parallelism,
-                            taskGroupLocation);
-        } else {
-            this.taskFullName =
-                    String.format(
-                            "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)]",
-                            jobImmutableInformation.getJobConfig().getName(),
-                            jobImmutableInformation.getJobId(),
-                            pipelineId,
-                            totalPipelineNum,
-                            taskGroup.getTaskGroupName(),
-                            subTaskGroupIndex + 1,
-                            parallelism);
-        }
+        this.taskFullName =
+                String.format(
+                        "Job (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)], taskGroupLocation: [%s]",
+                        jobImmutableInformation.getJobId(),
+                        pipelineId,
+                        totalPipelineNum,
+                        taskGroup.getTaskGroupName(),
+                        subTaskGroupIndex + 1,
+                        parallelism,
+                        taskGroupLocation);
 
         this.taskFuture = new CompletableFuture<>();
 

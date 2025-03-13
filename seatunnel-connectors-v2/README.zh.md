@@ -13,29 +13,31 @@ SeaTunnel为与计算引擎进行解耦，设计了新的连接器API，通过�
 - ../`seatunnel-translation`                                           connector-v2的翻译层
 - ../`seatunnel-transform-v2`                                          transform-v2代码实现
 - ../seatunnel-e2e/`seatunnel-connector-v2-e2e`                        connector-v2端到端测试
+- ../seatunnel-examples/`seatunnel-engine-examples`                    seatunnel connector-v2的Zeta引擎local运行的实例
 - ../seatunnel-examples/`seatunnel-flink-connector-v2-example`         seatunnel connector-v2的flink local运行的实例
 - ../seatunnel-examples/`seatunnel-spark-connector-v2-example`         seatunnel connector-v2的spark local运行的实例
 
 ### Example
 
-我们已经在`seatunnel-examples`
-准备了两个本地可执行的案例程序,其中一个是`seatunnel-examples/seatunnel-flink-connector-v2-example/src/main/java/org/apache/seatunnel/example/flink/v2/SeaTunnelApiExample.java`
-，它运行在flink引擎上。另外一个是`seatunnel-examples/seatunnel-spark-connector-v2-example/src/main/java/org/apache/seatunnel/example/spark/v2/SeaTunnelApiExample.java`
-，它运行在spark引擎上。你可以通过调试这些例子帮你更好的理解程序运行逻辑。使用的配置文件保存在`resources/examples`文件夹里。如果你想增加自己的connectors，你需要按照下面的步骤。
+我们已经在`seatunnel-examples`准备了三个本地可执行的案例程序
+- `seatunnel-examples/seatunnel-engine-examples/src/main/java/org/apache/seatunnel/example/engine/SeaTunnelEngineLocalExample.java`，它运行在Zeta引擎上
+- `seatunnel-examples/seatunnel-flink-connector-v2-example/src/main/java/org/apache/seatunnel/example/flink/v2/SeaTunnelApiExample.java`，它运行在flink引擎上
+- `seatunnel-examples/seatunnel-spark-connector-v2-example/src/main/java/org/apache/seatunnel/example/spark/v2/SeaTunnelApiExample.java`，它运行在spark引擎上
+你可以通过调试这些例子帮你更好的理解程序运行逻辑。使用的配置文件保存在`resources/examples`文件夹里。如果你想增加自己的connectors，你需要按照下面的步骤。
 
-1. 在`seatunnel-examples/seatunnel-flink-connector-v2-example/pom.xml`添加connector依赖的groupId, artifactId 和
-   version.（或者当你想在spark引擎运行时在`seatunnel-examples/seatunnel-spark-connector-v2-example/pom.xml`添加依赖）
-2. 如果你的connector中存在scope为test或provided的依赖，将这些依赖添加到seatunnel-examples/seatunnel-flink-connector-v2-example/pom.xml(
-   或者在seatunnel-examples/seatunnel-spark-connector-v2-example/pom.xml)中，并且修改scope为compile.
-3. 在resources/examples下添加任务配置文件.
-4. 在`SeaTunnelApiExample` main方法中配置文件.
-5. 运行main方法即可.
+以Zeta引擎为例，你可以通过以下步骤来添加一个新的connector到example中:
+1. 在`seatunnel-examples/seatunnel-engine-examples/pom.xml`添加connector依赖的groupId, artifactId 和
+   version.（或者当你想在flink或spark引擎运行时请在`seatunnel-examples/seatunnel-flink-connector-v2-example/pom.xml`或`seatunnel-examples/seatunnel-spark-connector-v2-example/pom.xml`添加依赖，以下同理）。
+2. 如果你的connector中存在scope为test或provided的依赖，将这些依赖添加到`seatunnel-examples/seatunnel-engine-examples/pom.xml`并且修改scope为compile。
+3. 在resources/examples下添加任务配置文件。
+4. 在`SeaTunnelEngineLocalExample.java` main方法中配置文件地址。
+5. 运行main方法即可。
 
-### 创建新的seatunnel v2 connector
+### 创建新的SeaTunnel V2 Connector
 
 1.在`seatunnel-connectors-v2`目录下新建一个module，命名为connector-{连接器名}.
 
-2.pom文件可以参考已有连接器的pom文件，并在父model的pom文件中添加当前子model.
+2.pom文件可以参考已有连接器的pom文件，并在`seatunnel-connectors-v2/pom.xml`中添加当前子model.
 
 3.新建两个package分别对应source和sink
 
@@ -54,12 +56,12 @@ SeaTunnel为与计算引擎进行解耦，设计了新的连接器API，通过�
 
 ### 启动类
 
-和老的启动类分开，我们创建了两个新的启动类工程，分别是`seatunnel-core/seatunnel-flink-starter`和`seatunnel-core/seatunnel-spark-starter`.
-可以在这里找到如何将配置文件解析为可以执行的Flink/Spark流程。
+我们创建了三个启动类工程，分别是`seatunnel-core/seatunnel-starter`，`seatunnel-core/seatunnel-flink-starter`和`seatunnel-core/seatunnel-spark-starter`。
+可以在这里找到如何将配置文件解析为可以执行的Zeta/Flink/Spark流程。
 
 ### SeaTunnel API
 
-新建了一个`seatunnel-api`(不是`seatunnel-apis`)模块，用于存放SeaTunnel API定义的新接口, 开发者通过对这些接口进行实现，就可以完成支持多引擎的SeaTunnel Connector
+`seatunnel-api`模块，用于存放SeaTunnel API定义的新接口, 开发者通过对这些接口进行实现，就可以完成支持多引擎的SeaTunnel Connector
 
 ### 翻译层
 
@@ -72,11 +74,18 @@ SeaTunnel为与计算引擎进行解耦，设计了新的连接器API，通过�
 
 ### Source
 
+#### TableSourceFactory.java
+
+- 用于创建Source的工厂类，通过该类来创建Source实例，通过`createSource`方法来创建Source实例。
+- `factoryIdentifier`用于标识当前Factory的名称，也是在配置文件中配置的名称，用于区分不同的连接器。
+- `optionRule` 用于定义当前连接器支持的参数，可以通过该方法来定义参数的逻辑，比如哪些参数是必须的，哪些参数是可选的，哪些参数是互斥的等等，SeaTunnel会通过OptionRule来校验用户的配置是否合法。请参考下方的Option。
+- 请确保在`TableSourceFactory`添加`@AutoService(Factory.class)`注解。
+
 #### SeaTunnelSource.java
 
 - SeaTunnel的Source采用流批一体的设计，通过`getBoundedness`
   来决定当前Source是流Source还是批Source，所以可以通过动态配置的方式（参考default方法）来指定一个Source既可以为流，也可以为批。
-- `getRowTypeInfo`来得到数据的schema，connector可以选择硬编码来实现固定的schema，或者运行用户通过config配置来自定义schema，推荐后者。
+- `getProducedCatalogTables`来得到数据的schema，connector可以选择硬编码来实现固定的schema，或者实现通过用户定义的config配置来自定义schema，推荐后者。
 - SeaTunnelSource是执行在driver端的类，通过该类，来获取SourceReader，SplitEnumerator等对象以及序列化器。
 - 目前SeaTunnelSource支持的生产的数据类型必须是SeaTunnelRow类型。
 
@@ -84,6 +93,7 @@ SeaTunnel为与计算引擎进行解耦，设计了新的连接器API，通过�
 
 通过该枚举器来获取数据读取的分片（SourceSplit）情况，不同的分片可能会分配给不同的SourceReader来读取数据。包含几个关键方法：
 
+- `open`用于初始化SourceSplitEnumerator，可以在这里初始化一些连接器的资源，比如连接数据库，初始化一些状态等。
 - `run`用于执行产生SourceSplit并调用`SourceSplitEnumerator.Context.assignSplit`来将分片分发给SourceReader。
 - `addSplitsBack`用于处理SourceReader异常导致SourceSplit无法正常处理或者重启时，需要SourceSplitEnumerator对这些Split进行重新分发。
 - `registerReader`
@@ -93,6 +103,20 @@ SeaTunnel为与计算引擎进行解耦，设计了新的连接器API，通过�
 - `snapshotState`用于流处理定时返回需要保存的当前状态，如果有状态恢复时，会调用`SeaTunnelSource.restoreEnumerator`
   来构造SourceSplitEnumerator，将保存的状态恢复给SourceSplitEnumerator。
 - `notifyCheckpointComplete`用于状态保存成功后的后续处理，可以用于将状态或者标记存入第三方存储。
+- `handleSourceEvent`用于处理SourceReader的事件，可以自定义事件，比如SourceReader的状态变化等。
+- `close`用于关闭SourceSplitEnumerator，释放资源。
+
+##### SourceSplitEnumerator.Context
+
+Context是SourceSplitEnumerator的上下文，通过该上下文来和SeaTunnel进行交互，包含几个关键方法：
+
+- `currentParallelism`用于获取当前任务的并行度。
+- `registeredReaders`用于获取当前已经注册的SourceReader列表。
+- `assignSplit`用于将分片分发给SourceReader。
+- `signalNoMoreSplits`用于通知某个Reader没有更多的分片了。
+- `sendEventToSourceReader`用于发送事件给SourceReader。
+- `getMetricsContext`用于获取当前任务的MetricsContext，用于记录一些指标。
+- `getEventListener`用于获取当前任务的EventListener，用于发送事件到SeaTunnel。
 
 #### SourceSplit.java
 
@@ -124,13 +148,36 @@ if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
 - `snapshotState`用于流处理定时返回需要保存的当前状态，也就是分片信息（SeaTunnel将分片信息和状态保存在一起，实现动态分配）。
 - `notifyCheckpointComplete`和`notifyCheckpointAborted`和名字一样，是checkpoint不同状态下的回调。
 
+##### SourceReader.Context
+
+Context是SourceReader的上下文，通过该上下文来和SeaTunnel进行交互，包含几个关键方法：
+
+- `getIndexOfSubtask`用于获取当前Reader的subTask索引。
+- `getBoundedness`用于获取当前Reader的Boundedness，是流还是批。
+- `signalNoMoreElement`用于通知SeaTunnel没有数据读取了。
+- `sendSplitRequest`用于向SourceSplitEnumerator请求分片，用于在Reader没有分片的时候主动请求分片。
+- `sendSourceEventToEnumerator`用于发送事件给SourceSplitEnumerator。
+- `getMetricsContext`用于获取当前任务的MetricsContext，用于记录一些指标。
+- `getEventListener`用于获取当前任务的EventListener，用于发送事件到SeaTunnel。
+
 ### Sink
+
+#### TableSinkFactory.java
+
+- 用于创建Sink的工厂类，通过该类来创建Sink实例，通过`createSink`方法来创建Sink实例。
+- `factoryIdentifier`用于标识当前Factory的名称，也是在配置文件中配置的名称，用于区分不同的连接器。
+- `optionRule` 用于定义当前连接器支持的参数，可以通过该方法来定义参数的逻辑，比如哪些参数是必须的，哪些参数是可选的，哪些参数是互斥的等等，SeaTunnel会通过OptionRule来校验用户的配置是否合法。请参考下方的Option。
+- 请确保在`TableSinkFactory`添加`@AutoService(Factory.class)`注解。
 
 #### SeaTunnelSink.java
 
 用于定义数据写入目标端的方式，通过该接口来实现获取SinkWriter和SinkCommitter等实例。Sink端有一个重要特性就是分布式事务的处理，SeaTunnel定义了两种不同的Committer：`SinkCommitter`
 用于处理针对不同的subTask进行事务的处理，每个subTask处理各自的事务，然后成功后再由`SinkAggregatedCommitter`单线程的处理所有节点的事务结果。不同的Connector
 Sink可以根据组件属性进行选择，到底是只实现`SinkCommitter`或`SinkAggregatedCommitter`，还是都实现。
+
+- `createWriter`用于创建SinkWriter实例，SinkWriter是和数据源进行交互的接口，通过该接口来将数据写入到数据源。
+- `restoreWriter`用于恢复SinkWriter，用于在恢复状态时，将SinkWriter恢复到之前的状态，会在任务恢复时调用。
+- `getWriteCatalogTable`用于获取Sink写入表对应的SeaTunnel CatalogTable，SeaTunnel会根据这个CatalogTable来处理指标相关的逻辑。
 
 #### SinkWriter.java
 
@@ -139,34 +186,40 @@ Sink可以根据组件属性进行选择，到底是只实现`SinkCommitter`或`
 - `write` 负责将数据传入SinkWriter，可以选择直接写入，或者缓存到一定数据后再写入，目前数据类型只支持`SeaTunnelRow`。
 - `prepareCommit` 在commit之前执行，可以在这直接写入数据，也可以实现2pc中的阶段一，然后在`SinkCommitter`或`SinkAggregatedCommitter`
   中实现阶段二。该方法返回的就是commit信息，将会提供给`SinkCommitter`和`SinkAggregatedCommitter`用于下一阶段事务处理。
+- `snapshotState` 用于流处理定时返回需要保存的当前状态，如果有状态恢复时，会调用`SeaTunnelSink.restoreWriter`来构造SinkWriter，将保存的状态恢复给SinkWriter。
+- `abortPrepare` 在prepareCommit失败时执行，用于回滚prepareCommit的操作。
+- `close` 用于关闭SinkWriter，释放资源。
+
+##### SinkWriter.Context
+
+Context是SinkWriter的上下文，通过该上下文来和SeaTunnel进行交互，包含几个关键方法：
+
+- `getIndexOfSubtask` 用于获取当前Writer的subTask索引。
+- `getNumberOfParallelSubtasks` 用于获取当前任务的并行度。
+- `getMetricsContext` 用于获取当前任务的MetricsContext，用于记录一些指标。
+- `getEventListener` 用于获取当前任务的EventListener，用于发送事件到SeaTunnel。
 
 #### SinkCommitter.java
 
-用于处理`SinkWriter.prepareCommit`返回的数据信息，包含需要提交的事务信息等。
+用于处理`SinkWriter.prepareCommit`返回的数据信息，包含需要提交的事务信息等。和`SinkAggregatedCommitter`不同的是，`SinkCommitter`是在每个节点上执行的，我们更推荐使用`SinkAggregatedCommitter`。
+
+- `commit` 用于提交`SinkWriter.prepareCommit`返回的事务信息，如果失败则需要实现幂等性，保存引擎重试能够正常运作。
+- `abort` 用于回滚`SinkWriter.prepareCommit`的操作，如果失败则需要实现幂等性，保存引擎重试能够正常运作。
 
 #### SinkAggregatedCommitter.java
 
 用于处理`SinkWriter.prepareCommit`返回的数据信息，包含需要提交的事务信息等，但是会在单个节点一起处理，这样可以避免阶段二部分失败导致状态不一致的问题。
 
+- `init` 用于初始化`SinkAggregatedCommitter`，可以在这里初始化一些连接器的资源，比如连接数据库，初始化一些状态等。
+- `restoreCommit` 用于恢复`SinkAggregatedCommitter`，用于在恢复状态时，将`SinkAggregatedCommitter`恢复到之前的状态，会在任务恢复时调用，我们应该在这个方法里重新尝试提交上次未完成的事务。
+- `commit` 用于提交`SinkWriter.prepareCommit`返回的事务信息，如果失败则需要实现幂等性，保存引擎重试能够正常运作。
 - `combine` 用于将`SinkWriter.prepareCommit`返回的事务信息进行聚合，然后生成聚合的事务信息。
+- `abort` 用于回滚`SinkWriter.prepareCommit`的操作，如果失败则需要实现幂等性，保存引擎重试能够正常运作。
+- `close` 用于关闭`SinkAggregatedCommitter`，释放资源。
 
 #### 我应该实现SinkCommitter还是SinkAggregatedCommitter？
 
 当前版本推荐将实现SinkAggregatedCommitter作为首选，可以在Flink/Spark中提供较强的一致性保证，同时commit应该要实现幂等性，保存引擎重试能够正常运作。
-
-### TableSourceFactory 和 TableSinkFactory
-
-为了实现自动化的创建Source或者Sink，我们需要连接器能够声明并返回创建他们所需要的参数列表和每个参数的校验规则。为了实现这个目标，我们定义了TableSourceFactory和TableSinkFactory，
-建议将其放在和SeaTunnelSource或SeaTunnelSink实现类同一目录下，方便寻找。
-
-- `factoryIdentifier` 用于表明当前Factory的名称，这个值应该和`getPluginName`返回的值一致，这样后续如果使用Factory来创建Source/Sink，就能实现无缝切换。
-- `createSink` 和 `createSource` 分别是创建Source和Sink的方法。
-- `optionRule` 返回的是参数逻辑，用于表示我们的连接器参数哪些支持，哪些参数是必须(required)的，哪些参数是可选(optional)的，哪些参数是互斥(exclusive)的，哪些参数是绑定(bundledRequired)的。
-  这个方法会在我们可视化创建连接器逻辑的时候用到，同时也会用于根据用户配置的参数生成完整的参数对象，然后连接器开发者就不用在Config里面一个个判断参数是否存在，直接使用即可。
-  可以参考现有的实现，比如`org.apache.seatunnel.connectors.seatunnel.elasticsearch.source.ElasticsearchSourceFactory`。针对很多Source都有支持配置Schema，所以采用了通用的Option，
-  需要Schema则可以引用`org.apache.seatunnel.api.table.catalog.CatalogTableUtil.SCHEMA`。
-
-别忘记添加`@AutoService(Factory.class)` 到类上面。这个Factory即TableSourceFactory 和 TableSinkFactory的父类。
 
 ### Option
 
@@ -174,6 +227,11 @@ Sink可以根据组件属性进行选择，到底是只实现`SinkCommitter`或`
 但是如果我们参数类型是一个对象，我们就可以使用POJO来表示对象类型的参数，同时需要在每个参数上使用`org.apache.seatunnel.api.configuration.util.OptionMark`来表明这是一个子Option。
 `OptionMark`有两个参数，`name`用于声明字段对应的参数名称，如果为空的话，我们会默认将java对应的小驼峰转换成下划线进行表达，如：`myUserPassword`->`my_user_password`。
 在大多数情况下，默认为空即可。`description`用于表示当前参数的描述，这个参数是可选的，建议和文档上的保持一致。具体例子可以参考`org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertSinkFactory`。
+
+TableSourceFactory 和 TableSinkFactory 中的`optionRule` 返回的是参数逻辑，用于表示我们的连接器参数哪些支持，哪些参数是必须(required)的，哪些参数是可选(optional)的，哪些参数是互斥(exclusive)的，哪些参数是绑定(bundledRequired)的。
+这个方法会在我们可视化创建连接器逻辑的时候用到，同时也会用于根据用户配置的参数生成完整的参数对象，然后连接器开发者就不用在Config里面一个个判断参数是否存在，直接使用即可。
+可以参考现有的实现，比如`org.apache.seatunnel.connectors.seatunnel.elasticsearch.source.ElasticsearchSourceFactory`。针对很多Source都有支持配置Schema，所以采用了通用的Option，
+需要Schema则可以引用`org.apache.seatunnel.api.table.catalog.CatalogTableUtil.SCHEMA`。
 
 ## 实现
 

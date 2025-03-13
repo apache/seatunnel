@@ -56,9 +56,11 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | skip_header_row_number    | long    | no       | 0                                    |
 | schema                    | config  | no       | -                                    |
 | sheet_name                | string  | no       | -                                    |
+| excel_engine              | string  | no       | POI                                  |                                             
 | xml_row_tag               | string  | no       | -                                    |
 | xml_use_attr_format       | boolean | no       | -                                    |
-| file_filter_pattern       | string  | no       |                                      |
+| file_filter_pattern       | string  | no       | -                                    |
+| filename_extension            | string  | no       | -                                    |
 | compress_codec            | string  | no       | none                                 |
 | archive_compress_codec    | string  | no       | none                                 |
 | encoding                  | string  | no       | UTF-8                                |
@@ -239,6 +241,16 @@ Only need to be configured when file_format is excel.
 
 Reader the sheet of the workbook.
 
+### excel_engine [string]
+
+Only need to be configured when file_format is excel.
+
+supported as the following file types:
+`POI` `EasyExcel`
+
+The default excel reading engine is POI, but POI can easily cause memory overflow when reading Excel with more than 65,000 rows, so you can switch to EasyExcel as the reading engine.
+
+
 ### xml_row_tag [string]
 
 Only need to be configured when file_format is xml.
@@ -303,6 +315,10 @@ The result of this example matching is:
 /data/seatunnel/20241002/abcg202410.csv
 /data/seatunnel/20241005/old_data.csv
 ```
+
+### filename_extension [string]
+
+Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.
 
 ### compress_codec [string]
 

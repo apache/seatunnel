@@ -20,6 +20,7 @@ package org.apache.seatunnel.api.table.type;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.time.temporal.Temporal;
 import java.util.Objects;
 
@@ -32,6 +33,8 @@ public class LocalTimeType<T extends Temporal> implements SeaTunnelDataType<T> {
             new LocalTimeType<>(LocalTime.class, SqlType.TIME);
     public static final LocalTimeType<LocalDateTime> LOCAL_DATE_TIME_TYPE =
             new LocalTimeType<>(LocalDateTime.class, SqlType.TIMESTAMP);
+    public static final LocalTimeType<OffsetDateTime> OFFSET_DATE_TIME_TYPE =
+            new LocalTimeType<>(OffsetDateTime.class, SqlType.TIMESTAMP_TZ);
 
     private final Class<T> typeClass;
     private final SqlType sqlType;

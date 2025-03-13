@@ -19,6 +19,16 @@
 Used to send data to StarRocks. Both support streaming and batch mode.
 The internal implementation of StarRocks sink connector is cached and imported by stream load in batches.
 
+## Using Dependency
+
+### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+
+### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
+
 ## Sink Options
 
 |            Name             |  Type   | Required |           Default            |                                                                                                    Description                                                                                                    |
@@ -57,6 +67,7 @@ ${rowtype_primary_key},
 ${rowtype_fields}
 ) ENGINE=OLAP
 PRIMARY KEY (${rowtype_primary_key})
+COMMENT '${comment}'
 DISTRIBUTED BY HASH (${rowtype_primary_key})PROPERTIES (
 "replication_num" = "1"
 )
@@ -69,7 +80,9 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table}`
 (   
     id,
     ${rowtype_fields}
-) ENGINE = OLAP DISTRIBUTED BY HASH (${rowtype_primary_key})
+) ENGINE = OLAP 
+    COMMENT '${comment}'
+    DISTRIBUTED BY HASH (${rowtype_primary_key})
     PROPERTIES
 (
     "replication_num" = "1"
@@ -87,6 +100,7 @@ You can use the following placeholders
   description of StarRocks
 - rowtype_primary_key: Used to get the primary key in the upstream schema (maybe a list)
 - rowtype_unique_key: Used to get the unique key in the upstream schema (maybe a list)
+- comment: Used to get the table comment in the upstream schema
 
 ### table [string]
 

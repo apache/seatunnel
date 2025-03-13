@@ -38,7 +38,7 @@ import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-import static org.apache.seatunnel.api.ImportShadeClassCheckTest.isWindows;
+import static org.apache.seatunnel.api.ImportClassCheckTest.isWindows;
 
 @Slf4j
 public class ChineseCharacterCheckTest {

@@ -26,7 +26,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.ElasticsearchClusterInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.IndexDocsCount;
@@ -85,28 +85,30 @@ public class EsRestClient implements Closeable {
 
     private final RestClient restClient;
 
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     private EsRestClient(RestClient restClient) {
         this.restClient = restClient;
     }
 
     public static EsRestClient createInstance(ReadonlyConfig config) {
-        List<String> hosts = config.get(EsClusterConnectionConfig.HOSTS);
-        Optional<String> username = config.getOptional(EsClusterConnectionConfig.USERNAME);
-        Optional<String> password = config.getOptional(EsClusterConnectionConfig.PASSWORD);
+        List<String> hosts = config.get(ElasticsearchBaseOptions.HOSTS);
+        Optional<String> username = config.getOptional(ElasticsearchBaseOptions.USERNAME);
+        Optional<String> password = config.getOptional(ElasticsearchBaseOptions.PASSWORD);
         Optional<String> keystorePath = Optional.empty();
         Optional<String> keystorePassword = Optional.empty();
         Optional<String> truststorePath = Optional.empty();
         Optional<String> truststorePassword = Optional.empty();
-        boolean tlsVerifyCertificate = config.get(EsClusterConnectionConfig.TLS_VERIFY_CERTIFICATE);
+        boolean tlsVerifyCertificate = config.get(ElasticsearchBaseOptions.TLS_VERIFY_CERTIFICATE);
         if (tlsVerifyCertificate) {
-            keystorePath = config.getOptional(EsClusterConnectionConfig.TLS_KEY_STORE_PATH);
-            keystorePassword = config.getOptional(EsClusterConnectionConfig.TLS_KEY_STORE_PASSWORD);
-            truststorePath = config.getOptional(EsClusterConnectionConfig.TLS_TRUST_STORE_PATH);
+            keystorePath = config.getOptional(ElasticsearchBaseOptions.TLS_KEY_STORE_PATH);
+            keystorePassword = config.getOptional(ElasticsearchBaseOptions.TLS_KEY_STORE_PASSWORD);
+            truststorePath = config.getOptional(ElasticsearchBaseOptions.TLS_TRUST_STORE_PATH);
             truststorePassword =
-                    config.getOptional(EsClusterConnectionConfig.TLS_TRUST_STORE_PASSWORD);
+                    config.getOptional(ElasticsearchBaseOptions.TLS_TRUST_STORE_PASSWORD);
         }
 
-        boolean tlsVerifyHostnames = config.get(EsClusterConnectionConfig.TLS_VERIFY_HOSTNAME);
+        boolean tlsVerifyHostnames = config.get(ElasticsearchBaseOptions.TLS_VERIFY_HOSTNAME);
         return createInstance(
                 hosts,
                 username,
@@ -215,9 +217,8 @@ public class EsRestClient implements Closeable {
                         "bulk es Response is null");
             }
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-                ObjectMapper objectMapper = new ObjectMapper();
                 String entity = EntityUtils.toString(response.getEntity());
-                JsonNode json = objectMapper.readTree(entity);
+                JsonNode json = OBJECT_MAPPER.readTree(entity);
                 int took = json.get("took").asInt();
                 boolean errors = json.get("errors").asBoolean();
                 return new BulkResponse(errors, took, entity);
@@ -244,8 +245,7 @@ public class EsRestClient implements Closeable {
         try {
             Response response = restClient.performRequest(request);
             String result = EntityUtils.toString(response.getEntity());
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode jsonNode = objectMapper.readTree(result);
+            JsonNode jsonNode = OBJECT_MAPPER.readTree(result);
             JsonNode versionNode = jsonNode.get("version");
             return ElasticsearchClusterInfo.builder()
                     .clusterVersion(versionNode.get("number").asText())
@@ -388,7 +388,7 @@ public class EsRestClient implements Closeable {
      * @return true or false
      */
     public boolean checkIndexExist(String index) {
-        Request request = new Request("HEAD", "/" + index);
+        Request request = new Request("HEAD", "/" + index.toLowerCase());
         try {
             Response response = restClient.performRequest(request);
             int statusCode = response.getStatusLine().getStatusCode();
@@ -400,7 +400,9 @@ public class EsRestClient implements Closeable {
     }
 
     public List<IndexDocsCount> getIndexDocsCount(String index) {
-        String endpoint = String.format("/_cat/indices/%s?h=index,docsCount&format=json", index);
+        String endpoint =
+                String.format(
+                        "/_cat/indices/%s?h=index,docsCount&format=json", index.toLowerCase());
         Request request = new Request("GET", endpoint);
         try {
             Response response = restClient.performRequest(request);
@@ -458,7 +460,7 @@ public class EsRestClient implements Closeable {
     }
 
     public void createIndex(String indexName, String mapping) {
-        String endpoint = String.format("/%s", indexName);
+        String endpoint = String.format("/%s", indexName.toLowerCase());
         Request request = new Request("PUT", endpoint);
         if (StringUtils.isNotEmpty(mapping)) {
             request.setJsonEntity(mapping);
@@ -484,7 +486,7 @@ public class EsRestClient implements Closeable {
     }
 
     public void dropIndex(String tableName) {
-        String endpoint = String.format("/%s", tableName);
+        String endpoint = String.format("/%s", tableName.toLowerCase());
         Request request = new Request("DELETE", endpoint);
         try {
             Response response = restClient.performRequest(request);
@@ -510,7 +512,7 @@ public class EsRestClient implements Closeable {
     }
 
     public void clearIndexData(String indexName) {
-        String endpoint = String.format("/%s/_delete_by_query", indexName);
+        String endpoint = String.format("/%s/_delete_by_query", indexName.toLowerCase());
         Request request = new Request("POST", endpoint);
         String jsonString = "{ \"query\": { \"match_all\": {} } }";
         request.setJsonEntity(jsonString);
@@ -694,5 +696,75 @@ public class EsRestClient implements Closeable {
                                     }
                                     return fieldType;
                                 }));
+    }
+
+    /**
+     * Add a new field to an existing index
+     *
+     * @param index index name
+     * @param fieldTypeDefine field type definition
+     */
+    public void addField(String index, BasicTypeDefine<EsType> fieldTypeDefine) {
+        String endpoint = String.format("/%s/_mapping", index);
+        Request request = new Request("PUT", endpoint);
+
+        // Build mapping JSON for the new field
+        ObjectNode mappingJson = OBJECT_MAPPER.createObjectNode();
+        ObjectNode propertiesJson = OBJECT_MAPPER.createObjectNode();
+        ObjectNode fieldJson = OBJECT_MAPPER.createObjectNode();
+
+        // Set field type
+        fieldJson.put("type", fieldTypeDefine.getNativeType().getType());
+
+        // Add additional options based on field type
+        Map<String, Object> options = fieldTypeDefine.getNativeType().getOptions();
+        if (!options.isEmpty()) {
+            if (fieldTypeDefine.getNativeType().getType().equalsIgnoreCase(DATE)
+                    || fieldTypeDefine.getNativeType().getType().equalsIgnoreCase(DATE_NANOS)) {
+                fieldJson.put("format", options.get("format").toString());
+            } else if (fieldTypeDefine.getNativeType().getType().equalsIgnoreCase(DENSE_VECTOR)) {
+                fieldJson.put("element_type", options.get("element_type").toString());
+            } else if (fieldTypeDefine.getNativeType().getType().equalsIgnoreCase(ALIAS)) {
+                fieldJson.put("path", options.get("path").toString());
+            } else if (fieldTypeDefine
+                    .getNativeType()
+                    .getType()
+                    .equalsIgnoreCase(AGGREGATE_METRIC_DOUBLE)) {
+                ArrayNode metricsArray = OBJECT_MAPPER.createArrayNode();
+                @SuppressWarnings("unchecked")
+                List<String> metrics = (List<String>) options.get("metrics");
+                metrics.forEach(metricsArray::add);
+                fieldJson.set("metrics", metricsArray);
+            }
+        }
+
+        propertiesJson.set(fieldTypeDefine.getName(), fieldJson);
+        mappingJson.set("properties", propertiesJson);
+
+        request.setJsonEntity(mappingJson.toString());
+
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.ADD_FIELD_FAILED,
+                        "PUT " + endpoint + " response null");
+            }
+            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.ADD_FIELD_FAILED,
+                        String.format(
+                                "PUT %s response status code=%d, response=%s",
+                                endpoint,
+                                response.getStatusLine().getStatusCode(),
+                                EntityUtils.toString(response.getEntity())));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.ADD_FIELD_FAILED,
+                    String.format(
+                            "Failed to add field %s to index %s", fieldTypeDefine.getName(), index),
+                    ex);
+        }
     }
 }

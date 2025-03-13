@@ -18,9 +18,10 @@
 package org.apache.seatunnel.api.tracing;
 
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 public class MDCPredicate<T> implements Predicate<T> {
-    private final MDCContext context;
+    private final Supplier<MDCContext> contextSupplier;
     private final Predicate<T> delegate;
 
     public MDCPredicate(Predicate<T> delegate) {
@@ -28,17 +29,18 @@ public class MDCPredicate<T> implements Predicate<T> {
     }
 
     public MDCPredicate(MDCContext context, Predicate<T> delegate) {
-        this.context = context;
+        this(() -> context, delegate);
+    }
+
+    public MDCPredicate(Supplier<MDCContext> contextSupplier, Predicate<T> delegate) {
+        this.contextSupplier = contextSupplier;
         this.delegate = delegate;
     }
 
     @Override
     public boolean test(T t) {
-        try {
-            context.put();
+        try (MDCContext ignored = contextSupplier.get().activate()) {
             return delegate.test(t);
-        } finally {
-            context.clear();
         }
     }
 }

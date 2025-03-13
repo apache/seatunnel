@@ -67,4 +67,4 @@ SeaTunnel 丰富了<a href="https://landscape.cncf.io/?item=app-definition-and-d
 
 ## 了解更多
 
-您可以参阅[快速入门](/docs/category/start-v2/locally/deployment) 了解后续相关步骤。
+您可以参阅[快速入门](start-v2/locally/deployment.md) 了解后续相关步骤。

@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.security.PaimonSecurityC
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.paimon.catalog.Catalog;
 import org.apache.paimon.catalog.CatalogContext;
 import org.apache.paimon.catalog.CatalogFactory;
@@ -50,6 +51,8 @@ public class PaimonCatalogLoader implements Serializable {
 
     private static final String HDFS_IMPL_KEY = "fs.hdfs.impl";
 
+    private static final String HADOOP_USER_NAME = "hadoop_user_name";
+
     private String warehouse;
     private PaimonCatalogEnum catalogType;
     private String catalogUri;
@@ -72,6 +75,10 @@ public class PaimonCatalogLoader implements Serializable {
         if (warehouse.startsWith(HDFS_PREFIX)) {
             checkConfiguration(paimonHadoopConfiguration, HDFS_DEF_FS_NAME);
             paimonHadoopConfiguration.set(HDFS_IMPL_KEY, HDFS_IMPL);
+            String username = paimonHadoopConfiguration.get(HADOOP_USER_NAME);
+            if (StringUtils.isNotBlank(username)) {
+                UserGroupInformation.setLoginUser(UserGroupInformation.createRemoteUser(username));
+            }
         } else if (warehouse.startsWith(S3A_PREFIX)) {
             optionsMap.putAll(paimonHadoopConfiguration.getPropsWithPrefix(StringUtils.EMPTY));
         }

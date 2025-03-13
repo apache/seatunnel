@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.service.slot;
 
+import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
@@ -25,6 +26,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.CPU;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.Memory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SystemLoadInfo;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
@@ -33,7 +35,14 @@ import com.hazelcast.logging.Logger;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
+import lombok.SneakyThrows;
+import oshi.SystemInfo;
+import oshi.hardware.CentralProcessor;
+import oshi.hardware.HardwareAbstractionLayer;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
+import java.lang.management.MemoryUsage;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -41,6 +50,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** The slot service of seatunnel server, used for manage slot in worker. */
@@ -48,6 +58,7 @@ public class DefaultSlotService implements SlotService {
 
     private static final ILogger LOGGER = Logger.getLogger(DefaultSlotService.class);
     private static final long DEFAULT_HEARTBEAT_TIMEOUT = 5000;
+    private static final int SYSTEM_LOAD_SEND_INTERVAL = 2;
     private final NodeEngineImpl nodeEngine;
 
     private AtomicReference<ResourceProfile> unassignedResource;
@@ -96,13 +107,41 @@ public class DefaultSlotService implements SlotService {
             initFixedSlots();
         }
         unassignedResource.set(getNodeResource());
+        AtomicInteger systemLoadSendCountDown = new AtomicInteger(SYSTEM_LOAD_SEND_INTERVAL);
         scheduledExecutorService.scheduleAtFixedRate(
                 () -> {
                     try {
                         LOGGER.fine(
                                 "start send heartbeat to resource manager, this address: "
                                         + nodeEngine.getClusterService().getThisAddress());
-                        sendToMaster(new WorkerHeartbeatOperation(getWorkerProfile())).join();
+                        // Must first obtain SYSTEM_LOAD and then obtain workProfile. If you obtain
+                        // workProfile first and then obtain SYSTEM_LOAD, resource information will
+                        // be reported inaccurately.
+                        SystemLoadInfo systemLoadInfo =
+                                Optional.of(systemLoadSendCountDown.decrementAndGet())
+                                        .filter(
+                                                count ->
+                                                        count == 0
+                                                                && config.getAllocateStrategy()
+                                                                        == AllocateStrategy
+                                                                                .SYSTEM_LOAD)
+                                        .map(
+                                                count -> {
+                                                    systemLoadSendCountDown.set(
+                                                            SYSTEM_LOAD_SEND_INTERVAL);
+                                                    SystemLoadInfo info = new SystemLoadInfo();
+                                                    info.setCpuPercentage(getCpuPercentage());
+                                                    info.setMemPercentage(getMemPercentage());
+                                                    LOGGER.fine("send system load info to master");
+                                                    return info;
+                                                })
+                                        .orElse(null);
+
+                        WorkerProfile workerProfile = getWorkerProfile();
+                        Optional.ofNullable(systemLoadInfo)
+                                .ifPresent(workerProfile::setSystemLoadInfo);
+
+                        sendToMaster(new WorkerHeartbeatOperation(workerProfile)).join();
                     } catch (Exception e) {
                         LOGGER.warning(
                                 "failed send heartbeat to resource manager, will retry later. this address: "
@@ -275,5 +314,46 @@ public class DefaultSlotService implements SlotService {
 
     public <E> InvocationFuture<E> sendToMaster(Operation operation) {
         return NodeEngineUtil.sendOperationToMasterNode(nodeEngine, operation);
+    }
+
+    public double getMemPercentage() {
+        MemoryMXBean memoryMxBean = ManagementFactory.getMemoryMXBean();
+        MemoryUsage heapMemoryUsage = memoryMxBean.getHeapMemoryUsage();
+        return ((double) heapMemoryUsage.getUsed() / (double) heapMemoryUsage.getMax());
+    }
+
+    @SneakyThrows
+    public double getCpuPercentage() {
+        // Create a SystemInfo object to access hardware information
+        SystemInfo si = new SystemInfo();
+        // Get the hardware abstraction layer
+        HardwareAbstractionLayer hal = si.getHardware();
+        // Get the central processor
+        CentralProcessor processor = hal.getProcessor();
+        // Get the previous CPU load ticks
+        long[] prevTicks = processor.getSystemCpuLoadTicks();
+        // Sleep for 1 second to measure the CPU load over time
+        Thread.sleep(1000);
+        // Get the current CPU load ticks
+        long[] ticks = processor.getSystemCpuLoadTicks();
+
+        // Calculate the difference in CPU ticks for each type
+        long user =
+                ticks[CentralProcessor.TickType.USER.getIndex()]
+                        - prevTicks[CentralProcessor.TickType.USER.getIndex()];
+        long nice =
+                ticks[CentralProcessor.TickType.NICE.getIndex()]
+                        - prevTicks[CentralProcessor.TickType.NICE.getIndex()];
+        long sys =
+                ticks[CentralProcessor.TickType.SYSTEM.getIndex()]
+                        - prevTicks[CentralProcessor.TickType.SYSTEM.getIndex()];
+        long idle =
+                ticks[CentralProcessor.TickType.IDLE.getIndex()]
+                        - prevTicks[CentralProcessor.TickType.IDLE.getIndex()];
+        // Calculate the total CPU ticks
+        long totalCpu = user + nice + sys + idle;
+
+        // Calculate and return the CPU usage percentage
+        return ((double) (totalCpu - idle) / (double) totalCpu);
     }
 }

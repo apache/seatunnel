@@ -25,9 +25,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -40,6 +38,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
@@ -79,9 +79,7 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
                 new GenericContainer<>(DOCKER_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
-                        .withPrivilegedMode(true)
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
+                        .withPrivilegedMode(true);
         container.setPortBindings(
                 Lists.newArrayList(
                         String.format("%s:%s", QUERY_PORT, QUERY_PORT),
@@ -89,15 +87,17 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
                         String.format("%s:%s", BE_HTTP_PORT, BE_HTTP_PORT)));
         Startables.deepStart(Stream.of(container)).join();
         log.info("doris container started");
-        given().ignoreExceptions()
+        given().pollDelay(20, TimeUnit.SECONDS)
                 .await()
                 .atMost(360, TimeUnit.SECONDS)
                 .untilAsserted(this::initializeJdbcConnection);
+        log.info("doris initialized");
     }
 
     protected void initializeJdbcConnection()
             throws SQLException, ClassNotFoundException, MalformedURLException,
                     InstantiationException, IllegalAccessException {
+        log.info("doris initializing ...");
         URLClassLoader urlClassLoader =
                 new URLClassLoader(new URL[] {new URL(DRIVER_JAR)}, DorisIT.class.getClassLoader());
         Thread.currentThread().setContextClassLoader(urlClassLoader);
@@ -124,14 +124,21 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
     // cross-container access failure. Delete the BE and add it again
     private void initializeBE() {
         try (Statement statement = jdbcConnection.createStatement()) {
-            ResultSet resultSet = statement.executeQuery(SHOW_FE);
-            String feIp = null;
-            while (resultSet.next()) {
-                feIp = resultSet.getString("Host");
+            ResultSet beResultSet = statement.executeQuery(SHOW_BE);
+            List<String> beList = new ArrayList<>();
+            while (beResultSet.next()) {
+                beList.add(beResultSet.getString("Host"));
             }
-            statement.execute(DROP_BE);
-            statement.execute(String.format(ADD_BE, feIp));
-
+            if (beList.stream().anyMatch("127.0.0.1"::equals)) {
+                ResultSet resultSet = statement.executeQuery(SHOW_FE);
+                String feIp = null;
+                while (resultSet.next()) {
+                    feIp = resultSet.getString("Host");
+                }
+                statement.execute(DROP_BE);
+                statement.execute(String.format(ADD_BE, feIp));
+                log.info("doris BE initialized");
+            }
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }

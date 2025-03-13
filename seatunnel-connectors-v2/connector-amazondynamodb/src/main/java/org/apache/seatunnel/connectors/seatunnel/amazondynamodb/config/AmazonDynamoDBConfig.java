@@ -17,61 +17,48 @@
 
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
 import java.io.Serializable;
 
+@Data
+@AllArgsConstructor
 public class AmazonDynamoDBConfig implements Serializable {
-    public static final Option<String> URL =
-            Options.key("url")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("url to read to Amazon DynamoDB");
-    public static final Option<String> REGION =
-            Options.key("region")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The region of Amazon DynamoDB");
-    public static final Option<String> ACCESS_KEY_ID =
-            Options.key("access_key_id")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The access id of Amazon DynamoDB");
-    public static final Option<String> SECRET_ACCESS_KEY =
-            Options.key("secret_access_key")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The access secret key of Amazon DynamoDB");
-    public static final Option<String> TABLE =
-            Options.key("table")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The table of Amazon DynamoDB");
 
-    public static final Option<Integer> BATCH_SIZE =
-            Options.key("batch_size")
-                    .intType()
-                    .defaultValue(25)
-                    .withDescription("The batch size of Amazon DynamoDB");
+    private String url;
 
-    public static final Option<Integer> BATCH_INTERVAL_MS =
-            Options.key("batch_interval_ms")
-                    .intType()
-                    .defaultValue(1000)
-                    .withDescription("The batch interval of Amazon DynamoDB");
+    private String region;
 
-    @SuppressWarnings("checkstyle:MagicNumber")
-    public static final Option<Integer> SCAN_ITEM_LIMIT =
-            Options.key("scan_item_limit")
-                    .intType()
-                    .defaultValue(1)
-                    .withDescription("number of item each scan request should return");
+    private String accessKeyId;
 
-    @SuppressWarnings("checkstyle:MagicNumber")
-    public static final Option<Integer> PARALLEL_SCAN_THREADS =
-            Options.key("parallel_scan_threads")
-                    .intType()
-                    .defaultValue(2)
-                    .withDescription("number of logical segments for parallel scan");
+    private String secretAccessKey;
+
+    private String table;
+
+    private Config schema;
+
+    public int batchSize;
+    public int scanItemLimit;
+    public int parallelScanThreads;
+
+    public AmazonDynamoDBConfig(ReadonlyConfig config) {
+        this.url = config.get(AmazonDynamoDBBaseOptions.URL);
+        this.region = config.get(AmazonDynamoDBBaseOptions.REGION);
+        this.accessKeyId = config.get(AmazonDynamoDBBaseOptions.ACCESS_KEY_ID);
+        this.secretAccessKey = config.get(AmazonDynamoDBBaseOptions.SECRET_ACCESS_KEY);
+        this.table = config.get(AmazonDynamoDBBaseOptions.TABLE);
+        if (config.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
+            this.schema =
+                    ReadonlyConfig.fromMap(config.get(ConnectorCommonOptions.SCHEMA)).toConfig();
+        }
+        this.batchSize = config.get(AmazonDynamoDBSinkOptions.BATCH_SIZE);
+        this.scanItemLimit = config.get(AmazonDynamoDBSourceOptions.SCAN_ITEM_LIMIT);
+        this.parallelScanThreads = config.get(AmazonDynamoDBSourceOptions.PARALLEL_SCAN_THREADS);
+    }
 }

@@ -31,12 +31,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
-import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_INPUT;
+import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_INPUT;
 
 public abstract class FlinkAbstractPluginExecuteProcessor<T>
         implements PluginExecuteProcessor<DataStreamTableInfo, FlinkRuntimeEnvironment> {
-
-    protected static final String ENGINE_TYPE = "seatunnel";
 
     protected static final BiConsumer<ClassLoader, URL> ADD_URL_TO_CLASSLOADER =
             (classLoader, url) -> {
@@ -57,6 +55,7 @@ public abstract class FlinkAbstractPluginExecuteProcessor<T>
     protected JobContext jobContext;
     protected final List<T> plugins;
     protected final Config envConfig;
+    protected final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
 
     protected FlinkAbstractPluginExecuteProcessor(
             List<URL> jarPaths,

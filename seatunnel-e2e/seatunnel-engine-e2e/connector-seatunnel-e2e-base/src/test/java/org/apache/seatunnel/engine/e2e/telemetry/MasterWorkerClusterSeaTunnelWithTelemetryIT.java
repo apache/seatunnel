@@ -121,7 +121,7 @@ public class MasterWorkerClusterSeaTunnelWithTelemetryIT extends SeaTunnelContai
                                                     + colon
                                                     + server.getFirstMappedPort()
                                                     + CONTEXT_PATH
-                                                    + RestConstant.JOB_INFO_URL
+                                                    + RestConstant.REST_URL_JOB_INFO
                                                     + "/"
                                                     + JobId)
                                     .then()
@@ -652,13 +652,13 @@ public class MasterWorkerClusterSeaTunnelWithTelemetryIT extends SeaTunnelContai
                                                 + colon
                                                 + port
                                                 + contextPath
-                                                + RestConstant.SUBMIT_JOB_URL
+                                                + RestConstant.REST_URL_SUBMIT_JOB
                                         : http
                                                 + container.getHost()
                                                 + colon
                                                 + port
                                                 + contextPath
-                                                + RestConstant.SUBMIT_JOB_URL
+                                                + RestConstant.REST_URL_SUBMIT_JOB
                                                 + "?"
                                                 + parameters);
         return response;

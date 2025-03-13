@@ -59,7 +59,6 @@ VALUES (101,"scooter","Small 2-wheel scooter",3.14),
        (108,"jacket","water resistent black wind breaker",0.1),
        (109,"spare tire","24 inch spare tire",22.2);
 
-
 drop table if exists products_on_hand;
 CREATE TABLE products_on_hand (
   product_id INTEGER NOT NULL PRIMARY KEY,

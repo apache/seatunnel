@@ -23,7 +23,7 @@
     </parent>
 
     <artifactId>connector-jdbc-e2e-ddl</artifactId>
-    <name>SeaTunnel : Connectors V2 : JDBC Sink : Schema Evolution</name>
+    <name>SeaTunnel : E2E : Connector V2 : JDBC : Schema Evolution</name>
 
     <dependencyManagement>
         <dependencies>
@@ -48,23 +48,16 @@
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-jdbc</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-cdc-mysql</artifactId>
             <version>${project.version}</version>
             <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-transforms-v2</artifactId>
-            <version>${project.version}</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-assert</artifactId>
-            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
 
@@ -80,10 +73,17 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- jdbc sink dirver -->
         <dependency>
             <!-- fix CVE-2022-26520 https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-26520  -->
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.dameng</groupId>
+            <artifactId>DmJdbcDriver18</artifactId>
             <scope>test</scope>
         </dependency>
 

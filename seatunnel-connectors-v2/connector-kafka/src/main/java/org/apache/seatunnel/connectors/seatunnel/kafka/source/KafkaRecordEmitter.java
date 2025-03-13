@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordEmitter;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormatErrorHandleWay;
 import org.apache.seatunnel.format.compatible.kafka.connect.json.CompatibleKafkaConnectDeserializationSchema;
+import org.apache.seatunnel.format.compatible.kafka.connect.json.NativeKafkaConnectDeserializationSchema;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
@@ -64,12 +65,12 @@ public class KafkaRecordEmitter
             if (deserializationSchema instanceof CompatibleKafkaConnectDeserializationSchema) {
                 ((CompatibleKafkaConnectDeserializationSchema) deserializationSchema)
                         .deserialize(consumerRecord, outputCollector);
+            } else if (deserializationSchema instanceof NativeKafkaConnectDeserializationSchema) {
+                ((NativeKafkaConnectDeserializationSchema) deserializationSchema)
+                        .deserialize(consumerRecord, outputCollector);
             } else {
                 deserializationSchema.deserialize(consumerRecord.value(), outputCollector);
             }
-            // consumerRecord.offset + 1 is the offset commit to Kafka and also the start offset
-            // for the next run
-            splitState.setCurrentOffset(consumerRecord.offset() + 1);
         } catch (Exception e) {
             if (this.messageFormatErrorHandleWay == MessageFormatErrorHandleWay.SKIP) {
                 logger.warn(
@@ -79,6 +80,9 @@ public class KafkaRecordEmitter
                 throw e;
             }
         }
+        // consumerRecord.offset + 1 is the offset commit to Kafka and also the start offset
+        // for the next run
+        splitState.setCurrentOffset(consumerRecord.offset() + 1);
     }
 
     private static class OutputCollector<T> implements Collector<T> {

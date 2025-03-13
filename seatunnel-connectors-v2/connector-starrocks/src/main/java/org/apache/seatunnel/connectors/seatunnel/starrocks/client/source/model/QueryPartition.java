@@ -103,7 +103,7 @@ public class QueryPartition implements Serializable, Comparable<QueryPartition> 
     @Override
     public String toString() {
         return "QueryPartition{"
-                + ", database='"
+                + "database='"
                 + database
                 + '\''
                 + ", table='"

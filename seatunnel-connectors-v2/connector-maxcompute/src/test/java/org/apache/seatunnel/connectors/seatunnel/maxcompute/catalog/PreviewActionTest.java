@@ -90,7 +90,7 @@ public class PreviewActionTest {
                 "CREATE TABLE IF NOT EXISTS `testtable` (\n"
                         + "`id` BIGINT NOT NULL ,\n"
                         + "`test` STRING NULL \n"
-                        + ");",
+                        + ") COMMENT 'comment' ;",
                 Optional.of(CATALOG_TABLE));
     }
 

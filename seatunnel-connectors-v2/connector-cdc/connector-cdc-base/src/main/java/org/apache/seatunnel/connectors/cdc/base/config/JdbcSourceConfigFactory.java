@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.cdc.base.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.CatalogOptions;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 
@@ -42,6 +42,8 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     protected String originUrl;
     protected List<String> databaseList;
     protected List<String> tableList;
+    protected String databasePattern;
+    protected String tablePattern;
     protected StartupConfig startupConfig;
     protected StopConfig stopConfig;
     protected double distributionFactorUpper =
@@ -242,7 +244,9 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.username = config.get(JdbcSourceOptions.USERNAME);
         this.password = config.get(JdbcSourceOptions.PASSWORD);
         this.databaseList = config.get(JdbcSourceOptions.DATABASE_NAMES);
-        this.tableList = config.get(CatalogOptions.TABLE_NAMES);
+        this.tableList = config.get(ConnectorCommonOptions.TABLE_NAMES);
+        this.databasePattern = config.get(ConnectorCommonOptions.DATABASE_PATTERN);
+        this.tablePattern = config.get(ConnectorCommonOptions.TABLE_PATTERN);
         this.distributionFactorUpper =
                 config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND);
         this.distributionFactorLower =

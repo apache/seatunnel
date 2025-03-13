@@ -125,6 +125,11 @@ public class FileUtils {
         }
     }
 
+    public static boolean isFileExist(String filePath) {
+        File file = new File(filePath);
+        return file.exists();
+    }
+
     /**
      * return the line number of all files in the dirPath
      *

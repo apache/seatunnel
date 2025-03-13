@@ -17,11 +17,10 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.server.checkpoint.Stateful;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
-
-import java.util.concurrent.CompletableFuture;
 
 public abstract class ActionFlowLifeCycle extends AbstractFlowLifeCycle implements Stateful {
 

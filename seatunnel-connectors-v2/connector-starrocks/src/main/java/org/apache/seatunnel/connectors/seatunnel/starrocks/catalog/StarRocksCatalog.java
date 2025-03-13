@@ -209,6 +209,7 @@ public class StarRocksCatalog implements Catalog {
                         tablePath.getDatabaseName(),
                         tablePath.getTableName(),
                         table.getTableSchema(),
+                        table.getComment(),
                         StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key()));
     }
 
@@ -504,6 +505,7 @@ public class StarRocksCatalog implements Catalog {
                             tablePath.getDatabaseName(),
                             tablePath.getTableName(),
                             catalogTable.get().getTableSchema(),
+                            catalogTable.get().getComment(),
                             StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key()));
         } else if (actionType == ActionType.DROP_TABLE) {
             return new SQLPreviewResult(

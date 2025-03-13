@@ -20,12 +20,14 @@ package org.apache.seatunnel.engine.server;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.telemetry.metrics.ExportsInstanceInitializer;
 
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import com.hazelcast.instance.impl.Node;
+import com.hazelcast.internal.util.ConcurrencyUtil;
 import lombok.NonNull;
 
 public class SeaTunnelServerStarter {
@@ -52,6 +54,10 @@ public class SeaTunnelServerStarter {
 
     private static HazelcastInstanceImpl initializeHazelcastInstance(
             @NonNull SeaTunnelConfig seaTunnelConfig, String customInstanceName) {
+
+        // set the default async executor for Hazelcast InvocationFuture
+        ConcurrencyUtil.setDefaultAsyncExecutor(CompletableFuture.EXECUTOR);
+
         boolean condition = checkTelemetryConfig(seaTunnelConfig);
         String instanceName =
                 customInstanceName != null

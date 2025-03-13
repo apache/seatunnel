@@ -50,6 +50,7 @@ public class HiveSinkFactory
                 .optional(BaseSinkConfig.REMOTE_USER)
                 .optional(HiveConfig.HADOOP_CONF)
                 .optional(HiveConfig.HADOOP_CONF_PATH)
+                .optional(BaseSinkConfig.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96)
                 .build();
     }
 

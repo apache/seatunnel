@@ -21,9 +21,9 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -106,7 +106,7 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
                                 .getString(HdfsSourceConfigOptions.FILE_FORMAT_TYPE.key())
                                 .toUpperCase());
         // only json text csv type support user-defined schema now
-        if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
+        if (pluginConfig.hasPath(ConnectorCommonOptions.SCHEMA.key())) {
             switch (fileFormat) {
                 case CSV:
                 case TEXT:

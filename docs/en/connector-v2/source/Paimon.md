@@ -73,6 +73,7 @@ The field data types currently supported by where conditions are as follows:
 * double
 * date
 * timestamp
+* time
 
 ### paimon.hadoop.conf [string]
 
@@ -152,6 +153,7 @@ source {
     table="st_test"
     query = "select * from st_test where pk_id is not null and pk_id < 3"
     paimon.hadoop.conf = {
+      hadoop_user_name = "hdfs"
       fs.defaultFS = "hdfs://nameservice1"
       dfs.nameservices = "nameservice1"
       dfs.ha.namenodes.nameservice1 = "nn1,nn2"
