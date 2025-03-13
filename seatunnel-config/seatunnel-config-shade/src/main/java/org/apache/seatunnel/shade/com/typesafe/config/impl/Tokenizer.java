@@ -153,7 +153,10 @@ final class Tokenizer {
 
         // Add from SeaTunnel
         TokenIterator(
-                ConfigOrigin origin, Reader input, boolean allowComments, boolean acceptSpecialText) {
+                ConfigOrigin origin,
+                Reader input,
+                boolean allowComments,
+                boolean acceptSpecialText) {
             this(origin, input, allowComments);
             this.acceptSpecialText = acceptSpecialText;
         }
