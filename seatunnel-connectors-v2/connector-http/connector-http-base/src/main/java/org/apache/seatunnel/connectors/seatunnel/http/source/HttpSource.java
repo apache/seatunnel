@@ -50,6 +50,7 @@ import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     protected final HttpParameter httpParameter = new HttpParameter();
@@ -82,12 +83,15 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     private void buildPagingWithConfig(ReadonlyConfig pluginConfig) {
         if (pluginConfig.getOptional(HttpSourceOptions.PAGEING).isPresent()) {
             pageInfo = new PageInfo();
-            ReadonlyConfig pageConfig = pluginConfig.get(HttpSourceOptions.PAGEING);
-            pageInfo.setTotalPageSize(pageConfig.get(HttpSourceOptions.TOTAL_PAGE_SIZE));
-            pageInfo.setPageIndex(pageConfig.get(HttpSourceOptions.START_PAGE_NUMBER));
-            pageInfo.setBatchSize(pageConfig.get(HttpSourceOptions.BATCH_SIZE));
-            if (pageConfig.getOptional(HttpSourceOptions.PAGE_FIELD).isPresent()) {
-                pageInfo.setPageField(pageConfig.get(HttpSourceOptions.PAGE_FIELD));
+            Map<String, String> pageConfig = pluginConfig.get(HttpSourceOptions.PAGEING);
+            pageInfo.setTotalPageSize(
+                    Long.valueOf(pageConfig.get(HttpSourceOptions.TOTAL_PAGE_SIZE.key())));
+            pageInfo.setPageIndex(
+                    Long.valueOf(pageConfig.get(HttpSourceOptions.START_PAGE_NUMBER.key())));
+            pageInfo.setBatchSize(
+                    Integer.valueOf(pageConfig.get(HttpSourceOptions.BATCH_SIZE.key())));
+            if (pageConfig.containsKey(HttpSourceOptions.PAGE_FIELD.key())) {
+                pageInfo.setPageField(pageConfig.get(HttpSourceOptions.PAGE_FIELD.key()));
             }
         }
     }

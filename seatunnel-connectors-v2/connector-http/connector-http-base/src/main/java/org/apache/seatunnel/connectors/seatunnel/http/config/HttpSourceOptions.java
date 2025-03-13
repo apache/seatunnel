@@ -19,7 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.http.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+
+import java.util.Map;
 
 public class HttpSourceOptions extends HttpCommonOptions {
 
@@ -62,11 +63,8 @@ public class HttpSourceOptions extends HttpCommonOptions {
                     .withDescription(
                             "this parameter is used to specify the page field name in the request parameter");
 
-    public static final Option<ReadonlyConfig> PAGEING =
-            Options.key("pageing")
-                    .objectType(ReadonlyConfig.class)
-                    .noDefaultValue()
-                    .withDescription("pageing");
+    public static final Option<Map<String, String>> PAGEING =
+            Options.key("pageing").mapType().noDefaultValue().withDescription("pageing");
 
     public static final Option<HttpRequestMethod> METHOD =
             Options.key("method")
