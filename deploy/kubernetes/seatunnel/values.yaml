@@ -25,6 +25,11 @@ image:
   pullPolicy: "IfNotPresent"
   pullSecret: ""
 
+# The env for pod
+env:
+  - name: TZ
+    value: Asia/Shanghai
+
 master:
   ## The command to start master.
   command: []

@@ -78,14 +78,11 @@ spec:
           livenessProbe:
             {{- toYaml .Values.master.livenessProbe | nindent 12 }}
           {{- end }}
+          {{- if .Values.env }}
+          env:
+            {{- toYaml .Values.env | nindent 12 }}
+          {{- end }}
           volumeMounts:
-            # time sync to node
-            - name: localtime
-              mountPath: /etc/localtime
-              readOnly: true
-            - name: timezone
-              mountPath: /etc/timezone
-              readOnly: true
             # config mount
             {{- range $path, $_ := .Files.Glob "conf/*" }}
             - name: seatunnel-configs
@@ -93,12 +90,6 @@ spec:
               subPath: {{ base $path }}
             {{- end }}
       volumes:
-        - name: localtime
-          hostPath:
-            path: /etc/localtime
-        - name: timezone
-          hostPath:
-            path: /etc/timezone
         - name: seatunnel-configs
           configMap:
             name: {{ include "seatunnel.fullname" . }}-configs
