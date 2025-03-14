@@ -27,6 +27,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ConfigTest {
 
@@ -39,5 +41,22 @@ public class ConfigTest {
                 ConfigFactory.parseFile(
                         FileUtils.getFileFromResources("/seatunnel/serialize.conf"));
         Assertions.assertEquals(expected, config.root().render(ConfigRenderOptions.concise()));
+    }
+
+    @Test
+    public void testQuoteAsKey() throws URISyntaxException {
+        Config config =
+                ConfigFactory.parseFile(
+                        FileUtils.getFileFromResources("/seatunnel/configWithSpecialKey.conf"));
+        List<String> keys = new ArrayList<>(config.getObject("object").keySet());
+        Assertions.assertEquals("\"", keys.get(0));
+        Assertions.assertEquals("\"\"", keys.get(1));
+        Assertions.assertEquals("\\\"", keys.get(2));
+
+        Assertions.assertEquals("\\\"", config.getObject("object").toConfig().getString("\""));
+        Assertions.assertEquals(
+                "\\\"\\\"", config.getObject("object").toConfig().getString("\"\""));
+        Assertions.assertEquals(
+                "\\\\\\\"", config.getObject("object").toConfig().getString("\\\""));
     }
 }
