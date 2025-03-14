@@ -21,16 +21,20 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
+
+import java.io.IOException;
+import java.time.Duration;
 
 @Slf4j
 public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
 
     private static final String DATABASE_TYPE = "SqlServer";
-    private static final String SQLSERVER_IMAGE = "kurthunter/sqlserver:v2";
-    private static final String SQLSERVER_CONTAINER_HOST = "e2e_sqlserver";
+    private static final String SQLSERVER_IMAGE = "mcr.microsoft.com/mssql/server:2022-latest";
+    private static final String SQLSERVER_CONTAINER_HOST = "sqlserver";
     private static final String SQLSERVER_DATABASE = "master";
     private static final String SQLSERVER_SCHEMA = "dbo";
     private static final String SQLSERVER_USER = "sa";
@@ -39,14 +43,15 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
     private static final String SA_PASSWORD = "SA_PASSWORD";
     private static final String SQLSERVER_PASSWORD = "paanssy1234$";
     private static final int SQLSERVER_PORT = 1433;
+    private static final int SQLSERVER_XA_PORT = 5022;
     private final String SQLSERVER_JDBC_URL =
             "jdbc:sqlserver://%s:%s;databaseName=%s;"
-                    + "useBulkCopyForBatchInsert=true;delayLoadingLobs=true;useFmtOnly=false;integratedSecurity=false;xaTransactionCompatible=true";
+                    + "useBulkCopyForBatchInsert=true;delayLoadingLobs=true;useFmtOnly=false;"
+                    + "integratedSecurity=false;xaTransactionCompatible=true;"
+                    + "encrypt=false;trustServerCertificate=true;";
     private static final String DRIVER_CLASS = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
-
     private static final String SQLSERVER_DRIVER_JAR =
             "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.2.1.jre8/mssql-jdbc-9.2.1.jre8.jar";
-
     private final String schemaEvolutionCaseConfig =
             "/mysqlcdc_to_sqlserver_with_schema_change.conf";
     private final String schemaEvolutionCaseExactlyOnceConfig =
@@ -82,23 +87,34 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
                         .withNetworkAliases(SQLSERVER_CONTAINER_HOST)
                         .withEnv(ACCEPT_EULA, Y)
                         .withEnv(SA_PASSWORD, SQLSERVER_PASSWORD)
-                        .withCommand(
-                                "sh",
-                                "-c",
-                                "/opt/mssql/bin/sqlservr & "
-                                        + "/opt/mssql-tools/bin/sqlcmd -U sa -P "
-                                        + SQLSERVER_PASSWORD
-                                        + " -Q \""
-                                        + "IF NOT EXISTS (SELECT * FROM sys.objects WHERE name = 'xp_sqljdbc_xa_init_ex') "
-                                        + "EXEC sp_sqljdbc_xa_install; "
-                                        + "EXEC sys.sp_configure 'remote access', 1; RECONFIGURE\"; "
-                                        + "wait $(pidof sqlservr)")
+                        .withEnv("MSSQL_ENABLE_HADR", "1")
+                        .withEnv("MSSQL_AGENT_ENABLED", "1")
+                        .withExposedPorts(SQLSERVER_PORT,SQLSERVER_XA_PORT)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(SQLSERVER_IMAGE)));
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%d:%d", SQLSERVER_PORT, SQLSERVER_PORT)));
-        return container;
+
+        container.setPortBindings(Lists.newArrayList(
+                String.format("%d:%d", SQLSERVER_PORT, SQLSERVER_PORT),
+                          String.format("%d:%d", SQLSERVER_XA_PORT, SQLSERVER_XA_PORT)
+        ));
+
+        container.start();
+        try {
+            container.execInContainer(
+                    "/opt/mssql-tools18/bin/sqlcmd",
+                    "-S", SQLSERVER_CONTAINER_HOST,
+                    "-U", SQLSERVER_USER,
+                    "-P", SQLSERVER_PASSWORD,
+                    "-Q",
+                    "IF NOT EXISTS (SELECT * FROM sys.objects WHERE name = 'xp_sqljdbc_xa_init_ex') "
+                            + "EXEC sp_sqljdbc_xa_install",
+                    "-C");
+        } catch (IOException | InterruptedException e) {
+            log.error("XA procedure installation failed: ", e);
+            throw new RuntimeException(e);
+        }
+            return container;
     }
 
     @Override
