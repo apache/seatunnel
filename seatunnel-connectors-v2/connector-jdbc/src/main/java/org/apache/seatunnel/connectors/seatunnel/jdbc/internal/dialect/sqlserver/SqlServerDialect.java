@@ -296,9 +296,7 @@ public class SqlServerDialect implements JdbcDialect {
 
         // Build the SQL statement that add the column
         StringBuilder sqlBuilder =
-                new StringBuilder()
-                        .append("ALTER TABLE ")
-                        .append(tableIdentifier(tablePath))
+                buildAlterTablePrefix(tablePath)
                         .append(" ADD ")
                         .append(quoteIdentifier(column.getName()))
                         .append(" ")
@@ -366,14 +364,6 @@ public class SqlServerDialect implements JdbcDialect {
         boolean sameCatalog = StringUtils.equals(dialectName(), sourceDialectName);
         BasicTypeDefine typeDefine = getTypeConverter().reconvert(column);
         String columnType = sameCatalog ? column.getSourceType() : typeDefine.getColumnType();
-        if (event.getTypeChanged() != null
-                && event.getTypeChanged()
-                && SQLSERVER_TEXT.equals(typeDefine.getColumnType())) {
-            log.warn(
-                    "SqlServer does not support modifying the TEXT type directly. "
-                            + "Please use ALTER TABLE MODIFY COLUMN to change the column type.");
-        }
-
         List<String> ddlSQL = new ArrayList<>();
         // Handle field default constraints.
         if (column.getDefaultValue() != null) {
@@ -398,12 +388,11 @@ public class SqlServerDialect implements JdbcDialect {
                         if (StringUtils.isBlank(constraintName)) {
                             continue;
                         }
-                        String dropConstraintSQL =
-                                String.format(
-                                        "ALTER TABLE %s DROP CONSTRAINT %s",
-                                        tableIdentifier(tablePath),
-                                        quoteIdentifier(constraintName));
-                        ddlSQL.add(dropConstraintSQL);
+                        StringBuilder dropConstraintSQL =
+                                buildAlterTablePrefix(tablePath)
+                                        .append(" DROP CONSTRAINT ")
+                                        .append(quoteIdentifier(constraintName));
+                        ddlSQL.add(dropConstraintSQL.toString());
                     }
                 }
 
@@ -411,14 +400,13 @@ public class SqlServerDialect implements JdbcDialect {
                 String defaultValueClause =
                         sqlClauseWithDefaultValue(typeDefine, sourceDialectName);
                 if (StringUtils.isNotBlank(defaultValueClause)) {
-                    String defaultSqlBuilder =
-                            "ALTER TABLE "
-                                    + tableIdentifier(tablePath)
-                                    + " ADD "
-                                    + defaultValueClause
-                                    + " FOR "
-                                    + quoteIdentifier(column.getName());
-                    ddlSQL.add(defaultSqlBuilder);
+                    StringBuilder defaultSqlBuilder =
+                            buildAlterTablePrefix(tablePath)
+                                    .append(" ADD ")
+                                    .append(defaultValueClause)
+                                    .append(" FOR ")
+                                    .append(quoteIdentifier(column.getName()));
+                    ddlSQL.add(defaultSqlBuilder.toString());
                 }
             } else {
                 log.warn(
@@ -435,8 +423,7 @@ public class SqlServerDialect implements JdbcDialect {
 
         // Build the SQL statement that modifies the column
         StringBuilder sqlBuilder =
-                new StringBuilder("ALTER TABLE ")
-                        .append(tableIdentifier(tablePath))
+                buildAlterTablePrefix(tablePath)
                         .append(" ALTER COLUMN ")
                         .append(quoteIdentifier(column.getName()))
                         .append(" ")
@@ -536,19 +523,22 @@ public class SqlServerDialect implements JdbcDialect {
             throws SQLException {
         String selectColumnSQL =
                 String.format(
-                        "SELECT IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_CATALOG = '%s' "
-                                + "AND TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s' AND COLUMN_NAME = '%s';",
-                        tablePath.getDatabaseName(),
-                        tablePath.getSchemaName(),
-                        tablePath.getTableName(),
-                        column);
+                        "SELECT IS_NULLABLE FROM information_schema.COLUMNS WHERE %s AND COLUMN_NAME = '%s';",
+                        buildCommonWhereClause(tablePath), column);
         try (Statement statement = connection.createStatement()) {
             ResultSet rs = statement.executeQuery(selectColumnSQL);
-            if (rs.next()) {
-                return rs.getString("IS_NULLABLE").equals("YES");
-            } else {
-                throw new SQLException("Column not found: " + column);
-            }
+            rs.next();
+            return rs.getString("IS_NULLABLE").equals("YES");
         }
+    }
+
+    private StringBuilder buildAlterTablePrefix(TablePath tablePath) {
+        return new StringBuilder("ALTER TABLE ").append(tableIdentifier(tablePath));
+    }
+
+    private String buildCommonWhereClause(TablePath tablePath) {
+        return String.format(
+                "TABLE_CATALOG = '%s' AND TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'",
+                tablePath.getDatabaseName(), tablePath.getSchemaName(), tablePath.getTableName());
     }
 }

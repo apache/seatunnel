@@ -105,10 +105,11 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
 
         container.start();
         try {
+            log.info("Installing stored procedures sp_sqljdbc_xa_install.");
             container.execInContainer(
                     "/opt/mssql-tools18/bin/sqlcmd",
                     "-S",
-                    SQLSERVER_CONTAINER_HOST,
+                    "localhost",
                     "-U",
                     SQLSERVER_USER,
                     "-P",
