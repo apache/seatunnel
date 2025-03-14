@@ -232,4 +232,22 @@ public class TextFormatSchemaTest {
                 "\\N\u0001\\N\u0001\\N\u0001\\N\u0001\\N\u0001\\N\u0001\\N\u0001\\N",
                 new String(textSerializationSchema.serialize(expected)));
     }
+
+    @Test
+    public void testSerializationWithRequireEscapeCharacters() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new SeaTunnelDataType[] {INT_TYPE, STRING_TYPE});
+        TextDeserializationSchema deserializationSchema =
+                TextDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter("|")
+                        .build();
+
+        String content = "1|tyrantlucifer";
+        SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(content.getBytes());
+        Assertions.assertEquals(1, seaTunnelRow.getField(0));
+        Assertions.assertEquals("tyrantlucifer", seaTunnelRow.getField(1));
+    }
 }

@@ -25,20 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class SourceConfig {
-
-    public static final Option<String> INDEX =
-            Options.key("index")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Easysearch index name, support * fuzzy matching");
-
-    public static final Option<List<String>> SOURCE =
-            Options.key("source")
-                    .listType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "The fields of index. You can get the document id by specifying the field _id.If sink _id to other index,you need specify an alias for _id due to the Easysearch limit");
+public class EasysearchSourceOptions extends EasysearchSinkCommonOptions {
 
     public static final Option<String> SCROLL_TIME =
             Options.key("scroll_time")
@@ -61,4 +48,11 @@ public class SourceConfig {
                             Collections.singletonMap("match_all", new HashMap<String, String>()))
                     .withDescription(
                             "Easysearch query language. You can control the range of data read");
+
+    public static final Option<List<String>> SOURCE =
+            Options.key("source")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The fields of index. You can get the document id by specifying the field _id.If sink _id to other index,you need specify an alias for _id due to the Easysearch limit");
 }

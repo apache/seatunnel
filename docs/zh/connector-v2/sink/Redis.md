@@ -16,8 +16,8 @@ import ChangeLog from '../changelog/connector-redis.md';
 
 | name               | type    |       required        | default value |
 |--------------------|---------|-----------------------|---------------|
-| host               | string  | yes                   | -             |
-| port               | int     | yes                   | -             |
+| host               | string  | `mode=single`时必须      | -             |
+| port               | int     | no                    | 6379          |
 | key                | string  | yes                   | -             |
 | data_type          | string  | yes                   | -             |
 | batch_size         | int     | no                    | 10            |

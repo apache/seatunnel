@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.configuration.Options;
 
 import java.util.List;
 
-public class EzsClusterConnectionConfig {
+public class EasysearchSinkCommonOptions {
 
     public static final Option<List<String>> HOSTS =
             Options.key("hosts")
@@ -30,6 +30,12 @@ public class EzsClusterConnectionConfig {
                     .noDefaultValue()
                     .withDescription(
                             "Easysearch cluster http address, the format is host:port, allowing multiple hosts to be specified. Such as [\"host1:9200\", \"host2:9200\"]");
+
+    public static final Option<String> INDEX =
+            Options.key("index")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Easysearch index name, support * fuzzy matching");
 
     public static final Option<String> USERNAME =
             Options.key("username")

@@ -25,7 +25,7 @@ import org.apache.seatunnel.api.configuration.Options;
 import java.util.List;
 import java.util.Map;
 
-public class FakeOption {
+public class FakeSourceOptions {
 
     public static final Option<List<Map<String, Object>>> ROWS =
             Options.key("rows")

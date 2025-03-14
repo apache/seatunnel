@@ -173,7 +173,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("TypesenseSourceOptions");
         whiteList.add("TypesenseSinkOptions");
         whiteList.add("EmailSinkOptions");
-        whiteList.add("HudiSinkOptions");
         whiteList.add("PulsarSinkOptions");
         whiteList.add("HttpSinkOptions");
         whiteList.add("SlsSinkOptions");
@@ -182,16 +181,13 @@ public class ConnectorOptionCheckTest {
         whiteList.add("PaimonSinkOptions");
         whiteList.add("TDengineSourceOptions");
         whiteList.add("PulsarSourceOptions");
-        whiteList.add("FakeSourceOptions");
         whiteList.add("MongodbSinkOptions");
         whiteList.add("IoTDBSinkOptions");
-        whiteList.add("EasysearchSourceOptions");
         whiteList.add("IcebergSourceOptions");
         whiteList.add("PaimonSourceOptions");
         whiteList.add("IoTDBSourceOptions");
         whiteList.add("SlsSourceOptions");
         whiteList.add("SentrySinkOptions");
-        whiteList.add("EasysearchSinkOptions");
         whiteList.add("QdrantSinkOptions");
         whiteList.add("MilvusSourceOptions");
         whiteList.add("RocketMqSinkOptions");
