@@ -50,7 +50,6 @@ import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     protected final HttpParameter httpParameter = new HttpParameter();
@@ -80,18 +79,31 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                 : Boundedness.UNBOUNDED;
     }
 
-    private void buildPagingWithConfig(ReadonlyConfig pluginConfig) {
-        if (pluginConfig.getOptional(HttpSourceOptions.PAGEING).isPresent()) {
+    private void buildPagingWithConfig(ReadonlyConfig config) {
+        Config pluginConfig = config.toConfig();
+        if (pluginConfig.hasPath(HttpSourceOptions.PAGEING.key())) {
             pageInfo = new PageInfo();
-            Map<String, String> pageConfig = pluginConfig.get(HttpSourceOptions.PAGEING);
-            pageInfo.setTotalPageSize(
-                    Long.valueOf(pageConfig.get(HttpSourceOptions.TOTAL_PAGE_SIZE.key())));
-            pageInfo.setPageIndex(
-                    Long.valueOf(pageConfig.get(HttpSourceOptions.START_PAGE_NUMBER.key())));
-            pageInfo.setBatchSize(
-                    Integer.valueOf(pageConfig.get(HttpSourceOptions.BATCH_SIZE.key())));
-            if (pageConfig.containsKey(HttpSourceOptions.PAGE_FIELD.key())) {
-                pageInfo.setPageField(pageConfig.get(HttpSourceOptions.PAGE_FIELD.key()));
+            Config pageConfig = pluginConfig.getConfig(HttpSourceOptions.PAGEING.key());
+            if (pageConfig.hasPath(HttpSourceOptions.TOTAL_PAGE_SIZE.key())) {
+                pageInfo.setTotalPageSize(
+                        pageConfig.getLong(HttpSourceOptions.TOTAL_PAGE_SIZE.key()));
+            } else {
+                pageInfo.setTotalPageSize(HttpSourceOptions.TOTAL_PAGE_SIZE.defaultValue());
+            }
+            if (pageConfig.hasPath(HttpSourceOptions.START_PAGE_NUMBER.key())) {
+                pageInfo.setPageIndex(
+                        pageConfig.getLong(HttpSourceOptions.START_PAGE_NUMBER.key()));
+            } else {
+                pageInfo.setPageIndex(HttpSourceOptions.START_PAGE_NUMBER.defaultValue());
+            }
+
+            if (pageConfig.hasPath(HttpSourceOptions.BATCH_SIZE.key())) {
+                pageInfo.setBatchSize(pageConfig.getInt(HttpSourceOptions.BATCH_SIZE.key()));
+            } else {
+                pageInfo.setBatchSize(HttpSourceOptions.BATCH_SIZE.defaultValue());
+            }
+            if (pageConfig.hasPath(HttpSourceOptions.PAGE_FIELD.key())) {
+                pageInfo.setPageField(pageConfig.getString(HttpSourceOptions.PAGE_FIELD.key()));
             }
         }
     }
