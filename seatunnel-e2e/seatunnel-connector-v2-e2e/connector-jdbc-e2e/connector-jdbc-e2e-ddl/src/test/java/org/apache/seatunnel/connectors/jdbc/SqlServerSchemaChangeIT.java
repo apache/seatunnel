@@ -21,11 +21,13 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.time.Duration;
 
 @Slf4j
 public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
@@ -88,6 +90,10 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
                         .withEnv("MSSQL_ENABLE_HADR", "1")
                         .withEnv("MSSQL_AGENT_ENABLED", "1")
                         .withExposedPorts(SQLSERVER_PORT, SQLSERVER_XA_PORT)
+                        .waitingFor(
+                                Wait.forLogMessage(
+                                        ".*SQL Server is now ready for client connections.*\\n", 1))
+                        .withStartupTimeout(Duration.ofMinutes(10))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(SQLSERVER_IMAGE)));
