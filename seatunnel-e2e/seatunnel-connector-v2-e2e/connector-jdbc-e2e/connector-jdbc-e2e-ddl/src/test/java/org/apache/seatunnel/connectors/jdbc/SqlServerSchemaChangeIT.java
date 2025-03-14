@@ -105,6 +105,34 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
 
         container.start();
         try {
+            // This set of commands prepares for the subsequent enabling of the external user
+            // enabled configuration (for XA transaction support)
+            container.execInContainer(
+                    "/opt/mssql-tools18/bin/sqlcmd",
+                    "-S",
+                    "localhost",
+                    "-U",
+                    SQLSERVER_USER,
+                    "-P",
+                    SQLSERVER_PASSWORD,
+                    "-Q",
+                    "EXEC sp_configure 'show advanced options', 1; RECONFIGURE;",
+                    "-C");
+
+            // Enable external user access permissions, which is a requirement for SQL Server to
+            // support XA distributed transactions.
+            container.execInContainer(
+                    "/opt/mssql-tools18/bin/sqlcmd",
+                    "-S",
+                    "localhost",
+                    "-U",
+                    SQLSERVER_USER,
+                    "-P",
+                    SQLSERVER_PASSWORD,
+                    "-Q",
+                    "EXEC sp_configure 'external user enabled', 1; RECONFIGURE;",
+                    "-C");
+
             log.info("Installing stored procedures sp_sqljdbc_xa_install.");
             container.execInContainer(
                     "/opt/mssql-tools18/bin/sqlcmd",
