@@ -21,13 +21,11 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.time.Duration;
 
 @Slf4j
 public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
@@ -89,23 +87,26 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
                         .withEnv(SA_PASSWORD, SQLSERVER_PASSWORD)
                         .withEnv("MSSQL_ENABLE_HADR", "1")
                         .withEnv("MSSQL_AGENT_ENABLED", "1")
-                        .withExposedPorts(SQLSERVER_PORT,SQLSERVER_XA_PORT)
+                        .withExposedPorts(SQLSERVER_PORT, SQLSERVER_XA_PORT)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(SQLSERVER_IMAGE)));
 
-        container.setPortBindings(Lists.newArrayList(
-                String.format("%d:%d", SQLSERVER_PORT, SQLSERVER_PORT),
-                          String.format("%d:%d", SQLSERVER_XA_PORT, SQLSERVER_XA_PORT)
-        ));
+        container.setPortBindings(
+                Lists.newArrayList(
+                        String.format("%d:%d", SQLSERVER_PORT, SQLSERVER_PORT),
+                        String.format("%d:%d", SQLSERVER_XA_PORT, SQLSERVER_XA_PORT)));
 
         container.start();
         try {
             container.execInContainer(
                     "/opt/mssql-tools18/bin/sqlcmd",
-                    "-S", SQLSERVER_CONTAINER_HOST,
-                    "-U", SQLSERVER_USER,
-                    "-P", SQLSERVER_PASSWORD,
+                    "-S",
+                    SQLSERVER_CONTAINER_HOST,
+                    "-U",
+                    SQLSERVER_USER,
+                    "-P",
+                    SQLSERVER_PASSWORD,
                     "-Q",
                     "IF NOT EXISTS (SELECT * FROM sys.objects WHERE name = 'xp_sqljdbc_xa_init_ex') "
                             + "EXEC sp_sqljdbc_xa_install",
@@ -114,7 +115,7 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
             log.error("XA procedure installation failed: ", e);
             throw new RuntimeException(e);
         }
-            return container;
+        return container;
     }
 
     @Override
