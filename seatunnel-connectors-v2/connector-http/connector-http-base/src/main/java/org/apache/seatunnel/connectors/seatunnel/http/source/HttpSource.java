@@ -117,11 +117,13 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                 case JSON:
                     this.deserializationSchema =
                             new JsonDeserializationSchema(catalogTable, false, false);
-                    if (pluginConfig.getOptional(HttpSourceOptions.JSON_FIELD).isPresent()) {
-                        jsonField = pluginConfig.get(HttpSourceOptions.JSON_FIELD);
+                    Config config = pluginConfig.toConfig();
+                    if (config.hasPath(HttpSourceOptions.JSON_FIELD.key())) {
+                        jsonField =
+                                getJsonField(config.getConfig(HttpSourceOptions.JSON_FIELD.key()));
                     }
-                    if (pluginConfig.getOptional(HttpSourceOptions.CONTENT_FIELD).isPresent()) {
-                        contentField = pluginConfig.get(HttpSourceOptions.CONTENT_FIELD);
+                    if (config.hasPath(HttpSourceOptions.CONTENT_FIELD.key())) {
+                        contentField = config.getString(HttpSourceOptions.CONTENT_FIELD.key());
                     }
                     break;
                 default:
