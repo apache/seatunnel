@@ -40,6 +40,7 @@ import org.apache.commons.lang3.StringUtils;
 import lombok.NonNull;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -57,7 +58,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
-public class CsvDeserializationSchema {
+public class CsvDeserializationSchema implements Serializable {
     private final SeaTunnelRowType seaTunnelRowType;
     private final String[] separators;
     private final String encoding;
