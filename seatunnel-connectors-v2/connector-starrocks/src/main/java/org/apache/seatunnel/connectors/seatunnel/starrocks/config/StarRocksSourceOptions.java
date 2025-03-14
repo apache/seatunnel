@@ -17,8 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+
+import java.util.List;
+import java.util.Map;
 
 public class StarRocksSourceOptions extends StarRocksBaseOptions {
     private static final long DEFAULT_SCAN_MEM_LIMIT = 1024 * 1024 * 1024L;
@@ -72,4 +77,10 @@ public class StarRocksSourceOptions extends StarRocksBaseOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("The parameter of the scan data from be");
+
+    public static final Option<List<Map<String, Object>>> TABLE_LIST =
+            Options.key("table_list")
+                    .type(new TypeReference<List<Map<String, Object>>>() {})
+                    .noDefaultValue()
+                    .withDescription("table list config");
 }

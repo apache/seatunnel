@@ -67,7 +67,6 @@ The following example demonstrates how to create a data synchronization job that
 ```bash
 # Set the basic configuration of the task to be performed
 env {
-  parallelism = 10
   job.mode = "BATCH"
 }
 

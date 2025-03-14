@@ -19,68 +19,59 @@ package org.apache.seatunnel.connectors.doris.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SaveModePlaceHolder;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
 import java.util.Map;
 
-import static org.apache.seatunnel.api.options.SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DATABASE;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_BATCH_SIZE;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.FENODES;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.PASSWORD;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.QUERY_PORT;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.TABLE;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.TABLE_IDENTIFIER;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.USERNAME;
+public class DorisSinkOptions extends DorisBaseOptions {
 
-public interface DorisSinkOptions {
+    @Deprecated
+    public static final Option<String> TABLE_IDENTIFIER =
+            Options.key("table.identifier")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("the doris table name.");
 
-    int DEFAULT_SINK_CHECK_INTERVAL = 10000;
-    int DEFAULT_SINK_MAX_RETRIES = 3;
-    int DEFAULT_SINK_BUFFER_SIZE = 256 * 1024;
-    int DEFAULT_SINK_BUFFER_COUNT = 3;
-
-    Option<Boolean> SINK_ENABLE_2PC =
+    public static final Option<Boolean> SINK_ENABLE_2PC =
             Options.key("sink.enable-2pc")
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("enable 2PC while loading");
 
-    Option<Integer> SINK_CHECK_INTERVAL =
+    public static final Option<Integer> SINK_CHECK_INTERVAL =
             Options.key("sink.check-interval")
                     .intType()
-                    .defaultValue(DEFAULT_SINK_CHECK_INTERVAL)
+                    .defaultValue(10000)
                     .withDescription("check exception with the interval while loading");
-    Option<Integer> SINK_MAX_RETRIES =
+    public static final Option<Integer> SINK_MAX_RETRIES =
             Options.key("sink.max-retries")
                     .intType()
-                    .defaultValue(DEFAULT_SINK_MAX_RETRIES)
+                    .defaultValue(3)
                     .withDescription("the max retry times if writing records to database failed.");
-    Option<Integer> SINK_BUFFER_SIZE =
+    public static final Option<Integer> SINK_BUFFER_SIZE =
             Options.key("sink.buffer-size")
                     .intType()
-                    .defaultValue(DEFAULT_SINK_BUFFER_SIZE)
+                    .defaultValue(256 * 1024)
                     .withDescription("the buffer size to cache data for stream load.");
-    Option<Integer> SINK_BUFFER_COUNT =
+    public static final Option<Integer> SINK_BUFFER_COUNT =
             Options.key("sink.buffer-count")
                     .intType()
-                    .defaultValue(DEFAULT_SINK_BUFFER_COUNT)
+                    .defaultValue(3)
                     .withDescription("the buffer count to cache data for stream load.");
-    Option<String> SINK_LABEL_PREFIX =
+    public static final Option<String> SINK_LABEL_PREFIX =
             Options.key("sink.label-prefix")
                     .stringType()
                     .defaultValue("")
                     .withDescription("the unique label prefix.");
-    Option<Boolean> SINK_ENABLE_DELETE =
+    public static final Option<Boolean> SINK_ENABLE_DELETE =
             Options.key("sink.enable-delete")
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("whether to enable the delete function");
 
-    Option<Map<String, String>> DORIS_SINK_CONFIG_PREFIX =
+    public static final Option<Map<String, String>> DORIS_SINK_CONFIG_PREFIX =
             Options.key("doris.config")
                     .mapType()
                     .noDefaultValue()
@@ -88,28 +79,28 @@ public interface DorisSinkOptions {
                             "The parameter of the Stream Load data_desc. "
                                     + "The way to specify the parameter is to add the prefix `doris.config` to the original load parameter name ");
 
-    Option<String> DEFAULT_DATABASE =
+    public static final Option<String> DEFAULT_DATABASE =
             Options.key("default-database")
                     .stringType()
                     .defaultValue("information_schema")
                     .withDescription("");
 
-    Option<SchemaSaveMode> SCHEMA_SAVE_MODE =
+    public static final Option<SchemaSaveMode> SCHEMA_SAVE_MODE =
             Options.key("schema_save_mode")
                     .enumType(SchemaSaveMode.class)
                     .defaultValue(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST)
                     .withDescription("schema_save_mode");
 
-    Option<DataSaveMode> DATA_SAVE_MODE =
+    public static final Option<DataSaveMode> DATA_SAVE_MODE =
             Options.key("data_save_mode")
                     .enumType(DataSaveMode.class)
                     .defaultValue(DataSaveMode.APPEND_DATA)
                     .withDescription("data_save_mode");
 
-    Option<String> CUSTOM_SQL =
+    public static final Option<String> CUSTOM_SQL =
             Options.key("custom_sql").stringType().noDefaultValue().withDescription("custom_sql");
 
-    Option<Boolean> NEEDS_UNSUPPORTED_TYPE_CASTING =
+    public static final Option<Boolean> NEEDS_UNSUPPORTED_TYPE_CASTING =
             Options.key("needs_unsupported_type_casting")
                     .booleanType()
                     .defaultValue(false)
@@ -117,7 +108,7 @@ public interface DorisSinkOptions {
                             "Whether to enable the unsupported type casting, such as Decimal64 to Double");
 
     // create table
-    Option<String> SAVE_MODE_CREATE_TEMPLATE =
+    public static final Option<String> SAVE_MODE_CREATE_TEMPLATE =
             Options.key("save_mode_create_template")
                     .stringType()
                     .defaultValue(
@@ -147,27 +138,4 @@ public interface DorisSinkOptions {
                                     + "\"disable_auto_compaction\" = \"false\"\n"
                                     + ")")
                     .withDescription("Create table statement template, used to create Doris table");
-
-    OptionRule.Builder SINK_RULE =
-            OptionRule.builder()
-                    .required(
-                            FENODES,
-                            USERNAME,
-                            PASSWORD,
-                            SINK_LABEL_PREFIX,
-                            DORIS_SINK_CONFIG_PREFIX,
-                            DATA_SAVE_MODE,
-                            SCHEMA_SAVE_MODE)
-                    .optional(
-                            DATABASE,
-                            TABLE,
-                            TABLE_IDENTIFIER,
-                            QUERY_PORT,
-                            DORIS_BATCH_SIZE,
-                            SINK_ENABLE_2PC,
-                            SINK_ENABLE_DELETE,
-                            MULTI_TABLE_SINK_REPLICA,
-                            SAVE_MODE_CREATE_TEMPLATE,
-                            NEEDS_UNSUPPORTED_TYPE_CASTING)
-                    .conditional(DATA_SAVE_MODE, DataSaveMode.CUSTOM_PROCESSING, CUSTOM_SQL);
 }

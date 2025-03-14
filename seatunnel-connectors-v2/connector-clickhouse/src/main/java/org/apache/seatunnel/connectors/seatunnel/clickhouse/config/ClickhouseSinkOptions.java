@@ -91,7 +91,7 @@ public class ClickhouseSinkOptions {
             Options.key("custom_sql")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("when schema_save_mode selects CUSTOM_PROCESSING custom SQL");
+                    .withDescription("when data_save_mode selects CUSTOM_PROCESSING custom SQL");
 
     public static final Option<String> SAVE_MODE_CREATE_TEMPLATE =
             Options.key("save_mode_create_template")

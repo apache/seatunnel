@@ -41,6 +41,7 @@ for %%I in (%*) do (
     if "%%I"=="-h" set "HELP=true"
     if "%%I"=="--help" set "HELP=true"
     if "%%I"=="-r" set "NODE_ROLE=%%~nI"
+    if "%%I"=="--role" set "NODE_ROLE=%%~nI"
 )
 
 set "JAVA_OPTS=%JvmOption%"

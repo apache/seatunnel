@@ -18,9 +18,9 @@ Used to read data from Redis.
 ## Options
 
 | name                | type   | required              | default value |
-| ------------------- | ------ | --------------------- | ------------- |
-| host                | string | yes                   | -             |
-| port                | int    | yes                   | -             |
+| ------------------- | ------ |-----------------------| ------------- |
+| host                | string | yes when mode=single  | -             |
+| port                | int    | no                    | 6379          |
 | keys                | string | yes                   | -             |
 | batch_size          | int    | yes                   | 10            |
 | data_type           | string | yes                   | -             |

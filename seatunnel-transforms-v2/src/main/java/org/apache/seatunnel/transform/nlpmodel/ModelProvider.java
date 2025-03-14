@@ -28,6 +28,9 @@ public enum ModelProvider {
     KIMIAI("https://api.moonshot.cn/v1/chat/completions", ""),
     DEEPSEEK("https://api.deepseek.com/chat/completions", ""),
     MICROSOFT("", ""),
+    ZHIPU(
+            "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+            "https://open.bigmodel.cn/api/paas/v4/embeddings"),
     CUSTOM("", ""),
     LOCAL("", "");
 

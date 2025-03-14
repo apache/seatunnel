@@ -158,14 +158,12 @@ public class MaxComputeCatalog implements Catalog {
         }
         Table odpsTable;
         com.aliyun.odps.TableSchema odpsSchema;
-        boolean isPartitioned;
         try {
             Odps odps = getOdps(tablePath.getDatabaseName());
             odpsTable =
                     MaxcomputeUtil.parseTable(
                             odps, tablePath.getDatabaseName(), tablePath.getTableName());
             odpsSchema = odpsTable.getSchema();
-            isPartitioned = odpsTable.isPartitioned();
         } catch (Exception ex) {
             throw new CatalogException(catalogName, ex);
         }
@@ -193,31 +191,6 @@ public class MaxComputeCatalog implements Catalog {
                                     .build();
                     return MaxComputeTypeConverter.INSTANCE.convert(typeDefine);
                 });
-        if (isPartitioned) {
-            buildColumnsWithErrorCheck(
-                    tablePath,
-                    builder,
-                    odpsSchema.getPartitionColumns().stream()
-                            .filter(
-                                    column ->
-                                            fieldNames == null
-                                                    || fieldNames.isEmpty()
-                                                    || fieldNames.contains(column.getName()))
-                            .iterator(),
-                    (column) -> {
-                        BasicTypeDefine<TypeInfo> typeDefine =
-                                BasicTypeDefine.<TypeInfo>builder()
-                                        .name(column.getName())
-                                        .nativeType(column.getTypeInfo())
-                                        .columnType(column.getTypeInfo().getTypeName())
-                                        .dataType(column.getTypeInfo().getTypeName())
-                                        .nullable(column.isNullable())
-                                        .comment(column.getComment())
-                                        .build();
-                        partitionKeys.add(column.getName());
-                        return MaxComputeTypeConverter.INSTANCE.convert(typeDefine);
-                    });
-        }
         TableSchema tableSchema = builder.build();
         TableIdentifier tableIdentifier = getTableIdentifier(tablePath);
         return CatalogTable.of(
