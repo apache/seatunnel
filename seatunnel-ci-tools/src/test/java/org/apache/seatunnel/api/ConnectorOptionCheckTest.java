@@ -172,7 +172,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("JdbcSinkOptions");
         whiteList.add("TypesenseSourceOptions");
         whiteList.add("TypesenseSinkOptions");
-        whiteList.add("HudiSinkOptions");
         whiteList.add("PulsarSinkOptions");
         whiteList.add("HttpSinkOptions");
         whiteList.add("SlsSinkOptions");
