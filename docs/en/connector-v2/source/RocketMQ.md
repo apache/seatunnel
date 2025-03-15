@@ -27,10 +27,11 @@ Source connector for Apache RocketMQ.
 
 ## Source Options
 
-|                Name                 |  Type   | Required |          Default           |                                                                                                    Description                                                                                                     |
+| Name                                |  Type   | Required |          Default           | Description                                                                                                                                                                                                        |
 |-------------------------------------|---------|----------|----------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | topics                              | String  | yes      | -                          | `RocketMQ topic` name. If there are multiple `topics`, use `,` to split, for example: `"tpc1,tpc2"`.                                                                                                               |
 | name.srv.addr                       | String  | yes      | -                          | `RocketMQ` name server cluster address.                                                                                                                                                                            |
+| tags                                | String  | no       | -                          | `RocketMQ tag` name. If there are multiple `tags`, use `,` to split, for example: `"tag1,tag2"`.                                                                                                                   |
 | acl.enabled                         | Boolean | no       | false                      | If true, access control is enabled, and access key and secret key need to be configured.                                                                                                                           |
 | access.key                          | String  | no       |                            |                                                                                                                                                                                                                    |
 | secret.key                          | String  | no       |                            | When ACL_ENABLED is true, secret key cannot be empty.                                                                                                                                                              |
@@ -218,3 +219,62 @@ sink {
 }
 ```
 
+### Specified tag example:
+
+> Here you can specify a tag to consume data. If there are multiple tags, use `,` to separate them, for example: "tag1,tag2"
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+  
+  # You can set spark configuration here
+  spark.app.name = "SeaTunnel"
+  spark.executor.instances = 2
+  spark.executor.cores = 1
+  spark.executor.memory = "1g"
+  spark.master = local
+}
+
+source {
+  Rocketmq {
+    plugin_output = "rocketmq_table"
+    name.srv.addr = "localhost:9876"
+    topics = "test_topic"
+    format = text
+    # The default field delimiter is ","
+    field_delimiter = ","
+    tags = "test_tag"
+    schema = {
+      fields {
+        id = bigint
+        c_map = "map<string, smallint>"
+        c_array = "array<tinyint>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_decimal = "decimal(2, 1)"
+        c_bytes = bytes
+        c_date = date
+        c_timestamp = timestamp
+      }
+    }
+  }
+}
+
+transform {
+  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+  # please go to https://seatunnel.apache.org/docs/category/transform
+}
+
+sink {
+  Console {
+    plugin_input = "rocketmq_table"
+  }
+}
+```

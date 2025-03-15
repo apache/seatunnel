@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit;
 
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.writer.WriteResult;
 
 import org.apache.iceberg.AppendFiles;
@@ -41,14 +41,14 @@ public class IcebergFilesCommitter implements Serializable {
     private boolean caseSensitive;
     private String branch;
 
-    private IcebergFilesCommitter(SinkConfig config, IcebergTableLoader icebergTableLoader) {
+    private IcebergFilesCommitter(IcebergSinkConfig config, IcebergTableLoader icebergTableLoader) {
         this.icebergTableLoader = icebergTableLoader;
         this.caseSensitive = config.isCaseSensitive();
         this.branch = config.getCommitBranch();
     }
 
     public static IcebergFilesCommitter of(
-            SinkConfig config, IcebergTableLoader icebergTableLoader) {
+            IcebergSinkConfig config, IcebergTableLoader icebergTableLoader) {
         return new IcebergFilesCommitter(config, icebergTableLoader);
     }
 

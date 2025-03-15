@@ -35,7 +35,7 @@ import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit.IcebergAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit.IcebergAggregatedCommitter;
@@ -60,13 +60,13 @@ public class IcebergSink
                 SupportMultiTableSink,
                 SupportSchemaEvolutionSink {
     private static String PLUGIN_NAME = "Iceberg";
-    private final SinkConfig config;
+    private final IcebergSinkConfig config;
     private final ReadonlyConfig readonlyConfig;
     private final CatalogTable catalogTable;
 
     public IcebergSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
         this.readonlyConfig = pluginConfig;
-        this.config = new SinkConfig(pluginConfig);
+        this.config = new IcebergSinkConfig(pluginConfig);
         this.catalogTable = catalogTable;
         // Reset primary keys if need
         if (config.getPrimaryKeys().isEmpty()

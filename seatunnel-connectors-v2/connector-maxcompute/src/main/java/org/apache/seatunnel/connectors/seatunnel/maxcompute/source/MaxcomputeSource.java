@@ -95,6 +95,11 @@ public class MaxcomputeSource
                                         .orElse(readonlyConfig.get(PROJECT));
                         TablePath tablePath =
                                 TablePath.of(project, subReadonlyConfig.get(TABLE_NAME));
+                        String partitionSpec =
+                                subReadonlyConfig
+                                        .getOptional(PARTITION_SPEC)
+                                        .orElse(readonlyConfig.get(PARTITION_SPEC));
+
                         if (subReadonlyConfig
                                 .getOptional(ConnectorCommonOptions.SCHEMA)
                                 .isPresent()) {
@@ -108,7 +113,7 @@ public class MaxcomputeSource
                                     catalogTable.getTablePath(),
                                     new SourceTableInfo(
                                             catalogTable,
-                                            subReadonlyConfig.get(PARTITION_SPEC),
+                                            partitionSpec,
                                             subReadonlyConfig.get(SPLIT_ROW)));
                         } else {
                             Integer splitRow =
@@ -120,7 +125,7 @@ public class MaxcomputeSource
                                     new SourceTableInfo(
                                             catalog.getTable(
                                                     tablePath, subReadonlyConfig.get(READ_COLUMNS)),
-                                            subReadonlyConfig.get(PARTITION_SPEC),
+                                            partitionSpec,
                                             splitRow));
                         }
                     }
