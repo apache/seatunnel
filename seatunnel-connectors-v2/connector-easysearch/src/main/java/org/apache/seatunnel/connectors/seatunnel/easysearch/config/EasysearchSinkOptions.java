@@ -22,14 +22,8 @@ import org.apache.seatunnel.api.configuration.Options;
 
 import java.util.List;
 
-public class SinkConfig {
+public class EasysearchSinkOptions extends EasysearchSinkCommonOptions {
 
-    public static final Option<String> INDEX =
-            Options.key("index")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Easysearch index name.Index support contains variables of field name,such as seatunnel_${age},and the field must appear at seatunnel row. If not, we will treat it as a normal index");
     public static final Option<List<String>> PRIMARY_KEYS =
             Options.key("primary_keys")
                     .listType(String.class)

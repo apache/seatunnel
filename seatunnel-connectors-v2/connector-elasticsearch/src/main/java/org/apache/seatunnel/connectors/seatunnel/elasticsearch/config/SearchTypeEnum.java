@@ -15,13 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
+package org.apache.seatunnel.connectors.seatunnel.elasticsearch.config;
 
-import org.apache.seatunnel.api.source.SourceSplit;
-
-public class ClickhouseSourceSplit implements SourceSplit {
-    @Override
-    public String splitId() {
-        return null;
-    }
+public enum SearchTypeEnum {
+    DSL,
+    SQL
 }

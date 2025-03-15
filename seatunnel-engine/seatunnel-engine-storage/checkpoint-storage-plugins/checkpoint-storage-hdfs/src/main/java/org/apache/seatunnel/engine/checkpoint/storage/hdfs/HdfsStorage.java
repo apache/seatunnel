@@ -331,7 +331,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                 });
     }
 
-    private List<String> getFileNames(String path) throws CheckpointStorageException {
+    public List<String> getFileNames(String path) throws CheckpointStorageException {
         try {
             Path parentPath = new Path(path);
             if (!fs.exists(parentPath)) {

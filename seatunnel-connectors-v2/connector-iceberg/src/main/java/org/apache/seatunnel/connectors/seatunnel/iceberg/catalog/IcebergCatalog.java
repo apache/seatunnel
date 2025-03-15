@@ -33,7 +33,7 @@ import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistExcepti
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergCatalogLoader;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.ExpressionUtils;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.SchemaUtils;
 
@@ -78,7 +78,8 @@ public class IcebergCatalog implements Catalog {
     public IcebergCatalog(String catalogName, ReadonlyConfig readonlyConfig) {
         this.readonlyConfig = readonlyConfig;
         this.catalogName = catalogName;
-        this.icebergCatalogLoader = new IcebergCatalogLoader(new CommonConfig(readonlyConfig));
+        this.icebergCatalogLoader =
+                new IcebergCatalogLoader(new IcebergCommonConfig(readonlyConfig));
     }
 
     @Override

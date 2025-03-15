@@ -14,8 +14,8 @@ Used to write data to Redis.
 
 | name               | type    |       required        | default value |
 |--------------------|---------|-----------------------|---------------|
-| host               | string  | yes                   | -             |
-| port               | int     | yes                   | -             |
+| host               | string  | yes  when mode=single | -             |
+| port               | int     | no                    | 6379          |
 | key                | string  | yes                   | -             |
 | data_type          | string  | yes                   | -             |
 | batch_size         | int     | no                    | 10            |

@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceTableConfig;
 
 import org.apache.iceberg.Schema;
@@ -63,7 +63,7 @@ public class IcebergScanContext {
     }
 
     public static IcebergScanContext scanContext(
-            SourceConfig sourceConfig, SourceTableConfig tableConfig, Schema schema) {
+            IcebergSourceConfig sourceConfig, SourceTableConfig tableConfig, Schema schema) {
         return IcebergScanContext.builder()
                 .tablePath(tableConfig.getTablePath())
                 .startSnapshotTimestamp(tableConfig.getStartSnapshotTimestamp())
@@ -81,7 +81,7 @@ public class IcebergScanContext {
     }
 
     public static IcebergScanContext streamScanContext(
-            SourceConfig sourceConfig, SourceTableConfig tableConfig, Schema schema) {
+            IcebergSourceConfig sourceConfig, SourceTableConfig tableConfig, Schema schema) {
         return scanContext(sourceConfig, tableConfig, schema)
                 .toBuilder()
                 .streaming(true)

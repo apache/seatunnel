@@ -27,6 +27,7 @@
     </parent>
 
     <artifactId>seatunnel-hadoop-aws</artifactId>
+    <name>SeaTunnel : Shade : Hadoop : AWS</name>
 
     <dependencies>
         <dependency>

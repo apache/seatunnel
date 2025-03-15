@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiConnectorException;
 
@@ -37,24 +38,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.CONF_FILES_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.TABLE_DFS_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.TABLE_LIST;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.BATCH_INTERVAL_MS;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.BATCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.CDC_ENABLED;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.INDEX_CLASS_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.INDEX_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.INSERT_SHUFFLE_PARALLELISM;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.MAX_COMMITS_TO_KEEP;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.MIN_COMMITS_TO_KEEP;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.OP_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.PARTITION_FIELDS;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.RECORD_BYTE_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.RECORD_KEY_FIELDS;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.TABLE_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.TABLE_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.UPSERT_SHUFFLE_PARALLELISM;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiErrorCode.TABLE_CONFIG_NOT_FOUND;
 
 @AutoService(Factory.class)
@@ -67,25 +50,24 @@ public class HudiSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
+                .required(HudiSinkOptions.TABLE_DFS_PATH)
+                .exclusive(HudiSinkOptions.TABLE_NAME, HudiSinkOptions.TABLE_LIST)
                 .optional(
-                        TABLE_NAME,
-                        TABLE_DFS_PATH,
-                        TABLE_TYPE,
-                        RECORD_KEY_FIELDS,
-                        PARTITION_FIELDS,
-                        INDEX_TYPE,
-                        INDEX_CLASS_NAME,
-                        RECORD_BYTE_SIZE,
-                        TABLE_LIST,
-                        CONF_FILES_PATH,
-                        OP_TYPE,
-                        BATCH_SIZE,
-                        BATCH_INTERVAL_MS,
-                        INSERT_SHUFFLE_PARALLELISM,
-                        UPSERT_SHUFFLE_PARALLELISM,
-                        MIN_COMMITS_TO_KEEP,
-                        MAX_COMMITS_TO_KEEP,
-                        CDC_ENABLED,
+                        HudiSinkOptions.TABLE_TYPE,
+                        HudiSinkOptions.RECORD_KEY_FIELDS,
+                        HudiSinkOptions.PARTITION_FIELDS,
+                        HudiSinkOptions.INDEX_TYPE,
+                        HudiSinkOptions.INDEX_CLASS_NAME,
+                        HudiSinkOptions.RECORD_BYTE_SIZE,
+                        HudiSinkOptions.CONF_FILES_PATH,
+                        HudiSinkOptions.OP_TYPE,
+                        HudiSinkOptions.BATCH_SIZE,
+                        HudiSinkOptions.BATCH_INTERVAL_MS,
+                        HudiSinkOptions.INSERT_SHUFFLE_PARALLELISM,
+                        HudiSinkOptions.UPSERT_SHUFFLE_PARALLELISM,
+                        HudiSinkOptions.MIN_COMMITS_TO_KEEP,
+                        HudiSinkOptions.MAX_COMMITS_TO_KEEP,
+                        HudiSinkOptions.CDC_ENABLED,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
@@ -111,20 +93,28 @@ public class HudiSinkFactory implements TableSinkFactory {
             finalPartitionKeys = Arrays.asList(hudiTableConfig.getPartitionFields().split(","));
             catalogTable
                     .getOptions()
-                    .put(PARTITION_FIELDS.key(), hudiTableConfig.getPartitionFields());
+                    .put(
+                            HudiSinkOptions.PARTITION_FIELDS.key(),
+                            hudiTableConfig.getPartitionFields());
         }
         // record keys
         if (StringUtils.isNoneEmpty(hudiTableConfig.getRecordKeyFields())) {
             catalogTable
                     .getOptions()
-                    .put(RECORD_KEY_FIELDS.key(), hudiTableConfig.getRecordKeyFields());
+                    .put(
+                            HudiSinkOptions.RECORD_KEY_FIELDS.key(),
+                            hudiTableConfig.getRecordKeyFields());
         }
         // table type
-        catalogTable.getOptions().put(TABLE_TYPE.key(), hudiTableConfig.getTableType().name());
+        catalogTable
+                .getOptions()
+                .put(HudiSinkOptions.TABLE_TYPE.key(), hudiTableConfig.getTableType().name());
         // cdc enabled
         catalogTable
                 .getOptions()
-                .put(CDC_ENABLED.key(), String.valueOf(hudiTableConfig.isCdcEnabled()));
+                .put(
+                        HudiSinkOptions.CDC_ENABLED.key(),
+                        String.valueOf(hudiTableConfig.isCdcEnabled()));
         catalogTable =
                 CatalogTable.of(
                         newTableId,

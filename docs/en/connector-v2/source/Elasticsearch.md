@@ -28,6 +28,8 @@ support version >= 2.x and <= 8.x.
 | index_list              | array   | no       | used to define a multiple table task                           |
 | source                  | array   | no       | -                                                              |
 | query                   | json    | no       | {"match_all": {}}                                              |
+| search_type             | json    | no       | Search method,sql or dsl,default dsl                           |
+| sql_query               | json    | no       | sql query                                                      |
 | scroll_time             | string  | no       | 1m                                                             |
 | scroll_size             | int     | no       | 100                                                            |
 | tls_verify_certificate  | boolean | no       | true                                                           |
@@ -242,6 +244,23 @@ source {
         tls_keystore_path = "${your elasticsearch home}/config/certs/http.p12"
         tls_keystore_password = "${your password}"
     }
+}
+```
+
+Demo 6 : sql query
+notes: sql does not support map and array types
+```hocon
+source {
+  Elasticsearch {
+    hosts = ["https://elasticsearch:9200"]
+    username = "elastic"
+    password = "elasticsearch"
+    tls_verify_certificate = false
+    tls_verify_hostname = false
+    index = "st_index_sql"
+    sql_query = "select * from st_index_sql where c_int>=10 and c_int<=20"
+    search_type = "sql"
+  }
 }
 ```
 

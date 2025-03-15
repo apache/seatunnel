@@ -68,7 +68,6 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         ReadonlyConfig readonlyConfig = context.getOptions();
         List<ClickHouseNode> nodes = ClickhouseUtil.createNodes(readonlyConfig);
-
         String sql = readonlyConfig.get(SQL);
         ClickHouseNode currentServer = nodes.get(ThreadLocalRandom.current().nextInt(nodes.size()));
         try (ClickHouseClient client = ClickHouseClient.newInstance(currentServer.getProtocol());

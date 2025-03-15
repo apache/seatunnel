@@ -134,6 +134,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         createIndexWithFullType();
         createIndexForResourceNull("st_index4");
         createIndexWithNestType();
+        createIndexForSqlSearch();
+        generateTestSqlDataSet();
     }
 
     /** create a index,and bulk some documents */
@@ -143,6 +145,92 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
     private void createIndexDocsByName(String indexName) {
         createIndexDocsByName(indexName, testDataset1);
+    }
+
+    private void createIndexForSqlSearch() throws IOException {
+        String mapping =
+                IOUtils.toString(
+                        ContainerUtil.getResourcesFile("/elasticsearch/st_index_with_sql.json")
+                                .toURI(),
+                        StandardCharsets.UTF_8);
+        esRestClient.createIndex("st_index_sql", mapping);
+    }
+
+    private void generateTestSqlDataSet() throws JsonProcessingException, InterruptedException {
+        String[] fields =
+                new String[] {
+                    "c_string",
+                    "c_boolean",
+                    "c_tinyint",
+                    "c_smallint",
+                    "c_bigint",
+                    "c_float",
+                    "c_double",
+                    "c_decimal",
+                    "c_bytes",
+                    "c_int",
+                    "c_date",
+                    "c_timestamp"
+                };
+
+        List<String> documents = new ArrayList<>();
+        ObjectMapper objectMapper = new ObjectMapper();
+        Map<String, Object> doc1 = new HashMap<>();
+        Object[] values1 =
+                new Object[] {
+                    "string",
+                    Boolean.FALSE,
+                    Byte.parseByte("1"),
+                    Short.parseShort("1"),
+                    Long.parseLong("1"),
+                    Float.parseFloat("1.1"),
+                    Double.parseDouble("1.1"),
+                    BigDecimal.valueOf(11, 1),
+                    "test".getBytes(),
+                    10,
+                    "2025-03-03T00:00:00.000Z",
+                    1740969505487L
+                };
+        for (int j = 0; j < fields.length; j++) {
+            doc1.put(fields[j], values1[j]);
+        }
+        documents.add(objectMapper.writeValueAsString(doc1));
+
+        Map<String, Object> doc2 = new HashMap<>();
+        Object[] values2 =
+                new Object[] {
+                    "string",
+                    Boolean.FALSE,
+                    Byte.parseByte("1"),
+                    Short.parseShort("1"),
+                    Long.parseLong("1"),
+                    Float.parseFloat("1.1"),
+                    Double.parseDouble("1.1"),
+                    BigDecimal.valueOf(11, 1),
+                    "test".getBytes(),
+                    30,
+                    "2025-03-03T00:00:00.000Z",
+                    1740969505487L
+                };
+        for (int j = 0; j < fields.length; j++) {
+            doc2.put(fields[j], values2[j]);
+        }
+        documents.add(objectMapper.writeValueAsString(doc2));
+
+        StringBuilder requestBody = new StringBuilder();
+        String indexHeader = String.format("{\"index\":{\"_index\":\"%s\"}\n", "st_index_sql");
+        for (int i = 0; i < documents.size(); i++) {
+            String row = documents.get(i);
+            requestBody.append(indexHeader);
+            requestBody.append(row);
+            requestBody.append("\n");
+        }
+        BulkResponse response = esRestClient.bulk(requestBody.toString());
+        Assertions.assertFalse(response.isErrors(), response.getResponse());
+        // waiting index refresh
+        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
+        Assertions.assertEquals(
+                2, esRestClient.getIndexDocsCount("st_index_sql").get(0).getDocsCount());
     }
 
     private void createIndexDocsByName(String indexName, List<String> testDataSet) {
@@ -241,6 +329,14 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         + "{\"zipcode\":\"90001\",\"city\":\"Los Angeles\",\"street\":\"456 Elm St\"}],\"name\":\"John Doe\"}";
 
         Assertions.assertIterableEquals(Lists.newArrayList(data), sinkData);
+    }
+
+    @TestTemplate
+    public void testElasticsearchWithSql(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/elasticsearch/elasticsearch_source_with_sql.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate
