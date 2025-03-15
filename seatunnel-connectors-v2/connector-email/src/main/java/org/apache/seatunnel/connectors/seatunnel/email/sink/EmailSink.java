@@ -24,8 +24,8 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions;
 
 import lombok.Getter;
 
