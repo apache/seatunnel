@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.email.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class EmailConfig {
+public class EmailSinkOptions {
 
     public static final String CONNECTOR_IDENTITY = "EmailSink";
 
