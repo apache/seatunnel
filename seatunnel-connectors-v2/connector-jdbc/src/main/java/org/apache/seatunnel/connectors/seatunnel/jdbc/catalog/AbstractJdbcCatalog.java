@@ -176,6 +176,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         Connection conn = getConnection(dbUrl);
         try {
             DatabaseMetaData metaData = conn.getMetaData();
+            Optional<String> comment = getTableComment(metaData, tablePath);
             Optional<PrimaryKey> primaryKey = getPrimaryKey(metaData, tablePath);
             List<ConstraintKey> constraintKeys = getConstraintKeys(metaData, tablePath);
             TableSchema.Builder tableSchemaBuilder =
@@ -190,7 +191,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
                     tableSchemaBuilder.build(),
                     buildConnectorOptions(tablePath),
                     Collections.emptyList(),
-                    "",
+                    comment.orElse(""),
                     catalogName);
 
         } catch (SeaTunnelRuntimeException e) {
@@ -246,6 +247,21 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             DatabaseMetaData metaData, String database, String schema, String table)
             throws SQLException {
         return CatalogUtils.getPrimaryKey(metaData, TablePath.of(database, schema, table));
+    }
+
+    protected Optional<String> getTableComment(DatabaseMetaData metaData, TablePath tablePath)
+            throws SQLException {
+        return getTableComment(
+                metaData,
+                tablePath.getDatabaseName(),
+                tablePath.getSchemaName(),
+                tablePath.getTableName());
+    }
+
+    protected Optional<String> getTableComment(
+            DatabaseMetaData metaData, String database, String schema, String table)
+            throws SQLException {
+        return CatalogUtils.getTableComment(metaData, TablePath.of(database, schema, table));
     }
 
     protected List<ConstraintKey> getConstraintKeys(DatabaseMetaData metaData, TablePath tablePath)

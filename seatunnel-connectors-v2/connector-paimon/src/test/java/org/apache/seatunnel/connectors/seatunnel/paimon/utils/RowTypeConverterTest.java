@@ -189,7 +189,7 @@ public class RowTypeConverterTest {
                 PhysicalColumn.builder()
                         .name("c_decimal")
                         .sourceType(DataTypes.DECIMAL(30, 8).toString())
-                        .nullable(false)
+                        .nullable(true)
                         .dataType(dataType)
                         .columnLength(30L)
                         .defaultValue(3.0)

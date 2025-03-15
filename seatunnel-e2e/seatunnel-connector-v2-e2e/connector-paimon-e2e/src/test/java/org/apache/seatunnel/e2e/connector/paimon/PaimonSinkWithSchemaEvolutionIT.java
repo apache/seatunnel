@@ -134,6 +134,8 @@ public class PaimonSinkWithSchemaEvolutionIT extends AbstractPaimonIT implements
     @BeforeAll
     @Override
     public void startUp() throws Exception {
+        this.isWindows =
+                System.getProperties().getProperty("os.name").toUpperCase().contains("WINDOWS");
         log.info("The second stage: Starting Mysql containers...");
         Startables.deepStart(Stream.of(MYSQL_CONTAINER)).join();
         log.info("Mysql Containers are started");
