@@ -15,13 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.master;
+package org.apache.seatunnel.engine.server;
 
-import com.hazelcast.config.Config;
-import com.hazelcast.internal.serialization.Data;
-import com.hazelcast.map.IMap;
-import org.apache.poi.ss.formula.functions.T;
-import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
@@ -30,29 +25,25 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
-import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
-import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
-import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
-import org.apache.seatunnel.engine.server.TestUtils;
-import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
-import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
-import org.apache.seatunnel.engine.server.service.slot.SlotService;
-import org.apache.seatunnel.engine.server.task.CoordinatorTask;
-import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+
+import com.hazelcast.config.Config;
+import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.map.IMap;
 
 import java.util.Collections;
 import java.util.Map;
@@ -63,7 +54,7 @@ import static org.awaitility.Awaitility.await;
 /** JobMaster Tester. */
 @DisabledOnOs(OS.WINDOWS)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class JobMasterWithCancelPendingJobTest extends AbstractSeaTunnelServerTest {
+public class CoordinatorServiceWithCancelPendingJobTest extends AbstractSeaTunnelServerTest {
     /**
      * IMap key is jobId and value is a Tuple2 Tuple2 key is JobMaster init timestamp and value is
      * the jobImmutableInformation which is sent by client when submit job
@@ -74,9 +65,7 @@ public class JobMasterWithCancelPendingJobTest extends AbstractSeaTunnelServerTe
     private IMap<Long, JobInfo> runningJobInfoIMap;
 
     /**
-     * IMap key is one of jobId {@link
-     * PipelineLocation} and {@link
-     * TaskGroupLocation}
+     * IMap key is one of jobId {@link PipelineLocation} and {@link TaskGroupLocation}
      *
      * <p>The value of IMap is one of {@link JobStatus} {@link PipelineStatus} {@link
      * org.apache.seatunnel.engine.server.execution.ExecutionState}
@@ -87,14 +76,11 @@ public class JobMasterWithCancelPendingJobTest extends AbstractSeaTunnelServerTe
     IMap<Object, Object> runningJobStateIMap;
 
     /**
-     * IMap key is one of jobId {@link
-     * PipelineLocation} and {@link
-     * TaskGroupLocation}
+     * IMap key is one of jobId {@link PipelineLocation} and {@link TaskGroupLocation}
      *
      * <p>The value of IMap is one of {@link
-     * org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan} stateTimestamps {@link
-     * SubPlan} stateTimestamps {@link
-     * PhysicalVertex} stateTimestamps
+     * org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan} stateTimestamps {@link SubPlan}
+     * stateTimestamps {@link PhysicalVertex} stateTimestamps
      *
      * <p>This IMap is used to recovery runningJobStateTimestampsIMap in JobMaster when a new master
      * node active
@@ -128,19 +114,34 @@ public class JobMasterWithCancelPendingJobTest extends AbstractSeaTunnelServerTe
         nodeEngine = instance.node.nodeEngine;
         server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
         LOGGER = nodeEngine.getLogger(AbstractSeaTunnelServerTest.class);
-//        cancel_pending_job.conf
     }
 
     @Test
     public void testCancelPendingJob() throws InterruptedException {
 
-
-        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        long jobId = instance.getFlakeIdGenerator("testCancelPendingJob").newId();
         JobMaster jobMaster = newJobInstanceWithRunningState(jobId);
-        Assertions.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus());
 
+        // Verify that the task is pending
+        Assertions.assertTrue(
+                server.getCoordinatorService().pendingJobMasterMap.containsKey(jobId));
+
+        // Cancel Task
+        PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
+                server.getCoordinatorService().cancelJob(jobId);
+        voidPassiveCompletableFuture.join();
+
+        // Verify if the task has been deleted in pending
+        Assertions.assertFalse(
+                server.getCoordinatorService().pendingJobMasterMap.containsKey(jobId));
+
+        // Verify if the final status of the task is cancelled
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.CANCELED, jobMaster.getJobStatus()));
     }
-
 
     private JobMaster newJobInstanceWithRunningState(long jobId) throws InterruptedException {
         return newJobInstanceWithRunningState(jobId, false);
@@ -172,7 +173,7 @@ public class JobMasterWithCancelPendingJobTest extends AbstractSeaTunnelServerTe
         JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
 
         // waiting for job status turn to running
-        await().atMost(120000, TimeUnit.MILLISECONDS)
+        await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> Assertions.assertEquals(JobStatus.PENDING, jobMaster.getJobStatus()));
 
