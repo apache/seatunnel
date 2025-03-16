@@ -17,176 +17,167 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
-import com.hazelcast.config.Config;
-import com.hazelcast.internal.serialization.Data;
-import com.hazelcast.map.IMap;
-import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
-import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
-import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
-import org.apache.seatunnel.engine.core.job.*;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.TestUtils;
-import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
-import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
-import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
-import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
-import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
-import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
-import org.apache.seatunnel.engine.server.master.JobMaster;
-import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
-import org.apache.seatunnel.engine.server.service.slot.SlotService;
-import org.apache.seatunnel.engine.server.task.CoordinatorTask;
-import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+
+import com.hazelcast.config.Config;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.TrustManagerFactory;
-import java.io.BufferedInputStream;
+
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
 import java.security.KeyStore;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
-import java.util.Collections;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
-import static org.awaitility.Awaitility.await;
-
-/** JobMaster Tester. */
+/** Test for Rest API with HTTPS. */
 @DisabledOnOs(OS.WINDOWS)
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
-    /**
-     * IMap key is jobId and value is a Tuple2 Tuple2 key is JobMaster init timestamp and value is
-     * the jobImmutableInformation which is sent by client when submit job
-     *
-     * <p>This IMap is used to recovery runningJobInfoIMap in JobMaster when a new master node
-     * active
-     */
-    private IMap<Long, JobInfo> runningJobInfoIMap;
-
-    /**
-     * IMap key is one of jobId {@link
-     * PipelineLocation} and {@link
-     * TaskGroupLocation}
-     *
-     * <p>The value of IMap is one of {@link JobStatus} {@link PipelineStatus} {@link
-     * org.apache.seatunnel.engine.server.execution.ExecutionState}
-     *
-     * <p>This IMap is used to recovery runningJobStateIMap in JobMaster when a new master node
-     * active
-     */
-    IMap<Object, Object> runningJobStateIMap;
-
-    /**
-     * IMap key is one of jobId {@link
-     * PipelineLocation} and {@link
-     * TaskGroupLocation}
-     *
-     * <p>The value of IMap is one of {@link
-     * org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan} stateTimestamps {@link
-     * SubPlan} stateTimestamps {@link
-     * PhysicalVertex} stateTimestamps
-     *
-     * <p>This IMap is used to recovery runningJobStateTimestampsIMap in JobMaster when a new master
-     * node active
-     */
-    IMap<Object, Long[]> runningJobStateTimestampsIMap;
-
-    /**
-     * IMap key is {@link PipelineLocation}
-     *
-     * <p>The value of IMap is map of {@link TaskGroupLocation} and the {@link SlotProfile} it used.
-     *
-     * <p>This IMap is used to recovery ownedSlotProfilesIMap in JobMaster when a new master node
-     * active
-     */
-    private IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap;
+    private static final int HTTP_PORT = 8080;
+    private static final int HTTPS_PORT = 8443;
+    private static final String SERVER_KEYSTORE_PASSWORD = "server_keystore_password";
+    private static final String SERVER_TRUSTSTORE_PASSWORD = "server_truststore_password";
+    private static final String CLIENT_KEYSTORE_PASSWORD = "client_keystore_password";
+    private static final String CLIENT_TRUSTSTORE_PASSWORD = "client_truststore_password";
 
     @BeforeAll
     public void before() {
         String name = this.getClass().getName();
         Config hazelcastConfig = Config.loadFromString(getHazelcastConfig());
-        hazelcastConfig.setClusterName(
-                TestUtils.getClusterName("AbstractSeaTunnelServerTest_" + name));
+        hazelcastConfig.setClusterName(TestUtils.getClusterName("RestApiHttpsTest_" + name));
         SeaTunnelConfig seaTunnelConfig = loadSeaTunnelConfig();
         seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
         seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
+
         HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
-        httpConfig.setHttpsPort(8443);
+        httpConfig.setEnabled(true);
+        httpConfig.setPort(HTTP_PORT);
+        httpConfig.setHttpsPort(HTTPS_PORT);
         httpConfig.setEnableHttps(true);
-        httpConfig.setKeyStorePath("/home/jast/IdeaProjects/data-integration/seatunnel-examples/seatunnel-engine-examples/server_keystore.jks");
-        httpConfig.setTrustStorePath("/home/jast/IdeaProjects/data-integration/seatunnel-examples/seatunnel-engine-examples/server_truststore.jks");
-        httpConfig.setKeyManagerPassword("server_keystore_password");
-        httpConfig.setKeyStorePassword("server_keystore_password");
-        httpConfig.setTrustStorePassword("server_truststore_password");
+
+        httpConfig.setKeyStorePath(getPath("server_keystore.jks"));
+        httpConfig.setTrustStorePath(getPath("server_truststore.jks"));
+        httpConfig.setKeyManagerPassword(SERVER_KEYSTORE_PASSWORD);
+        httpConfig.setKeyStorePassword(SERVER_KEYSTORE_PASSWORD);
+        httpConfig.setTrustStorePassword(SERVER_TRUSTSTORE_PASSWORD);
+
         instance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
         nodeEngine = instance.node.nodeEngine;
         server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
         LOGGER = nodeEngine.getLogger(AbstractSeaTunnelServerTest.class);
     }
 
+    public String getPath(String confFile) {
+        return System.getProperty("user.dir") + "/src/test/resources/https/" + confFile;
+    }
+
     @Test
-    public void testHandleCheckpointTimeout() throws Exception {
-
-        String keystorePath = "/home/jast/IdeaProjects/data-integration/seatunnel-examples/seatunnel-engine-examples/client.p12";
-        String keystorePass = "client_keystore_password";
-        String truststorePath = "/home/jast/IdeaProjects/data-integration/seatunnel-examples/seatunnel-engine-examples/server.crt.pem";
-
+    public void testRestApiHttp() throws Exception {
+        HttpURLConnection conn = null;
+        BufferedReader in = null;
         try {
-            KeyStore clientStore = KeyStore.getInstance("PKCS12");
-            clientStore.load(new FileInputStream(keystorePath), keystorePass.toCharArray());
+            java.net.URL url = new java.net.URL("http://localhost:" + HTTP_PORT + "/overview");
+            conn = (HttpURLConnection) url.openConnection();
 
-            KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-            kmf.init(clientStore, keystorePass.toCharArray());
+            Assertions.assertEquals(200, conn.getResponseCode());
 
-            CertificateFactory cf = CertificateFactory.getInstance("X.509");
-            X509Certificate serverCert = (X509Certificate) cf.generateCertificate(
-                    new BufferedInputStream(new FileInputStream(truststorePath)));
+            in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+            String response = in.lines().collect(Collectors.joining());
 
-            KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
-            trustStore.load(null, null);
-            trustStore.setCertificateEntry("server-cert", serverCert);
+            Assertions.assertTrue(response.contains("projectVersion"));
+        } finally {
+            if (in != null) {
+                in.close();
+            }
+            if (conn != null) {
+                conn.disconnect();
+            }
+        }
+    }
 
-            TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-            tmf.init(trustStore);
+    @Test
+    public void testRestApiHttps() throws Exception {
+        HttpsURLConnection conn = null;
+        BufferedReader in = null;
+        try {
+            SSLContext sslContext =
+                    createSSLContext(
+                            getPath("client_keystore.jks"),
+                            CLIENT_KEYSTORE_PASSWORD,
+                            getPath("client_truststore.jks"),
+                            CLIENT_TRUSTSTORE_PASSWORD);
 
-            SSLContext sslContext = SSLContext.getInstance("TLS");
-            sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
-
-            java.net.URL url = new java.net.URL("https://localhost:8443/overview");
-            HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
+            java.net.URL url = new java.net.URL("https://localhost:" + HTTPS_PORT + "/overview");
+            conn = (HttpsURLConnection) url.openConnection();
             conn.setSSLSocketFactory(sslContext.getSocketFactory());
 
             Assertions.assertEquals(200, conn.getResponseCode());
 
-            BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-            String inputLine;
-            StringBuilder response = new StringBuilder();
-            while ((inputLine = in.readLine()) != null) {
-                response.append(inputLine);
+            in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+            String response = in.lines().collect(Collectors.joining());
+
+            Assertions.assertTrue(response.contains("projectVersion"));
+        } finally {
+            if (in != null) {
+                in.close();
             }
-            in.close();
-
-            Assertions.assertTrue(response.toString().contains("projectVersion"));
-
-        } catch (Exception e) {
-            e.printStackTrace();
+            if (conn != null) {
+                conn.disconnect();
+            }
         }
     }
 
+    private SSLContext createSSLContext(
+            String keystorePath, String keystorePass, String truststorePath, String truststorePass)
+            throws Exception {
+        KeyStore clientStore = KeyStore.getInstance("JKS");
+        try (FileInputStream fis = new FileInputStream(keystorePath)) {
+            clientStore.load(fis, keystorePass.toCharArray());
+        }
+
+        KeyManagerFactory kmf =
+                KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        kmf.init(clientStore, keystorePass.toCharArray());
+
+        KeyStore trustStore = KeyStore.getInstance("JKS");
+        try (FileInputStream fis = new FileInputStream(truststorePath)) {
+            trustStore.load(fis, truststorePass.toCharArray());
+        }
+
+        TrustManagerFactory tmf =
+                TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        tmf.init(trustStore);
+
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+
+        return sslContext;
+    }
+
+    @Test
+    public void testRestApiHttpsFailed() throws Exception {
+        Assertions.assertThrows(
+                SSLHandshakeException.class,
+                () -> {
+                    java.net.URL url = new java.net.URL("https://localhost:8443/overview");
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.getResponseCode();
+                });
+    }
 }
