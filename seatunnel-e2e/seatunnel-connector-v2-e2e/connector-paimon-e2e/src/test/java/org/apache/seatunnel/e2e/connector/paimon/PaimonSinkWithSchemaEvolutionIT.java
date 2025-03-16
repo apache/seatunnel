@@ -368,7 +368,8 @@ public class PaimonSinkWithSchemaEvolutionIT extends AbstractPaimonIT implements
                         "mysql",
                         MYSQL_USER_NAME,
                         MYSQL_USER_PASSWORD,
-                        JdbcUrlUtil.getUrlInfo(MYSQL_CONTAINER.getJdbcUrl()))) {
+                        JdbcUrlUtil.getUrlInfo(MYSQL_CONTAINER.getJdbcUrl()),
+                        null)) {
             mySqlCatalog.open();
             CatalogTable mySqlCatalogTable =
                     mySqlCatalog.getTable(TablePath.of(MYSQL_DATABASE, SOURCE_TABLE));

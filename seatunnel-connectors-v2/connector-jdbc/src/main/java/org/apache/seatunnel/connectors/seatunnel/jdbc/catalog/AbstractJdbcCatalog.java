@@ -49,12 +49,14 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -82,12 +84,15 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     protected final Map<String, Connection> connectionMap;
 
+    private final String driverClass;
+
     public AbstractJdbcCatalog(
             String catalogName,
             String username,
             String pwd,
             JdbcUrlUtil.UrlInfo urlInfo,
-            String defaultSchema) {
+            String defaultSchema,
+            String driverClass) {
 
         checkArgument(StringUtils.isNotBlank(username));
         checkArgument(StringUtils.isNotBlank(urlInfo.getUrlWithoutDatabase()));
@@ -100,6 +105,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         this.suffix = urlInfo.getSuffix();
         this.defaultSchema = Optional.ofNullable(defaultSchema);
         this.connectionMap = new ConcurrentHashMap<>();
+        this.driverClass = driverClass;
     }
 
     @Override
@@ -115,6 +121,33 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     protected Connection getConnection(String url) {
         if (connectionMap.containsKey(url)) {
             return connectionMap.get(url);
+        }
+        if (driverClass != null) {
+            log.info("try to find driver {}", driverClass);
+            java.util.Properties info = new java.util.Properties();
+            if (username != null) {
+                info.put("user", username);
+            }
+            if (pwd != null) {
+                info.put("password", pwd);
+            }
+            Enumeration<Driver> drivers = DriverManager.getDrivers();
+            try {
+                // Driver Manager may load the wrong driver, prioritize finding the driver by class
+                // name
+                while (drivers.hasMoreElements()) {
+                    Driver driver = drivers.nextElement();
+                    if (StringUtils.equals(driver.getClass().getName(), driverClass)) {
+                        try {
+                            return driver.connect(url, info);
+                        } catch (Exception e) {
+                            log.info("try connector failed", e);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.info("find driver error, back to DriverManager.getConnection", e);
+            }
         }
         try {
             Connection connection = DriverManager.getConnection(url, username, pwd);
