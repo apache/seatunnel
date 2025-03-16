@@ -173,29 +173,51 @@ public final class ConfigShadeUtils {
         String jsonString = config.root().render(ConfigRenderOptions.concise());
         ObjectNode jsonNodes = JsonUtils.parseObject(jsonString);
         Map<String, Object> configMap = JsonUtils.toMap(jsonNodes);
-        List<Map<String, Object>> sources =
-                (ArrayList<Map<String, Object>>) configMap.get(Constants.SOURCE);
-        List<Map<String, Object>> sinks =
-                (ArrayList<Map<String, Object>>) configMap.get(Constants.SINK);
-        Preconditions.checkArgument(
-                !sources.isEmpty(), "Miss <Source> config! Please check the config file.");
-        Preconditions.checkArgument(
-                !sinks.isEmpty(), "Miss <Sink> config! Please check the config file.");
-        sources.forEach(
-                source -> {
+        if (configMap.containsKey(Constants.SOURCE)) {
+
+            List<Map<String, Object>> sources =
+                    (ArrayList<Map<String, Object>>) configMap.get(Constants.SOURCE);
+            List<Map<String, Object>> sinks =
+                    (ArrayList<Map<String, Object>>) configMap.get(Constants.SINK);
+            Preconditions.checkArgument(
+                    !sources.isEmpty(), "Miss <Source> config! Please check the config file.");
+            Preconditions.checkArgument(
+                    !sinks.isEmpty(), "Miss <Sink> config! Please check the config file.");
+            sources.forEach(
+                    source -> {
+                        for (String sensitiveOption : sensitiveOptions) {
+                            source.computeIfPresent(sensitiveOption, processFunction);
+                        }
+                    });
+            sinks.forEach(
+                    sink -> {
+                        for (String sensitiveOption : sensitiveOptions) {
+                            sink.computeIfPresent(sensitiveOption, processFunction);
+                        }
+                    });
+            configMap.put(Constants.SOURCE, sources);
+            configMap.put(Constants.SINK, sinks);
+            return ConfigFactory.parseMap(configMap);
+        }else{
+            Map<String, Map<String, Object>> refMap = new HashMap<>();
+            // get map element in ref
+            for (String key : configMap.keySet()) {
+                Object ref_config = configMap.get(key);
+                if (ref_config instanceof Map) {
+                    // 2. 安全转换为 Map（泛型擦除后需处理警告）
+                    Map<String, Object> refDict = (Map<String, Object>) ref_config;
+                    refMap.put(key, refDict);
+                }
+            }
+            refMap.forEach(
+                (refId, RefConfig) -> {
+                    Map<String, Object> ref_dit = new HashMap<>(RefConfig.size());
                     for (String sensitiveOption : sensitiveOptions) {
-                        source.computeIfPresent(sensitiveOption, processFunction);
+                        ref_dit.computeIfPresent(sensitiveOption, processFunction);
                     }
                 });
-        sinks.forEach(
-                sink -> {
-                    for (String sensitiveOption : sensitiveOptions) {
-                        sink.computeIfPresent(sensitiveOption, processFunction);
-                    }
-                });
-        configMap.put(Constants.SOURCE, sources);
-        configMap.put(Constants.SINK, sinks);
-        return ConfigFactory.parseMap(configMap);
+            return ConfigFactory.parseMap(refMap);
+        }
     }
 
     public static Set<String> getSensitiveOptions(Config config) {

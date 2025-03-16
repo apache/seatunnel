@@ -107,4 +107,10 @@ public class EnvCommonOptions {
                     .mapType()
                     .noDefaultValue()
                     .withDescription("Define the worker where the job runs by tag");
+
+    public static Option<String> REF_PATH =
+            Options.key("__st_config_ref_path__")
+                    .stringType()
+                    .defaultValue(null)
+                    .withDescription("Define the ref config file path");
 }

@@ -107,6 +107,7 @@ public class MultipleTableJobConfigParser {
 
     private final List<URL> commonPluginJars;
     private final Config seaTunnelJobConfig;
+    private final Config refMaps;
 
     private final ReadonlyConfig envOptions;
 
@@ -159,6 +160,15 @@ public class MultipleTableJobConfigParser {
         this.isStartWithSavePoint = isStartWithSavePoint;
         this.seaTunnelJobConfig = ConfigBuilder.of(Paths.get(jobDefineFilePath), variables);
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
+        if (null != envOptions.getOptional(EnvCommonOptions.REF_PATH).orElse(null)) {
+            this.refMaps =
+                    ConfigBuilder.of(Paths.get(
+                            envOptions.getOptional(EnvCommonOptions.REF_PATH)
+                                    .orElseThrow(() -> new IllegalStateException("path of ref config is unset"))
+                    ), variables);
+        } else {
+            this.refMaps = null;
+        }
         this.pipelineCheckpoints = pipelineCheckpoints;
     }
 
@@ -175,21 +185,55 @@ public class MultipleTableJobConfigParser {
         this.isStartWithSavePoint = isStartWithSavePoint;
         this.seaTunnelJobConfig = seaTunnelJobConfig;
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
+        if (null != envOptions.getOptional(EnvCommonOptions.REF_PATH).orElse(null)) {
+            this.refMaps =
+                    ConfigBuilder.of(Paths.get(
+                            envOptions.getOptional(EnvCommonOptions.REF_PATH)
+                                    .orElseThrow(() -> new IllegalStateException("path of ref config is unset"))
+                    ), null);
+        } else {
+            this.refMaps = null;
+        }
         this.pipelineCheckpoints = pipelineCheckpoints;
+    }
+
+    private Config mergeWithRefConfig(Config pluginConfig, Config refConfigs) {
+        if (pluginConfig.hasPath("__st_config_ref_key__ ")) {
+            String refId = pluginConfig.getString("__st_config_ref_key__ ");
+            if (null != refConfigs) {
+                Config refConfig = refConfigs.getConfig(refId);
+                if (refConfig == null) {
+                    throw new IllegalArgumentException("ref ID not found: " + refId);
+                }
+                return pluginConfig.withoutPath("__st_config_ref_key__").withFallback(refConfig);
+            } else {
+                return pluginConfig;
+            }
+        } else {
+            return pluginConfig;
+        }
     }
 
     public ImmutablePair<List<Action>, Set<URL>> parse(ClassLoaderService classLoaderService) {
         this.fillJobConfigAndCommonJars();
-        List<? extends Config> sourceConfigs =
+        ArrayList<Config> sourceConfigs = new ArrayList<>();
+        for (Config source :
                 TypesafeConfigUtils.getConfigList(
-                        seaTunnelJobConfig, "source", Collections.emptyList());
-        List<? extends Config> transformConfigs =
+                        seaTunnelJobConfig, "source", Collections.emptyList())) {
+            sourceConfigs.add(this.mergeWithRefConfig(source, this.refMaps));
+        }
+        ArrayList<Config> transformConfigs = new ArrayList<>();
+        for (Config transform :
                 TypesafeConfigUtils.getConfigList(
-                        seaTunnelJobConfig, "transform", Collections.emptyList());
-        List<? extends Config> sinkConfigs =
+                        seaTunnelJobConfig, "transform", Collections.emptyList())) {
+            transformConfigs.add(this.mergeWithRefConfig(transform, this.refMaps));
+        }
+        ArrayList<Config> sinkConfigs = new ArrayList<>();
+        for (Config sink :
                 TypesafeConfigUtils.getConfigList(
-                        seaTunnelJobConfig, "sink", Collections.emptyList());
-
+                        seaTunnelJobConfig, "sink", Collections.emptyList())) {
+            sinkConfigs.add(this.mergeWithRefConfig(sink, this.refMaps));
+        }
         List<URL> sourceConnectorJars = getConnectorJarList(sourceConfigs, PluginType.SOURCE);
         List<URL> transformConnectorJars =
                 getConnectorJarList(transformConfigs, PluginType.TRANSFORM);
