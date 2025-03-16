@@ -182,9 +182,7 @@ public class ConnectorOptionCheckTest {
         whiteList.add("TDengineSourceOptions");
         whiteList.add("PulsarSourceOptions");
         whiteList.add("MongodbSinkOptions");
-        whiteList.add("IoTDBSinkOptions");
         whiteList.add("PaimonSourceOptions");
-        whiteList.add("IoTDBSourceOptions");
         whiteList.add("SlsSourceOptions");
         whiteList.add("SentrySinkOptions");
         whiteList.add("QdrantSinkOptions");

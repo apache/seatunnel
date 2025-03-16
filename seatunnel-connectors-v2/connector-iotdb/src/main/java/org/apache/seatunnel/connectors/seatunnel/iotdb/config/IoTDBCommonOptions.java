@@ -17,18 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.config;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.ToString;
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 
-import java.util.List;
+public class IoTDBCommonOptions {
 
-@Getter
-@ToString
-@AllArgsConstructor
-public class CommonConfig {
-
-    private final List<String> nodeUrls;
-    private final String username;
-    private final String password;
+    public static final Option<String> NODE_URLS =
+            Options.key("node_urls").stringType().noDefaultValue().withDescription("node urls");
+    public static final Option<String> USERNAME =
+            Options.key("username").stringType().noDefaultValue().withDescription("username");
+    public static final Option<String> PASSWORD =
+            Options.key("password").stringType().noDefaultValue().withDescription("password");
 }

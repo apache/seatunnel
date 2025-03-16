@@ -26,7 +26,7 @@ import org.apache.seatunnel.api.configuration.Options;
  * <p>please see the following link for more details:
  * https://iotdb.apache.org/UserGuide/Master/API/Programming-Java-Native-API.html
  */
-public class SourceConfig {
+public class IoTDBSourceOptions extends IoTDBCommonOptions {
 
     public static final Option<String> SQL =
             Options.key("sql").stringType().noDefaultValue().withDescription("sql");
