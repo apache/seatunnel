@@ -162,10 +162,15 @@ public class MultipleTableJobConfigParser {
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         if (null != envOptions.getOptional(EnvCommonOptions.REF_PATH).orElse(null)) {
             this.refMaps =
-                    ConfigBuilder.of(Paths.get(
-                            envOptions.getOptional(EnvCommonOptions.REF_PATH)
-                                    .orElseThrow(() -> new IllegalStateException("path of ref config is unset"))
-                    ), variables);
+                    ConfigBuilder.of(
+                            Paths.get(
+                                    envOptions
+                                            .getOptional(EnvCommonOptions.REF_PATH)
+                                            .orElseThrow(
+                                                    () ->
+                                                            new IllegalStateException(
+                                                                    "path of ref config is unset"))),
+                            variables);
         } else {
             this.refMaps = null;
         }
@@ -187,10 +192,15 @@ public class MultipleTableJobConfigParser {
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         if (null != envOptions.getOptional(EnvCommonOptions.REF_PATH).orElse(null)) {
             this.refMaps =
-                    ConfigBuilder.of(Paths.get(
-                            envOptions.getOptional(EnvCommonOptions.REF_PATH)
-                                    .orElseThrow(() -> new IllegalStateException("path of ref config is unset"))
-                    ), null);
+                    ConfigBuilder.of(
+                            Paths.get(
+                                    envOptions
+                                            .getOptional(EnvCommonOptions.REF_PATH)
+                                            .orElseThrow(
+                                                    () ->
+                                                            new IllegalStateException(
+                                                                    "path of ref config is unset"))),
+                            null);
         } else {
             this.refMaps = null;
         }

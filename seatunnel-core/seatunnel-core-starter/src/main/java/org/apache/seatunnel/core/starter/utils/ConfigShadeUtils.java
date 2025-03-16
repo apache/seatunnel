@@ -198,7 +198,7 @@ public final class ConfigShadeUtils {
             configMap.put(Constants.SOURCE, sources);
             configMap.put(Constants.SINK, sinks);
             return ConfigFactory.parseMap(configMap);
-        }else{
+        } else {
             Map<String, Map<String, Object>> refMap = new HashMap<>();
             // get map element in ref
             for (String key : configMap.keySet()) {
@@ -210,12 +210,12 @@ public final class ConfigShadeUtils {
                 }
             }
             refMap.forEach(
-                (refId, RefConfig) -> {
-                    Map<String, Object> ref_dit = new HashMap<>(RefConfig.size());
-                    for (String sensitiveOption : sensitiveOptions) {
-                        ref_dit.computeIfPresent(sensitiveOption, processFunction);
-                    }
-                });
+                    (refId, RefConfig) -> {
+                        Map<String, Object> ref_dit = new HashMap<>(RefConfig.size());
+                        for (String sensitiveOption : sensitiveOptions) {
+                            ref_dit.computeIfPresent(sensitiveOption, processFunction);
+                        }
+                    });
             return ConfigFactory.parseMap(refMap);
         }
     }
