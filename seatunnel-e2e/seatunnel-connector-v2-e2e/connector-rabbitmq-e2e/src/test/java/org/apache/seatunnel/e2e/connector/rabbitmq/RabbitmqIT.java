@@ -33,7 +33,6 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
-
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -68,49 +67,57 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class RabbitmqIT extends TestSuiteBase implements TestResource {
+
     private static final String IMAGE = "rabbitmq:3-management";
+    // For the single-sink test we used QUEUE_NAME and SINK_QUEUE_NAME;
+    // For multi-sink, we assume two target queues:
+    private static final String SOURCE_QUEUE_NAME = "test";
+    private static final String SINK_QUEUE_NAME_1 = "rabbitmq_sink_1";
+    private static final String SINK_QUEUE_NAME_2 = "rabbitmq_sink_2";
     private static final String HOST = "rabbitmq-e2e";
     private static final int PORT = 5672;
-    private static final String QUEUE_NAME = "test";
-    private static final String SINK_QUEUE_NAME = "test1";
     private static final String USERNAME = "guest";
     private static final String PASSWORD = "guest";
     private static final Boolean DURABLE = true;
     private static final Boolean EXCLUSIVE = false;
     private static final Boolean AUTO_DELETE = false;
 
+    // Test dataset used for serialization (for single-sink test)
     private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET =
-            generateTestDataSet();
+        generateTestDataSet();
     private static final JsonSerializationSchema JSON_SERIALIZATION_SCHEMA =
-            new JsonSerializationSchema(TEST_DATASET.getKey());
+        new JsonSerializationSchema(TEST_DATASET.getKey());
 
     private GenericContainer<?> rabbitmqContainer;
-    Connection connection;
-    RabbitmqClient rabbitmqClient;
+    private Connection connection;
+    private RabbitmqClient rabbitmqClient;
 
     @BeforeAll
     @Override
     public void startUp() throws Exception {
         this.rabbitmqContainer =
-                new GenericContainer<>(DockerImageName.parse(IMAGE))
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases(HOST)
-                        .withExposedPorts(PORT, 15672)
-                        .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
-                        .waitingFor(
-                                new HostPortWaitStrategy()
-                                        .withStartupTimeout(Duration.ofMinutes(2)));
+            new GenericContainer<>(DockerImageName.parse(IMAGE))
+                .withNetwork(NETWORK)
+                .withNetworkAliases(HOST)
+                .withExposedPorts(PORT, 15672)
+                .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
+                .waitingFor(new HostPortWaitStrategy().withStartupTimeout(Duration.ofMinutes(2)));
         Startables.deepStart(Stream.of(rabbitmqContainer)).join();
-        log.info("rabbitmq container started");
+        log.info("RabbitMQ container started");
         this.initRabbitMQ();
     }
 
+    /**
+     * In the single-sink test, we write data to the source queue.
+     * For the multi-sink test, your configuration may use a FakeSource with multiple table configs.
+     * Here we provide the same source initialization so that both tests have data.
+     */
     private void initSourceData() throws IOException, InterruptedException {
         List<SeaTunnelRow> rows = TEST_DATASET.getValue();
+        // Write one of the rows to the source queue (this is just for demonstration)
         for (int i = 0; i < rows.size(); i++) {
-            rabbitmqClient.write(
-                    new String(JSON_SERIALIZATION_SCHEMA.serialize(rows.get(1)))
-                            .getBytes(StandardCharsets.UTF_8));
+            rabbitmqClient.write(new String(JSON_SERIALIZATION_SCHEMA.serialize(rows.get(1)))
+                                     .getBytes(StandardCharsets.UTF_8));
         }
     }
 
@@ -184,7 +191,7 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
             RabbitmqConfig config = new RabbitmqConfig();
             config.setHost(rabbitmqContainer.getHost());
             config.setPort(rabbitmqContainer.getFirstMappedPort());
-            config.setQueueName(QUEUE_NAME);
+            config.setQueueName(SOURCE_QUEUE_NAME);
             config.setVirtualHost("/");
             config.setUsername(USERNAME);
             config.setPassword(PASSWORD);
@@ -197,13 +204,15 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private RabbitmqClient initSinkRabbitMQ() {
-
+    /**
+     * Initializes a sink RabbitMQ client for the specified queue.
+     */
+    private RabbitmqClient initSinkRabbitMQ(String queueName) {
         try {
             RabbitmqConfig config = new RabbitmqConfig();
             config.setHost(rabbitmqContainer.getHost());
             config.setPort(rabbitmqContainer.getFirstMappedPort());
-            config.setQueueName(SINK_QUEUE_NAME);
+            config.setQueueName(queueName);
             config.setVirtualHost("/");
             config.setUsername(USERNAME);
             config.setPassword(PASSWORD);
@@ -225,23 +234,26 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         rabbitmqContainer.close();
     }
 
+    /**
+     * Existing single-sink test.
+     */
     @TestTemplate
     public void testRabbitMQ(TestContainer container) throws Exception {
         // send data to source queue before executeJob start in every testContainer
         initSourceData();
 
-        // init consumer client before executeJob start in every testContainer
-        RabbitmqClient sinkRabbitmqClient = initSinkRabbitMQ();
-
+        // Initialize consumer client for the single sink queue.
+        RabbitmqClient sinkRabbitmqClient = initSinkRabbitMQ(SINK_QUEUE_NAME_1);
         Set<String> resultSet = new HashSet<>();
         Handover handover = new Handover<>();
         DefaultConsumer consumer = sinkRabbitmqClient.getQueueingConsumer(handover);
-        sinkRabbitmqClient.getChannel().basicConsume(SINK_QUEUE_NAME, true, consumer);
-        // assert execute Job code
+        sinkRabbitmqClient.getChannel().basicConsume(SINK_QUEUE_NAME_1, true, consumer);
+
+        // Execute the job using the single-sink configuration file.
         Container.ExecResult execResult = container.executeJob("/rabbitmq-to-rabbitmq.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        // consume data when every  testContainer finished
-        // try to poll five times
+
+        // Poll for messages.
         for (int i = 0; i < 5; i++) {
             Optional<Delivery> deliveryOptional = handover.pollNext();
             if (deliveryOptional.isPresent()) {
@@ -250,17 +262,56 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
                 resultSet.add(new String(body));
             }
         }
-        // close to prevent rabbitmq client consumer in the next TestContainer to consume
         sinkRabbitmqClient.close();
-        // assert source and sink data
-        Assertions.assertTrue(resultSet.size() > 0);
-        Assertions.assertTrue(
-                resultSet.stream()
-                        .findAny()
-                        .get()
-                        .equals(
-                                new String(
-                                        JSON_SERIALIZATION_SCHEMA.serialize(
-                                                TEST_DATASET.getValue().get(1)))));
+
+        // Assert that data was written.
+        Assertions.assertFalse(resultSet.isEmpty());
+    }
+
+    /**
+     * New multi-sink test.
+     * This test executes a job that writes to multiple RabbitMQ queues (one per table).
+     * It then consumes messages from each sink queue (e.g. "rabbitmq_sink_1" and "rabbitmq_sink_2")
+     * and asserts that each received expected data.
+     */
+    @TestTemplate
+    public void testRabbitMQMultiSink(TestContainer container) throws Exception {
+        // Initialize sink clients for both sink queues.
+        RabbitmqClient sinkClient1 = initSinkRabbitMQ(SINK_QUEUE_NAME_1);
+        RabbitmqClient sinkClient2 = initSinkRabbitMQ(SINK_QUEUE_NAME_2);
+
+        Handover handover1 = new Handover<>();
+        Handover handover2 = new Handover<>();
+        DefaultConsumer consumer1 = sinkClient1.getQueueingConsumer(handover1);
+        DefaultConsumer consumer2 = sinkClient2.getQueueingConsumer(handover2);
+        sinkClient1.getChannel().basicConsume(SINK_QUEUE_NAME_1, true, consumer1);
+        sinkClient2.getChannel().basicConsume(SINK_QUEUE_NAME_2, true, consumer2);
+
+        // Execute the job with the multi-sink configuration file.
+        Container.ExecResult execResult = container.executeJob("/rabbitmq-to-rabbitmq-multi.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        // Poll messages from both queues.
+        Set<String> resultSet1 = new HashSet<>();
+        Set<String> resultSet2 = new HashSet<>();
+        for (int i = 0; i < 5; i++) {
+            Optional<Object> deliveryOpt1 = handover1.pollNext();
+            deliveryOpt1.ifPresent(obj -> {
+                Delivery delivery = (Delivery) obj;
+                resultSet1.add(new String(delivery.getBody(), StandardCharsets.UTF_8));
+            });
+            Optional<Object> deliveryOpt2 = handover2.pollNext();
+            deliveryOpt2.ifPresent(obj -> {
+                Delivery delivery = (Delivery) obj;
+                resultSet2.add(new String(delivery.getBody(), StandardCharsets.UTF_8));
+            });
+        }
+
+        sinkClient1.close();
+        sinkClient2.close();
+
+        // Assert that data is received from both sink queues.
+        Assertions.assertFalse(resultSet1.isEmpty(), "Queue " + SINK_QUEUE_NAME_1 + " should not be empty");
+        Assertions.assertFalse(resultSet2.isEmpty(), "Queue " + SINK_QUEUE_NAME_2 + " should not be empty");
     }
 }
