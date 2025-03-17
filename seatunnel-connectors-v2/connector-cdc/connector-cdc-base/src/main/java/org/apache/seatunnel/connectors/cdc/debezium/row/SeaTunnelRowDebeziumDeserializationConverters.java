@@ -41,6 +41,9 @@ import io.debezium.time.MicroTimestamp;
 import io.debezium.time.NanoTime;
 import io.debezium.time.NanoTimestamp;
 import io.debezium.time.Timestamp;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.WKBReader;
+import org.locationtech.jts.io.WKBWriter;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -54,7 +57,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-/** Deserialization schema from Debezium object to {@link SeaTunnelRow} */
+/**
+ * Deserialization schema from Debezium object to {@link SeaTunnelRow}
+ */
 public class SeaTunnelRowDebeziumDeserializationConverters implements Serializable {
     private static final long serialVersionUID = -897499476343410567L;
     protected final DebeziumDeserializationConverter[] physicalConverters;
@@ -108,7 +113,9 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
     // Runtime Converters
     // -------------------------------------------------------------------------------------
 
-    /** Creates a runtime converter which is null safe. */
+    /**
+     * Creates a runtime converter which is null safe.
+     */
     private static DebeziumDeserializationConverter createConverter(
             SeaTunnelDataType<?> type,
             ZoneId serverTimeZone,
@@ -123,7 +130,9 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
     // SerializedLambdas (MSHADE-260).
     // --------------------------------------------------------------------------------
 
-    /** Creates a runtime converter which assuming input object is not null. */
+    /**
+     * Creates a runtime converter which assuming input object is not null.
+     */
     private static DebeziumDeserializationConverter createNotNullConverter(
             SeaTunnelDataType<?> type,
             ZoneId serverTimeZone,
@@ -475,6 +484,14 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                     ByteBuffer byteBuffer = (ByteBuffer) dbzObj;
                     byte[] bytes = new byte[byteBuffer.remaining()];
                     byteBuffer.get(bytes);
+                    return bytes;
+                } else if (dbzObj instanceof Struct) {
+                    Struct struct = (Struct) dbzObj;
+                    WKBReader reader = new WKBReader();
+                    WKBWriter wkbWriter = new WKBWriter();
+                    byte[] wkbs = struct.getBytes("wkb");
+                    Geometry geometry = reader.read(wkbs);
+                    byte[] bytes = wkbWriter.write(geometry);
                     return bytes;
                 } else {
                     throw new UnsupportedOperationException(
