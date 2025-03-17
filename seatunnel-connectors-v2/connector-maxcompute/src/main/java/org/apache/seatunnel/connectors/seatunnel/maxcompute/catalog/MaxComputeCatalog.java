@@ -147,6 +147,12 @@ public class MaxComputeCatalog implements Catalog {
     @Override
     public CatalogTable getTable(TablePath tablePath)
             throws CatalogException, TableNotExistException {
+        return getTable(tablePath, new ArrayList<>());
+    }
+
+    @Override
+    public CatalogTable getTable(TablePath tablePath, List<String> fieldNames)
+            throws CatalogException, TableNotExistException {
         if (!tableExists(tablePath)) {
             throw new TableNotExistException(catalogName, tablePath);
         }
@@ -168,7 +174,13 @@ public class MaxComputeCatalog implements Catalog {
         buildColumnsWithErrorCheck(
                 tablePath,
                 builder,
-                odpsSchema.getColumns().iterator(),
+                odpsSchema.getColumns().stream()
+                        .filter(
+                                column ->
+                                        fieldNames == null
+                                                || fieldNames.isEmpty()
+                                                || fieldNames.contains(column.getName()))
+                        .iterator(),
                 (column) -> {
                     BasicTypeDefine<TypeInfo> typeDefine =
                             BasicTypeDefine.<TypeInfo>builder()
@@ -185,7 +197,13 @@ public class MaxComputeCatalog implements Catalog {
             buildColumnsWithErrorCheck(
                     tablePath,
                     builder,
-                    odpsSchema.getPartitionColumns().iterator(),
+                    odpsSchema.getPartitionColumns().stream()
+                            .filter(
+                                    column ->
+                                            fieldNames == null
+                                                    || fieldNames.isEmpty()
+                                                    || fieldNames.contains(column.getName()))
+                            .iterator(),
                     (column) -> {
                         BasicTypeDefine<TypeInfo> typeDefine =
                                 BasicTypeDefine.<TypeInfo>builder()
@@ -271,6 +289,27 @@ public class MaxComputeCatalog implements Catalog {
         }
     }
 
+    public void createPartition(TablePath tablePath, PartitionSpec partitionSpec) {
+        try {
+            Odps odps = getOdps(tablePath.getDatabaseName());
+            Table odpsTable = odps.tables().get(tablePath.getTableName());
+            odpsTable.createPartition(partitionSpec, true);
+        } catch (Exception e) {
+            throw new CatalogException("create partition error", e);
+        }
+    }
+
+    public void truncatePartition(TablePath tablePath, PartitionSpec partitionSpec) {
+        try {
+            Odps odps = getOdps(tablePath.getDatabaseName());
+            Table odpsTable = odps.tables().get(tablePath.getTableName());
+            odpsTable.deletePartition(partitionSpec, true);
+            odpsTable.createPartition(partitionSpec, true);
+        } catch (Exception e) {
+            throw new CatalogException("create partition error", e);
+        }
+    }
+
     @Override
     public boolean isExistsData(TablePath tablePath) {
         throw new UnsupportedOperationException();
@@ -280,7 +319,15 @@ public class MaxComputeCatalog implements Catalog {
     public void executeSql(TablePath tablePath, String sql) {
         try {
             Odps odps = getOdps(tablePath.getDatabaseName());
-            SQLTask.run(odps, sql).waitForSuccess();
+            String[] sqls = sql.split(";");
+            for (String s : sqls) {
+                if (!s.trim().isEmpty()) {
+                    if (!s.trim().endsWith(";")) {
+                        s = s.trim() + ";";
+                    }
+                    SQLTask.run(odps, s).waitForSuccess();
+                }
+            }
         } catch (OdpsException e) {
             throw new CatalogException("execute sql error", e);
         }

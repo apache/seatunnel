@@ -163,7 +163,7 @@ public abstract class AbstractTestContainer implements TestContainer {
     }
 
     protected Container.ExecResult restoreJob(
-            GenericContainer<?> container, String confFile, String jobId)
+            GenericContainer<?> container, String confFile, String jobId, List<String> variables)
             throws IOException, InterruptedException {
         final String confInContainerPath = copyConfigFileToContainer(container, confFile);
         // copy connectors
@@ -182,7 +182,15 @@ public abstract class AbstractTestContainer implements TestContainer {
         command.add(adaptPathForWin(confInContainerPath));
         command.add(getRestoreCommand());
         command.add(jobId);
-        command.addAll(getExtraStartShellCommands());
+        List<String> extraStartShellCommands = new ArrayList<>(getExtraStartShellCommands());
+        if (variables != null && !variables.isEmpty()) {
+            variables.forEach(
+                    v -> {
+                        extraStartShellCommands.add("-i");
+                        extraStartShellCommands.add(v);
+                    });
+        }
+        command.addAll(extraStartShellCommands);
         return executeCommand(container, command);
     }
 

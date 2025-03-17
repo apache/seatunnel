@@ -136,7 +136,7 @@ public abstract class ClassLoaderITBase extends SeaTunnelEngineContainer {
                                     + colon
                                     + server.getFirstMappedPort()
                                     + RestConstant.CONTEXT_PATH
-                                    + RestConstant.SUBMIT_JOB_URL)
+                                    + RestConstant.REST_URL_SUBMIT_JOB)
                     .then()
                     .statusCode(200);
 
@@ -150,7 +150,7 @@ public abstract class ClassLoaderITBase extends SeaTunnelEngineContainer {
                                                             + colon
                                                             + server.getFirstMappedPort()
                                                             + RestConstant.CONTEXT_PATH
-                                                            + RestConstant.FINISHED_JOBS_INFO
+                                                            + RestConstant.REST_URL_FINISHED_JOBS
                                                             + "/FINISHED")
                                             .then()
                                             .statusCode(200)

@@ -6,7 +6,7 @@
 
 将数据写入 Hive。
 
-:::提示
+:::tip 提示
 
 为了使用此连接器，您必须确保您的 Spark/Flink 集群已经集成了 Hive。测试过的 Hive 版本是 2.3.9 和 3.1.3。
 
@@ -31,20 +31,21 @@
 
 ## 选项
 
-|             名称              |  类型   | 必需 | 默认值  |
-|-------------------------------|---------|------|---------|
-| table_name                    | string  | 是   | -       |
-| metastore_uri                 | string  | 是   | -       |
-| compress_codec                | string  | 否   | none    |
-| hdfs_site_path                | string  | 否   | -       |
-| hive_site_path                | string  | 否   | -       |
-| hive.hadoop.conf              | Map     | 否   | -       |
-| hive.hadoop.conf-path         | string  | 否   | -       |
-| krb5_path                     | string  | 否   | /etc/krb5.conf |
-| kerberos_principal            | string  | 否   | -       |
-| kerberos_keytab_path          | string  | 否   | -       |
-| abort_drop_partition_metadata | boolean | 否   | true    |
-| common-options                |         | 否   | -       |
+| 名称                                    | 类型      | 必需 | 默认值            |
+|---------------------------------------|---------|----|----------------|
+| table_name                            | string  | 是  | -              |
+| metastore_uri                         | string  | 是  | -              |
+| compress_codec                        | string  | 否  | none           |
+| hdfs_site_path                        | string  | 否  | -              |
+| hive_site_path                        | string  | 否  | -              |
+| hive.hadoop.conf                      | Map     | 否  | -              |
+| hive.hadoop.conf-path                 | string  | 否  | -              |
+| krb5_path                             | string  | 否  | /etc/krb5.conf |
+| kerberos_principal                    | string  | 否  | -              |
+| kerberos_keytab_path                  | string  | 否  | -              |
+| abort_drop_partition_metadata         | boolean | 否  | true           |
+| parquet_avro_write_timestamp_as_int96 | boolean | 否  | false          |
+| common-options                        |         | 否  | -              |
 
 ### table_name [string]
 
@@ -87,6 +88,10 @@ Kerberos 的 keytab 文件路径
 ### abort_drop_partition_metadata [boolean]
 
 在中止操作期间是否从 Hive Metastore 中删除分区元数据的标志。注意：这只影响元存储中的元数据，分区中的数据将始终被删除（同步过程中生成的数据）。
+
+### parquet_avro_write_timestamp_as_int96 [boolean]
+
+支持从时间戳写入 Parquet INT96，仅对 parquet 文件有效。
 
 ### 通用选项
 

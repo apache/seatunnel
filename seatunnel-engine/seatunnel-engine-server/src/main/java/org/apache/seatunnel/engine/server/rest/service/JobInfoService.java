@@ -173,6 +173,15 @@ public class JobInfoService extends BaseService {
         return submitJobInternal(config, requestParams, seaTunnelServer, nodeEngine.getNode());
     }
 
+    public JsonObject submitJob(Map<String, String> requestParams, Config config) {
+        if (Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT))
+                && requestParams.get(RestConstant.JOB_ID) == null) {
+            throw new IllegalArgumentException("Please provide jobId when start with save point.");
+        }
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
+        return submitJobInternal(config, requestParams, seaTunnelServer, nodeEngine.getNode());
+    }
+
     public JsonArray submitJobs(byte[] requestBody) {
         List<Tuple2<Map<String, String>, Config>> configTuples =
                 RestUtil.buildConfigList(requestHandle(requestBody), false);

@@ -38,7 +38,9 @@ public class ClickhouseCatalogUtil extends CatalogUtil {
                 ClickhouseTypeConverter.INSTANCE.reconvert(column).getColumnType(),
                 StringUtils.isEmpty(column.getComment())
                         ? ""
-                        : "COMMENT '" + column.getComment() + "'");
+                        : "COMMENT '"
+                                + column.getComment().replace("'", "''").replace("\\", "\\\\")
+                                + "'");
     }
 
     public String getDropTableSql(TablePath tablePath, boolean ignoreIfNotExists) {

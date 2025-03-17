@@ -31,11 +31,13 @@ import org.apache.seatunnel.engine.server.rest.servlet.CurrentNodeLogServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.EncryptConfigServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.FinishedJobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.JobInfoServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.MetricsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.OverviewServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.RunningJobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.RunningThreadsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.StopJobServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.StopJobsServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.SubmitJobByUploadFileServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.SubmitJobServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.SubmitJobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.SystemMonitoringServlet;
@@ -46,6 +48,7 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.servlet.DispatcherType;
+import javax.servlet.MultipartConfigElement;
 
 import java.io.IOException;
 import java.net.DatagramSocket;
@@ -53,23 +56,26 @@ import java.net.ServerSocket;
 import java.net.URL;
 import java.util.EnumSet;
 
-import static org.apache.seatunnel.engine.server.rest.RestConstant.ENCRYPT_CONFIG;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.FINISHED_JOBS_INFO;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.GET_ALL_LOG_NAME;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.GET_LOG;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.GET_LOGS;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.JOB_INFO_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.OVERVIEW;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOBS_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOB_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_THREADS;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.STOP_JOBS_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.STOP_JOB_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.SUBMIT_JOBS_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.SUBMIT_JOB_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.SYSTEM_MONITORING_INFORMATION;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.THREAD_DUMP;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.UPDATE_TAGS_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_ENCRYPT_CONFIG;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_FINISHED_JOBS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_GET_ALL_LOG_NAME;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_JOB_INFO;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOG;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOGS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_METRICS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OPEN_METRICS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OVERVIEW;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOB;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOBS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_THREADS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_STOP_JOB;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_STOP_JOBS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SUBMIT_JOB;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SUBMIT_JOBS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SUBMIT_JOB_BY_UPLOAD_FILE;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SYSTEM_MONITORING_INFORMATION;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_THREAD_DUMP;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_UPDATE_TAGS;
 
 /** The Jetty service for SeaTunnel engine server. */
 @Slf4j
@@ -119,6 +125,9 @@ public class JettyService {
         ServletHolder threadDumpHolder = new ServletHolder(new ThreadDumpServlet(nodeEngine));
 
         ServletHolder submitJobHolder = new ServletHolder(new SubmitJobServlet(nodeEngine));
+        ServletHolder submitJobByUploadFileHolder =
+                new ServletHolder(new SubmitJobByUploadFileServlet(nodeEngine));
+
         ServletHolder submitJobsHolder = new ServletHolder(new SubmitJobsServlet(nodeEngine));
         ServletHolder stopJobHolder = new ServletHolder(new StopJobServlet(nodeEngine));
         ServletHolder stopJobsHolder = new ServletHolder(new StopJobsServlet(nodeEngine));
@@ -134,26 +143,34 @@ public class JettyService {
                 new ServletHolder(new CurrentNodeLogServlet(nodeEngine));
         ServletHolder allLogNameServlet = new ServletHolder(new AllLogNameServlet(nodeEngine));
 
-        context.addServlet(overviewHolder, convertUrlToPath(OVERVIEW));
-        context.addServlet(runningJobsHolder, convertUrlToPath(RUNNING_JOBS_URL));
-        context.addServlet(finishedJobsHolder, convertUrlToPath(FINISHED_JOBS_INFO));
-        context.addServlet(systemMonitoringHolder, convertUrlToPath(SYSTEM_MONITORING_INFORMATION));
-        context.addServlet(jobInfoHolder, convertUrlToPath(JOB_INFO_URL));
-        context.addServlet(jobInfoHolder, convertUrlToPath(RUNNING_JOB_URL));
-        context.addServlet(threadDumpHolder, convertUrlToPath(THREAD_DUMP));
+        ServletHolder metricsServlet = new ServletHolder(new MetricsServlet(nodeEngine));
 
-        context.addServlet(submitJobHolder, convertUrlToPath(SUBMIT_JOB_URL));
-        context.addServlet(submitJobsHolder, convertUrlToPath(SUBMIT_JOBS_URL));
-        context.addServlet(stopJobHolder, convertUrlToPath(STOP_JOB_URL));
-        context.addServlet(stopJobsHolder, convertUrlToPath(STOP_JOBS_URL));
-        context.addServlet(encryptConfigHolder, convertUrlToPath(ENCRYPT_CONFIG));
-        context.addServlet(updateTagsHandler, convertUrlToPath(UPDATE_TAGS_URL));
+        context.addServlet(overviewHolder, convertUrlToPath(REST_URL_OVERVIEW));
+        context.addServlet(runningJobsHolder, convertUrlToPath(REST_URL_RUNNING_JOBS));
+        context.addServlet(finishedJobsHolder, convertUrlToPath(REST_URL_FINISHED_JOBS));
+        context.addServlet(
+                systemMonitoringHolder, convertUrlToPath(REST_URL_SYSTEM_MONITORING_INFORMATION));
+        context.addServlet(jobInfoHolder, convertUrlToPath(REST_URL_JOB_INFO));
+        context.addServlet(jobInfoHolder, convertUrlToPath(REST_URL_RUNNING_JOB));
+        context.addServlet(threadDumpHolder, convertUrlToPath(REST_URL_THREAD_DUMP));
+        MultipartConfigElement multipartConfigElement = new MultipartConfigElement("");
+        submitJobByUploadFileHolder.getRegistration().setMultipartConfig(multipartConfigElement);
+        context.addServlet(
+                submitJobByUploadFileHolder, convertUrlToPath(REST_URL_SUBMIT_JOB_BY_UPLOAD_FILE));
+        context.addServlet(submitJobHolder, convertUrlToPath(REST_URL_SUBMIT_JOB));
+        context.addServlet(submitJobsHolder, convertUrlToPath(REST_URL_SUBMIT_JOBS));
+        context.addServlet(stopJobHolder, convertUrlToPath(REST_URL_STOP_JOB));
+        context.addServlet(stopJobsHolder, convertUrlToPath(REST_URL_STOP_JOBS));
+        context.addServlet(encryptConfigHolder, convertUrlToPath(REST_URL_ENCRYPT_CONFIG));
+        context.addServlet(updateTagsHandler, convertUrlToPath(REST_URL_UPDATE_TAGS));
 
-        context.addServlet(runningThreadsHolder, convertUrlToPath(RUNNING_THREADS));
+        context.addServlet(runningThreadsHolder, convertUrlToPath(REST_URL_RUNNING_THREADS));
 
-        context.addServlet(allNodeLogServletHolder, convertUrlToPath(GET_LOGS));
-        context.addServlet(currentNodeLogServlet, convertUrlToPath(GET_LOG));
-        context.addServlet(allLogNameServlet, convertUrlToPath(GET_ALL_LOG_NAME));
+        context.addServlet(allNodeLogServletHolder, convertUrlToPath(REST_URL_LOGS));
+        context.addServlet(currentNodeLogServlet, convertUrlToPath(REST_URL_LOG));
+        context.addServlet(allLogNameServlet, convertUrlToPath(REST_URL_GET_ALL_LOG_NAME));
+        context.addServlet(metricsServlet, convertUrlToPath(REST_URL_METRICS));
+        context.addServlet(metricsServlet, convertUrlToPath(REST_URL_OPEN_METRICS));
 
         server.setHandler(context);
 

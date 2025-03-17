@@ -31,20 +31,21 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-|             name              |  type   | required | default value  |
-|-------------------------------|---------|----------|----------------|
-| table_name                    | string  | yes      | -              |
-| metastore_uri                 | string  | yes      | -              |
-| compress_codec                | string  | no       | none           |
-| hdfs_site_path                | string  | no       | -              |
-| hive_site_path                | string  | no       | -              |
-| hive.hadoop.conf              | Map     | no       | -              |
-| hive.hadoop.conf-path         | string  | no       | -              |
-| krb5_path                     | string  | no       | /etc/krb5.conf |
-| kerberos_principal            | string  | no       | -              |
-| kerberos_keytab_path          | string  | no       | -              |
-| abort_drop_partition_metadata | boolean | no       | true           |
-| common-options                |         | no       | -              |
+| name                                  | type    | required | default value  |
+|---------------------------------------|---------|----------|----------------|
+| table_name                            | string  | yes      | -              |
+| metastore_uri                         | string  | yes      | -              |
+| compress_codec                        | string  | no       | none           |
+| hdfs_site_path                        | string  | no       | -              |
+| hive_site_path                        | string  | no       | -              |
+| hive.hadoop.conf                      | Map     | no       | -              |
+| hive.hadoop.conf-path                 | string  | no       | -              |
+| krb5_path                             | string  | no       | /etc/krb5.conf |
+| kerberos_principal                    | string  | no       | -              |
+| kerberos_keytab_path                  | string  | no       | -              |
+| abort_drop_partition_metadata         | boolean | no       | true           |
+| parquet_avro_write_timestamp_as_int96 | boolean | no       | false          |
+| common-options                        |         | no       | -              |
 
 ### table_name [string]
 
@@ -87,6 +88,10 @@ The keytab path of kerberos
 ### abort_drop_partition_metadata [boolean]
 
 Flag to decide whether to drop partition metadata from Hive Metastore during an abort operation. Note: this only affects the metadata in the metastore, the data in the partition will always be deleted(data generated during the synchronization process).
+
+### parquet_avro_write_timestamp_as_int96 [boolean]
+
+Support writing Parquet INT96 from a timestamp, only valid for parquet files.
 
 ### common options
 

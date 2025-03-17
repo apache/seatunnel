@@ -35,6 +35,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipParameters;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.fs.FileStatus;
 
 import lombok.extern.slf4j.Slf4j;
@@ -80,7 +81,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected List<String> readColumns = new ArrayList<>();
     protected boolean isMergePartition = true;
     protected long skipHeaderNumber = BaseSourceConfigOptions.SKIP_HEADER_ROW_NUMBER.defaultValue();
-    protected transient boolean isKerberosAuthorization = false;
+    protected String filenameExtension;
     protected HadoopFileSystemProxy hadoopFileSystemProxy;
     protected ArchiveCompressFormat archiveCompressFormat =
             BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC.defaultValue();
@@ -110,7 +111,10 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         FileStatus[] stats = hadoopFileSystemProxy.listStatus(path);
         for (FileStatus fileStatus : stats) {
             if (fileStatus.isDirectory()) {
-                fileNames.addAll(getFileNamesByPath(fileStatus.getPath().toString()));
+                // skip hidden tmp directory, such as .hive-staging_hive
+                if (!fileStatus.getPath().getName().startsWith(".")) {
+                    fileNames.addAll(getFileNamesByPath(fileStatus.getPath().toString()));
+                }
                 continue;
             }
             if (fileStatus.isFile() && filterFileByPattern(fileStatus) && fileStatus.getLen() > 0) {
@@ -133,7 +137,10 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 }
             }
         }
-
+        if (StringUtils.isNotEmpty(filenameExtension)) {
+            this.fileNames.removeIf(fileName -> !fileName.endsWith(filenameExtension));
+            fileNames.removeIf(fileName -> !fileName.endsWith(filenameExtension));
+        }
         return fileNames;
     }
 
@@ -155,6 +162,10 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         if (pluginConfig.hasPath(BaseSourceConfigOptions.SKIP_HEADER_ROW_NUMBER.key())) {
             skipHeaderNumber =
                     pluginConfig.getLong(BaseSourceConfigOptions.SKIP_HEADER_ROW_NUMBER.key());
+        }
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.FILENAME_EXTENSION.key())) {
+            filenameExtension =
+                    pluginConfig.getString(BaseSourceConfigOptions.FILENAME_EXTENSION.key());
         }
         if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_PARTITIONS.key())) {
             readPartitions.addAll(

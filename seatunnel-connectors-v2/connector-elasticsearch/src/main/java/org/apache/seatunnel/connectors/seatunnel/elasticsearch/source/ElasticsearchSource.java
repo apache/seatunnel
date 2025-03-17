@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -32,14 +33,14 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.SeaTunnelDataTypeConvertorUtil;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog.ElasticSearchTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchConfig;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
 
@@ -61,13 +62,13 @@ public class ElasticsearchSource
                 SupportParallelism,
                 SupportColumnProjection {
 
-    private final List<SourceConfig> sourceConfigList;
+    private final List<ElasticsearchConfig> elasticsearchConfigList;
     private final ReadonlyConfig connectionConfig;
 
     public ElasticsearchSource(ReadonlyConfig config) {
         this.connectionConfig = config;
-        boolean multiSource = config.getOptional(SourceConfig.INDEX_LIST).isPresent();
-        boolean singleSource = config.getOptional(SourceConfig.INDEX).isPresent();
+        boolean multiSource = config.getOptional(ElasticsearchSourceOptions.INDEX_LIST).isPresent();
+        boolean singleSource = config.getOptional(ElasticsearchSourceOptions.INDEX).isPresent();
         if (multiSource && singleSource) {
             log.warn(
                     "Elasticsearch Source config warn: when both 'index' and 'index_list' are present in the configuration, only the 'index_list' configuration will take effect");
@@ -78,42 +79,43 @@ public class ElasticsearchSource
                     ElasticsearchConnectorErrorCode.SOURCE_CONFIG_ERROR_01.getDescription());
         }
         if (multiSource) {
-            this.sourceConfigList = createMultiSource(config);
+            this.elasticsearchConfigList = createMultiSource(config);
         } else {
-            this.sourceConfigList = Collections.singletonList(parseOneIndexQueryConfig(config));
+            this.elasticsearchConfigList =
+                    Collections.singletonList(parseOneIndexQueryConfig(config));
         }
     }
 
-    private List<SourceConfig> createMultiSource(ReadonlyConfig config) {
-        List<Map<String, Object>> configMaps = config.get(SourceConfig.INDEX_LIST);
+    private List<ElasticsearchConfig> createMultiSource(ReadonlyConfig config) {
+        List<Map<String, Object>> configMaps = config.get(ElasticsearchSourceOptions.INDEX_LIST);
         List<ReadonlyConfig> configList =
                 configMaps.stream().map(ReadonlyConfig::fromMap).collect(Collectors.toList());
-        List<SourceConfig> sourceConfigList = new ArrayList<>(configList.size());
+        List<ElasticsearchConfig> elasticsearchConfigList = new ArrayList<>(configList.size());
         for (ReadonlyConfig readonlyConfig : configList) {
-            SourceConfig sourceConfig = parseOneIndexQueryConfig(readonlyConfig);
-            sourceConfigList.add(sourceConfig);
+            ElasticsearchConfig elasticsearchConfig = parseOneIndexQueryConfig(readonlyConfig);
+            elasticsearchConfigList.add(elasticsearchConfig);
         }
-        return sourceConfigList;
+        return elasticsearchConfigList;
     }
 
-    private SourceConfig parseOneIndexQueryConfig(ReadonlyConfig readonlyConfig) {
+    private ElasticsearchConfig parseOneIndexQueryConfig(ReadonlyConfig readonlyConfig) {
 
-        Map<String, Object> query = readonlyConfig.get(SourceConfig.QUERY);
-        String index = readonlyConfig.get(SourceConfig.INDEX);
+        Map<String, Object> query = readonlyConfig.get(ElasticsearchSourceOptions.QUERY);
+        String index = readonlyConfig.get(ElasticsearchSourceOptions.INDEX);
 
         CatalogTable catalogTable;
         List<String> source;
         Map<String, String> arrayColumn;
 
-        if (readonlyConfig.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
+        if (readonlyConfig.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
             // todo: We need to remove the schema in ES.
             log.warn(
                     "The schema config in ElasticSearch source/sink is deprecated, please use source config instead!");
             catalogTable = CatalogTableUtil.buildWithConfig(readonlyConfig);
             source = Arrays.asList(catalogTable.getSeaTunnelRowType().getFieldNames());
         } else {
-            source = readonlyConfig.get(SourceConfig.SOURCE);
-            arrayColumn = readonlyConfig.get(SourceConfig.ARRAY_COLUMN);
+            source = readonlyConfig.get(ElasticsearchSourceOptions.SOURCE);
+            arrayColumn = readonlyConfig.get(ElasticsearchSourceOptions.ARRAY_COLUMN);
             Map<String, BasicTypeDefine<EsType>> esFieldType = getFieldTypeMapping(index, source);
             if (CollectionUtils.isEmpty(source)) {
                 source = new ArrayList<>(esFieldType.keySet());
@@ -154,17 +156,17 @@ public class ElasticsearchSource
                             "");
         }
 
-        String scrollTime = readonlyConfig.get(SourceConfig.SCROLL_TIME);
-        int scrollSize = readonlyConfig.get(SourceConfig.SCROLL_SIZE);
-        SourceConfig sourceConfig = new SourceConfig();
-        sourceConfig.setSource(source);
-        sourceConfig.setCatalogTable(catalogTable);
-        sourceConfig.setQuery(query);
-        sourceConfig.setScrollTime(scrollTime);
-        sourceConfig.setScrollSize(scrollSize);
-        sourceConfig.setIndex(index);
-        sourceConfig.setCatalogTable(catalogTable);
-        return sourceConfig;
+        String scrollTime = readonlyConfig.get(ElasticsearchSourceOptions.SCROLL_TIME);
+        int scrollSize = readonlyConfig.get(ElasticsearchSourceOptions.SCROLL_SIZE);
+        ElasticsearchConfig elasticsearchConfig = new ElasticsearchConfig();
+        elasticsearchConfig.setSource(source);
+        elasticsearchConfig.setCatalogTable(catalogTable);
+        elasticsearchConfig.setQuery(query);
+        elasticsearchConfig.setScrollTime(scrollTime);
+        elasticsearchConfig.setScrollSize(scrollSize);
+        elasticsearchConfig.setIndex(index);
+        elasticsearchConfig.setCatalogTable(catalogTable);
+        return elasticsearchConfig;
     }
 
     @Override
@@ -179,8 +181,8 @@ public class ElasticsearchSource
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        return sourceConfigList.stream()
-                .map(SourceConfig::getCatalogTable)
+        return elasticsearchConfigList.stream()
+                .map(ElasticsearchConfig::getCatalogTable)
                 .collect(Collectors.toList());
     }
 
@@ -195,7 +197,7 @@ public class ElasticsearchSource
             createEnumerator(
                     SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext) {
         return new ElasticsearchSourceSplitEnumerator(
-                enumeratorContext, connectionConfig, sourceConfigList);
+                enumeratorContext, connectionConfig, elasticsearchConfigList);
     }
 
     @Override
@@ -204,7 +206,7 @@ public class ElasticsearchSource
                     SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext,
                     ElasticsearchSourceState sourceState) {
         return new ElasticsearchSourceSplitEnumerator(
-                enumeratorContext, sourceState, connectionConfig, sourceConfigList);
+                enumeratorContext, sourceState, connectionConfig, elasticsearchConfigList);
     }
 
     @VisibleForTesting

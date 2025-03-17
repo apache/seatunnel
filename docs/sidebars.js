@@ -213,7 +213,8 @@ const sidebars = {
                 "seatunnel-engine/user-command",
                 "seatunnel-engine/logging",
                 "seatunnel-engine/telemetry",
-                "seatunnel-engine/web-ui"
+                "seatunnel-engine/web-ui",
+                "seatunnel-engine/slot-allocation-strategy"
             ]
         },
         {
@@ -232,7 +233,8 @@ const sidebars = {
                 'contribution/new-license',
                 'contribution/coding-guide',
                 'contribution/contribute-transform-v2-guide',
-                'contribution/how-to-create-your-connector'
+                'contribution/how-to-create-your-connector',
+                'contribution/docs-format-specification'
             ],
         },
         "faq"

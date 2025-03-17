@@ -246,6 +246,49 @@ sink {
 }
 ```
 
+### Single table(Specify hadoop HA config with hadoop_user_name) 
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    table-names = ["seatunnel.role"]
+  }
+}
+
+transform {
+}
+
+sink {
+  Paimon {
+    catalog_name="seatunnel_test"
+    warehouse="hdfs:///tmp/seatunnel/paimon/hadoop-sink/"
+    database="seatunnel"
+    table="role"
+    paimon.hadoop.conf = {
+      hadoop_user_name = "hdfs"
+      fs.defaultFS = "hdfs://nameservice1"
+      dfs.nameservices = "nameservice1"
+      dfs.ha.namenodes.nameservice1 = "nn1,nn2"
+      dfs.namenode.rpc-address.nameservice1.nn1 = "hadoop03:8020"
+      dfs.namenode.rpc-address.nameservice1.nn2 = "hadoop04:8020"
+      dfs.client.failover.proxy.provider.nameservice1 = "org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider"
+      dfs.client.use.datanode.hostname = "true"
+      security.kerberos.login.principal = "your-kerberos-principal"
+      security.kerberos.login.keytab = "your-kerberos-keytab-path"
+    }
+  }
+}
+```
+
 ### Single table(Hive catalog)
 
 ```hocon

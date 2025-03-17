@@ -60,6 +60,7 @@ public class DateUtils {
                 Pattern.compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z"),
                 Pattern.compile("\\d{2}:\\d{2}:\\d{2}\\+\\d{2}:\\d{2}"),
                 Pattern.compile("\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?"),
+                Pattern.compile("\\d{4}/\\d{1,2}/\\d{1,2}")
             };
 
     public static final Map<Pattern, DateTimeFormatter> DATE_FORMATTER_MAP = new HashMap();
@@ -147,6 +148,12 @@ public class DateUtils {
                         .toFormatter());
         DATE_FORMATTER_MAP.put(PATTERN_ARRAY[6], ISO_OFFSET_TIME);
         DATE_FORMATTER_MAP.put(PATTERN_ARRAY[7], ISO_LOCAL_TIME);
+        DATE_FORMATTER_MAP.put(
+                PATTERN_ARRAY[8],
+                new DateTimeFormatterBuilder()
+                        .parseCaseInsensitive()
+                        .append(DateTimeFormatter.ofPattern("yyyy/M/d"))
+                        .toFormatter());
     }
 
     /**
@@ -184,6 +191,7 @@ public class DateUtils {
 
     public enum Formatter {
         YYYY_MM_DD("yyyy-MM-dd"),
+        YYYY_M_D("yyyy/M/d"),
         YYYY_MM_DD_SPOT("yyyy.MM.dd"),
         YYYY_MM_DD_SLASH("yyyy/MM/dd");
         private final String value;

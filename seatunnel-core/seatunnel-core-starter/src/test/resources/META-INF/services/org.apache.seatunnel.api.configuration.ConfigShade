@@ -14,3 +14,4 @@
 # limitations under the License.
 
 org.apache.seatunnel.core.starter.utils.ConfigShadeTest$Base64ConfigShade
+org.apache.seatunnel.core.starter.utils.ConfigShadeTest$ConfigShadeWithProps

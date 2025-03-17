@@ -32,6 +32,7 @@ import org.apache.paimon.types.FloatType;
 import org.apache.paimon.types.IntType;
 import org.apache.paimon.types.RowType;
 import org.apache.paimon.types.SmallIntType;
+import org.apache.paimon.types.TimeType;
 import org.apache.paimon.types.TimestampType;
 import org.apache.paimon.types.TinyIntType;
 import org.apache.paimon.types.VarBinaryType;
@@ -46,6 +47,7 @@ import net.sf.jsqlparser.statement.select.PlainSelect;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Arrays;
 
 import static org.apache.seatunnel.connectors.seatunnel.paimon.source.converter.SqlToPaimonPredicateConverter.convertToPlainSelect;
@@ -77,7 +79,8 @@ public class SqlToPaimonConverterTest {
                                 new DataField(9, "float_col", new FloatType()),
                                 new DataField(10, "double_col", new DoubleType()),
                                 new DataField(11, "date_col", new DateType()),
-                                new DataField(12, "timestamp_col", new TimestampType())));
+                                new DataField(12, "timestamp_col", new TimestampType()),
+                                new DataField(13, "time_col", new TimeType())));
 
         fieldNames = rowType.getFieldNames().toArray(new String[0]);
     }
@@ -97,7 +100,8 @@ public class SqlToPaimonConverterTest {
                         + "float_col = 5.5 AND "
                         + "double_col = 6.6 AND "
                         + "date_col = '2022-01-01' AND "
-                        + "timestamp_col = '2022-01-01T12:00:00.123'";
+                        + "timestamp_col = '2022-01-01T12:00:00.123' AND "
+                        + "time_col = '12:00:00.123'";
 
         PlainSelect plainSelect = convertToPlainSelect(query);
         Predicate predicate =
@@ -125,7 +129,9 @@ public class SqlToPaimonConverterTest {
                         builder.equal(
                                 12,
                                 Timestamp.fromLocalDateTime(
-                                        LocalDateTime.parse("2022-01-01T12:00:00.123"))));
+                                        LocalDateTime.parse("2022-01-01T12:00:00.123"))),
+                        builder.equal(
+                                13, DateTimeUtils.toInternal(LocalTime.parse("12:00:00.123"))));
 
         assertEquals(expectedPredicate.toString(), predicate.toString());
     }

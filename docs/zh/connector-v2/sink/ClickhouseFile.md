@@ -10,7 +10,7 @@
 
 - [ ] [精准一次](../../concept/connector-v2-features.md)
 
-:::小提示
+:::tip 提示
 
 你也可以采用JDBC的方式将数据写入Clickhouse。
 

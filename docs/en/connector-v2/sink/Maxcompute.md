@@ -62,7 +62,7 @@ Default template:
 ```sql
 CREATE TABLE IF NOT EXISTS `${table}` (
 ${rowtype_fields}
-);
+) COMMENT '${comment}';
 ```
 
 If a custom field is filled in the template, such as adding an `id` field
@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS `${table}`
 (   
     id,
     ${rowtype_fields}
-);
+) COMMENT '${comment}';
 ```
 
 The connector will automatically obtain the corresponding type from the upstream to complete the filling,
@@ -86,13 +86,14 @@ You can use the following placeholders
   description of MaxCompute
 - rowtype_primary_key: Used to get the primary key in the upstream schema (maybe a list)
 - rowtype_unique_key: Used to get the unique key in the upstream schema (maybe a list)
+- comment: Used to get the table comment in the upstream schema
 
 ### schema_save_mode[Enum]
 
 Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.  
 Option introduction：  
-`RECREATE_SCHEMA` ：Will create when the table does not exist, delete and rebuild when the table is saved        
-`CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the table does not exist, skipped when the table is saved        
+`RECREATE_SCHEMA` ：Will create when the table does not exist, delete and rebuild when the table is saved. If the `partition_spec` is set, the partition will be deleted and rebuilt.        
+`CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the table does not exist, skipped when the table is saved. If the `partition_spec` is set, the partition will be created.        
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist  
 `IGNORE` ：Ignore the treatment of the table
 

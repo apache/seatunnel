@@ -18,8 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.easysearch.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
@@ -63,7 +63,7 @@ public class EasysearchSourceFactory implements TableSourceFactory {
                         TLS_KEY_STORE_PASSWORD,
                         TLS_TRUST_STORE_PATH,
                         TLS_TRUST_STORE_PASSWORD)
-                .exclusive(SOURCE, TableSchemaOptions.SCHEMA)
+                .exclusive(SOURCE, ConnectorCommonOptions.SCHEMA)
                 .build();
     }
 

@@ -53,62 +53,69 @@ public class MDCStream<T> implements Stream<T> {
 
     @Override
     public Stream<T> filter(Predicate<? super T> predicate) {
-        return new MDCStream<>(context, delegate.filter(new MDCPredicate<>(context, predicate)));
+        return new MDCStream<>(
+                context,
+                delegate.filter(new MDCPredicate<>(() -> MDCContext.of(context), predicate)));
     }
 
     @Override
     public <R> Stream<R> map(Function<? super T, ? extends R> mapper) {
-        return new MDCStream<>(context, delegate.map(new MDCFunction<>(context, mapper)));
+        return new MDCStream<>(
+                context, delegate.map(new MDCFunction<>(() -> MDCContext.of(context), mapper)));
     }
 
     @Override
     public <R> Stream<R> flatMap(Function<? super T, ? extends Stream<? extends R>> mapper) {
-        return new MDCStream<>(context, delegate.flatMap(new MDCFunction<>(context, mapper)));
+        return new MDCStream<>(
+                context, delegate.flatMap(new MDCFunction<>(() -> MDCContext.of(context), mapper)));
     }
 
     @Override
     public Stream<T> sorted(Comparator<? super T> comparator) {
-        return new MDCStream<>(context, delegate.sorted(new MDCComparator<>(context, comparator)));
+        return new MDCStream<>(
+                context,
+                delegate.sorted(new MDCComparator<>(() -> MDCContext.of(context), comparator)));
     }
 
     @Override
     public Stream<T> peek(Consumer<? super T> action) {
-        return new MDCStream<>(context, delegate.peek(new MDCConsumer<>(context, action)));
+        return new MDCStream<>(
+                context, delegate.peek(new MDCConsumer<>(() -> MDCContext.of(context), action)));
     }
 
     @Override
     public void forEach(Consumer<? super T> action) {
-        delegate.forEach(new MDCConsumer<>(context, action));
+        delegate.forEach(new MDCConsumer<>(() -> MDCContext.of(context), action));
     }
 
     @Override
     public void forEachOrdered(Consumer<? super T> action) {
-        delegate.forEachOrdered(new MDCConsumer<>(context, action));
+        delegate.forEachOrdered(new MDCConsumer<>(() -> MDCContext.of(context), action));
     }
 
     @Override
     public Optional<T> min(Comparator<? super T> comparator) {
-        return delegate.min(new MDCComparator<>(context, comparator));
+        return delegate.min(new MDCComparator<>(() -> MDCContext.of(context), comparator));
     }
 
     @Override
     public Optional<T> max(Comparator<? super T> comparator) {
-        return delegate.max(new MDCComparator<>(context, comparator));
+        return delegate.max(new MDCComparator<>(() -> MDCContext.of(context), comparator));
     }
 
     @Override
     public boolean anyMatch(Predicate<? super T> predicate) {
-        return delegate.anyMatch(new MDCPredicate<>(context, predicate));
+        return delegate.anyMatch(new MDCPredicate<>(() -> MDCContext.of(context), predicate));
     }
 
     @Override
     public boolean allMatch(Predicate<? super T> predicate) {
-        return delegate.allMatch(new MDCPredicate<>(context, predicate));
+        return delegate.allMatch(new MDCPredicate<>(() -> MDCContext.of(context), predicate));
     }
 
     @Override
     public boolean noneMatch(Predicate<? super T> predicate) {
-        return delegate.noneMatch(new MDCPredicate<>(context, predicate));
+        return delegate.noneMatch(new MDCPredicate<>(() -> MDCContext.of(context), predicate));
     }
 
     @Override
@@ -153,17 +160,17 @@ public class MDCStream<T> implements Stream<T> {
 
     @Override
     public IntStream flatMapToInt(Function<? super T, ? extends IntStream> mapper) {
-        return delegate.flatMapToInt(new MDCFunction<>(context, mapper));
+        return delegate.flatMapToInt(new MDCFunction<>(() -> MDCContext.of(context), mapper));
     }
 
     @Override
     public LongStream flatMapToLong(Function<? super T, ? extends LongStream> mapper) {
-        return delegate.flatMapToLong(new MDCFunction<>(context, mapper));
+        return delegate.flatMapToLong(new MDCFunction<>(() -> MDCContext.of(context), mapper));
     }
 
     @Override
     public DoubleStream flatMapToDouble(Function<? super T, ? extends DoubleStream> mapper) {
-        return delegate.flatMapToDouble(new MDCFunction<>(context, mapper));
+        return delegate.flatMapToDouble(new MDCFunction<>(() -> MDCContext.of(context), mapper));
     }
 
     @Override

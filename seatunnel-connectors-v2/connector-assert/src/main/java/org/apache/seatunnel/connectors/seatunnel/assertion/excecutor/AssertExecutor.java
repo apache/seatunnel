@@ -218,6 +218,7 @@ public class AssertExecutor {
             case DECIMAL:
             case TIME:
             case TIMESTAMP:
+            case TIMESTAMP_TZ:
             case DATE:
             default:
                 return value.equals(confValue);

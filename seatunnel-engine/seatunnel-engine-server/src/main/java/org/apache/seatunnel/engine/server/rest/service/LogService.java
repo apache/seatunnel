@@ -37,8 +37,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.engine.server.rest.RestConstant.GET_ALL_LOG_NAME;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.GET_LOGS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_GET_ALL_LOG_NAME;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOGS;
 
 @Slf4j
 public class LogService extends BaseLogService {
@@ -71,7 +71,7 @@ public class LogService extends BaseLogService {
                 systemMonitoringInformation -> {
                     String host = systemMonitoringInformation.asObject().get("host").asString();
                     String url = "http://" + host + ":" + port + contextPath;
-                    String allName = sendGet(url + GET_ALL_LOG_NAME);
+                    String allName = sendGet(url + REST_URL_GET_ALL_LOG_NAME);
                     log.debug(String.format("Request: %s , Result: %s", url, allName));
                     ArrayNode jsonNodes = JsonUtils.parseArray(allName);
 
@@ -84,7 +84,7 @@ public class LogService extends BaseLogService {
                                 allLogNameList.add(
                                         new Tuple3<>(
                                                 host + ":" + port,
-                                                url + GET_LOGS + "/" + fileName,
+                                                url + REST_URL_LOGS + "/" + fileName,
                                                 fileName));
                             });
                 });

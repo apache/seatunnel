@@ -18,6 +18,16 @@
 该接收器用于将数据写入到StarRocks中。支持批和流两种模式。
 StarRocks数据接收器内部实现采用了缓存，通过stream load将数据批导入。
 
+## 依赖
+
+### 对于 Spark/Flink
+
+> 1. 你需要下载 [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) 并添加到目录 `${SEATUNNEL_HOME}/plugins/`.
+
+### 对于 SeaTunnel Zeta
+
+> 1. 你需要下载 [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) 并添加到目录 `${SEATUNNEL_HOME}/lib/`.
+
 ## 接收器选项
 
 |             名称              |   类型    | 是否必须 |             默认值              |                                                     Description                                                     |
@@ -54,6 +64,7 @@ ${rowtype_primary_key},
 ${rowtype_fields}
 ) ENGINE=OLAP
 PRIMARY KEY (${rowtype_primary_key})
+COMMENT '${comment}'
 DISTRIBUTED BY HASH (${rowtype_primary_key})PROPERTIES (
 "replication_num" = "1"
 )
@@ -66,7 +77,9 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 (   
     id,
     ${rowtype_fields}
-) ENGINE = OLAP DISTRIBUTED BY HASH (${rowtype_primary_key})
+) ENGINE = OLAP 
+    COMMENT '${comment}'
+    DISTRIBUTED BY HASH (${rowtype_primary_key})
     PROPERTIES
 (
     "replication_num" = "1"
@@ -82,6 +95,7 @@ StarRocks数据接收器根据上游数据自动获取相应的信息来填充�
 - rowtype_fields: 上游数据模式的所有字段信息，连接器会将字段信息自动映射到StarRocks对应的类型
 - rowtype_primary_key: 上游数据模式的主键信息，结果可能是列表
 - rowtype_unique_key: 上游数据模式的唯一键信息，结果可能是列表
+- comment: 上游数据模式的注释信息
 
 ### table [string]
 

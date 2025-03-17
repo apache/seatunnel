@@ -19,6 +19,7 @@
 package org.apache.seatunnel.format.avro;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -37,6 +38,8 @@ import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 public class RowToAvroConverter implements Serializable {
 
@@ -87,23 +90,26 @@ public class RowToAvroConverter implements Serializable {
         }
         switch (seaTunnelDataType.getSqlType()) {
             case STRING:
-            case SMALLINT:
             case INT:
             case BIGINT:
             case FLOAT:
             case DOUBLE:
             case BOOLEAN:
-            case MAP:
             case DECIMAL:
             case DATE:
             case TIMESTAMP:
                 return data;
             case TINYINT:
+            case SMALLINT:
                 Class<?> typeClass = seaTunnelDataType.getTypeClass();
                 if (typeClass == Byte.class) {
                     if (data instanceof Byte) {
                         Byte aByte = (Byte) data;
                         return Byte.toUnsignedInt(aByte);
+                    }
+                } else if (typeClass == Short.class) {
+                    if (data instanceof Short) {
+                        return ((Short) data).intValue();
                     }
                 }
                 return data;
@@ -118,6 +124,18 @@ public class RowToAvroConverter implements Serializable {
                     records.add(resolveObject(Array.get(data, i), basicType));
                 }
                 return records;
+            case MAP:
+                MapType<?, ?> mapType = (MapType<?, ?>) seaTunnelDataType;
+                SeaTunnelDataType<?> keyType = mapType.getKeyType();
+                SeaTunnelDataType<?> valueType = mapType.getValueType();
+                Map<Object, Object> mapData = new HashMap<>();
+                for (Map.Entry<?, ?> entry : ((Map<Object, Object>) data).entrySet()) {
+                    mapData.put(
+                            resolveObject(entry.getKey(), keyType),
+                            resolveObject(entry.getValue(), valueType));
+                }
+                return mapData;
+
             case ROW:
                 SeaTunnelRow seaTunnelRow = (SeaTunnelRow) data;
                 SeaTunnelDataType<?>[] fieldTypes =

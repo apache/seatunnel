@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.source.converter;
 
+import org.apache.seatunnel.common.utils.DateUtils;
+import org.apache.seatunnel.common.utils.TimeUtils;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.paimon.data.BinaryString;
 import org.apache.paimon.data.Decimal;
@@ -266,8 +269,9 @@ public class SqlToPaimonPredicateConverter {
                 case DOUBLE:
                     return Double.parseDouble(strValue);
                 case DATE:
-                    return DateTimeUtils.toInternal(
-                            org.apache.seatunnel.common.utils.DateUtils.parse(strValue));
+                    return DateTimeUtils.toInternal(DateUtils.parse(strValue));
+                case TIME_WITHOUT_TIME_ZONE:
+                    return DateTimeUtils.toInternal(TimeUtils.parse(strValue));
                 case TIMESTAMP_WITHOUT_TIME_ZONE:
                 case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                     return Timestamp.fromLocalDateTime(

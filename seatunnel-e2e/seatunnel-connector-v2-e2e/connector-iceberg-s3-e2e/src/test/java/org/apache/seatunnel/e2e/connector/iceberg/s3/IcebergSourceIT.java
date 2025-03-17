@@ -230,6 +230,7 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
         configs.put(CommonConfig.CATALOG_PROPS.key(), catalogProps);
 
         configs.put(CommonConfig.HADOOP_PROPS.key(), getHadoopProps());
+        configs.put(CommonConfig.KEY_TABLE.key(), TABLE.toString());
 
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(configs);
         CATALOG = new IcebergCatalogLoader(new SourceConfig(readonlyConfig)).loadCatalog();

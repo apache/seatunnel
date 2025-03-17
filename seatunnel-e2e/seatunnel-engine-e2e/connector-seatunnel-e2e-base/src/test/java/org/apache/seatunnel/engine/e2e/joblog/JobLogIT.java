@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.e2e.joblog;
 
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.engine.e2e.SeaTunnelEngineContainer;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
@@ -117,6 +118,8 @@ public class JobLogIT extends SeaTunnelEngineContainer {
 
         assertConsoleLog();
         assertFileLog();
+        assertLogFormatType();
+
         List<Tuple2<Boolean, String>> before =
                 Lists.newArrayList(
                         Tuple2.tuple2(false, "job-" + CUSTOM_JOB_ID + ".log"),
@@ -158,6 +161,30 @@ public class JobLogIT extends SeaTunnelEngineContainer {
                                                                         .find());
                                             });
                         });
+    }
+
+    private void assertLogFormatType() throws IOException, InterruptedException {
+        final String baseUrl = "curl http://localhost:8080/logs";
+        final String htmlUrl = baseUrl;
+        final String jsonUrl = baseUrl + "?format=JSON";
+        final String expectedHtmlTitle = "<html><head><title>Seatunnel log</title></head>";
+
+        // Execute commands and get results for both HTML and JSON logs
+        Container.ExecResult htmlExecResult = server.execInContainer("sh", "-c", htmlUrl);
+        Container.ExecResult jsonExecResult = server.execInContainer("sh", "-c", jsonUrl);
+
+        // Get the stdout of each execution result
+        String htmlOutput = htmlExecResult.getStdout();
+        String jsonOutput = jsonExecResult.getStdout();
+
+        // Verify HTML response contains expected title
+        Assertions.assertTrue(htmlOutput.contains(expectedHtmlTitle));
+
+        // Verify JSON response is valid JSON
+        Assertions.assertDoesNotThrow(
+                () -> JsonUtils.parseArray(jsonOutput),
+                "JSON format log list interface exception, returned type is not JSON, content:"
+                        + jsonOutput);
     }
 
     private void assertFileLog() throws IOException, InterruptedException {
@@ -269,13 +296,13 @@ public class JobLogIT extends SeaTunnelEngineContainer {
                                                 + ":"
                                                 + container.getFirstMappedPort()
                                                 + RestConstant.CONTEXT_PATH
-                                                + RestConstant.SUBMIT_JOB_URL
+                                                + RestConstant.REST_URL_SUBMIT_JOB
                                         : "http://"
                                                 + container.getHost()
                                                 + ":"
                                                 + container.getFirstMappedPort()
                                                 + RestConstant.CONTEXT_PATH
-                                                + RestConstant.SUBMIT_JOB_URL
+                                                + RestConstant.REST_URL_SUBMIT_JOB
                                                 + "?"
                                                 + parameters);
         return response;

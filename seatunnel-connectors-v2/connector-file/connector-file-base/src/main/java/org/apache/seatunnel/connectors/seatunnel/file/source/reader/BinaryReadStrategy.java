@@ -77,6 +77,7 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
                 }
                 SeaTunnelRow row = new SeaTunnelRow(new Object[] {buffer, relativePath, partIndex});
                 buffer = new byte[1024];
+                row.setTableId(tableId);
                 output.collect(row);
                 partIndex++;
             }

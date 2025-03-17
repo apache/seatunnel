@@ -285,6 +285,7 @@ public class IcebergCatalog implements Catalog {
                     builder.column(physicalColumn);
                 });
         Optional.ofNullable(schema.identifierFieldNames())
+                .filter(names -> !names.isEmpty())
                 .map(
                         (Function<Set<String>, Object>)
                                 names ->

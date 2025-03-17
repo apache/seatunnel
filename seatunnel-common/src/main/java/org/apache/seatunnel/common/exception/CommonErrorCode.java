@@ -22,6 +22,7 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
     FILE_OPERATION_FAILED("COMMON-01", "<identifier> <operation> file '<fileName>' failed."),
     JSON_OPERATION_FAILED(
             "COMMON-02", "<identifier> JSON convert/parse '<payload>' operation failed."),
+    ILLEGAL_ARGUMENT("COMMON-06", "illegal argument '<argument>' of '<operation>'"),
     UNSUPPORTED_DATA_TYPE(
             "COMMON-07", "'<identifier>' unsupported data type '<dataType>' of '<field>'"),
     UNSUPPORTED_ENCODING("COMMON-08", "unsupported encoding '<encoding>'"),
@@ -77,6 +78,8 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
             "The datetime format '<datetime>' of field '<field>' is not supported. Please check the datetime format."),
     UNSUPPORTED_METHOD("COMMON-34", "'<identifier>' unsupported the method '<methodName>'"),
     KERBEROS_AUTHORIZED_FAILED("COMMON-35", "Kerberos authorized failed"),
+    CLOSE_FAILED("COMMON-36", "'<identifier>' close failed."),
+    SEATUNNEL_ROW_SERIALIZE_FAILED("COMMON-36", "Seatunnel row serialize failed. Row={ '<row>' }"),
     ;
 
     private final String code;
