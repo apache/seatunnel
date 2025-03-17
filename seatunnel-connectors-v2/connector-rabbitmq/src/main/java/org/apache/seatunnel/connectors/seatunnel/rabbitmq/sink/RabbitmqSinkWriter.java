@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.sink;
 
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
@@ -26,7 +27,8 @@ import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import java.util.Optional;
 
-public class RabbitmqSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+public class RabbitmqSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
+        implements SupportMultiTableSinkWriter<Void> {
     private RabbitmqClient rabbitMQClient;
     private final JsonSerializationSchema jsonSerializationSchema;
 

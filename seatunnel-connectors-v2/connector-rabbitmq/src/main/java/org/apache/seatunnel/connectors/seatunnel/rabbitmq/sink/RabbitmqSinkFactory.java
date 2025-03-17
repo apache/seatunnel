@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.sink;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -26,6 +29,9 @@ import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSinkOptions;
 
 import com.google.auto.service.AutoService;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @AutoService(Factory.class)
 public class RabbitmqSinkFactory implements TableSinkFactory {
@@ -62,8 +68,50 @@ public class RabbitmqSinkFactory implements TableSinkFactory {
 
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
-        return () ->
-                new RabbitmqSink(
-                        new RabbitmqConfig(context.getOptions()), context.getCatalogTable());
+        CatalogTable catalogTable = context.getCatalogTable();
+        ReadonlyConfig finalConfig =
+                generateCurrentReadonlyConfig(context.getOptions(), catalogTable);
+        return () -> new RabbitmqSink(new RabbitmqConfig(finalConfig), catalogTable);
+    }
+
+    private ReadonlyConfig generateCurrentReadonlyConfig(
+            ReadonlyConfig config, CatalogTable catalogTable) {
+        // Copy the configuration map to make modifications.
+        Map<String, Object> configMap = new HashMap<>(config.toMap());
+
+        // Replace placeholders in the queue name option as an example.
+        config.getOptional(RabbitmqSinkOptions.QUEUE_NAME)
+                .ifPresent(
+                        originalQueueName -> {
+                            String replacedQueueName =
+                                    replaceCatalogTableInPath(originalQueueName, catalogTable);
+                            configMap.put(RabbitmqSinkOptions.QUEUE_NAME.key(), replacedQueueName);
+                        });
+
+        // Similarly, you can process other options (e.g., ROUTING_KEY) if required.
+        config.getOptional(RabbitmqSinkOptions.ROUTING_KEY)
+                .ifPresent(
+                        originalRoutingKey -> {
+                            String replacedRoutingKey =
+                                    replaceCatalogTableInPath(originalRoutingKey, catalogTable);
+                            configMap.put(
+                                    RabbitmqSinkOptions.ROUTING_KEY.key(), replacedRoutingKey);
+                        });
+
+        return ReadonlyConfig.fromMap(configMap);
+    }
+
+    private String replaceCatalogTableInPath(String origin, CatalogTable catalogTable) {
+        String replaced = origin;
+        TableIdentifier tableIdentifier = catalogTable.getTableId();
+        if (tableIdentifier != null) {
+            if (tableIdentifier.getSchemaName() != null) {
+                replaced = replaced.replace("${schema}", tableIdentifier.getSchemaName());
+            }
+            if (tableIdentifier.getTableName() != null) {
+                replaced = replaced.replace("${table}", tableIdentifier.getTableName());
+            }
+        }
+        return replaced;
     }
 }

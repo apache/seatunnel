@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
@@ -27,7 +28,8 @@ import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import java.io.IOException;
 import java.util.Optional;
 
-public class RabbitmqSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+public class RabbitmqSink extends AbstractSimpleSink<SeaTunnelRow, Void>
+        implements SupportMultiTableSink {
 
     private final RabbitmqConfig rabbitMQConfig;
     private final CatalogTable catalogTable;
