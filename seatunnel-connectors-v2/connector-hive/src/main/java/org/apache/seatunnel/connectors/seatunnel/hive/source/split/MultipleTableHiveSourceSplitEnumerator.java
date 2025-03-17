@@ -104,9 +104,7 @@ public class MultipleTableHiveSourceSplitEnumerator
     public void handleSplitRequest(int subtaskId) {}
 
     @Override
-    public void registerReader(int subtaskId) {
-        assignSplit(subtaskId);
-    }
+    public void registerReader(int subtaskId) {}
 
     @Override
     public FileSourceState snapshotState(long checkpointId) {
@@ -156,7 +154,10 @@ public class MultipleTableHiveSourceSplitEnumerator
 
     @Override
     public void run() throws Exception {
-        // do nothing
+        for (int i = 0; i < context.currentParallelism(); i++) {
+            log.info("Assigned splits to reader [{}]", i);
+            assignSplit(i);
+        }
     }
 
     @Override
