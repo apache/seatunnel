@@ -37,6 +37,39 @@ seatunnel:
       context-path: /seatunnel
 ```
 
+### HTTPS Configuration
+
+You can protect your API service by enabling HTTPS. Both HTTP and HTTPS can be enabled simultaneously, or you can enable only one of them.
+
+| Parameter Name | Required | Parameter Description |
+|--------|---------|--------|
+| `enable-http` | No | Whether to enable the HTTP service. The default value is `true`. |
+| `port` | No | The port for the HTTP service. The default value is `8080`. |
+| `enable-https` | No | Whether to enable the HTTPS service. The default value is `false`. |
+| `https-port` | No | The port for the HTTPS service. The default value is `8443`. |
+| `key-store-path` | Required when `enable-https` is `true` | The path to the KeyStore file, used to store the server's private key and certificate. |
+| `key-store-password` | Required when `enable-https` is `true` | The password for the KeyStore. |
+| `key-manager-password` | Required when `enable-https` is `true` | The password for the KeyManager, usually the same as the KeyStore password. |
+| `trust-store-path` | No | The path to the TrustStore file, used to verify the client's certificate. |
+| `trust-store-password` | No | The password for the TrustStore. |
+
+**Note**: When the `trust-store-path` and `trust-store-password` configuration items are not empty, two-way SSL authentication (client authentication) will be enabled, requiring the client to provide a valid certificate.
+
+```yaml
+seatunnel:
+  engine:
+    http:
+        enable-http: true
+        port: 8080
+        enable-https: true
+        https-port: 8443
+        key-store-path: "${YOUR_KEY_STORE_PATH}"
+        key-store-password: "${YOUR_KEY_STORE_PASSWORD}"
+        key-manager-password: "${YOUR_KEY_MANAGER_PASSWORD}"
+        trust-store-path: "${YOUR_TRUST_STORE_PATH}"
+        trust-store-password: "${YOUR_TRUST_STORE_PASSWORD}"
+```
+
 ## API reference
 
 ### Returns an overview over the Zeta engine cluster.

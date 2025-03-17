@@ -34,46 +34,48 @@ import org.junit.jupiter.api.condition.OS;
 import com.hazelcast.config.Config;
 
 import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLHandshakeException;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
 
 import java.io.BufferedReader;
-import java.io.FileInputStream;
 import java.io.InputStreamReader;
+import java.net.ConnectException;
 import java.net.HttpURLConnection;
-import java.security.KeyStore;
-import java.security.cert.X509Certificate;
 import java.util.stream.Collectors;
 
 /** Test for Rest API with HTTPS. */
 @DisabledOnOs(OS.WINDOWS)
-public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
+public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
     private static final int HTTP_PORT = 8080;
     private static final int HTTPS_PORT = 8443;
     private static final String SERVER_KEYSTORE_PASSWORD = "server_keystore_password";
+    private static final String SERVER_TRUSTSTORE_PASSWORD = "server_truststore_password";
     private static final String CLIENT_KEYSTORE_PASSWORD = "client_keystore_password";
+    private static final String CLIENT_TRUSTSTORE_PASSWORD = "client_truststore_password";
 
     @BeforeEach
     public void setUp() {
         String name = this.getClass().getName();
         Config hazelcastConfig = Config.loadFromString(getHazelcastConfig());
-        hazelcastConfig.setClusterName(TestUtils.getClusterName("RestApiHttpsTest_" + name));
+        hazelcastConfig.setClusterName(
+                TestUtils.getClusterName("RestApiHttpsForTruststoreTest_" + name));
         SeaTunnelConfig seaTunnelConfig = loadSeaTunnelConfig();
         seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
         seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
 
         HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
-        httpConfig.setEnabled(true);
+        // Not enabled Http
+        httpConfig.setEnabled(false);
         httpConfig.setPort(HTTP_PORT);
+        // Enabled Https
         httpConfig.setHttpsPort(HTTPS_PORT);
         httpConfig.setEnableHttps(true);
 
         httpConfig.setKeyStorePath(getPath("server_keystore.jks"));
+        httpConfig.setTrustStorePath(getPath("server_truststore.jks"));
         httpConfig.setKeyManagerPassword(SERVER_KEYSTORE_PASSWORD);
         httpConfig.setKeyStorePassword(SERVER_KEYSTORE_PASSWORD);
+        httpConfig.setTrustStorePassword(SERVER_TRUSTSTORE_PASSWORD);
 
         instance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
         nodeEngine = instance.node.nodeEngine;
@@ -86,25 +88,42 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
-    public void testRestApiHttp() throws Exception {
-        HttpURLConnection conn =
-                (HttpURLConnection)
-                        new java.net.URL("http://localhost:" + HTTP_PORT + "/overview")
-                                .openConnection();
-        try (BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
+    public void testRestApiHttp() {
+        Assertions.assertThrows(
+                ConnectException.class,
+                () -> {
+                    HttpURLConnection conn = null;
+                    BufferedReader in = null;
+                    try {
+                        java.net.URL url =
+                                new java.net.URL("http://localhost:" + HTTP_PORT + "/overview");
+                        conn = (HttpURLConnection) url.openConnection();
 
-            Assertions.assertEquals(200, conn.getResponseCode());
-            String response = in.lines().collect(Collectors.joining());
-            Assertions.assertTrue(response.contains("projectVersion"));
-        } finally {
-            conn.disconnect();
-        }
+                        Assertions.assertEquals(200, conn.getResponseCode());
+
+                        in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                        String response = in.lines().collect(Collectors.joining());
+
+                        Assertions.assertTrue(response.contains("projectVersion"));
+                    } finally {
+                        if (in != null) {
+                            in.close();
+                        }
+                        if (conn != null) {
+                            conn.disconnect();
+                        }
+                    }
+                });
     }
 
     @Test
     public void testRestApiHttps() throws Exception {
         SSLContext sslContext =
-                SSLUtils.createSSLContext(getPath("client_keystore.jks"), CLIENT_KEYSTORE_PASSWORD);
+                SSLUtils.createSSLContextWithTrustStore(
+                        getPath("client_keystore.jks"),
+                        CLIENT_KEYSTORE_PASSWORD,
+                        getPath("client_truststore.jks"),
+                        CLIENT_TRUSTSTORE_PASSWORD);
 
         HttpsURLConnection conn =
                 (HttpsURLConnection)
@@ -119,35 +138,6 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
         } finally {
             conn.disconnect();
         }
-    }
-
-    private SSLContext createSSLContext(String keystorePath, String keystorePass) throws Exception {
-        KeyStore clientStore = KeyStore.getInstance("JKS");
-        try (FileInputStream fis = new FileInputStream(keystorePath)) {
-            clientStore.load(fis, keystorePass.toCharArray());
-        }
-
-        KeyManagerFactory kmf =
-                KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-        kmf.init(clientStore, keystorePass.toCharArray());
-
-        TrustManager[] trustAllCerts =
-                new TrustManager[] {
-                    new X509TrustManager() {
-                        public X509Certificate[] getAcceptedIssuers() {
-                            return null;
-                        }
-
-                        public void checkClientTrusted(X509Certificate[] certs, String authType) {}
-
-                        public void checkServerTrusted(X509Certificate[] certs, String authType) {}
-                    }
-                };
-
-        SSLContext sslContext = SSLContext.getInstance("TLS");
-        sslContext.init(kmf.getKeyManagers(), trustAllCerts, null);
-
-        return sslContext;
     }
 
     @Test
