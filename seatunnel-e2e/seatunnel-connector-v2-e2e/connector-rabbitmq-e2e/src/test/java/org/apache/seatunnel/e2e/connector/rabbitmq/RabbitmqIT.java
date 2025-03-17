@@ -287,7 +287,8 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         sinkClient2.getChannel().basicConsume(SINK_QUEUE_NAME_2, true, consumer2);
 
         // Execute the job with the multi-sink configuration file.
-        Container.ExecResult execResult = container.executeJob("/rabbitmq-to-rabbitmq-multi.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/rabbitmq-to-rabbitmq-with-multi.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
         // Poll messages from both queues.
