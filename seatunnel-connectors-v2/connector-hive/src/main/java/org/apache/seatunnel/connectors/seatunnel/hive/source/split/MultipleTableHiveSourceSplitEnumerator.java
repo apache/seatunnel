@@ -76,6 +76,17 @@ public class MultipleTableHiveSourceSplitEnumerator
     }
 
     @Override
+    public void open() {
+        for (Map.Entry<String, List<String>> filePathEntry : filePathMap.entrySet()) {
+            String tableId = filePathEntry.getKey();
+            List<String> filePaths = filePathEntry.getValue();
+            for (String filePath : filePaths) {
+                allSplit.add(new FileSourceSplit(tableId, filePath));
+            }
+        }
+    }
+
+    @Override
     public void addSplitsBack(List<FileSourceSplit> splits, int subtaskId) {
         if (CollectionUtils.isEmpty(splits)) {
             return;
@@ -94,13 +105,6 @@ public class MultipleTableHiveSourceSplitEnumerator
 
     @Override
     public void registerReader(int subtaskId) {
-        for (Map.Entry<String, List<String>> filePathEntry : filePathMap.entrySet()) {
-            String tableId = filePathEntry.getKey();
-            List<String> filePaths = filePathEntry.getValue();
-            for (String filePath : filePaths) {
-                allSplit.add(new FileSourceSplit(tableId, filePath));
-            }
-        }
         assignSplit(subtaskId);
     }
 
@@ -148,11 +152,6 @@ public class MultipleTableHiveSourceSplitEnumerator
 
     private static int getSplitOwner(int assignCount, int numReaders) {
         return assignCount % numReaders;
-    }
-
-    @Override
-    public void open() {
-        // do nothing
     }
 
     @Override
