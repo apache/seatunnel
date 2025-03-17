@@ -25,9 +25,6 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.TestUtils;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
@@ -51,12 +48,12 @@ import java.util.stream.Collectors;
 /** Test for Rest API with HTTPS. */
 @DisabledOnOs(OS.WINDOWS)
 public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
-    private static final int HTTP_PORT = 8080;
-    private static final int HTTPS_PORT = 8443;
+    private static final int HTTP_PORT = 18080;
+    private static final int HTTPS_PORT = 18443;
     private static final String SERVER_KEYSTORE_PASSWORD = "server_keystore_password";
     private static final String CLIENT_KEYSTORE_PASSWORD = "client_keystore_password";
 
-    @BeforeEach
+    @BeforeAll
     public void setUp() {
         String name = this.getClass().getName();
         Config hazelcastConfig = Config.loadFromString(getHazelcastConfig());
