@@ -97,8 +97,6 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
     private static final String COLLECTION_NAME = "simple_example";
     private static final String COLLECTION_NAME_1 = "simple_example_1";
     private static final String COLLECTION_NAME_2 = "simple_example_2";
-    private static final String PARTITION_NAME = "simple_partition_example";
-    private static final String PARTITION_NAME_1 = "simple_partition_example_1";
     private static final String ID_FIELD = "book_id";
     private static final String VECTOR_FIELD = "book_intro";
     private static final String VECTOR_FIELD2 = "book_kind";
@@ -273,7 +271,6 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
                 milvusClient.insert(
                         InsertParam.newBuilder()
                                 .withCollectionName(COLLECTION_NAME)
-                                .withPartitionName(PARTITION_NAME)
                                 .withRows(rows)
                                 .build());
         if (insertRet.getStatus() != R.Status.Success.getCode()) {
