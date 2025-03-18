@@ -339,6 +339,7 @@ mysql_prod {
     user = "root"
     password = "111111"
     fetch_size = 10000
+    query="select * from not_exist"
 }
 
 # 定义 Kafka 连接配置
@@ -371,7 +372,9 @@ sink {
   }
 }
 ```
+如果在`plugin`配置和`ref`配置中均定义了同名的配置项，优先级为：`plugin配置 > ref配置`。
 
+故在配置合并时，将使用plugin中的query配置`query="select * from department"`。
 然后最终提交的配置是:
 ```hocon
 env {
