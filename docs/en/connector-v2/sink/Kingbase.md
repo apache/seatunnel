@@ -92,7 +92,7 @@
 > deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../start-v2/locally/deployment.mdx)
 > to
 > install and deploy SeaTunnel. And then follow the instructions
-> in [Quick Start With SeaTunnel Engine](../../start-v2/locally/quick-start-seatunnel-engine.md) to run this job.
+> in [Quick Start With SeaTunnel Engine](../../start-v2/locally/quick-start-seatunnel-engine.mdx) to run this job.
 
 ```
 # Defining the runtime environment

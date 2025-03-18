@@ -2,6 +2,10 @@
 sidebar_position: 2
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+
 # Quick Start With SeaTunnel Engine
 
 ## Step 1: Deploy SeaTunnel And Connectors
@@ -63,11 +67,31 @@ Starting from version 2.3.1, the parameter -e in seatunnel.sh is deprecated, use
 
 :::
 
+<Tabs
+    groupId="env-type"
+    defaultValue="Unix/Linux"
+    values={[
+        {label: 'Windows', value: 'windows'},
+        {label: 'Unix/Linux', value: 'Unix/Linux'}
+    ]}>
+<TabItem value="Unix/Linux">
+
 ```shell
 cd "apache-seatunnel-${version}"
 ./bin/seatunnel.sh --config ./config/v2.batch.config.template -m local
 
 ```
+</TabItem>
+<TabItem value="windows">
+
+```cmd
+cd "apache-seatunnel-${version}"
+call .\bin\seatunnel.cmd --config ./config/v2.batch.config.template -m local
+
+```
+</TabItem>
+</Tabs>
+
 
 **See The Output**: When you run the command, you can see its output in your console. This
 is a sign to determine whether the command ran successfully or not.
@@ -93,6 +117,108 @@ The SeaTunnel console will print some logs as below:
 2022-12-19 11:01:46,491 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0 rowIndex=15: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT: Wbxtm, 1469371353
 2022-12-19 11:01:46,491 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0 rowIndex=16: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT: mIJDt, 995616438
 ```
+
+## Step 4: Run SeaTunnel Application With a Local Cluster
+
+First, run a local cluster with a default cluster name.
+
+<Tabs
+    groupId="env-type"
+    defaultValue="Unix/Linux"
+    values={[
+        {label: 'Windows', value: 'windows'},
+        {label: 'Unix/Linux', value: 'Unix/Linux'}
+    ]}>
+<TabItem value="Unix/Linux">
+
+```shell
+./bin/seatunnel-cluster.sh
+```
+</TabItem>
+
+<TabItem value="windows">
+
+```cmd
+call .\bin\seatunnel-cluster.cmd
+```
+</TabItem>
+</Tabs>
+
+Or, Use a customer cluster name.
+
+<Tabs
+    groupId="env-type"
+    defaultValue="Unix/Linux"
+    values={[
+        {label: 'Windows', value: 'windows'},
+        {label: 'Unix/Linux', value: 'Unix/Linux'}
+    ]}>
+<TabItem value="Unix/Linux">
+
+```shell
+./bin/seatunnel-cluster.sh -cn customer-cluster
+```
+</TabItem>
+
+<TabItem value="windows">
+
+```cmd
+call .\bin\seatunnel-cluster.cmd -cn customer-cluster
+```
+</TabItem>
+</Tabs>
+
+After that, you can submit job to the cluster.
+
+<Tabs
+    groupId="env-type"
+    defaultValue="Unix/Linux"
+    values={[
+        {label: 'Windows', value: 'windows'},
+        {label: 'Unix/Linux', value: 'Unix/Linux'}
+    ]}>
+<TabItem value="Unix/Linux">
+
+```shell
+./bin/seatunnel.sh -c config\v2.batch.config.template -m cluster
+```
+</TabItem>
+
+<TabItem value="windows">
+
+```cmd
+call .\bin\seatunnel.cmd -c config\v2.batch.config.template -m cluster
+```
+</TabItem>
+</Tabs>
+
+
+Stop cluster
+
+<Tabs
+    groupId="env-type"
+    defaultValue="Unix/Linux"
+    values={[
+        {label: 'Windows', value: 'windows'},
+        {label: 'Unix/Linux', value: 'Unix/Linux'}
+    ]}>
+<TabItem value="Unix/Linux">
+
+```shell
+./bin/stop-seatunnel-cluster.cmd
+```
+</TabItem>
+
+<TabItem value="windows">
+
+Stop cluster in windows need `wmic` command, please flow [this guide](https://techcommunity.microsoft.com/blog/windows-itpro-blog/how-to-install-wmic-feature-on-demand-on-windows-11/4189530) to install it if your windows doesn't installed.
+
+```cmd
+call .\bin\stop-seatunnel-cluster.cmd
+```
+</TabItem>
+</Tabs>
+
 
 ## Extended Example: Batch Mode from MySQL to Doris
 
