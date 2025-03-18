@@ -105,6 +105,9 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
             "mysql_cdc_e2e_source_table_2_custom_primary_key";
     private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table";
 
+    private static final String SOURCE_TABLE_GEOMETRY = "mysql_cdc_e2e_source_table_geometry";
+    private static final String SINK_TABLE_GEOMERTRY = "mysql_cdc_e2e_sink_table_geometry";
+
     private static MySqlContainer createMySqlContainer(MySqlVersion version) {
         return new MySqlContainer(version)
                 .withConfigurationOverride("docker/server-gtids/my.cnf")
@@ -392,7 +395,7 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                         () ->
                                 Assertions.assertTrue(
                                         query(getSourceQuerySQL(MYSQL_DATABASE2, SOURCE_TABLE_1))
-                                                        .size()
+                                                .size()
                                                 > 1));
 
         // Restore job with snapshot read phase
@@ -594,6 +597,37 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                         });
     }
 
+    @TestTemplate
+    public void testMysqlCdcWithGeometryField(TestContainer container) {
+        clearTable(MYSQL_DATABASE2, SOURCE_TABLE_GEOMETRY);
+        clearTable(MYSQL_DATABASE2, SINK_TABLE_GEOMERTRY);
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob("/mysqlcdc_to_mysql_with_geometry_field.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        executeSql("INSERT INTO `" + MYSQL_DATABASE2 + "`.`" + SOURCE_TABLE_GEOMETRY + "` (`id`, `gis`) VALUES (1, ST_GeomFromText('POINT(-73.9654 40.7851)'))");
+        executeSql("INSERT INTO `" + MYSQL_DATABASE2 + "`.`" + SOURCE_TABLE_GEOMETRY + "` (`id`, `gis`) VALUES (2, ST_GeomFromText('POINT(-74.0445 40.6892)'))");
+        executeSql("INSERT INTO `" + MYSQL_DATABASE2 + "`.`" + SOURCE_TABLE_GEOMETRY + "` (`id`, `gis`) VALUES (3, ST_GeomFromText('POINT(116.397128 39.916527)'))");
+        executeSql("UPDATE " + MYSQL_DATABASE2 + "." + SOURCE_TABLE_GEOMETRY + " SET gis = ST_GeomFromText('POINT(116.397128 39.916527)') WHERE id >= 2')");
+        executeSql("DELETE FROM " + MYSQL_DATABASE2 + "." + SOURCE_TABLE_GEOMETRY + " WHERE id = 1");
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            log.info(query(getSinkQuerySQL(MYSQL_DATABASE2, SOURCE_TABLE_GEOMETRY)).toString());
+                            Assertions.assertIterableEquals(
+                                    query(getSourceQuerySQL(MYSQL_DATABASE2, SOURCE_TABLE_GEOMETRY)),
+                                    query(getSinkQuerySQL(MYSQL_DATABASE2, SINK_TABLE_GEOMERTRY)));
+                        });
+    }
+
     private Connection getJdbcConnection() throws SQLException {
         return DriverManager.getConnection(
                 MYSQL_CONTAINER.getJdbcUrl(),
@@ -610,8 +644,8 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
 
     private List<List<Object>> query(String sql) {
         try (Connection connection = getJdbcConnection();
-                Statement statement = connection.createStatement();
-                ResultSet resultSet = statement.executeQuery(sql)) {
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(sql)) {
             List<List<Object>> result = new ArrayList<>();
             int columnCount = resultSet.getMetaData().getColumnCount();
             while (resultSet.next()) {

@@ -681,3 +681,15 @@ CREATE TABLE mysql_cdc_e2e_source_table_2_custom_primary_key
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_0900_ai_ci;
+
+CREATE TABLE `mysql_cdc_e2e_source_table_geometry` (
+  `id` int(11) NOT NULL,
+  `gis` geometry DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+CREATE TABLE `mysql_cdc_e2e_sink_table_geometry` (
+  `id` int(11) NOT NULL,
+  `gis` geometry DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;

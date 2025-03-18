@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.cdc.debezium.row;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -487,12 +488,16 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                     return bytes;
                 } else if (dbzObj instanceof Struct) {
                     Struct struct = (Struct) dbzObj;
-                    WKBReader reader = new WKBReader();
-                    WKBWriter wkbWriter = new WKBWriter();
-                    byte[] wkbs = struct.getBytes("wkb");
-                    Geometry geometry = reader.read(wkbs);
-                    byte[] bytes = wkbWriter.write(geometry);
-                    return bytes;
+                    String name = struct.schema().name();
+                    if (StringUtils.isNotBlank(name) && name.equals("io.debezium.data.geometry.Geometry")) {
+                        WKBReader reader = new WKBReader();
+                        WKBWriter wkbWriter = new WKBWriter();
+                        byte[] wkbs = struct.getBytes("wkb");
+                        Geometry geometry = reader.read(wkbs);
+                        byte[] bytes = wkbWriter.write(geometry);
+                        return bytes;
+                    }
+                    return dbzObj.toString().getBytes();
                 } else {
                     throw new UnsupportedOperationException(
                             "Unsupported BYTES value type: " + dbzObj.getClass().getSimpleName());
