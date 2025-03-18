@@ -252,7 +252,7 @@ public class CoordinatorService {
         Long jobId = jobMaster.getJobId();
 
         if (!pendingJobMasterMap.containsKey(jobId)) {
-            logger.warning(String.format("Job ID : %s already cancelled", jobId));
+            logger.fine(String.format("Job ID : %s already cancelled", jobId));
             queueRemove(jobMaster);
             return;
         }
@@ -754,7 +754,7 @@ public class CoordinatorService {
             // Cancel pending tasks
             if (pendingJobMasterMap.containsKey(jobId)) {
                 pendingJobMasterMap.remove(jobId);
-                logger.warning(String.format("Cancel pending tasks : %s", jobId));
+                logger.fine(String.format("Cancel pending tasks : %s", jobId));
             }
             return new PassiveCompletableFuture<>(
                     CompletableFuture.supplyAsync(
