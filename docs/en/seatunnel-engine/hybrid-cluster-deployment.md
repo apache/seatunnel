@@ -6,7 +6,7 @@ sidebar_position: 5
 
 The Master service and Worker service of SeaTunnel Engine are mixed in the same process, and all nodes can run jobs and participate in the election to become master. The master node is also running synchronous tasks simultaneously. In this mode, the Imap (which saves the status information of the task to provide support for the task's fault tolerance) data will be distributed across all nodes.
 
-Usage Recommendation: It is recommended to use the [Separated Cluster Mode](separated-cluster-deployment.mdx). In the hybrid cluster mode, the Master node needs to run tasks synchronously. When the task scale is large, it will affect the stability of the Master node. Once the Master node crashes or the heartbeat times out, it will cause the Master node to switch, and the Master node switch will cause all running tasks to perform fault tolerance, further increasing the load on the cluster. Therefore, we recommend using the [Separated Cluster Mode](separated-cluster-deployment.mdx).
+Usage Recommendation: It is recommended to use the [Separated Cluster Mode](separated-cluster-deployment.md). In the hybrid cluster mode, the Master node needs to run tasks synchronously. When the task scale is large, it will affect the stability of the Master node. Once the Master node crashes or the heartbeat times out, it will cause the Master node to switch, and the Master node switch will cause all running tasks to perform fault tolerance, further increasing the load on the cluster. Therefore, we recommend using the [Separated Cluster Mode](separated-cluster-deployment.md).
 
 ## 1. Download
 
