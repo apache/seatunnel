@@ -10,7 +10,7 @@
 
 ## Description
 
-Write data through JDBC. Cloudberry  currently does not have its own native driver. It uses PostgreSQL's driver for connectivity and follows PostgreSQL's implementation.
+Write data through JDBC. Cloudberry currently does not have its own native driver. It uses PostgreSQL's driver for connectivity and follows PostgreSQL's implementation.
 
 Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
 semantics (using XA transaction guarantee).
