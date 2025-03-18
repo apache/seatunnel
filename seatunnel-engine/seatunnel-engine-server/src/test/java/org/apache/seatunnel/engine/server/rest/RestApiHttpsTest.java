@@ -51,8 +51,8 @@ import java.util.stream.Collectors;
 /** Test for Rest API with HTTPS. */
 @DisabledOnOs(OS.WINDOWS)
 public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
-    private static final int HTTP_PORT = 18080;
-    private static final int HTTPS_PORT = 18443;
+    private static final int HTTP_PORT = 28080;
+    private static final int HTTPS_PORT = 28443;
     private static final String SERVER_KEYSTORE_PASSWORD = "server_keystore_password";
     private static final String CLIENT_KEYSTORE_PASSWORD = "client_keystore_password";
 
@@ -155,7 +155,8 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
         Assertions.assertThrows(
                 SSLHandshakeException.class,
                 () -> {
-                    java.net.URL url = new java.net.URL("https://localhost:8443/overview");
+                    java.net.URL url =
+                            new java.net.URL("https://localhost:" + HTTPS_PORT + "/overview");
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.getResponseCode();
                 });

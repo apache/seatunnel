@@ -145,7 +145,8 @@ public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
         Assertions.assertThrows(
                 SSLHandshakeException.class,
                 () -> {
-                    java.net.URL url = new java.net.URL("https://localhost:8443/overview");
+                    java.net.URL url =
+                            new java.net.URL("https://localhost:" + HTTPS_PORT + "/overview");
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.getResponseCode();
                 });
