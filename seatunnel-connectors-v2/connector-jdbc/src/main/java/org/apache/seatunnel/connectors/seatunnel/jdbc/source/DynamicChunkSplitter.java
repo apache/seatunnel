@@ -158,7 +158,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             isCaseInsensitive = true;
             collationSequence = filterOutUppercase(collationSequence);
         }
-        int radix = collationSequence.length() + 1; // 加1是因为0被用来表示空字符串
+        int radix = collationSequence.length() + 1;
         String minStr = objectMin.toString();
         String maxStr = objectMax.toString();
         int maxLength = Math.max(minStr.length(), maxStr.length());

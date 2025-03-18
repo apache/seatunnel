@@ -107,7 +107,7 @@ public class FixedChunkSplitter extends ChunkSplitter {
             isCaseInsensitive = true;
             collationSequence = filterOutUppercase(collationSequence);
         }
-        int radix = collationSequence.length() + 1; // 加1是因为0被用来表示空字符串
+        int radix = collationSequence.length() + 1;
         int maxLength = Math.max(partitionStart.length(), partitionEnd.length());
         BigInteger min =
                 CollationBasedSplitter.encodeStringToNumericRange(

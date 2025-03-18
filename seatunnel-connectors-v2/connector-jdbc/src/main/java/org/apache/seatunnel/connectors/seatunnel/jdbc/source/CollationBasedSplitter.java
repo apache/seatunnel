@@ -144,7 +144,6 @@ public class CollationBasedSplitter {
         char[] paddedChars = new char[expectedLength];
 
         if (paddingAtEnd) {
-            // 在结尾填充
             for (int i = 0; i < expectedLength; i++) {
                 if (i < str.length()) {
                     paddedChars[i] = str.charAt(i);
@@ -154,7 +153,6 @@ public class CollationBasedSplitter {
             }
             log.trace("Applied suffix padding to string");
         } else {
-            // 在开头填充
             int offset = expectedLength - str.length();
             for (int i = 0; i < expectedLength; i++) {
                 if (i < offset) {

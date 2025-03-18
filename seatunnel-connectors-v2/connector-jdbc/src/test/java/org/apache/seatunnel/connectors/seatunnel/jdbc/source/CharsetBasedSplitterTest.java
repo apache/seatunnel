@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
 import org.junit.jupiter.api.DisplayName;
@@ -28,7 +45,6 @@ public class CharsetBasedSplitterTest {
                         maxStr, maxLen, true, true, orderedCharset, orderedCharset.length() + 1);
         System.out.println("最大值编码: " + maxBigInt);
 
-        // 确保最大值大于最小值
         assert maxBigInt.compareTo(minBigInt) > 0;
     }
 
@@ -54,7 +70,6 @@ public class CharsetBasedSplitterTest {
                 CollationBasedSplitter.decodeNumericRangeToString(
                         encoded.toString(), maxLength, radix, DEFAULT_CHARSET);
 
-        // 由于填充和大小写转换，我们需要比较转换后的结果与原始字符串的小写版本（忽略填充字符）
         assertEquals(original.toLowerCase(), decoded.trim());
     }
 
@@ -84,7 +99,6 @@ public class CharsetBasedSplitterTest {
         int maxLength = 5;
         int radix = DEFAULT_CHARSET.length() + 1;
 
-        // 前填充
         BigInteger encodedPrefix =
                 CollationBasedSplitter.encodeStringToNumericRange(
                         input, maxLength, false, false, DEFAULT_CHARSET, radix);
@@ -92,7 +106,6 @@ public class CharsetBasedSplitterTest {
                 CollationBasedSplitter.decodeNumericRangeToString(
                         encodedPrefix.toString(), maxLength, radix, DEFAULT_CHARSET);
 
-        // 后填充
         BigInteger encodedSuffix =
                 CollationBasedSplitter.encodeStringToNumericRange(
                         input, maxLength, true, false, DEFAULT_CHARSET, radix);
@@ -100,11 +113,9 @@ public class CharsetBasedSplitterTest {
                 CollationBasedSplitter.decodeNumericRangeToString(
                         encodedSuffix.toString(), maxLength, radix, DEFAULT_CHARSET);
 
-        // 验证两种填充方式都能正确解码
         assertEquals(input, decodedPrefix.trim());
         assertEquals(input, decodedSuffix.trim());
 
-        // 确保前填充和后填充产生不同的数值
         assert !encodedPrefix.equals(encodedSuffix);
     }
 
@@ -145,7 +156,6 @@ public class CharsetBasedSplitterTest {
         int maxLength = 20;
         int radix = DEFAULT_CHARSET.length() + 1;
         for (int test = 0; test < testCount; test++) {
-            // 生成随机长度的随机字符串
             int length = random.nextInt(maxLength) + 1;
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < length; i++) {
@@ -153,7 +163,6 @@ public class CharsetBasedSplitterTest {
                 sb.append(DEFAULT_CHARSET.charAt(charIndex));
             }
             String randomString = sb.toString();
-            // 编码和解码
             BigInteger encoded =
                     CollationBasedSplitter.encodeStringToNumericRange(
                             randomString, maxLength, true, false, DEFAULT_CHARSET, radix);

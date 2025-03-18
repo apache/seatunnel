@@ -678,7 +678,6 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
         mySqlCatalog.close();
     }
 
-    /** 打印字符型分片的边界值 */
     private void printCharSplitBoundaries(JdbcSourceSplit[] splitArray) {
         LOG.info("Character column split boundaries:");
         for (int i = 0; i < splitArray.length; i++) {
