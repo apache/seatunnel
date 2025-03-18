@@ -395,7 +395,7 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                         () ->
                                 Assertions.assertTrue(
                                         query(getSourceQuerySQL(MYSQL_DATABASE2, SOURCE_TABLE_1))
-                                                .size()
+                                                        .size()
                                                 > 1));
 
         // Restore job with snapshot read phase
@@ -613,17 +613,42 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                     return null;
                 });
 
-        executeSql("INSERT INTO `" + MYSQL_DATABASE2 + "`.`" + SOURCE_TABLE_GEOMETRY + "` (`id`, `gis`) VALUES (1, ST_GeomFromText('POINT(-73.9654 40.7851)'))");
-        executeSql("INSERT INTO `" + MYSQL_DATABASE2 + "`.`" + SOURCE_TABLE_GEOMETRY + "` (`id`, `gis`) VALUES (2, ST_GeomFromText('POINT(-74.0445 40.6892)'))");
-        executeSql("INSERT INTO `" + MYSQL_DATABASE2 + "`.`" + SOURCE_TABLE_GEOMETRY + "` (`id`, `gis`) VALUES (3, ST_GeomFromText('POINT(116.397128 39.916527)'))");
-        executeSql("UPDATE " + MYSQL_DATABASE2 + "." + SOURCE_TABLE_GEOMETRY + " SET gis = ST_GeomFromText('POINT(116.397128 39.916527)') WHERE id >= 2')");
-        executeSql("DELETE FROM " + MYSQL_DATABASE2 + "." + SOURCE_TABLE_GEOMETRY + " WHERE id = 1");
+        executeSql(
+                "INSERT INTO `"
+                        + MYSQL_DATABASE2
+                        + "`.`"
+                        + SOURCE_TABLE_GEOMETRY
+                        + "` (`id`, `gis`) VALUES (1, ST_GeomFromText('POINT(-73.9654 40.7851)'))");
+        executeSql(
+                "INSERT INTO `"
+                        + MYSQL_DATABASE2
+                        + "`.`"
+                        + SOURCE_TABLE_GEOMETRY
+                        + "` (`id`, `gis`) VALUES (2, ST_GeomFromText('POINT(-74.0445 40.6892)'))");
+        executeSql(
+                "INSERT INTO `"
+                        + MYSQL_DATABASE2
+                        + "`.`"
+                        + SOURCE_TABLE_GEOMETRY
+                        + "` (`id`, `gis`) VALUES (3, ST_GeomFromText('POINT(116.397128 39.916527)'))");
+        executeSql(
+                "UPDATE "
+                        + MYSQL_DATABASE2
+                        + "."
+                        + SOURCE_TABLE_GEOMETRY
+                        + " SET gis = ST_GeomFromText('POINT(116.397128 39.916527)') WHERE id >= 2')");
+        executeSql(
+                "DELETE FROM " + MYSQL_DATABASE2 + "." + SOURCE_TABLE_GEOMETRY + " WHERE id = 1");
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            log.info(query(getSinkQuerySQL(MYSQL_DATABASE2, SOURCE_TABLE_GEOMETRY)).toString());
+                            log.info(
+                                    query(getSinkQuerySQL(MYSQL_DATABASE2, SOURCE_TABLE_GEOMETRY))
+                                            .toString());
                             Assertions.assertIterableEquals(
-                                    query(getSourceQuerySQL(MYSQL_DATABASE2, SOURCE_TABLE_GEOMETRY)),
+                                    query(
+                                            getSourceQuerySQL(
+                                                    MYSQL_DATABASE2, SOURCE_TABLE_GEOMETRY)),
                                     query(getSinkQuerySQL(MYSQL_DATABASE2, SINK_TABLE_GEOMERTRY)));
                         });
     }
@@ -644,8 +669,8 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
 
     private List<List<Object>> query(String sql) {
         try (Connection connection = getJdbcConnection();
-             Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(sql)) {
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
             List<List<Object>> result = new ArrayList<>();
             int columnCount = resultSet.getMetaData().getColumnCount();
             while (resultSet.next()) {
