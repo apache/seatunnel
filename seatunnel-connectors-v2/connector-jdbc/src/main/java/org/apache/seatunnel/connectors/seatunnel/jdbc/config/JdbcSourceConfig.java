@@ -44,6 +44,10 @@ public class JdbcSourceConfig implements Serializable {
     private int splitInverseSamplingRate;
     private boolean decimalTypeNarrowing;
 
+    private String stringSplitMode;
+
+    private String collate;
+
     public static JdbcSourceConfig of(ReadonlyConfig config) {
         JdbcSourceConfig.Builder builder = JdbcSourceConfig.builder();
         builder.jdbcConnectionConfig(JdbcConnectionConfig.of(config));
@@ -55,7 +59,8 @@ public class JdbcSourceConfig implements Serializable {
                 config.getOptional(JdbcOptions.QUERY).isPresent()
                         && config.getOptional(JdbcOptions.PARTITION_COLUMN).isPresent();
         builder.useDynamicSplitter(!isOldVersion);
-
+        builder.stringSplitMode(config.get(JdbcOptions.STRING_SPLIT_MODE));
+        builder.collate(config.get(JdbcOptions.COLLATE));
         builder.splitSize(config.get(JdbcSourceOptions.SPLIT_SIZE));
         builder.splitEvenDistributionFactorUpperBound(
                 config.get(JdbcSourceOptions.SPLIT_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND));

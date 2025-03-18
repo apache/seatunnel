@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -171,14 +170,14 @@ public interface JdbcOptions {
                     .noDefaultValue()
                     .withDescription("partition column");
 
-    Option<BigDecimal> PARTITION_UPPER_BOUND =
+    Option<String> PARTITION_UPPER_BOUND =
             Options.key("partition_upper_bound")
-                    .bigDecimalType()
+                    .stringType()
                     .noDefaultValue()
                     .withDescription("partition upper bound");
-    Option<BigDecimal> PARTITION_LOWER_BOUND =
+    Option<String> PARTITION_LOWER_BOUND =
             Options.key("partition_lower_bound")
-                    .bigDecimalType()
+                    .stringType()
                     .noDefaultValue()
                     .withDescription("partition lower bound");
     Option<Integer> PARTITION_NUM =
@@ -225,4 +224,13 @@ public interface JdbcOptions {
                     .mapType()
                     .noDefaultValue()
                     .withDescription("additional connection configuration parameters");
+
+    Option<String> STRING_SPLIT_MODE =
+            Options.key("string_split_mode")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("stringSplitMode");
+
+    Option<String> COLLATE =
+            Options.key("collate").stringType().noDefaultValue().withDescription("collate");
 }
