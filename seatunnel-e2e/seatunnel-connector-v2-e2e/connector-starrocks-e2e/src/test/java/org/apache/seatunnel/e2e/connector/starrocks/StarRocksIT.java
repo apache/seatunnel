@@ -424,7 +424,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
 
         String tmpDB = "test_tmp";
         if (!starRocksCatalog.databaseExists(tmpDB)) {
-            starRocksCatalog.createDatabase(TablePath.of(tmpDB, null), true);
+            starRocksCatalog.createDatabase(TablePath.of(tmpDB, "default"), true);
         }
         Assertions.assertTrue(starRocksCatalog.listDatabases().contains(tmpDB));
 
