@@ -122,7 +122,7 @@ public class TaskMetricsCalcContext {
         }
     }
 
-    public void updateMetrics(Object data, String tableName) {
+    public void updateMetrics(Object data, String tableId) {
         count.inc();
         QPS.markEvent();
         if (data instanceof SeaTunnelRow) {
@@ -130,13 +130,13 @@ public class TaskMetricsCalcContext {
             bytes.inc(row.getBytesSize());
             bytesPerSeconds.markEvent(row.getBytesSize());
 
-            if (StringUtils.isNotBlank(tableName)) {
+            if (StringUtils.isNotBlank(tableId)) {
 
                 // Processing count
                 processMetrics(
                         countPerTable,
                         Counter.class,
-                        tableName,
+                        tableId,
                         SINK_WRITE_COUNT,
                         SOURCE_RECEIVED_COUNT,
                         Counter::inc);
@@ -145,7 +145,7 @@ public class TaskMetricsCalcContext {
                 processMetrics(
                         bytesPerTable,
                         Counter.class,
-                        tableName,
+                        tableId,
                         SINK_WRITE_BYTES,
                         SOURCE_RECEIVED_BYTES,
                         counter -> counter.inc(row.getBytesSize()));
@@ -154,7 +154,7 @@ public class TaskMetricsCalcContext {
                 processMetrics(
                         QPSPerTable,
                         Meter.class,
-                        tableName,
+                        tableId,
                         SINK_WRITE_QPS,
                         SOURCE_RECEIVED_QPS,
                         Meter::markEvent);
@@ -163,7 +163,7 @@ public class TaskMetricsCalcContext {
                 processMetrics(
                         bytesPerSecondsPerTable,
                         Meter.class,
-                        tableName,
+                        tableId,
                         SINK_WRITE_BYTES_PER_SECONDS,
                         SOURCE_RECEIVED_BYTES_PER_SECONDS,
                         meter -> meter.markEvent(row.getBytesSize()));
