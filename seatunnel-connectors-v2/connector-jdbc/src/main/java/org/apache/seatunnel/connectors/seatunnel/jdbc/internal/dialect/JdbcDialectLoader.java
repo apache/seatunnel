@@ -40,6 +40,10 @@ public final class JdbcDialectLoader {
         return load(url, compatibleMode, dialect, "");
     }
 
+    public static JdbcDialect load(String url, String compatibleMode) {
+        return load(url, compatibleMode, "");
+    }
+
     /**
      * Loads the unique JDBC Dialect that can handle the given database url.
      *
