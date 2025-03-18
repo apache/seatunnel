@@ -73,7 +73,7 @@ debezium_record_table_filter {
 
 ### 简单示例
 
-> 此示例读取 Kafka 的 topic_1、topic_2 和 topic_3 的数据并将其打印到客户端。如果尚未安装和部署 SeaTunnel，请按照 [安装指南](../../start-v2/locally/deployment.md) 进行安装和部署。然后，按照 [快速开始](../../start-v2/locally/quick-start-seatunnel-engine.md) 运行此任务。
+> 此示例读取 Kafka 的 topic_1、topic_2 和 topic_3 的数据并将其打印到客户端。如果尚未安装和部署 SeaTunnel，请按照 [安装指南](../../start-v2/locally/deployment.mdx) 进行安装和部署。然后，按照 [快速开始](../../start-v2/locally/quick-start-seatunnel-engine.md) 运行此任务。
 
 ```hocon
 # 定义运行环境

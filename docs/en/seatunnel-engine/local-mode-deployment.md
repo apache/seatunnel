@@ -13,7 +13,7 @@ In local mode, each task will start a separate process, and the process will exi
 3. Jobs cannot be cancelled via commands, only by killing the process.
 4. REST API is not supported.
 
-The [Separated Cluster Mode](separated-cluster-deployment.md) of SeaTunnel Engine is recommended for use in production environments.
+The [Separated Cluster Mode](separated-cluster-deployment.mdx) of SeaTunnel Engine is recommended for use in production environments.
 
 ## Deploying SeaTunnel Engine In Local Mode
 

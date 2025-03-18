@@ -66,4 +66,4 @@ connector-console
 
 现在你已经完成了SeaTunnel安装包的下载和连接器插件的下载。接下来，您可以根据您的需求选择不同的运行模式来运行或部署SeaTunnel。
 
-如果你使用SeaTunnel自带的SeaTunnel Engine(Zeta)来运行任务，需要先部署SeaTunnel Engine服务。参考[SeaTunnel Engine(Zeta)服务部署](deployment.md)
+如果你使用SeaTunnel自带的SeaTunnel Engine(Zeta)来运行任务，需要先部署SeaTunnel Engine服务。参考[SeaTunnel Engine(Zeta)服务部署](deployment.mdx)

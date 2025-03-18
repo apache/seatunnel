@@ -13,7 +13,7 @@ Local模式下每个任务都会启动一个独立的进程，任务运行完成
 3. 不支持通过命令取消作业，只能通过Kill进程的方式终止任务。
 4. 不支持RESTful API。
 
-最推荐在生产环境中使用SeaTunnel Engine的[分离集群模式](separated-cluster-deployment.md)
+最推荐在生产环境中使用SeaTunnel Engine的[分离集群模式](separated-cluster-deployment.mdx)
 
 ## 本地模式部署SeaTunnel Engine
 

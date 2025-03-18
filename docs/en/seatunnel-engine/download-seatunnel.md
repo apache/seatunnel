@@ -66,4 +66,4 @@ If you want to install connector plugins by manually downloading connectors, you
 
 Now you have completed the download of the SeaTunnel installation package and the download of the connector plugin. Next, you can choose different running modes according to your needs to run or deploy SeaTunnel.
 
-If you use the SeaTunnel Engine (Zeta) that comes with SeaTunnel to run tasks, you need to deploy the SeaTunnel Engine service first. Refer to [Deployment Of SeaTunnel Engine (Zeta) Service](deployment.md).
+If you use the SeaTunnel Engine (Zeta) that comes with SeaTunnel to run tasks, you need to deploy the SeaTunnel Engine service first. Refer to [Deployment Of SeaTunnel Engine (Zeta) Service](deployment.mdx).

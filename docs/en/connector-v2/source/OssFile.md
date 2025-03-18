@@ -565,5 +565,5 @@ sink {
 
 ### Tips
 
-> 1.[SeaTunnel Deployment Document](../../start-v2/locally/deployment.md).
+> 1.[SeaTunnel Deployment Document](../../start-v2/locally/deployment.mdx).
 

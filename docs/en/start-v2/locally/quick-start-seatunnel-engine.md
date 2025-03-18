@@ -6,7 +6,7 @@ sidebar_position: 2
 
 ## Step 1: Deploy SeaTunnel And Connectors
 
-Before starting, make sure you have downloaded and deployed SeaTunnel as described in [Deployment](deployment.md)
+Before starting, make sure you have downloaded and deployed SeaTunnel as described in [Deployment](deployment.mdx)
 
 ## Step 2: Add Job Config File To Define A Job
 

@@ -166,7 +166,7 @@ sink {
 
 ### 小提示
 
-> 1.[SeaTunnel 部署文档](../../start-v2/locally/deployment.md). <br/>
+> 1.[SeaTunnel 部署文档](../../start-v2/locally/deployment.mdx). <br/>
 > 2.需要在同步前提前创建要写入的表.<br/>
 > 3.当写入 ClickHouse 表,无需设置其结构，因为连接器会在写入前向 ClickHouse 查询当前表的结构信息.<br/>
 

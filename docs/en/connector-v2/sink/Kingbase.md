@@ -89,7 +89,7 @@
 > it to JDBC Sink. FakeSource generates a total of 16 rows of data (row.num=16), with each row having 12 fields. The final target table is test_table will also be 16 rows of data in the table.
 > Before
 > run this job, you need create database test and table test_table in your Kingbase. And if you have not yet installed and
-> deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../start-v2/locally/deployment.md)
+> deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../start-v2/locally/deployment.mdx)
 > to
 > install and deploy SeaTunnel. And then follow the instructions
 > in [Quick Start With SeaTunnel Engine](../../start-v2/locally/quick-start-seatunnel-engine.md) to run this job.

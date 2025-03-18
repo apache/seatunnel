@@ -6,13 +6,13 @@ sidebar_position: 4
 
 ## 步骤 1: 部署SeaTunnel及连接器
 
-在开始前，请确保您已经按照[部署](deployment.md)中的描述下载并部署了SeaTunnel。
+在开始前，请确保您已经按照[部署](deployment.mdx)中的描述下载并部署了SeaTunnel。
 
 ## 步骤 2: 部署并配置Spark
 
 请先[下载Spark](https://spark.apache.org/downloads.html)(**需要版本 >= 2.4.0**)。 更多信息您可以查看[入门: Standalone模式](https://spark.apache.org/docs/latest/spark-standalone.html#installing-spark-standalone-to-a-cluster)
 
-**配置SeaTunnel**: 修改`config/seatunnel-env.sh`中的设置,它是基于你的引擎在[部署](deployment.md)时的安装路径。
+**配置SeaTunnel**: 修改`config/seatunnel-env.sh`中的设置,它是基于你的引擎在[部署](deployment.mdx)时的安装路径。
 将`SPARK_HOME`修改为Spark的部署目录。
 
 ## 步骤 3: 添加作业配置文件来定义作业

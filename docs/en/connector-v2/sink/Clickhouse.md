@@ -165,7 +165,7 @@ sink {
 
 ### Tips
 
-> 1.[SeaTunnel Deployment Document](../../start-v2/locally/deployment.md). <br/>
+> 1.[SeaTunnel Deployment Document](../../start-v2/locally/deployment.mdx). <br/>
 > 2.The table to be written to needs to be created in advance before synchronization.<br/>
 > 3.When sink is writing to the ClickHouse table, you don't need to set its schema because the connector will query ClickHouse for the current table's schema information before writing.<br/>
 

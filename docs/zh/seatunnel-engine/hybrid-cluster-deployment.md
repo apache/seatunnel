@@ -6,7 +6,7 @@ sidebar_position: 5
 
 SeaTunnel Engine 的Master服务和Worker服务混合在同一个进程中，所有节点都可以运行作业并参与选举成为master，即master节点也在同时运行同步任务。在该模式下，Imap(保存任务的状态信息用于为任务的容错提供支持)数据会分布在所有节点中。
 
-使用建议：建议使用分离集群模式。在混合集群模式下，Master节点要同步运行任务，当任务规模较大时，会影响Master节点的稳定性，一但Master节点宕机或心跳超时，会导致Master节点切换，Master节点切换会导致所有正在运行的任务进行容错，会进一步增长集群的负载。因此，我们更建议使用[分离集群模式](separated-cluster-deployment.md)。
+使用建议：建议使用分离集群模式。在混合集群模式下，Master节点要同步运行任务，当任务规模较大时，会影响Master节点的稳定性，一但Master节点宕机或心跳超时，会导致Master节点切换，Master节点切换会导致所有正在运行的任务进行容错，会进一步增长集群的负载。因此，我们更建议使用[分离集群模式](separated-cluster-deployment.mdx)。
 
 ## 1. 下载
 

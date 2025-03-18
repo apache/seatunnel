@@ -6,7 +6,7 @@ sidebar_position: 3
 
 ## 步骤 1: 部署SeaTunnel及连接器
 
-在开始前，请确保您已经按照[部署](deployment.md)中的描述下载并部署了SeaTunnel。
+在开始前，请确保您已经按照[部署](deployment.mdx)中的描述下载并部署了SeaTunnel。
 
 ## 步骤 2: 部署并配置Flink
 
