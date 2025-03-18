@@ -139,7 +139,9 @@ public abstract class AbstractJdbcCatalog implements Catalog {
                     Driver driver = drivers.nextElement();
                     if (StringUtils.equals(driver.getClass().getName(), driverClass)) {
                         try {
-                            return driver.connect(url, info);
+                            Connection connection = driver.connect(url, info);
+                            connectionMap.put(url, connection);
+                            return connection;
                         } catch (Exception e) {
                             log.info("try connector failed", e);
                         }
