@@ -20,4 +20,4 @@ Local模式：只用于测试，每个任务都会启动一个独立的进程，
 
 [混合集群模式部署](hybrid-cluster-deployment.md)
 
-[分离集群模式部署](separated-cluster-deployment.mdx)
+[分离集群模式部署](separated-cluster-deployment.md)

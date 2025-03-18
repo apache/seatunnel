@@ -77,4 +77,4 @@ curl http://127.0.0.1:5801/system-monitoring-information
 
 ## 下一步
 到现在为止，您已经安装好Seatunnel集群了，你可以查看Seatunnel有哪些[连接器](../../connector-v2).
-或者选择其他方式 [部署](../../seatunnel-engine/deployment.mdx).
+或者选择其他方式 [部署](../../seatunnel-engine/deployment.md).

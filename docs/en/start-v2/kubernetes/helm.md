@@ -77,4 +77,4 @@ After that you can submit your job by [rest-api-v2](../../seatunnel-engine/rest-
 ## What's More
 
 For now, you have taken a quick look at SeaTunnel, and you can see [connector](../../connector-v2/source) to find all sources and sinks SeaTunnel supported.
-Or see [deployment](../../seatunnel-engine/deployment.mdx) if you want to submit your application in another kind of your engine cluster.
+Or see [deployment](../../seatunnel-engine/deployment.md) if you want to submit your application in another kind of your engine cluster.
