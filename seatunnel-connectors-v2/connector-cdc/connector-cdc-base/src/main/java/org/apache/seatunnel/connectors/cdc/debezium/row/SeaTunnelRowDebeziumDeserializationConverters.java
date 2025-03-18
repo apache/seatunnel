@@ -35,10 +35,6 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 
-import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.io.WKBReader;
-import org.locationtech.jts.io.WKBWriter;
-
 import io.debezium.data.SpecialValueDecimal;
 import io.debezium.data.VariableScaleDecimal;
 import io.debezium.time.MicroTime;
@@ -486,12 +482,7 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                     String name = struct.schema().name();
                     if (StringUtils.isNotBlank(name)
                             && name.equals("io.debezium.data.geometry.Geometry")) {
-                        WKBReader reader = new WKBReader();
-                        WKBWriter wkbWriter = new WKBWriter();
-                        byte[] wkbs = struct.getBytes("wkb");
-                        Geometry geometry = reader.read(wkbs);
-                        byte[] bytes = wkbWriter.write(geometry);
-                        return bytes;
+                        return struct.getBytes("wkb");
                     }
                     return dbzObj.toString().getBytes();
                 } else {
