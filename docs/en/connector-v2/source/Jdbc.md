@@ -94,6 +94,24 @@ decimal_type_narrowing = false
 | NUMBER(6, 0)  | Decimal(6, 0)  |
 | NUMBER(10, 0) | Decimal(10, 0) |
 
+### dialect [string]
+
+The appointed dialect, if it does not exist, is still obtained according to the url, and the priority is higher than the url. For example,when using starrocks, you need set it to `starrocks`. Similarly, when using mysql, you need to set its value to `mysql`.
+
+#### Example list
+
+|           | Dialect Name |          |
+|-----------|--------------|----------|
+| Greenplum | DB2          | Dameng   |
+| Gbase8a   | HIVE         | KingBase |
+| MySQL     | StarRocks    | Oracle   |
+| Phoenix   | Postgres     | Redshift |
+| SapHana   | Snowflake    | Sqlite   |
+| SqlServer | Tablestore   | Teradata |
+| Vertica   | OceanBase    | XUGU     |
+| IRIS      | Inceptor     | Highgo   |
+
+
 ## Parallel Reader
 
 The JDBC Source connector supports parallel reading of data from tables. SeaTunnel will use certain rules to split the data in the table, which will be handed over to readers for reading. The number of readers is determined by the `parallelism` option.
