@@ -14,9 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.transform.python;
 
-public interface RowOperation {
 
+import lombok.Getter;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.transform.common.ErrorHandleWay;
+
+public class PythonTransformConfig {
+
+    @Getter
+    private final ErrorHandleWay errorHandleWay;
+
+    public PythonTransformConfig(ErrorHandleWay errorHandleWay) {
+        this.errorHandleWay = errorHandleWay;
+    }
+
+    public static PythonTransformConfig of(ReadonlyConfig config) {
+        return null;
+    }
 }
