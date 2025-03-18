@@ -460,7 +460,7 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
                 this.milvusClient.describeCollection(
                         DescribeCollectionParam.newBuilder()
                                 .withDatabaseName("test")
-                                .withCollectionName(COLLECTION_NAME)
+                                .withCollectionName(COLLECTION_NAME_WITH_PARTITIONKEY)
                                 .build());
 
         DescribeCollectionResponse data = describeCollectionResponseR.getData();
