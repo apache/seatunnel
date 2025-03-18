@@ -55,8 +55,10 @@ import org.apache.rocketmq.common.message.MessageQueue;
 import com.google.auto.service.AutoService;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.rocketmq.config.Config.ACCESS_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.rocketmq.config.Config.ACL_ENABLED;
@@ -111,6 +113,20 @@ public class RocketMqSource
                 Arrays.asList(
                         config.getString(ConsumerConfig.TOPICS.key())
                                 .split(DEFAULT_FIELD_DELIMITER)));
+
+        if (config.hasPath(ConsumerConfig.TAGS.key())) {
+            String tags = config.getString(ConsumerConfig.TAGS.key());
+            if (tags != null && !tags.trim().isEmpty()) {
+                this.metadata.setTags(
+                        Arrays.stream(tags.split(DEFAULT_FIELD_DELIMITER))
+                                .map(String::trim)
+                                .filter(tag -> !tag.isEmpty())
+                                .distinct()
+                                .collect(Collectors.toList()));
+            } else {
+                this.metadata.setTags(Collections.emptyList());
+            }
+        }
 
         RocketMqBaseConfiguration.Builder baseConfigBuilder =
                 RocketMqBaseConfiguration.newBuilder()

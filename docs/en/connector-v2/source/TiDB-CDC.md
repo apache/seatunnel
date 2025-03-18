@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-cdc-tidb.md';
+
 # TiDB CDC
 
 > TiDB CDC source connector
@@ -123,7 +125,4 @@ sink {
 
 ## Changelog
 
-- Add TiDB CDC Source Connector
-
-### next version
-
+<ChangeLog />

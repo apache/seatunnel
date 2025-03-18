@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.easysearch.dto;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.connectors.seatunnel.easysearch.config.SinkConfig;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.easysearch.config.EasysearchSinkCommonOptions;
+import org.apache.seatunnel.connectors.seatunnel.easysearch.config.EasysearchSinkOptions;
 
 import lombok.Data;
 
@@ -31,17 +31,12 @@ public class IndexInfo {
     private String[] primaryKeys;
     private String keyDelimiter;
 
-    public IndexInfo(Config pluginConfig) {
-        index = pluginConfig.getString(SinkConfig.INDEX.key());
-        if (pluginConfig.hasPath(SinkConfig.PRIMARY_KEYS.key())) {
+    public IndexInfo(ReadonlyConfig pluginConfig) {
+        index = pluginConfig.get(EasysearchSinkCommonOptions.INDEX);
+        if (pluginConfig.getOptional(EasysearchSinkOptions.PRIMARY_KEYS).isPresent()) {
             primaryKeys =
-                    pluginConfig
-                            .getStringList(SinkConfig.PRIMARY_KEYS.key())
-                            .toArray(new String[0]);
+                    pluginConfig.get(EasysearchSinkOptions.PRIMARY_KEYS).toArray(new String[0]);
         }
-        keyDelimiter = SinkConfig.KEY_DELIMITER.defaultValue();
-        if (pluginConfig.hasPath(SinkConfig.KEY_DELIMITER.key())) {
-            keyDelimiter = pluginConfig.getString(SinkConfig.KEY_DELIMITER.key());
-        }
+        keyDelimiter = pluginConfig.get(EasysearchSinkOptions.KEY_DELIMITER);
     }
 }

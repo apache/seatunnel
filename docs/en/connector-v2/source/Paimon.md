@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-paimon.md';
+
 # Paimon
 
 > Paimon source connector
@@ -56,7 +58,7 @@ The file path of `hdfs-site.xml`
 ### query [string]
 
 The filter condition of the table read. For example: `select * from st_test where id > 100`. If not specified, all rows are read.
-Currently, where conditions only support <, <=, >, >=, =, !=, or, and,is null, is not null, and others are not supported.
+Currently, where conditions only support <, <=, >, >=, =, !=, or, and,is null, is not null, between...and, and others are not supported.
 The Having, Group By, Order By clauses are currently unsupported, because these clauses are not supported by Paimon.
 The projection and limit will be supported in the future.
 
@@ -73,6 +75,7 @@ The field data types currently supported by where conditions are as follows:
 * double
 * date
 * timestamp
+* time
 
 ### paimon.hadoop.conf [string]
 
@@ -220,3 +223,7 @@ sink {
   }
 }
 ```
+
+## Changelog
+
+<ChangeLog />

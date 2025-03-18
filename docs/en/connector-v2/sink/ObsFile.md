@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-obs.md';
+
 # ObsFile
 
 > Obs file sink connector
@@ -283,7 +285,4 @@ Please note that excel type does not support any compression format
 
 ## Changelog
 
-### next version
-
-- Add Obs Sink Connector
-
+<ChangeLog />

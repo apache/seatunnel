@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.IcebergScanContext;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.IcebergScanSplitPlanner;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
@@ -49,7 +49,7 @@ public class IcebergStreamSplitEnumerator extends AbstractSplitEnumerator {
 
     public IcebergStreamSplitEnumerator(
             Context<IcebergFileScanTaskSplit> context,
-            SourceConfig sourceConfig,
+            IcebergSourceConfig sourceConfig,
             Map<TablePath, CatalogTable> catalogTables,
             Map<TablePath, Pair<Schema, Schema>> tableSchemaProjections) {
         this(context, sourceConfig, catalogTables, tableSchemaProjections, null);
@@ -57,7 +57,7 @@ public class IcebergStreamSplitEnumerator extends AbstractSplitEnumerator {
 
     public IcebergStreamSplitEnumerator(
             Context<IcebergFileScanTaskSplit> context,
-            SourceConfig sourceConfig,
+            IcebergSourceConfig sourceConfig,
             Map<TablePath, CatalogTable> catalogTables,
             Map<TablePath, Pair<Schema, Schema>> tableSchemaProjections,
             IcebergSplitEnumeratorState state) {

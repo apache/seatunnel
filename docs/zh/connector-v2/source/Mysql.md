@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # MySQL
 
 > JDBC Mysql 源连接器
@@ -312,3 +314,6 @@ sink {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />

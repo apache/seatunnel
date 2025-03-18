@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http-notion.md';
+
 # Notion
 
 > Notion source connector
@@ -302,7 +304,4 @@ Notion {
 
 ## Changelog
 
-### next version
-
-- Add Notion Source Connector
-
+<ChangeLog />

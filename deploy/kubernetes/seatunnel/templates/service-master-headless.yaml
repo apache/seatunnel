@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
----
 # use for access seatunnel from outside system via rest api
 apiVersion: v1
 kind: Service
@@ -32,4 +31,3 @@ spec:
       protocol: TCP
   selector:
     {{- include "seatunnel.master.labels" . | nindent 4 }}
----

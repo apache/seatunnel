@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-hbase.md';
+
 # Hbase
 
 > Hbase Source Connector
@@ -93,4 +95,8 @@ source {
   }
 }
 ```
+
+## Changelog
+
+<ChangeLog />
 

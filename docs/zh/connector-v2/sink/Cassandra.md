@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-cassandra.md';
+
 # Cassandra
 
 > Cassandra 接收器连接器
@@ -88,7 +90,4 @@ sink {
 
 ## 变更日志
 
-### 下一个版本
-
-- 添加 Cassandra 接收器连接器
-
+<ChangeLog />

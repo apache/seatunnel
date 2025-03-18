@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-iceberg.md';
+
 # Apache Iceberg
 
 > Apache Iceberg source connector
@@ -219,12 +221,4 @@ source {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Iceberg Source Connector
-
-### next version
-
-- [Feature] Support Hadoop3.x ([3046](https://github.com/apache/seatunnel/pull/3046))
-- [improve][api] Refactoring schema parse ([4157](https://github.com/apache/seatunnel/pull/4157))
-
+<ChangeLog />

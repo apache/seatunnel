@@ -17,8 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import lombok.Data;
 
@@ -39,92 +40,55 @@ public class HttpParameter implements Serializable {
     protected Map<String, Object> body;
     protected int pollIntervalMillis;
     protected int retry;
-    protected int retryBackoffMultiplierMillis = HttpConfig.DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS;
-    protected int retryBackoffMaxMillis = HttpConfig.DEFAULT_RETRY_BACKOFF_MAX_MS;
+    protected int retryBackoffMultiplierMillis;
+    protected int retryBackoffMaxMillis;
     protected boolean enableMultilines;
-    protected int connectTimeoutMs = HttpConfig.DEFAULT_CONNECT_TIMEOUT_MS;
-    protected int socketTimeoutMs = HttpConfig.DEFAULT_SOCKET_TIMEOUT_MS;
+    protected int connectTimeoutMs;
+    protected int socketTimeoutMs;
 
-    public void buildWithConfig(Config pluginConfig) {
+    public void buildWithConfig(ReadonlyConfig pluginConfig) {
         // set url
-        this.setUrl(pluginConfig.getString(HttpConfig.URL.key()));
-        if (pluginConfig.hasPath(HttpConfig.KEEP_PARAMS_AS_FORM.key())) {
-            this.setKeepParamsAsForm(pluginConfig.getBoolean(HttpConfig.KEEP_PARAMS_AS_FORM.key()));
+        this.setUrl(pluginConfig.get(HttpCommonOptions.URL));
+        if (pluginConfig.getOptional(HttpSourceOptions.KEEP_PARAMS_AS_FORM).isPresent()) {
+            this.setKeepParamsAsForm(pluginConfig.get(HttpSourceOptions.KEEP_PARAMS_AS_FORM));
         }
-        if (pluginConfig.hasPath(HttpConfig.KEEP_PAGE_PARAM_AS_HTTP_PARAM.key())) {
+        if (pluginConfig.getOptional(HttpSourceOptions.KEEP_PAGE_PARAM_AS_HTTP_PARAM).isPresent()) {
             this.setKeepPageParamAsHttpParam(
-                    pluginConfig.getBoolean(HttpConfig.KEEP_PAGE_PARAM_AS_HTTP_PARAM.key()));
+                    pluginConfig.get(HttpSourceOptions.KEEP_PAGE_PARAM_AS_HTTP_PARAM));
         }
         // set method
-        if (pluginConfig.hasPath(HttpConfig.METHOD.key())) {
-            HttpRequestMethod httpRequestMethod =
-                    HttpRequestMethod.valueOf(
-                            pluginConfig.getString(HttpConfig.METHOD.key()).toUpperCase());
-            this.setMethod(httpRequestMethod);
-        } else {
-            this.setMethod(HttpConfig.METHOD.defaultValue());
-        }
+        this.setMethod(pluginConfig.get(HttpSourceOptions.METHOD));
         // set headers
-        if (pluginConfig.hasPath(HttpConfig.HEADERS.key())) {
-            this.setHeaders(
-                    pluginConfig.getConfig(HttpConfig.HEADERS.key()).entrySet().stream()
-                            .collect(
-                                    Collectors.toMap(
-                                            Map.Entry::getKey,
-                                            entry -> String.valueOf(entry.getValue().unwrapped()),
-                                            (v1, v2) -> v2)));
+        if (pluginConfig.getOptional(HttpCommonOptions.HEADERS).isPresent()) {
+            this.setHeaders(pluginConfig.get(HttpCommonOptions.HEADERS));
         }
         // set params
-        if (pluginConfig.hasPath(HttpConfig.PARAMS.key())) {
-            this.setParams(
-                    pluginConfig.getConfig(HttpConfig.PARAMS.key()).entrySet().stream()
-                            .collect(
-                                    Collectors.toMap(
-                                            Map.Entry::getKey,
-                                            entry -> String.valueOf(entry.getValue().unwrapped()),
-                                            (v1, v2) -> v2)));
+        if (pluginConfig.getOptional(HttpCommonOptions.PARAMS).isPresent()) {
+            this.setParams(pluginConfig.get(HttpCommonOptions.PARAMS));
         }
         // set body
-        if (pluginConfig.hasPath(HttpConfig.BODY.key())) {
-
+        if (pluginConfig.getOptional(HttpSourceOptions.BODY).isPresent()) {
             this.setBody(
-                    ConfigFactory.parseString(pluginConfig.getString(HttpConfig.BODY.key()))
-                            .entrySet().stream()
+                    ConfigFactory.parseString(pluginConfig.get(HttpSourceOptions.BODY)).entrySet()
+                            .stream()
                             .collect(
                                     Collectors.toMap(
                                             Map.Entry::getKey,
                                             entry -> entry.getValue().unwrapped(),
                                             (v1, v2) -> v2)));
         }
-        if (pluginConfig.hasPath(HttpConfig.POLL_INTERVAL_MILLS.key())) {
-            this.setPollIntervalMillis(pluginConfig.getInt(HttpConfig.POLL_INTERVAL_MILLS.key()));
+        if (pluginConfig.getOptional(HttpSourceOptions.POLL_INTERVAL_MILLS).isPresent()) {
+            this.setPollIntervalMillis(pluginConfig.get(HttpSourceOptions.POLL_INTERVAL_MILLS));
         }
-        this.setRetryParameters(pluginConfig);
+        if (pluginConfig.getOptional(HttpCommonOptions.RETRY).isPresent()) {
+            this.setRetry(pluginConfig.get(HttpCommonOptions.RETRY));
+            this.setRetryBackoffMultiplierMillis(
+                    pluginConfig.get(HttpCommonOptions.RETRY_BACKOFF_MULTIPLIER_MS));
+            this.setRetryBackoffMaxMillis(pluginConfig.get(HttpCommonOptions.RETRY_BACKOFF_MAX_MS));
+        }
         // set enableMultilines
-        if (pluginConfig.hasPath(HttpConfig.ENABLE_MULTI_LINES.key())) {
-            this.setEnableMultilines(pluginConfig.getBoolean(HttpConfig.ENABLE_MULTI_LINES.key()));
-        } else {
-            this.setEnableMultilines(HttpConfig.ENABLE_MULTI_LINES.defaultValue());
-        }
-        if (pluginConfig.hasPath(HttpConfig.CONNECT_TIMEOUT_MS.key())) {
-            this.setConnectTimeoutMs(pluginConfig.getInt(HttpConfig.CONNECT_TIMEOUT_MS.key()));
-        }
-        if (pluginConfig.hasPath(HttpConfig.SOCKET_TIMEOUT_MS.key())) {
-            this.setSocketTimeoutMs(pluginConfig.getInt(HttpConfig.SOCKET_TIMEOUT_MS.key()));
-        }
-    }
-
-    public void setRetryParameters(Config pluginConfig) {
-        if (pluginConfig.hasPath(HttpConfig.RETRY.key())) {
-            this.setRetry(pluginConfig.getInt(HttpConfig.RETRY.key()));
-            if (pluginConfig.hasPath(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS.key())) {
-                this.setRetryBackoffMultiplierMillis(
-                        pluginConfig.getInt(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS.key()));
-            }
-            if (pluginConfig.hasPath(HttpConfig.RETRY_BACKOFF_MAX_MS.key())) {
-                this.setRetryBackoffMaxMillis(
-                        pluginConfig.getInt(HttpConfig.RETRY_BACKOFF_MAX_MS.key()));
-            }
-        }
+        this.setEnableMultilines(pluginConfig.get(HttpSourceOptions.ENABLE_MULTI_LINES));
+        this.setConnectTimeoutMs(pluginConfig.get(HttpSourceOptions.CONNECT_TIMEOUT_MS));
+        this.setSocketTimeoutMs(pluginConfig.get(HttpSourceOptions.SOCKET_TIMEOUT_MS));
     }
 }

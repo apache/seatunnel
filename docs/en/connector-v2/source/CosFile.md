@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-cos.md';
+
 # CosFile
 
 > Cos file source connector
@@ -458,7 +460,5 @@ sink {
 
 ## Changelog
 
-### next version
-
-- Add file cos source connector ([4979](https://github.com/apache/seatunnel/pull/4979))
+<ChangeLog />
 

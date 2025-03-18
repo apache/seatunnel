@@ -17,20 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.notion.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSource;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
-import org.apache.seatunnel.connectors.seatunnel.notion.source.config.NotionSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.notion.source.config.NotionSourceParameter;
-import org.apache.seatunnel.connectors.seatunnel.notion.source.exception.NotionConnectorException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -38,21 +31,8 @@ import lombok.extern.slf4j.Slf4j;
 public class NotionSource extends HttpSource {
     private final NotionSourceParameter notionSourceParameter = new NotionSourceParameter();
 
-    protected NotionSource(Config pluginConfig) {
+    protected NotionSource(ReadonlyConfig pluginConfig) {
         super(pluginConfig);
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        NotionSourceConfig.URL.key(),
-                        NotionSourceConfig.PASSWORD.key(),
-                        NotionSourceConfig.VERSION.key());
-        if (!result.isSuccess()) {
-            throw new NotionConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
         notionSourceParameter.buildWithConfig(pluginConfig);
     }
 
