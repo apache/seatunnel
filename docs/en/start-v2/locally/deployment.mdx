@@ -42,6 +42,8 @@ Then unzip the tar.gz package.
 
 </TabItem>
 </Tabs>
+
+
 ### Download The Connector Plugins
 
 Starting from version 2.2.0-beta, the binary package no longer provides connector dependencies by default. Therefore, the first time you use it, you need to run the following command to install the connectors (Alternatively, you can manually download the connectors from the [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/) and move them to the `connectors/` directory. For versions before 2.3.5, place them in the `connectors/seatunnel` directory)：
@@ -54,12 +56,14 @@ Starting from version 2.2.0-beta, the binary package no longer provides connecto
         {label: 'Unix/Linux', value: 'Unix/Linux'}
     ]}>
 <TabItem value="Unix/Linux">
+
 ```bash
 sh bin/install-plugin.sh
 ```
 </TabItem>
 
 <TabItem value="windows">
+
 ```bash
 call .\bin\install-plugin.cmd
 ```
@@ -74,12 +78,14 @@ If you need a specific connector version, taking 2.3.10 as an example, you need 
         {label: 'Unix/Linux', value: 'Unix/Linux'}
     ]}>
 <TabItem value="Unix/Linux">
+
 ```bash
 sh bin/install-plugin.sh 2.3.10
 ```
 </TabItem>
 
 <TabItem value="windows">
+
 ```bash
 call .\bin\install-plugin.cmd 2.3.10
 ```
