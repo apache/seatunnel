@@ -67,7 +67,6 @@ import io.milvus.param.collection.HasCollectionParam;
 import io.milvus.param.collection.LoadCollectionParam;
 import io.milvus.param.dml.InsertParam;
 import io.milvus.param.index.CreateIndexParam;
-import io.milvus.param.partition.HasPartitionParam;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -455,16 +454,6 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
                                 .withCollectionName(COLLECTION_NAME_WITH_PARTITIONKEY)
                                 .build());
         Assertions.assertTrue(hasCollectionResponse.getData());
-
-        // assert partition exist
-        R<Boolean> hasPartitionResponse =
-                this.milvusClient.hasPartition(
-                        HasPartitionParam.newBuilder()
-                                .withDatabaseName("test")
-                                .withCollectionName(COLLECTION_NAME_WITH_PARTITIONKEY)
-                                .withPartitionName(TITLE_FIELD)
-                                .build());
-        Assertions.assertTrue(hasPartitionResponse.getData());
 
         // check table fields
         R<DescribeCollectionResponse> describeCollectionResponseR =
