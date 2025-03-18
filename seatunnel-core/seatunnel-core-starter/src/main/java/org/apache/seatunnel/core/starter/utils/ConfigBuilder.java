@@ -201,7 +201,7 @@ public class ConfigBuilder {
             log.warn(
                     "Loading config failed with spi {}, fallback to HOCON loader.",
                     configAdapter.getClass().getName());
-            return ofInner(filePath, variables, c);
+            return ofInner(filePath, variables, cryptoMode);
         }
     }
 
