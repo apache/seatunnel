@@ -2,6 +2,10 @@
 sidebar_position: 2
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+
 # SeaTunnel 引擎快速开始
 
 ## 步骤 1: 部署SeaTunnel及连接器
@@ -63,11 +67,32 @@ sink {
 
 :::
 
+<Tabs
+    groupId="env-type"
+    defaultValue="Unix/Linux"
+    values={[
+        {label: 'Windows', value: 'windows'},
+        {label: 'Unix/Linux', value: 'Unix/Linux'}
+    ]}>
+<TabItem value="Unix/Linux">
+
 ```shell
 cd "apache-seatunnel-${version}"
 ./bin/seatunnel.sh --config ./config/v2.batch.config.template -m local
 
 ```
+</TabItem>
+
+<TabItem value="windows">
+
+    ```shell
+    cd "apache-seatunnel-${version}"
+    call .\bin\seatunnel.cmd --config ./config/v2.batch.config.template -m local
+
+    ```
+</TabItem>
+</Tabs>
+
 
 **查看输出**: 当您运行该命令时，您可以在控制台中看到它的输出。您可以认为这是命令运行成功或失败的标志。
 
@@ -92,6 +117,108 @@ SeaTunnel控制台将会打印一些如下日志信息:
 2022-12-19 11:01:46,491 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0 rowIndex=15: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT: Wbxtm, 1469371353
 2022-12-19 11:01:46,491 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0 rowIndex=16: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT: mIJDt, 995616438
 ```
+
+
+## Step 4: 使用集群模式运行seatunnel程序
+
+首先，使用默认集群名称运行一个seatunnel集群
+<Tabs
+    groupId="env-type"
+    defaultValue="Unix/Linux"
+    values={[
+        {label: 'Windows', value: 'windows'},
+        {label: 'Unix/Linux', value: 'Unix/Linux'}
+    ]}>
+<TabItem value="Unix/Linux">
+
+```shell
+./bin/seatunnel-cluster.sh
+```
+</TabItem>
+
+<TabItem value="windows">
+
+```cmd
+call .\bin\seatunnel-cluster.cmd
+```
+</TabItem>
+</Tabs>
+
+或是，给集群一个指定的名称
+
+<Tabs
+    groupId="env-type"
+    defaultValue="Unix/Linux"
+    values={[
+        {label: 'Windows', value: 'windows'},
+        {label: 'Unix/Linux', value: 'Unix/Linux'}
+    ]}>
+<TabItem value="Unix/Linux">
+
+```shell
+./bin/seatunnel-cluster.sh -cn customer-cluster
+```
+</TabItem>
+
+<TabItem value="windows">
+
+```cmd
+call .\bin\seatunnel-cluster.cmd -cn customer-cluster
+```
+</TabItem>
+</Tabs>
+
+然后，向集群提交任务
+
+<Tabs
+    groupId="env-type"
+    defaultValue="Unix/Linux"
+    values={[
+        {label: 'Windows', value: 'windows'},
+        {label: 'Unix/Linux', value: 'Unix/Linux'}
+    ]}>
+<TabItem value="Unix/Linux">
+
+```shell
+./bin/seatunnel.sh -c config\v2.batch.config.template -m cluster
+```
+</TabItem>
+
+<TabItem value="windows">
+
+```cmd
+call .\bin\seatunnel.cmd -c config\v2.batch.config.template -m cluster
+```
+</TabItem>
+</Tabs>
+
+
+最后，使用如下命令停止集群。
+
+<Tabs
+    groupId="env-type"
+    defaultValue="Unix/Linux"
+    values={[
+        {label: 'Windows', value: 'windows'},
+        {label: 'Unix/Linux', value: 'Unix/Linux'}
+    ]}>
+<TabItem value="Unix/Linux">
+
+```shell
+./bin/stop-seatunnel-cluster.cmd
+```
+</TabItem>
+
+<TabItem value="windows">
+
+在windows操作系统下需要命令`wmic`,如果你的电脑上没有这个命令，请按照[这个](https://techcommunity.microsoft.com/blog/windows-itpro-blog/how-to-install-wmic-feature-on-demand-on-windows-11/4189530)文档来安装它.
+
+```cmd
+call .\bin\stop-seatunnel-cluster.cmd
+```
+</TabItem>
+</Tabs>
+
 
 ## 扩展示例：从 MySQL 到 Doris 批处理模式
 
