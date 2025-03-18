@@ -309,7 +309,7 @@ jobs:
           bash seatunnel-pr/tools/documents/sync.sh seatunnel-pr seatunnel-website
       - uses: actions/setup-node@v2
         with:
-          node-version: 16.19.0
+          node-version: 18.20.7
       - name: Run docusaurus build
         run: |
           cd seatunnel-website

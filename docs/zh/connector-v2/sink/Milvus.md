@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-milvus.md';
+
 # Milvus
 
 > Milvus数据接收器
@@ -61,3 +63,6 @@ sink {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />

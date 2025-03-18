@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-local.md';
+
 # LocalFile
 
 > 本地文件接收器
@@ -305,24 +307,6 @@ LocalFile {
 
 ```
 
-## 更新日志
+## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 新增本地文件接收器
-
-### 2.3.0-beta 2022-10-20
-
-- [BugFix] 修复了 Windows 环境中路径错误的 bug ([2980](https://github.com/apache/seatunnel/pull/2980))
-- [BugFix] 修复了文件系统获取错误 ([3117](https://github.com/apache/seatunnel/pull/3117))
-- [BugFix] 解决了无法解析 '\t' 作为配置文件分隔符的 bug ([3083](https://github.com/apache/seatunnel/pull/3083))
-
-### 下一个版本
-
-- [BugFix] 修复了以下导致数据写入文件失败的 bug ([3258](https://github.com/apache/seatunnel/pull/3258))
-  - 当上游字段为 null 时会抛出 NullPointerException
-  - Sink 列映射失败
-  - 从状态恢复 writer 时直接获取事务失败
-- [Improve] 支持为每个文件设置批量大小 ([3625](https://github.com/apache/seatunnel/pull/3625))
-- [Improve] 支持文件压缩 ([3899](https://github.com/apache/seatunnel/pull/3899))
-
+<ChangeLog />

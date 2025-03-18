@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-google-sheets.md';
+
 # GoogleSheets
 
 > GoogleSheets 源连接器
@@ -73,7 +75,4 @@ GoogleSheets {
 
 ## 变更日志
 
-### 下一个版本
-
-- 添加 GoogleSheets 源连接器
-
+<ChangeLog />

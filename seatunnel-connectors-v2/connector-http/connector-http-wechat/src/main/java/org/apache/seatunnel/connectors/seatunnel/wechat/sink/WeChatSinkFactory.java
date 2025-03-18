@@ -18,9 +18,12 @@
 package org.apache.seatunnel.connectors.seatunnel.wechat.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.wechat.sink.config.WeChatSinkConfig;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.wechat.sink.config.WeChatSinkOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -34,12 +37,19 @@ public class WeChatSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(WeChatSinkConfig.URL)
-                .optional(WeChatSinkConfig.MENTIONED_LIST)
-                .optional(WeChatSinkConfig.MENTIONED_MOBILE_LIST)
-                .optional(WeChatSinkConfig.RETRY)
-                .optional(WeChatSinkConfig.RETRY_BACKOFF_MAX_MS)
-                .optional(WeChatSinkConfig.RETRY_BACKOFF_MULTIPLIER_MS)
+                .required(WeChatSinkOptions.URL)
+                .optional(
+                        WeChatSinkOptions.MENTIONED_LIST,
+                        WeChatSinkOptions.MENTIONED_MOBILE_LIST,
+                        WeChatSinkOptions.RETRY,
+                        WeChatSinkOptions.RETRY_BACKOFF_MAX_MS,
+                        WeChatSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS,
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        return () -> new WeChatSink(context.getOptions(), context.getCatalogTable());
     }
 }

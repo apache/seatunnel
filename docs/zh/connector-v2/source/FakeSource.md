@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-fake.md';
+
 # FakeSource
 
 > FakeSource 连接器
@@ -518,24 +520,6 @@ source {
 }
 ```
 
-## 更新日志
+## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 新增 FakeSource 源连接器
-
-### 2.3.0-beta 2022-10-20
-
-- [改进] 支持直接定义数据值（row）([2839](https://github.com/apache/seatunnel/pull/2839))
-- [改进] 改进 FakeSource 连接器：([2944](https://github.com/apache/seatunnel/pull/2944))
-  - 支持用户自定义 Map 大小
-  - 支持用户自定义数组大小
-  - 支持用户自定义字符串长度
-  - 支持用户自定义字节长度
-- [改进] 支持 FakeSource 连接器的多分片 ([2974](https://github.com/apache/seatunnel/pull/2974))
-- [改进] 支持设置每个并行度的分片数量以及两个分片之间的读取间隔 ([3098](https://github.com/apache/seatunnel/pull/3098))
-
-### 下一个版本
-
-- [功能] 支持配置假数据行 [3865](https://github.com/apache/seatunnel/pull/3865)
-- [功能] 支持为假数据配置模板或范围 [3932](https://github.com/apache/seatunnel/pull/3932)
+<ChangeLog />

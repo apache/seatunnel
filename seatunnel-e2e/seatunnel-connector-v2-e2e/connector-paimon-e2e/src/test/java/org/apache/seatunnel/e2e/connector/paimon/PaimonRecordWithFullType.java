@@ -46,4 +46,5 @@ public class PaimonRecordWithFullType {
     public BinaryString c_bytes;
     public int c_date;
     public Timestamp c_timestamp;
+    public int c_time;
 }
