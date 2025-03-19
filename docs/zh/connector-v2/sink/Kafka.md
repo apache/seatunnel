@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-kafka.md';
+
 # Kafka
 
 > Kafka 数据接收器
@@ -278,3 +280,7 @@ sink {
 }
 ```
 Note：key/value 需要 byte[]类型.
+
+## 变更日志
+
+<ChangeLog />

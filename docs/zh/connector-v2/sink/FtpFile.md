@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-ftp.md';
+
 # FtpFile
 
 > Ftp文件数据接收器连接器
@@ -347,20 +349,4 @@ FtpFile {
 
 ## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 添加 FTP 文件接收器连接器
-
-### 2.3.0-beta 2022-10-20
-
-- [缺陷修复] 修复了在 Windows 环境中路径不正确的问题（[2980](https://github.com/apache/seatunnel/pull/2980)） 
-- [漏洞修复] 修复文件系统获取错误（[3117](https://github.com/apache/seatunnel/pull/3117)）
-- [缺陷修复] 解决了无法从配置文件中将 `\t` 解析为分隔符的问题（[3083](https://github.com/apache/seatunnel/pull/3083)） 
-
-### 下一版本
-- [漏洞修复] 修复了以下数据写入文件失败的问题（[3258](https://github.com/apache/seatunnel/pull/3258)）
-  - 当上流数据字段为空时，会抛出空指针异常的问题
-  - 目标列映射失败的问题
-  - 从状态恢复写入器时直接获取事务失败的问题
-- [改进] 支持为每个文件设置批量大小（[3625](https://github.com/apache/seatunnel/pull/3625)）
-- [改进] 支持文件压缩（[3899](https://github.com/apache/seatunnel/pull/3899)） 
+<ChangeLog />

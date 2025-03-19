@@ -18,13 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.myhours.source;
 
 import org.apache.seatunnel.shade.com.google.common.base.Strings;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
@@ -32,7 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSource;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
-import org.apache.seatunnel.connectors.seatunnel.myhours.source.config.MyHoursSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.myhours.source.config.MyHoursSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.myhours.source.config.MyHoursSourceParameter;
 import org.apache.seatunnel.connectors.seatunnel.myhours.source.exception.MyHoursConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.myhours.source.exception.MyHoursConnectorException;
@@ -47,21 +43,8 @@ import java.util.Map;
 public class MyHoursSource extends HttpSource {
     private final MyHoursSourceParameter myHoursSourceParameter = new MyHoursSourceParameter();
 
-    protected MyHoursSource(Config pluginConfig) {
+    protected MyHoursSource(ReadonlyConfig pluginConfig) {
         super(pluginConfig);
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        MyHoursSourceConfig.URL.key(),
-                        MyHoursSourceConfig.EMAIL.key(),
-                        MyHoursSourceConfig.PASSWORD.key());
-        if (!result.isSuccess()) {
-            throw new MyHoursConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
         // Login to get accessToken
         String accessToken = getAccessToken(pluginConfig);
         this.myHoursSourceParameter.buildWithConfig(pluginConfig, accessToken);
@@ -83,7 +66,7 @@ public class MyHoursSource extends HttpSource {
                 contentField);
     }
 
-    private String getAccessToken(Config pluginConfig) {
+    private String getAccessToken(ReadonlyConfig pluginConfig) {
         MyHoursSourceParameter myHoursLoginParameter = new MyHoursSourceParameter();
         myHoursLoginParameter.buildWithLoginConfig(pluginConfig);
         HttpClientProvider loginHttpClient = new HttpClientProvider(myHoursLoginParameter);
@@ -98,7 +81,7 @@ public class MyHoursSource extends HttpSource {
                 String content = response.getContent();
                 if (!Strings.isNullOrEmpty(content)) {
                     Map<String, String> contentMap = JsonUtils.toMap(content);
-                    return contentMap.get(MyHoursSourceConfig.ACCESS_TOKEN);
+                    return contentMap.get(MyHoursSourceOptions.ACCESS_TOKEN);
                 }
             }
             throw new MyHoursConnectorException(

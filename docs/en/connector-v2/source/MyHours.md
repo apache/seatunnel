@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http-myhours.md';
+
 # My Hours
 
 > My Hours source connector
@@ -303,8 +305,4 @@ source {
 
 ## Changelog
 
-### next version
-
-- Add My Hours Source Connector
-- [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/seatunnel/pull/3510))
-
+<ChangeLog />

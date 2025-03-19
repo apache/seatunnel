@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.jira.source.config.JiraSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.jira.source.config.JiraSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -40,16 +40,14 @@ public class JiraSourceFactory extends HttpSourceFactory {
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
-        return () ->
-                (SeaTunnelSource<T, SplitT, StateT>)
-                        new JiraSource(context.getOptions().toConfig());
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new JiraSource(context.getOptions());
     }
 
     @Override
     public OptionRule optionRule() {
         return getHttpBuilder()
-                .required(JiraSourceConfig.EMAIL)
-                .required(JiraSourceConfig.API_TOKEN)
+                .required(JiraSourceOptions.EMAIL)
+                .required(JiraSourceOptions.API_TOKEN)
                 .build();
     }
 }

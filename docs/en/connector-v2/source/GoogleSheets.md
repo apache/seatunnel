@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-google-sheets.md';
+
 # GoogleSheets
 
 > GoogleSheets source connector
@@ -73,7 +75,4 @@ GoogleSheets {
 
 ## Changelog
 
-### next version
-
-- Add GoogleSheets Source Connector
-
+<ChangeLog />

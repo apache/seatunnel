@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-hadoop.md';
+
 # Hdfs文件
 
 > Hdfs文件 数据接收器
@@ -218,3 +220,6 @@ HdfsFile {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />

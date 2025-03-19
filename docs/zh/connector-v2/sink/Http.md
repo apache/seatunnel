@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http.md';
+
 # Http
 
 > Http 数据接收器
@@ -57,7 +59,4 @@ Http {
 
 ## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 添加Http接收连接器
-
+<ChangeLog />

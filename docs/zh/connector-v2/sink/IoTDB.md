@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-iotdb.md';
+
 # IoTDB
 
 > IoTDB数据接收器
@@ -204,18 +206,6 @@ IoTDB> SELECT * FROM root.test_group.* align by device;
 +------------------------+------------------------+--------------+-----------+
 ```
 
-## 更改日志
+## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 添加IoTDB数据接收器
-
-### 2.3.0-beta 2022-10-20
-
-- [Improve] 改进IoTDB数据接收器 ([2917](https://github.com/apache/seatunnel/pull/2917))
-  - 支持sql语法对齐
-  - 支持sql拆分忽略案例
-  - 支持将拆分偏移量恢复到至少一次
-  - 支持从RowRecord读取时间戳
-- [BugFix] 固定IoTDB连接器写入NPE ([3080](https://github.com/apache/seatunnel/pull/3080))
-
+<ChangeLog />

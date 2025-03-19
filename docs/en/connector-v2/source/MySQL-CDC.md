@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-cdc-mysql.md';
+
 # MySQL CDC
 
 > MySQL CDC source connector
@@ -346,10 +348,7 @@ sink {
 }
 ```
 
-
 ## Changelog
 
-- Add MySQL CDC Source Connector
-
-### next version
+<ChangeLog />
 

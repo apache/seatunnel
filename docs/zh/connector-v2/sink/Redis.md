@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-redis.md';
+
 # Redis
 
 > Redis sink connector
@@ -239,13 +241,6 @@ Redis {
 }
 ```
 
-## 更新日志
+## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 添加 Redis Sink Connector
-
-### 下一个版本
-
-- [改进] 支持 Redis 集群模式连接和用户认证 [3188](https://github.com/apache/seatunnel/pull/3188)
-
+<ChangeLog />

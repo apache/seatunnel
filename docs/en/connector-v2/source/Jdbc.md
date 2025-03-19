@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # JDBC
 
 > JDBC source connector
@@ -302,28 +304,4 @@ Jdbc {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add ClickHouse Source Connector
-
-### 2.3.0-beta 2022-10-20
-
-- [Feature] Support Phoenix JDBC Source ([2499](https://github.com/apache/seatunnel/pull/2499))
-- [Feature] Support SQL Server JDBC Source ([2646](https://github.com/apache/seatunnel/pull/2646))
-- [Feature] Support Oracle JDBC Source ([2550](https://github.com/apache/seatunnel/pull/2550))
-- [Feature] Support StarRocks JDBC Source ([3060](https://github.com/apache/seatunnel/pull/3060))
-- [Feature] Support GBase8a JDBC Source ([3026](https://github.com/apache/seatunnel/pull/3026))
-- [Feature] Support DB2 JDBC Source ([2410](https://github.com/apache/seatunnel/pull/2410))
-
-### next version
-
-- [BugFix] Fix jdbc split bug ([3220](https://github.com/apache/seatunnel/pull/3220))
-- [Feature] Support Sqlite JDBC Source ([3089](https://github.com/apache/seatunnel/pull/3089))
-- [Feature] Support Tablestore Source ([3309](https://github.com/apache/seatunnel/pull/3309))
-- [Feature] Support Teradata JDBC　Source ([3362](https://github.com/apache/seatunnel/pull/3362))
-- [Feature] Support JDBC Fetch Size Config ([3478](https://github.com/apache/seatunnel/pull/3478))
-- [Feature] Support Doris JDBC Source ([3586](https://github.com/apache/seatunnel/pull/3586))
-- [Feature] Support Redshift JDBC Sink([#3615](https://github.com/apache/seatunnel/pull/3615))
-- [BugFix] Fix jdbc connection reset bug ([3670](https://github.com/apache/seatunnel/pull/3670))
-- [Improve] Add Vertica connector([#4303](https://github.com/apache/seatunnel/pull/4303))
-
+<ChangeLog />

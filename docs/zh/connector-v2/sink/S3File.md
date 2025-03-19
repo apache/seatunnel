@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-s3.md';
+
 # S3File
 
 > S3 文件 Sink 连接器
@@ -498,3 +500,7 @@ sink {
 
 ### enable_header_write [boolean]
 仅在 file_format_type 为 text 或 csv 时使用。false：不写入表头，true：写入表头。
+
+## 变更日志
+
+<ChangeLog />
