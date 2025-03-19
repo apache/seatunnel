@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-elasticsearch.md';
+
 # Elasticsearch
 
 ## 描述
@@ -279,3 +281,7 @@ sink {
   }
 }
 ```
+
+## 变更日志
+
+<ChangeLog />

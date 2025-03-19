@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-s3.md';
+
 # S3File
 
 > S3 File Sink Connector
@@ -506,3 +508,7 @@ sink {
 ### enable_header_write [boolean]
 
 Only used when file_format_type is text,csv.false:don't write header,true:write header.
+
+## Changelog
+
+<ChangeLog />

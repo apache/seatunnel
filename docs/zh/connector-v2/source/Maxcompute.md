@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-maxcompute.md';
+
 # Maxcompute
 
 > Maxcompute 源连接器
@@ -117,3 +119,6 @@ source {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />

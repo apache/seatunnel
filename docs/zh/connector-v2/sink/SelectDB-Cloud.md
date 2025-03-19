@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-selectdb-cloud.md';
+
 # SelectDB Cloud
 
 > SelectDB Cloud Sink 连接器
@@ -171,3 +173,7 @@ sink {
   }
 }
 ```
+
+## 变更日志
+
+<ChangeLog />

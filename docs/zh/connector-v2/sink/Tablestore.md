@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-tablestore.md';
+
 # Tablestore
 
 > Tablestore 数据接收器
@@ -64,10 +66,6 @@ Tablestore {
   }
 ```
 
-## 更改日志
+## 变更日志
 
-### 随后版本
-
-- 添加Tablestore数据接收器
-
-
+<ChangeLog />

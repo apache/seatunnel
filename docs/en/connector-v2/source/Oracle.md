@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # Oracle
 
 > JDBC Oracle Source Connector
@@ -324,3 +326,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-s3.md';
+
 # S3File
 
 > S3 File Source Connector
@@ -435,3 +437,6 @@ sink {
     - Decouple hadoop-aws dependencies
 - [Feature]Set S3 AK to optional ([3688](https://github.com/apache/seatunnel/pull/))
 
+## Changelog
+
+<ChangeLog />

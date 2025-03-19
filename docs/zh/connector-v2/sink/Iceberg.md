@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-iceberg.md';
+
 # Apache Iceberg
 
 > Apache Iceberg sink连接器
@@ -249,11 +251,6 @@ sink {
 }
 ```
 
-## Changelog（变更日志）
+## 变更日志
 
-### 2.3.4-SNAPSHOT 2024-01-18
-
-- Add Iceberg Sink Connector
-
-### next version
-
+<ChangeLog />
