@@ -335,6 +335,91 @@ sink {
 - For dynamic parameters, you can use the following format: `-i date=$(date +"%Y%m%d")`.
 - Cannot use specified system reserved characters; they will not be replaced by `-i`, such as: `${database_name}`, `${schema_name}`, `${table_name}`, `${schema_full_name}`, `${table_full_name}`, `${primary_key}`, `${unique_key}`, `${field_names}`. For details, please refer to [Sink Parameter Placeholders](sink-options-placeholders.md).
 
+
+## Configuration References
+
+In the configuration file, we can define some common configuration information and directly reference it in the Job configuration, thereby reusing the same configuration. This is commonly applied to the reuse of connection information and the independence of variable configuration files for development and production environments, greatly improving the maintainability of the configuration.
+
+### reference examples 
+
+ref.conf
+```hocon
+# 定义 MySQL 连接配置
+mysql_prod {
+    url = "jdbc:mysql://192.168.1.19:3306/test"
+    driver = "com.mysql.cj.jdbc.Driver"
+    connection_check_timeout_sec = 100
+    user = "root"
+    password = "111111"
+    fetch_size = 10000
+    query="select * from not_exist"
+}
+
+# 定义 Kafka 连接配置
+kafka_test {
+    bootstrap.servers = "kafka-test:9092"
+    topic = "test_topic"
+}
+```
+
+mysql_to_console_by_ref.conf
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+  __st_config_ref_path__ = "D:/MyWorld/05Projects/java/contribute/seatunnel/seatunnel-examples/seatunnel-engine-examples/target/classes/examples/ref.conf"
+}
+
+source {
+  Jdbc {
+    __st_config_ref_key__ = "mysql_prod"
+    query="select * from department"
+  }
+}
+
+transform {
+}
+
+sink {
+  console {
+  }
+}
+```
+If a parameter is defined in both `plugin` configuration and the `ref` configuration, the priority is：`plugin > ref`。
+
+Therefore, the `query` parameter in the plugin will be merged to `query="select * from department"`。
+
+And then the final submitted configuration is:
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+  __st_config_ref_path__ = "examples/ref.conf"
+}
+
+source {
+  Jdbc {
+    url = "jdbc:mysql://192.168.1.19:3306/test"
+    driver = "com.mysql.cj.jdbc.Driver"
+    connection_check_timeout_sec = 100
+    user = "root"
+    password = "111111"
+    fetch_size = 10000
+    query="select * from department"
+  }
+}
+
+transform {
+}
+
+sink {
+  console {
+  }
+}
+```
+
+
+
 ## What's More
 
 - Start write your own config file now, choose the [connector](../connector-v2/source) you want to use, and configure the parameters according to the connector's documentation.

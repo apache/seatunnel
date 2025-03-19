@@ -204,7 +204,6 @@ public final class ConfigShadeUtils {
             for (String key : configMap.keySet()) {
                 Object ref_config = configMap.get(key);
                 if (ref_config instanceof Map) {
-                    // 2. 安全转换为 Map（泛型擦除后需处理警告）
                     Map<String, Object> refDict = (Map<String, Object>) ref_config;
                     refMap.put(key, refDict);
                 }
