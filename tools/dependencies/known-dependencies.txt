@@ -15,7 +15,7 @@ jackson-core-2.13.3.jar
 jackson-databind-2.13.3.jar
 jackson-dataformat-properties-2.13.3.jar
 jackson-datatype-jsr310-2.13.3.jar
-jcl-over-slf4j-1.7.25.jar
+jcl-over-slf4j-1.7.36.jar
 jcommander-1.81.jar
 log4j-api-2.17.1.jar
 log4j-core-2.17.1.jar
@@ -29,7 +29,7 @@ scala-library-2.12.15.jar
 seatunnel-jackson-2.3.10-SNAPSHOT-optional.jar
 seatunnel-guava-2.3.10-SNAPSHOT-optional.jar
 seatunnel-hazelcast-shade-2.3.10-SNAPSHOT-optional.jar
-slf4j-api-1.7.25.jar
+slf4j-api-1.7.36.jar
 jsqlparser-4.9.jar
 animal-sniffer-annotations-1.17.jar
 checker-qual-3.10.0.jar

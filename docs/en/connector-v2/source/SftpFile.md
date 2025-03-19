@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-sftp.md';
+
 # SftpFile
 
 > Sftp file source connector
@@ -390,3 +392,6 @@ sink {
   }
 }
 ```
+## Changelog
+
+<ChangeLog />

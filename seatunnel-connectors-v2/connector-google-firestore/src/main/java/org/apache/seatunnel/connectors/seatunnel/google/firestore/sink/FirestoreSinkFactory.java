@@ -18,14 +18,17 @@
 package org.apache.seatunnel.connectors.seatunnel.google.firestore.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.google.firestore.config.FirestoreParameters;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.google.firestore.config.FirestoreConfig.COLLECTION;
-import static org.apache.seatunnel.connectors.seatunnel.google.firestore.config.FirestoreConfig.CREDENTIALS;
-import static org.apache.seatunnel.connectors.seatunnel.google.firestore.config.FirestoreConfig.PROJECT_ID;
+import static org.apache.seatunnel.connectors.seatunnel.google.firestore.config.FirestoreSinkOptions.COLLECTION;
+import static org.apache.seatunnel.connectors.seatunnel.google.firestore.config.FirestoreSinkOptions.CREDENTIALS;
+import static org.apache.seatunnel.connectors.seatunnel.google.firestore.config.FirestoreSinkOptions.PROJECT_ID;
 
 @AutoService(Factory.class)
 public class FirestoreSinkFactory implements TableSinkFactory {
@@ -38,5 +41,13 @@ public class FirestoreSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder().required(PROJECT_ID, COLLECTION).optional(CREDENTIALS).build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        return () ->
+                new FirestoreSink(
+                        context.getCatalogTable(),
+                        new FirestoreParameters().buildWithConfig(context.getOptions()));
     }
 }

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-kafka.md';
+
 # Kafka
 
 > Kafka 源连接器
@@ -396,3 +398,7 @@ source {
 }
 ```
 注意：key/value是byte[]类型。
+
+## 变更日志
+
+<ChangeLog />

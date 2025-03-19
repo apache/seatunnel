@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-oss-jindo.md';
+
 # OssJindoFile
 
 > OssJindo file source connector
@@ -457,7 +459,4 @@ sink {
 
 ## Changelog
 
-### next version
-
-- Add OSS Jindo File Source Connector
-
+<ChangeLog />

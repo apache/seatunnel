@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-redis.md';
+
 # Redis
 
 > Redis 源连接器
@@ -19,8 +21,8 @@
 
 | 名称                  | 类型     | 是否必须               | 默认值    |
 |---------------------|--------|--------------------|--------|
-| host                | string | 是                  | -      |
-| port                | int    | 是                  | -      |
+| host                | string | `mode=single`时必须   | -      |
+| port                | int    | 否                  | 6379   |
 | keys                | string | 是                  | -      |
 | batch_size          | int    | 是                  | 10     |
 | data_type           | string | 是                  | -      |
@@ -283,13 +285,6 @@ sink {
 }
 ```
 
-## Changelog
+## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- Add Redis Source Connector
-
-### next version
-
-- [Improve] Support redis cluster mode connection and user authentication [3188](https://github.com/apache/seatunnel/pull/3188)
--  [Bug] Redis scan command supports versions 5, 6, 7 [7666](https://github.com/apache/seatunnel/pull/7666)
+<ChangeLog />

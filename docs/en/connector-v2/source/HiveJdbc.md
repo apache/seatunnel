@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # HiveJdbc
 
 > JDBC Hive Source Connector
@@ -161,3 +163,6 @@ source {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

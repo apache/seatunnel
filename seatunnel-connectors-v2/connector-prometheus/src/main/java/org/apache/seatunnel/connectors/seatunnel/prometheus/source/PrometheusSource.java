@@ -17,28 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.prometheus.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSource;
-import org.apache.seatunnel.connectors.seatunnel.prometheus.Exception.PrometheusConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusQueryType;
+import org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSourceParameter;
 
 import lombok.extern.slf4j.Slf4j;
-
-import static org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSourceConfig.INSTANT_QUERY;
-import static org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSourceConfig.QUERY_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSourceConfig.RANGE_QUERY;
 
 @Slf4j
 public class PrometheusSource extends HttpSource {
@@ -46,19 +36,11 @@ public class PrometheusSource extends HttpSource {
     private final PrometheusSourceParameter prometheusSourceParameter =
             new PrometheusSourceParameter();
 
-    private final String queryType;
+    private final PrometheusQueryType queryType;
 
-    protected PrometheusSource(Config pluginConfig) {
+    protected PrometheusSource(ReadonlyConfig pluginConfig) {
         super(pluginConfig);
-        queryType =
-                pluginConfig.hasPath(QUERY_TYPE.key())
-                        ? pluginConfig.getString(QUERY_TYPE.key())
-                        : QUERY_TYPE.defaultValue();
-        CheckResult result = checkResult(queryType, pluginConfig);
-
-        if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
-        }
+        queryType = pluginConfig.get(PrometheusSourceOptions.QUERY_TYPE);
         prometheusSourceParameter.buildWithConfig(pluginConfig);
     }
 
@@ -79,23 +61,5 @@ public class PrometheusSource extends HttpSource {
             SingleSplitReaderContext readerContext) throws Exception {
         return new PrometheusSourceReader(
                 this.prometheusSourceParameter, readerContext, contentField, queryType);
-    }
-
-    private CheckResult checkResult(String queryType, Config pluginConfig) {
-        switch (queryType) {
-            case RANGE_QUERY:
-                return CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        PrometheusSourceConfig.QUERY.key(),
-                        PrometheusSourceConfig.RangeConfig.START.key(),
-                        PrometheusSourceConfig.RangeConfig.END.key(),
-                        PrometheusSourceConfig.RangeConfig.STEP.key());
-            case INSTANT_QUERY:
-                return CheckConfigUtil.checkAllExists(
-                        pluginConfig, PrometheusSourceConfig.QUERY.key());
-            default:
-                throw new PrometheusConnectorException(
-                        CommonErrorCode.UNSUPPORTED_METHOD, "unsupported query type");
-        }
     }
 }

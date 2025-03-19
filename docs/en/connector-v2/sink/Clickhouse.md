@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-clickhouse.md';
+
 # Clickhouse
 
 > Clickhouse sink connector
@@ -243,3 +245,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

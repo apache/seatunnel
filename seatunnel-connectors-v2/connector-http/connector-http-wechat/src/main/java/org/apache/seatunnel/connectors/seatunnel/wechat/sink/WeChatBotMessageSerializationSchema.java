@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.wechat.sink.config.WeChatSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.wechat.sink.config.WeChatSinkOptions;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -58,11 +59,12 @@ public class WeChatBotMessageSerializationSchema implements SerializationSchema 
         HashMap<Object, Object> content = new HashMap<>();
         content.put(WeChatSinkConfig.WECHAT_SEND_MSG_CONTENT_KEY, stringBuffer.toString());
         if (!CollectionUtils.isEmpty(weChatSinkConfig.getMentionedList())) {
-            content.put(WeChatSinkConfig.MENTIONED_LIST, weChatSinkConfig.getMentionedList());
+            content.put(
+                    WeChatSinkOptions.MENTIONED_LIST.key(), weChatSinkConfig.getMentionedList());
         }
         if (!CollectionUtils.isEmpty(weChatSinkConfig.getMentionedMobileList())) {
             content.put(
-                    WeChatSinkConfig.MENTIONED_MOBILE_LIST,
+                    WeChatSinkOptions.MENTIONED_MOBILE_LIST.key(),
                     weChatSinkConfig.getMentionedMobileList());
         }
 
