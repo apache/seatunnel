@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-cos.md';
+
 # CosFile
 
 > CosFile source 连接器
@@ -449,9 +451,6 @@ sink {
 }
 ```
 
-## Changelog
+## 变更日志
 
-### 下一个版本
-
--添加文件cos源连接器（[4979](https://github.com/apache/seatunnel/pull/4979))
-
+<ChangeLog />

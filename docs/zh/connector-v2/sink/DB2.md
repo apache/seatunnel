@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # DB2
 
 > JDBC DB2接收器连接器
@@ -173,3 +175,6 @@ sink {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />

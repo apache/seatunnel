@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-kafka.md';
+
 # Kafka
 
 > Kafka sink connector
@@ -300,3 +302,7 @@ The input parameter requirements are as follows:
 }
 ```
 Note：key/value is of type byte[].
+
+## Changelog
+
+<ChangeLog />

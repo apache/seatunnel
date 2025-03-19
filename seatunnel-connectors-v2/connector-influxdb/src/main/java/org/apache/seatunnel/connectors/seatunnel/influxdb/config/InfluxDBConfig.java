@@ -18,10 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.influxdb.config;
 
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import lombok.Data;
 
@@ -30,79 +28,24 @@ import java.io.Serializable;
 @Data
 public class InfluxDBConfig implements Serializable {
 
-    public static final Option<String> USERNAME =
-            Options.key("username")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the influxdb server username");
-
-    public static final Option<String> PASSWORD =
-            Options.key("password")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the influxdb server password");
-
-    public static final Option<String> URL =
-            Options.key("url")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the influxdb server url");
-
-    public static final Option<Long> CONNECT_TIMEOUT_MS =
-            Options.key("connect_timeout_ms")
-                    .longType()
-                    .defaultValue(15000L)
-                    .withDescription("the influxdb client connect timeout ms");
-
-    public static final Option<Integer> QUERY_TIMEOUT_SEC =
-            Options.key("query_timeout_sec")
-                    .intType()
-                    .defaultValue(3)
-                    .withDescription("the influxdb client query timeout ms");
-
-    public static final Option<String> DATABASES =
-            Options.key("database")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the influxdb server database");
-
-    public static final Option<String> EPOCH =
-            Options.key("epoch")
-                    .stringType()
-                    .defaultValue("n")
-                    .withDescription("the influxdb server query epoch");
-
     private static final String DEFAULT_FORMAT = "MSGPACK";
     private String url;
     private String username;
     private String password;
     private String database;
     private String format = DEFAULT_FORMAT;
-    private int queryTimeOut = QUERY_TIMEOUT_SEC.defaultValue();
-    private long connectTimeOut = CONNECT_TIMEOUT_MS.defaultValue();
-    private String epoch = EPOCH.defaultValue();
+    private int queryTimeOut;
+    private long connectTimeOut;
+    private String epoch;
 
-    public InfluxDBConfig(Config config) {
-        this.url = config.getString(URL.key());
-
-        if (config.hasPath(USERNAME.key())) {
-            this.username = config.getString(USERNAME.key());
-        }
-        if (config.hasPath(PASSWORD.key())) {
-            this.password = config.getString(PASSWORD.key());
-        }
-        if (config.hasPath(DATABASES.key())) {
-            this.database = config.getString(DATABASES.key());
-        }
-        if (config.hasPath(EPOCH.key())) {
-            this.epoch = config.getString(EPOCH.key());
-        }
-        if (config.hasPath(CONNECT_TIMEOUT_MS.key())) {
-            this.connectTimeOut = config.getLong(CONNECT_TIMEOUT_MS.key());
-        }
-        if (config.hasPath(QUERY_TIMEOUT_SEC.key())) {
-            this.queryTimeOut = config.getInt(QUERY_TIMEOUT_SEC.key());
-        }
+    public InfluxDBConfig(ReadonlyConfig config) {
+        this.url = config.get(InfluxDBCommonOptions.URL);
+        this.username = config.get(InfluxDBCommonOptions.USERNAME);
+        this.password = config.get(InfluxDBCommonOptions.PASSWORD);
+        this.database = config.get(InfluxDBCommonOptions.DATABASES);
+        this.epoch = config.get(InfluxDBCommonOptions.EPOCH);
+        this.connectTimeOut = config.get(InfluxDBCommonOptions.CONNECT_TIMEOUT_MS);
+        this.queryTimeOut = config.get(InfluxDBCommonOptions.QUERY_TIMEOUT_SEC);
     }
 
     @VisibleForTesting

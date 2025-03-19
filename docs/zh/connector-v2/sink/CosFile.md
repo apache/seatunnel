@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-cos.md';
+
 # CosFile
 
 > Cos 文件接收器连接器
@@ -298,7 +300,4 @@ Tips: excel 类型不支持任何压缩格式
 
 ## 变更日志
 
-### 下一个版本
-
-- 添加文件cos接收器连接器 ([4979](https://github.com/apache/seatunnel/pull/4979))
-
+<ChangeLog />

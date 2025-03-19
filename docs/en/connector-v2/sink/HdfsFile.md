@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-hadoop.md';
+
 # HdfsFile
 
 > HDFS File Sink Connector
@@ -223,3 +225,6 @@ HdfsFile {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-oss.md';
+
 # OssFile
 
 > Oss 文件 sink 连接器
@@ -530,28 +532,10 @@ sink {
 }
 ```
 
-## Changelog
-
-### 2.2.0-beta 2022-09-26
-
-- 添加OSS Sink连接器
-
-### 2.3.0-beta 2022-10-20
-
-- [Bug修复] 修复windows环境下路径错误的bug（[2980](https://github.com/apache/seatunnel/pull/2980))
-- [Bug修复] 修复文件系统获取错误（[3117](https://github.com/apache/seatunnel/pull/3117))
-- [Bug修复] 解决了无法从配置中将`\t`解析为分隔符的错误文件（[3083](https://github.com/apache/seatunnel/pull/3083))
-
-### 下个版本
-
-- [Bug修复] 修复了以下无法写入数据的错误文件（[3258](https://github.com/apache/seatunnel/pull/3258))
-    - 当上游的字段为空时，它将抛出NullPointerException
-    - Sink列映射失败
-    - 当从状态还原写入程序时，直接获取事务失败
-- [优化] 支持为每个文件设置批量大小（[3625](https://github.com/apache/seatunnel/pull/3625))
-- [优化] 支持文件压缩（[3899](https://github.com/apache/seatunnel/pull/3899))
-
 ### 提示
 
 > 1.[SeaTunnel部署方案](../../start-v2/locally/deployment.md).
 
+## 变更日志
+
+<ChangeLog />

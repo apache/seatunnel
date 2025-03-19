@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # Snowflake
 
 > JDBC Snowflake Source Connector
@@ -151,3 +153,6 @@ Read external data source data through JDBC.
 > }
 > ```
 
+## Changelog
+
+<ChangeLog />

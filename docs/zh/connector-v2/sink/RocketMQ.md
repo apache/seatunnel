@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-rocketmq.md';
+
 # RocketMQ
 
 > RocketMQ sink 连接器
@@ -200,3 +202,6 @@ sink {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />
