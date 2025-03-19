@@ -151,4 +151,22 @@ public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
                     conn.getResponseCode();
                 });
     }
+
+    @Test
+    public void testRestApiHttpsFailedWithTwoWayAuthentication() throws Exception {
+        Assertions.assertThrows(
+                SSLHandshakeException.class,
+                () -> {
+                    SSLContext sslContext =
+                            SSLUtils.createSSLContextWithoutTrustStore(
+                                    getPath("client_keystore.jks"), CLIENT_KEYSTORE_PASSWORD);
+                    HttpsURLConnection conn =
+                            (HttpsURLConnection)
+                                    new java.net.URL(
+                                                    "https://localhost:" + HTTPS_PORT + "/overview")
+                                            .openConnection();
+                    conn.setSSLSocketFactory(sslContext.getSocketFactory());
+                    conn.getInputStream();
+                });
+    }
 }

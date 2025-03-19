@@ -85,4 +85,21 @@ public class SSLUtils {
 
         return sslContext;
     }
+
+    public static SSLContext createSSLContextWithoutTrustStore(
+            String keystorePath, String keystorePass) throws Exception {
+        KeyStore clientStore = KeyStore.getInstance("JKS");
+        try (FileInputStream fis = new FileInputStream(keystorePath)) {
+            clientStore.load(fis, keystorePass.toCharArray());
+        }
+
+        KeyManagerFactory kmf =
+                KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        kmf.init(clientStore, keystorePass.toCharArray());
+
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(kmf.getKeyManagers(), null, null);
+
+        return sslContext;
+    }
 }
