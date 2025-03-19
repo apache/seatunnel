@@ -158,7 +158,7 @@ public class JdbcCloudberryIT extends AbstractJdbcIT {
 
     @Override
     protected void beforeStartUP() {
-        log.info("Setting up CloudberryDB...");
+        log.info("Setting up Apache Cloudberry...");
         try {
             // Wait for container to start
             Thread.sleep(5000);
@@ -177,11 +177,11 @@ public class JdbcCloudberryIT extends AbstractJdbcIT {
             execResult =
                     dbServer.execInContainer(
                             "bash", "-c", "su - gpadmin -c 'psql -c \"SELECT version();\"'");
-            log.info("CloudberryDB version: {}", execResult.getStdout());
+            log.info("Apache Cloudberry version: {}", execResult.getStdout());
 
         } catch (InterruptedException | IOException e) {
-            log.error("Failed to initialize CloudberryDB", e);
-            throw new RuntimeException("Failed to initialize CloudberryDB", e);
+            log.error("Failed to initialize Apache Cloudberry", e);
+            throw new RuntimeException("Failed to initialize Apache Cloudberry", e);
         }
     }
 
