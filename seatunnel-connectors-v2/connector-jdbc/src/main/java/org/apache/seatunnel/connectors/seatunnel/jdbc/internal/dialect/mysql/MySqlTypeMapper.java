@@ -48,6 +48,7 @@ public class MySqlTypeMapper implements JdbcDialectTypeMapper {
         String columnName = metadata.getColumnLabel(colIndex);
         // e.g. tinyint unsigned
         String nativeType = metadata.getColumnTypeName(colIndex);
+        String columnType = nativeType;
         int isNullable = metadata.isNullable(colIndex);
         int precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
@@ -56,11 +57,14 @@ public class MySqlTypeMapper implements JdbcDialectTypeMapper {
             long octetLength = TypeDefineUtils.charTo4ByteLength((long) precision);
             precision = (int) Math.max(precision, octetLength);
         }
+        if ("tinyint".equalsIgnoreCase(nativeType) && precision == 1) {
+            columnType = "tinyint(1)";
+        }
 
         BasicTypeDefine typeDefine =
                 BasicTypeDefine.builder()
                         .name(columnName)
-                        .columnType(nativeType)
+                        .columnType(columnType)
                         .dataType(nativeType)
                         .nullable(isNullable == ResultSetMetaData.columnNullable)
                         .length((long) precision)
