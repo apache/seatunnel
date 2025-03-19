@@ -314,6 +314,7 @@ jobs:
         run: |
           cd seatunnel-website
           npm set strict-ssl false
+          npm install web-streams-polyfill
           npm install
           npm run build
 
