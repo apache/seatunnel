@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-cos.md';
+
 # CosFile
 
 > Cos file sink connector
@@ -46,6 +48,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | file_name_expression                  | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                                                                                                 |
 | filename_time_format                  | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                                                                                                 |
 | file_format_type                      | string  | no       | "csv"                                      |                                                                                                                                                                        |
+| filename_extension                    | string  | no       | -                                          | Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`                                                 |
 | field_delimiter                       | string  | no       | '\001'                                     | Only used when file_format is text                                                                                                                                     |
 | row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format is text                                                                                                                                     |
 | have_partition                        | boolean | no       | false                                      | Whether you need processing partitions.                                                                                                                                |
@@ -298,7 +301,6 @@ For orc file format simple config
 
 ## Changelog
 
-### next version
+<ChangeLog />
 
-- Add file cos sink connector ([4979](https://github.com/apache/seatunnel/pull/4979))
 

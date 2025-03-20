@@ -18,13 +18,13 @@ package org.apache.seatunnel.connectors.seatunnel.prometheus.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.sink.SinkCommonOptions;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.http.sink.HttpSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSinkOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -36,7 +36,6 @@ public class PrometheusSinkFactory extends HttpSinkFactory {
     }
 
     public TableSink createSink(TableSinkFactoryContext context) {
-
         ReadonlyConfig readonlyConfig = context.getOptions();
         CatalogTable catalogTable = context.getCatalogTable();
         return () -> new PrometheusSink(readonlyConfig, catalogTable);
@@ -45,17 +44,17 @@ public class PrometheusSinkFactory extends HttpSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(PrometheusSinkConfig.URL)
-                .required(PrometheusSinkConfig.KEY_LABEL)
-                .required(PrometheusSinkConfig.KEY_VALUE)
-                .optional(PrometheusSinkConfig.KEY_TIMESTAMP)
-                .optional(PrometheusSinkConfig.HEADERS)
-                .optional(PrometheusSinkConfig.RETRY)
-                .optional(PrometheusSinkConfig.RETRY_BACKOFF_MULTIPLIER_MS)
-                .optional(PrometheusSinkConfig.RETRY_BACKOFF_MAX_MS)
-                .optional(PrometheusSinkConfig.BATCH_SIZE)
-                .optional(PrometheusSinkConfig.FLUSH_INTERVAL)
-                .optional(SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                .required(PrometheusSinkOptions.URL)
+                .required(PrometheusSinkOptions.KEY_LABEL)
+                .required(PrometheusSinkOptions.KEY_VALUE)
+                .optional(PrometheusSinkOptions.KEY_TIMESTAMP)
+                .optional(PrometheusSinkOptions.HEADERS)
+                .optional(PrometheusSinkOptions.RETRY)
+                .optional(PrometheusSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS)
+                .optional(PrometheusSinkOptions.RETRY_BACKOFF_MAX_MS)
+                .optional(PrometheusSinkOptions.BATCH_SIZE)
+                .optional(PrometheusSinkOptions.FLUSH_INTERVAL)
+                .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
 }

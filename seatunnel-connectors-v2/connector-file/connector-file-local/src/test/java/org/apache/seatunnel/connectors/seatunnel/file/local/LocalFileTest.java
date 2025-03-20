@@ -27,7 +27,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.local.sink.LocalFileSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.local.source.LocalFileSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.sink.SinkFlowTestUtils;
+import org.apache.seatunnel.connectors.seatunnel.source.SourceFlowTestUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -40,6 +42,7 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @DisabledOnOs(
@@ -229,5 +232,65 @@ public class LocalFileTest {
         Assertions.assertEquals(
                 "ErrorCode:[FILE-07], ErrorDescription:[Format not support] - BinaryWriteStrategy does not support generating empty files when no data is written.",
                 exception.getMessage());
+    }
+
+    @Test
+    void testWriteFileWithCustomFileExtension() throws Exception {
+        Map<String, Object> options =
+                new HashMap<String, Object>() {
+                    {
+                        put("path", "/tmp/seatunnel/LocalFileTest");
+                        put("row_delimiter", "\n");
+                        put("file_name_expression", "testFile");
+                        put("is_enable_transaction", false);
+                        put("file_format_type", "text");
+                    }
+                };
+        options.put("filename_extension", "txt2");
+        FileUtils.deleteFile("/tmp/seatunnel/LocalFileTest");
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                catalogTable,
+                ReadonlyConfig.fromMap(options),
+                new LocalFileSinkFactory(),
+                Arrays.asList(
+                        new SeaTunnelRow(new Object[] {"test"}),
+                        new SeaTunnelRow(new Object[] {"test"})));
+        Assertions.assertEquals(
+                2,
+                (long) FileUtils.getFileLineNumber("/tmp/seatunnel/LocalFileTest/testFile_0.txt2"));
+
+        options.put("filename_extension", ".ppp");
+        FileUtils.deleteFile("/tmp/seatunnel/LocalFileTest");
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                catalogTable,
+                ReadonlyConfig.fromMap(options),
+                new LocalFileSinkFactory(),
+                Arrays.asList(
+                        new SeaTunnelRow(new Object[] {"test"}),
+                        new SeaTunnelRow(new Object[] {"test"})));
+        Assertions.assertEquals(
+                2,
+                (long) FileUtils.getFileLineNumber("/tmp/seatunnel/LocalFileTest/testFile_0.ppp"));
+
+        Map<String, Object> readOptions =
+                new HashMap<String, Object>() {
+                    {
+                        put("path", "/tmp/seatunnel/LocalFileTest");
+                        put("row_delimiter", "\n");
+                        put("file_format_type", "text");
+                    }
+                };
+        readOptions.put("filename_extension", "ppp");
+        List<SeaTunnelRow> rows =
+                SourceFlowTestUtils.runBatchWithCheckpointDisabled(
+                        ReadonlyConfig.fromMap(readOptions), new LocalFileSourceFactory());
+        Assertions.assertEquals(2, rows.size());
+
+        readOptions.put("filename_extension", "ppp2");
+        List<SeaTunnelRow> emptyRows =
+                SourceFlowTestUtils.runBatchWithCheckpointDisabled(
+                        ReadonlyConfig.fromMap(readOptions), new LocalFileSourceFactory());
+
+        Assertions.assertEquals(0, emptyRows.size());
     }
 }

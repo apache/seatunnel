@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-oss-jindo.md';
+
 # OssJindoFile
 
 > OssJindo file sink connector
@@ -50,6 +52,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | file_name_expression                  | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                                                                                                 |
 | filename_time_format                  | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                                                                                                 |
 | file_format_type                      | string  | no       | "csv"                                      |                                                                                                                                                                        |
+| filename_extension                    | string  | no       | -                                          | Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`                                                 |
 | field_delimiter                       | string  | no       | '\001'                                     | Only used when file_format_type is text                                                                                                                                |
 | row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format_type is text                                                                                                                                |
 | have_partition                        | boolean | no       | false                                      | Whether you need processing partitions.                                                                                                                                |
@@ -298,11 +301,4 @@ For orc file format simple config
 
 ## Changelog
 
-### 2.3.0 2022-12-30
-
-- Add OSS Jindo File Sink Connector
-
-### Next version
-
-- [Improve] Support file compress ([3899](https://github.com/apache/seatunnel/pull/3899))
-
+<ChangeLog />

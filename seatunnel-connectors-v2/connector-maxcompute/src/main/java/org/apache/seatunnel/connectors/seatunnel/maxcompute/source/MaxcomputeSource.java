@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -26,6 +27,7 @@ import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.catalog.MaxComputeCatalog;
@@ -37,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PARTITION_SPEC;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PLUGIN_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PROJECT;
@@ -67,8 +68,15 @@ public class MaxcomputeSource
     private Map<TablePath, SourceTableInfo> getSourceTableInfos(ReadonlyConfig readonlyConfig) {
         Map<TablePath, SourceTableInfo> tables = new HashMap<>();
 
-        if (readonlyConfig.getOptional(SCHEMA).isPresent()) {
+        if (readonlyConfig.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
             CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(readonlyConfig);
+            catalogTable =
+                    CatalogTable.of(
+                            TableIdentifier.of(
+                                    "maxcompute",
+                                    readonlyConfig.get(PROJECT),
+                                    readonlyConfig.get(TABLE_NAME)),
+                            catalogTable);
             tables.put(
                     catalogTable.getTablePath(),
                     new SourceTableInfo(
@@ -81,32 +89,43 @@ public class MaxcomputeSource
                 if (readonlyConfig.getOptional(TABLE_LIST).isPresent()) {
                     for (Map<String, Object> subConfig : readonlyConfig.get(TABLE_LIST)) {
                         ReadonlyConfig subReadonlyConfig = ReadonlyConfig.fromMap(subConfig);
-                        if (subReadonlyConfig.getOptional(SCHEMA).isPresent()) {
+                        String project =
+                                subReadonlyConfig
+                                        .getOptional(PROJECT)
+                                        .orElse(readonlyConfig.get(PROJECT));
+                        TablePath tablePath =
+                                TablePath.of(project, subReadonlyConfig.get(TABLE_NAME));
+                        String partitionSpec =
+                                subReadonlyConfig
+                                        .getOptional(PARTITION_SPEC)
+                                        .orElse(readonlyConfig.get(PARTITION_SPEC));
+
+                        if (subReadonlyConfig
+                                .getOptional(ConnectorCommonOptions.SCHEMA)
+                                .isPresent()) {
                             CatalogTable catalogTable =
                                     CatalogTableUtil.buildWithConfig(subReadonlyConfig);
+                            catalogTable =
+                                    CatalogTable.of(
+                                            TableIdentifier.of("maxcompute", tablePath),
+                                            catalogTable);
                             tables.put(
                                     catalogTable.getTablePath(),
                                     new SourceTableInfo(
                                             catalogTable,
-                                            subReadonlyConfig.get(PARTITION_SPEC),
+                                            partitionSpec,
                                             subReadonlyConfig.get(SPLIT_ROW)));
                         } else {
-                            String project =
-                                    subReadonlyConfig
-                                            .getOptional(PROJECT)
-                                            .orElse(readonlyConfig.get(PROJECT));
                             Integer splitRow =
                                     subReadonlyConfig
                                             .getOptional(SPLIT_ROW)
                                             .orElse(readonlyConfig.get(SPLIT_ROW));
-                            TablePath tablePath =
-                                    TablePath.of(project, subReadonlyConfig.get(TABLE_NAME));
                             tables.put(
                                     tablePath,
                                     new SourceTableInfo(
                                             catalog.getTable(
                                                     tablePath, subReadonlyConfig.get(READ_COLUMNS)),
-                                            subReadonlyConfig.get(PARTITION_SPEC),
+                                            partitionSpec,
                                             splitRow));
                         }
                     }

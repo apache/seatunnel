@@ -120,7 +120,27 @@ public class ConnectorOptionCheckTest {
                                                                         || extendedType
                                                                                 .getNameAsString()
                                                                                 .equals(
-                                                                                        "IncrementalSource")) {
+                                                                                        "IncrementalSource")
+                                                                        || extendedType
+                                                                                .getNameAsString()
+                                                                                .equals(
+                                                                                        "BaseMultipleTableFileSink")
+                                                                        || extendedType
+                                                                                .getNameAsString()
+                                                                                .equals(
+                                                                                        "BaseFileSource")
+                                                                        || extendedType
+                                                                                .getNameAsString()
+                                                                                .equals(
+                                                                                        "BaseFileSink")
+                                                                        || extendedType
+                                                                                .getNameAsString()
+                                                                                .equals(
+                                                                                        "HttpSource")
+                                                                        || extendedType
+                                                                                .getNameAsString()
+                                                                                .equals(
+                                                                                        "HttpSink")) {
                                                                     connectorOptionFileNames.add(
                                                                             path.getFileName()
                                                                                     .toString()
@@ -171,52 +191,25 @@ public class ConnectorOptionCheckTest {
         Set<String> whiteList = new HashSet<>();
         whiteList.add("JdbcSinkOptions");
         whiteList.add("TypesenseSourceOptions");
-        whiteList.add("RabbitmqSourceOptions");
         whiteList.add("TypesenseSinkOptions");
-        whiteList.add("EmailSinkOptions");
-        whiteList.add("HudiSinkOptions");
         whiteList.add("PulsarSinkOptions");
-        whiteList.add("HttpSinkOptions");
         whiteList.add("SlsSinkOptions");
-        whiteList.add("DingTalkSinkOptions");
         whiteList.add("Neo4jSinkOptions");
-        whiteList.add("SlackSinkOptions");
         whiteList.add("MaxcomputeSinkOptions");
         whiteList.add("PaimonSinkOptions");
         whiteList.add("TDengineSourceOptions");
         whiteList.add("PulsarSourceOptions");
-        whiteList.add("RedisSinkOptions");
-        whiteList.add("FakeSourceOptions");
-        whiteList.add("HbaseSinkOptions");
         whiteList.add("MongodbSinkOptions");
-        whiteList.add("IoTDBSinkOptions");
-        whiteList.add("EasysearchSourceOptions");
-        whiteList.add("RabbitmqSinkOptions");
-        whiteList.add("StarRocksSourceOptions");
-        whiteList.add("IcebergSourceOptions");
-        whiteList.add("HbaseSourceOptions");
         whiteList.add("PaimonSourceOptions");
-        whiteList.add("IoTDBSourceOptions");
         whiteList.add("SlsSourceOptions");
         whiteList.add("SentrySinkOptions");
-        whiteList.add("EasysearchSinkOptions");
         whiteList.add("QdrantSinkOptions");
         whiteList.add("MilvusSourceOptions");
         whiteList.add("RocketMqSinkOptions");
-        whiteList.add("ClickhouseFileSinkOptions");
-        whiteList.add("IcebergSinkOptions");
         whiteList.add("MaxcomputeSourceOptions");
-        whiteList.add("InfluxDBSourceOptions");
-        whiteList.add("InfluxDBSinkOptions");
         whiteList.add("KuduSourceOptions");
         whiteList.add("SocketSinkOptions");
-        whiteList.add("DataHubSinkOptions");
-        whiteList.add("ClickhouseSinkOptions");
         whiteList.add("SelectDBSinkOptions");
-        whiteList.add("ConsoleSinkOptions");
-        whiteList.add("PrometheusSinkOptions");
-        whiteList.add("FirestoreSinkOptions");
-        whiteList.add("ClickhouseSourceOptions");
         whiteList.add("MilvusSinkOptions");
         whiteList.add("RocketMqSourceOptions");
         whiteList.add("TablestoreSinkOptions");
@@ -224,13 +217,9 @@ public class ConnectorOptionCheckTest {
         whiteList.add("KuduSinkOptions");
         whiteList.add("TDengineSinkOptions");
         whiteList.add("Neo4jSourceOptions");
-        whiteList.add("HttpSourceOptions");
         whiteList.add("QdrantSourceOptions");
-        whiteList.add("SheetsSourceOptions");
         whiteList.add("SocketSourceOptions");
         whiteList.add("OpenMldbSourceOptions");
-        whiteList.add("Web3jSourceOptions");
-        whiteList.add("RedisSourceOptions");
         whiteList.add("PostgresIncrementalSourceOptions");
         whiteList.add("SqlServerIncrementalSourceOptions");
         whiteList.add("OracleIncrementalSourceOptions");

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-rabbitmq.md';
+
 # Rabbitmq
 
 > Rabbitmq source connector
@@ -156,7 +158,5 @@ source {
 
 ## Changelog
 
-### next version
-
-- Add Rabbitmq source Connector
+<ChangeLog />
 

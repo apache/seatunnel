@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-ftp.md';
+
 # FtpFile
 
 > Ftp file sink connector
@@ -45,6 +47,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | file_name_expression                  | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                                                                                                 |
 | filename_time_format                  | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                                                                                                 |
 | file_format_type                      | string  | no       | "csv"                                      |                                                                                                                                                                        |
+| filename_extension                    | string  | no       | -                                          | Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`                                                 |
 | field_delimiter                       | string  | no       | '\001'                                     | Only used when file_format_type is text                                                                                                                                |
 | row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format_type is text                                                                                                                                |
 | have_partition                        | boolean | no       | false                                      | Whether you need processing partitions.                                                                                                                                |
@@ -338,22 +341,4 @@ FtpFile {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Ftp File Sink Connector
-
-### 2.3.0-beta 2022-10-20
-
-- [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/seatunnel/pull/2980))
-- [BugFix] Fix filesystem get error ([3117](https://github.com/apache/seatunnel/pull/3117))
-- [BugFix] Solved the bug of can not parse '\t' as delimiter from config file ([3083](https://github.com/apache/seatunnel/pull/3083))
-
-### Next version
-
-- [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/seatunnel/pull/3258))
-  - When field from upstream is null it will throw NullPointerException
-  - Sink columns mapping failed
-  - When restore writer from states getting transaction directly failed
-- [Improve] Support setting batch size for every file ([3625](https://github.com/apache/seatunnel/pull/3625))
-- [Improve] Support file compress ([3899](https://github.com/apache/seatunnel/pull/3899))
-
+<ChangeLog />

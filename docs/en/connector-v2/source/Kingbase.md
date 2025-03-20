@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # Kingbase
 
 > JDBC Kingbase Source Connector
@@ -146,3 +148,6 @@ source {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

@@ -1139,6 +1139,34 @@ jobs:
         env:
           MAVEN_OPTS: -Xmx4096m
 
+  jdbc-connectors-it-ddl:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    runs-on: ${{ matrix.os }}
+    env:
+      RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
+      RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
+      - name: run jdbc connectors integration test (sink ddl)
+        run: |
+          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-ddl -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
   kudu-connector-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-kudu-e2e')

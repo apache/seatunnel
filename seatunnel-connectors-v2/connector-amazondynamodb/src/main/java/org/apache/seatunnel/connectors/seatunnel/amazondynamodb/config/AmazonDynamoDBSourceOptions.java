@@ -19,9 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
-
-import java.util.Map;
 
 public class AmazonDynamoDBSourceOptions extends AmazonDynamoDBBaseOptions {
 
@@ -36,6 +33,4 @@ public class AmazonDynamoDBSourceOptions extends AmazonDynamoDBBaseOptions {
                     .intType()
                     .defaultValue(2)
                     .withDescription("number of logical segments for parallel scan");
-
-    public static final Option<Map<String, Object>> SCHEMA = TableSchemaOptions.SCHEMA;
 }

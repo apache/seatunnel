@@ -18,17 +18,18 @@
 package org.apache.seatunnel.connectors.seatunnel.file.oss.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssFileSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -51,39 +52,39 @@ public class OssFileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(TableSchemaOptions.TABLE_CONFIGS)
-                .optional(OssConfigOptions.FILE_PATH)
-                .optional(OssConfigOptions.BUCKET)
-                .optional(OssConfigOptions.ACCESS_KEY)
-                .optional(OssConfigOptions.ACCESS_SECRET)
-                .optional(OssConfigOptions.ENDPOINT)
-                .optional(BaseSourceConfigOptions.FILE_FORMAT_TYPE)
+                .optional(ConnectorCommonOptions.TABLE_CONFIGS)
+                .required(FileBaseOptions.FILE_PATH)
+                .required(OssFileSourceOptions.BUCKET)
+                .required(OssFileSourceOptions.ACCESS_KEY)
+                .required(OssFileSourceOptions.ACCESS_SECRET)
+                .required(OssFileSourceOptions.ENDPOINT)
+                .required(FileBaseSourceOptions.FILE_FORMAT_TYPE)
                 .conditional(
-                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
-                        FileFormat.TEXT,
-                        BaseSourceConfigOptions.FIELD_DELIMITER)
-                .conditional(
-                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.XML,
-                        BaseSourceConfigOptions.XML_ROW_TAG,
-                        BaseSourceConfigOptions.XML_USE_ATTR_FORMAT)
+                        FileBaseSourceOptions.XML_ROW_TAG,
+                        FileBaseSourceOptions.XML_USE_ATTR_FORMAT)
                 .conditional(
-                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
                                 FileFormat.TEXT,
                                 FileFormat.JSON,
                                 FileFormat.EXCEL,
                                 FileFormat.CSV,
                                 FileFormat.XML),
-                        TableSchemaOptions.SCHEMA)
-                .optional(BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH)
-                .optional(BaseSourceConfigOptions.DATE_FORMAT)
-                .optional(BaseSourceConfigOptions.DATETIME_FORMAT)
-                .optional(BaseSourceConfigOptions.TIME_FORMAT)
-                .optional(BaseSourceConfigOptions.FILE_FILTER_PATTERN)
-                .optional(BaseSourceConfigOptions.COMPRESS_CODEC)
-                .optional(BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC)
-                .optional(BaseSourceConfigOptions.NULL_FORMAT)
+                        ConnectorCommonOptions.SCHEMA)
+                .optional(FileBaseSourceOptions.ENCODING)
+                .optional(FileBaseSourceOptions.READ_COLUMNS)
+                .optional(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH)
+                .optional(FileBaseSourceOptions.FIELD_DELIMITER)
+                .optional(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
+                .optional(FileBaseSourceOptions.DATE_FORMAT)
+                .optional(FileBaseSourceOptions.DATETIME_FORMAT)
+                .optional(FileBaseSourceOptions.TIME_FORMAT)
+                .optional(FileBaseSourceOptions.SHEET_NAME)
+                .optional(FileBaseSourceOptions.FILE_FILTER_PATTERN)
+                .optional(FileBaseSourceOptions.NULL_FORMAT)
+                .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
                 .build();
     }
 

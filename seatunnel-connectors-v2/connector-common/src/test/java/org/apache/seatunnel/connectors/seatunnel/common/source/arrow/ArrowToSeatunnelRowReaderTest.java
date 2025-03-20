@@ -69,7 +69,7 @@ import java.nio.channels.Channels;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -84,13 +84,9 @@ public class ArrowToSeatunnelRowReaderTest {
     private static RootAllocator rootAllocator;
     private static final List<SeaTunnelDataTypeHolder> seaTunnelDataTypeHolder = new ArrayList<>();
 
-    /**
-     * LocalDateTime.now() is timestamped with a precision of nanoseconds on linux and milliseconds
-     * on windows The test case uses TimeStampMicroVector to test the timestamp, thus truncating the
-     * timestamp accuracy to ChronoUnit.MILLIS
-     */
     private static final LocalDateTime localDateTime =
-            LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
+            LocalDateTime.parse(
+                    "2025-02-15 02:21:23", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
 
     private static final List<String> stringData = new ArrayList<>();
     private static final List<Byte> byteData = new ArrayList<>();
@@ -172,13 +168,8 @@ public class ArrowToSeatunnelRowReaderTest {
         }
         // allocate storage
         vectors.forEach(FieldVector::allocateNew);
-        // setVectorVaule
-        long epochMilli =
-                localDateTime
-                        .truncatedTo(ChronoUnit.MILLIS)
-                        .atZone(zoneId)
-                        .toInstant()
-                        .toEpochMilli();
+        long epochMilli = localDateTime.atZone(zoneId).toInstant().toEpochMilli();
+
         byte byteStart = 'a';
 
         // setVectorValue

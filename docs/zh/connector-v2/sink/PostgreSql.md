@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # PostgreSql
 
 > JDBC PostgreSql 数据接收器
@@ -268,3 +270,6 @@ sink {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />

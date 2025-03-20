@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # Greenplum
 
 > Greenplum source connector
@@ -36,7 +38,5 @@ Source plugin common parameters, please refer to [Source Common Options](../sour
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Greenplum Source Connector
+<ChangeLog />
 

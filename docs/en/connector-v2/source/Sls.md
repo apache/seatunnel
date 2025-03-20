@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-sls.md';
+
 # Sls
 
 > Sls source connector
@@ -85,3 +87,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

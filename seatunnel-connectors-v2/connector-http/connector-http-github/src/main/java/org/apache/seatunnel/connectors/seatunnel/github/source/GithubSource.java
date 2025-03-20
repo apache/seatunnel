@@ -17,18 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.github.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
-import org.apache.seatunnel.connectors.seatunnel.github.config.GithubSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.github.config.GithubSourceParameter;
-import org.apache.seatunnel.connectors.seatunnel.github.exception.GithubConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSource;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
 
@@ -41,17 +34,8 @@ public class GithubSource extends HttpSource {
 
     private final GithubSourceParameter githubSourceParam = new GithubSourceParameter();
 
-    public GithubSource(Config pluginConfig) {
+    public GithubSource(ReadonlyConfig pluginConfig) {
         super(pluginConfig);
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(pluginConfig, GithubSourceConfig.URL.key());
-        if (!result.isSuccess()) {
-            throw new GithubConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
         githubSourceParam.buildWithConfig(pluginConfig);
     }
 

@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordEmitter;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormatErrorHandleWay;
 import org.apache.seatunnel.format.compatible.kafka.connect.json.CompatibleKafkaConnectDeserializationSchema;
+import org.apache.seatunnel.format.compatible.kafka.connect.json.NativeKafkaConnectDeserializationSchema;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
@@ -63,6 +64,9 @@ public class KafkaRecordEmitter
         try {
             if (deserializationSchema instanceof CompatibleKafkaConnectDeserializationSchema) {
                 ((CompatibleKafkaConnectDeserializationSchema) deserializationSchema)
+                        .deserialize(consumerRecord, outputCollector);
+            } else if (deserializationSchema instanceof NativeKafkaConnectDeserializationSchema) {
+                ((NativeKafkaConnectDeserializationSchema) deserializationSchema)
                         .deserialize(consumerRecord, outputCollector);
             } else {
                 deserializationSchema.deserialize(consumerRecord.value(), outputCollector);

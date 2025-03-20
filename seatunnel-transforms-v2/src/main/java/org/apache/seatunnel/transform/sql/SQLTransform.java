@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.transform.sql;
 
-import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -75,7 +75,7 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform {
             this.engineType = ZETA;
         }
 
-        List<String> pluginInputIdentifiers = config.get(CommonOptions.PLUGIN_INPUT);
+        List<String> pluginInputIdentifiers = config.get(ConnectorCommonOptions.PLUGIN_INPUT);
         if (pluginInputIdentifiers != null && !pluginInputIdentifiers.isEmpty()) {
             this.inputTableName = pluginInputIdentifiers.get(0);
         } else {

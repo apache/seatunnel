@@ -29,8 +29,17 @@ public class ConsumerConfig extends Config {
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "RocketMq topic name. If there are multiple topics, use , to split, for example: "
+                            "RocketMq topic name. If there are multiple topics, use `,` to split, for example: "
                                     + "\"tpc1,tpc2\".");
+
+    public static final Option<String> TAGS =
+            Options.key("tags")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "RocketMq tag name. If there are multiple tags, use `,` to split, for example: "
+                                    + "\"tag1,tag2\".");
+
     public static final Option<String> CONSUMER_GROUP =
             Options.key("consumer.group")
                     .stringType()
@@ -86,4 +95,10 @@ public class ConsumerConfig extends Config {
                     .longType()
                     .defaultValue(DEFAULT_POLL_TIMEOUT_MILLIS)
                     .withDescription("The poll timeout in milliseconds.");
+
+    public static final Option<Boolean> IGNORE_PARSE_ERRORS =
+            Options.key("ignore_parse_errors")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Optional flag to skip parse errors instead of failing.");
 }

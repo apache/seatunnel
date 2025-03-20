@@ -85,7 +85,7 @@ public class PaimonCatalog implements Catalog, PaimonTable {
             try {
                 ((Closeable) catalog).close();
             } catch (IOException e) {
-                log.error("Error while closing IcebergCatalog.", e);
+                log.error("Error while closing PaimonCatalog.", e);
                 throw new CatalogException(e);
             }
         }
