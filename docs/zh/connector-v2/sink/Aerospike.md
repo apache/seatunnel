@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-aerospike.md';
+
 # Aerospike
 
 > Aerospike 数据写入连接器
@@ -109,3 +111,7 @@ sink {
     }
   }
 }
+```
+## Changelog
+
+<ChangeLog />

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-aerospike.md';
+
 # Aerospike
 
 > Aerospike sink connector
@@ -110,3 +112,6 @@ sink {
   }
 }
 ```
+## Changelog
+
+<ChangeLog />
