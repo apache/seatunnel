@@ -35,38 +35,7 @@ seatunnel:
       context-path: /seatunnel
 ```
 
-### HTTPS 配置
-
-您可以通过开启 HTTPS 来保护您的 API 服务。HTTP 和 HTTPS 可同时开启，也可以只开启其中一个。
-
-| 参数名称 | 是否必填 | 参数描述 |
-|--------|---------|--------|
-| `enable-http` | 否 | 是否开启 HTTP 服务，默认为 `true` |
-| `port` | 否 | HTTP 服务端口，默认为 `8080` |
-| `enable-https` | 否 | 是否开启 HTTPS 服务，默认为 `false` |
-| `https-port` | 否 | HTTPS 服务端口，默认为 `8443` |
-| `key-store-path` | 当 `enable-https` 为 `true` 时必填 | KeyStore 文件路径，用于存储服务器私钥和证书 |
-| `key-store-password` | 当 `enable-https` 为 `true` 时必填 | KeyStore 密码 |
-| `key-manager-password` | 当 `enable-https` 为 `true` 时必填 | KeyManager 密码，通常与 KeyStore 密码相同 |
-| `trust-store-path` | 否 | TrustStore 文件路径，用于验证客户端证书 |
-| `trust-store-password` | 否 | TrustStore 密码 |
-
-**注意**：当 `trust-store-path` 和 `trust-store-password` 配置项不为空时，将启用双向 SSL 认证（客户端认证），要求客户端提供有效证书。
-
-```yaml
-seatunnel:
-  engine:
-    http:
-        enable-http: true
-        port: 8080
-        enable-https: true
-        https-port: 8443
-        key-store-path: "${YOUR_KEY_STORE_PATH}"
-        key-store-password: "${YOUR_KEY_STORE_PASSWORD}"
-        key-manager-password: "${YOUR_KEY_MANAGER_PASSWORD}"
-        trust-store-path: "${YOUR_TRUST_STORE_PATH}"
-        trust-store-password: "${YOUR_TRUST_STORE_PASSWORD}"
-```
+[开启 HTTPS 方法](security.md)
 
 ## API参考
 
