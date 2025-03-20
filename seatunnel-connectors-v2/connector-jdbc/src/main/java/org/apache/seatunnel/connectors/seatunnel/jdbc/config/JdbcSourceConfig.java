@@ -18,10 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.StringSplitMode;
 
 import lombok.Builder;
 import lombok.Data;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.source.StringSplitMode;
 
 import java.io.Serializable;
 import java.util.List;

@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
-import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigInteger;
 
@@ -146,7 +147,12 @@ public class CharsetBasedSplitterTest {
         long endTime = System.currentTimeMillis();
         long duration = endTime - startTime;
 
-        log.info("Executing " + iterations + " encoding/decoding operations took: " + duration + " milliseconds");
+        log.info(
+                "Executing "
+                        + iterations
+                        + " encoding/decoding operations took: "
+                        + duration
+                        + " milliseconds");
         log.info("Average time per operation: " + (double) duration / iterations + " milliseconds");
     }
 

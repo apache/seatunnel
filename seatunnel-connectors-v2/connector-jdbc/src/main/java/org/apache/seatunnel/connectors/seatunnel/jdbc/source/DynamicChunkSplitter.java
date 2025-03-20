@@ -131,7 +131,8 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                 return evenlyColumnSplitChunks(table, splitColumnName, min, max, chunkSize);
             case STRING:
                 if (useCharsetBasedStringSplitter) {
-                    return charsetBasedColumnSplitChunks(table, splitColumnName, min, max, chunkSize);
+                    return charsetBasedColumnSplitChunks(
+                            table, splitColumnName, min, max, chunkSize);
                 } else {
                     return evenlyColumnSplitChunks(table, splitColumnName, min, max, chunkSize);
                 }

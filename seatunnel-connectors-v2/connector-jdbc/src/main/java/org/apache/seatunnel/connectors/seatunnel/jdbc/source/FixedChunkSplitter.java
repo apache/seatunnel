@@ -192,7 +192,8 @@ public class FixedChunkSplitter extends ChunkSplitter {
     @Override
     protected PreparedStatement createSplitStatement(JdbcSourceSplit split, TableSchema schema)
             throws SQLException {
-        if (SqlType.STRING.equals(split.getSplitKeyType().getSqlType()) && !useCharsetBasedStringSplitter) {
+        if (SqlType.STRING.equals(split.getSplitKeyType().getSqlType())
+                && !useCharsetBasedStringSplitter) {
             return createStringColumnSplitStatement(split);
         }
         if (split.getSplitStart() == null && split.getSplitEnd() == null) {

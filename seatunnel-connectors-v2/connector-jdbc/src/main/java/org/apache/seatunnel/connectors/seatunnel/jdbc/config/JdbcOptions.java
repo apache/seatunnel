@@ -233,5 +233,8 @@ public interface JdbcOptions {
                     .withDescription("string_split_mode");
 
     Option<String> STRING_SPLIT_MODE_COLLATE =
-            Options.key("string_split_mode_collate").stringType().noDefaultValue().withDescription("string_split_mode_collate");
+            Options.key("string_split_mode_collate")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("string_split_mode_collate");
 }
