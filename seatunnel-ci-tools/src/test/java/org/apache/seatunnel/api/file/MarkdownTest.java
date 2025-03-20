@@ -30,17 +30,25 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class MarkdownTest {
 
-    private static final List<Path> docsDirectorys = new ArrayList<>();
+    private static final List<Path> docsDirectories = new ArrayList<>();
+
+    private static final List<Path> connectorsDirectories = new ArrayList<>();
 
     @BeforeAll
     public static void setup() {
-        docsDirectorys.add(Paths.get("..", "docs", "en"));
-        docsDirectorys.add(Paths.get("..", "docs", "zh"));
+        docsDirectories.add(Paths.get("..", "docs", "en"));
+        docsDirectories.add(Paths.get("..", "docs", "zh"));
+        connectorsDirectories.add(Paths.get("..", "docs", "en", "connector-v2", "source"));
+        connectorsDirectories.add(Paths.get("..", "docs", "en", "connector-v2", "sink"));
+        connectorsDirectories.add(Paths.get("..", "docs", "zh", "connector-v2", "source"));
+        connectorsDirectories.add(Paths.get("..", "docs", "zh", "connector-v2", "sink"));
     }
 
     @Test
@@ -48,11 +56,11 @@ public class MarkdownTest {
     public void testChineseDocFileNameContainsInEnglishVersionDoc() {
         // Verify that the file names in the English and Chinese directories are the same.
         List<String> enFileName =
-                fileName(docsDirectorys.get(0)).stream()
+                fileName(docsDirectories.get(0)).stream()
                         .map(path -> path.replace("/en/", "/"))
                         .collect(Collectors.toList());
         List<String> zhFileName =
-                fileName(docsDirectorys.get(1)).stream()
+                fileName(docsDirectories.get(1)).stream()
                         .map(path -> path.replace("/zh/", "/"))
                         .collect(Collectors.toList());
 
@@ -92,11 +100,12 @@ public class MarkdownTest {
 
     @Test
     public void testPrimaryHeadersHaveNoTextAbove() {
-        docsDirectorys.forEach(
+        docsDirectories.forEach(
                 docsDirectory -> {
                     try (Stream<Path> paths = Files.walk(docsDirectory)) {
                         List<Path> mdFiles =
                                 paths.filter(Files::isRegularFile)
+                                        .filter(path -> !path.getParent().endsWith("changelog"))
                                         .filter(path -> path.toString().endsWith(".md"))
                                         .collect(Collectors.toList());
 
@@ -147,6 +156,73 @@ public class MarkdownTest {
                                                 "The first line of the file %s is not a first level heading. First line content: “%s” (line number: %d)",
                                                 mdPath, firstRelevantLine, lineNumber));
                             }
+                        }
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+    }
+
+    @Test
+    public void testConnectorDocWithChangeLogFlagAndFile() {
+        Pattern importPattern =
+                Pattern.compile("import ChangeLog from '../changelog/(connector-.*).md';");
+        connectorsDirectories.forEach(
+                docsDirectory -> {
+                    try (Stream<Path> paths = Files.walk(docsDirectory)) {
+                        List<Path> mdFiles =
+                                paths.filter(Files::isRegularFile)
+                                        .filter(path -> path.toString().endsWith(".md"))
+                                        .collect(Collectors.toList());
+
+                        for (Path mdPath : mdFiles) {
+                            List<String> lines = Files.readAllLines(mdPath, StandardCharsets.UTF_8);
+                            String line = lines.get(0);
+                            Assertions.assertTrue(
+                                    line.startsWith("import ChangeLog from '../changelog/"),
+                                    "The first line of the file "
+                                            + mdPath
+                                            + " is not a change log import.");
+                            Matcher matcher = importPattern.matcher(line);
+                            Assertions.assertTrue(
+                                    matcher.matches(),
+                                    "The first line of the file "
+                                            + mdPath
+                                            + " is not a change log import.");
+                            String connector = matcher.group(1);
+                            if (docsDirectory.getParent().getParent().endsWith("en")) {
+                                Assertions.assertTrue(
+                                        Files.exists(
+                                                Paths.get(
+                                                        "..",
+                                                        "docs",
+                                                        "en",
+                                                        "connector-v2",
+                                                        "changelog",
+                                                        connector + ".md")),
+                                        "The change log file for "
+                                                + connector
+                                                + " does not exist, please check "
+                                                + mdPath);
+                            } else {
+                                Assertions.assertTrue(
+                                        Files.exists(
+                                                Paths.get(
+                                                        "..",
+                                                        "docs",
+                                                        "zh",
+                                                        "connector-v2",
+                                                        "changelog",
+                                                        connector + ".md")),
+                                        "The change log file for "
+                                                + connector
+                                                + " does not exist, please check "
+                                                + mdPath);
+                            }
+                            String file = String.join("\n", lines);
+                            Assertions.assertTrue(
+                                    file.trim().endsWith("<ChangeLog />"),
+                                    "The file " + mdPath + " does not end with <ChangeLog />.");
                         }
                     } catch (IOException e) {
                         throw new RuntimeException(e);

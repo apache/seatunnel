@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # Snowflake
 
 > JDBC Snowflake Sink Connector
@@ -140,3 +142,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

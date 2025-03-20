@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-cos.md';
+
 # CosFile
 
 > Cos file sink connector
@@ -299,7 +301,6 @@ For orc file format simple config
 
 ## Changelog
 
-### next version
+<ChangeLog />
 
-- Add file cos sink connector ([4979](https://github.com/apache/seatunnel/pull/4979))
 

@@ -20,10 +20,11 @@ package org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.sink;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.config.OssConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.config.OssFileSinkOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -37,64 +38,50 @@ public class OssFileSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(OssConfigOptions.FILE_PATH)
-                .required(OssConfigOptions.BUCKET)
-                .required(OssConfigOptions.ACCESS_KEY)
-                .required(OssConfigOptions.ACCESS_SECRET)
-                .required(OssConfigOptions.ENDPOINT)
-                .optional(BaseSinkConfig.FILE_FORMAT_TYPE)
+                .required(FileBaseOptions.FILE_PATH)
+                .required(OssFileSinkOptions.BUCKET)
+                .required(OssFileSinkOptions.ACCESS_KEY)
+                .required(OssFileSinkOptions.ACCESS_SECRET)
+                .required(OssFileSinkOptions.ENDPOINT)
+                .optional(FileBaseSinkOptions.FILE_FORMAT_TYPE)
+                .optional(FileBaseSinkOptions.TMP_PATH)
                 .conditional(
-                        BaseSinkConfig.FILE_FORMAT_TYPE,
-                        FileFormat.TEXT,
-                        BaseSinkConfig.ROW_DELIMITER,
-                        BaseSinkConfig.FIELD_DELIMITER,
-                        BaseSinkConfig.TXT_COMPRESS,
-                        BaseSinkConfig.ENABLE_HEADER_WRITE)
-                .conditional(
-                        BaseSinkConfig.FILE_FORMAT_TYPE,
-                        FileFormat.CSV,
-                        BaseSinkConfig.TXT_COMPRESS,
-                        BaseSinkConfig.ENABLE_HEADER_WRITE)
-                .conditional(
-                        BaseSinkConfig.FILE_FORMAT_TYPE,
-                        FileFormat.JSON,
-                        BaseSinkConfig.TXT_COMPRESS)
-                .conditional(
-                        BaseSinkConfig.FILE_FORMAT_TYPE,
-                        FileFormat.ORC,
-                        BaseSinkConfig.ORC_COMPRESS)
-                .conditional(
-                        BaseSinkConfig.FILE_FORMAT_TYPE,
-                        FileFormat.PARQUET,
-                        BaseSinkConfig.PARQUET_COMPRESS,
-                        BaseSinkConfig.PARQUET_AVRO_WRITE_FIXED_AS_INT96,
-                        BaseSinkConfig.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96)
-                .conditional(
-                        BaseSinkConfig.FILE_FORMAT_TYPE,
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
                         FileFormat.XML,
-                        BaseSinkConfig.XML_USE_ATTR_FORMAT)
-                .optional(BaseSinkConfig.CUSTOM_FILENAME)
+                        FileBaseSinkOptions.XML_USE_ATTR_FORMAT)
+                .optional(FileBaseSinkOptions.CUSTOM_FILENAME)
                 .conditional(
-                        BaseSinkConfig.CUSTOM_FILENAME,
+                        FileBaseSinkOptions.CUSTOM_FILENAME,
                         true,
-                        BaseSinkConfig.FILE_NAME_EXPRESSION,
-                        BaseSinkConfig.FILENAME_TIME_FORMAT)
-                .optional(BaseSinkConfig.HAVE_PARTITION)
+                        FileBaseSinkOptions.FILE_NAME_EXPRESSION)
+                .optional(FileBaseSinkOptions.HAVE_PARTITION)
                 .conditional(
-                        BaseSinkConfig.HAVE_PARTITION,
+                        FileBaseSinkOptions.HAVE_PARTITION,
                         true,
-                        BaseSinkConfig.PARTITION_BY,
-                        BaseSinkConfig.PARTITION_DIR_EXPRESSION,
-                        BaseSinkConfig.IS_PARTITION_FIELD_WRITE_IN_FILE)
-                .optional(BaseSinkConfig.SINK_COLUMNS)
-                .optional(BaseSinkConfig.IS_ENABLE_TRANSACTION)
-                .optional(BaseSinkConfig.DATE_FORMAT)
-                .optional(BaseSinkConfig.DATETIME_FORMAT)
-                .optional(BaseSinkConfig.TIME_FORMAT)
-                .optional(BaseSinkConfig.SINGLE_FILE_MODE)
-                .optional(BaseSinkConfig.BATCH_SIZE)
-                .optional(BaseSinkConfig.CREATE_EMPTY_FILE_WHEN_NO_DATA)
-                .optional(BaseSinkConfig.FILENAME_EXTENSION)
+                        FileBaseSinkOptions.PARTITION_BY,
+                        FileBaseSinkOptions.PARTITION_DIR_EXPRESSION,
+                        FileBaseSinkOptions.IS_PARTITION_FIELD_WRITE_IN_FILE)
+                .optional(FileBaseSinkOptions.SINK_COLUMNS)
+                .optional(FileBaseSinkOptions.COMPRESS_CODEC)
+                .optional(FileBaseSinkOptions.ENABLE_HEADER_WRITE)
+                .optional(FileBaseSinkOptions.FIELD_DELIMITER)
+                .optional(FileBaseSinkOptions.ROW_DELIMITER)
+                .optional(FileBaseSinkOptions.IS_ENABLE_TRANSACTION)
+                .optional(FileBaseSinkOptions.FILENAME_TIME_FORMAT)
+                .optional(FileBaseSinkOptions.MAX_ROWS_IN_MEMORY)
+                .optional(FileBaseSinkOptions.SHEET_NAME)
+                .optional(FileBaseSinkOptions.DATE_FORMAT)
+                .optional(FileBaseSinkOptions.DATETIME_FORMAT)
+                .optional(FileBaseSinkOptions.TIME_FORMAT)
+                .optional(FileBaseSinkOptions.XML_ROOT_TAG)
+                .optional(FileBaseSinkOptions.XML_ROW_TAG)
+                .optional(FileBaseSinkOptions.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96)
+                .optional(FileBaseSinkOptions.PARQUET_AVRO_WRITE_FIXED_AS_INT96)
+                .optional(FileBaseSinkOptions.SINGLE_FILE_MODE)
+                .optional(FileBaseSinkOptions.ENCODING)
+                .optional(FileBaseSinkOptions.BATCH_SIZE)
+                .optional(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA)
+                .optional(FileBaseSinkOptions.FILENAME_EXTENSION)
                 .build();
     }
 }

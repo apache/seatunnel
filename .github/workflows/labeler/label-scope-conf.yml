@@ -36,12 +36,38 @@ spark:
   - changed-files:
       - any-glob-to-any-file:
           - seatunnel-translation/seatunnel-translation-spark/**
+
+Zeta Rest API:
+  - changed-files:
+      - any-glob-to-any-file: seatunnel-engine/**/server/rest/**
+api:
+  - changed-files:
+      - any-glob-to-any-file:
+          - seatunnel-api/**
+          - seatunnel-common/**
+core:
+  - changed-files:
+      - any-glob-to-any-file:
+          - seatunnel-core/**
+          - seatunnel-config/**
+          - seatunnel-dist/**
+          - seatunnel-plugin-discovery/**
+          - seatunnel-shade/**
+format:
+  - changed-files:
+      - any-glob-to-any-file: seatunnel-formats/**
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file: tools/dependencies/**
+
 connectors-v2:
   - changed-files:
       - any-glob-to-any-file: seatunnel-connectors-v2/**
 transform-v2:
   - changed-files:
       - any-glob-to-any-file: seatunnel-transforms-v2/**
+
+# Connectors
 amazondynamodb:
   - all:
       - changed-files:
@@ -275,24 +301,6 @@ typesense:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-typesense/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(typesense)/**'
 
-Zeta Rest API:
-  - changed-files:
-      - any-glob-to-any-file: seatunnel-engine/**/server/rest/**
-api:
-  - changed-files:
-      - any-glob-to-any-file:
-          - seatunnel-api/**
-          - seatunnel-common/**
-core:
-  - changed-files:
-      - any-glob-to-any-file:
-          - seatunnel-core/**
-format:
-  - changed-files:
-      - any-glob-to-any-file: seatunnel-formats/**
-dependencies:
-  - changed-files:
-      - any-glob-to-any-file: tools/dependencies/**
 sls:
   - all:
       - changed-files:

@@ -39,7 +39,8 @@ final class PathParser {
             return speculated;
         }
         try (StringReader reader = new StringReader(path)) {
-            Iterator<Token> tokens = Tokenizer.tokenize(API_ORIGIN, reader, ConfigSyntax.CONF);
+            Iterator<Token> tokens =
+                    Tokenizer.tokenize(API_ORIGIN, reader, ConfigSyntax.CONF, true);
             tokens.next(); // drop START
             return parsePathExpression(tokens, API_ORIGIN, path);
         }

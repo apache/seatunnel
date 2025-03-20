@@ -31,6 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.Exception.PrometheusConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusQueryType;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.pojo.InstantPoint;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.pojo.RangePoint;
 
@@ -50,9 +51,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import static org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSourceConfig.INSTANT_QUERY;
-import static org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSourceConfig.RANGE_QUERY;
-
 @Slf4j
 @Setter
 public class PrometheusSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
@@ -64,7 +62,7 @@ public class PrometheusSourceReader extends AbstractSingleSplitReader<SeaTunnelR
         Option.SUPPRESS_EXCEPTIONS, Option.ALWAYS_RETURN_LIST, Option.DEFAULT_PATH_LEAF_TO_NULL
     };
     private final String contentJson;
-    private final String queryType;
+    private final PrometheusQueryType queryType;
     private final Configuration jsonConfiguration =
             Configuration.defaultConfiguration().addOptions(DEFAULT_OPTIONS);
 
@@ -72,7 +70,7 @@ public class PrometheusSourceReader extends AbstractSingleSplitReader<SeaTunnelR
             HttpParameter httpParameter,
             SingleSplitReaderContext context,
             String contentJson,
-            String queryType) {
+            PrometheusQueryType queryType) {
         this.context = context;
         this.httpParameter = httpParameter;
         this.contentJson = contentJson;
@@ -120,10 +118,10 @@ public class PrometheusSourceReader extends AbstractSingleSplitReader<SeaTunnelR
             data = JsonUtils.stringToJsonNode(getPartOfJson(data)).toString();
         }
         switch (queryType) {
-            case RANGE_QUERY:
+            case Range:
                 convertRangePoints(data, output);
                 break;
-            case INSTANT_QUERY:
+            case Instant:
                 convertInstantPoints(data, output);
                 break;
             default:

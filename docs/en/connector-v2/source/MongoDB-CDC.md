@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-cdc-mongodb.md';
+
 # MongoDB CDC
 
 > MongoDB CDC source connector
@@ -329,3 +331,7 @@ sink {
    }
 }
 ```
+
+## Changelog
+
+<ChangeLog />

@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfigOptions;
@@ -43,18 +43,14 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
         return OptionRule.builder()
                 .required(HdfsSourceConfigOptions.FILE_PATH)
                 .required(HdfsSourceConfigOptions.DEFAULT_FS)
-                .required(BaseSourceConfigOptions.FILE_FORMAT_TYPE)
+                .required(FileBaseSourceOptions.FILE_FORMAT_TYPE)
                 .conditional(
-                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
-                        FileFormat.TEXT,
-                        BaseSourceConfigOptions.FIELD_DELIMITER)
-                .conditional(
-                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.XML,
-                        BaseSourceConfigOptions.XML_ROW_TAG,
-                        BaseSourceConfigOptions.XML_USE_ATTR_FORMAT)
+                        FileBaseSourceOptions.XML_ROW_TAG,
+                        FileBaseSourceOptions.XML_USE_ATTR_FORMAT)
                 .conditional(
-                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
                                 FileFormat.TEXT,
                                 FileFormat.JSON,
@@ -62,15 +58,23 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
                                 FileFormat.CSV,
                                 FileFormat.XML),
                         ConnectorCommonOptions.SCHEMA)
-                .optional(BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH)
-                .optional(BaseSourceConfigOptions.DATE_FORMAT)
-                .optional(BaseSourceConfigOptions.DATETIME_FORMAT)
-                .optional(BaseSourceConfigOptions.TIME_FORMAT)
-                .optional(BaseSourceConfigOptions.FILE_FILTER_PATTERN)
-                .optional(BaseSourceConfigOptions.COMPRESS_CODEC)
-                .optional(BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC)
-                .optional(BaseSourceConfigOptions.NULL_FORMAT)
-                .optional(BaseSourceConfigOptions.FILENAME_EXTENSION)
+                .optional(FileBaseSourceOptions.ENCODING)
+                .optional(FileBaseSourceOptions.READ_COLUMNS)
+                .optional(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH)
+                .optional(FileBaseSourceOptions.FIELD_DELIMITER)
+                .optional(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
+                .optional(FileBaseSourceOptions.DATE_FORMAT)
+                .optional(FileBaseSourceOptions.DATETIME_FORMAT)
+                .optional(FileBaseSourceOptions.TIME_FORMAT)
+                .optional(FileBaseSourceOptions.SHEET_NAME)
+                .optional(FileBaseSourceOptions.FILE_FILTER_PATTERN)
+                .optional(FileBaseSourceOptions.HDFS_SITE_PATH)
+                .optional(FileBaseSourceOptions.KERBEROS_PRINCIPAL)
+                .optional(FileBaseSourceOptions.KERBEROS_KEYTAB_PATH)
+                .optional(FileBaseSourceOptions.KRB5_PATH)
+                .optional(FileBaseSourceOptions.REMOTE_USER)
+                .optional(FileBaseSourceOptions.NULL_FORMAT)
+                .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
                 .build();
     }
 

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-typesense.md';
+
 # Typesense
 
 ## 描述
@@ -93,3 +95,6 @@ sink {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-cassandra.md';
+
 # Cassandra
 
 > Cassandra source connector
@@ -74,7 +76,4 @@ source {
 
 ## Changelog
 
-### next version
-
-- Add Cassandra Source Connector
-
+<ChangeLog />

@@ -46,7 +46,7 @@ import static org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisErr
 @Slf4j
 public class RedisParameters implements Serializable {
     private String host;
-    private int port;
+    private Integer port;
     private String auth = "";
     private int dbNum;
     private String user = "";
