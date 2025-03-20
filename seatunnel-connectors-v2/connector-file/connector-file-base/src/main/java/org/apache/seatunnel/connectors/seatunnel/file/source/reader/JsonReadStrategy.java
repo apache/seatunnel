@@ -24,8 +24,8 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
@@ -45,20 +45,20 @@ import java.util.Map;
 @Slf4j
 public class JsonReadStrategy extends AbstractReadStrategy {
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
-    private CompressFormat compressFormat = BaseSourceConfigOptions.COMPRESS_CODEC.defaultValue();
-    private String encoding = BaseSourceConfigOptions.ENCODING.defaultValue();
+    private CompressFormat compressFormat = FileBaseSourceOptions.COMPRESS_CODEC.defaultValue();
+    private String encoding = FileBaseSourceOptions.ENCODING.defaultValue();
 
     @Override
     public void init(HadoopConf conf) {
         super.init(conf);
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.COMPRESS_CODEC.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.COMPRESS_CODEC.key())) {
             String compressCodec =
-                    pluginConfig.getString(BaseSourceConfigOptions.COMPRESS_CODEC.key());
+                    pluginConfig.getString(FileBaseSourceOptions.COMPRESS_CODEC.key());
             compressFormat = CompressFormat.valueOf(compressCodec.toUpperCase());
         }
         encoding =
                 ReadonlyConfig.fromConfig(pluginConfig)
-                        .getOptional(BaseSourceConfigOptions.ENCODING)
+                        .getOptional(FileBaseSourceOptions.ENCODING)
                         .orElse(StandardCharsets.UTF_8.name());
     }
 

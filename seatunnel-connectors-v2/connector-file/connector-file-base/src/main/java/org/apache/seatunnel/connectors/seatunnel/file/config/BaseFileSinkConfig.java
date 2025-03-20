@@ -37,42 +37,43 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 @Data
 public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
     private static final long serialVersionUID = 1L;
-    protected CompressFormat compressFormat = BaseSinkConfig.COMPRESS_CODEC.defaultValue();
-    protected String fieldDelimiter = BaseSinkConfig.FIELD_DELIMITER.defaultValue();
-    protected String rowDelimiter = BaseSinkConfig.ROW_DELIMITER.defaultValue();
-    protected int batchSize = BaseSinkConfig.BATCH_SIZE.defaultValue();
+    protected CompressFormat compressFormat = FileBaseSinkOptions.COMPRESS_CODEC.defaultValue();
+    protected String fieldDelimiter = FileBaseSinkOptions.FIELD_DELIMITER.defaultValue();
+    protected String rowDelimiter = FileBaseSinkOptions.ROW_DELIMITER.defaultValue();
+    protected int batchSize = FileBaseSinkOptions.BATCH_SIZE.defaultValue();
     protected String path;
-    protected String fileNameExpression = BaseSinkConfig.FILE_NAME_EXPRESSION.defaultValue();
-    protected boolean singleFileMode = BaseSinkConfig.SINGLE_FILE_MODE.defaultValue();
+    protected String fileNameExpression = FileBaseSinkOptions.FILE_NAME_EXPRESSION.defaultValue();
+    protected boolean singleFileMode = FileBaseSinkOptions.SINGLE_FILE_MODE.defaultValue();
     protected boolean createEmptyFileWhenNoData =
-            BaseSinkConfig.CREATE_EMPTY_FILE_WHEN_NO_DATA.defaultValue();
+            FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA.defaultValue();
     protected FileFormat fileFormat;
-    protected String filenameExtension = BaseSinkConfig.FILENAME_EXTENSION.defaultValue();
+    protected String filenameExtension = FileBaseSinkOptions.FILENAME_EXTENSION.defaultValue();
     protected DateUtils.Formatter dateFormat = DateUtils.Formatter.YYYY_MM_DD;
     protected DateTimeUtils.Formatter datetimeFormat = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
     protected TimeUtils.Formatter timeFormat = TimeUtils.Formatter.HH_MM_SS;
     protected Boolean enableHeaderWriter = false;
 
     public BaseFileSinkConfig(@NonNull Config config) {
-        if (config.hasPath(BaseSinkConfig.COMPRESS_CODEC.key())) {
-            String compressCodec = config.getString(BaseSinkConfig.COMPRESS_CODEC.key());
+        if (config.hasPath(FileBaseSinkOptions.COMPRESS_CODEC.key())) {
+            String compressCodec = config.getString(FileBaseSinkOptions.COMPRESS_CODEC.key());
             this.compressFormat = CompressFormat.valueOf(compressCodec.toUpperCase());
         }
-        if (config.hasPath(BaseSinkConfig.BATCH_SIZE.key())) {
-            this.batchSize = config.getInt(BaseSinkConfig.BATCH_SIZE.key());
+        if (config.hasPath(FileBaseSinkOptions.BATCH_SIZE.key())) {
+            this.batchSize = config.getInt(FileBaseSinkOptions.BATCH_SIZE.key());
         }
-        if (config.hasPath(BaseSinkConfig.FIELD_DELIMITER.key())
-                && StringUtils.isNotEmpty(config.getString(BaseSinkConfig.FIELD_DELIMITER.key()))) {
-            this.fieldDelimiter = config.getString(BaseSinkConfig.FIELD_DELIMITER.key());
-        }
-
-        if (config.hasPath(BaseSinkConfig.ROW_DELIMITER.key())) {
-            this.rowDelimiter = config.getString(BaseSinkConfig.ROW_DELIMITER.key());
+        if (config.hasPath(FileBaseSinkOptions.FIELD_DELIMITER.key())
+                && StringUtils.isNotEmpty(
+                        config.getString(FileBaseSinkOptions.FIELD_DELIMITER.key()))) {
+            this.fieldDelimiter = config.getString(FileBaseSinkOptions.FIELD_DELIMITER.key());
         }
 
-        if (config.hasPath(BaseSinkConfig.FILE_PATH.key())
-                && !StringUtils.isBlank(config.getString(BaseSinkConfig.FILE_PATH.key()))) {
-            this.path = config.getString(BaseSinkConfig.FILE_PATH.key());
+        if (config.hasPath(FileBaseSinkOptions.ROW_DELIMITER.key())) {
+            this.rowDelimiter = config.getString(FileBaseSinkOptions.ROW_DELIMITER.key());
+        }
+
+        if (config.hasPath(FileBaseSinkOptions.FILE_PATH.key())
+                && !StringUtils.isBlank(config.getString(FileBaseSinkOptions.FILE_PATH.key()))) {
+            this.path = config.getString(FileBaseSinkOptions.FILE_PATH.key());
         }
         checkNotNull(path);
 
@@ -80,56 +81,60 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
             this.path = "";
         }
 
-        if (config.hasPath(BaseSinkConfig.FILE_NAME_EXPRESSION.key())
+        if (config.hasPath(FileBaseSinkOptions.FILE_NAME_EXPRESSION.key())
                 && !StringUtils.isBlank(
-                        config.getString(BaseSinkConfig.FILE_NAME_EXPRESSION.key()))) {
-            this.fileNameExpression = config.getString(BaseSinkConfig.FILE_NAME_EXPRESSION.key());
+                        config.getString(FileBaseSinkOptions.FILE_NAME_EXPRESSION.key()))) {
+            this.fileNameExpression =
+                    config.getString(FileBaseSinkOptions.FILE_NAME_EXPRESSION.key());
         }
 
-        if (config.hasPath(BaseSinkConfig.SINGLE_FILE_MODE.key())) {
-            this.singleFileMode = config.getBoolean(BaseSinkConfig.SINGLE_FILE_MODE.key());
+        if (config.hasPath(FileBaseSinkOptions.SINGLE_FILE_MODE.key())) {
+            this.singleFileMode = config.getBoolean(FileBaseSinkOptions.SINGLE_FILE_MODE.key());
         }
 
-        if (config.hasPath(BaseSinkConfig.CREATE_EMPTY_FILE_WHEN_NO_DATA.key())) {
+        if (config.hasPath(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA.key())) {
             this.createEmptyFileWhenNoData =
-                    config.getBoolean(BaseSinkConfig.CREATE_EMPTY_FILE_WHEN_NO_DATA.key());
+                    config.getBoolean(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA.key());
         }
 
-        if (config.hasPath(BaseSinkConfig.FILE_FORMAT_TYPE.key())
-                && !StringUtils.isBlank(config.getString(BaseSinkConfig.FILE_FORMAT_TYPE.key()))) {
+        if (config.hasPath(FileBaseSinkOptions.FILE_FORMAT_TYPE.key())
+                && !StringUtils.isBlank(
+                        config.getString(FileBaseSinkOptions.FILE_FORMAT_TYPE.key()))) {
             this.fileFormat =
                     FileFormat.valueOf(
-                            config.getString(BaseSinkConfig.FILE_FORMAT_TYPE.key())
+                            config.getString(FileBaseSinkOptions.FILE_FORMAT_TYPE.key())
                                     .toUpperCase(Locale.ROOT));
         } else {
             // fall back to the default
-            this.fileFormat = BaseSinkConfig.FILE_FORMAT_TYPE.defaultValue();
+            this.fileFormat = FileBaseSinkOptions.FILE_FORMAT_TYPE.defaultValue();
         }
 
-        if (config.hasPath(BaseSinkConfig.FILENAME_EXTENSION.key())
+        if (config.hasPath(FileBaseSinkOptions.FILENAME_EXTENSION.key())
                 && !StringUtils.isBlank(
-                        config.getString(BaseSinkConfig.FILENAME_EXTENSION.key()))) {
-            this.filenameExtension = config.getString(BaseSinkConfig.FILENAME_EXTENSION.key());
+                        config.getString(FileBaseSinkOptions.FILENAME_EXTENSION.key()))) {
+            this.filenameExtension = config.getString(FileBaseSinkOptions.FILENAME_EXTENSION.key());
         }
 
-        if (config.hasPath(BaseSinkConfig.DATE_FORMAT.key())) {
+        if (config.hasPath(FileBaseSinkOptions.DATE_FORMAT.key())) {
             dateFormat =
-                    DateUtils.Formatter.parse(config.getString(BaseSinkConfig.DATE_FORMAT.key()));
+                    DateUtils.Formatter.parse(
+                            config.getString(FileBaseSinkOptions.DATE_FORMAT.key()));
         }
 
-        if (config.hasPath(BaseSinkConfig.DATETIME_FORMAT.key())) {
+        if (config.hasPath(FileBaseSinkOptions.DATETIME_FORMAT.key())) {
             datetimeFormat =
                     DateTimeUtils.Formatter.parse(
-                            config.getString(BaseSinkConfig.DATETIME_FORMAT.key()));
+                            config.getString(FileBaseSinkOptions.DATETIME_FORMAT.key()));
         }
 
-        if (config.hasPath(BaseSinkConfig.TIME_FORMAT.key())) {
+        if (config.hasPath(FileBaseSinkOptions.TIME_FORMAT.key())) {
             timeFormat =
-                    TimeUtils.Formatter.parse(config.getString(BaseSinkConfig.TIME_FORMAT.key()));
+                    TimeUtils.Formatter.parse(
+                            config.getString(FileBaseSinkOptions.TIME_FORMAT.key()));
         }
 
-        if (config.hasPath(BaseSinkConfig.ENABLE_HEADER_WRITE.key())) {
-            enableHeaderWriter = config.getBoolean(BaseSinkConfig.ENABLE_HEADER_WRITE.key());
+        if (config.hasPath(FileBaseSinkOptions.ENABLE_HEADER_WRITE.key())) {
+            enableHeaderWriter = config.getBoolean(FileBaseSinkOptions.ENABLE_HEADER_WRITE.key());
         }
     }
 

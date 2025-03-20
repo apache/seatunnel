@@ -35,7 +35,7 @@ import static org.apache.seatunnel.api.sink.DataSaveMode.APPEND_DATA;
 import static org.apache.seatunnel.api.sink.DataSaveMode.DROP_DATA;
 import static org.apache.seatunnel.api.sink.DataSaveMode.ERROR_WHEN_DATA_EXISTS;
 
-public class BaseSinkConfig {
+public class FileBaseSinkOptions extends FileBaseOptions {
     public static final String SEATUNNEL = "seatunnel";
     public static final String NON_PARTITION = "NON_PARTITION";
     public static final String TRANSACTION_ID_SPLIT = "_";
@@ -213,13 +213,6 @@ public class BaseSinkConfig {
                     .enumType(FileFormat.class)
                     .defaultValue(FileFormat.CSV)
                     .withDescription("File format type, e.g. csv, orc, parquet, text");
-
-    public static final Option<String> FILENAME_EXTENSION =
-            Options.key("filename_extension")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`");
 
     public static final Option<String> ENCODING =
             Options.key("encoding")

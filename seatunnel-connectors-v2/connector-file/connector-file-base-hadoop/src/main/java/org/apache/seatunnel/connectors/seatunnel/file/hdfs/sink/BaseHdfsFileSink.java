@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
@@ -51,25 +51,26 @@ public abstract class BaseHdfsFileSink extends BaseFileSink {
         if (Objects.isNull(hadoopConf)) {
             hadoopConf = new HadoopConf(pluginConfig.getString(FS_DEFAULT_NAME_KEY));
         }
-        if (pluginConfig.hasPath(BaseSinkConfig.HDFS_SITE_PATH.key())) {
-            hadoopConf.setHdfsSitePath(pluginConfig.getString(BaseSinkConfig.HDFS_SITE_PATH.key()));
+        if (pluginConfig.hasPath(FileBaseSinkOptions.HDFS_SITE_PATH.key())) {
+            hadoopConf.setHdfsSitePath(
+                    pluginConfig.getString(FileBaseSinkOptions.HDFS_SITE_PATH.key()));
         }
 
-        if (pluginConfig.hasPath(BaseSinkConfig.REMOTE_USER.key())) {
-            hadoopConf.setRemoteUser(pluginConfig.getString(BaseSinkConfig.REMOTE_USER.key()));
+        if (pluginConfig.hasPath(FileBaseSinkOptions.REMOTE_USER.key())) {
+            hadoopConf.setRemoteUser(pluginConfig.getString(FileBaseSinkOptions.REMOTE_USER.key()));
         }
 
-        if (pluginConfig.hasPath(BaseSinkConfig.KRB5_PATH.key())) {
-            hadoopConf.setKrb5Path(pluginConfig.getString(BaseSinkConfig.KRB5_PATH.key()));
+        if (pluginConfig.hasPath(FileBaseSinkOptions.KRB5_PATH.key())) {
+            hadoopConf.setKrb5Path(pluginConfig.getString(FileBaseSinkOptions.KRB5_PATH.key()));
         }
 
-        if (pluginConfig.hasPath(BaseSinkConfig.KERBEROS_PRINCIPAL.key())) {
+        if (pluginConfig.hasPath(FileBaseSinkOptions.KERBEROS_PRINCIPAL.key())) {
             hadoopConf.setKerberosPrincipal(
-                    pluginConfig.getString(BaseSinkConfig.KERBEROS_PRINCIPAL.key()));
+                    pluginConfig.getString(FileBaseSinkOptions.KERBEROS_PRINCIPAL.key()));
         }
-        if (pluginConfig.hasPath(BaseSinkConfig.KERBEROS_KEYTAB_PATH.key())) {
+        if (pluginConfig.hasPath(FileBaseSinkOptions.KERBEROS_KEYTAB_PATH.key())) {
             hadoopConf.setKerberosKeytabPath(
-                    pluginConfig.getString(BaseSinkConfig.KERBEROS_KEYTAB_PATH.key()));
+                    pluginConfig.getString(FileBaseSinkOptions.KERBEROS_KEYTAB_PATH.key()));
         }
     }
 }

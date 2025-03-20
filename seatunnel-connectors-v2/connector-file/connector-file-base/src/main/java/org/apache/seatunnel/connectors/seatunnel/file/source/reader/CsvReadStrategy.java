@@ -28,8 +28,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
@@ -57,15 +57,15 @@ import java.util.Optional;
 @Slf4j
 public class CsvReadStrategy extends AbstractReadStrategy {
     private CsvDeserializationSchema deserializationSchema;
-    private String fieldDelimiter = BaseSourceConfigOptions.FIELD_DELIMITER.defaultValue();
-    private DateUtils.Formatter dateFormat = BaseSourceConfigOptions.DATE_FORMAT.defaultValue();
+    private String fieldDelimiter = FileBaseSourceOptions.FIELD_DELIMITER.defaultValue();
+    private DateUtils.Formatter dateFormat = FileBaseSourceOptions.DATE_FORMAT.defaultValue();
     private DateTimeUtils.Formatter datetimeFormat =
-            BaseSourceConfigOptions.DATETIME_FORMAT.defaultValue();
-    private TimeUtils.Formatter timeFormat = BaseSourceConfigOptions.TIME_FORMAT.defaultValue();
-    private CompressFormat compressFormat = BaseSourceConfigOptions.COMPRESS_CODEC.defaultValue();
+            FileBaseSourceOptions.DATETIME_FORMAT.defaultValue();
+    private TimeUtils.Formatter timeFormat = FileBaseSourceOptions.TIME_FORMAT.defaultValue();
+    private CompressFormat compressFormat = FileBaseSourceOptions.COMPRESS_CODEC.defaultValue();
     private CsvLineProcessor processor;
     private int[] indexes;
-    private String encoding = BaseSourceConfigOptions.ENCODING.defaultValue();
+    private String encoding = FileBaseSourceOptions.ENCODING.defaultValue();
     private CatalogTable inputCatalogTable;
 
     @Override
@@ -158,7 +158,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
         this.seaTunnelRowTypeWithPartition =
                 mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
         initFormatter();
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_COLUMNS.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.READ_COLUMNS.key())) {
             throw new FileConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     "When reading csv files, if user has not specified schema information, "
@@ -171,7 +171,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                         .csvLineProcessor(processor)
                         .nullFormat(
                                 readonlyConfig
-                                        .getOptional(BaseSourceConfigOptions.NULL_FORMAT)
+                                        .getOptional(FileBaseSourceOptions.NULL_FORMAT)
                                         .orElse(null));
         if (isMergePartition) {
             deserializationSchema =
@@ -190,10 +190,10 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 mergePartitionTypes(fileNames.get(0), rowType);
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
         Optional<String> fieldDelimiterOptional =
-                readonlyConfig.getOptional(BaseSourceConfigOptions.FIELD_DELIMITER);
+                readonlyConfig.getOptional(FileBaseSourceOptions.FIELD_DELIMITER);
         encoding =
                 readonlyConfig
-                        .getOptional(BaseSourceConfigOptions.ENCODING)
+                        .getOptional(FileBaseSourceOptions.ENCODING)
                         .orElse(StandardCharsets.UTF_8.name());
         fieldDelimiter = ",";
         initFormatter();
@@ -203,7 +203,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                         .csvLineProcessor(processor)
                         .nullFormat(
                                 readonlyConfig
-                                        .getOptional(BaseSourceConfigOptions.NULL_FORMAT)
+                                        .getOptional(FileBaseSourceOptions.NULL_FORMAT)
                                         .orElse(null));
         if (isMergePartition) {
             deserializationSchema =
@@ -212,7 +212,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
             deserializationSchema = builder.seaTunnelRowType(rowType).build();
         }
         // column projection
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_COLUMNS.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.READ_COLUMNS.key())) {
             // get the read column index from user-defined row type
             indexes = new int[readColumns.size()];
             String[] fields = new String[readColumns.size()];
@@ -232,24 +232,24 @@ public class CsvReadStrategy extends AbstractReadStrategy {
     }
 
     private void initFormatter() {
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.DATE_FORMAT.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.DATE_FORMAT.key())) {
             dateFormat =
                     DateUtils.Formatter.parse(
-                            pluginConfig.getString(BaseSourceConfigOptions.DATE_FORMAT.key()));
+                            pluginConfig.getString(FileBaseSourceOptions.DATE_FORMAT.key()));
         }
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.DATETIME_FORMAT.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.DATETIME_FORMAT.key())) {
             datetimeFormat =
                     DateTimeUtils.Formatter.parse(
-                            pluginConfig.getString(BaseSourceConfigOptions.DATETIME_FORMAT.key()));
+                            pluginConfig.getString(FileBaseSourceOptions.DATETIME_FORMAT.key()));
         }
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.TIME_FORMAT.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.TIME_FORMAT.key())) {
             timeFormat =
                     TimeUtils.Formatter.parse(
-                            pluginConfig.getString(BaseSourceConfigOptions.TIME_FORMAT.key()));
+                            pluginConfig.getString(FileBaseSourceOptions.TIME_FORMAT.key()));
         }
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.COMPRESS_CODEC.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.COMPRESS_CODEC.key())) {
             String compressCodec =
-                    pluginConfig.getString(BaseSourceConfigOptions.COMPRESS_CODEC.key());
+                    pluginConfig.getString(FileBaseSourceOptions.COMPRESS_CODEC.key());
             compressFormat = CompressFormat.valueOf(compressCodec.toUpperCase());
         }
 
