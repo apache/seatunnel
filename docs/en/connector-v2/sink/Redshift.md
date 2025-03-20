@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # Redshift
 
 > JDBC Redshift sink Connector
@@ -97,3 +99,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

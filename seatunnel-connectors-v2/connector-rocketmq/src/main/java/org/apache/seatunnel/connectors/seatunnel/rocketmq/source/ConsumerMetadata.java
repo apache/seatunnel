@@ -33,6 +33,7 @@ import java.util.Map;
 public class ConsumerMetadata implements Serializable {
     private RocketMqBaseConfiguration baseConfig = RocketMqBaseConfiguration.newBuilder().build();
     private List<String> topics;
+    private List<String> tags;
     private boolean enabledCommitCheckpoint = false;
     private StartMode startMode;
     private Map<MessageQueue, Long> specificStartOffsets;

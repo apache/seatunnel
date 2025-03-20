@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # SQL Server
 
 > JDBC SQL Server Sink Connector
@@ -180,3 +182,6 @@ Jdbc {
 
 ```
 
+## Changelog
+
+<ChangeLog />

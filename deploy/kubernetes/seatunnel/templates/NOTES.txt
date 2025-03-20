@@ -26,35 +26,13 @@ Access seatunnel UI URL by:
 
   For more restapi please refer to https://seatunnel.apache.org/docs/{{ .Chart.AppVersion }}/seatunnel-engine/rest-api-v2
 
-{{- else if eq .Values.master.service.type "ClusterIP" }}
+{{- else }}
 
   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ template "seatunnel.fullname" . }}-master 8080:8080
 
   seatunnel restapi URL for running jobs: http://127.0.0.1:8080/running-jobs
   seatunnel restapi URL for system monitoring information: http://127.0.0.1:8080/system-monitoring-information
   
-  For more restapi please refer to https://seatunnel.apache.org/docs/{{ .Chart.AppVersion }}/seatunnel-engine/rest-api-v2
-
-
-{{- else if eq .Values.master.service.type "NodePort" }}
-
-  NODE_IP=$(kubectl get no -n {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
-  NODE_PORT=$(kubectl get svc {{ template "seatunnel.fullname" . }}-master -n {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}")
-  seatunnel restapi URL for running jobs: http://$NODE_IP:$NODE_PORT/running-jobs
-  seatunnel restapi URL for system monitoring information: http://$NODE_IP:$NODE_PORT/system-monitoring-information
-
-  For more restapi please refer to https://seatunnel.apache.org/docs/{{ .Chart.AppVersion }}/seatunnel-engine/rest-api-v2
-{{- else if eq .Values.master.service.type "LoadBalancer" }}
-
-  NOTE: It may take a few minutes for the LoadBalancer IP to be available.
-        You can watch the status of by running 'kubectl get svc {{ template "seatunnel.fullname" . }}-master -n {{ .Release.Namespace }} -w'
-
-  SERVICE_IP=$(kubectl get svc {{ template "seatunnel.fullname" . }}-master -n {{ .Release.Namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-  echo http://$SERVICE_IP:8080/running-jobs
-
-  seatunnel resetapi URL for running jobs: http://$SERVICE_IP:8080/running-jobs
-  seatunnel resetapi URL for system monitoring information: http://$SERVICE_IP:8080/system-monitoring-information
-
   For more restapi please refer to https://seatunnel.apache.org/docs/{{ .Chart.AppVersion }}/seatunnel-engine/rest-api-v2
 {{- end }}
 

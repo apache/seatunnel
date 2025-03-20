@@ -53,6 +53,7 @@ import org.apache.paimon.utils.DateTimeUtils;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -310,6 +311,10 @@ public class RowConverter {
                             convertArrayType(
                                     fieldName, paimonArray, seatunnelArray.getElementType());
                     break;
+                case TIME:
+                    int timeInt = rowData.getInt(i);
+                    objects[i] = DateTimeUtils.toLocalTime(timeInt);
+                    break;
                 case MAP:
                     MapType<?, ?> mapType = (MapType<?, ?>) fieldType;
                     InternalMap map = rowData.getMap(i);
@@ -433,6 +438,11 @@ public class RowConverter {
                     LocalDateTime datetime = (LocalDateTime) seaTunnelRow.getField(i);
                     binaryWriter.writeTimestamp(
                             i, Timestamp.fromLocalDateTime(datetime), precision);
+                    break;
+                case TIME:
+                    LocalTime time = (LocalTime) seaTunnelRow.getField(i);
+                    BinaryWriter.createValueSetter(DataTypes.TIME())
+                            .setValue(binaryWriter, i, DateTimeUtils.toInternal(time));
                     break;
                 case MAP:
                     MapType<?, ?> mapType = (MapType<?, ?>) seaTunnelRowType.getFieldType(i);

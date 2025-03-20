@@ -41,6 +41,7 @@ public class RocketMqSourceFactory implements TableSourceFactory {
                 .required(ConsumerConfig.TOPICS, Config.NAME_SRV_ADDR)
                 .optional(
                         Config.FORMAT,
+                        ConsumerConfig.TAGS,
                         ConsumerConfig.START_MODE,
                         ConsumerConfig.CONSUMER_GROUP,
                         ConsumerConfig.COMMIT_ON_CHECKPOINT,

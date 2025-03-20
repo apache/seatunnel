@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.persistiq.source.config.PersistiqSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.persistiq.source.config.PersistiqSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -40,13 +40,11 @@ public class PersistiqSourceFactory extends HttpSourceFactory {
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
-        return () ->
-                (SeaTunnelSource<T, SplitT, StateT>)
-                        new PersistiqSource(context.getOptions().toConfig());
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new PersistiqSource(context.getOptions());
     }
 
     @Override
     public OptionRule optionRule() {
-        return getHttpBuilder().required(PersistiqSourceConfig.PASSWORD).build();
+        return getHttpBuilder().required(PersistiqSourceOptions.PASSWORD).build();
     }
 }

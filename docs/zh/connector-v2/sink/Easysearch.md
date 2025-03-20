@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-easysearch.md';
+
 # INFINI Easysearch
 
 ## 支持以下引擎
@@ -194,9 +196,4 @@ sink {
 
 ## 变更日志
 
-### 2.3.4 2023-11-16
-
-- 添加 Easysearch 接收器连接器
-- 支持http/https协议
-- 支持 CD C写入 DELETE/UPDATE/INSERT 事件
-
+<ChangeLog />

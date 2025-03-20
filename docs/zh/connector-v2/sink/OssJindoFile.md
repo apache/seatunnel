@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-oss-jindo.md';
+
 # OssJindoFile
 
 > OssJindo file sink 连接器
@@ -296,13 +298,6 @@ Sink插件常用参数，请参考[Sink common Options]（../sink-common-options
 
 ```
 
-## Changelog
+## 变更日志
 
-### 2.3.0 2022-12-30
-
-- 添加OSS Jindo文件Sink连接器
-
-### 下个版本
-
-- [优化] 支持文件压缩（[3899](https://github.com/apache/seatunnel/pull/3899))
-
+<ChangeLog />

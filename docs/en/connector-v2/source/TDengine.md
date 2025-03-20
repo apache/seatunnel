@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-tdengine.md';
+
 # TDengine
 
 > TDengine source connector
@@ -83,3 +85,6 @@ source {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

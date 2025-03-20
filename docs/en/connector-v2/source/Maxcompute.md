@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-maxcompute.md';
+
 # Maxcompute
 
 > Maxcompute source connector
@@ -117,3 +119,6 @@ source {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

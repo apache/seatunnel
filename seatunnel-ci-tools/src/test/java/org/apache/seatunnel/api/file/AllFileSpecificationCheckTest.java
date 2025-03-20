@@ -119,6 +119,9 @@ public class AllFileSpecificationCheckTest {
 
         fileContents.forEach(
                 (path, lines) -> {
+                    if (path.contains("/changelog/")) {
+                        return;
+                    }
                     if (whiteList.contains(path.trim())) {
                         return;
                     }

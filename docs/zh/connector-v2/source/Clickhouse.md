@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-clickhouse.md';
+
 # Clickhouse
 
 > Clickhouse source 连接器
@@ -98,3 +100,6 @@ sink {
 
 > 1.[SeaTunnel 部署文档](../../start-v2/locally/deployment.md).
 
+## 变更日志
+
+<ChangeLog />

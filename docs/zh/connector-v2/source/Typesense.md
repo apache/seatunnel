@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-typesense.md';
+
 # Typesense
 
 > Typesense 源连接器
@@ -77,3 +79,6 @@ source {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />

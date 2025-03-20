@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-obs.md';
+
 # ObsFile
 
 > Obs file sink 连接器
@@ -282,7 +284,4 @@
 
 ## 变更日志
 
-### 下一版本
-
-- 添加 Obs Sink 连接器
-
+<ChangeLog />

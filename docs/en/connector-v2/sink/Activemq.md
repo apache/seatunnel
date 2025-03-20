@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-activemq.md';
+
 # Activemq
 
 > Activemq sink connector
@@ -117,7 +119,5 @@ sink {
 
 ## Changelog
 
-### next version
-
-- Add Activemq Source Connector
+<ChangeLog />
 

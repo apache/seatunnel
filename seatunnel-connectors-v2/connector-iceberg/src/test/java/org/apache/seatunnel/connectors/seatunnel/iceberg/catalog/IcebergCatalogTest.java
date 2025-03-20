@@ -27,9 +27,9 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonOptions;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkOptions;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -74,11 +74,11 @@ class IcebergCatalogTest {
         Map<String, Object> catalogProps = new HashMap<>();
         catalogProps.put("type", CATALOG_TYPE.getType());
         catalogProps.put("warehouse", WAREHOUSE);
-        configs.put(CommonConfig.KEY_CATALOG_NAME.key(), CATALOG_NAME);
-        configs.put(CommonConfig.CATALOG_PROPS.key(), catalogProps);
-        configs.put(SinkConfig.TABLE_DEFAULT_PARTITION_KEYS.key(), "dt_col");
+        configs.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), CATALOG_NAME);
+        configs.put(IcebergCommonOptions.CATALOG_PROPS.key(), catalogProps);
+        configs.put(IcebergSinkOptions.TABLE_DEFAULT_PARTITION_KEYS.key(), "dt_col");
         // hadoop config directory
-        configs.put(CommonConfig.HADOOP_CONF_PATH_PROP.key(), "/tmp/hadoop/conf");
+        configs.put(IcebergCommonOptions.HADOOP_CONF_PATH_PROP.key(), "/tmp/hadoop/conf");
         // hadoop kerberos config
         //        configs.put(CommonConfig.KERBEROS_PRINCIPAL.key(), "hive/xxxx@xxxx.COM");
         //        configs.put(
