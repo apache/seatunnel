@@ -57,8 +57,8 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 @Slf4j
 public class DynamicChunkSplitter extends ChunkSplitter {
 
-    private final boolean useNewStringSplitter =
-            SplitMode.CHARSET_BASED.equals(config.getStringSplitMode());
+    private final boolean useCharsetBasedStringSplitter =
+            StringSplitMode.CHARSET_BASED.equals(config.getStringSplitMode());
 
     public DynamicChunkSplitter(JdbcSourceConfig config) {
         super(config);
@@ -130,8 +130,8 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             case FLOAT:
                 return evenlyColumnSplitChunks(table, splitColumnName, min, max, chunkSize);
             case STRING:
-                if (useNewStringSplitter) {
-                    return stringColumnSplitChunks(table, splitColumnName, min, max, chunkSize);
+                if (useCharsetBasedStringSplitter) {
+                    return charsetBasedColumnSplitChunks(table, splitColumnName, min, max, chunkSize);
                 } else {
                     return evenlyColumnSplitChunks(table, splitColumnName, min, max, chunkSize);
                 }
@@ -143,7 +143,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         }
     }
 
-    private List<ChunkRange> stringColumnSplitChunks(
+    private List<ChunkRange> charsetBasedColumnSplitChunks(
             JdbcSourceTable table,
             String splitColumnName,
             Object objectMin,
@@ -218,7 +218,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                     radix,
                     collationSequence);
         } else {
-            return getChunkRanges(
+            return getChunkRangesWithUnevenlyData(
                     table,
                     splitColumnName,
                     min,
@@ -265,7 +265,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             return splitEvenlySizedChunks(
                     tablePath, min, max, approximateRowCnt, chunkSize, dynamicChunkSize);
         } else {
-            return getChunkRanges(
+            return getChunkRangesWithUnevenlyData(
                     table,
                     splitColumnName,
                     min,
@@ -277,7 +277,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         }
     }
 
-    private List<ChunkRange> getChunkRanges(
+    private List<ChunkRange> getChunkRangesWithUnevenlyData(
             JdbcSourceTable table,
             String splitColumnName,
             Object min,

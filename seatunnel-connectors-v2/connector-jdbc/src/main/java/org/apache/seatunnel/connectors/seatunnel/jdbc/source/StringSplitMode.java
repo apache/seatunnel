@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
-public enum SplitMode {
-    LEGACY("legacy"),
+public enum StringSplitMode {
+    SAMPLE("sample"),
 
-    CHARSET_BASED("charsetBased");
+    CHARSET_BASED("charset_based");
 
     public boolean equals(String mode) {
         return this.mode.equalsIgnoreCase(mode);
@@ -28,7 +28,7 @@ public enum SplitMode {
 
     private final String mode;
 
-    SplitMode(String mode) {
+    StringSplitMode(String mode) {
         this.mode = mode;
     }
 

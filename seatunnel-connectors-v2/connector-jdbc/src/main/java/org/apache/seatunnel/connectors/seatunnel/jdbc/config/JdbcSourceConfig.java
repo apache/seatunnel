@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import lombok.Builder;
 import lombok.Data;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.StringSplitMode;
 
 import java.io.Serializable;
 import java.util.List;
@@ -44,7 +45,7 @@ public class JdbcSourceConfig implements Serializable {
     private int splitInverseSamplingRate;
     private boolean decimalTypeNarrowing;
 
-    private String stringSplitMode;
+    private StringSplitMode stringSplitMode;
 
     private String collate;
 
@@ -60,7 +61,7 @@ public class JdbcSourceConfig implements Serializable {
                         && config.getOptional(JdbcOptions.PARTITION_COLUMN).isPresent();
         builder.useDynamicSplitter(!isOldVersion);
         builder.stringSplitMode(config.get(JdbcOptions.STRING_SPLIT_MODE));
-        builder.collate(config.get(JdbcOptions.COLLATE));
+        builder.collate(config.get(JdbcOptions.STRING_SPLIT_MODE_COLLATE));
         builder.splitSize(config.get(JdbcSourceOptions.SPLIT_SIZE));
         builder.splitEvenDistributionFactorUpperBound(
                 config.get(JdbcSourceOptions.SPLIT_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND));

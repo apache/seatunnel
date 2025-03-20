@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -24,12 +25,13 @@ import java.math.BigInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+@Slf4j
 public class CharsetBasedSplitterTest {
 
     private static final String DEFAULT_CHARSET = "0123456789abcdefghijklmnopqrstuvwxyz";
 
     @Test
-    @DisplayName("测试最小值和最大值的编码")
+    @DisplayName("Test encoding of minimum and maximum values")
     public void testMinMax() {
         String minStr = "00000";
         String maxStr = "1";
@@ -38,18 +40,18 @@ public class CharsetBasedSplitterTest {
         BigInteger minBigInt =
                 CollationBasedSplitter.encodeStringToNumericRange(
                         minStr, maxLen, true, true, orderedCharset, orderedCharset.length() + 1);
-        System.out.println("最小值编码: " + minBigInt);
+        log.info("Minimum value encoding: " + minBigInt);
 
         BigInteger maxBigInt =
                 CollationBasedSplitter.encodeStringToNumericRange(
                         maxStr, maxLen, true, true, orderedCharset, orderedCharset.length() + 1);
-        System.out.println("最大值编码: " + maxBigInt);
+        log.info("Maximum value encoding: " + maxBigInt);
 
         assert maxBigInt.compareTo(minBigInt) > 0;
     }
 
     @Test
-    @DisplayName("测试字符串编码和解码的一致性")
+    @DisplayName("Test consistency of string encoding and decoding")
     public void testEncodeDecode() {
         String original = "abc123";
         int maxLength = 10;
@@ -74,7 +76,7 @@ public class CharsetBasedSplitterTest {
     }
 
     @Test
-    @DisplayName("测试具有特殊字符的字符集")
+    @DisplayName("Test charset with special characters")
     public void testSpecialCharset() {
         String customCharset = "!@#$%^&*()_+-=[]{}|;:,.<>?";
         String input = "!@#$%";
@@ -93,7 +95,7 @@ public class CharsetBasedSplitterTest {
     }
 
     @Test
-    @DisplayName("测试不同填充位置的影响")
+    @DisplayName("Test impact of different padding positions")
     public void testPaddingPosition() {
         String input = "xyz";
         int maxLength = 5;
@@ -120,7 +122,7 @@ public class CharsetBasedSplitterTest {
     }
 
     @Test
-    @DisplayName("测试性能")
+    @DisplayName("Test performance")
     public void testPerformance() {
         int iterations = 1000;
         String input = "abcdefghijklmnopqrstuvwxyz";
@@ -144,12 +146,12 @@ public class CharsetBasedSplitterTest {
         long endTime = System.currentTimeMillis();
         long duration = endTime - startTime;
 
-        System.out.println("执行 " + iterations + " 次编码/解码操作耗时: " + duration + " 毫秒");
-        System.out.println("平均每次操作耗时: " + (double) duration / iterations + " 毫秒");
+        log.info("Executing " + iterations + " encoding/decoding operations took: " + duration + " milliseconds");
+        log.info("Average time per operation: " + (double) duration / iterations + " milliseconds");
     }
 
     @Test
-    @DisplayName("测试随机字符串的编码和解码")
+    @DisplayName("Test encoding and decoding of random strings")
     public void testRandomStrings() {
         java.util.Random random = new java.util.Random();
         int testCount = 10;
@@ -171,9 +173,9 @@ public class CharsetBasedSplitterTest {
                     CollationBasedSplitter.decodeNumericRangeToString(
                             encoded.toString(), maxLength, radix, DEFAULT_CHARSET);
 
-            System.out.println("随机字符串 #" + test + ": " + randomString);
-            System.out.println("编码结果: " + encoded);
-            System.out.println("解码结果: " + decoded.trim());
+            log.info("Random string #" + test + ": " + randomString);
+            log.info("Encoding result: " + encoded);
+            log.info("Decoding result: " + decoded.trim());
 
             assertEquals(randomString, decoded.trim());
         }

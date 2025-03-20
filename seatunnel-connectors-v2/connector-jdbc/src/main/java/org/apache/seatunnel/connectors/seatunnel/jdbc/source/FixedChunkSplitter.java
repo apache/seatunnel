@@ -51,8 +51,8 @@ import java.util.List;
 @Slf4j
 public class FixedChunkSplitter extends ChunkSplitter {
 
-    private final boolean useNewStringSplitter =
-            SplitMode.CHARSET_BASED.equals(config.getStringSplitMode());
+    private final boolean useCharsetBasedStringSplitter =
+            StringSplitMode.CHARSET_BASED.equals(config.getStringSplitMode());
 
     public FixedChunkSplitter(JdbcSourceConfig config) {
         super(config);
@@ -75,8 +75,8 @@ public class FixedChunkSplitter extends ChunkSplitter {
             }
         }
         if (SqlType.STRING.equals(splitKeyType.getSqlType())) {
-            log.info("useNewStringSplitter is {}", useNewStringSplitter);
-            if (useNewStringSplitter) {
+            log.info("useNewStringSplitter is {}", useCharsetBasedStringSplitter);
+            if (useCharsetBasedStringSplitter) {
                 return getJdbcSourceStringSplits(table, splitKeyName, splitKeyType);
             } else {
                 return createStringColumnSplits(table, splitKeyName, splitKeyType);
@@ -192,7 +192,7 @@ public class FixedChunkSplitter extends ChunkSplitter {
     @Override
     protected PreparedStatement createSplitStatement(JdbcSourceSplit split, TableSchema schema)
             throws SQLException {
-        if (SqlType.STRING.equals(split.getSplitKeyType().getSqlType()) && !useNewStringSplitter) {
+        if (SqlType.STRING.equals(split.getSplitKeyType().getSqlType()) && !useCharsetBasedStringSplitter) {
             return createStringColumnSplitStatement(split);
         }
         if (split.getSplitStart() == null && split.getSplitEnd() == null) {

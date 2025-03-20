@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.StringSplitMode;
 
 import java.util.List;
 import java.util.Map;
@@ -225,12 +226,12 @@ public interface JdbcOptions {
                     .noDefaultValue()
                     .withDescription("additional connection configuration parameters");
 
-    Option<String> STRING_SPLIT_MODE =
+    Option<StringSplitMode> STRING_SPLIT_MODE =
             Options.key("string_split_mode")
-                    .stringType()
+                    .enumType(StringSplitMode.class)
                     .noDefaultValue()
-                    .withDescription("stringSplitMode");
+                    .withDescription("string_split_mode");
 
-    Option<String> COLLATE =
-            Options.key("collate").stringType().noDefaultValue().withDescription("collate");
+    Option<String> STRING_SPLIT_MODE_COLLATE =
+            Options.key("string_split_mode_collate").stringType().noDefaultValue().withDescription("string_split_mode_collate");
 }
