@@ -146,3 +146,7 @@ sink {
 ```
 
 For more detailed examples and configurations, please refer to the PostgreSQL connector documentation.
+
+## Changelog
+
+<ChangeLog />
