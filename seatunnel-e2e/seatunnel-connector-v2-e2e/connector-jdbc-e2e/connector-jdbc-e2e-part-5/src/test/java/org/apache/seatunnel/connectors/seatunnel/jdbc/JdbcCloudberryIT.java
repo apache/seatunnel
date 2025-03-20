@@ -189,19 +189,15 @@ public class JdbcCloudberryIT extends AbstractJdbcIT {
     @Override
     public void startUp() {
         dbServer = initContainer().withImagePullPolicy(PullPolicy.alwaysPull());
-
         Startables.deepStart(Stream.of(dbServer)).join();
-
         jdbcCase = getJdbcCase();
         beforeStartUP();
-
         // Increase retry count and timeout, CloudberryDB might need more time to start
         given().ignoreExceptions()
                 .await()
                 .atMost(600, TimeUnit.SECONDS) // Increase waiting time
                 .pollInterval(10, TimeUnit.SECONDS) // Set polling interval
                 .untilAsserted(() -> this.initializeJdbcConnection(jdbcCase.getJdbcUrl()));
-
         createSchemaIfNeeded();
         createNeededTables();
         insertTestData();
