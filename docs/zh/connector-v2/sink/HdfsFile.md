@@ -122,7 +122,7 @@ source {
 
 transform {
   # 如果您想获取有关如何配置 seatunnel 的更多信息和查看完整的转换插件列表，
-    # 请访问 https://seatunnel.apache.org/docs/category/transform-v2
+    # 请访问 https://seatunnel.apache.org/docs/transform-v2
 }
 
 sink {
