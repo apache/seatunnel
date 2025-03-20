@@ -17,26 +17,29 @@
 package org.apache.seatunnel.transform.python;
 
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.transform.SeaTunnelTransform;
-import org.apache.seatunnel.transform.common.AbstractMultiCatalogMapTransform;
+import com.google.auto.service.AutoService;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.connector.TableTransform;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableTransformFactory;
+import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
 
-import java.util.List;
-
-public class PythonMultiCatalogTransform extends AbstractMultiCatalogMapTransform {
-    public PythonMultiCatalogTransform(List<CatalogTable> inputCatalogTables, ReadonlyConfig config) {
-        super(inputCatalogTables, config);
-    }
-
+@AutoService(Factory.class)
+public class PythonTransformFactory implements TableTransformFactory {
     @Override
-    public String getPluginName() {
+    public String factoryIdentifier() {
         return PythonTransform.PLUGIN_NAME;
     }
 
     @Override
-    protected SeaTunnelTransform<SeaTunnelRow> buildTransform(CatalogTable inputCatalogTable, ReadonlyConfig config) {
-        return new PythonTransform(inputCatalogTable,PythonTransformConfig.of(config));
+    public OptionRule optionRule() {
+        return null;
+    }
+
+    @Override
+    public TableTransform createTransform(TableTransformFactoryContext context) {
+        return () ->
+                new PythonMultiCatalogTransform(
+                        context.getCatalogTables(), context.getOptions());
     }
 }
