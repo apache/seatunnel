@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-cloudberry.md';
+
 # Cloudberry
 
 > JDBC Cloudberry  Sink Connector
