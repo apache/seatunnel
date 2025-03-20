@@ -124,18 +124,6 @@ public class ConnectorOptionCheckTest {
                                                                         || extendedType
                                                                                 .getNameAsString()
                                                                                 .equals(
-                                                                                        "BaseMultipleTableFileSink")
-                                                                        || extendedType
-                                                                                .getNameAsString()
-                                                                                .equals(
-                                                                                        "BaseFileSource")
-                                                                        || extendedType
-                                                                                .getNameAsString()
-                                                                                .equals(
-                                                                                        "BaseFileSink")
-                                                                        || extendedType
-                                                                                .getNameAsString()
-                                                                                .equals(
                                                                                         "HttpSource")
                                                                         || extendedType
                                                                                 .getNameAsString()

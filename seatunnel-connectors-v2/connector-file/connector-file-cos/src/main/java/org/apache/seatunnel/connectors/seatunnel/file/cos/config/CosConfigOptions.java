@@ -19,9 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.file.cos.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 
-public class CosFileBaseOptions extends FileBaseSourceOptions {
+public class CosConfigOptions extends BaseSourceConfigOptions {
     public static final Option<String> SECRET_ID =
             Options.key("secret_id")
                     .stringType()

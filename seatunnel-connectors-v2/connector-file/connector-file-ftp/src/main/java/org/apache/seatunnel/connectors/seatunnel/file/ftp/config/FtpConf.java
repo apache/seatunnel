@@ -44,19 +44,19 @@ public class FtpConf extends HadoopConf {
     }
 
     public static HadoopConf buildWithConfig(ReadonlyConfig config) {
-        String host = config.get(FtpFileBaseOptions.FTP_HOST);
-        int port = config.get(FtpFileBaseOptions.FTP_PORT);
+        String host = config.get(FtpConfigOptions.FTP_HOST);
+        int port = config.get(FtpConfigOptions.FTP_PORT);
         String defaultFS = String.format("ftp://%s:%s", host, port);
         HadoopConf hadoopConf = new FtpConf(defaultFS);
         HashMap<String, String> ftpOptions = new HashMap<>();
-        ftpOptions.put("fs.ftp.user." + host, config.get(FtpFileBaseOptions.FTP_USERNAME));
-        ftpOptions.put("fs.ftp.password." + host, config.get(FtpFileBaseOptions.FTP_PASSWORD));
+        ftpOptions.put("fs.ftp.user." + host, config.get(FtpConfigOptions.FTP_USERNAME));
+        ftpOptions.put("fs.ftp.password." + host, config.get(FtpConfigOptions.FTP_PASSWORD));
         Optional<FtpConnectionMode> optional =
-                config.getOptional(FtpFileBaseOptions.FTP_CONNECTION_MODE);
+                config.getOptional(FtpConfigOptions.FTP_CONNECTION_MODE);
         if (optional.isPresent()) {
             ftpOptions.put(
                     "fs.ftp.connection.mode",
-                    config.get(FtpFileBaseOptions.FTP_CONNECTION_MODE).toString());
+                    config.get(FtpConfigOptions.FTP_CONNECTION_MODE).toString());
         }
         hadoopConf.setExtraOptions(ftpOptions);
         return hadoopConf;

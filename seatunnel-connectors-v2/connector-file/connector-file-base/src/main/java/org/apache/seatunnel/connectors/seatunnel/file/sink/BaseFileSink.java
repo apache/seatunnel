@@ -30,7 +30,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
@@ -54,14 +54,14 @@ public abstract class BaseFileSink
     protected String jobId;
 
     public void preCheckConfig() {
-        if (pluginConfig.hasPath(FileBaseSinkOptions.SINGLE_FILE_MODE.key())
-                && pluginConfig.getBoolean(FileBaseSinkOptions.SINGLE_FILE_MODE.key())
+        if (pluginConfig.hasPath(BaseSinkConfig.SINGLE_FILE_MODE.key())
+                && pluginConfig.getBoolean(BaseSinkConfig.SINGLE_FILE_MODE.key())
                 && jobContext.isEnableCheckpoint()) {
             throw new IllegalArgumentException(
                     "Single file mode is not supported when checkpoint is enabled or in streaming mode.");
         }
-        if (pluginConfig.hasPath(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA.key())
-                && pluginConfig.getBoolean(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA.key())
+        if (pluginConfig.hasPath(BaseSinkConfig.CREATE_EMPTY_FILE_WHEN_NO_DATA.key())
+                && pluginConfig.getBoolean(BaseSinkConfig.CREATE_EMPTY_FILE_WHEN_NO_DATA.key())
                 && !fileSinkConfig.getPartitionFieldList().isEmpty()) {
             throw new IllegalArgumentException(
                     "Generate empty file when no data is not supported when partition is enabled.");

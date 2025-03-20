@@ -44,16 +44,16 @@ public class CosConf extends HadoopConf {
     }
 
     public static HadoopConf buildWithConfig(Config config) {
-        HadoopConf hadoopConf = new CosConf(config.getString(CosFileBaseOptions.BUCKET.key()));
+        HadoopConf hadoopConf = new CosConf(config.getString(CosConfigOptions.BUCKET.key()));
         HashMap<String, String> cosOptions = new HashMap<>();
         cosOptions.put(
                 CosNConfigKeys.COSN_USERINFO_SECRET_ID_KEY,
-                config.getString(CosFileBaseOptions.SECRET_ID.key()));
+                config.getString(CosConfigOptions.SECRET_ID.key()));
         cosOptions.put(
                 CosNConfigKeys.COSN_USERINFO_SECRET_KEY_KEY,
-                config.getString(CosFileBaseOptions.SECRET_KEY.key()));
+                config.getString(CosConfigOptions.SECRET_KEY.key()));
         cosOptions.put(
-                CosNConfigKeys.COSN_REGION_KEY, config.getString(CosFileBaseOptions.REGION.key()));
+                CosNConfigKeys.COSN_REGION_KEY, config.getString(CosConfigOptions.REGION.key()));
         hadoopConf.setExtraOptions(cosOptions);
         return hadoopConf;
     }

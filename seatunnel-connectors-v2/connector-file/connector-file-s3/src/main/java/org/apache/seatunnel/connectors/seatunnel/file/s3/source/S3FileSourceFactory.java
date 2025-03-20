@@ -25,7 +25,7 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3FileSourceOptions;
@@ -61,13 +61,18 @@ public class S3FileSourceFactory implements TableSourceFactory {
                         S3FileSourceOptions.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
                         S3FileSourceOptions.S3_ACCESS_KEY,
                         S3FileSourceOptions.S3_SECRET_KEY)
+                .optional(S3FileSourceOptions.S3_PROPERTIES)
                 .conditional(
-                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
+                        FileFormat.TEXT,
+                        BaseSourceConfigOptions.FIELD_DELIMITER)
+                .conditional(
+                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
                         FileFormat.XML,
-                        FileBaseSourceOptions.XML_ROW_TAG,
-                        FileBaseSourceOptions.XML_USE_ATTR_FORMAT)
+                        BaseSourceConfigOptions.XML_ROW_TAG,
+                        BaseSourceConfigOptions.XML_USE_ATTR_FORMAT)
                 .conditional(
-                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
                                 FileFormat.TEXT,
                                 FileFormat.JSON,
@@ -75,19 +80,15 @@ public class S3FileSourceFactory implements TableSourceFactory {
                                 FileFormat.CSV,
                                 FileFormat.XML),
                         ConnectorCommonOptions.SCHEMA)
-                .optional(FileBaseSourceOptions.ENCODING)
-                .optional(FileBaseSourceOptions.READ_COLUMNS)
-                .optional(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH)
-                .optional(FileBaseSourceOptions.FIELD_DELIMITER)
-                .optional(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
-                .optional(FileBaseSourceOptions.DATE_FORMAT)
-                .optional(FileBaseSourceOptions.DATETIME_FORMAT)
-                .optional(FileBaseSourceOptions.TIME_FORMAT)
-                .optional(FileBaseSourceOptions.SHEET_NAME)
-                .optional(FileBaseSourceOptions.FILE_FILTER_PATTERN)
-                .optional(S3FileSourceOptions.S3_PROPERTIES)
-                .optional(FileBaseSourceOptions.NULL_FORMAT)
-                .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
+                .optional(BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH)
+                .optional(BaseSourceConfigOptions.DATE_FORMAT)
+                .optional(BaseSourceConfigOptions.DATETIME_FORMAT)
+                .optional(BaseSourceConfigOptions.TIME_FORMAT)
+                .optional(BaseSourceConfigOptions.FILE_FILTER_PATTERN)
+                .optional(BaseSourceConfigOptions.COMPRESS_CODEC)
+                .optional(BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC)
+                .optional(BaseSourceConfigOptions.NULL_FORMAT)
+                .optional(BaseSourceConfigOptions.FILENAME_EXTENSION)
                 .build();
     }
 

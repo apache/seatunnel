@@ -15,25 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.oss.config;
+package org.apache.seatunnel.connectors.seatunnel.file.sftp.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 
-public class OssFileBaseOptions extends FileBaseOptions {
-    public static final Option<String> ACCESS_KEY =
-            Options.key("access_key")
+public class SftpConfigOptions extends BaseSourceConfigOptions {
+    public static final Option<String> SFTP_PASSWORD =
+            Options.key("password")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("OSS bucket access key");
-    public static final Option<String> ACCESS_SECRET =
-            Options.key("access_secret")
+                    .withDescription("SFTP server password");
+    public static final Option<String> SFTP_USER =
+            Options.key("user")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("OSS bucket access secret");
-    public static final Option<String> ENDPOINT =
-            Options.key("endpoint").stringType().noDefaultValue().withDescription("OSS endpoint");
-    public static final Option<String> BUCKET =
-            Options.key("bucket").stringType().noDefaultValue().withDescription("OSS bucket");
+                    .withDescription("SFTP server username");
+    public static final Option<String> SFTP_HOST =
+            Options.key("host").stringType().noDefaultValue().withDescription("SFTP server host");
+    public static final Option<Integer> SFTP_PORT =
+            Options.key("port").intType().noDefaultValue().withDescription("SFTP server port");
 }
