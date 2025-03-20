@@ -48,7 +48,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 @Slf4j
-public class MilvusSourceSplitEnumertor
+public class MilvusSourceSplitEnumerator
         implements SourceSplitEnumerator<MilvusSourceSplit, MilvusSourceState> {
 
     private final Map<TablePath, CatalogTable> tables;
@@ -60,7 +60,7 @@ public class MilvusSourceSplitEnumertor
 
     private final ReadonlyConfig config;
 
-    public MilvusSourceSplitEnumertor(
+    public MilvusSourceSplitEnumerator(
             Context<MilvusSourceSplit> context,
             ReadonlyConfig config,
             Map<TablePath, CatalogTable> sourceTables,

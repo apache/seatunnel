@@ -208,7 +208,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("QdrantSourceOptions");
         whiteList.add("SocketSourceOptions");
         whiteList.add("OpenMldbSourceOptions");
-        whiteList.add("Web3jSourceOptions");
         whiteList.add("PostgresIncrementalSourceOptions");
         whiteList.add("SqlServerIncrementalSourceOptions");
         whiteList.add("OracleIncrementalSourceOptions");
