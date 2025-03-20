@@ -190,6 +190,13 @@ public class ActivemqIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    @TestTemplate
+    public void testSourceActiveMQJsonToConsole(TestContainer container) throws Exception {
+        initSourceData();
+        Container.ExecResult execResult = container.executeJob("/activemq-source_to_console.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
     private static Pair<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
 
         SeaTunnelRowType rowType =

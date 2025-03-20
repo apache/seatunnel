@@ -27,14 +27,12 @@ import org.apache.seatunnel.connectors.seatunnel.activemq.client.ActivemqClient;
 import org.apache.seatunnel.connectors.seatunnel.activemq.exception.ActivemqConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.activemq.exception.ActivemqConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.activemq.split.ActivemqSplit;
-import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import lombok.extern.slf4j.Slf4j;
 
 import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
-import javax.jms.MessageListener;
 import javax.jms.TextMessage;
 
 import java.io.IOException;
@@ -45,14 +43,20 @@ import java.util.List;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqOptions.QUEUE_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.USE_CORRELATION_ID;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.exception.ActivemqConnectorErrorCode.HANDLE_SHUTDOWN_SIGNAL_FAILED;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.exception.ActivemqConnectorErrorCode.MESSAGE_ACK_FAILED;
 
 @Slf4j
 public class ActivemqSourceReader<T> implements SourceReader<T, ActivemqSplit> {
+    private static final long POLL_TIMEOUT_MILLIS = 1000L;
+
     protected final Context context;
     protected final MessageConsumer consumer;
     protected transient Set<String> correlationIdsProcessedButNotAcknowledged;
@@ -62,6 +66,8 @@ public class ActivemqSourceReader<T> implements SourceReader<T, ActivemqSplit> {
     private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private ActivemqClient activemqClient;
     private final ReadonlyConfig config;
+    private final ExecutorService executorService;
+    private final LinkedBlockingQueue<Message> messageQueue;
 
     public ActivemqSourceReader(
             DeserializationSchema<SeaTunnelRow> deserializationSchema,
@@ -74,12 +80,26 @@ public class ActivemqSourceReader<T> implements SourceReader<T, ActivemqSplit> {
         this.config = config;
         this.activemqClient = new ActivemqClient(config);
         this.consumer = activemqClient.getConsumer();
+        this.executorService =
+                Executors.newCachedThreadPool(r -> new Thread(r, "ActiveMQ Source Data Consumer"));
+        this.messageQueue = new LinkedBlockingQueue<>();
     }
 
     @Override
     public void open() throws Exception {
         this.correlationIdsProcessedButNotAcknowledged = new HashSet<>();
         this.massageIdsProcessedForCurrentSnapshot = new ArrayList<>();
+        // start consumer listening and put messages in a queue
+        consumer.setMessageListener(
+                message -> {
+                    try {
+                        messageQueue.put(message);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new ActivemqConnectorException(
+                                ActivemqConnectorErrorCode.HANDLE_SHUTDOWN_SIGNAL_FAILED, e);
+                    }
+                });
     }
 
     @Override
@@ -97,16 +117,26 @@ public class ActivemqSourceReader<T> implements SourceReader<T, ActivemqSplit> {
         if (activemqClient != null) {
             activemqClient.close();
         }
+        if (executorService != null) {
+            executorService.shutdownNow();
+        }
     }
 
     @Override
     public void pollNext(Collector output) throws Exception {
-        consumer.setMessageListener(
-                new MessageListener() {
-                    @Override
-                    public void onMessage(Message message) {
+        while (true) {
+            Message message = messageQueue.poll(POLL_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+            if (message == null) {
+                if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
+                    break;
+                }
+                continue;
+            }
+            CompletableFuture<Void> completableFuture = new CompletableFuture<>();
+            executorService.submit(
+                    () -> {
                         try {
-                            if (message != null && message instanceof TextMessage) {
+                            if (message instanceof TextMessage) {
                                 TextMessage textMessage = (TextMessage) message;
                                 String correlationId = textMessage.getJMSCorrelationID();
                                 byte[] body = textMessage.getText().getBytes();
@@ -117,29 +147,21 @@ public class ActivemqSourceReader<T> implements SourceReader<T, ActivemqSplit> {
                                     }
                                     massageIdsProcessedForCurrentSnapshot.add(
                                             message.getJMSMessageID());
-                                    try {
-                                        if (deserializationSchema
-                                                instanceof JsonDeserializationSchema) {
-                                            ((JsonDeserializationSchema) deserializationSchema)
-                                                    .collect(body, output);
-                                        } else {
-                                            deserializationSchema.deserialize(body, output);
-                                        }
-                                    } catch (IOException e) {
-                                        log.error("Failed to deserialize message", e);
-                                    }
+                                    deserializationSchema.deserialize(body, output);
+
                                     // verify that message processing is complete
                                     textMessage.acknowledge();
                                 }
                             }
-                        } catch (JMSException e) {
-                            throw new ActivemqConnectorException(MESSAGE_ACK_FAILED, e);
                         } catch (Exception e) {
+                            completableFuture.join();
                             throw new ActivemqConnectorException(HANDLE_SHUTDOWN_SIGNAL_FAILED, e);
                         }
-                    }
-                });
-        // source support streaming mode, this is for test
+                        completableFuture.complete(null);
+                    });
+            completableFuture.join();
+        }
+
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
             // signal to the source that we have reached the end of the data.
             context.signalNoMoreElement();
