@@ -65,11 +65,13 @@ public class S3FileSinkFactory implements TableSinkFactory {
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.CSV,
+                        BaseSinkConfig.ROW_DELIMITER,
                         BaseSinkConfig.TXT_COMPRESS,
                         BaseSinkConfig.ENABLE_HEADER_WRITE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.JSON,
+                        BaseSinkConfig.ROW_DELIMITER,
                         BaseSinkConfig.TXT_COMPRESS)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
