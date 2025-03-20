@@ -542,3 +542,4 @@ sink {
 
 ## Changelog
 
+<ChangeLog />

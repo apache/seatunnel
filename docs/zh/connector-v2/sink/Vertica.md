@@ -96,7 +96,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ### 简单示例：
 
-> 此示例定义了一个 SeaTunnel 同步任务，通过 FakeSource 自动生成数据并发送到 JDBC Sink。FakeSource 总共生成 16 行数据（row.num=16），每行有两个字段，name（字符串类型）和 age（int 类型）。最终目标表 test_table 中也将有 16 行数据。在运行此任务之前，您需要在 Vertica 中创建数据库 test 和表 test_table。如果您尚未安装和部署 SeaTunnel，请按照 [安装 SeaTunnel](../../start-v2/locally/deployment.md) 中的说明进行安装和部署。然后按照 [使用 SeaTunnel Engine 快速开始](../../start-v2/locally/quick-start-seatunnel-engine.md) 中的说明运行此任务。
+> 此示例定义了一个 SeaTunnel 同步任务，通过 FakeSource 自动生成数据并发送到 JDBC Sink。FakeSource 总共生成 16 行数据（row.num=16），每行有两个字段，name（字符串类型）和 age（int 类型）。最终目标表 test_table 中也将有 16 行数据。在运行此任务之前，您需要在 Vertica 中创建数据库 test 和表 test_table。如果您尚未安装和部署 SeaTunnel，请按照 [安装 SeaTunnel](../../start-v2/locally/deployment.mdx) 中的说明进行安装和部署。然后按照 [使用 SeaTunnel Engine 快速开始](../../start-v2/locally/quick-start-seatunnel-engine.mdx) 中的说明运行此任务。
 
 ```
 # 定义运行时环境
