@@ -148,14 +148,12 @@ public abstract class AbstractAerospikeIT extends TestSuiteBase implements TestR
                     }
                 };
 
-        // 同时写入独立Bin字段
         Bin mainBin = new Bin("complex_data", complexData);
         Bin extraBin1 = new Bin("reported", 20240601);
         Bin extraBin2 = new Bin("version", "v2.3.1");
 
         client.put(null, key, mainBin, extraBin1, extraBin2);
 
-        // 立即验证基础写入
         Record record = client.get(null, key);
         Assertions.assertNotNull(record, "write records should not be empty");
         Assertions.assertEquals(3, record.bins.size(), "failed to verify the bin quantity");
