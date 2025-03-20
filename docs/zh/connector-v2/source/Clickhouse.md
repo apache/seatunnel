@@ -98,7 +98,7 @@ sink {
 
 ### 小提示
 
-> 1.[SeaTunnel 部署文档](../../start-v2/locally/deployment.md).
+> 1.[SeaTunnel 部署文档](../../start-v2/locally/deployment.mdx).
 
 ## 变更日志
 
