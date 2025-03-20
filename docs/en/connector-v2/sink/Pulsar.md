@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-pulsar.md';
+
 # Pulsar
 
 > Pulsar sink connector
@@ -171,7 +173,4 @@ sink {
 
 ## Changelog
 
-### next version
-
-- Add Pulsar Sink Connector
-
+<ChangeLog />

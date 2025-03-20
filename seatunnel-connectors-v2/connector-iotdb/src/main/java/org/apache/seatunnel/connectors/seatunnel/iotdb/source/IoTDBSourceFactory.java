@@ -20,23 +20,18 @@ package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.CommonConfig.NODE_URLS;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.CommonConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.CommonConfig.USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.ENABLE_CACHE_LEADER;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.FETCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.LOWER_BOUND;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.NUM_PARTITIONS;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.SQL;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.THRIFT_DEFAULT_BUFFER_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.THRIFT_MAX_FRAME_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.UPPER_BOUND;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.VERSION;
+import java.io.Serializable;
 
 @AutoService(Factory.class)
 public class IoTDBSourceFactory implements TableSourceFactory {
@@ -48,17 +43,31 @@ public class IoTDBSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(NODE_URLS, USERNAME, PASSWORD, SQL, ConnectorCommonOptions.SCHEMA)
+                .required(
+                        IoTDBSourceOptions.NODE_URLS,
+                        IoTDBSourceOptions.USERNAME,
+                        IoTDBSourceOptions.PASSWORD,
+                        IoTDBSourceOptions.SQL,
+                        ConnectorCommonOptions.SCHEMA)
                 .optional(
-                        FETCH_SIZE,
-                        THRIFT_DEFAULT_BUFFER_SIZE,
-                        THRIFT_MAX_FRAME_SIZE,
-                        ENABLE_CACHE_LEADER,
-                        VERSION,
-                        LOWER_BOUND,
-                        UPPER_BOUND,
-                        NUM_PARTITIONS)
+                        IoTDBSourceOptions.FETCH_SIZE,
+                        IoTDBSourceOptions.THRIFT_DEFAULT_BUFFER_SIZE,
+                        IoTDBSourceOptions.THRIFT_MAX_FRAME_SIZE,
+                        IoTDBSourceOptions.ENABLE_CACHE_LEADER,
+                        IoTDBSourceOptions.VERSION,
+                        IoTDBSourceOptions.LOWER_BOUND,
+                        IoTDBSourceOptions.UPPER_BOUND,
+                        IoTDBSourceOptions.NUM_PARTITIONS)
                 .build();
+    }
+
+    @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(context.getOptions());
+        return () ->
+                (SeaTunnelSource<T, SplitT, StateT>)
+                        new IoTDBSource(catalogTable, context.getOptions());
     }
 
     @Override

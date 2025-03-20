@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-ftp.md';
+
 # FtpFile
 
 > Ftp 文件 Source 连接器
@@ -492,14 +494,6 @@ sink {
 }
 ```
 
-## 更新日志
+## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 新增 Ftp Source 连接器
-
-### 2.3.0-beta 2022-10-20
-
-- [Bug修复] 修复 Windows 环境下路径错误的 bug ([2980](https://github.com/apache/seatunnel/pull/2980))
-- [改进] 支持从 SeaTunnelRow 字段中提取分区 ([3085](https://github.com/apache/seatunnel/pull/3085))
-- [改进] 支持从文件路径中解析字段 ([2985](https://github.com/apache/seatunnel/pull/2985))
+<ChangeLog />

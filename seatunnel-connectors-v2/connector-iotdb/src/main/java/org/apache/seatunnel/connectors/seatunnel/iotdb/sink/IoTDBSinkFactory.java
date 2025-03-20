@@ -18,27 +18,13 @@
 package org.apache.seatunnel.connectors.seatunnel.iotdb.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSinkOptions;
 
 import com.google.auto.service.AutoService;
-
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.CommonConfig.NODE_URLS;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.CommonConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.CommonConfig.USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.BATCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.CONNECTION_TIMEOUT_IN_MS;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.DEFAULT_THRIFT_BUFFER_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.ENABLE_RPC_COMPRESSION;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.KEY_DEVICE;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.KEY_MEASUREMENT_FIELDS;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.KEY_TIMESTAMP;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.MAX_RETRIES;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.MAX_RETRY_BACKOFF_MS;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.MAX_THRIFT_FRAME_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.RETRY_BACKOFF_MULTIPLIER_MS;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.STORAGE_GROUP;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.ZONE_ID;
 
 @AutoService(Factory.class)
 public class IoTDBSinkFactory implements TableSinkFactory {
@@ -50,20 +36,29 @@ public class IoTDBSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(NODE_URLS, USERNAME, PASSWORD, KEY_DEVICE)
+                .required(
+                        IoTDBSinkOptions.NODE_URLS,
+                        IoTDBSinkOptions.USERNAME,
+                        IoTDBSinkOptions.PASSWORD,
+                        IoTDBSinkOptions.KEY_DEVICE)
                 .optional(
-                        KEY_TIMESTAMP,
-                        KEY_MEASUREMENT_FIELDS,
-                        STORAGE_GROUP,
-                        BATCH_SIZE,
-                        MAX_RETRIES,
-                        RETRY_BACKOFF_MULTIPLIER_MS,
-                        MAX_RETRY_BACKOFF_MS,
-                        DEFAULT_THRIFT_BUFFER_SIZE,
-                        MAX_THRIFT_FRAME_SIZE,
-                        ZONE_ID,
-                        ENABLE_RPC_COMPRESSION,
-                        CONNECTION_TIMEOUT_IN_MS)
+                        IoTDBSinkOptions.KEY_TIMESTAMP,
+                        IoTDBSinkOptions.KEY_MEASUREMENT_FIELDS,
+                        IoTDBSinkOptions.STORAGE_GROUP,
+                        IoTDBSinkOptions.BATCH_SIZE,
+                        IoTDBSinkOptions.MAX_RETRIES,
+                        IoTDBSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS,
+                        IoTDBSinkOptions.MAX_RETRY_BACKOFF_MS,
+                        IoTDBSinkOptions.DEFAULT_THRIFT_BUFFER_SIZE,
+                        IoTDBSinkOptions.MAX_THRIFT_FRAME_SIZE,
+                        IoTDBSinkOptions.ZONE_ID,
+                        IoTDBSinkOptions.ENABLE_RPC_COMPRESSION,
+                        IoTDBSinkOptions.CONNECTION_TIMEOUT_IN_MS)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        return () -> new IoTDBSink(context.getOptions(), context.getCatalogTable());
     }
 }

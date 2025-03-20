@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-openmldb.md';
+
 # OpenMldb
 
 > OpenMldb source connector
@@ -84,3 +86,6 @@ Source plugin common parameters, please refer to [Source Common Options](../sour
 
 ```
 
+## Changelog
+
+<ChangeLog />

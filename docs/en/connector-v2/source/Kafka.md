@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-kafka.md';
+
 # Kafka
 
 > Kafka source connector
@@ -403,3 +405,6 @@ The returned data is as follows:
 ```
 Note：key/value is of type byte[].
 
+## Changelog
+
+<ChangeLog />

@@ -18,25 +18,13 @@
 package org.apache.seatunnel.connectors.seatunnel.easysearch.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.easysearch.config.EasysearchSinkOptions;
 
 import com.google.auto.service.AutoService;
-
-import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.EzsClusterConnectionConfig.HOSTS;
-import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.EzsClusterConnectionConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.EzsClusterConnectionConfig.TLS_KEY_STORE_PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.EzsClusterConnectionConfig.TLS_KEY_STORE_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.EzsClusterConnectionConfig.TLS_TRUST_STORE_PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.EzsClusterConnectionConfig.TLS_TRUST_STORE_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.EzsClusterConnectionConfig.TLS_VERIFY_CERTIFICATE;
-import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.EzsClusterConnectionConfig.TLS_VERIFY_HOSTNAME;
-import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.EzsClusterConnectionConfig.USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.SinkConfig.KEY_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.SinkConfig.MAX_BATCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.SinkConfig.MAX_RETRY_COUNT;
-import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.SinkConfig.PRIMARY_KEYS;
-import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.SourceConfig.INDEX;
 
 @AutoService(Factory.class)
 public class EasysearchSinkFactory implements TableSinkFactory {
@@ -48,20 +36,25 @@ public class EasysearchSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(HOSTS, INDEX)
+                .required(EasysearchSinkOptions.HOSTS, EasysearchSinkOptions.INDEX)
                 .optional(
-                        PRIMARY_KEYS,
-                        KEY_DELIMITER,
-                        USERNAME,
-                        PASSWORD,
-                        MAX_RETRY_COUNT,
-                        MAX_BATCH_SIZE,
-                        TLS_VERIFY_CERTIFICATE,
-                        TLS_VERIFY_HOSTNAME,
-                        TLS_KEY_STORE_PATH,
-                        TLS_KEY_STORE_PASSWORD,
-                        TLS_TRUST_STORE_PATH,
-                        TLS_TRUST_STORE_PASSWORD)
+                        EasysearchSinkOptions.USERNAME,
+                        EasysearchSinkOptions.PASSWORD,
+                        EasysearchSinkOptions.PRIMARY_KEYS,
+                        EasysearchSinkOptions.KEY_DELIMITER,
+                        EasysearchSinkOptions.MAX_RETRY_COUNT,
+                        EasysearchSinkOptions.MAX_BATCH_SIZE,
+                        EasysearchSinkOptions.TLS_VERIFY_CERTIFICATE,
+                        EasysearchSinkOptions.TLS_VERIFY_HOSTNAME,
+                        EasysearchSinkOptions.TLS_KEY_STORE_PATH,
+                        EasysearchSinkOptions.TLS_KEY_STORE_PASSWORD,
+                        EasysearchSinkOptions.TLS_TRUST_STORE_PATH,
+                        EasysearchSinkOptions.TLS_TRUST_STORE_PASSWORD)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        return () -> new EasysearchSink(context.getOptions(), context.getCatalogTable());
     }
 }

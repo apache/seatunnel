@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-slack.md';
+
 # Slack
 
 > Slack sink connector
@@ -48,7 +50,4 @@ sink {
 
 ## Changelog
 
-### new version
-
-- Add Slack Sink Connector
-
+<ChangeLog />
