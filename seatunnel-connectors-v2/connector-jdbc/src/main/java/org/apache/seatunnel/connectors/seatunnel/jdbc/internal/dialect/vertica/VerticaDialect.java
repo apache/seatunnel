@@ -17,11 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.vertica;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
+
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.Arrays;
 import java.util.List;
@@ -110,7 +111,9 @@ public class VerticaDialect implements JdbcDialect {
     }
 
     /**
-     * <a href="https://docs.vertica.com/23.4.x/en/sql-reference/functions/data-type-specific-functions/string-functions/collation/">vertica-collation</a>
+     * <a
+     * href="https://docs.vertica.com/23.4.x/en/sql-reference/functions/data-type-specific-functions/string-functions/collation/">vertica-collation</a>
+     *
      * @param collate
      * @return
      */
@@ -118,11 +121,7 @@ public class VerticaDialect implements JdbcDialect {
     public String getCollateSql(String collate) {
         if (StringUtils.isNotBlank(collate)) {
             StringBuilder sql = new StringBuilder();
-            sql.append("COLLATION(")
-                    .append("char_val")
-                    .append(", '")
-                    .append(collate)
-                    .append("')");
+            sql.append("COLLATION(").append("char_val").append(", '").append(collate).append("')");
             return sql.toString();
         } else {
             return "char_val";
