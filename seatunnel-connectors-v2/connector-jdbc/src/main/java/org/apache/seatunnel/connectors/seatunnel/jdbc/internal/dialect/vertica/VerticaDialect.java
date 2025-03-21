@@ -109,6 +109,11 @@ public class VerticaDialect implements JdbcDialect {
         return Optional.of(upsertSQL);
     }
 
+    /**
+     * <a href="https://docs.vertica.com/23.4.x/en/sql-reference/functions/data-type-specific-functions/string-functions/collation/">vertica-collation</a>
+     * @param collate
+     * @return
+     */
     @Override
     public String getCollateSql(String collate) {
         if (StringUtils.isNotBlank(collate)) {
