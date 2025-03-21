@@ -98,4 +98,9 @@ public class DB2Dialect implements JdbcDialect {
 
         return Optional.of(mergeStatement);
     }
+
+    @Override
+    public String dualTable() {
+        return " FROM SYSIBM.SYSDUMMY1 ";
+    }
 }

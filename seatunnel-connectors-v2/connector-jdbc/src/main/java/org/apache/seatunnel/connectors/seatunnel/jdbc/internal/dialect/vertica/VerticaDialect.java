@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.vertica;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -106,5 +107,20 @@ public class VerticaDialect implements JdbcDialect {
                         insertValues);
 
         return Optional.of(upsertSQL);
+    }
+
+    @Override
+    public String getCollateSql(String collate) {
+        if (StringUtils.isNotBlank(collate)) {
+            StringBuilder sql = new StringBuilder();
+            sql.append("COLLATION(")
+                    .append("char_val")
+                    .append(", '")
+                    .append(collate)
+                    .append("')");
+            return sql.toString();
+        } else {
+            return "char_val";
+        }
     }
 }
