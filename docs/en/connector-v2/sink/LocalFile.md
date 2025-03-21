@@ -116,7 +116,7 @@ The separator between columns in a row of data. Only needed by `text` file forma
 
 ### row_delimiter [string]
 
-The separator between rows in a file. Only needed by `text`/`json` and `json` file format.
+The separator between rows in a file. Only needed by `text`, `json` and `json` file format.
 
 ### have_partition [boolean]
 
