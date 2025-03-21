@@ -29,6 +29,10 @@
     <artifactId>connector-file-ftp</artifactId>
     <name>SeaTunnel : Connectors V2 : File : Ftp</name>
 
+    <properties>
+        <mockftpserver.version>3.1.0</mockftpserver.version>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
@@ -47,6 +51,12 @@
                     <artifactId>avro</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.mockftpserver</groupId>
+            <artifactId>MockFtpServer</artifactId>
+            <version>${mockftpserver.version}</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

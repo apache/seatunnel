@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-hive.md';
+
 # Hive
 
 > Hive sink connector
@@ -472,3 +474,7 @@ sink {
   }
 }
 ```
+
+## Changelog
+
+<ChangeLog />

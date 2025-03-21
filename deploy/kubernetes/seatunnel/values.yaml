@@ -19,16 +19,20 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-timezone: "Asia/Shanghai"
-
-
 image:
   registry: "apache/seatunnel"
   tag: ""
   pullPolicy: "IfNotPresent"
   pullSecret: ""
 
+# The env for pod
+env:
+  - name: TZ
+    value: Asia/Shanghai
+
 master:
+  ## The command to start master.
+  command: []
   ## The deployment strategy to use to replace existing pods with new ones.
   strategy:
     type: RollingUpdate
@@ -67,11 +71,6 @@ master:
   #     cpu: "500m"
   ## Periodic probe of container liveness. Container will be restarted if the probe fails. Cannot be updated.
   ## More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
-  
-  ## service config for restApi
-  service:
-    type: "ClusterIP"
-
   livenessProbe:
     tcpSocket:
       port: hazelcast-port
@@ -91,6 +90,8 @@ master:
     successThreshold: 1
 
 worker:
+  ## The command to start worker.
+  command: []
   ## The deployment strategy to use to replace existing pods with new ones.
   strategy:
     type: RollingUpdate
@@ -130,8 +131,6 @@ worker:
   #     cpu: "500m"
   ## Periodic probe of container liveness. Container will be restarted if the probe fails. Cannot be updated.
   ## More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
-
-
   livenessProbe:
     tcpSocket:
       port: hazelcast-port
@@ -152,8 +151,9 @@ worker:
 
 ingress:
   enabled: false
-  host: "seatunnel.org"
-  path: "/"
+  className: ""
+  host: seatunnel.k8s.local
+  path: /
   annotations: {}
   tls:
     enabled: false

@@ -133,7 +133,7 @@ public class BaseSinkConfig {
                     .stringType()
                     .defaultValue(DEFAULT_ROW_DELIMITER)
                     .withDescription(
-                            "The separator between rows in a file. Only needed by `text` and `csv` file format");
+                            "The separator between rows in a file. Only needed by `text`, `csv` and `json` file format");
 
     public static final Option<Boolean> HAVE_PARTITION =
             Options.key("have_partition")

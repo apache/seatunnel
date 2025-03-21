@@ -27,8 +27,9 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonOptions;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkOptions;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -46,30 +47,32 @@ public class IcebergSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        CommonConfig.KEY_CATALOG_NAME,
-                        SinkConfig.KEY_NAMESPACE,
-                        SinkConfig.KEY_TABLE,
-                        SinkConfig.CATALOG_PROPS)
+                        IcebergCommonOptions.KEY_CATALOG_NAME,
+                        IcebergSinkOptions.KEY_NAMESPACE,
+                        IcebergSinkOptions.KEY_TABLE,
+                        IcebergSinkOptions.CATALOG_PROPS)
                 .optional(
-                        SinkConfig.TABLE_PROPS,
-                        SinkConfig.HADOOP_PROPS,
-                        SinkConfig.KERBEROS_PRINCIPAL,
-                        SinkConfig.KERBEROS_KEYTAB_PATH,
-                        SinkConfig.KRB5_PATH,
-                        SinkConfig.WRITE_PROPS,
-                        SinkConfig.SCHEMA_SAVE_MODE,
-                        SinkConfig.DATA_SAVE_MODE,
-                        SinkConfig.AUTO_CREATE_PROPS,
-                        SinkConfig.TABLE_PRIMARY_KEYS,
-                        SinkConfig.TABLE_DEFAULT_PARTITION_KEYS,
-                        SinkConfig.TABLE_UPSERT_MODE_ENABLED_PROP,
-                        SinkConfig.TABLE_SCHEMA_EVOLUTION_ENABLED_PROP,
-                        SinkConfig.TABLES_DEFAULT_COMMIT_BRANCH,
+                        IcebergSinkOptions.TABLE_PROPS,
+                        IcebergSinkOptions.HADOOP_PROPS,
+                        IcebergSinkOptions.HADOOP_CONF_PATH_PROP,
+                        IcebergSinkOptions.KEY_CASE_SENSITIVE,
+                        IcebergSinkOptions.KERBEROS_PRINCIPAL,
+                        IcebergSinkOptions.KERBEROS_KEYTAB_PATH,
+                        IcebergSinkOptions.KRB5_PATH,
+                        IcebergSinkOptions.WRITE_PROPS,
+                        IcebergSinkOptions.SCHEMA_SAVE_MODE,
+                        IcebergSinkOptions.DATA_SAVE_MODE,
+                        IcebergSinkOptions.AUTO_CREATE_PROPS,
+                        IcebergSinkOptions.TABLE_PRIMARY_KEYS,
+                        IcebergSinkOptions.TABLE_DEFAULT_PARTITION_KEYS,
+                        IcebergSinkOptions.TABLE_UPSERT_MODE_ENABLED_PROP,
+                        IcebergSinkOptions.TABLE_SCHEMA_EVOLUTION_ENABLED_PROP,
+                        IcebergSinkOptions.TABLES_DEFAULT_COMMIT_BRANCH,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .conditional(
-                        SinkConfig.DATA_SAVE_MODE,
+                        IcebergSinkOptions.DATA_SAVE_MODE,
                         DataSaveMode.CUSTOM_PROCESSING,
-                        SinkConfig.DATA_SAVE_MODE_CUSTOM_SQL)
+                        IcebergSinkOptions.DATA_SAVE_MODE_CUSTOM_SQL)
                 .build();
     }
 
@@ -77,11 +80,12 @@ public class IcebergSinkFactory implements TableSinkFactory {
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
         CatalogTable catalogTable =
-                renameCatalogTable(new SinkConfig(config), context.getCatalogTable());
+                renameCatalogTable(new IcebergSinkConfig(config), context.getCatalogTable());
         return () -> new IcebergSink(config, catalogTable);
     }
 
-    private CatalogTable renameCatalogTable(SinkConfig sinkConfig, CatalogTable catalogTable) {
+    private CatalogTable renameCatalogTable(
+            IcebergSinkConfig sinkConfig, CatalogTable catalogTable) {
         TableIdentifier tableId = catalogTable.getTableId();
         String tableName;
         String namespace;

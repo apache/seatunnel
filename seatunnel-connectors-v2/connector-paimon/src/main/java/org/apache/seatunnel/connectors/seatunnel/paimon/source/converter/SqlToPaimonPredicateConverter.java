@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.source.converter;
 
+import org.apache.seatunnel.common.utils.DateUtils;
+import org.apache.seatunnel.common.utils.TimeUtils;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.paimon.data.BinaryString;
 import org.apache.paimon.data.Decimal;
@@ -41,6 +44,7 @@ import net.sf.jsqlparser.expression.TimeValue;
 import net.sf.jsqlparser.expression.TimestampValue;
 import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
 import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
+import net.sf.jsqlparser.expression.operators.relational.Between;
 import net.sf.jsqlparser.expression.operators.relational.EqualsTo;
 import net.sf.jsqlparser.expression.operators.relational.GreaterThan;
 import net.sf.jsqlparser.expression.operators.relational.GreaterThanEquals;
@@ -224,6 +228,17 @@ public class SqlToPaimonPredicateConverter {
             Predicate rightPredicate =
                     parseExpressionToPredicate(builder, rowType, orExpression.getRightExpression());
             return PredicateBuilder.or(leftPredicate, rightPredicate);
+        } else if (expression instanceof Between) {
+            Between between = (Between) expression;
+            Column column = (Column) between.getLeftExpression();
+            int columnIndex = getColumnIndex(builder, column);
+            Object jsqlStartVal = getJSQLParserDataTypeValue(between.getBetweenExpressionStart());
+            Object paimonStartVal =
+                    convertValueByPaimonDataType(rowType, column.getColumnName(), jsqlStartVal);
+            Object jsqlEndVal = getJSQLParserDataTypeValue(between.getBetweenExpressionEnd());
+            Object paimonEndVal =
+                    convertValueByPaimonDataType(rowType, column.getColumnName(), jsqlEndVal);
+            return builder.between(columnIndex, paimonStartVal, paimonEndVal);
         } else if (expression instanceof Parenthesis) {
             Parenthesis parenthesis = (Parenthesis) expression;
             return parseExpressionToPredicate(builder, rowType, parenthesis.getExpression());
@@ -266,8 +281,9 @@ public class SqlToPaimonPredicateConverter {
                 case DOUBLE:
                     return Double.parseDouble(strValue);
                 case DATE:
-                    return DateTimeUtils.toInternal(
-                            org.apache.seatunnel.common.utils.DateUtils.parse(strValue));
+                    return DateTimeUtils.toInternal(DateUtils.parse(strValue));
+                case TIME_WITHOUT_TIME_ZONE:
+                    return DateTimeUtils.toInternal(TimeUtils.parse(strValue));
                 case TIMESTAMP_WITHOUT_TIME_ZONE:
                 case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                     return Timestamp.fromLocalDateTime(

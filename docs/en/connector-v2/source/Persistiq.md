@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http-persistiq.md';
+
 # Persistiq
 
 > Persistiq source connector
@@ -294,7 +296,4 @@ Persistiq{
 
 ## Changelog
 
-### next version
-
-- Add Persistiq Source Connector
-
+<ChangeLog />
