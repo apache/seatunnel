@@ -50,7 +50,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | file_format_type                      | string  | 否  | "csv"                                      |                                                                 |
 | filename_extension                    | string  | 否  | -                                          | 使用自定义的文件扩展名覆盖默认的文件扩展名。 例如：`.xml`, `.json`, `dat`, `.customtype` |
 | field_delimiter                       | string  | 否  | '\001'                                     | 仅在file_format为text时使用                                           |
-| row_delimiter                         | string  | 否  | "\n"                                       | 仅在file_format为text时使用                                           |
+| row_delimiter                         | string  | 否  | "\n"                                       | 仅在file_format为 `text`、`csv`、`json` 时使用                          |
 | have_partition                        | boolean | 否  | false                                      | 是否需要处理分区.                                                       |
 | partition_by                          | array   | 否  | -                                          | 只有在have_partition为true时才使用                                      |
 | partition_dir_expression              | string  | 否  | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | 只有在have_partition为true时才使用                                      |
@@ -134,7 +134,7 @@ cos文件系统的分区.
 
 ### row_delimiter [string]
 
-文件中行之间的分隔符. 只需要 `text` 文件格式.
+文件中行之间的分隔符. 只需要 `text`、`csv`、`json` 文件格式.
 
 ### have_partition [boolean]
 

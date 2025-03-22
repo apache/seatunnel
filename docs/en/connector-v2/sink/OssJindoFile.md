@@ -54,7 +54,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | file_format_type                      | string  | no       | "csv"                                      |                                                                                                                                                                        |
 | filename_extension                    | string  | no       | -                                          | Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`                                                 |
 | field_delimiter                       | string  | no       | '\001'                                     | Only used when file_format_type is text                                                                                                                                |
-| row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format_type is text                                                                                                                                |
+| row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format_type is `text`, `csv` and `json`                                                                                                             |
 | have_partition                        | boolean | no       | false                                      | Whether you need processing partitions.                                                                                                                                |
 | partition_by                          | array   | no       | -                                          | Only used then have_partition is true                                                                                                                                  |
 | partition_dir_expression              | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                                                                                                                                  |
@@ -138,7 +138,7 @@ The separator between columns in a row of data. Only needed by `text` file forma
 
 ### row_delimiter [string]
 
-The separator between rows in a file. Only needed by `text` file format.
+The separator between rows in a file. Only needed by `text`, `csv` and `json` file format.
 
 ### have_partition [boolean]
 
