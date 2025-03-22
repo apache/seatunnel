@@ -160,17 +160,21 @@ public class MultipleTableJobConfigParser {
         this.isStartWithSavePoint = isStartWithSavePoint;
         this.seaTunnelJobConfig = ConfigBuilder.of(Paths.get(jobDefineFilePath), variables);
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
-        if (null != envOptions.getOptional(EnvCommonOptions.REF_PATH).orElse(null)) {
-            this.refMaps =
-                    ConfigBuilder.of(
-                            Paths.get(
-                                    envOptions
-                                            .getOptional(EnvCommonOptions.REF_PATH)
-                                            .orElseThrow(
-                                                    () ->
-                                                            new IllegalStateException(
-                                                                    "path of ref config is unset"))),
-                            variables);
+
+        String RefPath = envOptions.getOptional(EnvCommonOptions.REF_PATH).orElse(null);
+        if (null != RefPath) {
+            if (!Paths.get(RefPath).isAbsolute()) {
+                RefPath =
+                        Paths.get(
+                                        Paths.get(jobDefineFilePath)
+                                                .toAbsolutePath()
+                                                .getParent()
+                                                .toString(),
+                                        RefPath)
+                                .toAbsolutePath()
+                                .toString();
+            }
+            this.refMaps = ConfigBuilder.of(Paths.get(RefPath), variables);
         } else {
             this.refMaps = null;
         }
@@ -190,20 +194,14 @@ public class MultipleTableJobConfigParser {
         this.isStartWithSavePoint = isStartWithSavePoint;
         this.seaTunnelJobConfig = seaTunnelJobConfig;
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
-        if (null != envOptions.getOptional(EnvCommonOptions.REF_PATH).orElse(null)) {
-            this.refMaps =
-                    ConfigBuilder.of(
-                            Paths.get(
-                                    envOptions
-                                            .getOptional(EnvCommonOptions.REF_PATH)
-                                            .orElseThrow(
-                                                    () ->
-                                                            new IllegalStateException(
-                                                                    "path of ref config is unset"))),
-                            null);
+
+        String RefPath = envOptions.getOptional(EnvCommonOptions.REF_PATH).orElse(null);
+        if (null != RefPath) {
+            this.refMaps = ConfigBuilder.of(Paths.get(RefPath), null);
         } else {
             this.refMaps = null;
         }
+
         this.pipelineCheckpoints = pipelineCheckpoints;
     }
 

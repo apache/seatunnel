@@ -83,6 +83,28 @@ public class ConfigShadeTest {
     }
 
     @Test
+    public void testParseRefConfig() throws URISyntaxException {
+        URL resource = ConfigShadeTest.class.getResource("/ref.conf");
+        Assertions.assertNotNull(resource);
+        Config refConfigs = ConfigBuilder.of(Paths.get(resource.toURI()));
+        // Assertions.assertEquals(config.);
+        Assertions.assertEquals(
+                refConfigs.getConfig("mysql_prod").getString("query"), "select * from not_exist");
+        Assertions.assertEquals(refConfigs.getConfig("mysql_prod").getString("password"), "111111");
+
+        URL jobConfigUrl = ConfigShadeTest.class.getResource("/mysql_to_console_by_ref.conf");
+        Config jobConfig = ConfigBuilder.of(Paths.get(jobConfigUrl.toURI()));
+
+        Config mysqlPluginConfig = jobConfig.getConfigList("source").get(0);
+        String refId = mysqlPluginConfig.getString("__st_config_ref_key__ ");
+        Config refConfig = refConfigs.getConfig(refId);
+        Config renderConfig =
+                mysqlPluginConfig.withoutPath("__st_config_ref_key__").withFallback(refConfig);
+        Assertions.assertEquals(renderConfig.getString("query"), "select * from department");
+        Assertions.assertEquals(renderConfig.getString("password"), "111111");
+    }
+
+    @Test
     public void testUsePrivacyHandlerHocon() throws URISyntaxException {
         URL resource = ConfigShadeTest.class.getResource("/config.shade.conf");
         Assertions.assertNotNull(resource);

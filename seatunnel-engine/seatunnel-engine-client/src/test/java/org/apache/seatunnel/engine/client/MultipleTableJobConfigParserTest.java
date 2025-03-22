@@ -73,6 +73,27 @@ public class MultipleTableJobConfigParserTest {
     }
 
     @Test
+    public void testRefJobParse() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("/fake_to_console_by_ref.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        MultipleTableJobConfigParser jobConfigParser =
+                new MultipleTableJobConfigParser(filePath, new IdGenerator(), jobConfig);
+        ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse(null);
+        List<Action> actions = parse.getLeft();
+        Assertions.assertEquals(1, actions.size());
+        Assertions.assertEquals("Sink[0]-console-MultiTableSink", actions.get(0).getName());
+        Assertions.assertEquals(1, actions.get(0).getUpstream().size());
+        Assertions.assertEquals(
+                "Source[0]-FakeSource", actions.get(0).getUpstream().get(0).getName());
+
+        Assertions.assertFalse(jobConfig.getJobContext().isEnableCheckpoint());
+        Assertions.assertEquals(100, actions.get(0).getUpstream().get(0).getParallelism());
+        Assertions.assertEquals(100, actions.get(0).getParallelism());
+    }
+
+    @Test
     public void testComplexJobParse() {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/batch_fakesource_to_file_complex.conf");
