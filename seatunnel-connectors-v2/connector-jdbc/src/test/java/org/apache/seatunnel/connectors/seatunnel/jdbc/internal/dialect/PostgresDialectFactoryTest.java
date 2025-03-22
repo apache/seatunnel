@@ -32,9 +32,11 @@ public class PostgresDialectFactoryTest {
         PostgresDialectFactory postgresDialectFactory = new PostgresDialectFactory();
         JdbcDialect postgresLow = postgresDialectFactory.create("postgresLow", "");
         String[] fields = {"id", "name", "age"};
-        String[] uniqueKeyField = {"id"};
+        String[] primaryKeyFields = {"id"};
+        String[] uniqueKeyFields = {};
         Optional<String> upsertStatement =
-                postgresLow.getUpsertStatement("test", "test_a", fields, uniqueKeyField);
+                postgresLow.getUpsertStatement(
+                        "test", "test_a", fields, primaryKeyFields, uniqueKeyFields);
         Assertions.assertFalse(upsertStatement.isPresent());
     }
 }

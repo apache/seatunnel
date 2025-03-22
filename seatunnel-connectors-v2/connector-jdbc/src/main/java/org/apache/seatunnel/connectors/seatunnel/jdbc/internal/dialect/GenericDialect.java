@@ -74,7 +74,11 @@ public class GenericDialect implements JdbcDialect {
 
     @Override
     public Optional<String> getUpsertStatement(
-            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+            String database,
+            String tableName,
+            String[] fieldNames,
+            String[] primaryKeyFields,
+            String[] uniqueKeyFields) {
         throw new UnsupportedOperationException();
     }
 

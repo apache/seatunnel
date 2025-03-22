@@ -52,10 +52,14 @@ public class VerticaDialect implements JdbcDialect {
 
     @Override
     public Optional<String> getUpsertStatement(
-            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+            String database,
+            String tableName,
+            String[] fieldNames,
+            String[] primaryKeyFields,
+            String[] uniqueKeyFields) {
         List<String> nonUniqueKeyFields =
                 Arrays.stream(fieldNames)
-                        .filter(fieldName -> !Arrays.asList(uniqueKeyFields).contains(fieldName))
+                        .filter(fieldName -> !Arrays.asList(primaryKeyFields).contains(fieldName))
                         .collect(Collectors.toList());
         String valuesBinding =
                 Arrays.stream(fieldNames)
@@ -64,7 +68,7 @@ public class VerticaDialect implements JdbcDialect {
 
         String usingClause = String.format("SELECT %s FROM DUAL", valuesBinding);
         String onConditions =
-                Arrays.stream(uniqueKeyFields)
+                Arrays.stream(primaryKeyFields)
                         .map(
                                 fieldName ->
                                         String.format(

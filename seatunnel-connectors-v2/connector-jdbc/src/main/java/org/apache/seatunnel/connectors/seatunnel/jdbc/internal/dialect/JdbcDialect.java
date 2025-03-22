@@ -237,7 +237,11 @@ public interface JdbcDialect extends Serializable {
      * @return the dialects {@code UPSERT} statement or {@link Optional#empty()}.
      */
     Optional<String> getUpsertStatement(
-            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields);
+            String database,
+            String tableName,
+            String[] fieldNames,
+            String[] primaryKeyFields,
+            String[] uniqueKeyFields);
 
     /**
      * Different dialects optimize their PreparedStatement

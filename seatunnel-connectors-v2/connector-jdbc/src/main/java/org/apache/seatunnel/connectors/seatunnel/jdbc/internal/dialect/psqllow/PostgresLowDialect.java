@@ -29,7 +29,11 @@ public class PostgresLowDialect extends PostgresDialect {
 
     @Override
     public Optional<String> getUpsertStatement(
-            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+            String database,
+            String tableName,
+            String[] fieldNames,
+            String[] primaryKeyFields,
+            String[] uniqueKeyFields) {
         return Optional.empty();
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
@@ -186,9 +187,24 @@ public class JdbcOutputFormatBuilder {
                     dialect, database, table, tableSchema, databaseTableSchema);
         }
         if (enableUpsert) {
+            String[] uniqueColumnNames =
+                    tableSchema.getConstraintKeys().stream()
+                            .filter(
+                                    constraintKey ->
+                                            constraintKey.getConstraintType()
+                                                    == ConstraintKey.ConstraintType.UNIQUE_KEY)
+                            .map(ConstraintKey::getColumnNames)
+                            .flatMap(List::stream)
+                            .map(ConstraintKey.ConstraintKeyColumn::getColumnName)
+                            .toArray(String[]::new);
+
             Optional<String> upsertSQL =
                     dialect.getUpsertStatement(
-                            database, table, tableSchema.getFieldNames(), pkNames);
+                            database,
+                            table,
+                            tableSchema.getFieldNames(),
+                            pkNames,
+                            uniqueColumnNames);
             if (upsertSQL.isPresent()) {
                 return createSimpleExecutor(
                         upsertSQL.get(),

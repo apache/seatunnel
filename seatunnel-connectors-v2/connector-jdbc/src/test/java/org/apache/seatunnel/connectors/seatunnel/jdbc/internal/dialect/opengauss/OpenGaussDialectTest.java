@@ -31,9 +31,11 @@ public class OpenGaussDialectTest {
     void returnsUpsertStatementWhenUpdateClauseIsNotEmpty() {
         OpenGaussDialect dialect = new OpenGaussDialect();
         String[] fieldNames = {"id", "name", "age"};
+        String[] primaryKeyFields = {"id"};
         String[] uniqueKeyFields = {"id"};
         Optional<String> upsertStatement =
-                dialect.getUpsertStatement("test_db", "test_table", fieldNames, uniqueKeyFields);
+                dialect.getUpsertStatement(
+                        "test_db", "test_table", fieldNames, primaryKeyFields, uniqueKeyFields);
         assertTrue(upsertStatement.isPresent());
         assertEquals(
                 "INSERT INTO \"test_db\".\"test_table\" (\"id\", \"name\", \"age\") VALUES (:id, :name, :age) ON DUPLICATE KEY UPDATE \"name\"=EXCLUDED.\"name\", \"age\"=EXCLUDED.\"age\"",
@@ -41,12 +43,29 @@ public class OpenGaussDialectTest {
     }
 
     @Test
+    void returnsUpsertStatementWhenHasUniqueKeyFields() {
+        OpenGaussDialect dialect = new OpenGaussDialect();
+        String[] fieldNames = {"id", "name", "age", "id_card_no"};
+        String[] primaryKeyFields = {"id"};
+        String[] uniqueKeyFields = {"id", "id_card_no"};
+        Optional<String> upsertStatement =
+                dialect.getUpsertStatement(
+                        "test_db", "test_table", fieldNames, primaryKeyFields, uniqueKeyFields);
+        assertTrue(upsertStatement.isPresent());
+        assertEquals(
+                " MERGE INTO \"test_db\".\"test_table\" TARGET USING ( SELECT :id \"id\", :name \"name\", :age \"age\", :id_card_no \"id_card_no\" ) SOURCE ON (TARGET.\"id\"=SOURCE.\"id\")  WHEN MATCHED THEN UPDATE SET TARGET.\"name\"=SOURCE.\"name\", TARGET.\"age\"=SOURCE.\"age\", TARGET.\"id_card_no\"=SOURCE.\"id_card_no\" WHEN NOT MATCHED THEN INSERT (\"id\", \"name\", \"age\", \"id_card_no\") VALUES (SOURCE.\"id\", SOURCE.\"name\", SOURCE.\"age\", SOURCE.\"id_card_no\")",
+                upsertStatement.get());
+    }
+
+    @Test
     void returnsEmptyWhenUpdateClauseIsEmpty() {
         OpenGaussDialect dialect = new OpenGaussDialect();
         String[] fieldNames = {"id"};
+        String[] primaryKeyFields = {"id"};
         String[] uniqueKeyFields = {"id"};
         Optional<String> upsertStatement =
-                dialect.getUpsertStatement("test_db", "test_table", fieldNames, uniqueKeyFields);
+                dialect.getUpsertStatement(
+                        "test_db", "test_table", fieldNames, primaryKeyFields, uniqueKeyFields);
         assertFalse(upsertStatement.isPresent());
     }
 
@@ -54,9 +73,11 @@ public class OpenGaussDialectTest {
     void handlesEmptyFieldNames() {
         OpenGaussDialect dialect = new OpenGaussDialect();
         String[] fieldNames = {};
+        String[] primaryKeyFields = {"id"};
         String[] uniqueKeyFields = {"id"};
         Optional<String> upsertStatement =
-                dialect.getUpsertStatement("test_db", "test_table", fieldNames, uniqueKeyFields);
+                dialect.getUpsertStatement(
+                        "test_db", "test_table", fieldNames, primaryKeyFields, uniqueKeyFields);
         assertFalse(upsertStatement.isPresent());
     }
 
@@ -64,9 +85,11 @@ public class OpenGaussDialectTest {
     void handlesEmptyUniqueKeyFields() {
         OpenGaussDialect dialect = new OpenGaussDialect();
         String[] fieldNames = {"id", "name", "age"};
+        String[] primaryKeyFields = {};
         String[] uniqueKeyFields = {};
         Optional<String> upsertStatement =
-                dialect.getUpsertStatement("test_db", "test_table", fieldNames, uniqueKeyFields);
+                dialect.getUpsertStatement(
+                        "test_db", "test_table", fieldNames, primaryKeyFields, uniqueKeyFields);
         assertTrue(upsertStatement.isPresent());
         assertEquals(
                 "INSERT INTO \"test_db\".\"test_table\" (\"id\", \"name\", \"age\") VALUES (:id, :name, :age) ON DUPLICATE KEY UPDATE \"id\"=EXCLUDED.\"id\", \"name\"=EXCLUDED.\"name\", \"age\"=EXCLUDED.\"age\"",

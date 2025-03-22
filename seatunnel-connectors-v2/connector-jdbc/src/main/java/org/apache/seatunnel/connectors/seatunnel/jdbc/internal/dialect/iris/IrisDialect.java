@@ -107,7 +107,11 @@ public class IrisDialect implements JdbcDialect {
 
     @Override
     public Optional<String> getUpsertStatement(
-            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+            String database,
+            String tableName,
+            String[] fieldNames,
+            String[] primaryKeyFields,
+            String[] uniqueKeyFields) {
         String insertIntoStatement = getInsertIntoStatement(database, tableName, fieldNames);
         return Optional.of(insertIntoStatement);
     }
