@@ -702,7 +702,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     taskGroupExecutionTracker.exception(e);
                 }
             } catch (Throwable e) {
-                logger.warning("Exception in " + t, e);
+                if (taskGroupExecutionTracker.isCancel.get()) {
+                    logger.warning(String.format("Interrupted task %d - %s", t.getTaskID(), t));
+                } else {
+                    logger.warning("Exception in " + t, e);
+                }
                 taskGroupExecutionTracker.exception(e);
             } finally {
                 taskGroupExecutionTracker.taskDone(t);
