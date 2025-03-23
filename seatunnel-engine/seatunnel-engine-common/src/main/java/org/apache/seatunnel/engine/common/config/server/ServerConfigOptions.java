@@ -208,31 +208,31 @@ public class ServerConfigOptions {
         public static final Option<String> KEY_STORE_PATH =
                 Options.key("key-store-path")
                         .stringType()
-                        .defaultValue("")
+                        .noDefaultValue()
                         .withDescription("The key store path of the https server.");
 
         public static final Option<String> KEY_STORE_PASSWORD =
                 Options.key("key-store-password")
                         .stringType()
-                        .defaultValue("")
+                        .noDefaultValue()
                         .withDescription("The key store password of the https server.");
 
         public static final Option<String> KEY_MANAGER_PASSWORD =
                 Options.key("key-manager-password")
                         .stringType()
-                        .defaultValue("")
+                        .noDefaultValue()
                         .withDescription("The key manager password of the https server.");
 
         public static final Option<String> TRUST_STORE_PATH =
                 Options.key("trust-store-path")
                         .stringType()
-                        .defaultValue("")
+                        .noDefaultValue()
                         .withDescription("The trust store path of the https server.");
 
         public static final Option<String> TRUST_STORE_PASSWORD =
                 Options.key("trust-store-password")
                         .stringType()
-                        .defaultValue("")
+                        .noDefaultValue()
                         .withDescription("The trust store password of the https server.");
 
         public static final Option<String> CONTEXT_PATH =
