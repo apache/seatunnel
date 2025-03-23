@@ -33,7 +33,10 @@ public class PythonTransformFactory implements TableTransformFactory {
 
     @Override
     public OptionRule optionRule() {
-        return null;
+        return OptionRule
+                .builder()
+                .required(PythonTransformConfig.SOURCE_CODE)
+                .build();
     }
 
     @Override

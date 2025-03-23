@@ -18,10 +18,31 @@ package org.apache.seatunnel.transform.python;
 
 
 import lombok.Getter;
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.transform.common.ErrorHandleWay;
 
 public class PythonTransformConfig {
+
+    public static final Option<String> SOURCE_CODE =
+            Options.key("source_code")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("source_code to compile");
+
+    public static final Option<Integer> JAVA_SERVER_PORT =
+            Options.key("java_server_port")
+                    .intType()
+                    .defaultValue(25333)
+                    .withDescription("Java Server used to receive python code");
+
+
+    public static final Option<Integer> PYTHON_SERVER_PORT =
+            Options.key("python_server_port")
+                    .intType()
+                    .defaultValue(25334)
+                    .withDescription("Python Server used to receive java code");
 
     @Getter
     private final ErrorHandleWay errorHandleWay;
