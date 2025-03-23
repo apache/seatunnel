@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.easysearch.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -26,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.RetryUtils.RetryMaterial;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.client.EasysearchClient;
+import org.apache.seatunnel.connectors.seatunnel.easysearch.config.EasysearchSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.BulkResponse;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.IndexInfo;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.exception.EasysearchConnectorErrorCode;
@@ -60,11 +60,9 @@ public class EasysearchSinkWriter
     public EasysearchSinkWriter(
             SinkWriter.Context context,
             SeaTunnelRowType seaTunnelRowType,
-            Config pluginConfig,
-            int maxBatchSize,
-            int maxRetryCount) {
+            ReadonlyConfig pluginConfig) {
         this.context = context;
-        this.maxBatchSize = maxBatchSize;
+        this.maxBatchSize = pluginConfig.get(EasysearchSinkOptions.MAX_BATCH_SIZE);
 
         IndexInfo indexInfo = new IndexInfo(pluginConfig);
         ezsClient = EasysearchClient.createInstance(pluginConfig);
@@ -72,7 +70,11 @@ public class EasysearchSinkWriter
 
         this.requestEzsList = new ArrayList<>(maxBatchSize);
         this.retryMaterial =
-                new RetryMaterial(maxRetryCount, true, exception -> true, DEFAULT_SLEEP_TIME_MS);
+                new RetryMaterial(
+                        pluginConfig.get(EasysearchSinkOptions.MAX_RETRY_COUNT),
+                        true,
+                        exception -> true,
+                        DEFAULT_SLEEP_TIME_MS);
     }
 
     @Override

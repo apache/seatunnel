@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-cdc-sqlserver.md';
+
 # SQL Server CDC
 
 > Sql Server CDC source connector
@@ -227,3 +229,6 @@ sink {
   }
 ```
 
+## Changelog
+
+<ChangeLog />

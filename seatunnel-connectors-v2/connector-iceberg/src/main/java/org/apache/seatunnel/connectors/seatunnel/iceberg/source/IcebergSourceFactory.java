@@ -32,8 +32,9 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.catalog.IcebergCatalog;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.catalog.IcebergCatalogFactory;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonOptions;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceOptions;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
@@ -42,15 +43,6 @@ import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig.KEY_CASE_SENSITIVE;
-import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig.KEY_END_SNAPSHOT_ID;
-import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig.KEY_INCREMENT_SCAN_INTERVAL;
-import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig.KEY_START_SNAPSHOT_ID;
-import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig.KEY_START_SNAPSHOT_TIMESTAMP;
-import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig.KEY_STREAM_SCAN_STRATEGY;
-import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig.KEY_USE_SNAPSHOT_ID;
-import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig.KEY_USE_SNAPSHOT_TIMESTAMP;
 
 @Slf4j
 @AutoService(Factory.class)
@@ -65,20 +57,25 @@ public class IcebergSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        CommonConfig.KEY_CATALOG_NAME,
-                        CommonConfig.KEY_NAMESPACE,
-                        CommonConfig.CATALOG_PROPS)
-                .exclusive(CommonConfig.KEY_TABLE, SourceConfig.KEY_TABLE_LIST)
+                        IcebergCommonOptions.KEY_CATALOG_NAME,
+                        IcebergCommonOptions.KEY_NAMESPACE,
+                        IcebergCommonOptions.CATALOG_PROPS)
+                .exclusive(IcebergCommonOptions.KEY_TABLE, IcebergSourceOptions.KEY_TABLE_LIST)
                 .optional(
                         ConnectorCommonOptions.SCHEMA,
-                        KEY_CASE_SENSITIVE,
-                        KEY_START_SNAPSHOT_TIMESTAMP,
-                        KEY_START_SNAPSHOT_ID,
-                        KEY_END_SNAPSHOT_ID,
-                        KEY_USE_SNAPSHOT_ID,
-                        KEY_USE_SNAPSHOT_TIMESTAMP,
-                        KEY_STREAM_SCAN_STRATEGY,
-                        KEY_INCREMENT_SCAN_INTERVAL)
+                        IcebergSourceOptions.KEY_CASE_SENSITIVE,
+                        IcebergSourceOptions.KEY_START_SNAPSHOT_TIMESTAMP,
+                        IcebergSourceOptions.KEY_START_SNAPSHOT_ID,
+                        IcebergSourceOptions.KEY_END_SNAPSHOT_ID,
+                        IcebergSourceOptions.KEY_USE_SNAPSHOT_ID,
+                        IcebergSourceOptions.KEY_USE_SNAPSHOT_TIMESTAMP,
+                        IcebergSourceOptions.KEY_STREAM_SCAN_STRATEGY,
+                        IcebergSourceOptions.KEY_INCREMENT_SCAN_INTERVAL,
+                        IcebergCommonOptions.HADOOP_PROPS,
+                        IcebergSourceOptions.HADOOP_CONF_PATH_PROP,
+                        IcebergCommonOptions.KERBEROS_PRINCIPAL,
+                        IcebergCommonOptions.KERBEROS_KEYTAB_PATH,
+                        IcebergCommonOptions.KRB5_PATH)
                 .build();
     }
 
@@ -86,7 +83,7 @@ public class IcebergSourceFactory implements TableSourceFactory {
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         ReadonlyConfig options = context.getOptions();
-        SourceConfig config = new SourceConfig(options);
+        IcebergSourceConfig config = new IcebergSourceConfig(options);
         CatalogTable catalogTable;
         if (options.get(ConnectorCommonOptions.SCHEMA) != null) {
             TablePath tablePath = config.getTableList().get(0).getTablePath();

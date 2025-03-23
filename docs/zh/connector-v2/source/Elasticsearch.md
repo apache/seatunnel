@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-elasticsearch.md';
+
 # Elasticsearch
 
 > Elasticsearch source 连接器
@@ -17,25 +19,27 @@
 
 ## 配置参数选项
 
-| 参数名称                | 类型    | 是否必须 | 默认值或者描述                                          |
-| ----------------------- | ------- | -------- | ------------------------------------------------------- |
-| hosts                   | 数组    |          | -                                                       |
-| username                | string  | no       | -                                                       |
-| password                | string  | no       | -                                                       |
+| 参数名称                | 类型    | 是否必须 | 默认值或者描述                             |
+| ----------------------- | ------- | -------- |-------------------------------------|
+| hosts                   | 数组    |          | -                                   |
+| username                | string  | no       | -                                   |
+| password                | string  | no       | -                                   |
 | index                   | string  | No       | 单索引同步配置，如果index_list没有配置，则必须配置index |
-| index_list              | array   | no       | 用来定义多索引同步任务                                  |
-| source                  | array   | no       | -                                                       |
-| query                   | json    | no       | {"match_all": {}}                                       |
-| scroll_time             | string  | no       | 1m                                                      |
-| scroll_size             | int     | no       | 100                                                     |
-| tls_verify_certificate  | boolean | no       | true                                                    |
-| tls_verify_hostnames    | boolean | no       | true                                                    |
-| array_column            | map     | no       |                                                         |
-| tls_keystore_path       | string  | no       | -                                                       |
-| tls_keystore_password   | string  | no       | -                                                       |
-| tls_truststore_path     | string  | no       | -                                                       |
-| tls_truststore_password | string  | no       | -                                                       |
-| common-options          |         | no       | -                                                       |
+| index_list              | array   | no       | 用来定义多索引同步任务                         |
+| source                  | array   | no       | -                                   |
+| query                   | json    | no       | {"match_all": {}}                   |
+| search_type             | json    | no       | 查询方式，sql或者dsl,默认 dsl                |
+| sql_query               | json    | no       | sql 查询语句                            |
+| scroll_time             | string  | no       | 1m                                  |
+| scroll_size             | int     | no       | 100                                 |
+| tls_verify_certificate  | boolean | no       | true                                |
+| tls_verify_hostnames    | boolean | no       | true                                |
+| array_column            | map     | no       |                                     |
+| tls_keystore_path       | string  | no       | -                                   |
+| tls_keystore_password   | string  | no       | -                                   |
+| tls_truststore_path     | string  | no       | -                                   |
+| tls_truststore_password | string  | no       | -                                   |
+| common-options          |         | no       | -                                   |
 
 ### hosts [array]
 
@@ -245,3 +249,24 @@ source {
     }
 }
 ```
+
+案例六 : sql 方式查询
+注意: sql查询不支持map和数组类型
+```hocon
+source {
+  Elasticsearch {
+    hosts = ["https://elasticsearch:9200"]
+    username = "elastic"
+    password = "elasticsearch"
+    tls_verify_certificate = false
+    tls_verify_hostname = false
+    index = "st_index_sql"
+    sql_query = "select * from st_index_sql where c_int>=10 and c_int<=20"
+    search_type = "sql"
+  }
+}
+```
+
+## 变更日志
+
+<ChangeLog />

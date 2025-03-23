@@ -20,23 +20,18 @@ package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.CONNECT_TIMEOUT_MS;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.DATABASES;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.EPOCH;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.QUERY_TIMEOUT_SEC;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.URL;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig.LOWER_BOUND;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig.PARTITION_NUM;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig.SPLIT_COLUMN;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig.SQL;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig.UPPER_BOUND;
+import java.io.Serializable;
 
 @AutoService(Factory.class)
 public class InfluxDBSourceFactory implements TableSourceFactory {
@@ -48,11 +43,33 @@ public class InfluxDBSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(URL, SQL, DATABASES, ConnectorCommonOptions.SCHEMA)
-                .bundled(USERNAME, PASSWORD)
-                .bundled(LOWER_BOUND, UPPER_BOUND, PARTITION_NUM, SPLIT_COLUMN)
-                .optional(EPOCH, CONNECT_TIMEOUT_MS, QUERY_TIMEOUT_SEC)
+                .required(
+                        InfluxDBSourceOptions.URL,
+                        InfluxDBSourceOptions.SQL,
+                        InfluxDBSourceOptions.DATABASES,
+                        ConnectorCommonOptions.SCHEMA)
+                .bundled(InfluxDBSourceOptions.USERNAME, InfluxDBSourceOptions.PASSWORD)
+                .bundled(
+                        InfluxDBSourceOptions.LOWER_BOUND,
+                        InfluxDBSourceOptions.UPPER_BOUND,
+                        InfluxDBSourceOptions.PARTITION_NUM,
+                        InfluxDBSourceOptions.SPLIT_COLUMN)
+                .optional(
+                        InfluxDBSourceOptions.EPOCH,
+                        InfluxDBSourceOptions.SQL_WHERE,
+                        InfluxDBSourceOptions.CONNECT_TIMEOUT_MS,
+                        InfluxDBSourceOptions.QUERY_TIMEOUT_SEC)
                 .build();
+    }
+
+    @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        return () ->
+                (SeaTunnelSource<T, SplitT, StateT>)
+                        new InfluxDBSource(
+                                CatalogTableUtil.buildWithConfig(context.getOptions()),
+                                SourceConfig.loadConfig(context.getOptions()));
     }
 
     @Override

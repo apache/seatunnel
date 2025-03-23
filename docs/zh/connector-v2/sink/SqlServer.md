@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # SQLServer
 
 > JDBC SQLServer Sink 连接器
@@ -174,3 +176,7 @@ Jdbc {
 # 如果想了解更多关于如何配置 SeaTunnel 的信息，并查看完整的接收器插件列表，
 # 请访问 https://seatunnel.apache.org/docs/connector-v2/sink/Jdbc
 ```
+
+## 变更日志
+
+<ChangeLog />

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # PostgreSql
 
 > JDBC PostgreSql Sink Connector
@@ -272,3 +274,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

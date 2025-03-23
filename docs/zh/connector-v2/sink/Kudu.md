@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-kudu.md';
+
 # Kudu
 
 > Kudu数据接收器
@@ -193,17 +195,6 @@ sink {
 }
 ```
 
-## 更改日志
+## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 添加Kudu数据接收器
-
-### 2.3.0-beta 2022-10-20
-
-- [改进]Kudu Sink连接器支持追加销售行（[2881](https://github.com/apache/seatunnel/pull/2881))
-
-### 下个版本
-
-- 将插件名称从"KuduSink"更改为"Kudu"[3432](https://github.com/apache/seatunnel/pull/3432)
-
+<ChangeLog />

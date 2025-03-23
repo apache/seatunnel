@@ -18,8 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.easysearch.catalog;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigUtil;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -57,12 +57,13 @@ public class EasysearchCatalog implements Catalog {
 
     private final String catalogName;
     private final String defaultDatabase;
-    private final Config pluginConfig;
+    private final ReadonlyConfig pluginConfig;
 
     private EasysearchClient ezsClient;
 
     // todo: do we need default database?
-    public EasysearchCatalog(String catalogName, String defaultDatabase, Config easySearchConfig) {
+    public EasysearchCatalog(
+            String catalogName, String defaultDatabase, ReadonlyConfig easySearchConfig) {
         this.catalogName = checkNotNull(catalogName, "catalogName cannot be null");
         this.defaultDatabase = defaultDatabase;
         this.pluginConfig = checkNotNull(easySearchConfig, "easySearchConfig cannot be null");

@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,7 +36,7 @@ public class IcebergAggregatedCommitter
     private final IcebergTableLoader tableLoader;
     private final IcebergFilesCommitter filesCommitter;
 
-    public IcebergAggregatedCommitter(SinkConfig config, CatalogTable catalogTable) {
+    public IcebergAggregatedCommitter(IcebergSinkConfig config, CatalogTable catalogTable) {
         this.tableLoader = IcebergTableLoader.create(config, catalogTable);
         this.filesCommitter = IcebergFilesCommitter.of(config, tableLoader);
     }

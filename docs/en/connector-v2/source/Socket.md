@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-socket.md';
+
 # Socket
 
 > Socket source connector
@@ -106,3 +108,6 @@ spark
 [spark]
 ```
 
+## Changelog
+
+<ChangeLog />

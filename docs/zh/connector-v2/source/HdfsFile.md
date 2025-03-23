@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-hadoop.md';
+
 # Hdfs文件
 
 > Hdfs文件 数据源连接器
@@ -168,7 +170,7 @@ source {
 
 transform {
   # 如果您想获取有关如何配置 seatunnel 和查看转换插件完整列表的更多信息，
-    # 请访问 https://seatunnel.apache.org/docs/category/transform-v2
+    # 请访问 https://seatunnel.apache.org/docs/transform-v2
 }
 
 sink {
@@ -204,3 +206,7 @@ sink {
   }
 }
 ```
+
+## 变更日志
+
+<ChangeLog />

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-doris.md';
+
 # Doris
 
 > Doris sink connector
@@ -438,18 +440,4 @@ sink {
 
 ## Changelog
 
-### 2.3.0-beta 2022-10-20
-
-- Add Doris Sink Connector
-
-### Next version
-
-- [Improve] Change Doris Config Prefix [3856](https://github.com/apache/seatunnel/pull/3856)
-
-- [Improve] Refactor some Doris Sink code as well as support 2pc and cdc [4235](https://github.com/apache/seatunnel/pull/4235)
-
-:::tip
-
-PR 4235 is an incompatible modification to PR 3856. Please refer to PR 4235 to use the new Doris connector
-
-:::
+<ChangeLog />

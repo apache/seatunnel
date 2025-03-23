@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http-wechat.md';
+
 # Enterprise WeChat
 
 > Enterprise WeChat 接收器连接器
@@ -65,11 +67,4 @@ WeChat {
 
 ## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 添加 Enterprise-WeChat 接收器连接器
-
-### 2.3.0-beta 2022-10-20
-
-- [Bug修复] 修复企业微信Sink数据序列化问题 ([2856](https://github.com/apache/seatunnel/pull/2856))
-
+<ChangeLog />
