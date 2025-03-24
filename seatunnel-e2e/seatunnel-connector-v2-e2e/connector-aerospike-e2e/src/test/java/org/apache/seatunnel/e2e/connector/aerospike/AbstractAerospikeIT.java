@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.connector.aerospike;
 
+import com.aerospike.client.*;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -32,11 +33,6 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.aerospike.client.AerospikeClient;
-import com.aerospike.client.Bin;
-import com.aerospike.client.Host;
-import com.aerospike.client.Key;
-import com.aerospike.client.Record;
 import com.aerospike.client.policy.ClientPolicy;
 import com.aerospike.client.policy.ScanPolicy;
 import com.aerospike.client.policy.WritePolicy;
@@ -116,7 +112,7 @@ public abstract class AbstractAerospikeIT extends TestSuiteBase implements TestR
 
     @TestTemplate
     public void testAerospikeSink(TestContainer container) throws Exception {
-        Container.ExecResult execResult = container.executeJob("/aerospike_sink_to_console.conf");
+        Container.ExecResult execResult = container.executeJob("/fake_to_aerospike_sink.conf");
         validateSinkData();
         Assertions.assertEquals(0, execResult.getExitCode());
     }
@@ -208,7 +204,7 @@ public abstract class AbstractAerospikeIT extends TestSuiteBase implements TestR
 
     @TestTemplate
     public void testQueryByKey(TestContainer container) throws Exception {
-        final String testKey = "query_test_key";
+        final int testKey = 1234;
         Map<String, Object> testData = new HashMap<>();
         testData.put("id", 1001L);
         testData.put(
