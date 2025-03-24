@@ -102,7 +102,7 @@ public class FixedChunkSplitter extends ChunkSplitter {
         boolean paddingAtEnd = true;
         boolean isCaseInsensitive = false;
         String collationSequence =
-                jdbcDialect.getCollationSequence(getOrEstablishConnection(), config.getCollate());
+                jdbcDialect.getCollationSequence(getOrEstablishConnection(), config.getStringSplitModeCollate());
         if (collationSequence.matches(".*[aA][Aa].*")) {
             isCaseInsensitive = true;
             collationSequence = filterOutUppercase(collationSequence);

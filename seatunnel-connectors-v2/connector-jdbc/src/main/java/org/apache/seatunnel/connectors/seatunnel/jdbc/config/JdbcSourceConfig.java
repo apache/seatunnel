@@ -47,7 +47,7 @@ public class JdbcSourceConfig implements Serializable {
 
     private StringSplitMode stringSplitMode;
 
-    private String collate;
+    private String stringSplitModeCollate;
 
     public static JdbcSourceConfig of(ReadonlyConfig config) {
         JdbcSourceConfig.Builder builder = JdbcSourceConfig.builder();
@@ -61,7 +61,7 @@ public class JdbcSourceConfig implements Serializable {
                         && config.getOptional(JdbcOptions.PARTITION_COLUMN).isPresent();
         builder.useDynamicSplitter(!isOldVersion);
         builder.stringSplitMode(config.get(JdbcOptions.STRING_SPLIT_MODE));
-        builder.collate(config.get(JdbcOptions.STRING_SPLIT_MODE_COLLATE));
+        builder.stringSplitModeCollate(config.get(JdbcOptions.STRING_SPLIT_MODE_COLLATE));
         builder.splitSize(config.get(JdbcSourceOptions.SPLIT_SIZE));
         builder.splitEvenDistributionFactorUpperBound(
                 config.get(JdbcSourceOptions.SPLIT_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND));
