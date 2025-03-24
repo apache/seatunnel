@@ -159,8 +159,8 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                                                 "seatunnel-engine:" + JDK_DOCKER_IMAGE)))
                         .waitingFor(Wait.forLogMessage(".*received new worker register:.*", 1));
         copySeaTunnelStarterToContainer(server);
-        server.setPortBindings(Collections.singletonList("5801:5801"));
-        server.setExposedPorts(Collections.singletonList(5801));
+        server.setPortBindings(Arrays.asList("5801:5801", "8080:8080"));
+        server.setExposedPorts(Arrays.asList(5801, 8080));
 
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(

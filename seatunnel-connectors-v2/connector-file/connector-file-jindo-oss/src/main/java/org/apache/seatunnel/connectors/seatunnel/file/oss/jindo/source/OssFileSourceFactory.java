@@ -22,11 +22,10 @@ import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.config.OssFileSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.config.OssConfigOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -42,19 +41,23 @@ public class OssFileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(FileBaseOptions.FILE_PATH)
-                .required(OssFileSourceOptions.BUCKET)
-                .required(OssFileSourceOptions.ACCESS_KEY)
-                .required(OssFileSourceOptions.ACCESS_SECRET)
-                .required(OssFileSourceOptions.ENDPOINT)
-                .required(FileBaseSourceOptions.FILE_FORMAT_TYPE)
+                .required(OssConfigOptions.FILE_PATH)
+                .required(OssConfigOptions.BUCKET)
+                .required(OssConfigOptions.ACCESS_KEY)
+                .required(OssConfigOptions.ACCESS_SECRET)
+                .required(OssConfigOptions.ENDPOINT)
+                .required(BaseSourceConfigOptions.FILE_FORMAT_TYPE)
                 .conditional(
-                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
+                        FileFormat.TEXT,
+                        BaseSourceConfigOptions.FIELD_DELIMITER)
+                .conditional(
+                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
                         FileFormat.XML,
-                        FileBaseSourceOptions.XML_ROW_TAG,
-                        FileBaseSourceOptions.XML_USE_ATTR_FORMAT)
+                        BaseSourceConfigOptions.XML_ROW_TAG,
+                        BaseSourceConfigOptions.XML_USE_ATTR_FORMAT)
                 .conditional(
-                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
                                 FileFormat.TEXT,
                                 FileFormat.JSON,
@@ -62,18 +65,14 @@ public class OssFileSourceFactory implements TableSourceFactory {
                                 FileFormat.CSV,
                                 FileFormat.XML),
                         ConnectorCommonOptions.SCHEMA)
-                .optional(FileBaseSourceOptions.ENCODING)
-                .optional(FileBaseSourceOptions.READ_COLUMNS)
-                .optional(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH)
-                .optional(FileBaseSourceOptions.FIELD_DELIMITER)
-                .optional(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
-                .optional(FileBaseSourceOptions.DATE_FORMAT)
-                .optional(FileBaseSourceOptions.DATETIME_FORMAT)
-                .optional(FileBaseSourceOptions.TIME_FORMAT)
-                .optional(FileBaseSourceOptions.SHEET_NAME)
-                .optional(FileBaseSourceOptions.FILE_FILTER_PATTERN)
-                .optional(FileBaseSourceOptions.NULL_FORMAT)
-                .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
+                .optional(BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH)
+                .optional(BaseSourceConfigOptions.DATE_FORMAT)
+                .optional(BaseSourceConfigOptions.DATETIME_FORMAT)
+                .optional(BaseSourceConfigOptions.TIME_FORMAT)
+                .optional(BaseSourceConfigOptions.FILE_FILTER_PATTERN)
+                .optional(BaseSourceConfigOptions.COMPRESS_CODEC)
+                .optional(BaseSourceConfigOptions.NULL_FORMAT)
+                .optional(BaseSourceConfigOptions.FILENAME_EXTENSION)
                 .build();
     }
 

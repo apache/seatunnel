@@ -30,7 +30,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
@@ -439,7 +439,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         if (pluginConfig != null) {
             charset =
                     ReadonlyConfig.fromConfig(pluginConfig)
-                            .getOptional(FileBaseSourceOptions.ENCODING)
+                            .getOptional(BaseSourceConfigOptions.ENCODING)
                             .map(Charset::forName)
                             .orElse(StandardCharsets.UTF_8);
         }

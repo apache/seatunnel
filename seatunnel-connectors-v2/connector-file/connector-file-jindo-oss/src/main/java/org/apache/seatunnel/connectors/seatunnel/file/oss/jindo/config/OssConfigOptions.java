@@ -19,9 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 
-public class OssFileBaseOptions extends FileBaseSourceOptions {
+public class OssConfigOptions extends BaseSourceConfigOptions {
     public static final Option<String> ACCESS_KEY =
             Options.key("access_key")
                     .stringType()

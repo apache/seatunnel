@@ -23,7 +23,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosConf;
-import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosFileBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosConfigOptions;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -37,19 +37,19 @@ public class COSStorage extends AbstractStorage {
         Config config = fillBucket(readonlyConfig, configuration);
         config =
                 config.withValue(
-                        CosFileBaseOptions.SECRET_ID.key(),
+                        CosConfigOptions.SECRET_ID.key(),
                         ConfigValueFactory.fromAnyRef(
-                                configuration.get(CosFileBaseOptions.SECRET_ID.key())));
+                                configuration.get(CosConfigOptions.SECRET_ID.key())));
         config =
                 config.withValue(
-                        CosFileBaseOptions.SECRET_KEY.key(),
+                        CosConfigOptions.SECRET_KEY.key(),
                         ConfigValueFactory.fromAnyRef(
-                                configuration.get(CosFileBaseOptions.SECRET_KEY.key())));
+                                configuration.get(CosConfigOptions.SECRET_KEY.key())));
         config =
                 config.withValue(
-                        CosFileBaseOptions.REGION.key(),
+                        CosConfigOptions.REGION.key(),
                         ConfigValueFactory.fromAnyRef(
-                                configuration.get(CosFileBaseOptions.REGION.key())));
+                                configuration.get(CosConfigOptions.REGION.key())));
         HadoopConf hadoopConf = CosConf.buildWithConfig(config);
         Map<String, String> propsInConfiguration =
                 configuration.getPropsWithPrefix(StringUtils.EMPTY);

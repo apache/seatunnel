@@ -25,10 +25,10 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.sftp.config.SftpFileSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.sftp.config.SftpConfigOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -45,19 +45,23 @@ public class SftpFileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .exclusive(SftpFileSourceOptions.TABLE_CONFIGS, SftpFileSourceOptions.FILE_PATH)
-                .optional(SftpFileSourceOptions.SFTP_HOST)
-                .optional(SftpFileSourceOptions.SFTP_PORT)
-                .optional(SftpFileSourceOptions.SFTP_USER)
-                .optional(SftpFileSourceOptions.SFTP_PASSWORD)
-                .optional(FileBaseSourceOptions.FILE_FORMAT_TYPE)
+                .optional(SftpConfigOptions.FILE_PATH)
+                .optional(SftpConfigOptions.SFTP_HOST)
+                .optional(SftpConfigOptions.SFTP_PORT)
+                .optional(SftpConfigOptions.SFTP_USER)
+                .optional(SftpConfigOptions.SFTP_PASSWORD)
+                .optional(BaseSourceConfigOptions.FILE_FORMAT_TYPE)
                 .conditional(
-                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
+                        FileFormat.TEXT,
+                        BaseSourceConfigOptions.FIELD_DELIMITER)
+                .conditional(
+                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
                         FileFormat.XML,
-                        FileBaseSourceOptions.XML_ROW_TAG,
-                        FileBaseSourceOptions.XML_USE_ATTR_FORMAT)
+                        BaseSourceConfigOptions.XML_ROW_TAG,
+                        BaseSourceConfigOptions.XML_USE_ATTR_FORMAT)
                 .conditional(
-                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
                                 FileFormat.TEXT,
                                 FileFormat.JSON,
@@ -65,18 +69,15 @@ public class SftpFileSourceFactory implements TableSourceFactory {
                                 FileFormat.CSV,
                                 FileFormat.XML),
                         ConnectorCommonOptions.SCHEMA)
-                .optional(FileBaseSourceOptions.ENCODING)
-                .optional(FileBaseSourceOptions.READ_COLUMNS)
-                .optional(FileBaseSourceOptions.FIELD_DELIMITER)
-                .optional(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
-                .optional(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH)
-                .optional(FileBaseSourceOptions.DATE_FORMAT)
-                .optional(FileBaseSourceOptions.DATETIME_FORMAT)
-                .optional(FileBaseSourceOptions.TIME_FORMAT)
-                .optional(FileBaseSourceOptions.SHEET_NAME)
-                .optional(FileBaseSourceOptions.FILE_FILTER_PATTERN)
-                .optional(FileBaseSourceOptions.NULL_FORMAT)
-                .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
+                .optional(BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH)
+                .optional(BaseSourceConfigOptions.DATE_FORMAT)
+                .optional(BaseSourceConfigOptions.DATETIME_FORMAT)
+                .optional(BaseSourceConfigOptions.TIME_FORMAT)
+                .optional(BaseSourceConfigOptions.FILE_FILTER_PATTERN)
+                .optional(BaseSourceConfigOptions.COMPRESS_CODEC)
+                .optional(BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC)
+                .optional(BaseSourceConfigOptions.NULL_FORMAT)
+                .optional(BaseSourceConfigOptions.FILENAME_EXTENSION)
                 .build();
     }
 

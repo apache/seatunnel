@@ -26,10 +26,9 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosConf;
-import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosFileSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
 
@@ -50,11 +49,11 @@ public class CosFileSink extends BaseFileSink {
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
-                        FileBaseOptions.FILE_PATH.key(),
-                        CosFileSinkOptions.REGION.key(),
-                        CosFileSinkOptions.SECRET_ID.key(),
-                        CosFileSinkOptions.SECRET_KEY.key(),
-                        CosFileSinkOptions.BUCKET.key());
+                        CosConfigOptions.FILE_PATH.key(),
+                        CosConfigOptions.REGION.key(),
+                        CosConfigOptions.SECRET_ID.key(),
+                        CosConfigOptions.SECRET_KEY.key(),
+                        CosConfigOptions.BUCKET.key());
         if (!result.isSuccess()) {
             throw new FileConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,

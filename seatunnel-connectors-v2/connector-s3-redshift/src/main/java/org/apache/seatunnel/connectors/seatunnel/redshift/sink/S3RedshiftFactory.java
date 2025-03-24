@@ -20,10 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.redshift.sink;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
-import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3FileBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3ConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfigOptions;
 
 import com.google.auto.service.AutoService;
@@ -40,35 +40,35 @@ public class S3RedshiftFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        S3FileBaseOptions.S3_BUCKET,
+                        S3ConfigOptions.S3_BUCKET,
                         S3RedshiftConfigOptions.JDBC_URL,
                         S3RedshiftConfigOptions.JDBC_USER,
                         S3RedshiftConfigOptions.JDBC_PASSWORD,
                         S3RedshiftConfigOptions.EXECUTE_SQL,
-                        FileBaseSourceOptions.FILE_PATH,
-                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER)
+                        BaseSourceConfigOptions.FILE_PATH,
+                        S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER)
                 .conditional(
-                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER,
-                        S3FileBaseOptions.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
-                        S3FileBaseOptions.S3_ACCESS_KEY,
-                        S3FileBaseOptions.S3_SECRET_KEY)
-                .optional(S3FileBaseOptions.S3_PROPERTIES)
-                .optional(FileBaseSinkOptions.FILE_FORMAT_TYPE)
+                        S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER,
+                        S3ConfigOptions.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
+                        S3ConfigOptions.S3_ACCESS_KEY,
+                        S3ConfigOptions.S3_SECRET_KEY)
+                .optional(S3ConfigOptions.S3_PROPERTIES)
+                .optional(BaseSinkConfig.FILE_FORMAT_TYPE)
                 .conditional(
-                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
+                        BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
-                        FileBaseSinkOptions.FIELD_DELIMITER,
-                        FileBaseSinkOptions.ROW_DELIMITER)
+                        BaseSinkConfig.FIELD_DELIMITER,
+                        BaseSinkConfig.ROW_DELIMITER)
                 .conditional(
-                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
+                        BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.CSV,
-                        FileBaseSinkOptions.ROW_DELIMITER)
-                .optional(FileBaseSinkOptions.PARTITION_BY)
-                .optional(FileBaseSinkOptions.PARTITION_DIR_EXPRESSION)
-                .optional(FileBaseSinkOptions.IS_PARTITION_FIELD_WRITE_IN_FILE)
-                .optional(FileBaseSinkOptions.SINK_COLUMNS)
-                .optional(FileBaseSinkOptions.IS_ENABLE_TRANSACTION)
-                .optional(FileBaseSinkOptions.FILE_NAME_EXPRESSION)
+                        BaseSinkConfig.ROW_DELIMITER)
+                .optional(BaseSinkConfig.PARTITION_BY)
+                .optional(BaseSinkConfig.PARTITION_DIR_EXPRESSION)
+                .optional(BaseSinkConfig.IS_PARTITION_FIELD_WRITE_IN_FILE)
+                .optional(BaseSinkConfig.SINK_COLUMNS)
+                .optional(BaseSinkConfig.IS_ENABLE_TRANSACTION)
+                .optional(BaseSinkConfig.FILE_NAME_EXPRESSION)
                 .build();
     }
 }
