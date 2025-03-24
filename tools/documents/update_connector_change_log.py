@@ -81,7 +81,7 @@ def get_tag_commit_list():
     return commit_version_map
 
 
-def get_current_version():
+def get_current_branch_name():
     directory = os.path.dirname(os.path.abspath(Path(__file__).parent.parent))
     result = subprocess.run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
                             cwd=directory, stdout=subprocess.PIPE)
@@ -92,7 +92,7 @@ def get_current_version():
 def main():
     changes = generate_log_info()
     commit_version_map = get_tag_commit_list()
-    in_release = get_current_version().endswith('-release')
+    in_release = get_current_branch_name().endswith('-release')
     directory = os.path.dirname(os.path.abspath(Path(__file__).parent.parent))
     changelog_dir = os.path.join(directory, 'docs', 'en', 'connector-v2', 'changelog')
     zh_changelog_dir = os.path.join(directory, 'docs', 'zh', 'connector-v2', 'changelog')
