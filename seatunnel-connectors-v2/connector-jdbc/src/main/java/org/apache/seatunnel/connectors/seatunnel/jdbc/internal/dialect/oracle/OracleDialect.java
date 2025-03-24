@@ -424,8 +424,8 @@ public class OracleDialect implements JdbcDialect {
         } else {
             throw new IllegalArgumentException("Unsupported AlterTableColumnEvent: " + event);
         }
-
-        boolean sameCatalog = StringUtils.equals(dialectName(), event.getSourceDialectName());
+        String sourceDialectName = event.getSourceDialectName();
+        boolean sameCatalog = StringUtils.equals(dialectName(), sourceDialectName);
         BasicTypeDefine typeDefine = getTypeConverter().reconvert(column);
         String columnType = sameCatalog ? column.getSourceType() : typeDefine.getColumnType();
         StringBuilder sqlBuilder =
@@ -441,7 +441,7 @@ public class OracleDialect implements JdbcDialect {
         // Only decorate with default value when source dialect is same as sink dialect
         // Todo Support for cross-database default values for ddl statements
         if (column.getDefaultValue() != null && sameCatalog) {
-            sqlBuilder.append(" ").append(sqlClauseWithDefaultValue(typeDefine));
+            sqlBuilder.append(" ").append(sqlClauseWithDefaultValue(typeDefine, sourceDialectName));
         }
         if (event instanceof AlterTableModifyColumnEvent) {
             boolean targetColumnNullable =

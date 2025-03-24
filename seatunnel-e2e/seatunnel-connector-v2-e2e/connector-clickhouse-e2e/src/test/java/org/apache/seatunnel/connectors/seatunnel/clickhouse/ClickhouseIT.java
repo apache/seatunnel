@@ -107,6 +107,94 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
+    @TestTemplate
+    public void testClickhouseWithCreateSchemaWhenComment(TestContainer container)
+            throws Exception {
+        Container.ExecResult execResult =
+                container.executeJob("/clickhouse_with_create_schema_when_comment.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void clickhouseWithCreateSchemaWhenNotExist(TestContainer container) throws Exception {
+        String tableName = "default.sink_table_for_schema";
+        Container.ExecResult execResult =
+                container.executeJob("/clickhouse_with_create_schema_when_not_exist.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(tableName));
+        execResult = container.executeJob("/clickhouse_with_create_schema_when_not_exist.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(200, countData(tableName));
+        dropTable(tableName);
+    }
+
+    @TestTemplate
+    public void clickhouseWithRecreateSchemaAndAppendData(TestContainer container)
+            throws Exception {
+        String tableName = "default.sink_table_for_schema";
+        Container.ExecResult execResult =
+                container.executeJob("/clickhouse_with_recreate_schema_and_append_data.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(tableName));
+        execResult = container.executeJob("/clickhouse_with_recreate_schema_and_append_data.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(tableName));
+        dropTable(tableName);
+    }
+
+    @TestTemplate
+    public void clickhouseWithErrorWhenSchemaNotExist(TestContainer container) throws Exception {
+        Container.ExecResult execResult =
+                container.executeJob("/clickhouse_with_error_when_schema_not_exist.conf");
+        Assertions.assertEquals(1, execResult.getExitCode());
+        Assertions.assertTrue(
+                execResult
+                        .getStderr()
+                        .contains(
+                                "ErrorCode:[API-11], ErrorDescription:[The sink table not exist]"));
+    }
+
+    @TestTemplate
+    public void clickhouseWithCreateSchemaWhenNotExistAndDropData(TestContainer container)
+            throws Exception {
+        String tableName = "default.sink_table_for_schema";
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/clickhouse_with_create_schema_when_not_exist_and_drop_data.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(tableName));
+        execResult =
+                container.executeJob(
+                        "/clickhouse_with_create_schema_when_not_exist_and_drop_data.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(tableName));
+        dropTable(tableName);
+    }
+
+    @TestTemplate
+    public void clickhouseWithErrorWhenDataExists(TestContainer container) throws Exception {
+        String tableName = "default.sink_table_for_schema";
+        Container.ExecResult execResult =
+                container.executeJob("/clickhouse_with_error_when_data_exists.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(tableName));
+        execResult = container.executeJob("/clickhouse_with_error_when_data_exists.conf");
+        Assertions.assertEquals(1, execResult.getExitCode());
+        Assertions.assertTrue(
+                execResult.getStderr().contains("The target data source already has data"));
+        dropTable(tableName);
+    }
+
+    @TestTemplate
+    public void clickhouseRecreateSchemaAndCustom(TestContainer container) throws Exception {
+        String tableName = "default.sink_table_for_schema";
+        Container.ExecResult execResult =
+                container.executeJob("/clickhouse_with_recreate_schema_and_custom.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(101, countData(tableName));
+        dropTable(tableName);
+    }
+
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -192,6 +280,29 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
                     "array inject error, not supported data type: " + value.getClass());
         }
         return connection.createArrayOf(sqlType, elements);
+    }
+
+    private int countData(String tableName) {
+        try {
+            String sql = "select count(1) from " + tableName;
+            ResultSet resultSet = this.connection.createStatement().executeQuery(sql);
+            if (resultSet.next()) {
+                return resultSet.getInt(1);
+            } else {
+                return -1;
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void dropTable(String tableName) {
+        try {
+            Statement statement = this.connection.createStatement();
+            statement.execute("drop table if exists " + tableName);
+        } catch (SQLException e) {
+            throw new RuntimeException("Drop table failed!", e);
+        }
     }
 
     private void batchInsertData() {

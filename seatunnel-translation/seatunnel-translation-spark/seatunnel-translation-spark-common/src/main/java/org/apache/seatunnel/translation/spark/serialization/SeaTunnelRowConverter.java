@@ -24,11 +24,11 @@ import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.translation.serialization.RowConverter;
-import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
+import org.apache.seatunnel.translation.spark.utils.OffsetDateTimeUtils;
 
-import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
-import org.apache.spark.sql.types.StructType;
+import org.apache.spark.sql.catalyst.expressions.GenericRow;
 import org.apache.spark.unsafe.types.UTF8String;
 
 import scala.Tuple2;
@@ -36,44 +36,52 @@ import scala.collection.immutable.AbstractMap;
 import scala.collection.mutable.WrappedArray;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.stream.IntStream;
 
-public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
+public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
+
+    private final int[] indexes;
+
     public SeaTunnelRowConverter(SeaTunnelDataType<?> dataType) {
         super(dataType);
+        indexes = IntStream.range(0, ((SeaTunnelRowType) dataType).getTotalFields()).toArray();
+    }
+
+    public SeaTunnelRowConverter(SeaTunnelDataType<?> dataType, int[] indexes) {
+        super(dataType);
+        this.indexes = indexes;
     }
 
     // SeaTunnelRow To GenericRow
     @Override
-    public SeaTunnelRow convert(SeaTunnelRow seaTunnelRow) throws IOException {
-        validate(seaTunnelRow);
-        GenericRowWithSchema rowWithSchema = (GenericRowWithSchema) convert(seaTunnelRow, dataType);
-        SeaTunnelRow newRow = new SeaTunnelRow(rowWithSchema.values());
-        return newRow;
+    public GenericRow convert(SeaTunnelRow seaTunnelRow) throws IOException {
+        return parcel(seaTunnelRow);
     }
 
-    public GenericRowWithSchema parcel(SeaTunnelRow seaTunnelRow) {
+    public GenericRow parcel(SeaTunnelRow seaTunnelRow) {
         SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
         int arity = rowType.getTotalFields();
         Object[] fields = new Object[arity + 2];
         fields[0] = seaTunnelRow.getRowKind().toByteValue();
         fields[1] = seaTunnelRow.getTableId();
-        StructType schema = (StructType) TypeConverterUtils.parcel(rowType);
-        for (int i = 0; i < arity; i++) {
-            Object fieldValue = convert(seaTunnelRow.getField(i), rowType.getFieldType(i));
+        for (int i = 0; i < indexes.length; i++) {
+            Object fieldValue = convert(seaTunnelRow.getField(i), rowType.getFieldType(indexes[i]));
             if (fieldValue != null) {
-                fields[i + 2] = fieldValue;
+                fields[indexes[i] + 2] = fieldValue;
             }
         }
-        return new GenericRowWithSchema(fields, schema);
+        return new GenericRow(fields);
     }
 
     private Object convert(Object field, SeaTunnelDataType<?> dataType) {
@@ -89,6 +97,11 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
                 return Date.valueOf((LocalDate) field);
             case TIMESTAMP:
                 return Timestamp.valueOf((LocalDateTime) field);
+            case TIMESTAMP_TZ:
+                if (field instanceof BigDecimal) {
+                    return field;
+                }
+                return OffsetDateTimeUtils.toBigDecimal((OffsetDateTime) field);
             case TIME:
                 if (field instanceof LocalTime) {
                     return ((LocalTime) field).toNanoOfDay();
@@ -121,17 +134,16 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
         }
     }
 
-    private GenericRowWithSchema convertRow(SeaTunnelRow seaTunnelRow, SeaTunnelRowType rowType) {
+    private GenericRow convertRow(SeaTunnelRow seaTunnelRow, SeaTunnelRowType rowType) {
         int arity = rowType.getTotalFields();
         Object[] values = new Object[arity];
-        StructType schema = (StructType) TypeConverterUtils.convert(rowType);
         for (int i = 0; i < arity; i++) {
             Object fieldValue = convert(seaTunnelRow.getField(i), rowType.getFieldType(i));
             if (fieldValue != null) {
                 values[i] = fieldValue;
             }
         }
-        return new GenericRowWithSchema(values, schema);
+        return new GenericRow(values);
     }
 
     private scala.collection.immutable.HashMap<Object, Object> convertMap(
@@ -159,6 +171,13 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
             return new WrappedArray.ofRef<>(new Object[0]);
         }
         int num = arrayData.length;
+        if (SqlType.MAP.equals(arrayType.getElementType().getSqlType())) {
+            Object[] arrayMapData = new Object[num];
+            for (int i = 0; i < num; i++) {
+                arrayMapData[i] = convert(arrayData[i], arrayType.getElementType());
+            }
+            return new WrappedArray.ofRef<>(arrayMapData);
+        }
         for (int i = 0; i < num; i++) {
             arrayData[i] = convert(arrayData[i], arrayType.getElementType());
         }
@@ -167,17 +186,18 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
 
     // GenericRow To SeaTunnel
     @Override
-    public SeaTunnelRow reconvert(SeaTunnelRow engineRow) throws IOException {
-        return (SeaTunnelRow) reconvert(engineRow, dataType);
+    public SeaTunnelRow reconvert(GenericRow engineRow) throws IOException {
+        return unpack(engineRow);
     }
 
-    public SeaTunnelRow unpack(GenericRowWithSchema engineRow) throws IOException {
+    public SeaTunnelRow unpack(GenericRow engineRow) throws IOException {
         SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
         RowKind rowKind = RowKind.fromByteValue(engineRow.getByte(0));
         String tableId = engineRow.getString(1);
-        Object[] fields = new Object[rowType.getTotalFields()];
-        for (int i = 0; i < fields.length; i++) {
-            fields[i] = reconvert(engineRow.get(i + 2), rowType.getFieldType(i));
+        Object[] fields = new Object[indexes.length];
+        for (int i = 0; i < indexes.length; i++) {
+            int fieldIndex = indexes[i];
+            fields[i] = reconvert(engineRow.get(fieldIndex + 2), rowType.getFieldType(fieldIndex));
         }
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
         seaTunnelRow.setRowKind(rowKind);
@@ -191,15 +211,16 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
         }
         switch (dataType.getSqlType()) {
             case ROW:
-                if (field instanceof GenericRowWithSchema) {
-                    return createFromGenericRow(
-                            (GenericRowWithSchema) field, (SeaTunnelRowType) dataType);
+                if (field instanceof GenericRow) {
+                    return createFromGenericRow((GenericRow) field, (SeaTunnelRowType) dataType);
                 }
                 return reconvert((SeaTunnelRow) field, (SeaTunnelRowType) dataType);
             case DATE:
                 return ((Date) field).toLocalDate();
             case TIMESTAMP:
                 return ((Timestamp) field).toLocalDateTime();
+            case TIMESTAMP_TZ:
+                return OffsetDateTimeUtils.toOffsetDateTime((BigDecimal) field);
             case TIME:
                 if (field instanceof Timestamp) {
                     return ((Timestamp) field).toLocalDateTime().toLocalTime();
@@ -216,7 +237,7 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
         }
     }
 
-    private SeaTunnelRow createFromGenericRow(GenericRowWithSchema row, SeaTunnelRowType type) {
+    private SeaTunnelRow createFromGenericRow(GenericRow row, SeaTunnelRowType type) {
         Object[] fields = row.values();
         Object[] newFields = new Object[fields.length];
         for (int idx = 0; idx < fields.length; idx++) {

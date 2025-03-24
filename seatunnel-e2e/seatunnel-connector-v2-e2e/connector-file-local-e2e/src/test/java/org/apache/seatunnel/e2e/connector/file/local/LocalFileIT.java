@@ -82,6 +82,23 @@ public class LocalFileIT extends TestSuiteBase {
     private final ContainerExtendedFactory extendedFactory =
             container -> {
                 this.baseContainer = container;
+
+                Path xlsGz =
+                        convertToGzFile(
+                                Lists.newArrayList(
+                                        ContainerUtil.getResourcesFile("/excel/e2e.xls")),
+                                "e2e-gz.xls");
+                ContainerUtil.copyFileIntoContainers(
+                        xlsGz, "/seatunnel/read/gz/excel/single/e2e-gz.xls.gz", container);
+
+                Path xlsxGz =
+                        convertToGzFile(
+                                Lists.newArrayList(
+                                        ContainerUtil.getResourcesFile("/excel/e2e.xlsx")),
+                                "e2e-gz.xlsx");
+                ContainerUtil.copyFileIntoContainers(
+                        xlsxGz, "/seatunnel/read/gz/excel/single/e2e-gz.xlsx.gz", container);
+
                 ContainerUtil.copyFileIntoContainers(
                         "/json/e2e.json",
                         "/seatunnel/read/json/name=tyrantlucifer/hobby=coding/e2e.json",
@@ -270,6 +287,11 @@ public class LocalFileIT extends TestSuiteBase {
                         container);
 
                 ContainerUtil.copyFileIntoContainers(
+                        "/csv/break_line.csv",
+                        "/seatunnel/read/csv/break_line/break_line.csv",
+                        container);
+
+                ContainerUtil.copyFileIntoContainers(
                         "/text/e2e_null_format.txt",
                         "/seatunnel/read/e2e_null_format/e2e_null_format.txt",
                         container);
@@ -281,6 +303,9 @@ public class LocalFileIT extends TestSuiteBase {
     public void testLocalFileReadAndWrite(TestContainer container)
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
+        helper.execute("/csv/fake_to_local_csv.conf");
+        helper.execute("/csv/local_csv_to_assert.conf");
+        helper.execute("/csv/breakline_csv_to_assert.conf");
         helper.execute("/excel/fake_to_local_excel.conf");
         helper.execute("/excel/local_excel_to_assert.conf");
         helper.execute("/excel/local_excel_projection_to_assert.conf");
@@ -367,6 +392,8 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/excel/local_excel_zip_to_assert.conf");
         // test read multi local excel file with zip compression
         helper.execute("/excel/local_excel_multi_zip_to_assert.conf");
+        helper.execute("/excel/local_excel_xls_gz_to_assert.conf");
+        helper.execute("/excel/local_excel_xlsx_gz_to_assert.conf");
     }
 
     @TestTemplate

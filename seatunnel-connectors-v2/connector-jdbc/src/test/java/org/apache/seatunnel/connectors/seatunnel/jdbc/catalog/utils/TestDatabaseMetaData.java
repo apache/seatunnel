@@ -660,7 +660,20 @@ public class TestDatabaseMetaData implements DatabaseMetaData {
     public ResultSet getColumns(
             String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern)
             throws SQLException {
-        return null;
+        List<Map<String, Object>> value = new ArrayList<>();
+        value.add(
+                new HashMap<String, Object>() {
+                    {
+                        put("COLUMN_NAME", "id");
+                        put("DATA_TYPE", 1);
+                        put("TYPE_NAME", "INT");
+                        put("COLUMN_SIZE", 11);
+                        put("DECIMAL_DIGITS", 0);
+                        put("NULLABLE", 0);
+                        put("REMARKS", "id comment");
+                    }
+                });
+        return new TestResultSet(value);
     }
 
     @Override

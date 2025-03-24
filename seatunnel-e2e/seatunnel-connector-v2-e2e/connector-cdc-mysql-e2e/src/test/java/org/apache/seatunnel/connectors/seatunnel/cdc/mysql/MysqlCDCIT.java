@@ -53,6 +53,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
+import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
 
 @Slf4j
 @DisabledOnContainer(
@@ -72,6 +73,7 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
     private final UniqueDatabase inventoryDatabase =
             new UniqueDatabase(
                     MYSQL_CONTAINER, MYSQL_DATABASE, "mysqluser", "mysqlpw", MYSQL_DATABASE);
+    private final String QUERY_SQL = "select * from %s.%s";
 
     // mysql source table query sql
     private static final String SOURCE_SQL_TEMPLATE =
@@ -539,6 +541,59 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                                                                         SOURCE_TABLE_2_CUSTOM_PRIMARY_KEY)))));
     }
 
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = "Currently SPARK do not support cdc")
+    public void testMysqlCdcByWildcardsConfig(TestContainer container)
+            throws IOException, InterruptedException {
+        inventoryDatabase.setTemplateName("wildcards").createAndInitialize();
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob("/mysqlcdc_wildcards_to_mysql.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+        TimeUnit.SECONDS.sleep(5);
+        inventoryDatabase.setTemplateName("wildcards_dml").createAndInitialize();
+        given().pollDelay(20, TimeUnit.SECONDS)
+                .pollInterval(2000, TimeUnit.MILLISECONDS)
+                .await()
+                .atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertAll(
+                                    () -> {
+                                        log.info(
+                                                query(getQuerySQL("sink", "source_products"))
+                                                        .toString());
+                                        Assertions.assertIterableEquals(
+                                                query(getQuerySQL("source", "products")),
+                                                query(getQuerySQL("sink", "source_products")));
+                                    },
+                                    () -> {
+                                        log.info(
+                                                query(getQuerySQL("sink", "source_customers"))
+                                                        .toString());
+                                        Assertions.assertIterableEquals(
+                                                query(getQuerySQL("source", "customers")),
+                                                query(getQuerySQL("sink", "source_customers")));
+                                    },
+                                    () -> {
+                                        log.info(
+                                                query(getQuerySQL("sink", "source1_orders"))
+                                                        .toString());
+                                        Assertions.assertIterableEquals(
+                                                query(getQuerySQL("source1", "orders")),
+                                                query(getQuerySQL("sink", "source1_orders")));
+                                    });
+                        });
+    }
+
     private Connection getJdbcConnection() throws SQLException {
         return DriverManager.getConnection(
                 MYSQL_CONTAINER.getJdbcUrl(),
@@ -702,5 +757,9 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
 
     private String getSinkQuerySQL(String database, String tableName) {
         return String.format(SINK_SQL_TEMPLATE, database, tableName);
+    }
+
+    private String getQuerySQL(String database, String tableName) {
+        return String.format(QUERY_SQL, database, tableName);
     }
 }

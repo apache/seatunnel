@@ -112,7 +112,7 @@ transform {
   Sql {
     plugin_input = "fake"
     plugin_output = "fake1"
-    query = "select id, example(name) as name, age from fake"
+    query = "select id, example(name) as name, age from dual"
   }
 }
 ```

@@ -36,8 +36,6 @@ import org.apache.spark.sql.types.MapType;
 import org.apache.spark.sql.types.StructType;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledOnJre;
-import org.junit.jupiter.api.condition.JRE;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -60,11 +58,6 @@ import static org.apache.spark.sql.types.DataTypes.TimestampType;
 public class SparkSinkTest {
 
     @Test
-    @DisabledOnJre(
-            value = JRE.JAVA_11,
-            disabledReason =
-                    "We should update apache common lang3 version to 3.8 to avoid NPE, "
-                            + "see https://github.com/apache/commons-lang/commit/50ce8c44e1601acffa39f5568f0fc140aade0564")
     public void testSparkSinkWriteDataWithCopy() {
         // We should make sure that the data is written to the sink with copy.
         SparkSession spark =

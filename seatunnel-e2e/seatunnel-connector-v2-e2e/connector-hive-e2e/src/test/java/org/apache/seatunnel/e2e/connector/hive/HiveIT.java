@@ -228,8 +228,15 @@ public class HiveIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testFakeSinkHive(TestContainer container) throws Exception {
+        executeJob(container, "/fake_to_hive.conf", "/hive_to_assert.conf");
+    }
+
+    @TestTemplate
+    @Disabled(
+            "[HDFS/COS/OSS/S3] is not available in CI, if you want to run this test, please set up your own environment in the test case file, hadoop_hive_conf_path_local and ip below}")
     public void testFakeSinkHiveOnHDFS(TestContainer container) throws Exception {
-        executeJob(container, "/fake_to_hive_on_hdfs.conf", "/hive_on_hdfs_to_assert.conf");
+        // TODO Add the test case for Hive on HDFS
     }
 
     @TestTemplate

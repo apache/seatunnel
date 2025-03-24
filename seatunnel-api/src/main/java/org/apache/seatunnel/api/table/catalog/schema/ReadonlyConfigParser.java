@@ -20,6 +20,7 @@ package org.apache.seatunnel.api.table.catalog.schema;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -47,34 +48,30 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
     public TableSchema parse(ReadonlyConfig readonlyConfig) {
         ReadonlyConfig schemaConfig =
                 readonlyConfig
-                        .getOptional(TableSchemaOptions.SCHEMA)
+                        .getOptional(ConnectorCommonOptions.SCHEMA)
                         .map(ReadonlyConfig::fromMap)
                         .orElseThrow(
                                 () -> new IllegalArgumentException("Schema config can't be null"));
 
-        if (readonlyConfig.getOptional(TableSchemaOptions.FieldOptions.FIELDS).isPresent()
-                && schemaConfig.getOptional(TableSchemaOptions.ColumnOptions.COLUMNS).isPresent()) {
+        if (readonlyConfig.getOptional(ConnectorCommonOptions.FIELDS).isPresent()
+                && schemaConfig.getOptional(ConnectorCommonOptions.COLUMNS).isPresent()) {
             throw new IllegalArgumentException(
                     "Schema config can't contains both [fields] and [columns], please correct your config first");
         }
         TableSchema.Builder tableSchemaBuilder = TableSchema.builder();
-        if (readonlyConfig.getOptional(TableSchemaOptions.FieldOptions.FIELDS).isPresent()) {
+        if (readonlyConfig.getOptional(ConnectorCommonOptions.FIELDS).isPresent()) {
             // we use readonlyConfig here to avoid flatten, this is used to solve the t.x.x as field
             // key
             tableSchemaBuilder.columns(fieldParser.parse(readonlyConfig));
         }
 
-        if (schemaConfig.getOptional(TableSchemaOptions.ColumnOptions.COLUMNS).isPresent()) {
+        if (schemaConfig.getOptional(ConnectorCommonOptions.COLUMNS).isPresent()) {
             tableSchemaBuilder.columns(columnParser.parse(schemaConfig));
         }
-        if (schemaConfig
-                .getOptional(TableSchemaOptions.PrimaryKeyOptions.PRIMARY_KEY)
-                .isPresent()) {
+        if (schemaConfig.getOptional(ConnectorCommonOptions.PRIMARY_KEY).isPresent()) {
             tableSchemaBuilder.primaryKey(primaryKeyParser.parse(schemaConfig));
         }
-        if (schemaConfig
-                .getOptional(TableSchemaOptions.ConstraintKeyOptions.CONSTRAINT_KEYS)
-                .isPresent()) {
+        if (schemaConfig.getOptional(ConnectorCommonOptions.CONSTRAINT_KEYS).isPresent()) {
             tableSchemaBuilder.constraintKey(constraintKeyParser.parse(schemaConfig));
         }
         // todo: validate schema
@@ -86,7 +83,7 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
         @Override
         public List<Column> parse(ReadonlyConfig schemaConfig) {
             JsonNode jsonNode =
-                    JsonUtils.toJsonNode(schemaConfig.get(TableSchemaOptions.FieldOptions.FIELDS));
+                    JsonUtils.toJsonNode(schemaConfig.get(ConnectorCommonOptions.FIELDS));
             Map<String, String> fieldsMap = JsonUtils.toStringMap(jsonNode);
             int fieldsNum = fieldsMap.size();
             List<Column> columns = new ArrayList<>(fieldsNum);
@@ -107,20 +104,20 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
 
         @Override
         public List<Column> parse(ReadonlyConfig schemaConfig) {
-            return schemaConfig.get(TableSchemaOptions.ColumnOptions.COLUMNS).stream()
+            return schemaConfig.get(ConnectorCommonOptions.COLUMNS).stream()
                     .map(ReadonlyConfig::fromMap)
                     .map(
                             columnConfig -> {
                                 String name =
                                         columnConfig
-                                                .getOptional(TableSchemaOptions.ColumnOptions.NAME)
+                                                .getOptional(ConnectorCommonOptions.COLUMN_NAME)
                                                 .orElseThrow(
                                                         () ->
                                                                 new IllegalArgumentException(
                                                                         "schema.columns.* config need option [name], please correct your config first"));
                                 SeaTunnelDataType<?> seaTunnelDataType =
                                         columnConfig
-                                                .getOptional(TableSchemaOptions.ColumnOptions.TYPE)
+                                                .getOptional(ConnectorCommonOptions.TYPE)
                                                 .map(
                                                         column ->
                                                                 SeaTunnelDataTypeConvertorUtil
@@ -132,18 +129,15 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
                                                                         "schema.columns.* config need option [type], please correct your config first"));
 
                                 Long columnLength =
-                                        columnConfig.get(
-                                                TableSchemaOptions.ColumnOptions.COLUMN_LENGTH);
+                                        columnConfig.get(ConnectorCommonOptions.COLUMN_LENGTH);
                                 Integer columnScale =
-                                        columnConfig.get(
-                                                TableSchemaOptions.ColumnOptions.COLUMN_SCALE);
+                                        columnConfig.get(ConnectorCommonOptions.COLUMN_SCALE);
                                 Boolean nullable =
-                                        columnConfig.get(TableSchemaOptions.ColumnOptions.NULLABLE);
+                                        columnConfig.get(ConnectorCommonOptions.NULLABLE);
                                 Object defaultValue =
-                                        columnConfig.get(
-                                                TableSchemaOptions.ColumnOptions.DEFAULT_VALUE);
+                                        columnConfig.get(ConnectorCommonOptions.DEFAULT_VALUE);
                                 String comment =
-                                        columnConfig.get(TableSchemaOptions.ColumnOptions.COMMENT);
+                                        columnConfig.get(ConnectorCommonOptions.COLUMN_COMMENT);
                                 return PhysicalColumn.of(
                                         name,
                                         seaTunnelDataType,
@@ -162,16 +156,14 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
 
         @Override
         public List<ConstraintKey> parse(ReadonlyConfig schemaConfig) {
-            return schemaConfig.get(TableSchemaOptions.ConstraintKeyOptions.CONSTRAINT_KEYS)
-                    .stream()
+            return schemaConfig.get(ConnectorCommonOptions.CONSTRAINT_KEYS).stream()
                     .map(ReadonlyConfig::fromMap)
                     .map(
                             constraintKeyConfig -> {
                                 String constraintName =
                                         constraintKeyConfig
                                                 .getOptional(
-                                                        TableSchemaOptions.ConstraintKeyOptions
-                                                                .CONSTRAINT_KEY_NAME)
+                                                        ConnectorCommonOptions.CONSTRAINT_KEY_NAME)
                                                 .orElseThrow(
                                                         () ->
                                                                 new IllegalArgumentException(
@@ -179,8 +171,7 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
                                 ConstraintKey.ConstraintType constraintType =
                                         constraintKeyConfig
                                                 .getOptional(
-                                                        TableSchemaOptions.ConstraintKeyOptions
-                                                                .CONSTRAINT_KEY_TYPE)
+                                                        ConnectorCommonOptions.CONSTRAINT_KEY_TYPE)
                                                 .orElseThrow(
                                                         () ->
                                                                 new IllegalArgumentException(
@@ -188,7 +179,7 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
                                 List<ConstraintKey.ConstraintKeyColumn> columns =
                                         constraintKeyConfig
                                                 .getOptional(
-                                                        TableSchemaOptions.ConstraintKeyOptions
+                                                        ConnectorCommonOptions
                                                                 .CONSTRAINT_KEY_COLUMNS)
                                                 .map(
                                                         constraintColumnMapList ->
@@ -202,8 +193,7 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
                                                                                             columnName =
                                                                                                     constraintColumnConfig
                                                                                                             .getOptional(
-                                                                                                                    TableSchemaOptions
-                                                                                                                            .ConstraintKeyOptions
+                                                                                                                    ConnectorCommonOptions
                                                                                                                             .CONSTRAINT_KEY_COLUMN_NAME)
                                                                                                             .orElseThrow(
                                                                                                                     () ->
@@ -214,8 +204,7 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
                                                                                             columnSortType =
                                                                                                     constraintColumnConfig
                                                                                                             .get(
-                                                                                                                    TableSchemaOptions
-                                                                                                                            .ConstraintKeyOptions
+                                                                                                                    ConnectorCommonOptions
                                                                                                                             .CONSTRAINT_KEY_COLUMN_SORT_TYPE);
                                                                                     return ConstraintKey
                                                                                             .ConstraintKeyColumn
@@ -242,18 +231,17 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
         @Override
         public PrimaryKey parse(ReadonlyConfig schemaConfig) {
             ReadonlyConfig primaryKeyConfig =
-                    ReadonlyConfig.fromMap(
-                            schemaConfig.get(TableSchemaOptions.PrimaryKeyOptions.PRIMARY_KEY));
+                    ReadonlyConfig.fromMap(schemaConfig.get(ConnectorCommonOptions.PRIMARY_KEY));
             String primaryKeyName =
                     primaryKeyConfig
-                            .getOptional(TableSchemaOptions.PrimaryKeyOptions.PRIMARY_KEY_NAME)
+                            .getOptional(ConnectorCommonOptions.PRIMARY_KEY_NAME)
                             .orElseThrow(
                                     () ->
                                             new IllegalArgumentException(
                                                     "Schema config need option [primaryKey.name], please correct your config first"));
             List<String> columns =
                     primaryKeyConfig
-                            .getOptional(TableSchemaOptions.PrimaryKeyOptions.PRIMARY_KEY_COLUMNS)
+                            .getOptional(ConnectorCommonOptions.PRIMARY_KEY_COLUMNS)
                             .orElseThrow(
                                     () ->
                                             new IllegalArgumentException(

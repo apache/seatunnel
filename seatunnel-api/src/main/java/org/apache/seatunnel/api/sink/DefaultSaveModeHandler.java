@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nonnull;
@@ -33,7 +32,6 @@ import java.util.Optional;
 import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.SINK_TABLE_NOT_EXIST;
 import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.SOURCE_ALREADY_HAS_DATA;
 
-@AllArgsConstructor
 @Slf4j
 public class DefaultSaveModeHandler implements SaveModeHandler {
 
@@ -43,7 +41,7 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
     @Nonnull public TablePath tablePath;
     @Nullable public CatalogTable catalogTable;
     @Nullable public String customSql;
-    private boolean isNewTableCreated;
+    private boolean isNewTableCreated = false;
 
     public DefaultSaveModeHandler(
             SchemaSaveMode schemaSaveMode,
@@ -57,8 +55,7 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
                 catalog,
                 catalogTable.getTableId().toTablePath(),
                 catalogTable,
-                customSql,
-                false);
+                customSql);
     }
 
     public DefaultSaveModeHandler(
@@ -68,7 +65,12 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
             TablePath tablePath,
             CatalogTable catalogTable,
             String customSql) {
-        this(schemaSaveMode, dataSaveMode, catalog, tablePath, catalogTable, customSql, false);
+        this.schemaSaveMode = schemaSaveMode;
+        this.dataSaveMode = dataSaveMode;
+        this.catalog = catalog;
+        this.tablePath = tablePath;
+        this.catalogTable = catalogTable;
+        this.customSql = customSql;
     }
 
     @Override

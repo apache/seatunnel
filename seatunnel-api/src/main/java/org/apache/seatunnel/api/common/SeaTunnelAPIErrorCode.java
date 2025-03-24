@@ -30,7 +30,10 @@ public enum SeaTunnelAPIErrorCode implements SeaTunnelErrorCode {
     TABLE_ALREADY_EXISTED("API-08", "Table already existed"),
     HANDLE_SAVE_MODE_FAILED("API-09", "Handle save mode failed"),
     SOURCE_ALREADY_HAS_DATA("API-10", "The target data source already has data"),
-    SINK_TABLE_NOT_EXIST("API-11", "The sink table not exist");
+    SINK_TABLE_NOT_EXIST("API-11", "The sink table not exist"),
+    LIST_DATABASES_FAILED("API-12", "List databases failed"),
+    LIST_TABLES_FAILED("API-13", "List tables failed"),
+    GET_PRIMARY_KEY_FAILED("API-14", "Get primary key failed");
 
     private final String code;
     private final String description;

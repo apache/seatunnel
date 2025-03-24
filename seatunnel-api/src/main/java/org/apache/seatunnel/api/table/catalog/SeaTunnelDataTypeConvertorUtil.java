@@ -79,6 +79,8 @@ public class SeaTunnelDataTypeConvertorUtil {
                 return LocalTimeType.LOCAL_TIME_TYPE;
             case TIMESTAMP:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+            case TIMESTAMP_TZ:
+                return LocalTimeType.OFFSET_DATE_TIME_TYPE;
             case MAP:
                 return parseMapType(field, columnType);
             case BINARY_VECTOR:
@@ -228,6 +230,9 @@ public class SeaTunnelDataTypeConvertorUtil {
                 return ArrayType.FLOAT_ARRAY_TYPE;
             case DOUBLE:
                 return ArrayType.DOUBLE_ARRAY_TYPE;
+            case MAP:
+                MapType<?, ?> mapType = (MapType<?, ?>) dataType;
+                return new ArrayType<>(MapType.class, mapType);
             default:
                 throw CommonError.unsupportedDataType("SeaTunnel", genericType, field);
         }

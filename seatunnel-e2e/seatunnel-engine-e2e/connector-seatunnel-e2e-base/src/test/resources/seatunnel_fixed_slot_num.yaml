@@ -33,3 +33,6 @@ seatunnel:
         max-retained: 3
         plugin-config:
           namespace: /tmp/seatunnel/checkpoint_snapshot/
+    http:
+      enable-http: true
+      port: 8080

@@ -57,6 +57,18 @@ public class DateTimeUtils {
                 Formatter.YYYY_MM_DD_HH_MM_SS_SLASH,
                 DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS_SLASH.value));
         FORMATTER_MAP.put(
+                Formatter.YYYY_M_D_HH_MM_SS_SLASH,
+                DateTimeFormatter.ofPattern(Formatter.YYYY_M_D_HH_MM_SS_SLASH.value));
+        FORMATTER_MAP.put(
+                Formatter.YYYY_M_D_HH_MM_SS_ISO8601,
+                DateTimeFormatter.ofPattern(Formatter.YYYY_M_D_HH_MM_SS_ISO8601.value));
+        FORMATTER_MAP.put(
+                Formatter.YYYY_M_D_HH_MM_SLASH,
+                DateTimeFormatter.ofPattern(Formatter.YYYY_M_D_HH_MM_SLASH.value));
+        FORMATTER_MAP.put(
+                Formatter.YYYY_M_D_HH_MM_ISO8601,
+                DateTimeFormatter.ofPattern(Formatter.YYYY_M_D_HH_MM_ISO8601.value));
+        FORMATTER_MAP.put(
                 Formatter.YYYY_MM_DD_HH_MM_SS_NO_SPLIT,
                 DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS_NO_SPLIT.value));
         FORMATTER_MAP.put(
@@ -73,9 +85,26 @@ public class DateTimeUtils {
                 DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS_SSSSSSSSS_ISO8601.value));
     }
 
+    // if the datatime string length is 17, find the DateTimeFormatter from this map
+    public static final Map<Pattern, DateTimeFormatter> YYYY_M_D_HH_MM_SS_17_FORMATTER_MAP =
+            new LinkedHashMap<>();
+
+    // if the datatime string length is 15, find the DateTimeFormatter from this map
+    public static final Map<Pattern, DateTimeFormatter> YYYY_M_D_HH_MM_15_FORMATTER_MAP =
+            new LinkedHashMap<>();
+
+    // all Pattern in this set
+    public static Set<Map.Entry<Pattern, DateTimeFormatter>>
+            YYYY_M_D_HH_MM_SS_17_FORMATTER_MAP_ENTRY_SET = new LinkedHashSet<>();
+
+    // all Pattern in this set
+    public static Set<Map.Entry<Pattern, DateTimeFormatter>>
+            YYYY_M_D_HH_MM_15_FORMATTER_MAP_ENTRY_SET = new LinkedHashSet<>();
+
     // if the datatime string length is 19, find the DateTimeFormatter from this map
     public static final Map<Pattern, DateTimeFormatter> YYYY_MM_DD_HH_MM_SS_19_FORMATTER_MAP =
             new LinkedHashMap<>();
+
     public static Set<Map.Entry<Pattern, DateTimeFormatter>>
             YYYY_MM_DD_HH_MM_SS_19_FORMATTER_MAP_ENTRY_SET = new LinkedHashSet<>();
 
@@ -114,6 +143,22 @@ public class DateTimeUtils {
         YYYY_MM_DD_HH_MM_SS_19_FORMATTER_MAP.put(
                 Pattern.compile("\\d{4}/\\d{2}/\\d{2}\\s\\d{2}:\\d{2}:\\d{2}"),
                 DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS_SLASH.value));
+
+        YYYY_M_D_HH_MM_15_FORMATTER_MAP.put(
+                Pattern.compile("\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{2}:\\d{2}"),
+                DateTimeFormatter.ofPattern(Formatter.YYYY_M_D_HH_MM_SLASH.value));
+
+        YYYY_M_D_HH_MM_15_FORMATTER_MAP.put(
+                Pattern.compile("\\d{4}-\\d{1,2}-\\d{1,2}\\s\\d{2}:\\d{2}"),
+                DateTimeFormatter.ofPattern(Formatter.YYYY_M_D_HH_MM_ISO8601.value));
+
+        YYYY_M_D_HH_MM_SS_17_FORMATTER_MAP.put(
+                Pattern.compile("\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{2}:\\d{2}:\\d{2}"),
+                DateTimeFormatter.ofPattern(Formatter.YYYY_M_D_HH_MM_SS_SLASH.value));
+
+        YYYY_M_D_HH_MM_SS_17_FORMATTER_MAP.put(
+                Pattern.compile("\\d{4}-\\d{1,2}-\\d{1,2}\\s\\d{2}:\\d{2}:\\d{2}"),
+                DateTimeFormatter.ofPattern(Formatter.YYYY_M_D_HH_MM_SS_ISO8601.value));
 
         YYYY_MM_DD_HH_MM_SS_M19_FORMATTER_MAP.put(
                 Pattern.compile("\\d{4}/\\d{2}/\\d{2}\\s\\d{2}:\\d{2}.*"),
@@ -159,6 +204,12 @@ public class DateTimeUtils {
                 YYYY_MM_DD_HH_MM_SS_19_FORMATTER_MAP.entrySet());
         YYYY_MM_DD_HH_MM_SS_M19_FORMATTER_MAP_ENTRY_SET.addAll(
                 YYYY_MM_DD_HH_MM_SS_M19_FORMATTER_MAP.entrySet());
+
+        YYYY_M_D_HH_MM_SS_17_FORMATTER_MAP_ENTRY_SET.addAll(
+                YYYY_M_D_HH_MM_SS_17_FORMATTER_MAP.entrySet());
+
+        YYYY_M_D_HH_MM_15_FORMATTER_MAP_ENTRY_SET.addAll(
+                YYYY_M_D_HH_MM_15_FORMATTER_MAP.entrySet());
     }
 
     /**
@@ -176,6 +227,12 @@ public class DateTimeUtils {
                     return entry.getValue();
                 }
             }
+            for (Map.Entry<Pattern, DateTimeFormatter> entry :
+                    YYYY_M_D_HH_MM_SS_17_FORMATTER_MAP_ENTRY_SET) {
+                if (entry.getKey().matcher(dateTime).matches()) {
+                    return entry.getValue();
+                }
+            }
         } else if (dateTime.length() > 19) {
             for (Map.Entry<Pattern, DateTimeFormatter> entry :
                     YYYY_MM_DD_HH_MM_SS_M19_FORMATTER_MAP_ENTRY_SET) {
@@ -183,7 +240,27 @@ public class DateTimeUtils {
                     return entry.getValue();
                 }
             }
+        } else if (dateTime.length() == 17 || dateTime.length() == 18) {
+            for (Map.Entry<Pattern, DateTimeFormatter> entry :
+                    YYYY_M_D_HH_MM_SS_17_FORMATTER_MAP_ENTRY_SET) {
+                if (entry.getKey().matcher(dateTime).matches()) {
+                    return entry.getValue();
+                }
+            }
+        } else if (dateTime.length() == 15 || dateTime.length() == 16) {
+            for (Map.Entry<Pattern, DateTimeFormatter> entry :
+                    YYYY_M_D_HH_MM_15_FORMATTER_MAP_ENTRY_SET) {
+                if (entry.getKey().matcher(dateTime).matches()) {
+                    return entry.getValue();
+                }
+            }
         } else if (dateTime.length() == 14) {
+            for (Map.Entry<Pattern, DateTimeFormatter> entry :
+                    YYYY_M_D_HH_MM_15_FORMATTER_MAP_ENTRY_SET) {
+                if (entry.getKey().matcher(dateTime).matches()) {
+                    return entry.getValue();
+                }
+            }
             return YYYY_MM_DD_HH_MM_SS_14_FORMATTER;
         }
         return null;
@@ -247,6 +324,10 @@ public class DateTimeUtils {
         YYYY_MM_DD_HH_MM_SS_SSSSSS("yyyy-MM-dd HH:mm:ss.SSSSSS"),
         YYYY_MM_DD_HH_MM_SS_SPOT("yyyy.MM.dd HH:mm:ss"),
         YYYY_MM_DD_HH_MM_SS_SLASH("yyyy/MM/dd HH:mm:ss"),
+        YYYY_M_D_HH_MM_SLASH("yyyy/M/d HH:mm"),
+        YYYY_M_D_HH_MM_ISO8601("yyyy-M-d HH:mm"),
+        YYYY_M_D_HH_MM_SS_SLASH("yyyy/M/d HH:mm:ss"),
+        YYYY_M_D_HH_MM_SS_ISO8601("yyyy-M-d HH:mm:ss"),
         YYYY_MM_DD_HH_MM_SS_NO_SPLIT("yyyyMMddHHmmss"),
         YYYY_MM_DD_HH_MM_SS_ISO8601("yyyy-MM-dd'T'HH:mm:ss"),
         YYYY_MM_DD_HH_MM_SS_SSS_ISO8601("yyyy-MM-dd'T'HH:mm:ss.SSS"),

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-cdc-tidb.md';
+
 # TiDB CDC
 
 > TiDB CDC source connector
@@ -40,7 +42,7 @@ describes how to set up the TiDB CDC connector to snapshot data and capture stre
 
 > 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) and the [tikv-client-java jar package](https://mvnrepository.com/artifact/org.tikv/tikv-client-java/3.2.0) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
 
-Please download and put Mysql driver and tikv-java-client in `${SEATUNNEL_HOME}/lib/` dir. For example: cp mysql-connector-java-xxx.jar `$SEATNUNNEL_HOME/lib/`
+Please download and put Mysql driver and tikv-java-client in `${SEATUNNEL_HOME}/lib/` dir. For example: cp mysql-connector-java-xxx.jar `$SEATUNNEL_HOME/lib/`
 
 ## Data Type Mapping
 
@@ -123,7 +125,4 @@ sink {
 
 ## Changelog
 
-- Add TiDB CDC Source Connector
-
-### next version
-
+<ChangeLog />

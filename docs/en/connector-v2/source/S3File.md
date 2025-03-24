@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-s3.md';
+
 # S3File
 
 > S3 File Source Connector
@@ -97,25 +99,11 @@ connector will generate data as the following:
 
 ### Text Or CSV File Type
 
-If you assign file type to `text` `csv`, you can choose to specify the schema information or not.
+If you set the `file_format_type` to `text`,`excel`,`csv`,`xml`. Then it's required to set the `schema` field to tell connector how to parse data to the row.
 
-For example, upstream data is the following:
+If you set the `schema` field, you should also set the option `field_delimiter`, except the `file_format_type` is `csv`, `xml`, `excel`
 
-```text
-
-tyrantlucifer#26#male
-
-```
-
-If you do not assign data schema connector will treat the upstream data as the following:
-
-|        content        |
-|-----------------------|
-| tyrantlucifer#26#male |
-
-If you assign data schema, you should also assign the option `field_delimiter` too except CSV file type
-
-you should assign schema and delimiter as the following:
+you can set schema and delimiter as the following:
 
 ```hocon
 
@@ -169,7 +157,7 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 
 If you assign file type to `parquet` `orc`, schema option not required, connector can find the schema of upstream data automatically.
 
-|    Orc Data type     |                      SeaTunnel Data type                       |
+| Parquet Data type    | SeaTunnel Data type                                            |
 |----------------------|----------------------------------------------------------------|
 | INT_8                | BYTE                                                           |
 | INT_16               | SHORT                                                          |
@@ -222,6 +210,7 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | encoding                        | string  | no       | UTF-8                                                 |                                                                                                                                                                                                                                                                                                                                                                                                            |
 | null_format                     | string  | no       | -                                                     | Only used when file_format_type is text. null_format to define which strings can be represented as null. e.g: `\N`                                                                                                                                                                                                                                                                                         |
 | file_filter_pattern             | string  | no       |                                                       | Filter pattern, which used for filtering files.                                                                                                                                                                                                                                                                                                                                                            |
+| filename_extension              | string  | no       | -                                                     | Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.                                                                                                                                                                                                                                                                                    |
 | common-options                  |         | no       | -                                                     | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                                                                                                                                                         |
 
 ### delimiter/field_delimiter [string]
@@ -295,13 +284,15 @@ The compress codec of files and the details that supported as the following show
 
 The compress codec of archive files and the details that supported as the following shown:
 
-| archive_compress_codec | file_format        | archive_compress_suffix |
-|------------------------|--------------------|-------------------------|
+| archive_compress_codec | file_format | archive_compress_suffix |
+|------------------------|------------|-------------------------|
 | ZIP                    | txt,json,excel,xml | .zip                    |
 | TAR                    | txt,json,excel,xml | .tar                    |
 | TAR_GZ                 | txt,json,excel,xml | .tar.gz                 |
-| GZ                     | txt,json,xml       | .gz                     |
+| GZ                     | txt,json,excel,xml | .gz                     |
 | NONE                   | all                | .*                      |
+
+Note: gz compressed excel file needs to compress the original file or specify the file suffix, such as e2e.xls ->e2e_test.xls.gz
 
 ### encoding [string]
 
@@ -335,7 +326,7 @@ source {
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/category/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transform-v2
 }
 
 sink {
@@ -397,7 +388,7 @@ source {
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/category/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transform-v2
 }
 
 sink {
@@ -446,3 +437,6 @@ sink {
     - Decouple hadoop-aws dependencies
 - [Feature]Set S3 AK to optional ([3688](https://github.com/apache/seatunnel/pull/))
 
+## Changelog
+
+<ChangeLog />

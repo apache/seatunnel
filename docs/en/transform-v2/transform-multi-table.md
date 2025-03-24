@@ -16,7 +16,7 @@ Multi-table Transform has no limitations on Transform capabilities; any Transfor
 
 | Name                       | Type   | Required | Default | Description                                                                                                                                                                                                                                                     |
 |----------------------------|--------|----------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| table_match_regex          | String | No       | .*      | A regular expression to match the tables that require transformation. By default, it matches all tables. Note that this table name refers to the actual upstream table name, not `result_table_name`.                                                           |
+| table_match_regex          | String | No       | .*      | A regular expression to match the tables that require transformation. By default, it matches all tables. Note that this table name refers to the actual upstream table name, not `plugin_output`.                                                               |
 | table_transform            | List   | No       | -       | You can use a list in `table_transform` to specify rules for individual tables. If a transformation rule is configured for a specific table in `table_transform`, the outer rules will not apply to that table. The rules in `table_transform` take precedence. |
 | table_transform.table_path | String | No       | -       | When configuring a transformation rule for a table in `table_transform`, you need to specify the table path using the `table_path` field. The table path should include `databaseName[.schemaName].tableName`.                                                  |
 
@@ -37,8 +37,8 @@ We can configure this as follows:
 ```hocon
 transform {
   Copy {
-    source_table_name = "fake"  // Optional dataset name to read from
-    result_table_name = "fake1" // Optional dataset name for output
+    plugin_input = "fake"  // Optional dataset name to read from
+    plugin_output = "fake1" // Optional dataset name for output
 
     table_match_regex = "test.a.*" // 1. Matches tables needing transformation, here matching `test.abc` and `test.abcd`
     src_field = "name" // Source field

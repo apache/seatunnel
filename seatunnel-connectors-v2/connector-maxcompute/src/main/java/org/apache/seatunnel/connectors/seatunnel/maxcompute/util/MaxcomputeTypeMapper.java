@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.util;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -47,9 +46,11 @@ import java.io.Serializable;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -88,8 +89,8 @@ public class MaxcomputeTypeMapper implements Serializable {
         return arrayRecord;
     }
 
-    public static SeaTunnelRowType getSeaTunnelRowType(Config pluginConfig) {
-        Table table = MaxcomputeUtil.getTable(pluginConfig);
+    public static SeaTunnelRowType getSeaTunnelRowType(ReadonlyConfig config) {
+        Table table = MaxcomputeUtil.getTable(config);
         TableSchema tableSchema = table.getSchema();
         ArrayList<SeaTunnelDataType<?>> seaTunnelDataTypes = new ArrayList<>();
         ArrayList<String> fieldNames = new ArrayList<>();
@@ -182,12 +183,21 @@ public class MaxcomputeTypeMapper implements Serializable {
                 return String.valueOf(field);
             case DATE:
                 if (field instanceof LocalDate) {
-                    return Date.valueOf((LocalDate) field);
+                    return field;
                 }
                 return ((Date) field).toLocalDate();
             case TIME:
                 return ((Time) field).toLocalTime();
             case TIMESTAMP:
+                if (field instanceof Instant) {
+                    return ((Instant) field).atZone(ZoneId.systemDefault()).toLocalDateTime();
+                }
+                if (field instanceof ZonedDateTime) {
+                    return ((ZonedDateTime) field).toLocalDateTime();
+                }
+                if (field instanceof LocalDateTime) {
+                    return field;
+                }
                 return ((java.util.Date) field)
                         .toInstant()
                         .atZone(ZoneId.systemDefault())
@@ -251,16 +261,18 @@ public class MaxcomputeTypeMapper implements Serializable {
             case DOUBLE:
             case BIGINT:
             case BOOLEAN:
+            case DECIMAL:
+            case TIMESTAMP_NTZ:
+            case DATE:
                 return field;
             case BINARY:
                 return new Binary((byte[]) field);
-            case DECIMAL:
-                return null;
             case VARCHAR:
                 return new Varchar((String) field);
             case CHAR:
                 return new Char((String) field);
             case STRING:
+            case JSON:
                 if (field instanceof byte[]) {
                     return new String((byte[]) field);
                 }
@@ -273,8 +285,6 @@ public class MaxcomputeTypeMapper implements Serializable {
             case DATETIME:
                 return Date.from(
                         ((LocalDateTime) field).atZone(ZoneId.systemDefault()).toInstant());
-            case DATE:
-                return Date.valueOf((LocalDate) field);
             default:
                 throw new MaxcomputeConnectorException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,

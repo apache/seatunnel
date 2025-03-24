@@ -21,7 +21,7 @@ seatunnel:
     http:
       enable-http: true
       port: 8080
-      enable-dynamic-port: false
+      enable-dynamic-port: true
       port-range: 100
 ```
 
@@ -54,7 +54,7 @@ seatunnel:
 
 ```json
 {
-    "projectVersion":"2.3.5-SNAPSHOT",
+    "projectVersion":"2.3.10-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
@@ -157,8 +157,22 @@ seatunnel:
     "pipelineEdges": {}
   },
   "metrics": {
-    "sourceReceivedCount": "",
-    "sinkWriteCount": ""
+    "SourceReceivedCount": "",
+    "SourceReceivedQPS": "",
+    "SourceReceivedBytes": "",
+    "SourceReceivedBytesPerSeconds": "",
+    "SinkWriteCount": "",
+    "SinkWriteQPS": "",
+    "SinkWriteBytes": "",
+    "SinkWriteBytesPerSeconds": "",
+    "TableSourceReceivedCount": {},
+    "TableSourceReceivedBytes": {},
+    "TableSourceReceivedBytesPerSeconds": {},
+    "TableSourceReceivedQPS": {},
+    "TableSinkWriteCount": {},
+    "TableSinkWriteQPS": {},
+    "TableSinkWriteBytes": {},
+    "TableSinkWriteBytesPerSeconds": {}
   },
   "finishedTime": "",
   "errorMsg": null,
@@ -432,7 +446,7 @@ env {
 
 source {
   FakeSource {
-    result_table_name = "fake"
+    plugin_output = "fake"
     row.num = 100
     schema = {
       fields {
@@ -449,7 +463,7 @@ transform {
 
 sink {
   Console {
-    source_table_name = "fake"
+    plugin_input = "fake"
   }
 }
 
@@ -462,6 +476,40 @@ sink {
 {
     "jobId": 733584788375666689,
     "jobName": "rest_api_test"
+}
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### Submit A Job By Upload Config File
+
+<details>
+<summary><code>POST</code> <code><b>/submit-job/upload</b></code> <code>(Returns jobId and jobName if job submitted successfully.)</code></summary>
+
+#### Parameters
+
+> | name                 |   type   | data type |            description            |
+> |----------------------|----------|-----------|-----------------------------------|
+> | jobId                | optional | string    | job id                            |
+> | jobName              | optional | string    | job name                          |
+> | isStartWithSavePoint | optional | string    | if job is started with save point |
+
+#### Request Body
+The name of the uploaded file key is config_file, and the file suffix json is parsed in json format. The conf or config file suffix is parsed in hocon format
+
+curl Example :
+```
+curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"/temp/fake_to_console.conf"'
+
+```
+#### Responses
+
+```json
+{
+    "jobId": 733584788375666689,
+    "jobName": "SeaTunnel_Job"
 }
 ```
 
@@ -843,5 +891,20 @@ Returns a list of logs from the requested node.
 
 To get a list of logs from the current node: `http://localhost:5801/log`
 To get the content of a log file: `http://localhost:5801/log/job-898380162133917698.log`
+
+</details>
+
+
+### Get Node Metrics
+
+<details>
+ <summary>
+    <code>GET</code> <code><b>/metrics</b></code>  
+    <code>GET</code> <code><b>/openmetrics</b></code>
+</summary>
+
+To get the metrics, you need to open `Telemetry` first, or you will get an empty response.  
+
+More information about `Telemetry` can be found in the [Telemetry](telemetry.md) documentation.
 
 </details>

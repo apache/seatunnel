@@ -17,9 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils;
 
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -43,5 +49,38 @@ public class CatalogUtilsTest {
                 CatalogUtils.getConstraintKeys(
                         new TestDatabaseMetaData(), TablePath.of("test.test"));
         Assertions.assertEquals("testfdawe_", constraintKeys.get(0).getConstraintName());
+    }
+
+    @Test
+    void testGetTableCommentWithJdbcDialectTypeMapper() throws SQLException {
+        TableSchema tableSchema =
+                CatalogUtils.getTableSchema(
+                        new TestDatabaseMetaData(),
+                        TablePath.of("test.test"),
+                        new JdbcDialectTypeMapper() {
+                            @Override
+                            public Column mappingColumn(BasicTypeDefine typeDefine) {
+                                return JdbcDialectTypeMapper.super.mappingColumn(typeDefine);
+                            }
+                        });
+        Assertions.assertEquals("id comment", tableSchema.getColumns().get(0).getComment());
+
+        TableSchema tableSchema2 =
+                CatalogUtils.getTableSchema(
+                        new TestDatabaseMetaData(),
+                        TablePath.of("test.test"),
+                        new JdbcDialectTypeMapper() {
+                            @Override
+                            public Column mappingColumn(BasicTypeDefine typeDefine) {
+                                return PhysicalColumn.of(
+                                        typeDefine.getName(),
+                                        BasicType.VOID_TYPE,
+                                        typeDefine.getLength(),
+                                        typeDefine.isNullable(),
+                                        typeDefine.getScale(),
+                                        typeDefine.getComment());
+                            }
+                        });
+        Assertions.assertEquals("id comment", tableSchema2.getColumns().get(0).getComment());
     }
 }

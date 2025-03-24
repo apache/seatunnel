@@ -44,4 +44,5 @@ public class DatabaseIdentifier {
     public static final String IRIS = "IRIS";
     public static final String INCEPTOR = "Inceptor";
     public static final String OPENGAUSS = "OpenGauss";
+    public static final String HIGHGO = "Highgo";
 }

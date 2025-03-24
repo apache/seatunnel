@@ -1,0 +1,160 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# Default values for seatunnel-chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+image:
+  registry: "apache/seatunnel"
+  tag: ""
+  pullPolicy: "IfNotPresent"
+  pullSecret: ""
+
+# The env for pod
+env:
+  - name: TZ
+    value: Asia/Shanghai
+
+master:
+  ## The command to start master.
+  command: []
+  ## The deployment strategy to use to replace existing pods with new ones.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 50%
+
+  ## Replicas is the desired number of replicas of the given Template.
+  replicas: "2"
+  ## You can use annotations to attach arbitrary non-identifying metadata to objects.
+  ## Clients such as tools and libraries can retrieve this metadata.
+  annotations:
+    prometheus.io/path: /hazelcast/rest/instance/metrics
+    prometheus.io/port: "5801"
+    prometheus.io/scrape: "true"
+    prometheus.io/role: "seatunnel-master"
+  ## Affinity is a group of affinity scheduling rules. If specified, the pod's scheduling constraints.
+  ## More info: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#affinity-v1-core
+  affinity: {}
+  ## NodeSelector is a selector which must be true for the pod to fit on a node.
+  ## Selector which must match a node's labels for the pod to be scheduled on that node.
+  ## More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+  nodeSelector: {}
+  ## Tolerations are appended (excluding duplicates) to pods running with this RuntimeClass during admission,
+  ## effectively unioning the set of nodes tolerated by the pod and the RuntimeClass.
+  tolerations: []
+  ## Compute Resources required by this container. Cannot be updated.
+  ## More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container
+  resources: {}
+  # resources:
+  #   limits:
+  #     memory: "4Gi"
+  #     cpu: "4"
+  #   requests:
+  #     memory: "2Gi"
+  #     cpu: "500m"
+  ## Periodic probe of container liveness. Container will be restarted if the probe fails. Cannot be updated.
+  ## More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+  livenessProbe:
+    tcpSocket:
+      port: hazelcast-port
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+  ## Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated.
+  ## More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+
+worker:
+  ## The command to start worker.
+  command: []
+  ## The deployment strategy to use to replace existing pods with new ones.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 50%
+
+  ## Replicas is the desired number of replicas of the given Template.
+  replicas: "2"
+  ## You can use annotations to attach arbitrary non-identifying metadata to objects.
+  ## Clients such as tools and libraries can retrieve this metadata.
+  ## Add enable prometheus scrape for metrics collection.
+  annotations:
+    prometheus.io/path: /hazelcast/rest/instance/metrics
+    prometheus.io/port: "5801"
+    prometheus.io/scrape: "true"
+    prometheus.io/role: "seatunnel-worker"
+  ## Affinity is a group of affinity scheduling rules. If specified, the pod's scheduling constraints.
+  ## More info: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#affinity-v1-core
+  affinity: {}
+  ## NodeSelector is a selector which must be true for the pod to fit on a node.
+  ## Selector which must match a node's labels for the pod to be scheduled on that node.
+  ## More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+  nodeSelector: {}
+  ## Tolerations are appended (excluding duplicates) to pods running with this RuntimeClass during admission,
+  ## effectively unioning the set of nodes tolerated by the pod and the RuntimeClass.
+  tolerations: []
+  ## Compute Resources required by this container. Cannot be updated.
+  ## More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container
+  resources: {}
+  # resources:
+  #   limits:
+  #     memory: "4Gi"
+  #     cpu: "4"
+  #   requests:
+  #     memory: "2Gi"
+  #     cpu: "500m"
+  ## Periodic probe of container liveness. Container will be restarted if the probe fails. Cannot be updated.
+  ## More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+  livenessProbe:
+    tcpSocket:
+      port: hazelcast-port
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+  ## Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated.
+  ## More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: "30"
+    periodSeconds: "30"
+    timeoutSeconds: "5"
+    failureThreshold: "3"
+    successThreshold: "1"
+
+ingress:
+  enabled: false
+  className: ""
+  host: seatunnel.k8s.local
+  path: /
+  annotations: {}
+  tls:
+    enabled: false
+    secretName: "seatunnel-tls"

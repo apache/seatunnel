@@ -17,32 +17,41 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeUtil;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.catalog.MaxComputeCatalog;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.auto.service.AutoService;
-
 import java.util.Optional;
 
+import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
+import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.OVERWRITE;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PLUGIN_NAME;
 
-@AutoService(SeaTunnelSink.class)
-public class MaxcomputeSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+public class MaxcomputeSink extends AbstractSimpleSink<SeaTunnelRow, Void>
+        implements SupportSaveMode, SupportMultiTableSink {
     private static final Logger LOG = LoggerFactory.getLogger(MaxcomputeSink.class);
-    private Config pluginConfig;
-    private SeaTunnelRowType typeInfo;
+    private final ReadonlyConfig readonlyConfig;
+    private final CatalogTable catalogTable;
+
+    public MaxcomputeSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
+        this.readonlyConfig = readonlyConfig;
+        this.catalogTable = catalogTable;
+    }
 
     @Override
     public String getPluginName() {
@@ -50,19 +59,47 @@ public class MaxcomputeSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        this.pluginConfig = pluginConfig;
-        MaxcomputeUtil.initTableOrPartition(pluginConfig);
+    public MaxcomputeWriter createWriter(SinkWriter.Context context) {
+        return new MaxcomputeWriter(this.readonlyConfig, this.catalogTable.getSeaTunnelRowType());
     }
 
     @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.typeInfo = seaTunnelRowType;
-    }
+    public Optional<SaveModeHandler> getSaveModeHandler() {
+        CatalogFactory catalogFactory =
+                discoverFactory(
+                        Thread.currentThread().getContextClassLoader(),
+                        CatalogFactory.class,
+                        "MaxCompute");
+        if (catalogFactory == null) {
+            throw new MaxcomputeConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(),
+                            PluginType.SINK,
+                            "Cannot find MaxCompute catalog factory"));
+        }
+        MaxComputeCatalog catalog =
+                (MaxComputeCatalog)
+                        catalogFactory.createCatalog(
+                                catalogFactory.factoryIdentifier(), readonlyConfig);
 
-    @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
-        return new MaxcomputeWriter(this.pluginConfig, this.typeInfo);
+        DataSaveMode dataSaveMode = readonlyConfig.get(MaxcomputeConfig.DATA_SAVE_MODE);
+        if (readonlyConfig.get(OVERWRITE)) {
+            // compatible with old version
+            LOG.warn(
+                    "The configuration of 'overwrite' is deprecated, please use 'data_save_mode' instead.");
+            dataSaveMode = DataSaveMode.DROP_DATA;
+        }
+
+        return Optional.of(
+                new MaxComputeSaveModeHandler(
+                        readonlyConfig.get(MaxcomputeConfig.SCHEMA_SAVE_MODE),
+                        dataSaveMode,
+                        catalog,
+                        catalogTable,
+                        readonlyConfig.get(MaxcomputeConfig.CUSTOM_SQL),
+                        readonlyConfig));
     }
 
     @Override

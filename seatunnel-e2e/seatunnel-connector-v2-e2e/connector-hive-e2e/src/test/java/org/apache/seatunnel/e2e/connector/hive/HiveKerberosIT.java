@@ -257,6 +257,10 @@ public class HiveKerberosIT extends SeaTunnelContainer {
             log.info(hiveServerContainer.execInContainer("cat", "/tmp/hive/hive.log").getStdout());
             hiveServerContainer.close();
         }
+        if (kerberosContainer != null) {
+            kerberosContainer.close();
+        }
+        super.tearDown();
     }
 
     private void initializeConnection()
@@ -288,32 +292,39 @@ public class HiveKerberosIT extends SeaTunnelContainer {
     }
 
     @Test
-    public void testFakeSinkHiveOnHDFS() throws Exception {
+    public void testFakeSinkHive() throws Exception {
         copyAbsolutePathToContainer("/tmp/hive.keytab", "/tmp/hive.keytab");
         copyFileToContainer("/kerberos/krb5.conf", "/tmp/krb5.conf");
         copyFileToContainer("/kerberos/hive-site.xml", "/tmp/hive-site.xml");
 
         Container.ExecResult fakeToHiveWithKerberosResult =
-                executeJob("/fake_to_hive_on_hdfs_with_kerberos.conf");
+                executeJob("/fake_to_hive_with_kerberos.conf");
         Assertions.assertEquals(0, fakeToHiveWithKerberosResult.getExitCode());
 
         Container.ExecResult hiveToAssertWithKerberosResult =
-                executeJob("/hive_on_hdfs_to_assert_with_kerberos.conf");
+                executeJob("/hive_to_assert_with_kerberos.conf");
         Assertions.assertEquals(0, hiveToAssertWithKerberosResult.getExitCode());
 
-        Container.ExecResult fakeToHiveResult = executeJob("/fake_to_hive_on_hdfs.conf");
+        Container.ExecResult fakeToHiveResult = executeJob("/fake_to_hive.conf");
         Assertions.assertEquals(1, fakeToHiveResult.getExitCode());
         Assertions.assertTrue(
                 fakeToHiveResult
                         .getStderr()
                         .contains("Get hive table information from hive metastore service failed"));
 
-        Container.ExecResult hiveToAssertResult = executeJob("/hive_on_hdfs_to_assert.conf");
+        Container.ExecResult hiveToAssertResult = executeJob("/hive_to_assert.conf");
         Assertions.assertEquals(1, hiveToAssertResult.getExitCode());
         Assertions.assertTrue(
                 hiveToAssertResult
                         .getStderr()
                         .contains("Get hive table information from hive metastore service failed"));
+    }
+
+    @TestTemplate
+    @Disabled(
+            "[HDFS/COS/OSS/S3] is not available in CI, if you want to run this test, please set up your own environment in the test case file, hadoop_hive_conf_path_local and ip below}")
+    public void testFakeSinkHiveOnHDFS(TestContainer container) throws Exception {
+        // TODO Add the test case for Hive on HDFS
     }
 
     @TestTemplate

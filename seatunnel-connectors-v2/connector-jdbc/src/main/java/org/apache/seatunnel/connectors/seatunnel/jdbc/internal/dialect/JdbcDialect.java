@@ -34,6 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.Simple
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.DefaultValueUtils;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -533,7 +534,8 @@ public interface JdbcDialect extends Serializable {
     default void applySchemaChange(
             Connection connection, TablePath tablePath, AlterTableAddColumnEvent event)
             throws SQLException {
-        boolean sameCatalog = StringUtils.equals(dialectName(), event.getSourceDialectName());
+        String sourceDialectName = event.getSourceDialectName();
+        boolean sameCatalog = StringUtils.equals(dialectName(), sourceDialectName);
         BasicTypeDefine typeDefine = getTypeConverter().reconvert(event.getColumn());
         String columnType =
                 sameCatalog ? event.getColumn().getSourceType() : typeDefine.getColumnType();
@@ -568,7 +570,9 @@ public interface JdbcDialect extends Serializable {
                 sqlBuilder.append(" NOT NULL");
             }
             if (sameCatalog) {
-                sqlBuilder.append(" ").append(sqlClauseWithDefaultValue(typeDefine));
+                sqlBuilder
+                        .append(" ")
+                        .append(sqlClauseWithDefaultValue(typeDefine, sourceDialectName));
             }
         }
 
@@ -612,8 +616,8 @@ public interface JdbcDialect extends Serializable {
             }
             return;
         }
-
-        boolean sameCatalog = StringUtils.equals(dialectName(), event.getSourceDialectName());
+        String sourceDialectName = event.getSourceDialectName();
+        boolean sameCatalog = StringUtils.equals(dialectName(), sourceDialectName);
         BasicTypeDefine typeDefine = getTypeConverter().reconvert(event.getColumn());
         String columnType =
                 sameCatalog ? event.getColumn().getSourceType() : typeDefine.getColumnType();
@@ -649,7 +653,9 @@ public interface JdbcDialect extends Serializable {
                 sqlBuilder.append(" NOT NULL");
             }
             if (sameCatalog) {
-                sqlBuilder.append(" ").append(sqlClauseWithDefaultValue(typeDefine));
+                sqlBuilder
+                        .append(" ")
+                        .append(sqlClauseWithDefaultValue(typeDefine, sourceDialectName));
             }
         }
         if (event.getColumn().getComment() != null) {
@@ -674,8 +680,8 @@ public interface JdbcDialect extends Serializable {
     default void applySchemaChange(
             Connection connection, TablePath tablePath, AlterTableModifyColumnEvent event)
             throws SQLException {
-
-        boolean sameCatalog = StringUtils.equals(dialectName(), event.getSourceDialectName());
+        String sourceDialectName = event.getSourceDialectName();
+        boolean sameCatalog = StringUtils.equals(dialectName(), sourceDialectName);
         BasicTypeDefine typeDefine = getTypeConverter().reconvert(event.getColumn());
         String columnType =
                 sameCatalog ? event.getColumn().getSourceType() : typeDefine.getColumnType();
@@ -710,7 +716,9 @@ public interface JdbcDialect extends Serializable {
                 sqlBuilder.append(" NOT NULL");
             }
             if (sameCatalog) {
-                sqlBuilder.append(" ").append(sqlClauseWithDefaultValue(typeDefine));
+                sqlBuilder
+                        .append(" ")
+                        .append(sqlClauseWithDefaultValue(typeDefine, sourceDialectName));
             }
         }
         if (event.getColumn().getComment() != null) {
@@ -749,13 +757,15 @@ public interface JdbcDialect extends Serializable {
      * Get the SQL clause for define column default value
      *
      * @param columnDefine column define
+     * @param sourceDialectName
      * @return SQL clause for define default value
      */
-    default String sqlClauseWithDefaultValue(BasicTypeDefine columnDefine) {
+    default String sqlClauseWithDefaultValue(
+            BasicTypeDefine columnDefine, String sourceDialectName) {
         Object defaultValue = columnDefine.getDefaultValue();
         if (Objects.nonNull(defaultValue)
-                && needsQuotesWithDefaultValue(columnDefine.getColumnType())
-                && !isSpecialDefaultValue(defaultValue)) {
+                && needsQuotesWithDefaultValue(columnDefine)
+                && !isSpecialDefaultValue(defaultValue, sourceDialectName)) {
             defaultValue = quotesDefaultValue(defaultValue);
         }
         return "DEFAULT " + defaultValue;
@@ -774,10 +784,10 @@ public interface JdbcDialect extends Serializable {
     /**
      * whether quotes with default value
      *
-     * @param sqlType sql type of column
+     * @param columnDefine column define
      * @return whether needs quotes with the type
      */
-    default boolean needsQuotesWithDefaultValue(String sqlType) {
+    default boolean needsQuotesWithDefaultValue(BasicTypeDefine columnDefine) {
         return false;
     }
 
@@ -785,9 +795,13 @@ public interface JdbcDialect extends Serializable {
      * whether is special default value e.g. current_timestamp
      *
      * @param defaultValue default value of column
+     * @param sourceDialectName source dialect name
      * @return whether is special default value e.g current_timestamp
      */
-    default boolean isSpecialDefaultValue(Object defaultValue) {
+    default boolean isSpecialDefaultValue(Object defaultValue, String sourceDialectName) {
+        if (DatabaseIdentifier.MYSQL.equals(sourceDialectName)) {
+            return DefaultValueUtils.isMysqlSpecialDefaultValue(defaultValue);
+        }
         return false;
     }
 

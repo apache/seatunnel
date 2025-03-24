@@ -24,39 +24,26 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ReaderOption;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.ShardMetadata;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseTable;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.CKAggCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.CKCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSinkState;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseProxy;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseUtil;
 
-import com.clickhouse.client.ClickHouseNode;
 import com.google.auto.service.AutoService;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Properties;
-
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.BULK_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.CLICKHOUSE_CONFIG;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PRIMARY_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SHARDING_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SPLIT_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SUPPORT_UPSERT;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.CLICKHOUSE_CONFIG;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.SERVER_TIME_ZONE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.BULK_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.CUSTOM_SQL;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.DATA_SAVE_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.PRIMARY_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.SAVE_MODE_CREATE_TEMPLATE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.SCHEMA_SAVE_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.SHARDING_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.SPLIT_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.SUPPORT_UPSERT;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions.TABLE;
 
 @AutoService(Factory.class)
 public class ClickhouseSinkFactory implements TableSinkFactory {
@@ -66,102 +53,29 @@ public class ClickhouseSinkFactory implements TableSinkFactory {
     }
 
     @Override
-    public TableSink<SeaTunnelRow, ClickhouseSinkState, CKCommitInfo, CKAggCommitInfo> createSink(
-            TableSinkFactoryContext context) {
+    public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig readonlyConfig = context.getOptions();
         CatalogTable catalogTable = context.getCatalogTable();
-        List<ClickHouseNode> nodes = ClickhouseUtil.createNodes(readonlyConfig);
-        Properties clickhouseProperties = new Properties();
-        readonlyConfig
-                .get(CLICKHOUSE_CONFIG)
-                .forEach((key, value) -> clickhouseProperties.put(key, String.valueOf(value)));
-
-        clickhouseProperties.put("user", readonlyConfig.get(USERNAME));
-        clickhouseProperties.put("password", readonlyConfig.get(PASSWORD));
-        ClickhouseProxy proxy = new ClickhouseProxy(nodes.get(0));
-        try {
-            Map<String, String> tableSchema =
-                    proxy.getClickhouseTableSchema(readonlyConfig.get(TABLE));
-            String shardKey = null;
-            String shardKeyType = null;
-            ClickhouseTable table =
-                    proxy.getClickhouseTable(
-                            readonlyConfig.get(DATABASE), readonlyConfig.get(TABLE));
-            if (readonlyConfig.get(SPLIT_MODE)) {
-                if (!"Distributed".equals(table.getEngine())) {
-                    throw new ClickhouseConnectorException(
-                            CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                            "split mode only support table which engine is "
-                                    + "'Distributed' engine at now");
-                }
-                if (readonlyConfig.getOptional(SHARDING_KEY).isPresent()) {
-                    shardKey = readonlyConfig.get(SHARDING_KEY);
-                    shardKeyType = tableSchema.get(shardKey);
-                }
-            }
-            ShardMetadata metadata =
-                    new ShardMetadata(
-                            shardKey,
-                            shardKeyType,
-                            table.getSortingKey(),
-                            readonlyConfig.get(DATABASE),
-                            readonlyConfig.get(TABLE),
-                            table.getEngine(),
-                            readonlyConfig.get(SPLIT_MODE),
-                            new Shard(1, 1, nodes.get(0)),
-                            readonlyConfig.get(USERNAME),
-                            readonlyConfig.get(PASSWORD));
-            proxy.close();
-            String[] primaryKeys = null;
-            if (readonlyConfig.getOptional(PRIMARY_KEY).isPresent()) {
-                String primaryKey = readonlyConfig.get(PRIMARY_KEY);
-                if (primaryKey == null || primaryKey.trim().isEmpty()) {
-                    throw new ClickhouseConnectorException(
-                            CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                            "primary_key can not be empty");
-                }
-                if (shardKey != null && !Objects.equals(primaryKey, shardKey)) {
-                    throw new ClickhouseConnectorException(
-                            CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                            "sharding_key and primary_key must be consistent to ensure correct processing of cdc events");
-                }
-                primaryKeys = primaryKey.replaceAll("\\s+", "").split(",");
-            }
-            boolean supportUpsert = readonlyConfig.get(SUPPORT_UPSERT);
-            boolean allowExperimentalLightweightDelete =
-                    readonlyConfig.get(ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE);
-
-            ReaderOption option =
-                    ReaderOption.builder()
-                            .shardMetadata(metadata)
-                            .properties(clickhouseProperties)
-                            .seaTunnelRowType(catalogTable.getSeaTunnelRowType())
-                            .tableEngine(table.getEngine())
-                            .tableSchema(tableSchema)
-                            .bulkSize(readonlyConfig.get(BULK_SIZE))
-                            .primaryKeys(primaryKeys)
-                            .supportUpsert(supportUpsert)
-                            .allowExperimentalLightweightDelete(allowExperimentalLightweightDelete)
-                            .build();
-            return () -> new ClickhouseSink(option, catalogTable);
-        } finally {
-            proxy.close();
-        }
+        return () -> new ClickhouseSink(catalogTable, readonlyConfig);
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(HOST, DATABASE, TABLE)
+                .required(HOST, DATABASE, TABLE, USERNAME, PASSWORD)
                 .optional(
+                        SERVER_TIME_ZONE,
                         CLICKHOUSE_CONFIG,
                         BULK_SIZE,
                         SPLIT_MODE,
                         SHARDING_KEY,
                         PRIMARY_KEY,
                         SUPPORT_UPSERT,
-                        ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE)
-                .bundled(USERNAME, PASSWORD)
+                        ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE,
+                        SCHEMA_SAVE_MODE,
+                        DATA_SAVE_MODE,
+                        CUSTOM_SQL,
+                        SAVE_MODE_CREATE_TEMPLATE)
                 .build();
     }
 }

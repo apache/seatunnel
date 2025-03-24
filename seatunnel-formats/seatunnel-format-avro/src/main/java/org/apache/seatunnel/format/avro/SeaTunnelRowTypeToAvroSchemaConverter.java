@@ -58,28 +58,39 @@ public class SeaTunnelRowTypeToAvroSchemaConverter {
 
         switch (seaTunnelDataType.getSqlType()) {
             case STRING:
-                return Schema.create(Schema.Type.STRING);
+                return Schema.createUnion(
+                        Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.STRING));
             case BYTES:
-                return Schema.create(Schema.Type.BYTES);
+                return Schema.createUnion(
+                        Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.BYTES));
             case TINYINT:
             case SMALLINT:
             case INT:
-                return Schema.create(Schema.Type.INT);
+                return Schema.createUnion(
+                        Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.INT));
             case BIGINT:
-                return Schema.create(Schema.Type.LONG);
+                return Schema.createUnion(
+                        Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.LONG));
             case FLOAT:
-                return Schema.create(Schema.Type.FLOAT);
+                return Schema.createUnion(
+                        Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.FLOAT));
             case DOUBLE:
-                return Schema.create(Schema.Type.DOUBLE);
+                return Schema.createUnion(
+                        Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.DOUBLE));
             case BOOLEAN:
-                return Schema.create(Schema.Type.BOOLEAN);
+                return Schema.createUnion(
+                        Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.BOOLEAN));
             case MAP:
                 SeaTunnelDataType<?> valueType = ((MapType<?, ?>) seaTunnelDataType).getValueType();
-                return Schema.createMap(seaTunnelDataType2AvroDataType(fieldName, valueType));
+                return Schema.createUnion(
+                        Schema.create(Schema.Type.NULL),
+                        Schema.createMap(seaTunnelDataType2AvroDataType(fieldName, valueType)));
             case ARRAY:
                 SeaTunnelDataType<?> elementType =
                         ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
-                return Schema.createArray(seaTunnelDataType2AvroDataType(fieldName, elementType));
+                return Schema.createUnion(
+                        Schema.create(Schema.Type.NULL),
+                        Schema.createArray(seaTunnelDataType2AvroDataType(fieldName, elementType)));
             case ROW:
                 SeaTunnelDataType<?>[] fieldTypes =
                         ((SeaTunnelRowType) seaTunnelDataType).getFieldTypes();
@@ -93,12 +104,18 @@ public class SeaTunnelRowTypeToAvroSchemaConverter {
                 int precision = ((DecimalType) seaTunnelDataType).getPrecision();
                 int scale = ((DecimalType) seaTunnelDataType).getScale();
                 LogicalTypes.Decimal decimal = LogicalTypes.decimal(precision, scale);
-                return decimal.addToSchema(Schema.create(Schema.Type.BYTES));
+                return Schema.createUnion(
+                        Schema.create(Schema.Type.NULL),
+                        decimal.addToSchema(Schema.create(Schema.Type.BYTES)));
             case TIMESTAMP:
-                return LogicalTypes.localTimestampMillis()
-                        .addToSchema(Schema.create(Schema.Type.LONG));
+                return Schema.createUnion(
+                        Schema.create(Schema.Type.NULL),
+                        LogicalTypes.localTimestampMillis()
+                                .addToSchema(Schema.create(Schema.Type.LONG)));
             case DATE:
-                return LogicalTypes.date().addToSchema(Schema.create(Schema.Type.INT));
+                return Schema.createUnion(
+                        Schema.create(Schema.Type.NULL),
+                        LogicalTypes.date().addToSchema(Schema.create(Schema.Type.INT)));
             case NULL:
                 return Schema.create(Schema.Type.NULL);
             default:

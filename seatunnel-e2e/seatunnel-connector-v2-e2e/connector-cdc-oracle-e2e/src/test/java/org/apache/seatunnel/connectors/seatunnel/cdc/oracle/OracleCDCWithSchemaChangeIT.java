@@ -37,6 +37,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -63,6 +64,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
+import static org.awaitility.Awaitility.with;
+import static org.awaitility.Durations.TWO_SECONDS;
+import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
 
 @Slf4j
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -187,20 +191,27 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
     @TestTemplate
     public void testOracleCdc2MysqlWithSchemaEvolutionCase(TestContainer container)
             throws Exception {
-        dropTable(ORACLE_CONTAINER.getJdbcUrl(), SCEHMA_NAME + "." + SOURCE_TABLE1);
-        dropTable(ORACLE_CONTAINER.getJdbcUrl(), SCEHMA_NAME + "." + SOURCE_TABLE1 + "_SINK");
+        dropTable(ORACLE_CONTAINER.getJdbcUrl(), SCEHMA_NAME, SOURCE_TABLE1);
+        dropTable(ORACLE_CONTAINER.getJdbcUrl(), SCEHMA_NAME, SOURCE_TABLE1 + "_SINK");
         createAndInitialize("full_types", ADMIN_USER, ADMIN_PWD);
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
         CompletableFuture.runAsync(
                 () -> {
                     try {
-                        container.executeJob("/oraclecdc_to_mysql_with_schema_change.conf");
+                        container.executeJob("/oraclecdc_to_mysql_with_schema_change.conf", jobId);
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
                     }
                 });
 
-        Thread.sleep(10000L);
+        given().pollDelay(10, TimeUnit.SECONDS)
+                .await()
+                .pollDelay(5000L, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
+                        });
 
         assertSchemaEvolution(
                 ORACLE_CONTAINER.getJdbcUrl(),
@@ -243,7 +254,11 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
                                             sinkSchemaName,
                                             sinkTableName));
             // verify the data
-            await().atMost(300, TimeUnit.SECONDS)
+            with().pollInterval(TWO_SECONDS)
+                    .pollDelay(10, TimeUnit.SECONDS)
+                    .and()
+                    .await()
+                    .atMost(20, TimeUnit.MINUTES)
                     .untilAsserted(
                             () -> {
                                 checkData(
@@ -400,13 +415,15 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
                                 "mysql",
                                 MYSQL_CONNECTOR_NAME,
                                 MYSQL_CONNECTOR_PASSWORD,
-                                JdbcUrlUtil.getUrlInfo(MYSQL_CONTAINER.getJdbcUrl()));
+                                JdbcUrlUtil.getUrlInfo(MYSQL_CONTAINER.getJdbcUrl()),
+                                null);
                 OracleCatalog oracleCatalog =
                         new OracleCatalog(
                                 "oracle",
                                 CONNECTOR_USER,
                                 CONNECTOR_PWD,
                                 OracleURLParser.parse(ORACLE_CONTAINER.getJdbcUrl()),
+                                null,
                                 null)) {
             mySqlCatalog.open();
             oracleCatalog.open();

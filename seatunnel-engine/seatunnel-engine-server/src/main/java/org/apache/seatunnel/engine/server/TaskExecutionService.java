@@ -31,6 +31,7 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
@@ -82,7 +83,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
@@ -702,7 +702,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     taskGroupExecutionTracker.exception(e);
                 }
             } catch (Throwable e) {
-                logger.warning("Exception in " + t, e);
+                if (taskGroupExecutionTracker.isCancel.get()) {
+                    logger.warning(String.format("Interrupted task %d - %s", t.getTaskID(), t));
+                } else {
+                    logger.warning("Exception in " + t, e);
+                }
                 taskGroupExecutionTracker.exception(e);
             } finally {
                 taskGroupExecutionTracker.taskDone(t);

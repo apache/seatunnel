@@ -44,6 +44,7 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.Statement;
 import java.sql.Timestamp;
@@ -53,6 +54,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class JdbcOracleIT extends AbstractJdbcIT {
 
@@ -81,6 +84,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                     + "    VARCHAR_10_COL                varchar2(10),\n"
                     + "    CHAR_10_COL                   char(10),\n"
                     + "    CLOB_COL                      clob,\n"
+                    + "    BLOB_COL                      blob,\n"
                     + "    NUMBER_1             number(1),\n"
                     + "    NUMBER_6             number(6),\n"
                     + "    NUMBER_10             number(10),\n"
@@ -104,6 +108,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                     + "    VARCHAR_10_COL                varchar2(10),\n"
                     + "    CHAR_10_COL                   char(10),\n"
                     + "    CLOB_COL                      clob,\n"
+                    + "    BLOB_COL                      blob,\n"
                     + "    NUMBER_1             number(1),\n"
                     + "    NUMBER_6             number(6),\n"
                     + "    NUMBER_10             number(10),\n"
@@ -125,6 +130,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                 "VARCHAR_10_COL",
                 "CHAR_10_COL",
                 "CLOB_COL",
+                "BLOB_COL",
                 "NUMBER_1",
                 "NUMBER_6",
                 "NUMBER_10",
@@ -230,6 +236,11 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                                 String.format("f%s", i),
                                 String.format("f%s", i),
                                 String.format("f%s", i),
+                                // set value bytes more than 4000bytes
+                                IntStream.range(0, 4000)
+                                        .mapToObj(d -> d + "")
+                                        .collect(Collectors.joining(","))
+                                        .getBytes(StandardCharsets.UTF_8),
                                 1,
                                 i * 10,
                                 i * 1000,
@@ -297,7 +308,8 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                         jdbcCase.getUserName(),
                         jdbcCase.getPassword(),
                         OracleURLParser.parse(jdbcUrl),
-                        SCHEMA);
+                        SCHEMA,
+                        null);
         catalog.open();
     }
 

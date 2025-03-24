@@ -19,9 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.kudu.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
@@ -33,7 +33,6 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
-import static org.apache.seatunnel.api.table.catalog.CatalogOptions.TABLE_LIST;
 import static org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig.MASTER;
 import static org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig.TABLE_NAME;
 
@@ -49,7 +48,7 @@ public class KuduSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(MASTER)
-                .optional(TableSchemaOptions.SCHEMA)
+                .optional(ConnectorCommonOptions.SCHEMA)
                 .optional(KuduSourceConfig.WORKER_COUNT)
                 .optional(KuduSourceConfig.OPERATION_TIMEOUT)
                 .optional(KuduSourceConfig.ADMIN_OPERATION_TIMEOUT)
@@ -58,7 +57,7 @@ public class KuduSourceFactory implements TableSourceFactory {
                 .optional(KuduSourceConfig.FILTER)
                 .optional(KuduSinkConfig.ENABLE_KERBEROS)
                 .optional(KuduSinkConfig.KERBEROS_KRB5_CONF)
-                .exclusive(TABLE_NAME, TABLE_LIST)
+                .exclusive(TABLE_NAME, ConnectorCommonOptions.TABLE_LIST)
                 .conditional(
                         KuduSinkConfig.ENABLE_KERBEROS,
                         true,

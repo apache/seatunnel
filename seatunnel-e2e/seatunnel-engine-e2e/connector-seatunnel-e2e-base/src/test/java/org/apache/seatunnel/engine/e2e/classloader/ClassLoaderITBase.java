@@ -18,7 +18,7 @@
 package org.apache.seatunnel.engine.e2e.classloader;
 
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
-import org.apache.seatunnel.engine.e2e.SeaTunnelContainer;
+import org.apache.seatunnel.engine.e2e.SeaTunnelEngineContainer;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
 import org.awaitility.Awaitility;
@@ -41,7 +41,7 @@ import static io.restassured.RestAssured.given;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 import static org.hamcrest.Matchers.equalTo;
 
-public abstract class ClassLoaderITBase extends SeaTunnelContainer {
+public abstract class ClassLoaderITBase extends SeaTunnelEngineContainer {
 
     private static final String CONF_FILE = "/classloader/fake_to_inmemory.conf";
 
@@ -136,7 +136,7 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
                                     + colon
                                     + server.getFirstMappedPort()
                                     + RestConstant.CONTEXT_PATH
-                                    + RestConstant.SUBMIT_JOB_URL)
+                                    + RestConstant.REST_URL_SUBMIT_JOB)
                     .then()
                     .statusCode(200);
 
@@ -150,7 +150,7 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
                                                             + colon
                                                             + server.getFirstMappedPort()
                                                             + RestConstant.CONTEXT_PATH
-                                                            + RestConstant.FINISHED_JOBS_INFO
+                                                            + RestConstant.REST_URL_FINISHED_JOBS
                                                             + "/FINISHED")
                                             .then()
                                             .statusCode(200)

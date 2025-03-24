@@ -19,6 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql;
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.converter.TypeConverter;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -36,10 +41,18 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_CHAR;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_CHARACTER;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_TEXT;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_VARCHAR;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_XML;
 
 @Slf4j
 public class PostgresDialect implements JdbcDialect {
@@ -254,6 +267,187 @@ public class PostgresDialect implements JdbcDialect {
             }
         }
         return SQLUtils.countForSubquery(connection, table.getQuery());
+    }
+
+    @Override
+    public TypeConverter<BasicTypeDefine> getTypeConverter() {
+        return PostgresTypeConverter.INSTANCE;
+    }
+
+    @Override
+    public void applySchemaChange(
+            Connection connection, TablePath tablePath, AlterTableAddColumnEvent event)
+            throws SQLException {
+        List<String> ddlSQL = new ArrayList<>();
+        ddlSQL.add(buildAddColumnSQL(tablePath, event));
+
+        if (event.getColumn().getComment() != null) {
+            ddlSQL.add(buildColumnCommentSQL(tablePath, event.getColumn()));
+        }
+        executeDDL(connection, ddlSQL);
+    }
+
+    @Override
+    public void applySchemaChange(
+            Connection connection, TablePath tablePath, AlterTableChangeColumnEvent event)
+            throws SQLException {
+        List<String> ddlSQL = new ArrayList<>();
+        if (event.getOldColumn() != null
+                && !(event.getColumn().getName().equals(event.getOldColumn()))) {
+            StringBuilder sqlBuilder =
+                    new StringBuilder()
+                            .append("ALTER TABLE ")
+                            .append(tableIdentifier(tablePath))
+                            .append(" RENAME COLUMN ")
+                            .append(quoteIdentifier(event.getOldColumn()))
+                            .append(" TO ")
+                            .append(quoteIdentifier(event.getColumn().getName()));
+            ddlSQL.add(sqlBuilder.toString());
+        }
+
+        executeDDL(connection, ddlSQL);
+
+        if (event.getColumn().getDataType() != null) {
+            applySchemaChange(
+                    connection,
+                    tablePath,
+                    AlterTableModifyColumnEvent.modify(event.tableIdentifier(), event.getColumn()));
+        }
+    }
+
+    @Override
+    public void applySchemaChange(
+            Connection connection, TablePath tablePath, AlterTableModifyColumnEvent event)
+            throws SQLException {
+        List<String> ddlSQL = buildUpdateColumnSQL(connection, tablePath, event);
+        if (event.getColumn().getComment() != null) {
+            ddlSQL.add(buildColumnCommentSQL(tablePath, event.getColumn()));
+        }
+        executeDDL(connection, ddlSQL);
+    }
+
+    @Override
+    public boolean needsQuotesWithDefaultValue(BasicTypeDefine columnDefine) {
+        String pgDataType = columnDefine.getDataType().toLowerCase();
+        switch (pgDataType) {
+            case PG_CHAR:
+            case PG_VARCHAR:
+            case PG_TEXT:
+            case PG_CHARACTER:
+            case PG_XML:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private void executeDDL(Connection connection, List<String> ddlSQL) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            for (String sql : ddlSQL) {
+                log.info("Executing DDL SQL: {}", sql);
+                statement.execute(sql);
+            }
+        }
+    }
+
+    private String buildAddColumnSQL(TablePath tablePath, AlterTableAddColumnEvent event) {
+        Column column = event.getColumn();
+        String sourceDialectName = event.getSourceDialectName();
+        boolean sameCatalog = StringUtils.equals(dialectName(), sourceDialectName);
+        BasicTypeDefine typeDefine = getTypeConverter().reconvert(column);
+        String columnType = sameCatalog ? column.getSourceType() : typeDefine.getColumnType();
+        StringBuilder sqlBuilder =
+                new StringBuilder()
+                        .append("ALTER TABLE ")
+                        .append(tableIdentifier(tablePath))
+                        .append(" ADD ")
+                        .append(quoteIdentifier(column.getName()))
+                        .append(" ")
+                        .append(columnType);
+        if (column.getDefaultValue() == null) {
+            sqlBuilder.append(" NULL");
+        } else {
+            if (column.isNullable()) {
+                sqlBuilder.append(" NULL");
+            } else if (sameCatalog
+                    || !isSpecialDefaultValue(typeDefine.getDefaultValue(), sourceDialectName)) {
+                sqlBuilder
+                        .append(" NOT NULL")
+                        .append(" ")
+                        .append(sqlClauseWithDefaultValue(typeDefine, sourceDialectName));
+            } else {
+                log.warn(
+                        "Skipping unsupported default value for column {} in table {}.",
+                        column.getName(),
+                        tablePath.getFullName());
+                sqlBuilder.append(" NULL");
+            }
+        }
+        return sqlBuilder.toString();
+    }
+
+    private List<String> buildUpdateColumnSQL(
+            Connection connection, TablePath tablePath, AlterTableModifyColumnEvent event)
+            throws SQLException {
+        List<String> ddlSQl = new ArrayList<>();
+        Column column = event.getColumn();
+        String sourceDialectName = event.getSourceDialectName();
+        boolean sameCatalog = StringUtils.equals(dialectName(), sourceDialectName);
+        BasicTypeDefine typeDefine = getTypeConverter().reconvert(column);
+        String columnType = sameCatalog ? column.getSourceType() : typeDefine.getColumnType();
+        StringBuilder sqlBuilder =
+                new StringBuilder()
+                        .append("ALTER TABLE ")
+                        .append(tableIdentifier(tablePath))
+                        .append(" ALTER COLUMN ")
+                        .append(quoteIdentifier(column.getName()))
+                        .append(" ")
+                        .append("TYPE ")
+                        .append(columnType);
+        ddlSQl.add(sqlBuilder.toString());
+        boolean targetColumnNullable = columnIsNullable(connection, tablePath, column.getName());
+        if (column.isNullable() != targetColumnNullable) {
+            ddlSQl.add(
+                    String.format(
+                            "ALTER TABLE %s ALTER COLUMN %s %s NOT NULL",
+                            tablePath,
+                            quoteIdentifier(column.getName()),
+                            column.isNullable() ? "DROP" : "SET"));
+        }
+        return ddlSQl;
+    }
+
+    private String buildColumnCommentSQL(TablePath tablePath, Column column) {
+        return String.format(
+                "COMMENT ON COLUMN %s.%s IS '%s'",
+                tableIdentifier(tablePath), quoteIdentifier(column.getName()), column.getComment());
+    }
+
+    private boolean columnIsNullable(Connection connection, TablePath tablePath, String column)
+            throws SQLException {
+        String selectColumnSQL =
+                "SELECT"
+                        + "        is_nullable FROM"
+                        + "        information_schema.columns c"
+                        + "        WHERE c.table_catalog = '"
+                        + tablePath.getDatabaseName()
+                        + "'"
+                        + "        AND c.table_schema = '"
+                        + tablePath.getSchemaName()
+                        + "'"
+                        + "        AND c.table_name = '"
+                        + tablePath.getTableName()
+                        + "'"
+                        + "        AND c.column_name = '"
+                        + column
+                        + "'";
+        try (Statement statement = connection.createStatement()) {
+            ResultSet rs = statement.executeQuery(selectColumnSQL);
+            if (rs.next()) {
+                return rs.getString("is_nullable").equals("YES");
+            }
+            return false;
+        }
     }
 
     public String convertType(String columnName, String columnType) {

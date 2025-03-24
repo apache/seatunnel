@@ -46,6 +46,8 @@ public class FlinkRowCollector implements Collector<SeaTunnelRow> {
 
     private final Meter sourceReadQPS;
 
+    private boolean emptyThisPollNext = true;
+
     public FlinkRowCollector(Config envConfig, MetricsContext metricsContext) {
         this.flowControlGate = FlowControlGate.create(FlowControlStrategy.fromConfig(envConfig));
         this.sourceReadCount = metricsContext.counter(MetricNames.SOURCE_RECEIVED_COUNT);
@@ -61,6 +63,7 @@ public class FlinkRowCollector implements Collector<SeaTunnelRow> {
             sourceReadCount.inc();
             sourceReadBytes.inc(record.getBytesSize());
             sourceReadQPS.markEvent();
+            emptyThisPollNext = false;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -71,8 +74,19 @@ public class FlinkRowCollector implements Collector<SeaTunnelRow> {
         return this;
     }
 
+    @Override
+    public boolean isEmptyThisPollNext() {
+        return emptyThisPollNext;
+    }
+
+    @Override
+    public void resetEmptyThisPollNext() {
+        this.emptyThisPollNext = true;
+    }
+
     public FlinkRowCollector withReaderOutput(ReaderOutput<SeaTunnelRow> readerOutput) {
         this.readerOutput = readerOutput;
+        this.emptyThisPollNext = true;
         return this;
     }
 }

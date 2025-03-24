@@ -59,6 +59,7 @@ public abstract class BaseMultipleTableFileSink
     private final CatalogTable catalogTable;
     private final FileSinkConfig fileSinkConfig;
     private String jobId;
+    private JobContext jobContext;
     private final ReadonlyConfig readonlyConfig;
 
     public abstract String getPluginName();
@@ -72,15 +73,25 @@ public abstract class BaseMultipleTableFileSink
         this.catalogTable = catalogTable;
     }
 
+    public void preCheckConfig() {
+        if (readonlyConfig.get(BaseSinkConfig.SINGLE_FILE_MODE)
+                && jobContext.isEnableCheckpoint()) {
+            throw new IllegalArgumentException(
+                    "Single file mode is not supported when checkpoint is enabled or in streaming mode.");
+        }
+    }
+
     @Override
     public void setJobContext(JobContext jobContext) {
-        this.jobId = jobContext.getJobId();
+        this.jobContext = jobContext;
+        preCheckConfig();
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> restoreWriter(
             SinkWriter.Context context, List<FileSinkState> states) {
-        return new BaseFileSinkWriter(createWriteStrategy(), hadoopConf, context, jobId, states);
+        return new BaseFileSinkWriter(
+                createWriteStrategy(), hadoopConf, context, jobContext.getJobId(), states);
     }
 
     @Override
@@ -91,7 +102,8 @@ public abstract class BaseMultipleTableFileSink
 
     @Override
     public BaseFileSinkWriter createWriter(SinkWriter.Context context) {
-        return new BaseFileSinkWriter(createWriteStrategy(), hadoopConf, context, jobId);
+        return new BaseFileSinkWriter(
+                createWriteStrategy(), hadoopConf, context, jobContext.getJobId());
     }
 
     @Override

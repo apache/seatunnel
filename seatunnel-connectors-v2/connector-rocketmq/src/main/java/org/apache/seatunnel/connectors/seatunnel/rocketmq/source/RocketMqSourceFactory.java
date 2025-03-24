@@ -32,7 +32,7 @@ public class RocketMqSourceFactory implements TableSourceFactory {
 
     @Override
     public String factoryIdentifier() {
-        return "Rocketmq";
+        return Config.CONNECTOR_IDENTITY;
     }
 
     @Override
@@ -41,6 +41,7 @@ public class RocketMqSourceFactory implements TableSourceFactory {
                 .required(ConsumerConfig.TOPICS, Config.NAME_SRV_ADDR)
                 .optional(
                         Config.FORMAT,
+                        ConsumerConfig.TAGS,
                         ConsumerConfig.START_MODE,
                         ConsumerConfig.CONSUMER_GROUP,
                         ConsumerConfig.COMMIT_ON_CHECKPOINT,
@@ -55,7 +56,8 @@ public class RocketMqSourceFactory implements TableSourceFactory {
                 .conditional(
                         ConsumerConfig.START_MODE,
                         StartMode.CONSUME_FROM_SPECIFIC_OFFSETS,
-                        ConsumerConfig.START_MODE_OFFSETS)
+                        ConsumerConfig.START_MODE_OFFSETS,
+                        ConsumerConfig.IGNORE_PARSE_ERRORS)
                 .build();
     }
 

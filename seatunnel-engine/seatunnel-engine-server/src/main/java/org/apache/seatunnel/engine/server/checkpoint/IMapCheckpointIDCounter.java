@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.checkpoint;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 
@@ -28,7 +29,6 @@ import com.hazelcast.spi.impl.NodeEngine;
 
 import java.nio.ByteBuffer;
 import java.util.Base64;
-import java.util.concurrent.CompletableFuture;
 
 import static org.apache.seatunnel.engine.common.Constant.IMAP_CHECKPOINT_ID;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;

@@ -33,8 +33,6 @@ source {
         # include schema into kafka message
         key.converter.schemas.enable = false
         value.converter.schemas.enable = false
-        # include ddl
-        include.schema.changes = true
         # topic prefix
         database.server.name =  "mysql_cdc_1"
     }

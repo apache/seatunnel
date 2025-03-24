@@ -88,6 +88,7 @@ public class JdbcColumnConverter {
                 int columnSize = columnsResultSet.getInt("COLUMN_SIZE");
                 int decimalDigits = columnsResultSet.getInt("DECIMAL_DIGITS");
                 int nullable = columnsResultSet.getInt("NULLABLE");
+                String comment = columnsResultSet.getString("REMARKS");
 
                 Column column =
                         convert(
@@ -96,7 +97,8 @@ public class JdbcColumnConverter {
                                 nativeType,
                                 nullable,
                                 columnSize,
-                                decimalDigits);
+                                decimalDigits,
+                                comment);
                 columns.add(column);
             }
         }
@@ -110,7 +112,7 @@ public class JdbcColumnConverter {
         int isNullable = metadata.isNullable(index);
         int precision = metadata.getPrecision(index);
         int scale = metadata.getScale(index);
-        return convert(columnName, jdbcType, nativeType, isNullable, precision, scale);
+        return convert(columnName, jdbcType, nativeType, isNullable, precision, scale, null);
     }
 
     public static Column convert(
@@ -119,7 +121,8 @@ public class JdbcColumnConverter {
             String nativeType,
             int isNullable,
             int precision,
-            int scale)
+            int scale,
+            String comment)
             throws SQLException {
         int columnLength = precision;
         long longColumnLength = precision;
@@ -206,7 +209,7 @@ public class JdbcColumnConverter {
                 columnLength,
                 isNullable != ResultSetMetaData.columnNoNulls,
                 null,
-                null,
+                comment,
                 nativeType,
                 false,
                 false,

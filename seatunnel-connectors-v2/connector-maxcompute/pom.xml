@@ -30,7 +30,7 @@
     <name>SeaTunnel : Connectors V2 : Maxcompute</name>
 
     <properties>
-        <maxcompute.version>0.31.3</maxcompute.version>
+        <maxcompute.version>0.51.0</maxcompute.version>
         <commons.lang3.version>3.4</commons.lang3.version>
     </properties>
 

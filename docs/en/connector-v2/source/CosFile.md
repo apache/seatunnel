@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-cos.md';
+
 # CosFile
 
 > Cos file source connector
@@ -64,7 +66,8 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | sheet_name                | string  | no       | -                   |
 | xml_row_tag               | string  | no       | -                   |
 | xml_use_attr_format       | boolean | no       | -                   |
-| file_filter_pattern       | string  | no       |                     |
+| file_filter_pattern       | string  | no       | -                   |
+| filename_extension            | string  | no       | -                   |
 | compress_codec            | string  | no       | none                |
 | archive_compress_codec    | string  | no       | none                |
 | encoding                  | string  | no       | UTF-8               |
@@ -324,6 +327,10 @@ The result of this example matching is:
 /data/seatunnel/20241005/old_data.csv
 ```
 
+### filename_extension [string]
+
+Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.
+
 ### compress_codec [string]
 
 The compress codec of files and the details that supported as the following shown:
@@ -343,8 +350,10 @@ The compress codec of archive files and the details that supported as the follow
 | ZIP                    | txt,json,excel,xml | .zip                    |
 | TAR                    | txt,json,excel,xml | .tar                    |
 | TAR_GZ                 | txt,json,excel,xml | .tar.gz                 |
-| GZ                     | txt,json,xml       | .gz                     |
+| GZ                     | txt,json,excel,xml | .gz                     |
 | NONE                   | all                | .*                      |
+
+Note: gz compressed excel file needs to compress the original file or specify the file suffix, such as e2e.xls ->e2e_test.xls.gz
 
 ### encoding [string]
 
@@ -451,7 +460,5 @@ sink {
 
 ## Changelog
 
-### next version
-
-- Add file cos source connector ([4979](https://github.com/apache/seatunnel/pull/4979))
+<ChangeLog />
 

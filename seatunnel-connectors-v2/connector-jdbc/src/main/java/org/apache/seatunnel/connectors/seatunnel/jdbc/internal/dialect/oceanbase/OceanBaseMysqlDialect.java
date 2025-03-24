@@ -27,7 +27,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.SQLUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.MysqlDefaultValueUtils;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -244,8 +243,8 @@ public class OceanBaseMysqlDialect implements JdbcDialect {
     }
 
     @Override
-    public boolean needsQuotesWithDefaultValue(String sqlType) {
-        OceanBaseMysqlType mysqlType = OceanBaseMysqlType.getByName(sqlType);
+    public boolean needsQuotesWithDefaultValue(BasicTypeDefine columnDefine) {
+        OceanBaseMysqlType mysqlType = OceanBaseMysqlType.getByName(columnDefine.getColumnType());
         switch (mysqlType) {
             case CHAR:
             case VARCHAR:
@@ -268,10 +267,5 @@ public class OceanBaseMysqlDialect implements JdbcDialect {
             default:
                 return false;
         }
-    }
-
-    @Override
-    public boolean isSpecialDefaultValue(Object defaultValue) {
-        return MysqlDefaultValueUtils.isSpecialDefaultValue(defaultValue);
     }
 }

@@ -37,6 +37,8 @@ The placeholders are mainly controlled by the following expressions:
   - Used to get the table unique-key fields in the upstream catalog table
 - `${field_names}`
   - Used to get the table field keys in the upstream catalog table
+- `${comment}`
+  - Used to get the table comment in the upstream catalog table
 
 ## Configuration
 

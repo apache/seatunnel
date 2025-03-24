@@ -43,6 +43,7 @@ public class DefaultClassLoaderService implements ClassLoaderService {
     private final Map<Long, Map<String, ClassLoader>> classLoaderCache;
     private final Map<Long, Map<String, AtomicInteger>> classLoaderReferenceCount;
     private final NodeEngine nodeEngine;
+    public static final String SKIP_CHECK_JAR = "CLASSLOADER_SERVICE_SKIP_CHECK_JAR";
 
     public DefaultClassLoaderService(boolean cacheMode, NodeEngine nodeEngine) {
         this.cacheMode = cacheMode;
@@ -70,7 +71,9 @@ public class DefaultClassLoaderService implements ClassLoaderService {
             classLoaderReferenceCount.get(jobId).get(key).incrementAndGet();
             return classLoaderMap.get(key);
         } else {
-            if (Objects.nonNull(nodeEngine)) {
+            if (Objects.nonNull(nodeEngine)
+                    && !Boolean.parseBoolean(
+                            System.getenv().getOrDefault(SKIP_CHECK_JAR, "false"))) {
                 for (URL jar : jars) {
                     File file = new File(jar.toURI().getPath());
                     if (!file.exists()) {
@@ -144,7 +147,7 @@ public class DefaultClassLoaderService implements ClassLoaderService {
 
     /** Only for test */
     @VisibleForTesting
-    Optional<ClassLoader> queryClassLoaderById(long jobId, Collection<URL> jars) {
+    public Optional<ClassLoader> queryClassLoaderById(long jobId, Collection<URL> jars) {
         if (cacheMode) {
             // with cache mode, all jobs share the same classloader if the jars are the same
             jobId = 1L;
@@ -162,7 +165,7 @@ public class DefaultClassLoaderService implements ClassLoaderService {
 
     /** Only for test */
     @VisibleForTesting
-    int queryClassLoaderReferenceCount(long jobId, Collection<URL> jars) {
+    public int queryClassLoaderReferenceCount(long jobId, Collection<URL> jars) {
         if (cacheMode) {
             // with cache mode, all jobs share the same classloader if the jars are the same
             jobId = 1L;
@@ -180,7 +183,7 @@ public class DefaultClassLoaderService implements ClassLoaderService {
 
     /** Only for test */
     @VisibleForTesting
-    int queryClassLoaderCount() {
+    public int queryClassLoaderCount() {
         AtomicInteger count = new AtomicInteger();
         classLoaderCache.values().forEach(map -> count.addAndGet(map.size()));
         return count.get();

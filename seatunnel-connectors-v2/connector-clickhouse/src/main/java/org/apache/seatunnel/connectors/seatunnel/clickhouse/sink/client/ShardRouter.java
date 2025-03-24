@@ -83,7 +83,8 @@ public class ShardRouter implements Serializable {
                             localTable.getDatabase(),
                             shardMetadata.getDefaultShard().getNode().getPort(),
                             shardMetadata.getUsername(),
-                            shardMetadata.getPassword());
+                            shardMetadata.getPassword(),
+                            shardMetadata.getDefaultShard().getNode().getOptions());
             int weight = 0;
             for (Shard shard : shardList) {
                 shards.put(weight, shard);
@@ -112,13 +113,14 @@ public class ShardRouter implements Serializable {
         }
         int offset =
                 (int)
-                        (HASH_INSTANCE.hash(
-                                        ByteBuffer.wrap(
-                                                shardValue
-                                                        .toString()
-                                                        .getBytes(StandardCharsets.UTF_8)),
-                                        0)
-                                & Long.MAX_VALUE % shardWeightCount);
+                        ((HASH_INSTANCE.hash(
+                                                ByteBuffer.wrap(
+                                                        shardValue
+                                                                .toString()
+                                                                .getBytes(StandardCharsets.UTF_8)),
+                                                0)
+                                        & Long.MAX_VALUE)
+                                % shardWeightCount);
         return shards.lowerEntry(offset + 1).getValue();
     }
 

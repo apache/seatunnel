@@ -22,3 +22,9 @@ db.getCollection('products').insertOne({"_id": ObjectId("10000000000000000000010
 db.getCollection('products').insertOne({"_id": ObjectId("100000000000000000000107"), "name": "rocks", "description": "box of assorted rocks", "weight": "53"});
 db.getCollection('products').insertOne({"_id": ObjectId("100000000000000000000108"), "name": "jacket", "description": "water resistent black wind breaker", "weight": "1"});
 
+
+db.getCollection('orders').insertOne({"_id": ObjectId("100000000000000000000101"),"order_number": 102482, "order_date": "2023-11-12", "quantity": 2 , "product_id": ObjectId("100000000000000000000101")});
+db.getCollection('orders').insertOne({"_id": ObjectId("100000000000000000000102"),"order_number": 102483, "order_date": "2023-11-13", "quantity": 5 , "product_id": ObjectId("100000000000000000000102")});
+db.getCollection('orders').insertOne({"_id": ObjectId("100000000000000000000103"),"order_number": 102484, "order_date": "2023-11-14", "quantity": 6 , "product_id": ObjectId("100000000000000000000103")});
+db.getCollection('orders').insertOne({"_id": ObjectId("100000000000000000000104"),"order_number": 102485, "order_date": "2023-11-15", "quantity": 9 , "product_id": ObjectId("100000000000000000000104")});
+db.getCollection('orders').insertOne({"_id": ObjectId("100000000000000000000105"),"order_number": 102486, "order_date": "2023-11-16", "quantity": 8 , "product_id": ObjectId("100000000000000000000105")});

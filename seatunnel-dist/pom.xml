@@ -32,17 +32,7 @@
     <properties>
         <!-- disable mvn deploy to central maven repo by default -->
         <maven.deploy.skip>true</maven.deploy.skip>
-        <javaparser.version>3.26.1</javaparser.version>
     </properties>
-
-    <dependencies>
-        <dependency>
-            <groupId>com.github.javaparser</groupId>
-            <artifactId>javaparser-core</artifactId>
-            <version>${javaparser.version}</version>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
 
     <build>
         <finalName>apache-seatunnel-${project.version}</finalName>
@@ -106,7 +96,7 @@
                 <db2.version>db2jcc4</db2.version>
                 <sqlite.version>3.39.3.0</sqlite.version>
                 <tablestore.version>5.13.9</tablestore.version>
-                <saphana.version>2.14.7</saphana.version>
+                <saphana.version>2.23.10</saphana.version>
                 <teradata.version>17.20.00.12</teradata.version>
                 <redshift.version>2.1.0.9</redshift.version>
                 <snowflake.version>3.13.29</snowflake.version>
@@ -1030,6 +1020,95 @@
                     <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>exec-maven-plugin</artifactId>
+                        <version>${exec-maven-plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>docker-build</id>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <phase>package</phase>
+                                <configuration>
+                                    <skip>${docker.build.skip}</skip>
+                                    <environmentVariables>
+                                        <DOCKER_BUILDKIT>1</DOCKER_BUILDKIT>
+                                    </environmentVariables>
+                                    <executable>docker</executable>
+                                    <workingDirectory>${project.basedir}</workingDirectory>
+                                    <arguments>
+                                        <argument>buildx</argument>
+                                        <argument>build</argument>
+                                        <argument>--load</argument>
+                                        <argument>--no-cache</argument>
+                                        <argument>-t</argument>
+                                        <argument>${docker.hub}/${docker.repo}:${docker.tag}</argument>
+                                        <argument>-t</argument>
+                                        <argument>${docker.hub}/${docker.repo}:latest</argument>
+                                        <argument>${project.basedir}</argument>
+                                        <argument>--build-arg</argument>
+                                        <argument>VERSION=${project.version}</argument>
+                                        <argument>--file=src/main/docker/Dockerfile</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>docker-verify</id>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <phase>verify</phase>
+                                <configuration>
+                                    <skip>${docker.verify.skip}</skip>
+                                    <environmentVariables>
+                                        <DOCKER_BUILDKIT>1</DOCKER_BUILDKIT>
+                                    </environmentVariables>
+                                    <executable>docker</executable>
+                                    <workingDirectory>${project.basedir}</workingDirectory>
+                                    <arguments>
+                                        <argument>run</argument>
+                                        <argument>--rm</argument>
+                                        <argument>${docker.hub}/${docker.repo}:${docker.tag}</argument>
+                                        <argument>bash</argument>
+                                        <argument>./bin/seatunnel.sh</argument>
+                                        <argument>-e</argument>
+                                        <argument>local</argument>
+                                        <argument>-c</argument>
+                                        <argument>config/v2.batch.config.template</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>docker-push</id>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <phase>install</phase>
+                                <configuration>
+                                    <skip>${docker.push.skip}</skip>
+                                    <environmentVariables>
+                                        <DOCKER_BUILDKIT>1</DOCKER_BUILDKIT>
+                                    </environmentVariables>
+                                    <executable>docker</executable>
+                                    <workingDirectory>${project.basedir}</workingDirectory>
+                                    <arguments>
+                                        <argument>buildx</argument>
+                                        <argument>build</argument>
+                                        <argument>--platform</argument>
+                                        <argument>linux/amd64,linux/arm64</argument>
+                                        <argument>--no-cache</argument>
+                                        <argument>--push</argument>
+                                        <argument>-t</argument>
+                                        <argument>${docker.hub}/${docker.repo}:${docker.tag}</argument>
+                                        <argument>-t</argument>
+                                        <argument>${docker.hub}/${docker.repo}:latest</argument>
+                                        <argument>${project.basedir}</argument>
+                                        <argument>--build-arg</argument>
+                                        <argument>VERSION=${project.version}</argument>
+                                        <argument>--file=src/main/docker/Dockerfile</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
                     </plugin>
                 </plugins>
             </build>

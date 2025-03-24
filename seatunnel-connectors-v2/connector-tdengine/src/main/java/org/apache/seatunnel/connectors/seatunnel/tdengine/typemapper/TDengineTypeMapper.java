@@ -58,6 +58,7 @@ public class TDengineTypeMapper {
 
     // -------------------------string----------------------------
     private static final String TDENGINE_CHAR = "CHAR";
+    private static final String TDENGINE_NCHAR = "NCHAR";
     private static final String TDENGINE_VARCHAR = "VARCHAR";
     private static final String TDENGINE_TINYTEXT = "TINYTEXT";
     private static final String TDENGINE_MEDIUMTEXT = "MEDIUMTEXT";
@@ -118,6 +119,7 @@ public class TDengineTypeMapper {
                 log.warn("{} will probably cause value overflow.", TDENGINE_DOUBLE_UNSIGNED);
                 return BasicType.DOUBLE_TYPE;
             case TDENGINE_CHAR:
+            case TDENGINE_NCHAR:
             case TDENGINE_TINYTEXT:
             case TDENGINE_MEDIUMTEXT:
             case TDENGINE_TEXT:

@@ -6,7 +6,7 @@ sidebar_position: 3
 
 > Source connector 的常用参数
 
-:::warn
+:::caution 警告
 
 旧的配置名称 `result_table_name` 已经过时，请尽快迁移到新名称 `plugin_output`。
 
@@ -73,7 +73,7 @@ transform {
     plugin_input = "fake"
     plugin_output = "fake1"
     # 查询表名必须与字段 'plugin_input' 相同
-    query = "select id, regexp_replace(name, '.+', 'b') as name, age+1 as age, pi() as pi, c_timestamp, c_date, c_map, c_array, c_decimal, c_row from fake"
+    query = "select id, regexp_replace(name, '.+', 'b') as name, age+1 as age, pi() as pi, c_timestamp, c_date, c_map, c_array, c_decimal, c_row from dual"
   }
   # SQL 转换支持基本函数和条件操作
   # 但不支持复杂的 SQL 操作，包括：多源表/行 JOIN 和聚合操作等

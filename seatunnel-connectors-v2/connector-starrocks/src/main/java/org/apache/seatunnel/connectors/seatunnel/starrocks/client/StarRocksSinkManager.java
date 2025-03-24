@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
 
 import org.apache.seatunnel.shade.com.google.common.base.Strings;
 
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
@@ -43,10 +44,10 @@ public class StarRocksSinkManager {
     private int batchRowCount = 0;
     private long batchBytesSize = 0;
 
-    public StarRocksSinkManager(SinkConfig sinkConfig, List<String> fileNames) {
+    public StarRocksSinkManager(SinkConfig sinkConfig, TableSchema tableSchema) {
         this.sinkConfig = sinkConfig;
         this.batchList = new ArrayList<>();
-        starrocksStreamLoadVisitor = new StarRocksStreamLoadVisitor(sinkConfig, fileNames);
+        starrocksStreamLoadVisitor = new StarRocksStreamLoadVisitor(sinkConfig, tableSchema);
     }
 
     private void tryInit() throws IOException {

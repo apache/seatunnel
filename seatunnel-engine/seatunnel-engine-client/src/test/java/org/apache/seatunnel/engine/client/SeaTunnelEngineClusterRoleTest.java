@@ -38,6 +38,7 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -304,6 +305,62 @@ public class SeaTunnelEngineClusterRoleTest {
                 masterNode.shutdown();
             }
         }
+    }
+
+    @Test
+    public void testStartMasterNodeWithTcpIp() {
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        HazelcastInstanceImpl instance =
+                SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig);
+        Assertions.assertNotNull(instance);
+        Assertions.assertEquals(1, instance.getCluster().getMembers().size());
+        instance.shutdown();
+    }
+
+    @Test
+    public void testStartMasterNodeWithMulticastJoin() {
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig.setHazelcastConfig(Config.loadFromString(getMulticastConfig()));
+        HazelcastInstanceImpl instance =
+                SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig);
+        Assertions.assertNotNull(instance);
+        Assertions.assertEquals(1, instance.getCluster().getMembers().size());
+        instance.shutdown();
+    }
+
+    @Test
+    public void testCannotOnlyStartWorkerNodeWithTcpIp() {
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> {
+                    SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
+                });
+    }
+
+    @Test
+    public void testCannotOnlyStartWorkerNodeWithMulticastJoin() {
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig.setHazelcastConfig(Config.loadFromString(getMulticastConfig()));
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> {
+                    SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
+                });
+    }
+
+    private String getMulticastConfig() {
+        return "hazelcast:\n"
+                + "  network:\n"
+                + "    join:\n"
+                + "      multicast:\n"
+                + "        enabled: true\n"
+                + "        multicast-group: 224.2.2.3\n"
+                + "        multicast-port: 54327\n"
+                + "        multicast-time-to-live: 32\n"
+                + "        multicast-timeout-seconds: 2\n"
+                + "        trusted-interfaces:\n"
+                + "          - 192.168.1.1\n";
     }
 
     private SeaTunnelClient createSeaTunnelClient(String clusterName) {

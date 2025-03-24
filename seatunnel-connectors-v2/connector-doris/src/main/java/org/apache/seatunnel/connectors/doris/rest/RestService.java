@@ -240,22 +240,7 @@ public class RestService implements Serializable {
     }
 
     @VisibleForTesting
-    public static String randomEndpoint(String feNodes, Logger logger)
-            throws DorisConnectorException {
-        logger.trace("Parse fenodes '{}'.", feNodes);
-        if (StringUtils.isEmpty(feNodes)) {
-            String errMsg =
-                    String.format(ErrorMessages.ILLEGAL_ARGUMENT_MESSAGE, "fenodes", feNodes);
-            throw new DorisConnectorException(DorisConnectorErrorCode.REST_SERVICE_FAILED, errMsg);
-        }
-        List<String> nodes = Arrays.asList(feNodes.split(","));
-        Collections.shuffle(nodes);
-        return nodes.get(0).trim();
-    }
-
-    @VisibleForTesting
-    static String getUriStr(
-            DorisSourceConfig dorisSourceConfig, DorisSourceTable dorisSourceTable, Logger logger)
+    static String getUriStr(String node, DorisSourceTable dorisSourceTable, Logger logger)
             throws DorisConnectorException {
         String tableIdentifier =
                 dorisSourceTable.getTablePath().getDatabaseName()
@@ -263,7 +248,7 @@ public class RestService implements Serializable {
                         + dorisSourceTable.getTablePath().getTableName();
         String[] identifier = parseIdentifier(tableIdentifier, logger);
         return "http://"
-                + randomEndpoint(dorisSourceConfig.getFrontends(), logger)
+                + node.trim()
                 + API_PREFIX
                 + "/"
                 + identifier[0]
@@ -298,16 +283,37 @@ public class RestService implements Serializable {
         }
         logger.debug("Query SQL Sending to Doris FE is: '{}'.", sql);
 
-        HttpPost httpPost =
-                new HttpPost(getUriStr(dorisSourceConfig, dorisSourceTable, logger) + QUERY_PLAN);
         String entity = "{\"sql\": \"" + sql + "\"}";
         logger.debug("Post body Sending to Doris FE is: '{}'.", entity);
         StringEntity stringEntity = new StringEntity(entity, StandardCharsets.UTF_8);
         stringEntity.setContentEncoding("UTF-8");
         stringEntity.setContentType("application/json");
-        httpPost.setEntity(stringEntity);
 
-        String resStr = send(dorisSourceConfig, httpPost, logger);
+        List<String> feNodes = Arrays.asList(dorisSourceConfig.getFrontends().split(","));
+        Collections.shuffle(feNodes);
+        int feNodesNum = feNodes.size();
+        String resStr = null;
+
+        for (int i = 0; i < feNodesNum; i++) {
+            try {
+                HttpPost httpPost =
+                        new HttpPost(
+                                getUriStr(feNodes.get(i), dorisSourceTable, logger) + QUERY_PLAN);
+                httpPost.setEntity(stringEntity);
+                resStr = send(dorisSourceConfig, httpPost, logger);
+                break;
+            } catch (Exception e) {
+                if (i == feNodesNum - 1) {
+                    throw new DorisConnectorException(
+                            DorisConnectorErrorCode.REST_SERVICE_FAILED, e);
+                }
+                log.error(
+                        "Find partition error for feNode: {} with exception: {}",
+                        feNodes.get(i),
+                        e.getMessage());
+            }
+        }
+
         logger.debug("Find partition response is '{}'.", resStr);
         QueryPlan queryPlan = getQueryPlan(resStr, logger);
         Map<String, List<Long>> be2Tablets = selectBeForTablet(queryPlan, logger);

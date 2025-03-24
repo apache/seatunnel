@@ -1,0 +1,96 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "seatunnel.fullname" . }}-master
+  labels:
+    {{- include "seatunnel.master.labels" . | nindent 4 }}
+spec:
+  {{- if .Values.master.strategy }}
+  strategy: 
+    {{- toYaml .Values.master.strategy | nindent 4 }}
+  {{- end }}
+  replicas: {{ .Values.master.replicas }}
+  selector:
+    matchLabels:
+      {{- include "seatunnel.master.labels" . | nindent 6 }}
+  template:
+    metadata:
+     {{- if .Values.master.annotations }}
+     annotations:
+       {{- toYaml .Values.master.annotations | nindent 8 }}
+     {{- end }}
+     labels:
+       {{- include "seatunnel.master.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ template "seatunnel.fullname" . }}
+      {{- if .Values.master.affinity }}
+      affinity:
+        {{- toYaml .Values.master.affinity | nindent 8 }}
+      {{- end }}
+      {{- if .Values.master.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.master.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.master.tolerations }}
+      tolerations:
+        {{- toYaml .Values.master.tolerations | nindent 8 }}
+      {{- end }}
+      {{- if .Values.image.pullSecret }}
+      imagePullSecrets:
+        - name: {{ .Values.image.pullSecret }}
+      {{- end }}
+      containers:
+        - name: {{ include "seatunnel.fullname" . }}-master
+          image: {{ include "seatunnel.image.fullname.master" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 5801
+              name: "hazelcast-port"
+            - containerPort: 8080
+              name: "master-port"
+          {{- if .Values.master.command }}
+          command: {{ .Values.master.command }}
+          {{- else }}
+          command: ["/bin/sh","-c","/opt/seatunnel/bin/seatunnel-cluster.sh -r master"]
+          {{- end }}
+          {{- if .Values.master.resources }}
+          resources:
+            {{- toYaml .Values.master.resources | nindent 12 }}
+          {{- end }}
+          {{- if .Values.master.livenessProbe.enabled }}
+          livenessProbe:
+            {{- toYaml .Values.master.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.env }}
+          env:
+            {{- toYaml .Values.env | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            # config mount
+            {{- range $path, $_ := .Files.Glob "conf/*" }}
+            - name: seatunnel-configs
+              mountPath: /opt/seatunnel/config/{{ base $path }}
+              subPath: {{ base $path }}
+            {{- end }}
+      volumes:
+        - name: seatunnel-configs
+          configMap:
+            name: {{ include "seatunnel.fullname" . }}-configs
+

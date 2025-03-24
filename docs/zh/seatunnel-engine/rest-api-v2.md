@@ -19,7 +19,7 @@ seatunnel:
     http:
       enable-http: true
       port: 8080
-      enable-dynamic-port: false
+      enable-dynamic-port: true
       port-range: 100
 ```
 
@@ -52,7 +52,7 @@ seatunnel:
 
 ```json
 {
-    "projectVersion":"2.3.5-SNAPSHOT",
+    "projectVersion":"2.3.10-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
@@ -429,7 +429,7 @@ env {
 
 source {
   FakeSource {
-    result_table_name = "fake"
+    plugin_output = "fake"
     row.num = 100
     schema = {
       fields {
@@ -446,7 +446,7 @@ transform {
 
 sink {
   Console {
-    source_table_name = "fake"
+    plugin_input = "fake"
   }
 }
 
@@ -463,7 +463,40 @@ sink {
 </details>
 
 ------------------------------------------------------------------------------------------
+### 提交作业来源上传配置文件
 
+<details>
+<summary><code>POST</code> <code><b>/submit-job</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
+
+#### 参数
+
+> |         参数名称         |   是否必传   |  参数类型  | 参数描述                              |
+> |----------------------|----------|-----------------------------------|-----------------------------------|
+> | jobId                | optional | string | job id                            |
+> | jobName              | optional | string | job name                          |
+> | isStartWithSavePoint | optional | string | if job is started with save point |
+
+#### 请求体
+上传文件key的名称是config_file,文件后缀json的按照json格式来解析,conf或config文件后缀按照hocon格式解析
+
+curl Example
+
+```
+curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"/temp/fake_to_console.conf"'
+
+```
+#### 响应
+
+```json
+{
+    "jobId": 733584788375666689,
+    "jobName": "SeaTunnel_Job"
+}
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
 
 ### 批量提交作业
 
@@ -848,5 +881,18 @@ sink {
 
 获取当前节点的日志列表：`http://localhost:5801/log`
 获取日志文件内容：`http://localhost:5801/log/job-898380162133917698.log``
+
+</details>
+
+### 获取节点指标信息
+
+<details>
+ <summary>
+    <code>GET</code> <code><b>/metrics</b></code>  
+    <code>GET</code> <code><b>/openmetrics</b></code>
+</summary>
+你需要先打开`Telemetry`才能获取集群指标信息。否则将返回空信息。
+
+更多关于`Telemetry`的信息可以在[Telemetry](telemetry.md)文档中找到。
 
 </details>

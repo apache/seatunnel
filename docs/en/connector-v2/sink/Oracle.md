@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # Oracle
 
 > JDBC Oracle Sink Connector
@@ -39,9 +41,9 @@ semantics (using XA transaction guarantee).
 
 ## Database Dependency
 
-> Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
-> For example Oracle datasource: cp ojdbc8-xxxxxx.jar $SEATNUNNEL_HOME/lib/<br/>
-> To support the i18n character set, copy the orai18n.jar to the $SEATNUNNEL_HOME/lib/ directory.
+> Please download the support list corresponding to 'Maven' and copy it to the '$SEATUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
+> For example Oracle datasource: cp ojdbc8-xxxxxx.jar $SEATUNNEL_HOME/lib/<br/>
+> To support the i18n character set, copy the orai18n.jar to the $SEATUNNEL_HOME/lib/ directory.
 
 ## Data Type Mapping
 
@@ -125,7 +127,7 @@ source {
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/category/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transform-v2
 }
 
 sink {
@@ -205,3 +207,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

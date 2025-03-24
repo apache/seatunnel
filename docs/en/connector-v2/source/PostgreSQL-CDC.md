@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-cdc-postgres.md';
+
 # PostgreSQL CDC
 
 > PostgreSQL CDC source connector
@@ -40,7 +42,7 @@ describes how to set up the Postgre CDC connector to run SQL queries against Pos
 
 > 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/org.postgresql/postgresql) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
 
-Please download and put PostgreSQL driver in `${SEATUNNEL_HOME}/lib/` dir. For example: cp postgresql-xxx.jar `$SEATNUNNEL_HOME/lib/`
+Please download and put PostgreSQL driver in `${SEATUNNEL_HOME}/lib/` dir. For example: cp postgresql-xxx.jar `$SEATUNNEL_HOME/lib/`
 
 > Here are the steps to enable CDC (Change Data Capture) in PostgreSQL:
 
@@ -190,7 +192,4 @@ source {
 
 ## Changelog
 
-- Add PostgreSQL CDC Source Connector
-
-### next version
-
+<ChangeLog />

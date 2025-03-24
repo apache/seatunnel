@@ -44,8 +44,9 @@ public class MultiTableWriterRunnable implements Runnable {
     @Override
     public void run() {
         while (true) {
+            SeaTunnelRow row = null;
             try {
-                SeaTunnelRow row = queue.poll(100, TimeUnit.MILLISECONDS);
+                row = queue.poll(100, TimeUnit.MILLISECONDS);
                 if (row == null) {
                     continue;
                 }
@@ -71,7 +72,8 @@ public class MultiTableWriterRunnable implements Runnable {
                 throwable = e;
                 break;
             } catch (Throwable e) {
-                log.error("MultiTableWriterRunnable error", e);
+                log.error(
+                        String.format("MultiTableWriterRunnable error when write row %s", row), e);
                 throwable = e;
                 break;
             }

@@ -73,6 +73,11 @@ public class PostgresCreateTableSqlBuilder {
                                                 buildColumnSql(column), fieldIde))
                         .collect(Collectors.toList());
 
+        // add primary key
+        if (createIndex && primaryKey != null) {
+            columnSqls.add("\t" + buildPrimaryKeySql());
+        }
+
         if (createIndex && CollectionUtils.isNotEmpty(constraintKeys)) {
             for (ConstraintKey constraintKey : constraintKeys) {
                 if (StringUtils.isBlank(constraintKey.getConstraintName())
@@ -134,14 +139,6 @@ public class PostgresCreateTableSqlBuilder {
         if (!column.isNullable()) {
             columnSql.append(" NOT NULL");
         }
-
-        // Add primary key directly after the column if it is a primary key
-        if (createIndex
-                && primaryKey != null
-                && primaryKey.getColumnNames().contains(column.getName())) {
-            columnSql.append(" PRIMARY KEY");
-        }
-
         return columnSql.toString();
     }
 
@@ -161,6 +158,19 @@ public class PostgresCreateTableSqlBuilder {
                 .append(column.getComment().replace("'", "''"))
                 .append("'");
         return columnCommentSql.toString();
+    }
+
+    private String buildPrimaryKeySql() {
+        String constraintName = UUID.randomUUID().toString().replace("-", "");
+        String primaryKeyColumns =
+                primaryKey.getColumnNames().stream()
+                        .map(
+                                column ->
+                                        String.format(
+                                                "\"%s\"",
+                                                CatalogUtils.getFieldIde(column, fieldIde)))
+                        .collect(Collectors.joining(","));
+        return "CONSTRAINT \"" + constraintName + "\" PRIMARY KEY (" + primaryKeyColumns + ")";
     }
 
     private String buildUniqueKeySql(ConstraintKey constraintKey) {

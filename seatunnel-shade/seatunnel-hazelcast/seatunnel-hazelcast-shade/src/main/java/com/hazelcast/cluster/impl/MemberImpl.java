@@ -286,21 +286,20 @@ public final class MemberImpl extends AbstractMember
         sb.append(":");
         sb.append(address.getPort());
         sb.append(" - ").append(uuid);
-        if (localMember()) {
-            sb.append(" this");
-        }
-
         // update for seatunnel, add worker and master info
         if (isLiteMember()) {
-            sb.append(" worker");
+            sb.append(" [worker node]");
+        } else {
+            sb.append(" [master node]");
         }
-
         if (instance != null
                 && instance.node.getClusterService().getMasterAddress() != null
                 && instance.node.getClusterService().getMasterAddress().equals(address)) {
-            sb.append(" master");
+            sb.append(" [active master]");
         }
-
+        if (localMember()) {
+            sb.append(" this");
+        }
         // update for seatunnel, add worker and master info end
         return sb.toString();
     }

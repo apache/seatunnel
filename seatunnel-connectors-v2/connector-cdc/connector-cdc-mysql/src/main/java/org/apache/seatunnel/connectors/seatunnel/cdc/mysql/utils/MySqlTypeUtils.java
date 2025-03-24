@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.MysqlDefaultValueUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.DefaultValueUtils;
 
 import io.debezium.connector.mysql.MySqlConnectorConfig;
 import io.debezium.connector.mysql.MySqlDefaultValueConverter;
@@ -69,7 +69,7 @@ public class MySqlTypeUtils {
         Optional<String> defaultValueExpression = column.defaultValueExpression();
         Object defaultValue = defaultValueExpression.orElse(null);
         if (defaultValueExpression.isPresent()
-                && !MysqlDefaultValueUtils.isSpecialDefaultValue(defaultValue)) {
+                && !DefaultValueUtils.isMysqlSpecialDefaultValue(defaultValue)) {
             defaultValue =
                     mySqlDefaultValueConverter
                             .parseDefaultValue(column, defaultValueExpression.get())

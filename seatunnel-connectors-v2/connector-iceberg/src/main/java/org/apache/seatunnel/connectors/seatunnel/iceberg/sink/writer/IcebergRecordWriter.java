@@ -29,7 +29,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.RowConverter;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.schema.SchemaChangeWrapper;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.SchemaUtils;
@@ -50,19 +50,19 @@ import java.util.List;
 @Slf4j
 public class IcebergRecordWriter implements RecordWriter {
     private final Table table;
-    private final SinkConfig config;
+    private final IcebergSinkConfig config;
     private final List<WriteResult> writerResults;
-    private TaskWriter<Record> writer;
+    private volatile TaskWriter<Record> writer;
     private RowConverter recordConverter;
     private final IcebergWriterFactory writerFactory;
 
-    public IcebergRecordWriter(Table table, IcebergWriterFactory writerFactory, SinkConfig config) {
+    public IcebergRecordWriter(
+            Table table, IcebergWriterFactory writerFactory, IcebergSinkConfig config) {
         this.config = config;
         this.table = table;
         this.writerResults = Lists.newArrayList();
         this.recordConverter = new RowConverter(table, config);
         this.writerFactory = writerFactory;
-        this.writer = createTaskWriter();
     }
 
     private TaskWriter<Record> createTaskWriter() {
@@ -71,6 +71,9 @@ public class IcebergRecordWriter implements RecordWriter {
 
     @Override
     public void write(SeaTunnelRow seaTunnelRow, SeaTunnelRowType rowType) {
+        if (writer == null) {
+            resetWriter();
+        }
         SchemaChangeWrapper updates = new SchemaChangeWrapper();
         Record record = recordConverter.convert(seaTunnelRow, rowType, updates);
         if (!updates.empty()) {
@@ -139,7 +142,6 @@ public class IcebergRecordWriter implements RecordWriter {
         flush();
         List<WriteResult> result = Lists.newArrayList(writerResults);
         writerResults.clear();
-        resetWriter();
         return result;
     }
 

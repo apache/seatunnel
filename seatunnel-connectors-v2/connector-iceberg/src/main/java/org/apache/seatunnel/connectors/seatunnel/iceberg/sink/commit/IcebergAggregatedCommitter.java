@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,10 +33,11 @@ import java.util.List;
 public class IcebergAggregatedCommitter
         implements SinkAggregatedCommitter<IcebergCommitInfo, IcebergAggregatedCommitInfo> {
 
+    private final IcebergTableLoader tableLoader;
     private final IcebergFilesCommitter filesCommitter;
 
-    public IcebergAggregatedCommitter(SinkConfig config, CatalogTable catalogTable) {
-        IcebergTableLoader tableLoader = IcebergTableLoader.create(config, catalogTable);
+    public IcebergAggregatedCommitter(IcebergSinkConfig config, CatalogTable catalogTable) {
+        this.tableLoader = IcebergTableLoader.create(config, catalogTable);
         this.filesCommitter = IcebergFilesCommitter.of(config, tableLoader);
     }
 
@@ -68,5 +69,7 @@ public class IcebergAggregatedCommitter
     public void abort(List<IcebergAggregatedCommitInfo> aggregatedCommitInfo) throws Exception {}
 
     @Override
-    public void close() throws IOException {}
+    public void close() throws IOException {
+        this.tableLoader.close();
+    }
 }

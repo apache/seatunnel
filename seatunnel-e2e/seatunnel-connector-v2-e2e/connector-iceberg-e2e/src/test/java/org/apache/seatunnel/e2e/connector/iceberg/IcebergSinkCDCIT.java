@@ -23,8 +23,8 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContai
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatabase;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonOptions;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceConfig;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -209,6 +209,11 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "Currently SPARK do not support cdc. In addition, currently only the zeta engine supports schema evolution for pr https://github.com/apache/seatunnel/pull/5125.")
     public void testMysqlCdcCheckSchemaChangeE2e(TestContainer container)
             throws IOException, InterruptedException {
         // Clear related content to ensure that multiple operations are not affected
@@ -338,12 +343,12 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
         Map<String, Object> catalogProps = new HashMap<>();
         catalogProps.put("type", HADOOP.getType());
         catalogProps.put("warehouse", "file://" + CATALOG_DIR);
-        configs.put(CommonConfig.KEY_CATALOG_NAME.key(), "seatunnel_test");
-        configs.put(CommonConfig.KEY_NAMESPACE.key(), "seatunnel_namespace");
-        configs.put(CommonConfig.KEY_TABLE.key(), "iceberg_sink_table");
-        configs.put(CommonConfig.CATALOG_PROPS.key(), catalogProps);
+        configs.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), "seatunnel_test");
+        configs.put(IcebergCommonOptions.KEY_NAMESPACE.key(), "seatunnel_namespace");
+        configs.put(IcebergCommonOptions.KEY_TABLE.key(), "iceberg_sink_table");
+        configs.put(IcebergCommonOptions.CATALOG_PROPS.key(), catalogProps);
         IcebergTableLoader tableLoader =
-                IcebergTableLoader.create(new SourceConfig(ReadonlyConfig.fromMap(configs)));
+                IcebergTableLoader.create(new IcebergSourceConfig(ReadonlyConfig.fromMap(configs)));
         tableLoader.open();
         return tableLoader;
     }

@@ -20,13 +20,23 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.sink;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.RetryUtils.RetryMaterial;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog.ElasticSearchTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.IndexInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorErrorCode;
@@ -49,7 +59,8 @@ import java.util.Optional;
 @Slf4j
 public class ElasticsearchSinkWriter
         implements SinkWriter<SeaTunnelRow, ElasticsearchCommitInfo, ElasticsearchSinkState>,
-                SupportMultiTableSinkWriter<Void> {
+                SupportMultiTableSinkWriter<Void>,
+                SupportSchemaEvolutionSinkWriter {
 
     private final Context context;
 
@@ -60,6 +71,7 @@ public class ElasticsearchSinkWriter
     private EsRestClient esRestClient;
     private RetryMaterial retryMaterial;
     private static final long DEFAULT_SLEEP_TIME_MS = 200L;
+    private final IndexInfo indexInfo;
 
     public ElasticsearchSinkWriter(
             Context context,
@@ -70,7 +82,8 @@ public class ElasticsearchSinkWriter
         this.context = context;
         this.maxBatchSize = maxBatchSize;
 
-        IndexInfo indexInfo = new IndexInfo(catalogTable.getTableId().getTableName(), config);
+        this.indexInfo =
+                new IndexInfo(catalogTable.getTableId().getTableName().toLowerCase(), config);
         esRestClient = EsRestClient.createInstance(config);
         this.seaTunnelRowSerializer =
                 new ElasticsearchRowSerializer(
@@ -93,6 +106,32 @@ public class ElasticsearchSinkWriter
         requestEsList.add(indexRequestRow);
         if (requestEsList.size() >= maxBatchSize) {
             bulkEsWithRetry(this.esRestClient, this.requestEsList);
+        }
+    }
+
+    @Override
+    public void applySchemaChange(SchemaChangeEvent event) throws IOException {
+        if (event instanceof AlterTableColumnsEvent) {
+            for (AlterTableColumnEvent columnEvent : ((AlterTableColumnsEvent) event).getEvents()) {
+                applySingleSchemaChangeEvent(columnEvent);
+            }
+        } else if (event instanceof AlterTableColumnEvent) {
+            applySingleSchemaChangeEvent(event);
+        } else {
+            throw new UnsupportedOperationException("Unsupported alter table event: " + event);
+        }
+    }
+
+    private void applySingleSchemaChangeEvent(SchemaChangeEvent event) {
+        if (event instanceof AlterTableAddColumnEvent) {
+            AlterTableAddColumnEvent addColumnEvent = (AlterTableAddColumnEvent) event;
+            Column column = addColumnEvent.getColumn();
+            BasicTypeDefine<EsType> reconvert =
+                    ElasticSearchTypeConverter.INSTANCE.reconvert(column);
+            esRestClient.addField(indexInfo.getIndex(), reconvert);
+            log.info("Add column {} to index {}", column.getName(), indexInfo.getIndex());
+        } else {
+            throw new SeaTunnelException("Unsupported schemaChangeEvent : " + event.getEventType());
         }
     }
 

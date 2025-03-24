@@ -22,6 +22,9 @@ seatunnel:
         slot-service:
             dynamic-slot: false
             slot-num: 5
+        coordinator-service:
+            core-thread-num: 30
+            max-thread-num: 1000
         checkpoint:
             interval: 6000
             timeout: 7000

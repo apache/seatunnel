@@ -73,7 +73,7 @@ SeaTunnel 支持一部分数据源的精确一致性，例如支持 MySQL、Post
 ...
 transform {
   Sql {
-    query = "select * from user_view where city ='${city}' and dt = '${date}'"
+    query = "select * from dual where city ='${city}' and dt = '${date}'"
   }
 }
 ...

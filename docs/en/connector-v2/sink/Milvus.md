@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-milvus.md';
+
 # Milvus
 
 > Milvus sink connector
@@ -61,3 +63,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

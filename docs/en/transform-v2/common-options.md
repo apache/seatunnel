@@ -6,7 +6,7 @@ sidebar_position: 1
 
 > This is a process of intermediate conversion between the source and sink terminals,You can use sql statements to smoothly complete the conversion process
 
-:::warn
+:::caution warn
 
 The old configuration name `source_table_name`/`result_table_name` is deprecated, please migrate to the new name `plugin_input`/`plugin_output` as soon as possible.
 
@@ -57,7 +57,7 @@ transform {
     plugin_input = "fake"
     plugin_output = "fake1"
     # the query table name must same as field 'plugin_input'
-    query = "select id, regexp_replace(name, '.+', 'b') as name, age+1 as age, pi() as pi, c_timestamp, c_date, c_map, c_array, c_decimal, c_row from fake"
+    query = "select id, regexp_replace(name, '.+', 'b') as name, age+1 as age, pi() as pi, c_timestamp, c_date, c_map, c_array, c_decimal, c_row from dual"
   }
   # The SQL transform support base function and criteria operation
   # But the complex SQL unsupported yet, include: multi source table/rows JOIN and AGGREGATE operation and the like

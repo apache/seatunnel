@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-clickhouse.md';
+
 # Clickhouse
 
 > Clickhouse sink connector
@@ -59,7 +61,72 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | primary_key                           | String  | No       | -       | Mark the primary key column from clickhouse table, and based on primary key execute INSERT/UPDATE/DELETE to clickhouse table.                                                                                                                                                                               |
 | support_upsert                        | Boolean | No       | false   | Support upsert row by query primary key.                                                                                                                                                                                                                                                                    |
 | allow_experimental_lightweight_delete | Boolean | No       | false   | Allow experimental lightweight delete based on `*MergeTree` table engine.                                                                                                                                                                                                                                   |
+| schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema save mode. Please refer to the `schema_save_mode` section below.                                                                                       |
+| data_save_mode                 | Enum    | no       | APPEND_DATA                  | Data save mode. Please refer to the `data_save_mode` section below.                                                                                         |
+| custom_sql                  | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.        |
+| save_mode_create_template      | string  | no       | see below                    | See below.                                                                                                                                                  |
 | common-options                        |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.                                                                                                                                                                                                |
+
+### schema_save_mode[Enum]
+
+Before starting the synchronization task, choose different processing options for the existing table schema.  
+Option descriptions:  
+`RECREATE_SCHEMA`: Create the table if it does not exist; drop and recreate the table when saving.  
+`CREATE_SCHEMA_WHEN_NOT_EXIST`: Create the table if it does not exist; skip if the table already exists.  
+`ERROR_WHEN_SCHEMA_NOT_EXIST`: Throw an error if the table does not exist.  
+`IGNORE`: Ignore the processing of the table.
+
+### data_save_mode[Enum]
+
+Before starting the synchronization task, choose different processing options for the existing data on the target side.  
+Option descriptions:  
+`DROP_DATA`: Retain the database schema but delete the data.  
+`APPEND_DATA`: Retain the database schema and the data.  
+`CUSTOM_PROCESSING`: Custom user-defined processing.  
+`ERROR_WHEN_DATA_EXISTS`: Throw an error if data exists.
+
+### save_mode_create_template
+
+Automatically create Clickhouse tables using templates.  
+The table creation statements will be generated based on the upstream data types and schema. The default template can be modified as needed.
+
+Default template:
+```sql
+CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
+    ${rowtype_primary_key},
+    ${rowtype_fields}
+) ENGINE = MergeTree()
+ORDER BY (${rowtype_primary_key})
+PRIMARY KEY (${rowtype_primary_key})
+SETTINGS
+    index_granularity = 8192
+COMMENT '${comment}';
+```
+
+If custom fields are added to the template, for example, adding an `id` field:
+
+```sql
+CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
+    id,
+    ${rowtype_fields}
+) ENGINE = MergeTree()
+    ORDER BY (${rowtype_primary_key})
+    PRIMARY KEY (${rowtype_primary_key})
+    SETTINGS
+    index_granularity = 8192
+COMMENT '${comment}';
+```
+
+The connector will automatically retrieve the corresponding types from the upstream source and fill in the template, removing the `id` field from the `rowtype_fields`. This method can be used to modify custom field types and attributes.
+
+The following placeholders can be used:
+
+- `database`: Retrieves the database from the upstream schema.
+- `table_name`: Retrieves the table name from the upstream schema.
+- `rowtype_fields`: Retrieves all fields from the upstream schema and automatically maps them to Clickhouse field descriptions.
+- `rowtype_primary_key`: Retrieves the primary key from the upstream schema (this may be a list).
+- `rowtype_unique_key`: Retrieves the unique key from the upstream schema (this may be a list).
+- `comment`: Retrieves the table comment from the upstream schema.
 
 ## How to Create a Clickhouse Data Synchronization Jobs
 
@@ -178,3 +245,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

@@ -60,7 +60,6 @@ public class TypeConverterUtils {
         TO_SEA_TUNNEL_TYPES.put(DataTypes.DoubleType, BasicType.DOUBLE_TYPE);
         TO_SEA_TUNNEL_TYPES.put(DataTypes.BinaryType, PrimitiveByteArrayType.INSTANCE);
         TO_SEA_TUNNEL_TYPES.put(DataTypes.DateType, LocalTimeType.LOCAL_DATE_TYPE);
-        TO_SEA_TUNNEL_TYPES.put(DataTypes.TimestampType, LocalTimeType.LOCAL_DATE_TIME_TYPE);
     }
 
     private TypeConverterUtils() {
@@ -97,6 +96,8 @@ public class TypeConverterUtils {
                 return DataTypes.LongType;
             case TIMESTAMP:
                 return DataTypes.TimestampType;
+            case TIMESTAMP_TZ:
+                return OffsetDateTimeUtils.OFFSET_DATETIME_WITH_DECIMAL;
             case ARRAY:
                 return DataTypes.createArrayType(
                         convert(((ArrayType<?, ?>) dataType).getElementType()));
@@ -120,10 +121,19 @@ public class TypeConverterUtils {
         StructField[] fields = new StructField[rowType.getFieldNames().length];
         for (int i = 0; i < rowType.getFieldNames().length; i++) {
             SeaTunnelDataType<?> fieldType = rowType.getFieldTypes()[i];
-            Metadata metadata =
-                    fieldType.getSqlType() == SqlType.TIME
-                            ? new MetadataBuilder().putBoolean(LOGICAL_TIME_TYPE_FLAG, true).build()
-                            : Metadata.empty();
+            Metadata metadata;
+            if (fieldType.getSqlType() == SqlType.TIME) {
+                metadata = new MetadataBuilder().putBoolean(LOGICAL_TIME_TYPE_FLAG, true).build();
+            } else if (fieldType.getSqlType() == SqlType.TIMESTAMP_TZ) {
+                metadata =
+                        new MetadataBuilder()
+                                .putBoolean(
+                                        OffsetDateTimeUtils.LOGICAL_TIMESTAMP_WITH_OFFSET_TYPE_FLAG,
+                                        true)
+                                .build();
+            } else {
+                metadata = Metadata.empty();
+            }
 
             fields[i] =
                     new StructField(rowType.getFieldNames()[i], convert(fieldType), true, metadata);
@@ -204,6 +214,12 @@ public class TypeConverterUtils {
                     && metadata.contains(LOGICAL_TIME_TYPE_FLAG)
                     && metadata.getBoolean(LOGICAL_TIME_TYPE_FLAG)) {
                 fieldTypes[i] = LocalTimeType.LOCAL_TIME_TYPE;
+            } else if (metadata != null
+                    && metadata.contains(
+                            OffsetDateTimeUtils.LOGICAL_TIMESTAMP_WITH_OFFSET_TYPE_FLAG)
+                    && metadata.getBoolean(
+                            OffsetDateTimeUtils.LOGICAL_TIMESTAMP_WITH_OFFSET_TYPE_FLAG)) {
+                fieldTypes[i] = LocalTimeType.OFFSET_DATE_TIME_TYPE;
             } else {
                 fieldTypes[i] = convert(structFields[i].dataType());
             }

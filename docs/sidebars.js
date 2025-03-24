@@ -192,11 +192,17 @@ const sidebars = {
             "label": "SeaTunnel Engine",
             "items": [
                 "seatunnel-engine/about",
-                "seatunnel-engine/download-seatunnel",
-                "seatunnel-engine/deployment",
-                "seatunnel-engine/local-mode-deployment",
-                "seatunnel-engine/hybrid-cluster-deployment",
-                "seatunnel-engine/separated-cluster-deployment",
+                {
+                    "type": "category",
+                    "label": "Deployment",
+                    "items": [
+                        "seatunnel-engine/download-seatunnel",
+                        "seatunnel-engine/deployment",
+                        "seatunnel-engine/local-mode-deployment",
+                        "seatunnel-engine/hybrid-cluster-deployment",
+                        "seatunnel-engine/separated-cluster-deployment"
+                    ]
+                },
                 "seatunnel-engine/savepoint",
                 "seatunnel-engine/checkpoint-storage",
                 "seatunnel-engine/engine-jar-storage-mode",
@@ -207,7 +213,8 @@ const sidebars = {
                 "seatunnel-engine/user-command",
                 "seatunnel-engine/logging",
                 "seatunnel-engine/telemetry",
-                "seatunnel-engine/web-ui"
+                "seatunnel-engine/web-ui",
+                "seatunnel-engine/slot-allocation-strategy"
             ]
         },
         {
@@ -226,7 +233,8 @@ const sidebars = {
                 'contribution/new-license',
                 'contribution/coding-guide',
                 'contribution/contribute-transform-v2-guide',
-                'contribution/how-to-create-your-connector'
+                'contribution/how-to-create-your-connector',
+                'contribution/docs-format-specification'
             ],
         },
         "faq"

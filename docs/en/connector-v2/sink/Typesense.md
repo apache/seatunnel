@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-typesense.md';
+
 # Typesense
 
 ## Description
@@ -91,3 +93,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

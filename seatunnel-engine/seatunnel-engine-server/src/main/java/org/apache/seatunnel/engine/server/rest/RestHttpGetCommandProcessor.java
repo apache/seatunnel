@@ -40,6 +40,7 @@ import com.hazelcast.internal.util.JsonUtil;
 import com.hazelcast.internal.util.StringUtil;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import io.prometheus.client.exporter.common.TextFormat;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.io.IOException;
@@ -52,20 +53,22 @@ import java.util.stream.Collectors;
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_400;
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.CONTEXT_PATH;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.FINISHED_JOBS_INFO;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.GET_ALL_LOG_NAME;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.GET_LOG;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.GET_LOGS;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.JOB_INFO_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.OVERVIEW;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOBS_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOB_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_THREADS;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.SYSTEM_MONITORING_INFORMATION;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.TELEMETRY_METRICS_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.TELEMETRY_OPEN_METRICS_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.THREAD_DUMP;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.INSTANCE_CONTEXT_PATH;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_FINISHED_JOBS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_GET_ALL_LOG_NAME;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_JOB_INFO;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOG;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOGS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_METRICS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OPEN_METRICS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OVERVIEW;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOB;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOBS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_THREADS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SYSTEM_MONITORING_INFORMATION;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_THREAD_DUMP;
 
+@Slf4j
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
 
     private final Log4j2HttpGetCommandProcessor original;
@@ -110,30 +113,30 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         String uri = httpGetCommand.getURI();
 
         try {
-            if (uri.startsWith(CONTEXT_PATH + RUNNING_JOBS_URL)) {
+            if (uri.startsWith(CONTEXT_PATH + REST_URL_RUNNING_JOBS)) {
                 handleRunningJobsInfo(httpGetCommand);
-            } else if (uri.startsWith(CONTEXT_PATH + FINISHED_JOBS_INFO)) {
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_FINISHED_JOBS)) {
                 handleFinishedJobsInfo(httpGetCommand, uri);
-            } else if (uri.startsWith(CONTEXT_PATH + RUNNING_JOB_URL)
-                    || uri.startsWith(CONTEXT_PATH + JOB_INFO_URL)) {
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_RUNNING_JOB)
+                    || uri.startsWith(CONTEXT_PATH + REST_URL_JOB_INFO)) {
                 handleJobInfoById(httpGetCommand, uri);
-            } else if (uri.startsWith(CONTEXT_PATH + SYSTEM_MONITORING_INFORMATION)) {
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_SYSTEM_MONITORING_INFORMATION)) {
                 getSystemMonitoringInformation(httpGetCommand);
-            } else if (uri.startsWith(CONTEXT_PATH + RUNNING_THREADS)) {
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_RUNNING_THREADS)) {
                 getRunningThread(httpGetCommand);
-            } else if (uri.startsWith(CONTEXT_PATH + OVERVIEW)) {
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_OVERVIEW)) {
                 overView(httpGetCommand, uri);
-            } else if (uri.equals(TELEMETRY_METRICS_URL)) {
+            } else if (uri.equals(INSTANCE_CONTEXT_PATH + REST_URL_METRICS)) {
                 handleMetrics(httpGetCommand, TextFormat.CONTENT_TYPE_004);
-            } else if (uri.equals(TELEMETRY_OPEN_METRICS_URL)) {
+            } else if (uri.equals(INSTANCE_CONTEXT_PATH + REST_URL_OPEN_METRICS)) {
                 handleMetrics(httpGetCommand, TextFormat.CONTENT_TYPE_OPENMETRICS_100);
-            } else if (uri.startsWith(CONTEXT_PATH + THREAD_DUMP)) {
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_THREAD_DUMP)) {
                 getThreadDump(httpGetCommand);
-            } else if (uri.startsWith(CONTEXT_PATH + GET_ALL_LOG_NAME)) {
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_GET_ALL_LOG_NAME)) {
                 getAllLogName(httpGetCommand);
-            } else if (uri.startsWith(CONTEXT_PATH + GET_LOGS)) {
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_LOGS)) {
                 getAllNodeLog(httpGetCommand, uri);
-            } else if (uri.startsWith(CONTEXT_PATH + GET_LOG)) {
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_LOG)) {
                 getCurrentNodeLog(httpGetCommand, uri);
             } else {
                 original.handle(httpGetCommand);
@@ -218,6 +221,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     }
 
     private void handleMetrics(HttpGetCommand httpGetCommand, String contentType) {
+        log.info("Metrics request received");
         StringWriter stringWriter = new StringWriter();
         NodeExtension nodeExtension =
                 (NodeExtension) textCommandService.getNode().getNodeExtension();

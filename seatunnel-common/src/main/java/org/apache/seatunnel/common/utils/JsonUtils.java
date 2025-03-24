@@ -86,6 +86,10 @@ public class JsonUtils {
         return OBJECT_MAPPER.readTree(obj);
     }
 
+    public static JsonNode readTree(byte[] obj) throws IOException {
+        return OBJECT_MAPPER.readTree(obj);
+    }
+
     /**
      * json representation of object
      *
@@ -297,6 +301,15 @@ public class JsonUtils {
             } else {
                 return node.toString();
             }
+        }
+    }
+
+    public static boolean isJsonArray(String jsonString) {
+        try {
+            JsonNode jsonNode = OBJECT_MAPPER.readTree(jsonString);
+            return jsonNode.isArray();
+        } catch (Exception e) {
+            return false;
         }
     }
 }

@@ -54,7 +54,7 @@ SeaTunnel 使用的默认引擎是 [SeaTunnel Engine](seatunnel-engine/about.md)
 
 ## 谁在使用 SeaTunnel
 
-SeaTunnel 拥有大量用户。 您可以在[用户](https://seatunnel.apache.org/user)中找到有关他们的更多信息.
+SeaTunnel 拥有大量用户。 您可以在[用户](https://seatunnel.apache.org/user)中找到有关他们的更多信息.  
 
 ## 展望
 
@@ -67,4 +67,4 @@ SeaTunnel 丰富了<a href="https://landscape.cncf.io/?item=app-definition-and-d
 
 ## 了解更多
 
-您可以参阅[快速入门](/docs/category/start-v2/locally/deployment) 了解后续相关步骤。
+您可以参阅[快速入门](start-v2/locally/deployment.md) 了解后续相关步骤。

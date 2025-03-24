@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
@@ -42,32 +42,31 @@ import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.Maxcom
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.TABLE_NAME;
 
 @Slf4j
-public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
+        implements SupportMultiTableSinkWriter<Void> {
     private RecordWriter recordWriter;
     private final TableTunnel.UploadSession session;
     private final TableSchema tableSchema;
     private static final Long BLOCK_0 = 0L;
-    private SeaTunnelRowType rowType;
+    private final SeaTunnelRowType rowType;
 
-    public MaxcomputeWriter(Config pluginConfig, SeaTunnelRowType rowType) {
+    public MaxcomputeWriter(ReadonlyConfig readonlyConfig, SeaTunnelRowType rowType) {
         try {
             this.rowType = rowType;
-            Table table = MaxcomputeUtil.getTable(pluginConfig);
+            Table table = MaxcomputeUtil.getTable(readonlyConfig);
             this.tableSchema = table.getSchema();
-            TableTunnel tunnel = MaxcomputeUtil.getTableTunnel(pluginConfig);
-            if (pluginConfig.hasPath(PARTITION_SPEC.key())) {
-                PartitionSpec partitionSpec =
-                        new PartitionSpec(pluginConfig.getString(PARTITION_SPEC.key()));
+            TableTunnel tunnel = MaxcomputeUtil.getTableTunnel(readonlyConfig);
+            if (readonlyConfig.getOptional(PARTITION_SPEC).isPresent()) {
+                PartitionSpec partitionSpec = new PartitionSpec(readonlyConfig.get(PARTITION_SPEC));
                 session =
                         tunnel.createUploadSession(
-                                pluginConfig.getString(PROJECT.key()),
-                                pluginConfig.getString(TABLE_NAME.key()),
+                                readonlyConfig.get(PROJECT),
+                                readonlyConfig.get(TABLE_NAME),
                                 partitionSpec);
             } else {
                 session =
                         tunnel.createUploadSession(
-                                pluginConfig.getString(PROJECT.key()),
-                                pluginConfig.getString(TABLE_NAME.key()));
+                                readonlyConfig.get(PROJECT), readonlyConfig.get(TABLE_NAME));
             }
             this.recordWriter = session.openRecordWriter(BLOCK_0);
             log.info("open record writer success");

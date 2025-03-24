@@ -21,7 +21,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 
 import org.apache.seatunnel.api.event.EventType;
-import org.apache.seatunnel.engine.e2e.SeaTunnelContainer;
+import org.apache.seatunnel.engine.e2e.SeaTunnelEngineContainer;
 import org.apache.seatunnel.engine.server.event.JobEventHttpReportHandler;
 
 import org.junit.jupiter.api.AfterAll;
@@ -52,7 +52,7 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PA
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
-public class FakeSourceToConsoleWithEventReportIT extends SeaTunnelContainer {
+public class FakeSourceToConsoleWithEventReportIT extends SeaTunnelEngineContainer {
     private static final int MOCK_SERVER_PORT = 1024;
 
     private MockWebServer mockWebServer;

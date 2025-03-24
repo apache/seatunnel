@@ -48,6 +48,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -184,6 +186,10 @@ public class FakeDataGenerator {
                 return fieldValue.equalsIgnoreCase(CURRENT_TIMESTAMP)
                         ? LocalDateTime.now().toString()
                         : null;
+            case TIMESTAMP_TZ:
+                return fieldValue.equalsIgnoreCase(CURRENT_TIMESTAMP)
+                        ? OffsetDateTime.now().toString()
+                        : null;
             default:
                 return null;
         }
@@ -292,6 +298,26 @@ public class FakeDataGenerator {
                                             : dateTimeFormatter);
                         },
                         fakeDataRandomUtils::randomLocalDateTime);
+            case TIMESTAMP_TZ:
+                return value(
+                        column,
+                        defaultValue -> {
+                            if (defaultValue.equalsIgnoreCase(CURRENT_TIMESTAMP)) {
+                                return OffsetDateTime.now();
+                            }
+                            DateTimeFormatter dateTimeFormatter =
+                                    DateTimeUtils.matchDateTimeFormatter(defaultValue);
+                            return OffsetDateTime.parse(
+                                    defaultValue,
+                                    dateTimeFormatter == null
+                                            ? DateTimeFormatter.ISO_OFFSET_DATE_TIME
+                                            : dateTimeFormatter);
+                        },
+                        c ->
+                                fakeDataRandomUtils
+                                        .randomLocalDateTime(c)
+                                        .atZone(ZoneId.systemDefault())
+                                        .toOffsetDateTime());
             case ROW:
                 SeaTunnelDataType<?>[] fieldTypes = ((SeaTunnelRowType) fieldType).getFieldTypes();
                 Object[] objects = new Object[fieldTypes.length];

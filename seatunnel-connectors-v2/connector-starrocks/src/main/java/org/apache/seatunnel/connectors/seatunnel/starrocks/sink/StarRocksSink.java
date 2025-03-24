@@ -17,39 +17,42 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCatalog;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksBaseOptions;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
-        implements SupportSaveMode {
+        implements SupportSaveMode, SupportSchemaEvolutionSink, SupportMultiTableSink {
 
-    private final SeaTunnelRowType seaTunnelRowType;
+    private final TableSchema tableSchema;
     private final SinkConfig sinkConfig;
     private final DataSaveMode dataSaveMode;
     private final SchemaSaveMode schemaSaveMode;
     private final CatalogTable catalogTable;
 
-    public StarRocksSink(
-            SinkConfig sinkConfig, CatalogTable catalogTable, ReadonlyConfig readonlyConfig) {
+    public StarRocksSink(SinkConfig sinkConfig, CatalogTable catalogTable) {
         this.sinkConfig = sinkConfig;
-        this.seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
+        this.tableSchema = catalogTable.getTableSchema();
         this.catalogTable = catalogTable;
         this.dataSaveMode = sinkConfig.getDataSaveMode();
         this.schemaSaveMode = sinkConfig.getSchemaSaveMode();
@@ -61,8 +64,9 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
-        return new StarRocksSinkWriter(sinkConfig, seaTunnelRowType);
+    public StarRocksSinkWriter createWriter(SinkWriter.Context context) {
+        TablePath sinkTablePath = catalogTable.getTablePath();
+        return new StarRocksSinkWriter(sinkConfig, tableSchema, sinkTablePath);
     }
 
     @Override
@@ -74,7 +78,7 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
                         catalogTable.getTableId().getTableName());
         Catalog catalog =
                 new StarRocksCatalog(
-                        "StarRocks",
+                        StarRocksBaseOptions.CONNECTOR_IDENTITY,
                         sinkConfig.getUsername(),
                         sinkConfig.getPassword(),
                         sinkConfig.getJdbcUrl(),
@@ -92,5 +96,14 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
         return Optional.of(catalogTable);
+    }
+
+    @Override
+    public List<SchemaChangeType> supports() {
+        return Arrays.asList(
+                SchemaChangeType.ADD_COLUMN,
+                SchemaChangeType.DROP_COLUMN,
+                SchemaChangeType.RENAME_COLUMN,
+                SchemaChangeType.UPDATE_COLUMN);
     }
 }

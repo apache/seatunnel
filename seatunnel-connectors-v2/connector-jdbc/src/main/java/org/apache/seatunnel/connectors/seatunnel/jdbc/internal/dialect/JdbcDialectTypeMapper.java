@@ -98,6 +98,7 @@ public interface JdbcDialectTypeMapper extends Serializable {
                 int columnSize = rs.getInt("COLUMN_SIZE");
                 int decimalDigits = rs.getInt("DECIMAL_DIGITS");
                 int nullable = rs.getInt("NULLABLE");
+                String comment = rs.getString("REMARKS");
 
                 BasicTypeDefine typeDefine =
                         BasicTypeDefine.builder()
@@ -109,6 +110,7 @@ public interface JdbcDialectTypeMapper extends Serializable {
                                 .precision((long) columnSize)
                                 .scale(decimalDigits)
                                 .nullable(nullable == DatabaseMetaData.columnNullable)
+                                .comment(comment)
                                 .build();
                 columns.add(mappingColumn(typeDefine));
             }

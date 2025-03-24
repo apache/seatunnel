@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-clickhouse.md';
+
 # Clickhouse
 
 > Clickhouse 数据连接器
@@ -42,7 +44,7 @@
 | ARRAY          | Array                                                                                                                                         |
 | MAP            | Map                                                                                                                                           |
 
-## 输出选项
+## Sink 选项
 
 |                  名称                   |   类型    | 是否必须 |  默认值  |                                                                                        描述                                                                                        |
 |---------------------------------------|---------|------|-------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -58,7 +60,74 @@
 | primary_key                           | String  | No   | -     | 标记`clickhouse`表中的主键列，并根据主键执行INSERT/UPDATE/DELETE到`clickhouse`表.                                                                                                                  |
 | support_upsert                        | Boolean | No   | false | 支持按查询主键更新插入行.                                                                                                                                                                    |
 | allow_experimental_lightweight_delete | Boolean | No   | false | 允许基于`MergeTree`表引擎实验性轻量级删除.                                                                                                                                                      |
+| schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | schema保存模式，请参考下面的`schema_save_mode`                                                                                                                    |
+| data_save_mode                 | Enum    | no       | APPEND_DATA                  | 数据保存模式，请参考下面的`data_save_mode`。                                                                                                                         |
+| custom_sql                  | String  | no   | -                            | 当data_save_mode设置为CUSTOM_PROCESSING时，必须同时设置CUSTOM_SQL参数。CUSTOM_SQL的值为可执行的SQL语句，在同步任务开启前SQL将会被执行                     |
+| save_mode_create_template      | string  | no       | see below                    | 见下文。                                                                                                                                                   |
 | common-options                        |         | No   | -     | Sink插件查用参数,详见[Sink常用选项](../sink-common-options.md).                                                                                                                              |
+
+### schema_save_mode[Enum]
+
+在开启同步任务之前，针对现有的表结构选择不同的处理方案。
+选项介绍：  
+`RECREATE_SCHEMA` ：表不存在时创建，表保存时删除并重建。  
+`CREATE_SCHEMA_WHEN_NOT_EXIST` ：表不存在时会创建，表存在时跳过。  
+`ERROR_WHEN_SCHEMA_NOT_EXIST` ：表不存在时会报错。  
+`IGNORE` ：忽略对表的处理。
+
+### data_save_mode[Enum]
+
+在开启同步任务之前，针对目标端已有的数据选择不同的处理方案。
+选项介绍：  
+`DROP_DATA`： 保留数据库结构并删除数据。  
+`APPEND_DATA`：保留数据库结构，保留数据。  
+`CUSTOM_PROCESSING`：用户自定义处理。  
+`ERROR_WHEN_DATA_EXISTS`：有数据时报错。
+
+### save_mode_create_template
+
+使用模板自动创建 Clickhouse 表，
+会根据上游数据类型和schema类型创建相应的建表语句，
+默认模板可以根据情况进行修改。
+
+默认模板：
+```sql
+CREATE TABLE IF NOT EXISTS  `${database}`.`${table}` (
+    ${rowtype_primary_key},
+    ${rowtype_fields}
+) ENGINE = MergeTree()
+ORDER BY (${rowtype_primary_key})
+PRIMARY KEY (${rowtype_primary_key})
+SETTINGS
+    index_granularity = 8192
+COMMENT '${comment}';
+```
+
+如果模板中填写了自定义字段，例如添加 id 字段
+
+```sql
+CREATE TABLE IF NOT EXISTS  `${database}`.`${table}` (
+    id,
+    ${rowtype_fields}
+) ENGINE = MergeTree()
+    ORDER BY (${rowtype_primary_key})
+    PRIMARY KEY (${rowtype_primary_key})
+    SETTINGS
+    index_granularity = 8192
+    COMMENT '${comment}';
+```
+
+连接器会自动从上游获取对应类型完成填充，
+并从“rowtype_fields”中删除 id 字段。 该方法可用于自定义字段类型和属性的修改。
+
+可以使用以下占位符：
+
+- database：用于获取上游schema中的数据库。
+- table_name：用于获取上游schema中的表名。
+- rowtype_fields：用于获取上游schema中的所有字段，自动映射到 Clickhouse 的字段描述。
+- rowtype_primary_key：用于获取上游模式中的主键（可能是列表）。
+- rowtype_unique_key：用于获取上游模式中的唯一键（可能是列表）。
+- comment：用于获取上游模式中的表注释。
 
 ## 如何创建一个clickhouse 同步任务
 
@@ -177,3 +246,6 @@ sink {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />

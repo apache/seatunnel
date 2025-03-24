@@ -39,6 +39,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         implements SupportMultiTableSinkWriter<Void> {
@@ -78,8 +79,7 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         String value = getValue(element, fields);
         valueBuffer.add(value);
         if (keyBuffer.size() >= batchSize) {
-            doBatchWrite();
-            clearBuffer();
+            flush();
         }
     }
 
@@ -94,7 +94,8 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
     private static String getNormalKey(SeaTunnelRow element, List<String> fields, String keyField) {
         if (fields.contains(keyField)) {
-            return element.getField(fields.indexOf(keyField)).toString();
+            Object fieldValue = element.getField(fields.indexOf(keyField));
+            return fieldValue == null ? "" : fieldValue.toString();
         } else {
             return keyField;
         }
@@ -109,7 +110,8 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                     && keyFieldSegment.endsWith(RIGHT_PLACEHOLDER_MARKER)) {
                 String realKeyField = keyFieldSegment.substring(1, keyFieldSegment.length() - 1);
                 if (fields.contains(realKeyField)) {
-                    key.append(element.getField(fields.indexOf(realKeyField)).toString());
+                    Object realFieldValue = element.getField(fields.indexOf(realKeyField));
+                    key.append(realFieldValue == null ? "" : realFieldValue.toString());
                 } else {
                     key.append(keyFieldSegment);
                 }
@@ -146,7 +148,8 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         }
         String hashKey;
         if (fields.contains(hashKeyField)) {
-            hashKey = element.getField(fields.indexOf(hashKeyField)).toString();
+            Object hashKeyFieldValue = element.getField(fields.indexOf(hashKeyField));
+            hashKey = hashKeyFieldValue == null ? "" : hashKeyFieldValue.toString();
         } else {
             hashKey = hashKeyField;
         }
@@ -155,7 +158,8 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             hashValue = new String(serializationSchema.serialize(element));
         } else {
             if (fields.contains(hashValueField)) {
-                hashValue = element.getField(fields.indexOf(hashValueField)).toString();
+                Object hashValueFieldValue = element.getField(fields.indexOf(hashValueField));
+                hashValue = hashValueFieldValue == null ? "" : hashValueFieldValue.toString();
             } else {
                 hashValue = hashValueField;
             }
@@ -171,7 +175,8 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             return null;
         }
         if (fields.contains(valueField)) {
-            return element.getField(fields.indexOf(valueField)).toString();
+            Object fieldValue = element.getField(fields.indexOf(valueField));
+            return fieldValue == null ? "" : fieldValue.toString();
         }
         return valueField;
     }
@@ -216,6 +221,16 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
     @Override
     public void close() throws IOException {
+        flush();
+    }
+
+    @Override
+    public Optional<Void> prepareCommit() {
+        flush();
+        return Optional.empty();
+    }
+
+    private synchronized void flush() {
         if (!keyBuffer.isEmpty()) {
             doBatchWrite();
             clearBuffer();

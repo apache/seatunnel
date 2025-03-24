@@ -17,13 +17,14 @@
 
 package org.apache.seatunnel.e2e.connector.paimon;
 
+import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
-import org.apache.seatunnel.engine.e2e.SeaTunnelContainer;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.MinIOContainer;
 
@@ -34,6 +35,7 @@ import io.minio.MinioClient;
 import java.nio.file.Paths;
 import java.util.Map;
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class PaimonWithS3IT extends SeaTunnelContainer {
 
     private static final String MINIO_DOCKER_IMAGE = "minio/minio:RELEASE.2024-06-13T22-53-53Z";
@@ -120,11 +122,21 @@ public class PaimonWithS3IT extends SeaTunnelContainer {
     }
 
     @Test
-    public void testFaceCDCSinkPaimonWithS3Filesystem() throws Exception {
-        Container.ExecResult execResult = executeSeaTunnelJob("/fake_to_paimon_with_s3.conf");
+    public void testFakeCDCSinkPaimonWithS3Filesystem() throws Exception {
+        Container.ExecResult execResult = executeJob("/fake_to_paimon_with_s3.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
-        Container.ExecResult readResult = executeSeaTunnelJob("/paimon_with_s3_to_assert.conf");
+        Container.ExecResult readResult = executeJob("/paimon_with_s3_to_assert.conf");
+        Assertions.assertEquals(0, readResult.getExitCode());
+    }
+
+    @Test
+    public void testFakeCDCSinkPaimonWithCheckpointInBatchModeWithS3Filesystem() throws Exception {
+        Container.ExecResult execResult =
+                executeJob("/fake_to_paimon_with_s3_with_checkpoint.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        Container.ExecResult readResult = executeJob("/fake_2_paimon_with_s3_to_assert.conf");
         Assertions.assertEquals(0, readResult.getExitCode());
     }
 }

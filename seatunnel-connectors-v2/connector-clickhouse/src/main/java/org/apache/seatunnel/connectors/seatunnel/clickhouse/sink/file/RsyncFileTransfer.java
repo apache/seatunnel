@@ -25,6 +25,8 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.Clickhouse
 import org.apache.commons.lang3.StringUtils;
 import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.session.ClientSession;
+import org.apache.sshd.common.keyprovider.FileKeyPairProvider;
+import org.apache.sshd.common.keyprovider.KeyPairProvider;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,6 +34,9 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.file.Paths;
+import java.security.GeneralSecurityException;
+import java.security.KeyPair;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -43,14 +48,16 @@ public class RsyncFileTransfer implements FileTransfer {
     private final String host;
     private final String user;
     private final String password;
+    private final String keyPath;
 
     private ClientSession clientSession;
     private SshClient sshClient;
 
-    public RsyncFileTransfer(String host, String user, String password) {
+    public RsyncFileTransfer(String host, String user, String password, String keyPath) {
         this.host = host;
         this.user = user;
         this.password = password;
+        this.keyPath = keyPath;
     }
 
     @Override
@@ -62,13 +69,19 @@ public class RsyncFileTransfer implements FileTransfer {
             if (password != null) {
                 clientSession.addPasswordIdentity(password);
             }
-            // TODO support add publicKey to identity
+            if (keyPath != null) {
+                FileKeyPairProvider fileKeyPairProvider =
+                        new FileKeyPairProvider(Paths.get(keyPath));
+                KeyPair fileKeyPair =
+                        fileKeyPairProvider.loadKey(clientSession, KeyPairProvider.SSH_RSA);
+                clientSession.addPublicKeyIdentity(fileKeyPair);
+            }
             if (!clientSession.auth().verify().isSuccess()) {
                 throw new ClickhouseConnectorException(
                         ClickhouseConnectorErrorCode.SSH_OPERATION_FAILED,
                         "ssh host " + host + "authentication failed");
             }
-        } catch (IOException e) {
+        } catch (IOException | GeneralSecurityException e) {
             throw new ClickhouseConnectorException(
                     ClickhouseConnectorErrorCode.SSH_OPERATION_FAILED,
                     "Failed to connect to host: " + host + " by user: " + user + " on port 22",
@@ -84,7 +97,12 @@ public class RsyncFileTransfer implements FileTransfer {
                             ? String.format(
                                     "'sshpass -p %s ssh -o StrictHostKeyChecking=no -p %s'",
                                     password, SSH_PORT)
-                            : String.format("'ssh -o StrictHostKeyChecking=no -p %s'", SSH_PORT);
+                            : keyPath != null
+                                    ? String.format(
+                                            "'ssh -i %s -o StrictHostKeyChecking=no -p %s'",
+                                            keyPath, SSH_PORT)
+                                    : String.format(
+                                            "'ssh -o StrictHostKeyChecking=no -p %s'", SSH_PORT);
             List<String> rsyncCommand = new ArrayList<>();
             rsyncCommand.add("rsync");
             // recursive with -r
@@ -97,7 +115,7 @@ public class RsyncFileTransfer implements FileTransfer {
             rsyncCommand.add("-e");
             rsyncCommand.add(sshParameter);
             rsyncCommand.add(sourcePath);
-            rsyncCommand.add(String.format("root@%s:%s", host, targetPath));
+            rsyncCommand.add(String.format("%s@%s:%s", user, host, targetPath));
             log.info("Generate rsync command: {}", String.join(" ", rsyncCommand));
             ProcessBuilder processBuilder =
                     new ProcessBuilder("bash", "-c", String.join(" ", rsyncCommand));
@@ -108,7 +126,15 @@ public class RsyncFileTransfer implements FileTransfer {
                     BufferedReader bufferedReader = new BufferedReader(inputStreamReader)) {
                 String line;
                 while ((line = bufferedReader.readLine()) != null) {
-                    log.info(line);
+                    log.info("rsync output: {}", line);
+                }
+            }
+            try (InputStream errorStream = start.getErrorStream();
+                    InputStreamReader errorStreamReader = new InputStreamReader(errorStream);
+                    BufferedReader bufferedReader = new BufferedReader(errorStreamReader)) {
+                String line;
+                while ((line = bufferedReader.readLine()) != null) {
+                    log.error("rsync error: {}", line);
                 }
             }
             start.waitFor();

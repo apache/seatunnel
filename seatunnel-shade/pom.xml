@@ -30,13 +30,12 @@
         <module>seatunnel-hadoop3-3.1.4-uber</module>
         <module>seatunnel-jackson</module>
         <module>seatunnel-guava</module>
-        <module>seatunnel-arrow-5.0</module>
         <module>seatunnel-thrift-service</module>
         <module>seatunnel-hazelcast</module>
         <module>seatunnel-janino</module>
         <module>seatunnel-jetty9-9.4.56</module>
         <module>seatunnel-hadoop-aws</module>
-
+        <module>seatunnel-arrow</module>
     </modules>
 
     <build>

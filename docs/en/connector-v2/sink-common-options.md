@@ -6,7 +6,7 @@ sidebar_position: 4
 
 > Common parameters of sink connectors
 
-:::warn
+:::caution warn
 
 The old configuration name `source_table_name` is deprecated, please migrate to the new name `plugin_input` as soon as possible.
 

@@ -30,3 +30,16 @@ db.getCollection('products').deleteOne({"name": "car battery"});
 db.getCollection('products').deleteOne({"name": "12-pack drill bits"});
 db.getCollection('products').deleteOne({"name": "hammer", "weight": "875"});
 db.getCollection('products').deleteOne({"name": "jacket"});
+
+
+db.getCollection('orders').insertOne({"_id": ObjectId("100000000000000000000106"),"order_number": 102487, "order_date": "2023-11-12", "quantity": 2 , "product_id": ObjectId("100000000000000000000113")});
+db.getCollection('orders').insertOne({"_id": ObjectId("100000000000000000000107"),"order_number": 102488, "order_date": "2023-11-13", "quantity": 5 , "product_id": ObjectId("100000000000000000000112")});
+db.getCollection('orders').insertOne({"_id": ObjectId("100000000000000000000108"),"order_number": 102489, "order_date": "2023-11-14", "quantity": 6 , "product_id": ObjectId("100000000000000000000111")});
+db.getCollection('orders').insertOne({"_id": ObjectId("100000000000000000000109"),"order_number": 102490, "order_date": "2023-11-15", "quantity": 9 , "product_id": ObjectId("100000000000000000000110")});
+db.getCollection('orders').insertOne({"_id": ObjectId("100000000000000000000110"),"order_number": 102491, "order_date": "2023-11-16", "quantity": 8 , "product_id": ObjectId("100000000000000000000109")});
+
+db.getCollection('orders').updateOne({"order_number": 102490}, {$set: {"quantity": 99}});
+
+db.getCollection('orders').deleteOne({"order_number": 102487});
+db.getCollection('orders').deleteOne({"order_number": 102488});
+db.getCollection('orders').deleteOne({"order_number": 102489});

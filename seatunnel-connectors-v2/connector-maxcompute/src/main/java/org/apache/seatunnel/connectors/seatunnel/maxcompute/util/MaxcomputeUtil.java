@@ -17,10 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.util;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
+
+import org.apache.commons.lang3.StringUtils;
 
 import com.aliyun.odps.Odps;
 import com.aliyun.odps.PartitionSpec;
@@ -33,53 +35,46 @@ import lombok.extern.slf4j.Slf4j;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ACCESS_ID;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ACCESS_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ENDPOINT;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.OVERWRITE;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PARTITION_SPEC;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PROJECT;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.TABLE_NAME;
 
 @Slf4j
 public class MaxcomputeUtil {
-    public static Table getTable(Config pluginConfig) {
-        Odps odps = getOdps(pluginConfig);
-        Table table = odps.tables().get(pluginConfig.getString(TABLE_NAME.key()));
-        return table;
+    public static Table getTable(ReadonlyConfig readonlyConfig) {
+        Odps odps = getOdps(readonlyConfig);
+        return odps.tables().get(readonlyConfig.get(TABLE_NAME));
     }
 
-    public static TableTunnel getTableTunnel(Config pluginConfig) {
-        Odps odps = getOdps(pluginConfig);
-        TableTunnel tunnel = new TableTunnel(odps);
-        return tunnel;
+    public static TableTunnel getTableTunnel(ReadonlyConfig readonlyConfig) {
+        Odps odps = getOdps(readonlyConfig);
+        return new TableTunnel(odps);
     }
 
-    public static Odps getOdps(Config pluginConfig) {
+    public static Odps getOdps(ReadonlyConfig readonlyConfig) {
         Account account =
-                new AliyunAccount(
-                        pluginConfig.getString(ACCESS_ID.key()),
-                        pluginConfig.getString(ACCESS_KEY.key()));
+                new AliyunAccount(readonlyConfig.get(ACCESS_ID), readonlyConfig.get(ACCESS_KEY));
         Odps odps = new Odps(account);
-        odps.setEndpoint(pluginConfig.getString(ENDPOINT.key()));
-        odps.setDefaultProject(pluginConfig.getString(PROJECT.key()));
+        odps.setEndpoint(readonlyConfig.get(ENDPOINT));
+        odps.setDefaultProject(readonlyConfig.get(PROJECT));
         return odps;
     }
 
-    public static TableTunnel.DownloadSession getDownloadSession(Config pluginConfig) {
-        TableTunnel tunnel = getTableTunnel(pluginConfig);
+    public static TableTunnel.DownloadSession getDownloadSession(ReadonlyConfig readonlyConfig) {
+        TableTunnel tunnel = getTableTunnel(readonlyConfig);
         TableTunnel.DownloadSession session;
         try {
-            if (pluginConfig.hasPath(PARTITION_SPEC.key())) {
-                PartitionSpec partitionSpec =
-                        new PartitionSpec(pluginConfig.getString(PARTITION_SPEC.key()));
+            if (readonlyConfig.getOptional(PARTITION_SPEC).isPresent()) {
+                PartitionSpec partitionSpec = new PartitionSpec(readonlyConfig.get(PARTITION_SPEC));
                 session =
                         tunnel.createDownloadSession(
-                                pluginConfig.getString(PROJECT.key()),
-                                pluginConfig.getString(TABLE_NAME.key()),
+                                readonlyConfig.get(PROJECT),
+                                readonlyConfig.get(TABLE_NAME),
                                 partitionSpec);
             } else {
                 session =
                         tunnel.createDownloadSession(
-                                pluginConfig.getString(PROJECT.key()),
-                                pluginConfig.getString(TABLE_NAME.key()));
+                                readonlyConfig.get(PROJECT), readonlyConfig.get(TABLE_NAME));
             }
         } catch (Exception e) {
             throw new MaxcomputeConnectorException(
@@ -88,36 +83,40 @@ public class MaxcomputeUtil {
         return session;
     }
 
-    public static void initTableOrPartition(Config pluginConfig) {
-        Boolean overwrite = OVERWRITE.defaultValue();
-        if (pluginConfig.hasPath(OVERWRITE.key())) {
-            overwrite = pluginConfig.getBoolean(OVERWRITE.key());
-        }
+    public static TableTunnel.DownloadSession getDownloadSession(
+            ReadonlyConfig readonlyConfig, TablePath tablePath, String partitionSpec) {
+        TableTunnel tunnel = getTableTunnel(readonlyConfig);
+        TableTunnel.DownloadSession session;
         try {
-            Table table = MaxcomputeUtil.getTable(pluginConfig);
-            if (pluginConfig.hasPath(PARTITION_SPEC.key())) {
-                PartitionSpec partitionSpec =
-                        new PartitionSpec(pluginConfig.getString(PARTITION_SPEC.key()));
-                if (overwrite) {
-                    try {
-                        table.deletePartition(partitionSpec, true);
-                    } catch (NullPointerException e) {
-                        log.debug("NullPointerException when delete table partition");
-                    }
-                }
-                table.createPartition(partitionSpec, true);
+            if (StringUtils.isNotEmpty(partitionSpec)) {
+                PartitionSpec partition = new PartitionSpec(partitionSpec);
+                session =
+                        tunnel.createDownloadSession(
+                                tablePath.getDatabaseName(), tablePath.getTableName(), partition);
             } else {
-                if (overwrite) {
-                    try {
-                        table.truncate();
-                    } catch (NullPointerException e) {
-                        log.debug("NullPointerException when truncate table");
-                    }
-                }
+                session =
+                        tunnel.createDownloadSession(
+                                tablePath.getDatabaseName(), tablePath.getTableName());
             }
         } catch (Exception e) {
             throw new MaxcomputeConnectorException(
                     CommonErrorCodeDeprecated.READER_OPERATION_FAILED, e);
+        }
+        return session;
+    }
+
+    public static Table parseTable(Odps odps, String projectName, String tableName) {
+        try {
+            Table table = odps.tables().get(projectName, tableName);
+            table.reload();
+            return table;
+        } catch (Exception ex) {
+            throw new MaxcomputeConnectorException(
+                    CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED,
+                    String.format(
+                            "get table %s.%s info with exception, error:%s",
+                            projectName, tableName, ex.getMessage()),
+                    ex);
         }
     }
 }

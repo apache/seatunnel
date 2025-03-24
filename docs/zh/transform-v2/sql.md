@@ -45,7 +45,7 @@ transform {
   Sql {
     plugin_input = "fake"
     plugin_output = "fake1"
-    query = "select id, concat(name, '_') as name, age+1 as age from fake where id>0"
+    query = "select id, concat(name, '_') as name, age+1 as age from dual where id>0"
   }
 }
 ```
@@ -139,7 +139,7 @@ transform {
   Sql {
     plugin_input = "fake"
     plugin_output = "fake1"
-    query = "select id, concat(name, '_') as name, age+1 as age from fake where id>0"
+    query = "select id, concat(name, '_') as name, age+1 as age from dual where id>0"
   }
 }
 

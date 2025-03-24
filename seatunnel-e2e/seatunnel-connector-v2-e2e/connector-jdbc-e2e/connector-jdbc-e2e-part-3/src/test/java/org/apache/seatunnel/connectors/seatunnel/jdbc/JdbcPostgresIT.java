@@ -86,6 +86,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  uuid_col UUID,\n"
                     + "  text_col TEXT,\n"
                     + "  varchar_col VARCHAR(255),\n"
+                    + "  char_one_col CHAR(1),\n"
                     + "  char_col CHAR(10),\n"
                     + "  boolean_col bool,\n"
                     + "  smallint_col int2,\n"
@@ -121,6 +122,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "    uuid_col UUID,\n"
                     + "    text_col TEXT,\n"
                     + "    varchar_col VARCHAR(255),\n"
+                    + "    char_one_col CHAR(1),\n"
                     + "    char_col CHAR(10),\n"
                     + "    boolean_col bool,\n"
                     + "    smallint_col int2,\n"
@@ -156,6 +158,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "uuid_col, \n"
                     + "text_col,\n"
                     + "varchar_col,\n"
+                    + "char_one_col,\n"
                     + "char_col,\n"
                     + "boolean_col,\n"
                     + "smallint_col,\n"
@@ -191,6 +194,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "uuid_col, \n"
                     + "   text_col,\n"
                     + "   varchar_col,\n"
+                    + "   char_one_col,\n"
                     + "   char_col,\n"
                     + "   boolean_col,\n"
                     + "   smallint_col,\n"
@@ -274,7 +278,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                         POSTGRESQL_CONTAINER.getUsername(),
                         POSTGRESQL_CONTAINER.getPassword(),
                         JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
-                        schema);
+                        schema,
+                        null);
         postgresCatalog.open();
 
         CatalogTable catalogTable = postgresCatalog.getTable(sourceTablePath);
@@ -357,7 +362,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                         POSTGRESQL_CONTAINER.getUsername(),
                         POSTGRESQL_CONTAINER.getPassword(),
                         JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
-                        schema);
+                        schema,
+                        null);
         catalog.open();
 
         TablePath tablePath = new TablePath(databaseName, schema, tableName);
@@ -392,6 +398,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 + "    uuid_col,\n"
                                 + "    text_col,\n"
                                 + "    varchar_col,\n"
+                                + "    char_one_col,\n"
                                 + "    char_col,\n"
                                 + "    boolean_col,\n"
                                 + "    smallint_col,\n"
@@ -429,6 +436,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 + "    gen_random_uuid(),\n"
                                 + "    'Hello World',\n"
                                 + "    'Test',\n"
+                                + "    'T',\n"
                                 + "    'Testing',\n"
                                 + "    true,\n"
                                 + "    10,\n"
@@ -538,7 +546,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                         POSTGRESQL_CONTAINER.getUsername(),
                         POSTGRESQL_CONTAINER.getPassword(),
                         JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
-                        schema);
+                        schema,
+                        null);
         postgresCatalog.open();
         CatalogTable catalogTable = postgresCatalog.getTable(tablePathPG);
         // sink tableExists ?
@@ -562,6 +571,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                         + "  pg_ide_sink_table_2 (gid,\n"
                         + "    text_col,\n"
                         + "    varchar_col,\n"
+                        + "    char_one_col,\n"
                         + "    char_col,\n"
                         + "    boolean_col,\n"
                         + "    smallint_col,\n"
@@ -598,6 +608,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                         + "',\n"
                         + "    'Hello World',\n"
                         + "    'Test',\n"
+                        + "    'T',\n"
                         + "    'Testing',\n"
                         + "    true,\n"
                         + "    10,\n"

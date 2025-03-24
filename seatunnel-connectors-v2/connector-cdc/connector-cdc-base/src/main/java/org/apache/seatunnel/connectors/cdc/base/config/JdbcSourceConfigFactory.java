@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.cdc.base.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.CatalogOptions;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 
@@ -42,9 +42,10 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     protected String originUrl;
     protected List<String> databaseList;
     protected List<String> tableList;
+    protected String databasePattern;
+    protected String tablePattern;
     protected StartupConfig startupConfig;
     protected StopConfig stopConfig;
-    protected boolean includeSchemaChanges = false;
     protected double distributionFactorUpper =
             JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND.defaultValue();
     protected double distributionFactorLower =
@@ -60,6 +61,10 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     protected int connectMaxRetries = JdbcSourceOptions.CONNECT_MAX_RETRIES.defaultValue();
     protected int connectionPoolSize = JdbcSourceOptions.CONNECTION_POOL_SIZE.defaultValue();
     @Setter protected boolean exactlyOnce = JdbcSourceOptions.EXACTLY_ONCE.defaultValue();
+
+    @Setter
+    protected boolean schemaChangeEnabled = JdbcSourceOptions.SCHEMA_CHANGES_ENABLED.defaultValue();
+
     protected Properties dbzProperties;
 
     /** String hostname of the database server. */
@@ -210,8 +215,8 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     }
 
     /** Whether the {@link SourceConfig} should output the schema changes or not. */
-    public JdbcSourceConfigFactory includeSchemaChanges(boolean includeSchemaChanges) {
-        this.includeSchemaChanges = includeSchemaChanges;
+    public JdbcSourceConfigFactory schemaChangeEnabled(boolean schemaChangeEnabled) {
+        this.schemaChangeEnabled = schemaChangeEnabled;
         return this;
     }
 
@@ -239,7 +244,9 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.username = config.get(JdbcSourceOptions.USERNAME);
         this.password = config.get(JdbcSourceOptions.PASSWORD);
         this.databaseList = config.get(JdbcSourceOptions.DATABASE_NAMES);
-        this.tableList = config.get(CatalogOptions.TABLE_NAMES);
+        this.tableList = config.get(ConnectorCommonOptions.TABLE_NAMES);
+        this.databasePattern = config.get(ConnectorCommonOptions.DATABASE_PATTERN);
+        this.tablePattern = config.get(ConnectorCommonOptions.TABLE_PATTERN);
         this.distributionFactorUpper =
                 config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND);
         this.distributionFactorLower =
@@ -264,6 +271,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.connectMaxRetries = config.get(JdbcSourceOptions.CONNECT_MAX_RETRIES);
         this.connectionPoolSize = config.get(JdbcSourceOptions.CONNECTION_POOL_SIZE);
         this.exactlyOnce = config.get(JdbcSourceOptions.EXACTLY_ONCE);
+        this.schemaChangeEnabled = config.get(JdbcSourceOptions.SCHEMA_CHANGES_ENABLED);
         this.dbzProperties = new Properties();
         config.getOptional(SourceOptions.DEBEZIUM_PROPERTIES)
                 .ifPresent(map -> dbzProperties.putAll(map));

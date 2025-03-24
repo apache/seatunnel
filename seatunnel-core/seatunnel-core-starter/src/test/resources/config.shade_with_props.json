@@ -1,0 +1,44 @@
+{
+  "env" : {
+    "shade.identifier" : "withProps",
+    "parallelism" : 1,
+    "shade.properties" : {
+      "suffix" : "666"
+    }
+  },
+  "source" : [
+    {
+      "plugin_name" : "MySQL-CDC",
+      "base-url" : "jdbc:mysql://localhost:56725",
+      "username" : "un666",
+      "password" : "pd666",
+      "hostname" : "127.0.0.1",
+      "port" : 56725,
+      "database-name" : "inventory_vwyw0n",
+      "parallelism" : 1,
+      "table-name" : "products",
+      "server-id" : 5656,
+      "schema" : {
+        "fields" : {
+          "name" : "string",
+          "age" : "int",
+          "sex" : "boolean"
+        }
+      },
+      "plugin_output" : "fake"
+    }
+  ],
+  "transform" : [],
+  "sink" : [
+    {
+      "plugin_name" : "Clickhouse",
+      "host" : "localhost:8123",
+      "username" : "un666",
+      "password" : "pd666",
+      "database" : "default",
+      "table" : "fake_all",
+      "support_upsert" : true,
+      "primary_key" : "id"
+    }
+  ]
+}

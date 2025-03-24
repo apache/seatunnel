@@ -107,6 +107,13 @@ public class SourceOptions {
                     .defaultValue(false)
                     .withDescription("Enable exactly once semantic.");
 
+    public static final Option<Boolean> SCHEMA_CHANGES_ENABLED =
+            Options.key("schema-changes.enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Enable send schema change events, by default is false. If set to true, the schema changes will be sent to downstream.");
+
     public static OptionRule.Builder getBaseRule() {
         return OptionRule.builder()
                 .optional(FORMAT)

@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit;
 
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.writer.WriteResult;
 
 import org.apache.iceberg.AppendFiles;
@@ -41,25 +41,23 @@ public class IcebergFilesCommitter implements Serializable {
     private boolean caseSensitive;
     private String branch;
 
-    private IcebergFilesCommitter(SinkConfig config, IcebergTableLoader icebergTableLoader) {
+    private IcebergFilesCommitter(IcebergSinkConfig config, IcebergTableLoader icebergTableLoader) {
         this.icebergTableLoader = icebergTableLoader;
         this.caseSensitive = config.isCaseSensitive();
         this.branch = config.getCommitBranch();
     }
 
     public static IcebergFilesCommitter of(
-            SinkConfig config, IcebergTableLoader icebergTableLoader) {
+            IcebergSinkConfig config, IcebergTableLoader icebergTableLoader) {
         return new IcebergFilesCommitter(config, icebergTableLoader);
     }
 
     public void doCommit(List<WriteResult> results) {
         TableIdentifier tableIdentifier = icebergTableLoader.getTableIdentifier();
-        Table table = icebergTableLoader.loadTable();
-        log.info("do commit table : " + table.toString());
-        commit(tableIdentifier, table, results);
+        commit(tableIdentifier, results);
     }
 
-    private void commit(TableIdentifier tableIdentifier, Table table, List<WriteResult> results) {
+    private void commit(TableIdentifier tableIdentifier, List<WriteResult> results) {
         List<DataFile> dataFiles =
                 results.stream()
                         .filter(payload -> payload.getDataFiles() != null)
@@ -77,6 +75,8 @@ public class IcebergFilesCommitter implements Serializable {
         if (dataFiles.isEmpty() && deleteFiles.isEmpty()) {
             log.info(String.format("Nothing to commit to table %s, skipping", tableIdentifier));
         } else {
+            Table table = icebergTableLoader.loadTable();
+            log.info("do commit table : {}", table.toString());
             if (deleteFiles.isEmpty()) {
                 AppendFiles append = table.newAppend();
                 if (branch != null) {

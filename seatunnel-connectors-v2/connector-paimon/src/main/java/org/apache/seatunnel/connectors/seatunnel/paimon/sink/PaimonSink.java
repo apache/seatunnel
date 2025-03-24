@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.paimon.sink;
 
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
@@ -28,13 +27,13 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonHadoopConfiguration;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.handler.PaimonSaveModeHandler;
 import org.apache.seatunnel.connectors.seatunnel.paimon.security.PaimonSecurityContext;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonAggregatedCommitInfo;
@@ -45,10 +44,9 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.sink.state.PaimonSinkSta
 import org.apache.paimon.table.Table;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-
-import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 
 public class PaimonSink
         implements SeaTunnelSink<
@@ -57,32 +55,30 @@ public class PaimonSink
                         PaimonCommitInfo,
                         PaimonAggregatedCommitInfo>,
                 SupportSaveMode,
+                SupportMultiTableSink,
                 SupportLoadTable<Table>,
-                SupportMultiTableSink {
+                SupportSchemaEvolutionSink {
 
     private static final long serialVersionUID = 1L;
 
     public static final String PLUGIN_NAME = "Paimon";
 
-    private SeaTunnelRowType seaTunnelRowType;
-
-    private Table table;
+    private Table paimonTable;
 
     private JobContext jobContext;
 
-    private ReadonlyConfig readonlyConfig;
+    private final ReadonlyConfig readonlyConfig;
 
-    private PaimonSinkConfig paimonSinkConfig;
+    private final PaimonSinkConfig paimonSinkConfig;
 
-    private CatalogTable catalogTable;
+    private final CatalogTable catalogTable;
 
-    private PaimonHadoopConfiguration paimonHadoopConfiguration;
+    private final PaimonHadoopConfiguration paimonHadoopConfiguration;
 
     public PaimonSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
         this.readonlyConfig = readonlyConfig;
         this.paimonSinkConfig = new PaimonSinkConfig(readonlyConfig);
         this.catalogTable = catalogTable;
-        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         this.paimonHadoopConfiguration = PaimonSecurityContext.loadHadoopConfig(paimonSinkConfig);
     }
 
@@ -95,8 +91,9 @@ public class PaimonSink
     public PaimonSinkWriter createWriter(SinkWriter.Context context) throws IOException {
         return new PaimonSinkWriter(
                 context,
-                table,
-                seaTunnelRowType,
+                readonlyConfig,
+                catalogTable,
+                paimonTable,
                 jobContext,
                 paimonSinkConfig,
                 paimonHadoopConfiguration);
@@ -105,8 +102,7 @@ public class PaimonSink
     @Override
     public Optional<SinkAggregatedCommitter<PaimonCommitInfo, PaimonAggregatedCommitInfo>>
             createAggregatedCommitter() throws IOException {
-        return Optional.of(
-                new PaimonAggregatedCommitter(table, jobContext, paimonHadoopConfiguration));
+        return Optional.of(new PaimonAggregatedCommitter(paimonTable, paimonHadoopConfiguration));
     }
 
     @Override
@@ -114,8 +110,9 @@ public class PaimonSink
             SinkWriter.Context context, List<PaimonSinkState> states) throws IOException {
         return new PaimonSinkWriter(
                 context,
-                table,
-                seaTunnelRowType,
+                readonlyConfig,
+                catalogTable,
+                paimonTable,
                 states,
                 jobContext,
                 paimonSinkConfig,
@@ -139,39 +136,33 @@ public class PaimonSink
 
     @Override
     public Optional<SaveModeHandler> getSaveModeHandler() {
-        org.apache.seatunnel.api.table.factory.CatalogFactory catalogFactory =
-                discoverFactory(
-                        Thread.currentThread().getContextClassLoader(),
-                        org.apache.seatunnel.api.table.factory.CatalogFactory.class,
-                        "Paimon");
-        if (catalogFactory == null) {
-            throw new PaimonConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(),
-                            PluginType.SINK,
-                            "Cannot find paimon catalog factory"));
-        }
-        org.apache.seatunnel.api.table.catalog.Catalog catalog =
-                catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), readonlyConfig);
+        PaimonCatalog paimonCatalog = PaimonCatalog.loadPaimonCatalog(readonlyConfig);
         return Optional.of(
                 new PaimonSaveModeHandler(
                         this,
                         paimonSinkConfig.getSchemaSaveMode(),
                         paimonSinkConfig.getDataSaveMode(),
-                        catalog,
+                        paimonCatalog,
                         catalogTable,
                         null));
     }
 
     @Override
     public void setLoadTable(Table table) {
-        this.table = table;
+        this.paimonTable = table;
     }
 
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
         return Optional.ofNullable(catalogTable);
+    }
+
+    @Override
+    public List<SchemaChangeType> supports() {
+        return Arrays.asList(
+                SchemaChangeType.ADD_COLUMN,
+                SchemaChangeType.DROP_COLUMN,
+                SchemaChangeType.RENAME_COLUMN,
+                SchemaChangeType.UPDATE_COLUMN);
     }
 }

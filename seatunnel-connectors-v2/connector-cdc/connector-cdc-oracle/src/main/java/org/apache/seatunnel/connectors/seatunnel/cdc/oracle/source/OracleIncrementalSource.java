@@ -105,22 +105,12 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
         }
 
         String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
-
-        boolean enableDDL =
-                Boolean.parseBoolean(
-                        debeziumProperties.getOrDefault(
-                                OracleSourceConfigFactory.SCHEMA_CHANGE_KEY,
-                                OracleSourceConfigFactory.SCHEMA_CHANGE_DEFAULT.toString()));
-
         return (DebeziumDeserializationSchema<T>)
                 SeaTunnelRowDebeziumDeserializeSchema.builder()
                         .setTables(catalogTables)
                         .setServerTimeZone(ZoneId.of(zoneId))
                         .setSchemaChangeResolver(
-                                enableDDL
-                                        ? new OracleSchemaChangeResolver(
-                                                createSourceConfigFactory(config))
-                                        : null)
+                                new OracleSchemaChangeResolver(createSourceConfigFactory(config)))
                         .setTableIdTableChangeMap(tableIdStructMap)
                         .build();
     }
