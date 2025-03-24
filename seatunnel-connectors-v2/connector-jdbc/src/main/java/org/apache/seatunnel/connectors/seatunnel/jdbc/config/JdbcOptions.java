@@ -231,7 +231,7 @@ public interface JdbcOptions {
                     .enumType(StringSplitMode.class)
                     .defaultValue(StringSplitMode.SAMPLE)
                     .withDescription(
-                            "Specifies the collation to use when string_split_mode is set to `charset_based` and the table has a special collation. If not specified, the database's default collation will be used.");
+                            "Supports different string splitting algorithms. By default, `sample` is used to determine the split by sampling the string value. You can switch to `charset_based` to enable charset-based string splitting algorithm. When set to `charset_based`, the algorithm assumes characters of partition_column are within ASCII range 32-126, which covers most character-based splitting scenarios.");
 
     Option<String> STRING_SPLIT_MODE_COLLATE =
             Options.key("split.string_split_mode_collate")
