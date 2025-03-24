@@ -1,12 +1,8 @@
----
-sidebar_position: 16
----
-
 # Security
 
 ## HTTPS Configuration
 
-You can secure your API service by enabling HTTPS. Both HTTP and HTTPS can be enabled simultaneously, or only one of them can be enabled.
+You can secure your REST-API-V2 service by enabling HTTPS. Both HTTP and HTTPS can be enabled simultaneously, or only one of them can be enabled.
 
 | Parameter Name | Required | Description |
 |----------------|----------|-------------|
