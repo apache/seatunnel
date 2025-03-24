@@ -229,7 +229,7 @@ public interface JdbcOptions {
     Option<StringSplitMode> STRING_SPLIT_MODE =
             Options.key("split.string_split_mode")
                     .enumType(StringSplitMode.class)
-                    .noDefaultValue()
+                    .defaultValue(StringSplitMode.SAMPLE)
                     .withDescription(
                             "Specifies the collation to use when string_split_mode is set to `charset_based` and the table has a special collation. If not specified, the database's default collation will be used.");
 
