@@ -200,7 +200,7 @@ sink {
 
 ### Kerberos 认证示例
 
-请在启动 seatunnel 之前设置 JVM 参数 `java.security.krb5.conf` 或更新 `/etc/krb5.conf` 中的默认 `krb5.conf`。
+请在启动 SeaTunnel 之前设置 JVM 参数 `java.security.krb5.conf` 或更新 `/etc/krb5.conf` 中的默认 `krb5.conf`。
 
 源配置示例：
 

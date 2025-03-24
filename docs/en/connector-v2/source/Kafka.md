@@ -183,7 +183,7 @@ source {
 
 ### Kerberos Authentication Example
 
-Please set JVM parameters `java.security.krb5.conf` before starting the seatunnel or update default `krb5.conf` in `/etc/krb5.conf`.
+Please set JVM parameters `java.security.krb5.conf` before starting the SeaTunnel or update default `krb5.conf` in `/etc/krb5.conf`.
 
 Source Config
 
