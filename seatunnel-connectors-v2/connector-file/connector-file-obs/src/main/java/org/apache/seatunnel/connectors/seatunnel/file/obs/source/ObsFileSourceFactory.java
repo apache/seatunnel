@@ -22,10 +22,6 @@ import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.obs.config.ObsFileSourceOptions;
 
 import com.google.auto.service.AutoService;
@@ -50,20 +46,35 @@ public class ObsFileSourceFactory implements TableSourceFactory {
                 .required(FileBaseSourceOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        FileFormat.TEXT,
+                        FileBaseSourceOptions.FIELD_DELIMITER,
+                        FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        FileFormat.CSV,
+                        FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        FileFormat.EXCEL,
+                        FileBaseSourceOptions.SHEET_NAME)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
                                 FileFormat.TEXT, FileFormat.JSON, FileFormat.EXCEL, FileFormat.CSV),
                         ConnectorCommonOptions.SCHEMA)
-                .optional(FileBaseSourceOptions.ENCODING)
-                .optional(FileBaseSourceOptions.READ_COLUMNS)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        Arrays.asList(
+                                FileFormat.TEXT, FileFormat.JSON, FileFormat.CSV, FileFormat.XML),
+                        FileBaseSinkOptions.ENCODING)
                 .optional(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH)
-                .optional(FileBaseSourceOptions.FIELD_DELIMITER)
-                .optional(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
                 .optional(FileBaseSourceOptions.DATE_FORMAT)
                 .optional(FileBaseSourceOptions.DATETIME_FORMAT)
                 .optional(FileBaseSourceOptions.TIME_FORMAT)
                 .optional(FileBaseSourceOptions.SHEET_NAME)
                 .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
+                .optional(FileBaseSourceOptions.READ_COLUMNS)
                 .build();
     }
 

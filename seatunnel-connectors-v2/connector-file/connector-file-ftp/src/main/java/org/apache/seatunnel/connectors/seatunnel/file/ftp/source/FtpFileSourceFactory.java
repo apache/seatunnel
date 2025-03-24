@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
@@ -52,16 +53,29 @@ public class FtpFileSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .exclusive(FtpFileSourceOptions.TABLE_CONFIGS, FtpFileSourceOptions.FILE_PATH)
-                .optional(FtpFileSourceOptions.FTP_HOST)
-                .optional(FtpFileSourceOptions.FTP_PORT)
-                .optional(FtpFileSourceOptions.FTP_USERNAME)
-                .optional(FtpFileSourceOptions.FTP_PASSWORD)
-                .optional(FileBaseSourceOptions.FILE_FORMAT_TYPE)
+                .required(FtpFileSourceOptions.FTP_HOST)
+                .required(FtpFileSourceOptions.FTP_PORT)
+                .required(FtpFileSourceOptions.FTP_USERNAME)
+                .required(FtpFileSourceOptions.FTP_PASSWORD)
+                .required(FileBaseSourceOptions.FILE_FORMAT_TYPE)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        FileFormat.TEXT,
+                        FileBaseSourceOptions.FIELD_DELIMITER,
+                        FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.XML,
                         FileBaseSourceOptions.XML_ROW_TAG,
                         FileBaseSourceOptions.XML_USE_ATTR_FORMAT)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        FileFormat.CSV,
+                        FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        FileFormat.EXCEL,
+                        FileBaseSourceOptions.SHEET_NAME)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
@@ -71,19 +85,22 @@ public class FtpFileSourceFactory implements TableSourceFactory {
                                 FileFormat.CSV,
                                 FileFormat.XML),
                         ConnectorCommonOptions.SCHEMA)
-                .optional(FileBaseSourceOptions.ENCODING)
-                .optional(FileBaseSourceOptions.READ_COLUMNS)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        Arrays.asList(
+                                FileFormat.TEXT, FileFormat.JSON, FileFormat.CSV, FileFormat.XML),
+                        FileBaseSinkOptions.ENCODING)
                 .optional(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH)
-                .optional(FileBaseSourceOptions.FIELD_DELIMITER)
-                .optional(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
                 .optional(FileBaseSourceOptions.DATE_FORMAT)
                 .optional(FileBaseSourceOptions.DATETIME_FORMAT)
                 .optional(FileBaseSourceOptions.TIME_FORMAT)
-                .optional(FileBaseSourceOptions.SHEET_NAME)
                 .optional(FileBaseSourceOptions.FILE_FILTER_PATTERN)
+                .optional(FileBaseSourceOptions.COMPRESS_CODEC)
                 .optional(FtpFileSourceOptions.FTP_CONNECTION_MODE)
+                .optional(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC)
                 .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
+                .optional(FileBaseSourceOptions.READ_COLUMNS)
                 .build();
     }
 

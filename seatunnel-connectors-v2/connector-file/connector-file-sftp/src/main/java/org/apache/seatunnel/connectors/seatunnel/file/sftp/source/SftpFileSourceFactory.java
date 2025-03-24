@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
@@ -53,9 +54,22 @@ public class SftpFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        FileFormat.TEXT,
+                        FileBaseSourceOptions.FIELD_DELIMITER,
+                        FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.XML,
                         FileBaseSourceOptions.XML_ROW_TAG,
                         FileBaseSourceOptions.XML_USE_ATTR_FORMAT)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        FileFormat.CSV,
+                        FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        FileFormat.EXCEL,
+                        FileBaseSourceOptions.SHEET_NAME)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
@@ -65,10 +79,11 @@ public class SftpFileSourceFactory implements TableSourceFactory {
                                 FileFormat.CSV,
                                 FileFormat.XML),
                         ConnectorCommonOptions.SCHEMA)
-                .optional(FileBaseSourceOptions.ENCODING)
-                .optional(FileBaseSourceOptions.READ_COLUMNS)
-                .optional(FileBaseSourceOptions.FIELD_DELIMITER)
-                .optional(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        Arrays.asList(
+                                FileFormat.TEXT, FileFormat.JSON, FileFormat.CSV, FileFormat.XML),
+                        FileBaseSinkOptions.ENCODING)
                 .optional(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH)
                 .optional(FileBaseSourceOptions.DATE_FORMAT)
                 .optional(FileBaseSourceOptions.DATETIME_FORMAT)
@@ -77,6 +92,7 @@ public class SftpFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.FILE_FILTER_PATTERN)
                 .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
+                .optional(FileBaseSourceOptions.READ_COLUMNS)
                 .build();
     }
 

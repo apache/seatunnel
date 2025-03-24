@@ -25,22 +25,12 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.local.config.LocalFileSourceOptions;
 
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 import java.util.Arrays;
-
-import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions.DATETIME_FORMAT;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions.DATE_FORMAT;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions.ENCODING;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions.FILE_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions.SHEET_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions.TIME_FORMAT;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions.XML_USE_ATTR_FORMAT;
 
 @AutoService(Factory.class)
 public class LocalFileSourceFactory implements TableSourceFactory {
@@ -58,13 +48,27 @@ public class LocalFileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .exclusive(LocalFileSourceOptions.TABLE_CONFIGS, FILE_PATH)
+                .exclusive(LocalFileSourceOptions.TABLE_CONFIGS, FileBaseOptions.FILE_PATH)
                 .optional(LocalFileSourceOptions.FILE_FORMAT_TYPE)
+                .conditional(
+                        LocalFileSourceOptions.FILE_FORMAT_TYPE,
+                        FileFormat.TEXT,
+                        FileBaseSourceOptions.FIELD_DELIMITER,
+                        FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
                 .conditional(
                         LocalFileSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.XML,
                         LocalFileSourceOptions.XML_ROW_TAG,
-                        XML_USE_ATTR_FORMAT)
+                        FileBaseSinkOptions.XML_USE_ATTR_FORMAT)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        FileFormat.CSV,
+                        FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        FileFormat.EXCEL,
+                        FileBaseSourceOptions.SHEET_NAME,
+                        FileBaseSourceOptions.EXCEL_ENGINE)
                 .conditional(
                         LocalFileSourceOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
@@ -74,19 +78,21 @@ public class LocalFileSourceFactory implements TableSourceFactory {
                                 FileFormat.CSV,
                                 FileFormat.XML),
                         ConnectorCommonOptions.SCHEMA)
-                .optional(ENCODING)
-                .optional(LocalFileSourceOptions.READ_COLUMNS)
-                .optional(LocalFileSourceOptions.PARSE_PARTITION_FROM_PATH)
-                .optional(LocalFileSourceOptions.FIELD_DELIMITER)
-                .optional(LocalFileSourceOptions.SKIP_HEADER_ROW_NUMBER)
-                .optional(DATE_FORMAT)
-                .optional(DATETIME_FORMAT)
-                .optional(TIME_FORMAT)
-                .optional(SHEET_NAME)
-                .optional(LocalFileSourceOptions.EXCEL_ENGINE)
-                .optional(LocalFileSourceOptions.FILE_FILTER_PATTERN)
-                .optional(LocalFileSourceOptions.NULL_FORMAT)
-                .optional(LocalFileSourceOptions.FILENAME_EXTENSION)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        Arrays.asList(
+                                FileFormat.TEXT, FileFormat.JSON, FileFormat.CSV, FileFormat.XML),
+                        FileBaseSinkOptions.ENCODING)
+                .optional(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH)
+                .optional(FileBaseSourceOptions.DATE_FORMAT)
+                .optional(FileBaseSourceOptions.DATETIME_FORMAT)
+                .optional(FileBaseSourceOptions.TIME_FORMAT)
+                .optional(FileBaseSourceOptions.FILE_FILTER_PATTERN)
+                .optional(FileBaseSourceOptions.COMPRESS_CODEC)
+                .optional(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC)
+                .optional(FileBaseSourceOptions.NULL_FORMAT)
+                .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
+                .optional(FileBaseSourceOptions.READ_COLUMNS)
                 .build();
     }
 

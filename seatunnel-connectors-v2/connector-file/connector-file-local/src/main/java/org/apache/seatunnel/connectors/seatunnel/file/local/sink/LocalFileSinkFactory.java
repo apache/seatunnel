@@ -25,23 +25,18 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.factory.BaseMultipleTableFileSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.local.config.LocalFileSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions.COMPRESS_CODEC;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions.DATETIME_FORMAT;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions.DATE_FORMAT;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions.ENCODING;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions.FILE_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions.TIME_FORMAT;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions.XML_USE_ATTR_FORMAT;
+import java.util.Arrays;
 
 @AutoService(Factory.class)
 public class LocalFileSinkFactory extends BaseMultipleTableFileSinkFactory {
@@ -53,45 +48,78 @@ public class LocalFileSinkFactory extends BaseMultipleTableFileSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(FILE_PATH)
-                .optional(LocalFileSinkOptions.FILE_FORMAT_TYPE)
-                .optional(LocalFileSinkOptions.TMP_PATH)
-                .optional(LocalFileSinkOptions.SCHEMA_SAVE_MODE)
-                .optional(LocalFileSinkOptions.DATA_SAVE_MODE)
+                .required(FileBaseSinkOptions.FILE_PATH)
+                .optional(FileBaseSinkOptions.FILE_FORMAT_TYPE)
+                .optional(FileBaseSinkOptions.SCHEMA_SAVE_MODE)
+                .optional(FileBaseSinkOptions.DATA_SAVE_MODE)
                 .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .conditional(
-                        LocalFileSinkOptions.FILE_FORMAT_TYPE, FileFormat.XML, XML_USE_ATTR_FORMAT)
-                .optional(LocalFileSinkOptions.CUSTOM_FILENAME)
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
+                        FileFormat.TEXT,
+                        FileBaseSinkOptions.ROW_DELIMITER,
+                        FileBaseSinkOptions.FIELD_DELIMITER,
+                        FileBaseSinkOptions.TXT_COMPRESS,
+                        FileBaseSinkOptions.ENABLE_HEADER_WRITE)
                 .conditional(
-                        LocalFileSinkOptions.CUSTOM_FILENAME,
-                        true,
-                        LocalFileSinkOptions.FILE_NAME_EXPRESSION)
-                .optional(LocalFileSinkOptions.HAVE_PARTITION)
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
+                        FileFormat.CSV,
+                        FileBaseSinkOptions.ROW_DELIMITER,
+                        FileBaseSinkOptions.TXT_COMPRESS,
+                        FileBaseSinkOptions.ENABLE_HEADER_WRITE)
                 .conditional(
-                        LocalFileSinkOptions.HAVE_PARTITION,
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
+                        FileFormat.JSON,
+                        FileBaseSinkOptions.ROW_DELIMITER,
+                        FileBaseSinkOptions.TXT_COMPRESS)
+                .conditional(
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
+                        FileFormat.ORC,
+                        FileBaseSinkOptions.ORC_COMPRESS)
+                .conditional(
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
+                        FileFormat.PARQUET,
+                        FileBaseSinkOptions.PARQUET_COMPRESS,
+                        FileBaseSinkOptions.PARQUET_AVRO_WRITE_FIXED_AS_INT96,
+                        FileBaseSinkOptions.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96)
+                .conditional(
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
+                        FileFormat.XML,
+                        FileBaseSinkOptions.XML_USE_ATTR_FORMAT,
+                        FileBaseSinkOptions.XML_ROOT_TAG,
+                        FileBaseSinkOptions.XML_ROW_TAG)
+                .conditional(
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
+                        FileFormat.EXCEL,
+                        FileBaseSinkOptions.MAX_ROWS_IN_MEMORY,
+                        FileBaseSinkOptions.SHEET_NAME)
+                .optional(FileBaseSinkOptions.CUSTOM_FILENAME)
+                .conditional(
+                        FileBaseSinkOptions.CUSTOM_FILENAME,
                         true,
-                        LocalFileSinkOptions.PARTITION_BY,
-                        LocalFileSinkOptions.PARTITION_DIR_EXPRESSION,
-                        LocalFileSinkOptions.IS_PARTITION_FIELD_WRITE_IN_FILE)
-                .optional(LocalFileSinkOptions.SINK_COLUMNS)
-                .optional(LocalFileSinkOptions.IS_ENABLE_TRANSACTION)
-                .optional(LocalFileSinkOptions.FILENAME_TIME_FORMAT)
-                .optional(DATE_FORMAT)
-                .optional(DATETIME_FORMAT)
-                .optional(TIME_FORMAT)
-                .optional(ENCODING)
-                .optional(LocalFileSinkOptions.SINGLE_FILE_MODE)
-                .optional(LocalFileSinkOptions.BATCH_SIZE)
-                .optional(COMPRESS_CODEC)
-                .optional(LocalFileSinkOptions.XML_ROOT_TAG)
-                .optional(LocalFileSinkOptions.XML_ROW_TAG)
-                .optional(LocalFileSinkOptions.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96)
-                .optional(LocalFileSinkOptions.PARQUET_AVRO_WRITE_FIXED_AS_INT96)
-                .optional(LocalFileSinkOptions.MAX_ROWS_IN_MEMORY)
-                .optional(LocalFileSinkOptions.SHEET_NAME)
-                .optional(LocalFileSinkOptions.ENABLE_HEADER_WRITE)
-                .optional(LocalFileSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA)
-                .optional(LocalFileSinkOptions.FILENAME_EXTENSION)
+                        FileBaseSinkOptions.FILE_NAME_EXPRESSION,
+                        FileBaseSinkOptions.FILENAME_TIME_FORMAT)
+                .optional(FileBaseSinkOptions.HAVE_PARTITION)
+                .conditional(
+                        FileBaseSinkOptions.HAVE_PARTITION,
+                        true,
+                        FileBaseSinkOptions.PARTITION_BY,
+                        FileBaseSinkOptions.PARTITION_DIR_EXPRESSION,
+                        FileBaseSinkOptions.IS_PARTITION_FIELD_WRITE_IN_FILE)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        Arrays.asList(
+                                FileFormat.TEXT, FileFormat.JSON, FileFormat.CSV, FileFormat.XML),
+                        FileBaseSinkOptions.ENCODING)
+                .optional(FileBaseSinkOptions.SINK_COLUMNS)
+                .optional(FileBaseSinkOptions.IS_ENABLE_TRANSACTION)
+                .optional(FileBaseSinkOptions.DATE_FORMAT)
+                .optional(FileBaseSinkOptions.DATETIME_FORMAT)
+                .optional(FileBaseSinkOptions.TIME_FORMAT)
+                .optional(FileBaseSinkOptions.SINGLE_FILE_MODE)
+                .optional(FileBaseSinkOptions.BATCH_SIZE)
+                .optional(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA)
+                .optional(FileBaseSinkOptions.FILENAME_EXTENSION)
+                .optional(FileBaseSinkOptions.TMP_PATH)
                 .build();
     }
 

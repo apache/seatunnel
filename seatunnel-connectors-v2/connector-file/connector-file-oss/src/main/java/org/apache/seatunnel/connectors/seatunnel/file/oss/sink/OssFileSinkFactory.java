@@ -24,14 +24,12 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.factory.BaseMultipleTableFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssFileSinkOptions;
 
 import com.google.auto.service.AutoService;
+
+import java.util.Arrays;
 
 @AutoService(Factory.class)
 public class OssFileSinkFactory extends BaseMultipleTableFileSinkFactory {
@@ -56,16 +54,51 @@ public class OssFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .required(OssFileSinkOptions.ACCESS_SECRET)
                 .required(OssFileSinkOptions.ENDPOINT)
                 .optional(FileBaseSinkOptions.FILE_FORMAT_TYPE)
-                .optional(FileBaseSinkOptions.TMP_PATH)
+                .conditional(
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
+                        FileFormat.TEXT,
+                        FileBaseSinkOptions.ROW_DELIMITER,
+                        FileBaseSinkOptions.FIELD_DELIMITER,
+                        FileBaseSinkOptions.TXT_COMPRESS,
+                        FileBaseSinkOptions.ENABLE_HEADER_WRITE)
+                .conditional(
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
+                        FileFormat.CSV,
+                        FileBaseSinkOptions.ROW_DELIMITER,
+                        FileBaseSinkOptions.TXT_COMPRESS,
+                        FileBaseSinkOptions.ENABLE_HEADER_WRITE)
+                .conditional(
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
+                        FileFormat.JSON,
+                        FileBaseSinkOptions.ROW_DELIMITER,
+                        FileBaseSinkOptions.TXT_COMPRESS)
+                .conditional(
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
+                        FileFormat.ORC,
+                        FileBaseSinkOptions.ORC_COMPRESS)
+                .conditional(
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
+                        FileFormat.PARQUET,
+                        FileBaseSinkOptions.PARQUET_COMPRESS,
+                        FileBaseSinkOptions.PARQUET_AVRO_WRITE_FIXED_AS_INT96,
+                        FileBaseSinkOptions.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96)
                 .conditional(
                         FileBaseSinkOptions.FILE_FORMAT_TYPE,
                         FileFormat.XML,
-                        FileBaseSinkOptions.XML_USE_ATTR_FORMAT)
+                        FileBaseSinkOptions.XML_USE_ATTR_FORMAT,
+                        FileBaseSinkOptions.XML_ROOT_TAG,
+                        FileBaseSinkOptions.XML_ROW_TAG)
+                .conditional(
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
+                        FileFormat.EXCEL,
+                        FileBaseSinkOptions.MAX_ROWS_IN_MEMORY,
+                        FileBaseSinkOptions.SHEET_NAME)
                 .optional(FileBaseSinkOptions.CUSTOM_FILENAME)
                 .conditional(
                         FileBaseSinkOptions.CUSTOM_FILENAME,
                         true,
-                        FileBaseSinkOptions.FILE_NAME_EXPRESSION)
+                        FileBaseSinkOptions.FILE_NAME_EXPRESSION,
+                        FileBaseSinkOptions.FILENAME_TIME_FORMAT)
                 .optional(FileBaseSinkOptions.HAVE_PARTITION)
                 .conditional(
                         FileBaseSinkOptions.HAVE_PARTITION,
@@ -73,28 +106,22 @@ public class OssFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                         FileBaseSinkOptions.PARTITION_BY,
                         FileBaseSinkOptions.PARTITION_DIR_EXPRESSION,
                         FileBaseSinkOptions.IS_PARTITION_FIELD_WRITE_IN_FILE)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        Arrays.asList(
+                                FileFormat.TEXT, FileFormat.JSON, FileFormat.CSV, FileFormat.XML),
+                        FileBaseSinkOptions.ENCODING)
                 .optional(FileBaseSinkOptions.SINK_COLUMNS)
-                .optional(FileBaseSinkOptions.COMPRESS_CODEC)
-                .optional(FileBaseSinkOptions.ENABLE_HEADER_WRITE)
-                .optional(FileBaseSinkOptions.FIELD_DELIMITER)
-                .optional(FileBaseSinkOptions.ROW_DELIMITER)
                 .optional(FileBaseSinkOptions.IS_ENABLE_TRANSACTION)
-                .optional(FileBaseSinkOptions.FILENAME_TIME_FORMAT)
-                .optional(FileBaseSinkOptions.MAX_ROWS_IN_MEMORY)
-                .optional(FileBaseSinkOptions.SHEET_NAME)
                 .optional(FileBaseSinkOptions.DATE_FORMAT)
                 .optional(FileBaseSinkOptions.DATETIME_FORMAT)
                 .optional(FileBaseSinkOptions.TIME_FORMAT)
-                .optional(FileBaseSinkOptions.XML_ROOT_TAG)
-                .optional(FileBaseSinkOptions.XML_ROW_TAG)
-                .optional(FileBaseSinkOptions.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96)
-                .optional(FileBaseSinkOptions.PARQUET_AVRO_WRITE_FIXED_AS_INT96)
                 .optional(FileBaseSinkOptions.SINGLE_FILE_MODE)
-                .optional(FileBaseSinkOptions.ENCODING)
                 .optional(FileBaseSinkOptions.BATCH_SIZE)
                 .optional(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA)
                 .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .optional(FileBaseSinkOptions.FILENAME_EXTENSION)
+                .optional(FileBaseSinkOptions.TMP_PATH)
                 .build();
     }
 }
