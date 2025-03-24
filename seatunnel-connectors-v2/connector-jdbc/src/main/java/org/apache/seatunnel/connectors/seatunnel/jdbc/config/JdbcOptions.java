@@ -231,12 +231,12 @@ public interface JdbcOptions {
                     .enumType(StringSplitMode.class)
                     .noDefaultValue()
                     .withDescription(
-                            "When set to charset_based, enables charset-based string splitting algorithm. The algorithm assumes characters of partition_column are within ASCII range 32-126, which covers most character-based splitting scenarios.");
+                            "Specifies the collation to use when string_split_mode is set to `charset_based` and the table has a special collation. If not specified, the database's default collation will be used.");
 
     Option<String> STRING_SPLIT_MODE_COLLATE =
             Options.key("split.string_split_mode_collate")
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "Specifies the collation to use when split.string_split_mode is set to charset_based and the table has a special collation. If not specified, the database's default collation will be used.");
+                            "Specifies the collation to use when string_split_mode is set to `charset_based` and the table has a special collation. If not specified, the database's default collation will be used.");
 }
