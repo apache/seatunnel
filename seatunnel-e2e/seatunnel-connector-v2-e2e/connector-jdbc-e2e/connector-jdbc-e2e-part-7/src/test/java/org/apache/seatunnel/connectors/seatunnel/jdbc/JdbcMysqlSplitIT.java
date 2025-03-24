@@ -563,7 +563,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
         configMap.put("password", MYSQL_PASSWORD);
         configMap.put("table_path", MYSQL_DATABASE + "." + MYSQL_TABLE);
         configMap.put("split.size", "10");
-        configMap.put("string_split_mode", "charset_based");
+        configMap.put("split.string_split_mode", "charset_based");
 
         TablePath tablePathMySql = TablePath.of(MYSQL_DATABASE, MYSQL_TABLE);
         MySqlCatalog mySqlCatalog =
@@ -627,7 +627,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
         configMap.put("user", MYSQL_USERNAME);
         configMap.put("password", MYSQL_PASSWORD);
         configMap.put("table_path", MYSQL_DATABASE + "." + MYSQL_TABLE);
-        configMap.put("string_split_mode", "charset_based");
+        configMap.put("split.string_split_mode", "charset_based");
 
         TablePath tablePathMySql = TablePath.of(MYSQL_DATABASE, MYSQL_TABLE);
         MySqlCatalog mySqlCatalog =
