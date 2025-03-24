@@ -89,6 +89,7 @@ def get_current_branch_name():
         raise RuntimeError("Failed to fetch release")
     return result.stdout.decode('utf-8').strip()
 
+
 def main():
     changes = generate_log_info()
     commit_version_map = get_tag_commit_list()
