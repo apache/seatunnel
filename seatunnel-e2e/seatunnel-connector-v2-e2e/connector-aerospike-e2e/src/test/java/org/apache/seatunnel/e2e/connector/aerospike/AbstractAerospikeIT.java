@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.aerospike;
 
-import com.aerospike.client.*;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
