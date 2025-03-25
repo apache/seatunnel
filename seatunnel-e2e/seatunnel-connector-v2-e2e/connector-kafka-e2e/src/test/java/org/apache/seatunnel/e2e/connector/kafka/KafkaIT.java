@@ -50,8 +50,6 @@ import org.apache.seatunnel.format.avro.AvroDeserializationSchema;
 import org.apache.seatunnel.format.protobuf.ProtobufDeserializationSchema;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
-import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsOptions;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -61,6 +59,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.IsolationLevel;
+import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.header.Headers;
@@ -94,13 +93,6 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -334,11 +326,25 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testSourceKafkaTopicWithMultipleDotConsoleAssertCatalogTable(
             TestContainer container) throws IOException, InterruptedException {
+        String multipleDotTopic = "test.multiple.point.topic.json";
         TextSerializationSchema serializer =
                 TextSerializationSchema.builder()
                         .seaTunnelRowType(SEATUNNEL_ROW_TYPE)
                         .delimiter(",")
                         .build();
+        try (AdminClient adminClient = createKafkaAdmin()) {
+            ListTopicsOptions options = new ListTopicsOptions();
+            ListTopicsResult listTopicsResult = adminClient.listTopics(options);
+            KafkaFuture<Set<String>> topics = listTopicsResult.names();
+            Set<String> topicNames = topics.get();
+            Optional<String> targetTopic =
+                    topicNames.stream().filter(topic -> multipleDotTopic.equals(topic)).findAny();
+            if (targetTopic.isPresent()) {
+                adminClient.deleteTopics(Arrays.asList(multipleDotTopic));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         generateTestData(
                 row ->
                         new ProducerRecord<>(
