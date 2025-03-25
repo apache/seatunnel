@@ -84,4 +84,6 @@ public interface JdbcCatalogOptions {
                     .booleanType()
                     .defaultValue(true)
                     .withDescription("Create index or not when auto create table");
+
+    Option<String> DRIVER = Options.key("driver").stringType().noDefaultValue();
 }

@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-JDBC] Fix JDBC driver selection for data source connections(#8986) | https://github.com/apache/seatunnel/pull/8986 | dev |
 |[Fix][Connector-V2] Fix parse SqlServer JDBC Url error (#8784)|https://github.com/apache/seatunnel/commit/373d2162d3| dev |
 |[Improve][Jdbc] Support upsert for opengauss (#8627)|https://github.com/apache/seatunnel/commit/56110bf392| dev |
 |[Improve][Jdbc] Remove useless utils. (#8793)|https://github.com/apache/seatunnel/commit/36a7533e85| dev |

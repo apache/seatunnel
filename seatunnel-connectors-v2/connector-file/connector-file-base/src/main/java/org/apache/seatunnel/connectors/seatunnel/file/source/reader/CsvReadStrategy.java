@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
@@ -39,6 +38,10 @@ import org.apache.seatunnel.format.csv.constant.CsvFormatConstant;
 import org.apache.seatunnel.format.csv.processor.CsvLineProcessor;
 import org.apache.seatunnel.format.csv.processor.DefaultCsvLineProcessor;
 
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
+
 import io.airlift.compress.lzo.LzopCodec;
 import lombok.extern.slf4j.Slf4j;
 
@@ -47,12 +50,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
 @Slf4j
 public class CsvReadStrategy extends AbstractReadStrategy {
-    private DeserializationSchema<SeaTunnelRow> deserializationSchema;
+    private CsvDeserializationSchema deserializationSchema;
     private String fieldDelimiter = BaseSourceConfigOptions.FIELD_DELIMITER.defaultValue();
     private DateUtils.Formatter dateFormat = BaseSourceConfigOptions.DATE_FORMAT.defaultValue();
     private DateTimeUtils.Formatter datetimeFormat =
@@ -62,6 +66,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
     private CsvLineProcessor processor;
     private int[] indexes;
     private String encoding = BaseSourceConfigOptions.ENCODING.defaultValue();
+    private CatalogTable inputCatalogTable;
 
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
@@ -96,51 +101,54 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 break;
         }
 
+        CSVFormat csvFormat = CSVFormat.DEFAULT;
         try (BufferedReader reader =
-                new BufferedReader(new InputStreamReader(actualInputStream, encoding))) {
-            reader.lines()
-                    .skip(skipHeaderNumber)
-                    .forEach(
-                            line -> {
-                                try {
-                                    SeaTunnelRow seaTunnelRow =
-                                            deserializationSchema.deserialize(
-                                                    line.getBytes(StandardCharsets.UTF_8));
-                                    if (!readColumns.isEmpty()) {
-                                        // need column projection
-                                        Object[] fields;
-                                        if (isMergePartition) {
-                                            fields =
-                                                    new Object
-                                                            [readColumns.size()
-                                                                    + partitionsMap.size()];
-                                        } else {
-                                            fields = new Object[readColumns.size()];
-                                        }
-                                        for (int i = 0; i < indexes.length; i++) {
-                                            fields[i] = seaTunnelRow.getField(indexes[i]);
-                                        }
-                                        seaTunnelRow = new SeaTunnelRow(fields);
-                                    }
-                                    if (isMergePartition) {
-                                        int index = seaTunnelRowType.getTotalFields();
-                                        for (String value : partitionsMap.values()) {
-                                            seaTunnelRow.setField(index++, value);
-                                        }
-                                    }
-                                    seaTunnelRow.setTableId(tableId);
-                                    output.collect(seaTunnelRow);
-                                } catch (IOException e) {
-                                    String errorMsg =
-                                            String.format(
-                                                    "Deserialize this data [%s] failed, please check the origin data",
-                                                    line);
-                                    throw new FileConnectorException(
-                                            FileConnectorErrorCode.DATA_DESERIALIZE_FAILED,
-                                            errorMsg,
-                                            e);
-                                }
-                            });
+                        new BufferedReader(new InputStreamReader(actualInputStream, encoding));
+                CSVParser csvParser = new CSVParser(reader, csvFormat); ) {
+            for (int i = 0; i < skipHeaderNumber; i++) {
+                if (reader.readLine() == null) {
+                    throw new IOException(
+                            String.format(
+                                    "File [%s] has fewer lines than expected to skip.",
+                                    currentFileName));
+                }
+            }
+            // read lines
+            for (CSVRecord csvRecord : csvParser) {
+                HashMap<Integer, String> fieldIdValueMap = new HashMap<>();
+                for (int i = 0; i < inputCatalogTable.getTableSchema().getColumns().size(); i++) {
+                    fieldIdValueMap.put(i, csvRecord.get(i));
+                }
+                SeaTunnelRow seaTunnelRow = deserializationSchema.getSeaTunnelRow(fieldIdValueMap);
+                if (!readColumns.isEmpty()) {
+                    // need column projection
+                    Object[] fields;
+                    if (isMergePartition) {
+                        fields = new Object[readColumns.size() + partitionsMap.size()];
+                    } else {
+                        fields = new Object[readColumns.size()];
+                    }
+                    for (int i = 0; i < indexes.length; i++) {
+                        fields[i] = seaTunnelRow.getField(indexes[i]);
+                    }
+                    seaTunnelRow = new SeaTunnelRow(fields);
+                }
+                if (isMergePartition) {
+                    int index = seaTunnelRowType.getTotalFields();
+                    for (String value : partitionsMap.values()) {
+                        seaTunnelRow.setField(index++, value);
+                    }
+                }
+                seaTunnelRow.setTableId(tableId);
+                output.collect(seaTunnelRow);
+            }
+        } catch (IOException e) {
+            String errorMsg =
+                    String.format(
+                            "Deserialize this file [%s] failed, please check the origin data",
+                            currentFileName);
+            throw new FileConnectorException(
+                    FileConnectorErrorCode.DATA_DESERIALIZE_FAILED, errorMsg, e);
         }
     }
 
@@ -177,6 +185,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
     @Override
     public void setCatalogTable(CatalogTable catalogTable) {
         SeaTunnelRowType rowType = catalogTable.getSeaTunnelRowType();
+        this.inputCatalogTable = catalogTable;
         SeaTunnelRowType userDefinedRowTypeWithPartition =
                 mergePartitionTypes(fileNames.get(0), rowType);
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);

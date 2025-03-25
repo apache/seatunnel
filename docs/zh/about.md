@@ -54,7 +54,7 @@ SeaTunnel 使用的默认引擎是 [SeaTunnel Engine](seatunnel-engine/about.md)
 
 ## 谁在使用 SeaTunnel
 
-SeaTunnel 拥有大量用户。 您可以在[用户](https://seatunnel.apache.org/user)中找到有关他们的更多信息.
+SeaTunnel 拥有大量用户。 您可以在[用户](https://seatunnel.apache.org/user)中找到有关他们的更多信息.  
 
 ## 展望
 

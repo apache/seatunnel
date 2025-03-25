@@ -315,7 +315,8 @@ public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
                         USERNAME,
                         PASSWORD,
                         JdbcUrlUtil.getUrlInfo(
-                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())));
+                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())),
+                        null);
         catalog.open();
     }
 }

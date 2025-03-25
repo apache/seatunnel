@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *    https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,17 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.config;
+package org.apache.seatunnel.connectors.seatunnel.aerospike.config;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
-
-public class Web3jConfig {
-
-    public static final Option<String> URL =
-            Options.key("url")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "your infura project url like : https://mainnet.infura.io/v3/xxxxxxxxxxxx");
+public enum AerospikeDataType {
+    STRING,
+    INTEGER,
+    LONG,
+    DOUBLE,
+    BOOLEAN,
+    BYTEARRAY,
+    LIST
 }
