@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.AbstractMultiCatalogMapTransform;
 
 import java.util.List;
+import java.util.Objects;
 
 public class PythonMultiCatalogTransform extends AbstractMultiCatalogMapTransform {
     public PythonMultiCatalogTransform(List<CatalogTable> inputCatalogTables, ReadonlyConfig config) {
@@ -37,6 +38,6 @@ public class PythonMultiCatalogTransform extends AbstractMultiCatalogMapTransfor
 
     @Override
     protected SeaTunnelTransform<SeaTunnelRow> buildTransform(CatalogTable inputCatalogTable, ReadonlyConfig config) {
-        return new PythonTransform(inputCatalogTable,PythonTransformConfig.of(config));
+        return new PythonTransform(inputCatalogTable, Objects.requireNonNull(PythonTransformConfig.of(config)));
     }
 }

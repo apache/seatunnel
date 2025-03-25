@@ -18,10 +18,17 @@ package org.apache.seatunnel.transform.python;
 
 
 import lombok.Getter;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.transform.common.ErrorHandleWay;
+import org.apache.seatunnel.transform.common.TransformCommonOptions;
+import org.apache.seatunnel.transform.exception.TransformException;
+
+import java.util.Optional;
+
+import static org.apache.seatunnel.transform.python.PythonTransformErrorCode.SOURCE_CODE_MISS_ERROR;
 
 public class PythonTransformConfig {
 
@@ -30,6 +37,12 @@ public class PythonTransformConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("source_code to compile");
+
+    public static final Option<String> SOURCE_CODE_PATH =
+            Options.key("source_code_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("load code from the specified directory to compile");
 
     public static final Option<Integer> JAVA_SERVER_PORT =
             Options.key("java_server_port")
@@ -47,11 +60,46 @@ public class PythonTransformConfig {
     @Getter
     private final ErrorHandleWay errorHandleWay;
 
-    public PythonTransformConfig(ErrorHandleWay errorHandleWay) {
+    @Getter
+    private final Integer javaServerPort;
+
+    @Getter
+    private final Integer pythonServerPort;
+    @Getter
+    private final String sourceCode;
+
+    public PythonTransformConfig(ErrorHandleWay errorHandleWay,
+                                 Integer javaServerPort,
+                                 Integer pythonServerPort,
+                                 String sourceCode) {
         this.errorHandleWay = errorHandleWay;
+        this.javaServerPort = javaServerPort;
+        this.pythonServerPort = pythonServerPort;
+        this.sourceCode = sourceCode;
     }
 
     public static PythonTransformConfig of(ReadonlyConfig config) {
-        return null;
+        Optional<String> codeOp = config.getOptional(SOURCE_CODE);
+        String code = "";
+        if (codeOp.isPresent()) {
+            code = codeOp.get();
+        }
+        Optional<String> codePathOp = config.getOptional(SOURCE_CODE_PATH);
+        if (codePathOp.isPresent()) {
+            code = loadCodeFromPath(codePathOp.get());
+        }
+        if (StringUtils.isEmpty(code)) {
+            throw new TransformException(SOURCE_CODE_MISS_ERROR, SOURCE_CODE_MISS_ERROR.getDescription());
+        }
+        Integer javaPort = config.get(JAVA_SERVER_PORT);
+        Integer pythonPort = config.get(PYTHON_SERVER_PORT);
+        ErrorHandleWay rowErrorHandleWay =
+                config.get(TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION);
+        return new PythonTransformConfig(rowErrorHandleWay, javaPort, pythonPort, code);
+    }
+
+    private static String loadCodeFromPath(String s) {
+        //TODO
+        return "";
     }
 }
