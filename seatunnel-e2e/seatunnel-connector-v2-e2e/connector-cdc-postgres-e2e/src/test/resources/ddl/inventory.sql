@@ -47,6 +47,7 @@ CREATE TABLE postgres_cdc_table_1
     f_date              DATE,
     f_time              TIME(0),
     f_default_numeric   NUMERIC,
+    f_numeric_no_scale  NUMERIC(24),
     f_inet              INET,
     PRIMARY KEY (id)
 );
@@ -97,6 +98,7 @@ CREATE TABLE sink_postgres_cdc_table_1
     f_date              DATE,
     f_time              TIME(0),
     f_default_numeric   NUMERIC,
+    f_numeric_no_scale  NUMERIC(24),
     f_inet              INET,
     PRIMARY KEY (id)
 );
@@ -189,7 +191,7 @@ ALTER TABLE full_types_no_primary_key
 INSERT INTO postgres_cdc_table_1
 VALUES (1, '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,
         'Hello World', 'a', 'abc', 'abcd..xyz', '2020-07-17 18:00:22.123', '2020-07-17 18:00:22.123456',
-        '2020-07-17', '18:00:22', 500,'192.168.1.1');
+        '2020-07-17', '18:00:22', 500,88,'192.168.1.1');
 
 INSERT INTO postgres_cdc_table_2
 VALUES (1, '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,
