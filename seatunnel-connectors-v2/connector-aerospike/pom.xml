@@ -43,7 +43,7 @@
         <dependency>
             <groupId>com.aerospike</groupId>
             <artifactId>aerospike-client</artifactId>
-            <version>4.4.17</version>
+            <version>4.5.0</version>
         </dependency>
         <dependency>
             <groupId>com.alibaba</groupId>
