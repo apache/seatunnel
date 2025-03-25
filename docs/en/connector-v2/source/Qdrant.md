@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-qdrant.md';
+
 # Qdrant
 
 > Qdrant source connector
@@ -79,3 +81,7 @@ Whether to use TLS(SSL) connection. Required if using Qdrant cloud(https).
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.
+
+## Changelog
+
+<ChangeLog />

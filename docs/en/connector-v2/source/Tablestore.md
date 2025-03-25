@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-tablestore.md';
+
 # Tablestore
 
 > Tablestore source connector
@@ -100,3 +102,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # Phoenix
 
 > Phoenix sink connector
@@ -56,7 +58,5 @@ Jdbc {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Phoenix Sink Connector
+<ChangeLog />
 

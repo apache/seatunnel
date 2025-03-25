@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http.md';
+
 # Http
 
 > Http sink connector
@@ -128,7 +130,4 @@ sink {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Http Sink Connector
-
+<ChangeLog />

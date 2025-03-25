@@ -62,8 +62,12 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     private MySqlTypeConverter typeConverter;
 
     public MySqlCatalog(
-            String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
-        super(catalogName, username, pwd, urlInfo, null);
+            String catalogName,
+            String username,
+            String pwd,
+            JdbcUrlUtil.UrlInfo urlInfo,
+            String driverClass) {
+        super(catalogName, username, pwd, urlInfo, null, driverClass);
         this.version = resolveVersion();
         this.typeConverter = new MySqlTypeConverter(version);
     }

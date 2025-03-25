@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # Oracle
 
 > JDBC Oracle Sink 连接器
@@ -205,3 +207,6 @@ sink {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />

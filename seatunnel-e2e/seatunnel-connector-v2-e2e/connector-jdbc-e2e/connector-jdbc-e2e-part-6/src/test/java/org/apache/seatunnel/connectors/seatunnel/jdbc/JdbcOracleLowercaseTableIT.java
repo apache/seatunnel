@@ -234,7 +234,8 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
                         jdbcCase.getUserName(),
                         jdbcCase.getPassword(),
                         OracleURLParser.parse(jdbcUrl),
-                        SCHEMA);
+                        SCHEMA,
+                        null);
         catalog.open();
     }
 
@@ -250,7 +251,8 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
                         jdbcCase.getPassword(),
                         OracleURLParser.parse(
                                 jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())),
-                        SCHEMA);
+                        SCHEMA,
+                        null);
         oracleCatalog.open();
         catalog.executeSql(
                 tablePathOracle,

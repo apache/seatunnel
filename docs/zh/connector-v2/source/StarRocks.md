@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-starrocks.md';
+
 # StarRocks
 
 > StarRocks 源连接器
@@ -240,8 +242,6 @@ source {
 }
 ```
 
-## Changelog
+## 变更日志
 
-### next version
-
-- Add StarRocks Source Connector
+<ChangeLog />

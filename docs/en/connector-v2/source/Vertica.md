@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # Vertica
 
 > JDBC Vertica Source Connector
@@ -160,3 +162,6 @@ source {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

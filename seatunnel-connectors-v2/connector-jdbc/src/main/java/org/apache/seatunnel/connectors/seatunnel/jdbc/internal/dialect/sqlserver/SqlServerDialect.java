@@ -17,7 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver;
 
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.converter.TypeConverter;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -35,10 +42,21 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlServerTypeConverter.SQLSERVER_CHAR;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlServerTypeConverter.SQLSERVER_NCHAR;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlServerTypeConverter.SQLSERVER_NTEXT;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlServerTypeConverter.SQLSERVER_NVARCHAR;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlServerTypeConverter.SQLSERVER_SQLVARIANT;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlServerTypeConverter.SQLSERVER_TEXT;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlServerTypeConverter.SQLSERVER_UNIQUEIDENTIFIER;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlServerTypeConverter.SQLSERVER_VARCHAR;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlServerTypeConverter.SQLSERVER_XML;
 
 @Slf4j
 public class SqlServerDialect implements JdbcDialect {
@@ -258,5 +276,269 @@ public class SqlServerDialect implements JdbcDialect {
                 }
             }
         }
+    }
+
+    @Override
+    public TypeConverter<BasicTypeDefine> getTypeConverter() {
+        return SqlServerTypeConverter.INSTANCE;
+    }
+
+    @Override
+    public void applySchemaChange(
+            Connection connection, TablePath tablePath, AlterTableAddColumnEvent event)
+            throws SQLException {
+        List<String> ddlSQL = new ArrayList<>();
+        Column column = event.getColumn();
+        String sourceDialectName = event.getSourceDialectName();
+        boolean sameCatalog = StringUtils.equals(dialectName(), sourceDialectName);
+        BasicTypeDefine typeDefine = getTypeConverter().reconvert(column);
+        String columnType = sameCatalog ? column.getSourceType() : typeDefine.getColumnType();
+
+        // Build the SQL statement that add the column
+        StringBuilder sqlBuilder =
+                buildAlterTablePrefix(tablePath)
+                        .append(" ADD ")
+                        .append(quoteIdentifier(column.getName()))
+                        .append(" ")
+                        .append(columnType)
+                        .append(" ");
+
+        if (column.getDefaultValue() != null) {
+            // Handle default values
+            String defaultValueClause = sqlClauseWithDefaultValue(typeDefine, sourceDialectName);
+            sqlBuilder.append(defaultValueClause);
+        }
+
+        if (!column.isNullable()) {
+            // Handle null constraints
+            sqlBuilder.append(" NOT NULL");
+        }
+
+        ddlSQL.add(sqlBuilder.toString());
+        // Process column comment
+        if (column.getComment() != null) {
+            ddlSQL.add(buildColumnCommentSQL(tablePath, column));
+        }
+
+        // Execute the DDL statement
+        executeDDL(connection, ddlSQL);
+    }
+
+    @Override
+    public void applySchemaChange(
+            Connection connection, TablePath tablePath, AlterTableChangeColumnEvent event)
+            throws SQLException {
+        List<String> ddlSQL = new ArrayList<>();
+        if (event.getOldColumn() != null
+                && !(event.getColumn().getName().equals(event.getOldColumn()))) {
+            StringBuilder sqlBuilder =
+                    new StringBuilder()
+                            .append("EXEC sp_rename ")
+                            .append(
+                                    String.format(
+                                            "'%s.%s.%s.%s', ",
+                                            tablePath.getDatabaseName(),
+                                            tablePath.getSchemaName(),
+                                            tablePath.getTableName(),
+                                            event.getOldColumn()))
+                            .append(String.format("'%s', 'COLUMN';", event.getColumn().getName()));
+            ddlSQL.add(sqlBuilder.toString());
+        }
+
+        executeDDL(connection, ddlSQL);
+
+        if (event.getColumn().getDataType() != null) {
+            applySchemaChange(
+                    connection,
+                    tablePath,
+                    AlterTableModifyColumnEvent.modify(event.tableIdentifier(), event.getColumn()));
+        }
+    }
+
+    @Override
+    public void applySchemaChange(
+            Connection connection, TablePath tablePath, AlterTableModifyColumnEvent event)
+            throws SQLException {
+        Column column = event.getColumn();
+        String sourceDialectName = event.getSourceDialectName();
+        boolean sameCatalog = StringUtils.equals(dialectName(), sourceDialectName);
+        BasicTypeDefine typeDefine = getTypeConverter().reconvert(column);
+        String columnType = sameCatalog ? column.getSourceType() : typeDefine.getColumnType();
+        List<String> ddlSQL = new ArrayList<>();
+        // Handle field default constraints.
+        if (column.getDefaultValue() != null) {
+            if (sameCatalog
+                    || !isSpecialDefaultValue(typeDefine.getDefaultValue(), sourceDialectName)) {
+                String constraintQuery =
+                        String.format(
+                                "SELECT dc.name AS constraint_name\n"
+                                        + "FROM sys.default_constraints dc \n"
+                                        + "JOIN sys.columns c ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id \n"
+                                        + "JOIN sys.tables t ON c.object_id = t.object_id \n"
+                                        + "JOIN sys.schemas s ON t.schema_id = s.schema_id \n"
+                                        + "WHERE t.name = '%s' AND s.name = '%s' AND c.name = '%s';",
+                                tablePath.getTableName(),
+                                tablePath.getSchemaName(),
+                                event.getColumn().getName());
+
+                try (Statement stmt = connection.createStatement();
+                        ResultSet rs = stmt.executeQuery(constraintQuery)) {
+                    while (rs.next()) {
+                        String constraintName = rs.getString(1);
+                        if (StringUtils.isBlank(constraintName)) {
+                            continue;
+                        }
+                        StringBuilder dropConstraintSQL =
+                                buildAlterTablePrefix(tablePath)
+                                        .append(" DROP CONSTRAINT ")
+                                        .append(quoteIdentifier(constraintName));
+                        ddlSQL.add(dropConstraintSQL.toString());
+                    }
+                }
+
+                // Process column default
+                String defaultValueClause =
+                        sqlClauseWithDefaultValue(typeDefine, sourceDialectName);
+                if (StringUtils.isNotBlank(defaultValueClause)) {
+                    StringBuilder defaultSqlBuilder =
+                            buildAlterTablePrefix(tablePath)
+                                    .append(" ADD ")
+                                    .append(defaultValueClause)
+                                    .append(" FOR ")
+                                    .append(quoteIdentifier(column.getName()));
+                    ddlSQL.add(defaultSqlBuilder.toString());
+                }
+            } else {
+                log.warn(
+                        "Skipping unsupported default value for column {} in table {}.",
+                        column.getName(),
+                        tablePath.getFullName());
+            }
+        }
+
+        // Process column comment
+        if (column.getComment() != null) {
+            ddlSQL.add(buildColumnCommentSQL(tablePath, column));
+        }
+
+        // Build the SQL statement that modifies the column
+        StringBuilder sqlBuilder =
+                buildAlterTablePrefix(tablePath)
+                        .append(" ALTER COLUMN ")
+                        .append(quoteIdentifier(column.getName()))
+                        .append(" ")
+                        .append(columnType);
+        boolean targetColumnNullable = columnIsNullable(connection, tablePath, column.getName());
+        if (column.isNullable() != targetColumnNullable && !targetColumnNullable) {
+            sqlBuilder.append(" NULL ");
+        }
+        ddlSQL.add(sqlBuilder.toString());
+
+        // Execute the DDL statement
+        executeDDL(connection, ddlSQL);
+    }
+
+    @Override
+    public void applySchemaChange(
+            Connection connection, TablePath tablePath, AlterTableDropColumnEvent event)
+            throws SQLException {
+        // Handle field`s constraints.
+        String constraintQuery =
+                String.format(
+                        "SELECT dc.name AS constraint_name\n"
+                                + "FROM sys.default_constraints dc \n"
+                                + "JOIN sys.columns c ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id \n"
+                                + "JOIN sys.tables t ON c.object_id = t.object_id \n"
+                                + "JOIN sys.schemas s ON t.schema_id = s.schema_id \n"
+                                + "WHERE t.name = '%s' AND c.name = '%s' and s.name = '%s';",
+                        tablePath.getTableName(), event.getColumn(), tablePath.getSchemaName());
+
+        try (Statement stmt = connection.createStatement();
+                ResultSet rs = stmt.executeQuery(constraintQuery)) {
+            while (rs.next()) {
+                String constraintName = rs.getString(1);
+                String dropConstraintSQL =
+                        String.format(
+                                "ALTER TABLE %s DROP CONSTRAINT %s",
+                                tableIdentifier(tablePath), quoteIdentifier(constraintName));
+                try (Statement dropStmt = connection.createStatement()) {
+                    log.info("Executing drop constraint SQL: {}", dropConstraintSQL);
+                    dropStmt.execute(dropConstraintSQL);
+                }
+            }
+        }
+
+        String dropColumnSQL =
+                String.format(
+                        "ALTER TABLE %s DROP COLUMN %s",
+                        tableIdentifier(tablePath), quoteIdentifier(event.getColumn()));
+        try (Statement statement = connection.createStatement()) {
+            log.info("Executing drop column SQL: {}", dropColumnSQL);
+            statement.execute(dropColumnSQL);
+        }
+    }
+
+    @Override
+    public boolean needsQuotesWithDefaultValue(BasicTypeDefine columnDefine) {
+        String sqlServerType = columnDefine.getDataType();
+        switch (sqlServerType) {
+            case SQLSERVER_CHAR:
+            case SQLSERVER_VARCHAR:
+            case SQLSERVER_NCHAR:
+            case SQLSERVER_NVARCHAR:
+            case SQLSERVER_TEXT:
+            case SQLSERVER_NTEXT:
+            case SQLSERVER_XML:
+            case SQLSERVER_UNIQUEIDENTIFIER:
+            case SQLSERVER_SQLVARIANT:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private void executeDDL(Connection connection, List<String> ddlSQL) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            for (String sql : ddlSQL) {
+                log.info("Executing SqlServer SQL: {}", sql);
+                statement.execute(sql);
+            }
+        } catch (SQLException e) {
+            throw new SQLException("Error executing SqlServer SQL: " + ddlSQL, e.getSQLState(), e);
+        }
+    }
+
+    private String buildColumnCommentSQL(TablePath tablePath, Column column) {
+        return String.format(
+                "EXEC %s.sys.sp_updateextendedproperty 'MS_Description', N'%s', 'schema', N'%s', "
+                        + "'table', N'%s', 'column', N'%s';",
+                tablePath.getDatabaseName(),
+                column.getComment(),
+                tablePath.getSchemaName(),
+                tablePath.getTableName(),
+                column.getName());
+    }
+
+    private boolean columnIsNullable(Connection connection, TablePath tablePath, String column)
+            throws SQLException {
+        String selectColumnSQL =
+                String.format(
+                        "SELECT IS_NULLABLE FROM information_schema.COLUMNS WHERE %s AND COLUMN_NAME = '%s';",
+                        buildCommonWhereClause(tablePath), column);
+        try (Statement statement = connection.createStatement()) {
+            ResultSet rs = statement.executeQuery(selectColumnSQL);
+            rs.next();
+            return rs.getString("IS_NULLABLE").equals("YES");
+        }
+    }
+
+    private StringBuilder buildAlterTablePrefix(TablePath tablePath) {
+        return new StringBuilder("ALTER TABLE ").append(tableIdentifier(tablePath));
+    }
+
+    private String buildCommonWhereClause(TablePath tablePath) {
+        return String.format(
+                "TABLE_CATALOG = '%s' AND TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'",
+                tablePath.getDatabaseName(), tablePath.getSchemaName(), tablePath.getTableName());
     }
 }

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-prometheus.md';
+
 # Prometheus
 
 > Prometheus source connector
@@ -145,8 +147,4 @@ source {
 
 ## Changelog
 
-### next version
-
-- Add Prometheus Source Connector
-- Reduce configuration items
-
+<ChangeLog />

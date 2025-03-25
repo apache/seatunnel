@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkOptions;
 
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Types;
@@ -52,7 +52,9 @@ class SchemaUtilsTest {
                 ReadonlyConfig.fromMap(
                         new HashMap<String, Object>() {
                             {
-                                put(SinkConfig.TABLE_PRIMARY_KEYS.key(), String.join(",", pks));
+                                put(
+                                        IcebergSinkOptions.TABLE_PRIMARY_KEYS.key(),
+                                        String.join(",", pks));
                             }
                         });
         Schema schema =

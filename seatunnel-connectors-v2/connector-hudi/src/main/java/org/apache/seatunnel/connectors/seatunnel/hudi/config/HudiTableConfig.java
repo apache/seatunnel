@@ -38,22 +38,22 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.BATCH_INTERVAL_MS;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.BATCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.CDC_ENABLED;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.INDEX_CLASS_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.INDEX_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.INSERT_SHUFFLE_PARALLELISM;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.MAX_COMMITS_TO_KEEP;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.MIN_COMMITS_TO_KEEP;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.OP_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.PARTITION_FIELDS;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.RECORD_BYTE_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.RECORD_KEY_FIELDS;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.TABLE_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.TABLE_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.UPSERT_SHUFFLE_PARALLELISM;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.BATCH_INTERVAL_MS;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.BATCH_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.CDC_ENABLED;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.INDEX_CLASS_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.INDEX_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.INSERT_SHUFFLE_PARALLELISM;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.MAX_COMMITS_TO_KEEP;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.MIN_COMMITS_TO_KEEP;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.OP_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.PARTITION_FIELDS;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.RECORD_BYTE_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.RECORD_KEY_FIELDS;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.TABLE_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.TABLE_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.UPSERT_SHUFFLE_PARALLELISM;
 
 @Data
 @Builder
@@ -114,8 +114,8 @@ public class HudiTableConfig implements Serializable {
 
     public static List<HudiTableConfig> of(ReadonlyConfig connectorConfig) {
         List<HudiTableConfig> tableList;
-        if (connectorConfig.getOptional(HudiOptions.TABLE_LIST).isPresent()) {
-            tableList = connectorConfig.get(HudiOptions.TABLE_LIST);
+        if (connectorConfig.getOptional(HudiSinkOptions.TABLE_LIST).isPresent()) {
+            tableList = connectorConfig.get(HudiSinkOptions.TABLE_LIST);
         } else {
             HudiTableConfig hudiTableConfig =
                     HudiTableConfig.builder()
