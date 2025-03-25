@@ -24,6 +24,10 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.factory.BaseMultipleTableFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssFileSinkOptions;
 
@@ -107,7 +111,7 @@ public class OssFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                         FileBaseSinkOptions.PARTITION_DIR_EXPRESSION,
                         FileBaseSinkOptions.IS_PARTITION_FIELD_WRITE_IN_FILE)
                 .conditional(
-                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
                                 FileFormat.TEXT, FileFormat.JSON, FileFormat.CSV, FileFormat.XML),
                         FileBaseSinkOptions.ENCODING)

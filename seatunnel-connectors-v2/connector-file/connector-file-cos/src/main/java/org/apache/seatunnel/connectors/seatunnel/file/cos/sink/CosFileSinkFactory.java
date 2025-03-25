@@ -20,6 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.file.cos.sink;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosFileSinkOptions;
 
 import com.google.auto.service.AutoService;
@@ -95,7 +99,7 @@ public class CosFileSinkFactory implements TableSinkFactory {
                         FileBaseSinkOptions.PARTITION_DIR_EXPRESSION,
                         FileBaseSinkOptions.IS_PARTITION_FIELD_WRITE_IN_FILE)
                 .conditional(
-                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
                                 FileFormat.TEXT, FileFormat.JSON, FileFormat.CSV, FileFormat.XML),
                         FileBaseSinkOptions.ENCODING)

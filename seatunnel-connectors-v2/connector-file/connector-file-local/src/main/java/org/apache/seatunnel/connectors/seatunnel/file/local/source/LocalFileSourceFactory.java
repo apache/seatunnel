@@ -87,7 +87,7 @@ public class LocalFileSourceFactory implements TableSourceFactory {
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
                                 FileFormat.TEXT, FileFormat.JSON, FileFormat.CSV, FileFormat.XML),
-                        FileBaseSinkOptions.ENCODING)
+                        FileBaseSourceOptions.ENCODING)
                 .optional(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH)
                 .optional(FileBaseSourceOptions.DATE_FORMAT)
                 .optional(FileBaseSourceOptions.DATETIME_FORMAT)

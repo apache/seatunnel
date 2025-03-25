@@ -25,6 +25,10 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssFileSourceOptions;
 
 import com.google.auto.service.AutoService;
@@ -85,7 +89,7 @@ public class OssFileSourceFactory implements TableSourceFactory {
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
                                 FileFormat.TEXT, FileFormat.JSON, FileFormat.CSV, FileFormat.XML),
-                        FileBaseSinkOptions.ENCODING)
+                        FileBaseSourceOptions.ENCODING)
                 .optional(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH)
                 .optional(FileBaseSourceOptions.DATE_FORMAT)
                 .optional(FileBaseSourceOptions.DATETIME_FORMAT)
