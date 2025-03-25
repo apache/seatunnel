@@ -59,6 +59,7 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.mysql.cj.jdbc.ConnectionImpl;
+import com.zaxxer.hikari.pool.HikariProxyConnection;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -582,12 +583,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         JdbcMultiTableResourceManager multiTableResourceManager1 =
                 (JdbcMultiTableResourceManager)
                         jdbcSink1.createWriter(null).initMultiTableResourceManager(1, 1);
-        Properties connectionProperties1 =
-                multiTableResourceManager1
-                        .getSharedResource()
-                        .get()
-                        .getConnectionPool()
-                        .getDataSourceProperties();
+        Properties connectionProperties1 = getMultiSinkProperties(multiTableResourceManager1);
         Assertions.assertEquals(connectionProperties1.get("rewriteBatchedStatements"), "true");
 
         // case2 url contains parameters and properties not contains parameters
@@ -604,12 +600,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         JdbcMultiTableResourceManager multiTableResourceManager2 =
                 (JdbcMultiTableResourceManager)
                         jdbcSink2.createWriter(null).initMultiTableResourceManager(1, 1);
-        Properties connectionProperties2 =
-                multiTableResourceManager2
-                        .getSharedResource()
-                        .get()
-                        .getConnectionPool()
-                        .getDataSourceProperties();
+        Properties connectionProperties2 = getMultiSinkProperties(multiTableResourceManager2);
         Assertions.assertEquals(connectionProperties2.get("rewriteBatchedStatements"), "false");
 
         // case3 url not contains parameters and properties not contains parameters
@@ -629,12 +620,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         JdbcMultiTableResourceManager multiTableResourceManager3 =
                 (JdbcMultiTableResourceManager)
                         jdbcSink3.createWriter(null).initMultiTableResourceManager(1, 1);
-        Properties connectionProperties3 =
-                multiTableResourceManager3
-                        .getSharedResource()
-                        .get()
-                        .getConnectionPool()
-                        .getDataSourceProperties();
+        Properties connectionProperties3 = getMultiSinkProperties(multiTableResourceManager3);
         Assertions.assertEquals(connectionProperties3.get("rewriteBatchedStatements"), "false");
 
         // case4 url contains parameters and properties contains parameters
@@ -655,14 +641,24 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         JdbcMultiTableResourceManager multiTableResourceManager4 =
                 (JdbcMultiTableResourceManager)
                         jdbcSink4.createWriter(null).initMultiTableResourceManager(1, 1);
-        Properties connectionProperties4 =
-                multiTableResourceManager4
-                        .getSharedResource()
-                        .get()
-                        .getConnectionPool()
-                        .getDataSourceProperties();
+        Properties connectionProperties4 = getMultiSinkProperties(multiTableResourceManager4);
         Assertions.assertEquals(connectionProperties4.get("useSSL"), "true");
         Assertions.assertEquals(connectionProperties4.get("rewriteBatchedStatements"), "false");
+    }
+
+    private Properties getMultiSinkProperties(
+            JdbcMultiTableResourceManager multiTableResourceManager) throws SQLException {
+        HikariProxyConnection hikariProxyConnection =
+                (HikariProxyConnection)
+                        multiTableResourceManager
+                                .getSharedResource()
+                                .get()
+                                .getConnectionPool()
+                                .getConnection();
+        Properties connectionProperties =
+                ((ConnectionImpl) ReflectionUtils.getField(hikariProxyConnection, "delegate").get())
+                        .getProperties();
+        return connectionProperties;
     }
 
     void defaultSourceParametersTest() throws Exception {
