@@ -103,6 +103,14 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-hikari</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
 </project>

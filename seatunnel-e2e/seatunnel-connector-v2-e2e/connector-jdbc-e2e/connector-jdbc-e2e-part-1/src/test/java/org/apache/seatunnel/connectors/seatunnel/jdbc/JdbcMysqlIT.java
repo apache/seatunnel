@@ -19,6 +19,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.com.zaxxer.hikari.pool.HikariProxyConnection;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -59,7 +60,6 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.mysql.cj.jdbc.ConnectionImpl;
-import com.zaxxer.hikari.pool.HikariProxyConnection;
 
 import java.io.IOException;
 import java.math.BigDecimal;
