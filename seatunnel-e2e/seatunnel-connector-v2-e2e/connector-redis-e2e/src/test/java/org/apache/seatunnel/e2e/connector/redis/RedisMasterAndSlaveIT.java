@@ -70,7 +70,6 @@ public class RedisMasterAndSlaveIT extends TestSuiteBase implements TestResource
         master.start();
         log.info("Redis master container started");
 
-        // 启动从节点
         slaveContainerInfo =
                 new RedisContainerInfo("redis-e2e-slave", 6379, "SeaTunnel", "redis:7");
         slave =
