@@ -49,8 +49,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.api.options.SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA;
-
 @AutoService(Factory.class)
 public class JdbcSinkFactory implements TableSinkFactory {
     @Override

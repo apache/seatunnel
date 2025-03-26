@@ -150,7 +150,4 @@ public class JdbcSourceOptions extends JdbcBaseOptions {
                     .defaultValue(true)
                     .withDescription(
                             "decimal type narrowing, if true, the decimal type will be narrowed to the int or long type if without loss of precision. Only support for Oracle at now.");
-
-
-
 }

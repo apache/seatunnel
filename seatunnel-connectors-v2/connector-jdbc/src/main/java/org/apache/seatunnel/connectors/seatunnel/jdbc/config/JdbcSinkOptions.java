@@ -111,7 +111,6 @@ public class JdbcSinkOptions extends JdbcBaseOptions {
                     .defaultValue(true)
                     .withDescription("enable upsert by primary_keys exist");
 
-
     public static final Option<Boolean> IS_PRIMARY_KEY_UPDATED =
             Options.key("is_primary_key_updated")
                     .booleanType()
@@ -129,7 +128,6 @@ public class JdbcSinkOptions extends JdbcBaseOptions {
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("support copy in statement (postgresql)");
-
 
     public static final Option<FieldIdeEnum> FIELD_IDE =
             Options.key("field_ide")

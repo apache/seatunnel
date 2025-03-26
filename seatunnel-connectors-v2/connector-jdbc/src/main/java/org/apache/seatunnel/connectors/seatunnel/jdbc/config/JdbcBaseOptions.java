@@ -51,7 +51,6 @@ public class JdbcBaseOptions extends SinkConnectorCommonOptions {
                     .withDescription(
                             "The compatible mode of database, required when the database supports multiple compatible modes. For example, when using OceanBase database, you need to set it to 'mysql' or 'oracle'.");
 
-
     /*For Hive */
     public static final Option<Boolean> USE_KERBEROS =
             Options.key("use_kerberos")

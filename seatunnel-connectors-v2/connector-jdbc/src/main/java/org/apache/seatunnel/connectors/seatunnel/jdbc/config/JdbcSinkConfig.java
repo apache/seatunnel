@@ -26,7 +26,6 @@ import lombok.Data;
 import java.io.Serializable;
 import java.util.List;
 
-
 @Data
 @Builder
 public class JdbcSinkConfig implements Serializable {
@@ -53,7 +52,8 @@ public class JdbcSinkConfig implements Serializable {
         config.getOptional(JdbcSinkOptions.TABLE).ifPresent(builder::table);
         builder.enableUpsert(config.get(JdbcSinkOptions.ENABLE_UPSERT));
         builder.isPrimaryKeyUpdated(config.get(JdbcSinkOptions.IS_PRIMARY_KEY_UPDATED));
-        builder.supportUpsertByInsertOnly(config.get(JdbcSinkOptions.SUPPORT_UPSERT_BY_INSERT_ONLY));
+        builder.supportUpsertByInsertOnly(
+                config.get(JdbcSinkOptions.SUPPORT_UPSERT_BY_INSERT_ONLY));
         builder.simpleSql(config.get(JdbcSinkOptions.QUERY));
         builder.useCopyStatement(config.get(JdbcSinkOptions.USE_COPY_STATEMENT));
         builder.createIndex(config.get(JdbcCatalogOptions.CREATE_INDEX));

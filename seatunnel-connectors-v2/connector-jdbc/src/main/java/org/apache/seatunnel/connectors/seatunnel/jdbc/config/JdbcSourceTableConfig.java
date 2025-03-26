@@ -80,10 +80,13 @@ public class JdbcSourceTableConfig implements Serializable {
                     JdbcSourceTableConfig.builder()
                             .tablePath(connectorConfig.get(JdbcSourceOptions.TABLE_PATH))
                             .query(connectorConfig.get(JdbcSourceOptions.QUERY))
-                            .partitionColumn(connectorConfig.get(JdbcSourceOptions.PARTITION_COLUMN))
+                            .partitionColumn(
+                                    connectorConfig.get(JdbcSourceOptions.PARTITION_COLUMN))
                             .partitionNumber(connectorConfig.get(JdbcSourceOptions.PARTITION_NUM))
-                            .partitionStart(connectorConfig.get(JdbcSourceOptions.PARTITION_LOWER_BOUND))
-                            .partitionEnd(connectorConfig.get(JdbcSourceOptions.PARTITION_UPPER_BOUND))
+                            .partitionStart(
+                                    connectorConfig.get(JdbcSourceOptions.PARTITION_LOWER_BOUND))
+                            .partitionEnd(
+                                    connectorConfig.get(JdbcSourceOptions.PARTITION_UPPER_BOUND))
                             .build();
             tableList = Collections.singletonList(tableProperty);
         }

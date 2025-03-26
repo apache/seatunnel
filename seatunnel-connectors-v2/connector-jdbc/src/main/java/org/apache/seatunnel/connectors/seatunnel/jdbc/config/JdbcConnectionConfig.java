@@ -71,7 +71,8 @@ public class JdbcConnectionConfig implements Serializable {
         builder.driverName(config.get(JdbcBaseOptions.DRIVER));
         builder.autoCommit(config.get(JdbcSinkOptions.AUTO_COMMIT));
         builder.maxRetries(config.get(JdbcSinkOptions.MAX_RETRIES));
-        builder.connectionCheckTimeoutSeconds(config.get(JdbcBaseOptions.CONNECTION_CHECK_TIMEOUT_SEC));
+        builder.connectionCheckTimeoutSeconds(
+                config.get(JdbcBaseOptions.CONNECTION_CHECK_TIMEOUT_SEC));
         builder.batchSize(config.get(JdbcSinkOptions.BATCH_SIZE));
         if (config.get(JdbcSinkOptions.IS_EXACTLY_ONCE)) {
             builder.xaDataSourceClassName(config.get(JdbcSinkOptions.XA_DATA_SOURCE_CLASS_NAME));
@@ -123,7 +124,8 @@ public class JdbcConnectionConfig implements Serializable {
         private boolean autoCommit = JdbcSinkOptions.AUTO_COMMIT.defaultValue();
         private int batchSize = JdbcSinkOptions.BATCH_SIZE.defaultValue();
         private String xaDataSourceClassName;
-        private boolean decimalTypeNarrowing = JdbcSourceOptions.DECIMAL_TYPE_NARROWING.defaultValue();
+        private boolean decimalTypeNarrowing =
+                JdbcSourceOptions.DECIMAL_TYPE_NARROWING.defaultValue();
         private int maxCommitAttempts = JdbcSinkOptions.MAX_COMMIT_ATTEMPTS.defaultValue();
         private int transactionTimeoutSec = JdbcSinkOptions.TRANSACTION_TIMEOUT_SEC.defaultValue();
         private Map<String, String> properties;
