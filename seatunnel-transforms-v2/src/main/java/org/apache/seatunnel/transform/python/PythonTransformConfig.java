@@ -105,8 +105,7 @@ public class PythonTransformConfig {
     private static String loadCodeFromPath(String filePath) {
         try {
             // 读取整个文件内容到字符串
-            String code = new String(Files.readAllBytes(Paths.get(filePath)));
-            return code;
+            return new String(Files.readAllBytes(Paths.get(filePath)));
         } catch (IOException e) {
             // 处理可能发生的IO异常
             throw new TransformException(LOAD_SOURCE_CODE_FROM_PATH_ERROR,

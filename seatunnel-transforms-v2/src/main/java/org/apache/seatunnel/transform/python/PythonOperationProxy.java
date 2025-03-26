@@ -17,4 +17,30 @@
 
 package org.apache.seatunnel.transform.python;
 
-public class PythonOperationProxy implements RowOperation {}
+import py4j.GatewayServer;
+
+public class PythonOperationProxy implements RowOperation {
+
+    private GatewayServer javaServer;
+    private PythonOperationProxy(){
+        if (INSTANCE != null) {
+            throw new RuntimeException("Please use newInstance() method for getting the single instance of this class.");
+        }
+    }
+    private static volatile PythonOperationProxy INSTANCE;
+    public static PythonOperationProxy newInstance(Integer javaServerPort) {
+        if (INSTANCE == null){
+            synchronized (PythonOperationProxy.class){
+                if (INSTANCE == null){
+                    PythonOperationProxy operationProxy = new PythonOperationProxy();
+                    operationProxy.javaServer = new GatewayServer(operationProxy,javaServerPort);
+                }
+            }
+        }
+        return INSTANCE;
+    }
+
+    public void shutdown(){
+        this.javaServer.shutdown();
+    }
+}

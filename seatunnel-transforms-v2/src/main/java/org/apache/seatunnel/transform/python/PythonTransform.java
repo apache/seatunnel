@@ -13,9 +13,16 @@ public class PythonTransform extends MultipleFieldOutputTransform {
 
     private final PythonTransformConfig config;
 
+    private final PythonOperationProxy pythonOperationProxy;
+
     public PythonTransform(@NonNull CatalogTable inputCatalogTable, PythonTransformConfig transformConfig) {
         super(inputCatalogTable, transformConfig.getErrorHandleWay());
         this.config = transformConfig;
+        pythonOperationProxy = initLocalSingletonJavaServer(config.getJavaServerPort());
+    }
+
+    private PythonOperationProxy initLocalSingletonJavaServer(Integer javaServerPort) {
+        return PythonOperationProxy.newInstance(javaServerPort);
     }
 
     @Override
