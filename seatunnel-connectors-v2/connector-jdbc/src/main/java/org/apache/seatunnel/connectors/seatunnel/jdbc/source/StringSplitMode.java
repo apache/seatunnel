@@ -17,26 +17,27 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.TablePath;
+public enum StringSplitMode {
+    SAMPLE("sample"),
 
-import lombok.Builder;
-import lombok.Data;
+    CHARSET_BASED("charset_based");
 
-import java.io.Serializable;
+    public boolean equals(String mode) {
+        return this.mode.equalsIgnoreCase(mode);
+    }
 
-@Data
-@Builder
-public class JdbcSourceTable implements Serializable {
-    private static final long serialVersionUID = 1L;
+    private final String mode;
 
-    private final TablePath tablePath;
-    private final String query;
-    private final String partitionColumn;
-    private final Integer partitionNumber;
-    private final String partitionStart;
-    private final String partitionEnd;
-    private final Boolean useSelectCount;
-    private final Boolean skipAnalyze;
-    private final CatalogTable catalogTable;
+    StringSplitMode(String mode) {
+        this.mode = mode;
+    }
+
+    public String getMode() {
+        return mode;
+    }
+
+    @Override
+    public String toString() {
+        return mode;
+    }
 }
