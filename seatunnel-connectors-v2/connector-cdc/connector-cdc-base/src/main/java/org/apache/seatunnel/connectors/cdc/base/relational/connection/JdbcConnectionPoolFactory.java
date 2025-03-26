@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.connectors.cdc.base.relational.connection;
 
-import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
+import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariConfig;
+import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariDataSource;
 
-import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
+import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 
 /** A connection pool factory to create pooled DataSource {@link HikariDataSource}. */
 public abstract class JdbcConnectionPoolFactory {

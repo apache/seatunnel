@@ -35,12 +35,6 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>com.zaxxer</groupId>
-                <artifactId>HikariCP</artifactId>
-                <version>${hikaricp.version}</version>
-            </dependency>
-
-            <dependency>
                 <groupId>org.apache.seatunnel</groupId>
                 <artifactId>connector-common</artifactId>
                 <version>${project.version}</version>
@@ -97,10 +91,6 @@
         <dependency>
             <groupId>com.github.luben</groupId>
             <artifactId>zstd-jni</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.zaxxer</groupId>
-            <artifactId>HikariCP</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
