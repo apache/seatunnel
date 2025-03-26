@@ -2,9 +2,10 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Feature][Connector-V2] Support TableSourceFactory/TableSinkFactory on http (#5816)|https://github.com/apache/seatunnel/commit/6f49ec6ead|2.3.4|
-|[Improve][build] Give the maven module a human readable name (#4114)|https://github.com/apache/seatunnel/commit/d7cd601051|2.3.1|
-|[Improve][Project] Code format with spotless plugin. (#4101)|https://github.com/apache/seatunnel/commit/a2ab166561|2.3.1|
-|[Feature][Connector-V2][Notion] Add Notion source connector (#3470)|https://github.com/apache/seatunnel/commit/46abc6d943|2.3.0|
+|[improve] http connector options (#8969)|https://github.com/apache/seatunnel/commit/63ff9f910|2.3.10|
+|[Feature][Connector-V2] Support TableSourceFactory/TableSinkFactory on http (#5816)|https://github.com/apache/seatunnel/commit/6f49ec6ea|2.3.4|
+|[Improve][build] Give the maven module a human readable name (#4114)|https://github.com/apache/seatunnel/commit/d7cd60105|2.3.1|
+|[Improve][Project] Code format with spotless plugin. (#4101)|https://github.com/apache/seatunnel/commit/a2ab16656|2.3.1|
+|[Feature][Connector-V2][Notion] Add Notion source connector (#3470)|https://github.com/apache/seatunnel/commit/46abc6d94|2.3.0|
 
 </details>
