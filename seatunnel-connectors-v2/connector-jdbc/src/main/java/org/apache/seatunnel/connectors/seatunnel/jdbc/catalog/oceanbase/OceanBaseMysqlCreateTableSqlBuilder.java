@@ -265,6 +265,12 @@ public class OceanBaseMysqlCreateTableSqlBuilder {
                 keyName = "FOREIGN KEY";
                 // todo:
                 break;
+            case VECTOR_INDEX_KEY:
+                keyName = "VECTOR INDEX";
+                return String.format(
+                                "%s `%s` (%s)",
+                                keyName, constraintKey.getConstraintName(), indexColumns)
+                        + " WITH (distance=L2, type=hnsw)";
             default:
                 throw new UnsupportedOperationException(
                         "Unsupported constraint type: " + constraintType);
