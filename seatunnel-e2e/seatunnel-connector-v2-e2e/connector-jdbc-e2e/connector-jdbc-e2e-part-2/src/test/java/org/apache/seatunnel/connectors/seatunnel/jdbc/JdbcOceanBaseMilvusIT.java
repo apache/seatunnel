@@ -31,7 +31,6 @@ import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
-import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -148,16 +147,16 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
         setObVectorMemory();
         createSchemaIfNeeded();
         createNeededTables();
-        //this.container =
+        // this.container =
         //        new MilvusContainer(MILVUS_IMAGE)
         //                .withNetwork(NETWORK)
         //                .withNetworkAliases(MILVUS_HOST);
-        //Startables.deepStart(Stream.of(this.container)).join();
-        //log.info("Milvus host is {}", container.getHost());
-        //log.info("Milvus container started");
-        //Awaitility.given().ignoreExceptions().await().atMost(720L, TimeUnit.SECONDS);
-        //this.initMilvus();
-        //this.initSourceData();
+        // Startables.deepStart(Stream.of(this.container)).join();
+        // log.info("Milvus host is {}", container.getHost());
+        // log.info("Milvus container started");
+        // Awaitility.given().ignoreExceptions().await().atMost(720L, TimeUnit.SECONDS);
+        // this.initMilvus();
+        // this.initSourceData();
     }
 
     private void initMilvus()
