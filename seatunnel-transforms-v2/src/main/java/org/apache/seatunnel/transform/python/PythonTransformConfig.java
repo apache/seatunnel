@@ -26,8 +26,12 @@ import org.apache.seatunnel.transform.common.ErrorHandleWay;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 import org.apache.seatunnel.transform.exception.TransformException;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Optional;
 
+import static org.apache.seatunnel.transform.python.PythonTransformErrorCode.LOAD_SOURCE_CODE_FROM_PATH_ERROR;
 import static org.apache.seatunnel.transform.python.PythonTransformErrorCode.SOURCE_CODE_MISS_ERROR;
 
 public class PythonTransformConfig {
@@ -98,8 +102,15 @@ public class PythonTransformConfig {
         return new PythonTransformConfig(rowErrorHandleWay, javaPort, pythonPort, code);
     }
 
-    private static String loadCodeFromPath(String s) {
-        //TODO
-        return "";
+    private static String loadCodeFromPath(String filePath) {
+        try {
+            // 读取整个文件内容到字符串
+            String code = new String(Files.readAllBytes(Paths.get(filePath)));
+            return code;
+        } catch (IOException e) {
+            // 处理可能发生的IO异常
+            throw new TransformException(LOAD_SOURCE_CODE_FROM_PATH_ERROR,
+                    LOAD_SOURCE_CODE_FROM_PATH_ERROR.getDescription() + e.getMessage());
+        }
     }
 }

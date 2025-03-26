@@ -20,7 +20,8 @@ package org.apache.seatunnel.transform.python;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum PythonTransformErrorCode implements SeaTunnelErrorCode {
-    SOURCE_CODE_MISS_ERROR("PythonTransformErrorCode-01","source_code and source_code_path Please configure at least one");
+    SOURCE_CODE_MISS_ERROR("PythonTransformErrorCode-01","source_code and source_code_path Please configure at least one"),
+    LOAD_SOURCE_CODE_FROM_PATH_ERROR("PythonTransformErrorCode-02","an error occurred while loading source_code from a file");
     private final String code;
     private final String description;
 
