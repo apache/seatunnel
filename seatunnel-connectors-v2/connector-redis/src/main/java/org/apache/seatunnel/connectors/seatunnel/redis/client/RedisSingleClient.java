@@ -20,12 +20,15 @@ package org.apache.seatunnel.connectors.seatunnel.redis.client;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisErrorCode;
 
 import org.apache.commons.collections4.CollectionUtils;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Pipeline;
 import redis.clients.jedis.Response;
+import redis.clients.jedis.exceptions.JedisException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -258,9 +261,13 @@ public class RedisSingleClient extends RedisClient {
     }
 
     private void processResponses(List<Response<?>> responseList) {
-        for (Response<?> response : responseList) {
-            // If the response is an exception object, it will be thrown
-            response.get();
+        try {
+            for (Response<?> response : responseList) {
+                // If the response is an exception object, it will be thrown
+                response.get();
+            }
+        } catch (JedisException e) {
+            throw new RedisConnectorException(RedisErrorCode.GET_RESPONSE_FAILED, e);
         }
     }
 }
