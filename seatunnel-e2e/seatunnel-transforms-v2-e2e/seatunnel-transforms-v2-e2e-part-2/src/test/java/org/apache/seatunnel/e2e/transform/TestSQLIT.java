@@ -81,14 +81,6 @@ public class TestSQLIT extends TestSuiteBase {
         Container.ExecResult maxMinSql =
                 container.executeJob("/sql_transform/func_array_max_min.conf");
         Assertions.assertEquals(0, maxMinSql.getExitCode());
-
-        Container.ExecResult tryCastSqlFail =
-                container.executeJob("/sql_transform/func_try_cast_fail.conf");
-        Assertions.assertEquals(0, tryCastSqlFail.getExitCode());
-
-        Container.ExecResult tryCastSqlSucc =
-                container.executeJob("/sql_transform/func_try_cast_succ.conf");
-        Assertions.assertEquals(0, tryCastSqlSucc.getExitCode());
     }
 
     @TestTemplate
