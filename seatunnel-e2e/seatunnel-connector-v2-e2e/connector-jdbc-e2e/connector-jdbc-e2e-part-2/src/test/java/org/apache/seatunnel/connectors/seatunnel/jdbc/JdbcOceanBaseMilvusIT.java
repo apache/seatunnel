@@ -90,7 +90,7 @@ import static org.awaitility.Awaitility.given;
         disabledReason = "Currently SPARK and FLINK not support adapt")
 public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource {
 
-    private static final String IMAGE = "oceanbase/oceanbase-ce:vector";
+    private static final String IMAGE = "oceanbase/oceanbase-ce:4.3.5.1-101000042025031818";
 
     private static final String HOSTNAME = "e2e_oceanbase_vector";
     private static final int PORT = 2881;
@@ -145,7 +145,7 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
                 .await()
                 .atMost(360, TimeUnit.SECONDS)
                 .untilAsserted(() -> this.initializeJdbcConnection(jdbcCase.getJdbcUrl()));
-
+        setObVectorMemory();
         createSchemaIfNeeded();
         createNeededTables();
         this.container =
@@ -407,6 +407,11 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
         connection.setAutoCommit(false);
     }
 
+    public void setObVectorMemory() {
+        String sql = "ALTER SYSTEM SET ob_vector_memory_limit_percentage = 30";
+        executeSql(sql);
+    }
+
     private Class<?> loadDriverClass() {
         try {
             return Class.forName(jdbcCase.getDriverClass());
@@ -418,13 +423,17 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
 
     private void createSchemaIfNeeded() {
         String sql = "CREATE DATABASE IF NOT EXISTS " + OCEANBASE_DATABASE;
+        executeSql(sql);
+    }
+
+    private void executeSql(String sql) {
         try {
             connection.prepareStatement(sql).executeUpdate();
         } catch (Exception e) {
             throw new SeaTunnelRuntimeException(
                     JdbcITErrorCode.CREATE_TABLE_FAILED, "Fail to execute sql " + sql, e);
         }
-        log.info("oceanbase schema created,sql is" + sql);
+        log.info("oceanbase execute sql,sql is:{}", sql);
     }
 
     String createSqlTemplate() {
@@ -466,7 +475,7 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
                                         jdbcCase.getSchema(),
                                         jdbcCase.getSinkTable()));
                 statement.execute(createSink);
-                log.info("oceanbase table created,sql is" + createSink);
+                log.info("oceanbase table created,sql is:{}", createSink);
             }
 
             connection.commit();
