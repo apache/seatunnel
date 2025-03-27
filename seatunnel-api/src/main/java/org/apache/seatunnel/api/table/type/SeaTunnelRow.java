@@ -18,7 +18,6 @@
 package org.apache.seatunnel.api.table.type;
 
 import java.io.Serializable;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -133,9 +132,6 @@ public final class SeaTunnelRow implements Serializable {
         SqlType sqlType = dataType.getSqlType();
         switch (sqlType) {
             case STRING:
-                if (v instanceof BigDecimal) {
-                    return v.toString().length();
-                }
                 return ((String) v).length();
             case BOOLEAN:
             case TINYINT:
