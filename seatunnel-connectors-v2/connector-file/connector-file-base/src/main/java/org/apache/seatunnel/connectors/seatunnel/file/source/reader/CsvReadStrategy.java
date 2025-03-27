@@ -50,8 +50,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -123,42 +121,18 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 }
             }
             // read lines
-            List<String> headers;
-            if (firstLineAsHeader) {
-                headers =
-                        csvParser.getHeaderNames().stream()
-                                .map(
-                                        header ->
-                                                header.replace("\"", "")
-                                                        .replace("\uFEFF", "")
-                                                        .trim())
-                                .collect(Collectors.toList());
-            } else {
-                headers =
-                        Arrays.stream(this.inputCatalogTable.getSeaTunnelRowType().getFieldNames())
-                                .collect(Collectors.toCollection(ArrayList::new));
-            }
+            List<String> headers = getHeaders(csvParser);
             for (CSVRecord csvRecord : csvParser) {
                 HashMap<Integer, String> fieldIdValueMap = new HashMap<>();
-                if (firstLineAsHeader) {
-                    for (int i = 0; i < headers.size(); i++) {
-                        // the user input schema may not contain all the columns in the csv header
-                        // and may contain columns in a different order with the csv header
-                        int index =
-                                this.inputCatalogTable
-                                        .getSeaTunnelRowType()
-                                        .indexOf(headers.get(i), false);
-                        if (index == -1) {
-                            continue;
-                        }
-                        fieldIdValueMap.put(index, csvRecord.get(i));
+                for (int i = 0; i < headers.size(); i++) {
+                    // the user input schema may not contain all the columns in the csv header
+                    // and may contain columns in a different order with the csv header
+                    int index =
+                            inputCatalogTable.getSeaTunnelRowType().indexOf(headers.get(i), false);
+                    if (index == -1) {
+                        continue;
                     }
-                } else {
-                    for (int i = 0;
-                            i < inputCatalogTable.getTableSchema().getColumns().size();
-                            i++) {
-                        fieldIdValueMap.put(i, csvRecord.get(i));
-                    }
+                    fieldIdValueMap.put(index, csvRecord.get(i).replace("\uFEFF", ""));
                 }
                 SeaTunnelRow seaTunnelRow = deserializationSchema.getSeaTunnelRow(fieldIdValueMap);
                 if (!readColumns.isEmpty()) {
@@ -191,6 +165,22 @@ public class CsvReadStrategy extends AbstractReadStrategy {
             throw new FileConnectorException(
                     FileConnectorErrorCode.DATA_DESERIALIZE_FAILED, errorMsg, e);
         }
+    }
+
+    private List<String> getHeaders(CSVParser csvParser) {
+        List<String> headers;
+        if (firstLineAsHeader) {
+            headers =
+                    csvParser.getHeaderNames().stream()
+                            .map(header -> header.replace("\"", "").replace("\uFEFF", "").trim())
+                            .collect(Collectors.toList());
+        } else {
+            headers =
+                    inputCatalogTable.getTableSchema().getColumns().stream()
+                            .map(column -> column.getName())
+                            .collect(Collectors.toList());
+        }
+        return headers;
     }
 
     @Override
