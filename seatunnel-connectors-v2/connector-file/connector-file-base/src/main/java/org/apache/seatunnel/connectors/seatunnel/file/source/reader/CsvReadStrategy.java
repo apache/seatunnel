@@ -69,8 +69,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
     private int[] indexes;
     private String encoding = BaseSourceConfigOptions.ENCODING.defaultValue();
     private CatalogTable inputCatalogTable;
-    private boolean firstLineAsHeader =
-            BaseSourceConfigOptions.FIRST_LINE_AS_CSV_HEADER.defaultValue();
+    private boolean firstLineAsHeader = BaseSourceConfigOptions.CSV_USE_HEADER_LINE.defaultValue();
 
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
@@ -236,9 +235,9 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                                 readonlyConfig
                                         .getOptional(BaseSourceConfigOptions.NULL_FORMAT)
                                         .orElse(null));
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.FIRST_LINE_AS_CSV_HEADER.key())) {
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.CSV_USE_HEADER_LINE.key())) {
             firstLineAsHeader =
-                    pluginConfig.getBoolean(BaseSourceConfigOptions.FIRST_LINE_AS_CSV_HEADER.key());
+                    pluginConfig.getBoolean(BaseSourceConfigOptions.CSV_USE_HEADER_LINE.key());
         }
         if (isMergePartition) {
             deserializationSchema =
