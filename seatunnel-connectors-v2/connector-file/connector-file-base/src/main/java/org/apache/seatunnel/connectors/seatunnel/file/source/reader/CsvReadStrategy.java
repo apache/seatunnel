@@ -50,9 +50,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class CsvReadStrategy extends AbstractReadStrategy {
@@ -67,6 +71,8 @@ public class CsvReadStrategy extends AbstractReadStrategy {
     private int[] indexes;
     private String encoding = BaseSourceConfigOptions.ENCODING.defaultValue();
     private CatalogTable inputCatalogTable;
+    private boolean firstLineAsHeader =
+            BaseSourceConfigOptions.FIRST_LINE_AS_CSV_HEADER.defaultValue();
 
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
@@ -102,6 +108,9 @@ public class CsvReadStrategy extends AbstractReadStrategy {
         }
 
         CSVFormat csvFormat = CSVFormat.DEFAULT;
+        if (firstLineAsHeader) {
+            csvFormat = csvFormat.withFirstRecordAsHeader();
+        }
         try (BufferedReader reader =
                         new BufferedReader(new InputStreamReader(actualInputStream, encoding));
                 CSVParser csvParser = new CSVParser(reader, csvFormat); ) {
@@ -114,10 +123,42 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 }
             }
             // read lines
+            List<String> headers;
+            if (firstLineAsHeader) {
+                headers =
+                        csvParser.getHeaderNames().stream()
+                                .map(
+                                        header ->
+                                                header.replace("\"", "")
+                                                        .replace("\uFEFF", "")
+                                                        .trim())
+                                .collect(Collectors.toList());
+            } else {
+                headers =
+                        Arrays.stream(this.inputCatalogTable.getSeaTunnelRowType().getFieldNames())
+                                .collect(Collectors.toCollection(ArrayList::new));
+            }
             for (CSVRecord csvRecord : csvParser) {
                 HashMap<Integer, String> fieldIdValueMap = new HashMap<>();
-                for (int i = 0; i < inputCatalogTable.getTableSchema().getColumns().size(); i++) {
-                    fieldIdValueMap.put(i, csvRecord.get(i));
+                if (firstLineAsHeader) {
+                    for (int i = 0; i < headers.size(); i++) {
+                        // the user input schema may not contain all the columns in the csv header
+                        // and may contain columns in a different order with the csv header
+                        int index =
+                                this.inputCatalogTable
+                                        .getSeaTunnelRowType()
+                                        .indexOf(headers.get(i), false);
+                        if (index == -1) {
+                            continue;
+                        }
+                        fieldIdValueMap.put(index, csvRecord.get(i));
+                    }
+                } else {
+                    for (int i = 0;
+                            i < inputCatalogTable.getTableSchema().getColumns().size();
+                            i++) {
+                        fieldIdValueMap.put(i, csvRecord.get(i));
+                    }
                 }
                 SeaTunnelRow seaTunnelRow = deserializationSchema.getSeaTunnelRow(fieldIdValueMap);
                 if (!readColumns.isEmpty()) {
@@ -205,6 +246,10 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                                 readonlyConfig
                                         .getOptional(BaseSourceConfigOptions.NULL_FORMAT)
                                         .orElse(null));
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.FIRST_LINE_AS_CSV_HEADER.key())) {
+            firstLineAsHeader =
+                    pluginConfig.getBoolean(BaseSourceConfigOptions.FIRST_LINE_AS_CSV_HEADER.key());
+        }
         if (isMergePartition) {
             deserializationSchema =
                     builder.seaTunnelRowType(userDefinedRowTypeWithPartition).build();

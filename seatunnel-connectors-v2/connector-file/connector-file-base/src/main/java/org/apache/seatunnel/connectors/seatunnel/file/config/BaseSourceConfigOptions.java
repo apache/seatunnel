@@ -129,6 +129,12 @@ public class BaseSourceConfigOptions {
                     .defaultValue(0L)
                     .withDescription("The number of rows to skip");
 
+    public static final Option<Boolean> FIRST_LINE_AS_CSV_HEADER =
+            Options.key("first_line_as_csv_header")
+                    .booleanType()
+                    .defaultValue(Boolean.FALSE)
+                    .withDescription("whether the first line of the csv files is header");
+
     public static final Option<List<String>> READ_PARTITIONS =
             Options.key("read_partitions")
                     .listType()
