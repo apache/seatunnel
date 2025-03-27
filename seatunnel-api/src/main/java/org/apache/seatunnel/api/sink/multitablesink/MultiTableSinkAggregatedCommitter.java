@@ -53,17 +53,16 @@ public class MultiTableSinkAggregatedCommitter
         for (String tableIdentifier : aggCommitters.keySet()) {
             SinkAggregatedCommitter<?, ?> aggCommitter = aggCommitters.get(tableIdentifier);
             if (!(aggCommitter instanceof SupportMultiTableSinkAggregatedCommitter)) {
-                return;
+                break;
             }
             resourceManager =
                     ((SupportMultiTableSinkAggregatedCommitter<?>) aggCommitter)
                             .initMultiTableResourceManager(aggCommitters.size(), 1);
             break;
         }
-        if (resourceManager != null) {
-            for (String tableIdentifier : aggCommitters.keySet()) {
-                SinkAggregatedCommitter<?, ?> aggCommitter = aggCommitters.get(tableIdentifier);
-                aggCommitter.init();
+        for (SinkAggregatedCommitter<?, ?> aggCommitter : aggCommitters.values()) {
+            aggCommitter.init();
+            if (resourceManager != null) {
                 ((SupportMultiTableSinkAggregatedCommitter<?>) aggCommitter)
                         .setMultiTableResourceManager(resourceManager, 0);
             }
