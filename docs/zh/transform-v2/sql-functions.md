@@ -916,6 +916,18 @@ CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss','UTC+6')
 
 CONVERT(NAME AS INT)
 
+### TRY_CAST
+
+```TRY_CAST(value as dataType)```
+
+该函数类似于 CAST，但当转换失败时，它返回 NULL 而不是抛出异常。
+
+支持的数据类型有：STRING | VARCHAR，INT | INTEGER，LONG | BIGINT，BYTE，FLOAT，DOUBLE，DECIMAL(p,s)，TIMESTAMP，DATE，TIME，BYTES
+
+示例:
+
+TRY_CAST(NAME AS INT)
+
 ### COALESCE
 
 ```COALESCE(aValue, bValue [,...])```
