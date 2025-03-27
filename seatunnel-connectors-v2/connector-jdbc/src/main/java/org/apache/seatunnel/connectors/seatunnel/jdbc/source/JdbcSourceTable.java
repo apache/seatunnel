@@ -24,7 +24,6 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.io.Serializable;
-import java.math.BigDecimal;
 
 @Data
 @Builder
@@ -35,8 +34,8 @@ public class JdbcSourceTable implements Serializable {
     private final String query;
     private final String partitionColumn;
     private final Integer partitionNumber;
-    private final BigDecimal partitionStart;
-    private final BigDecimal partitionEnd;
+    private final String partitionStart;
+    private final String partitionEnd;
     private final Boolean useSelectCount;
     private final Boolean skipAnalyze;
     private final CatalogTable catalogTable;

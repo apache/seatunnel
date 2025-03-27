@@ -83,6 +83,7 @@
         <module>connector-qdrant</module>
         <module>connector-sls</module>
         <module>connector-typesense</module>
+        <module>connector-aerospike</module>
     </modules>
 
     <dependencyManagement>

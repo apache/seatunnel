@@ -56,14 +56,12 @@ def get_tag_commit_list():
     result = subprocess.run(['git', 'fetch', 'https://github.com/apache/seatunnel.git', '--tags', '--force'],
                             cwd=directory, stdout=subprocess.PIPE)
     if result.returncode != 0:
-        print("Failed to fetch tags")
-        return
+        raise RuntimeError("Failed to fetch tags")
 
     result = subprocess.run(['git', 'tag'],
                             cwd=directory, stdout=subprocess.PIPE)
     if result.returncode != 0:
-        print("Failed to fetch tags")
-        return
+        raise RuntimeError("Failed to fetch tags")
 
     tags = result.stdout.decode('utf-8').splitlines()
     # Only consider tags starting with 2. for now
@@ -75,35 +73,48 @@ def get_tag_commit_list():
         result = subprocess.run(['git', 'log', version, '--pretty=format:%h'],
                                 cwd=directory, stdout=subprocess.PIPE)
         if result.returncode != 0:
-            print("Failed to fetch tag logs")
-            return
+            raise RuntimeError("Failed to fetch tag logs")
         commits = result.stdout.decode('utf-8').splitlines()
         for commit in commits:
             commit_version_map[commit] = version
 
     return commit_version_map
 
+
+def get_current_branch_name():
+    directory = os.path.dirname(os.path.abspath(Path(__file__).parent.parent))
+    result = subprocess.run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                            cwd=directory, stdout=subprocess.PIPE)
+    if result.returncode != 0:
+        raise RuntimeError("Failed to fetch release")
+    return result.stdout.decode('utf-8').strip()
+
+
 def main():
     changes = generate_log_info()
     commit_version_map = get_tag_commit_list()
+    in_release = get_current_branch_name().endswith('-release')
     directory = os.path.dirname(os.path.abspath(Path(__file__).parent.parent))
     changelog_dir = os.path.join(directory, 'docs', 'en', 'connector-v2', 'changelog')
     zh_changelog_dir = os.path.join(directory, 'docs', 'zh', 'connector-v2', 'changelog')
     for connector, prs in changes.items():
-        write_commit(connector, prs, changelog_dir, commit_version_map)
-        write_commit(connector, prs, zh_changelog_dir, commit_version_map)
+        write_commit(connector, prs, changelog_dir, commit_version_map, in_release)
+        write_commit(connector, prs, zh_changelog_dir, commit_version_map, in_release)
 
 
-def write_commit(connector, prs, changelog_dir, commit_version_map):
+def write_commit(connector, prs, changelog_dir, commit_version_map, in_release):
     with open(changelog_dir + '/' + connector + '.md', 'w') as file:
         file.write('<details><summary> Change Log </summary>\n\n')
         file.write('| Change | Commit | Version |\n')
         file.write('| --- | --- | --- |\n')
         for pr in prs:
+            message = html.escape(pr[0])
             if pr[2] in commit_version_map:
-                file.write('|' + html.escape(pr[0]) + '|' + pr[1] + '|' + commit_version_map[pr[2]] + '|\n')
+                if not message.startswith('[maven-release-plugin]'):
+                    file.write('|' + message + '|' + pr[1] + '|' + commit_version_map[pr[2]] + '|\n')
             else:
-                file.write('|' + html.escape(pr[0]) + '|' + pr[1] + '| dev |\n')
+                if not in_release:
+                    file.write('|' + message + '|' + pr[1] + '| dev |\n')
         file.write('\n</details>\n')
         file.close()
 

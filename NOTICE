@@ -103,3 +103,8 @@ and updated within the WildFly project (https://github.com/wildfly/wildfly).
 
 The class org.apache.calcite.linq4j.tree.ConstantExpression contains code
 originating from the Calcite project (https://github.com/apache/calcite).
+
+Aerospike Sink Connector
+Copyright 2023 The original authors.
+Contains Aerospike Client Library (https://www.aerospike.com/)
+which is licensed under the AGPL 3.0 License (https://www.aerospike.com/terms/download/3rd-party-licenses)

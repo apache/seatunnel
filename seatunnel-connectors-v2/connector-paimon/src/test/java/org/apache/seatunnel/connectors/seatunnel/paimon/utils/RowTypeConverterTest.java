@@ -54,6 +54,8 @@ public class RowTypeConverterTest {
 
     private Column column;
 
+    private Column columnNotNull;
+
     private TableSchema tableSchema;
 
     public static final RowType DEFAULT_ROW_TYPE =
@@ -187,14 +189,26 @@ public class RowTypeConverterTest {
 
         column =
                 PhysicalColumn.builder()
-                        .name("c_decimal")
+                        .name("c_decimal_null")
+                        .sourceType(DataTypes.DECIMAL(30, 8).toString())
+                        .nullable(true)
+                        .dataType(dataType)
+                        .columnLength(30L)
+                        .defaultValue(3.0)
+                        .scale(8)
+                        .comment("c_decimal_type_define")
+                        .build();
+
+        columnNotNull =
+                PhysicalColumn.builder()
+                        .name("c_decimal_not_null")
                         .sourceType(DataTypes.DECIMAL(30, 8).toString())
                         .nullable(false)
                         .dataType(dataType)
                         .columnLength(30L)
                         .defaultValue(3.0)
                         .scale(8)
-                        .comment("c_decimal_type_define")
+                        .comment("c_decimal_not_null")
                         .build();
     }
 
@@ -227,6 +241,12 @@ public class RowTypeConverterTest {
     public void seaTunnelColumnToPaimonDataType() {
         BasicTypeDefine<DataType> dataTypeDefine = RowTypeConverter.reconvert(column);
         isEquals(column, dataTypeDefine);
+        Assertions.assertTrue(dataTypeDefine.isNullable());
+        Assertions.assertTrue(dataTypeDefine.getNativeType().isNullable());
+        BasicTypeDefine<DataType> dataTypeDefineNotNull = RowTypeConverter.reconvert(columnNotNull);
+        isEquals(columnNotNull, dataTypeDefineNotNull);
+        Assertions.assertFalse(dataTypeDefineNotNull.isNullable());
+        Assertions.assertFalse(dataTypeDefineNotNull.getNativeType().isNullable());
     }
 
     private void isEquals(Column column, BasicTypeDefine<DataType> dataTypeDefine) {
