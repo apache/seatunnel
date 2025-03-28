@@ -263,6 +263,7 @@ public class MaxcomputeTypeMapper implements Serializable {
             case BOOLEAN:
             case DECIMAL:
             case TIMESTAMP_NTZ:
+            case DATE:
                 return field;
             case BINARY:
                 return new Binary((byte[]) field);
@@ -284,8 +285,6 @@ public class MaxcomputeTypeMapper implements Serializable {
             case DATETIME:
                 return Date.from(
                         ((LocalDateTime) field).atZone(ZoneId.systemDefault()).toInstant());
-            case DATE:
-                return Date.valueOf((LocalDate) field);
             default:
                 throw new MaxcomputeConnectorException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,

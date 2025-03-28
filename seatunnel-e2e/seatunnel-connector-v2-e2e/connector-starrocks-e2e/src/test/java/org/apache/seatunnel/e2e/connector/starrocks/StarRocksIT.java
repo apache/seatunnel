@@ -421,6 +421,13 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                         String.format(URL, starRocksServer.getHost()),
                         "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (\n ${rowtype_fields}\n ) ENGINE=OLAP \n  DUPLICATE KEY(`BIGINT_COL`) \n COMMENT '${comment}' \n DISTRIBUTED BY HASH (BIGINT_COL) BUCKETS 1 \n PROPERTIES (\n   \"replication_num\" = \"1\", \n  \"in_memory\" = \"false\" , \n  \"storage_format\" = \"DEFAULT\"  \n )");
         starRocksCatalog.open();
+
+        String tmpDB = "test_tmp";
+        if (!starRocksCatalog.databaseExists(tmpDB)) {
+            starRocksCatalog.createDatabase(TablePath.of(tmpDB, "default"), true);
+        }
+        Assertions.assertTrue(starRocksCatalog.listDatabases().contains(tmpDB));
+
         CatalogTable catalogTable = starRocksCatalog.getTable(tablePathStarRocksSource);
         catalogTable =
                 CatalogTable.of(
