@@ -292,7 +292,7 @@ public class LocalFileIT extends TestSuiteBase {
                         container);
                 ContainerUtil.copyFileIntoContainers(
                         "/csv/csv_with_header1.csv",
-                        "/seatunnel/read/csv/break_line/csv_with_header1.csv",
+                        "/seatunnel/read/csv/header/csv_with_header1.csv",
                         container);
                 ContainerUtil.copyFileIntoContainers(
                         "/csv/csv_with_header2.csv",
