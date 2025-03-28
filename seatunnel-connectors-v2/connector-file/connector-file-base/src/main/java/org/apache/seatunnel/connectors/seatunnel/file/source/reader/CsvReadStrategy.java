@@ -178,7 +178,6 @@ public class CsvReadStrategy extends AbstractReadStrategy {
         if (firstLineAsHeader) {
             headers =
                     csvParser.getHeaderNames().stream()
-                            .map(header -> header.replace("\"", "").replace("\uFEFF", "").trim())
                             .collect(Collectors.toList());
         } else {
             headers =
