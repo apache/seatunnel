@@ -76,11 +76,6 @@ public class HdfsFileSinkFactory implements TableSinkFactory {
                         FileBaseSinkOptions.XML_USE_ATTR_FORMAT,
                         FileBaseSinkOptions.XML_ROOT_TAG,
                         FileBaseSinkOptions.XML_ROW_TAG)
-                .conditional(
-                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
-                        FileFormat.EXCEL,
-                        FileBaseSinkOptions.MAX_ROWS_IN_MEMORY,
-                        FileBaseSinkOptions.SHEET_NAME)
                 .optional(FileBaseSinkOptions.CUSTOM_FILENAME)
                 .conditional(
                         FileBaseSinkOptions.CUSTOM_FILENAME,

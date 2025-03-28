@@ -70,11 +70,6 @@ public class LocalFileSourceFactory implements TableSourceFactory {
                         FileFormat.CSV,
                         FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
                 .conditional(
-                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
-                        FileFormat.EXCEL,
-                        FileBaseSourceOptions.SHEET_NAME,
-                        FileBaseSourceOptions.EXCEL_ENGINE)
-                .conditional(
                         LocalFileSourceOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
                                 FileFormat.TEXT,

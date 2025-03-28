@@ -253,13 +253,13 @@ public class FileBaseSinkOptions extends FileBaseOptions {
     public static final Option<Integer> MAX_ROWS_IN_MEMORY =
             Options.key("max_rows_in_memory")
                     .intType()
-                    .defaultValue(100)
+                    .noDefaultValue()
                     .withDescription("Max rows in memory,only valid for excel files");
 
     public static final Option<String> SHEET_NAME =
             Options.key("sheet_name")
                     .stringType()
-                    .defaultValue("Sheet1")
+                    .noDefaultValue()
                     .withDescription("To be written sheet name,only valid for excel files");
 
     public static final Option<String> XML_ROOT_TAG =

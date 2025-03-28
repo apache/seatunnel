@@ -67,10 +67,6 @@ public class SftpFileSourceFactory implements TableSourceFactory {
                         FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
-                        FileFormat.EXCEL,
-                        FileBaseSourceOptions.SHEET_NAME)
-                .conditional(
-                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
                                 FileFormat.TEXT,
                                 FileFormat.JSON,

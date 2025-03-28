@@ -68,11 +68,6 @@ public class ObsFileSinkFactory implements TableSinkFactory {
                         FileBaseSinkOptions.FILE_FORMAT_TYPE,
                         FileFormat.PARQUET,
                         FileBaseSinkOptions.PARQUET_COMPRESS)
-                .conditional(
-                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
-                        FileFormat.EXCEL,
-                        FileBaseSinkOptions.MAX_ROWS_IN_MEMORY,
-                        FileBaseSinkOptions.SHEET_NAME)
                 .optional(FileBaseSinkOptions.CUSTOM_FILENAME)
                 .conditional(
                         FileBaseSinkOptions.CUSTOM_FILENAME,
