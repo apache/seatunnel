@@ -176,9 +176,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
     private List<String> getHeaders(CSVParser csvParser) {
         List<String> headers;
         if (firstLineAsHeader) {
-            headers =
-                    csvParser.getHeaderNames().stream()
-                            .collect(Collectors.toList());
+            headers = csvParser.getHeaderNames().stream().collect(Collectors.toList());
         } else {
             headers =
                     inputCatalogTable.getTableSchema().getColumns().stream()
