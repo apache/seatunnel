@@ -482,4 +482,24 @@ public class OracleDialect implements JdbcDialect {
             return rs.getString("NULLABLE").equals("Y");
         }
     }
+
+    @Override
+    public String dualTable() {
+        return " FROM dual ";
+    }
+
+    @Override
+    public String getCollateSql(String collate) {
+        if (StringUtils.isNotBlank(collate)) {
+            StringBuilder sql = new StringBuilder();
+            sql.append("NLSSORT(")
+                    .append("char_val")
+                    .append(", 'NLS_SORT=")
+                    .append(collate)
+                    .append("')");
+            return sql.toString();
+        } else {
+            return "char_val";
+        }
+    }
 }
