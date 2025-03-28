@@ -111,6 +111,13 @@ public class CsvReadStrategy extends AbstractReadStrategy {
         try (BufferedReader reader =
                         new BufferedReader(new InputStreamReader(actualInputStream, encoding));
                 CSVParser csvParser = new CSVParser(reader, csvFormat); ) {
+            // test and skip `\uFEFF` BOM
+            reader.mark(1);
+            int firstChar = reader.read();
+            if (firstChar != 0xFEFF) {
+                reader.reset();
+            }
+            // skip lines
             for (int i = 0; i < skipHeaderNumber; i++) {
                 if (reader.readLine() == null) {
                     throw new IOException(
@@ -131,7 +138,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                     if (index == -1) {
                         continue;
                     }
-                    fieldIdValueMap.put(index, csvRecord.get(i).replace("\uFEFF", ""));
+                    fieldIdValueMap.put(index, csvRecord.get(i));
                 }
                 SeaTunnelRow seaTunnelRow = deserializationSchema.getSeaTunnelRow(fieldIdValueMap);
                 if (!readColumns.isEmpty()) {
