@@ -603,6 +603,53 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    public void testPostgresCdcWithDebeziumJsonFormat(TestContainer container) throws Exception {
+
+        try {
+            CompletableFuture.supplyAsync(
+                    () -> {
+                        try {
+                            container.executeJob(
+                                    "/postgrescdc_to_postgres_with_debezium_json_format.conf");
+                        } catch (Exception e) {
+                            log.error("Commit task exception :" + e.getMessage());
+                            throw new RuntimeException(e);
+                        }
+                        return null;
+                    });
+
+            // snapshot stage
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        query(
+                                                getQuerySQL(
+                                                        POSTGRESQL_SCHEMA,
+                                                        SOURCE_TABLE_NO_PRIMARY_KEY)),
+                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE_1)));
+                            });
+
+            // insert update delete
+            upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY);
+
+            // stream stage
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        query(
+                                                getQuerySQL(
+                                                        POSTGRESQL_SCHEMA,
+                                                        SOURCE_TABLE_NO_PRIMARY_KEY)),
+                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE_1)));
+                            });
+        } finally {
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY);
+            clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
+        }
+    }
+
     @Test
     public void testDialectCheckDisabledCDCTable() throws SQLException {
         JdbcSourceConfigFactory factory =
