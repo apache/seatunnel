@@ -103,8 +103,8 @@ public class CsvReadStrategy extends AbstractReadStrategy {
 
         CSVFormat csvFormat = CSVFormat.DEFAULT;
         try (BufferedReader reader =
-                     new BufferedReader(new InputStreamReader(actualInputStream, encoding));
-             CSVParser csvParser = new CSVParser(reader, csvFormat); ) {
+                        new BufferedReader(new InputStreamReader(actualInputStream, encoding));
+                CSVParser csvParser = new CSVParser(reader, csvFormat); ) {
             for (int i = 0; i < skipHeaderNumber; i++) {
                 if (reader.readLine() == null) {
                     throw new IOException(
