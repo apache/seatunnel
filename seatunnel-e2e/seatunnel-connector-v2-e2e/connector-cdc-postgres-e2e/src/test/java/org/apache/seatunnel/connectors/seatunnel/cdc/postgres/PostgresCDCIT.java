@@ -603,6 +603,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    @Test
     public void testPostgresCdcWithDebeziumJsonFormat(TestContainer container) throws Exception {
 
         try {
