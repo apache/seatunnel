@@ -2,11 +2,11 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Fix] [Clickhouse] Parallelism makes data duplicate (#8916)|https://github.com/apache/seatunnel/commit/45345f2738| dev |
-|[Fix][Connector-V2]Fix Descriptions for CUSTOM_SQL in Connector (#8778)|https://github.com/apache/seatunnel/commit/96b610eb7e| dev |
-|[improve] update clickhouse connector config option (#8755)|https://github.com/apache/seatunnel/commit/b964189b75| dev |
-|[Fix][Connector-V2] fix starRocks automatically creates tables with comment (#8568)|https://github.com/apache/seatunnel/commit/c4cb1fc4a3| dev |
-|[Fix][Connector-V2] Fixed adding table comments (#8514)|https://github.com/apache/seatunnel/commit/edca75b0d6| dev |
+|[Fix] [Clickhouse] Parallelism makes data duplicate (#8916)|https://github.com/apache/seatunnel/commit/45345f2738|2.3.10|
+|[Fix][Connector-V2]Fix Descriptions for CUSTOM_SQL in Connector (#8778)|https://github.com/apache/seatunnel/commit/96b610eb7e|2.3.10|
+|[improve] update clickhouse connector config option (#8755)|https://github.com/apache/seatunnel/commit/b964189b75|2.3.10|
+|[Fix][Connector-V2] fix starRocks automatically creates tables with comment (#8568)|https://github.com/apache/seatunnel/commit/c4cb1fc4a3|2.3.10|
+|[Fix][Connector-V2] Fixed adding table comments (#8514)|https://github.com/apache/seatunnel/commit/edca75b0d6|2.3.10|
 |[hotfix] fix exceptions caused by operator priority in connector-clickhouse when using sharding_key (#8162)|https://github.com/apache/seatunnel/commit/5560e3dab2|2.3.9|
 |[Imporve][ClickhouseFile] Directly connect to each shard node to obtain the corresponding path (#8449)|https://github.com/apache/seatunnel/commit/757641bada|2.3.9|
 |[Feature][ClickhouseFile] Support add publicKey to identity (#8351)|https://github.com/apache/seatunnel/commit/287b8c8219|2.3.9|

@@ -2,7 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|2.3.9|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|2.3.9|
 |[Improve][API] Make sure the table name in TablePath not be null (#7252)|https://github.com/apache/seatunnel/commit/764d8b0bc8|2.3.7|

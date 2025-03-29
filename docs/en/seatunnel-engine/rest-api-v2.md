@@ -1,7 +1,3 @@
----
-sidebar_position: 12
----
-
 # RESTful API V2
 
 SeaTunnel has a monitoring API that can be used to query status and statistics of running jobs, as well as recent
@@ -36,6 +32,10 @@ seatunnel:
       port: 8080
       context-path: /seatunnel
 ```
+
+## Enable HTTPS
+
+Please refer [security](security.md)
 
 ## API reference
 
