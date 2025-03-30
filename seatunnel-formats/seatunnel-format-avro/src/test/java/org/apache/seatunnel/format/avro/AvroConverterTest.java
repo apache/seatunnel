@@ -66,13 +66,16 @@ class AvroConverterTest {
         subSeaTunnelRow.setField(12, bigDecimal);
         subSeaTunnelRow.setField(13, localDateTime);
 
+        Map<String, Short> mapData = new HashMap<>();
+        mapData.put("k1", Short.valueOf("1"));
+        mapData.put("k2", Short.valueOf("2"));
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(15);
-        seaTunnelRow.setField(0, map);
+        seaTunnelRow.setField(0, mapData);
         seaTunnelRow.setField(1, strArray);
         seaTunnelRow.setField(2, "strVal");
         seaTunnelRow.setField(3, true);
-        seaTunnelRow.setField(4, 1);
-        seaTunnelRow.setField(5, 2);
+        seaTunnelRow.setField(4, new Byte("1"));
+        seaTunnelRow.setField(5, Short.valueOf("2"));
         seaTunnelRow.setField(6, 3);
         seaTunnelRow.setField(7, Long.MAX_VALUE - 1);
         seaTunnelRow.setField(8, 33.333F);
@@ -138,12 +141,12 @@ class AvroConverterTest {
             "c_row"
         };
         SeaTunnelDataType<?>[] fieldTypes = {
-            new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE),
+            new MapType<>(BasicType.STRING_TYPE, BasicType.SHORT_TYPE),
             ArrayType.STRING_ARRAY_TYPE,
             BasicType.STRING_TYPE,
             BasicType.BOOLEAN_TYPE,
-            BasicType.INT_TYPE,
-            BasicType.INT_TYPE,
+            BasicType.BYTE_TYPE,
+            BasicType.SHORT_TYPE,
             BasicType.INT_TYPE,
             BasicType.LONG_TYPE,
             BasicType.FLOAT_TYPE,

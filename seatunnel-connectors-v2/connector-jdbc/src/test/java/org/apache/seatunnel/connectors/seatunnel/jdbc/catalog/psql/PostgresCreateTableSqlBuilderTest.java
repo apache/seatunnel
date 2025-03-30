@@ -52,9 +52,10 @@ class PostgresCreateTableSqlBuilderTest {
                                             catalogTable.getTableId().toTablePath());
                             String pattern =
                                     "CREATE TABLE \"test\" \\(\n"
-                                            + "\"id\" int4 NOT NULL PRIMARY KEY,\n"
+                                            + "\"id\" int4 NOT NULL,\n"
                                             + "\"name\" text NOT NULL,\n"
                                             + "\"age\" int4 NOT NULL,\n"
+                                            + "\tCONSTRAINT \"([a-zA-Z0-9]+)\" PRIMARY KEY \\(\"id\",\"name\"\\),\n"
                                             + "\tCONSTRAINT \"([a-zA-Z0-9]+)\" UNIQUE \\(\"name\"\\)\n"
                                             + "\\);";
                             Assertions.assertTrue(
@@ -142,7 +143,7 @@ class PostgresCreateTableSqlBuilderTest {
         TableSchema tableSchema =
                 TableSchema.builder()
                         .columns(columns)
-                        .primaryKey(PrimaryKey.of("pk_id", Lists.newArrayList("id")))
+                        .primaryKey(PrimaryKey.of("pk_id_name", Lists.newArrayList("id", "name")))
                         .constraintKey(
                                 Lists.newArrayList(
                                         ConstraintKey.of(

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-clickhouse.md';
+
 # Clickhouse
 
 > Clickhouse sink connector
@@ -61,6 +63,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | allow_experimental_lightweight_delete | Boolean | No       | false   | Allow experimental lightweight delete based on `*MergeTree` table engine.                                                                                                                                                                                                                                   |
 | schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema save mode. Please refer to the `schema_save_mode` section below.                                                                                       |
 | data_save_mode                 | Enum    | no       | APPEND_DATA                  | Data save mode. Please refer to the `data_save_mode` section below.                                                                                         |
+| custom_sql                  | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.        |
 | save_mode_create_template      | string  | no       | see below                    | See below.                                                                                                                                                  |
 | common-options                        |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.                                                                                                                                                                                                |
 
@@ -96,7 +99,8 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
 ORDER BY (${rowtype_primary_key})
 PRIMARY KEY (${rowtype_primary_key})
 SETTINGS
-    index_granularity = 8192;
+    index_granularity = 8192
+COMMENT '${comment}';
 ```
 
 If custom fields are added to the template, for example, adding an `id` field:
@@ -109,7 +113,8 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
     ORDER BY (${rowtype_primary_key})
     PRIMARY KEY (${rowtype_primary_key})
     SETTINGS
-    index_granularity = 8192;
+    index_granularity = 8192
+COMMENT '${comment}';
 ```
 
 The connector will automatically retrieve the corresponding types from the upstream source and fill in the template, removing the `id` field from the `rowtype_fields`. This method can be used to modify custom field types and attributes.
@@ -121,6 +126,7 @@ The following placeholders can be used:
 - `rowtype_fields`: Retrieves all fields from the upstream schema and automatically maps them to Clickhouse field descriptions.
 - `rowtype_primary_key`: Retrieves the primary key from the upstream schema (this may be a list).
 - `rowtype_unique_key`: Retrieves the unique key from the upstream schema (this may be a list).
+- `comment`: Retrieves the table comment from the upstream schema.
 
 ## How to Create a Clickhouse Data Synchronization Jobs
 
@@ -239,3 +245,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

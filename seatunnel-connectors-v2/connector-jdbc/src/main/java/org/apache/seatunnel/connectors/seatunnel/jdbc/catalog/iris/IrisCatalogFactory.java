@@ -51,7 +51,8 @@ public class IrisCatalogFactory implements CatalogFactory {
                 catalogName,
                 options.get(JdbcCatalogOptions.USERNAME),
                 options.get(JdbcCatalogOptions.PASSWORD),
-                urlInfo);
+                urlInfo,
+                options.get(JdbcCatalogOptions.DRIVER));
     }
 
     @Override

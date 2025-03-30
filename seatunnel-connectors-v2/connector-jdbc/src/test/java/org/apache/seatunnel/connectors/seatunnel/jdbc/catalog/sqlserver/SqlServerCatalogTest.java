@@ -66,9 +66,10 @@ class SqlServerCatalogTest {
         tablePathMySql = TablePath.of(databaseName, schemaName, "mysql_to_sqlserver");
         tablePathPG = TablePath.of(databaseName, schemaName, "pg_to_sqlserver");
         tablePathOracle = TablePath.of(databaseName, schemaName, "oracle_to_sqlserver");
-        sqlServerCatalog = new SqlServerCatalog("sqlserver", "sa", "root@123", sqlParse, null);
-        mySqlCatalog = new MySqlCatalog("mysql", "root", "root@123", MysqlUrlInfo);
-        postgresCatalog = new PostgresCatalog("postgres", "postgres", "postgres", pg, null);
+        sqlServerCatalog =
+                new SqlServerCatalog("sqlserver", "sa", "root@123", sqlParse, null, null);
+        mySqlCatalog = new MySqlCatalog("mysql", "root", "root@123", MysqlUrlInfo, null);
+        postgresCatalog = new PostgresCatalog("postgres", "postgres", "postgres", pg, null, null);
         mySqlCatalog.open();
         sqlServerCatalog.open();
         postgresCatalog.open();

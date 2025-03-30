@@ -19,13 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.assertion.rule;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.SeaTunnelDataTypeConvertorUtil;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 
 import java.util.List;
@@ -91,25 +91,24 @@ public class AssertCatalogTableRuleParser {
                                             TypesafeConfigUtils.getConfig(
                                                     config,
                                                     COLUMN_LENGTH,
-                                                    TableSchemaOptions.ColumnOptions.COLUMN_LENGTH
+                                                    ConnectorCommonOptions.COLUMN_LENGTH
                                                             .defaultValue());
                                     Boolean nullable =
                                             TypesafeConfigUtils.getConfig(
                                                     config,
                                                     COLUMN_NULLABLE,
-                                                    TableSchemaOptions.ColumnOptions.NULLABLE
-                                                            .defaultValue());
+                                                    ConnectorCommonOptions.NULLABLE.defaultValue());
                                     Object object =
                                             TypesafeConfigUtils.getConfig(
                                                     config,
                                                     COLUMN_DEFAULT_VALUE,
-                                                    TableSchemaOptions.ColumnOptions.DEFAULT_VALUE
+                                                    ConnectorCommonOptions.DEFAULT_VALUE
                                                             .defaultValue());
                                     String comment =
                                             TypesafeConfigUtils.getConfig(
                                                     config,
                                                     COLUMN_COMMENT,
-                                                    TableSchemaOptions.ColumnOptions.COMMENT
+                                                    ConnectorCommonOptions.COLUMN_COMMENT
                                                             .defaultValue());
                                     return PhysicalColumn.of(
                                             name,

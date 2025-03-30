@@ -31,6 +31,6 @@ public class MDCExecutor implements Executor {
 
     @Override
     public void execute(Runnable command) {
-        delegate.execute(new MDCRunnable(context, command));
+        delegate.execute(new MDCRunnable(MDCContext.of(context), command));
     }
 }

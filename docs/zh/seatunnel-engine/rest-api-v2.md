@@ -1,7 +1,3 @@
----
-sidebar_position: 12
----
-
 # RESTful API V2
 
 SeaTunnel有一个用于监控的API，可用于查询运行作业的状态和统计信息，以及最近完成的作业。监控API是RESTful风格的，它接受HTTP请求并使用JSON数据格式进行响应。
@@ -35,6 +31,10 @@ seatunnel:
       context-path: /seatunnel
 ```
 
+## 开启 HTTPS
+
+请参考 [security](security.md)
+
 ## API参考
 
 ### 返回Zeta集群的概览
@@ -52,7 +52,7 @@ seatunnel:
 
 ```json
 {
-    "projectVersion":"2.3.5-SNAPSHOT",
+    "projectVersion":"2.3.10-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
@@ -463,7 +463,40 @@ sink {
 </details>
 
 ------------------------------------------------------------------------------------------
+### 提交作业来源上传配置文件
 
+<details>
+<summary><code>POST</code> <code><b>/submit-job</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
+
+#### 参数
+
+> |         参数名称         |   是否必传   |  参数类型  | 参数描述                              |
+> |----------------------|----------|-----------------------------------|-----------------------------------|
+> | jobId                | optional | string | job id                            |
+> | jobName              | optional | string | job name                          |
+> | isStartWithSavePoint | optional | string | if job is started with save point |
+
+#### 请求体
+上传文件key的名称是config_file,文件后缀json的按照json格式来解析,conf或config文件后缀按照hocon格式解析
+
+curl Example
+
+```
+curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"/temp/fake_to_console.conf"'
+
+```
+#### 响应
+
+```json
+{
+    "jobId": 733584788375666689,
+    "jobName": "SeaTunnel_Job"
+}
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
 
 ### 批量提交作业
 

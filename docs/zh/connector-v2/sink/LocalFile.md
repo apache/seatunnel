@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-local.md';
+
 # LocalFile
 
 > 本地文件接收器
@@ -32,7 +34,7 @@
 
 ## 选项
 
-|                  名称                   |   类型    | 是否必需 |                    默认值                     |                               描述                                |
+| 名称                                    | 类型      | 是否必需 | 默认值                                        | 描述                                                              |
 |---------------------------------------|---------|------|--------------------------------------------|-----------------------------------------------------------------|
 | path                                  | string  | 是    | -                                          | 目标目录路径                                                          |
 | tmp_path                              | string  | 否    | /tmp/seatunnel                             | 结果文件将首先写入临时路径，然后使用 `mv` 将临时目录提交到目标目录。                           |
@@ -40,8 +42,9 @@
 | file_name_expression                  | string  | 否    | "${transactionId}"                         | 仅在 custom_filename 为 true 时使用                                   |
 | filename_time_format                  | string  | 否    | "yyyy.MM.dd"                               | 仅在 custom_filename 为 true 时使用                                   |
 | file_format_type                      | string  | 否    | "csv"                                      | 文件格式类型                                                          |
+| filename_extension                    | string  | 否    | -                                          | 使用自定义的文件扩展名覆盖默认的文件扩展名。 例如：`.xml`, `.json`, `dat`, `.customtype` |
 | field_delimiter                       | string  | 否    | '\001'                                     | 仅在 file_format_type 为 text 时使用                                  |
-| row_delimiter                         | string  | 否    | "\n"                                       | 仅在 file_format_type 为 text 时使用                                  |
+| row_delimiter                         | string  | 否    | "\n"                                       | 仅在 file_format_type 为 `text`、`csv`、`json` 时使用                                  |
 | have_partition                        | boolean | 否    | false                                      | 是否需要处理分区                                                        |
 | partition_by                          | array   | 否    | -                                          | 仅在 have_partition 为 true 时使用                                    |
 | partition_dir_expression              | string  | 否    | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | 仅在 have_partition 为 true 时使用                                    |
@@ -49,10 +52,13 @@
 | sink_columns                          | array   | 否    |                                            | 当此参数为空时，所有字段都是 sink 列                                           |
 | is_enable_transaction                 | boolean | 否    | true                                       | 是否启用事务                                                          |
 | batch_size                            | int     | 否    | 1000000                                    | 批量大小                                                            |
+| single_file_mode                      | boolean | 否    | false                                      | 每个并行度只会输出一个文件，当此参数开启时，batch_size就不会生效。输出的文件名没有文件块后缀。            |
+| create_empty_file_when_no_data        | boolean | 否    | false                                      | 当上游没有数据同步时，依然生成对应的数据文件。                                         |
 | compress_codec                        | string  | 否    | none                                       | 压缩编码                                                            |
 | common-options                        | object  | 否    | -                                          | 常见选项                                                            |
 | max_rows_in_memory                    | int     | 否    | -                                          | 仅在 file_format_type 为 excel 时使用                                 |
 | sheet_name                            | string  | 否    | Sheet${随机数}                                | 仅在 file_format_type 为 excel 时使用                                 |
+| csv_string_quote_mode                 | enum    | 否    | MINIMAL                                    | 仅在文件格式为 CSV 时使用。                                                |
 | xml_root_tag                          | string  | 否    | RECORDS                                    | 仅在 file_format 为 xml 时使用                                        |
 | xml_row_tag                           | string  | 否    | RECORD                                     | 仅在 file_format 为 xml 时使用                                        |
 | xml_use_attr_format                   | boolean | 否    | -                                          | 仅在 file_format 为 xml 时使用                                        |
@@ -106,7 +112,7 @@
 
 ### row_delimiter [string]
 
-文件中行之间的分隔符。仅在 `text` 文件格式下需要。
+文件中行之间的分隔符。仅在 `text`、`csv`、`json` 文件格式下需要。
 
 ### have_partition [boolean]
 
@@ -173,6 +179,14 @@ Sink 插件的常见参数，请参阅 [Sink 常见选项](../sink-common-option
 ### sheet_name [string]
 
 工作簿的表名。
+
+### csv_string_quote_mode [string]
+
+当文件格式为 CSV 时，CSV 的字符串引号模式。
+
+- ALL：所有字符串字段都会加引号。
+- MINIMAL：仅为包含特殊字符（如字段分隔符、引号字符或行分隔符字符串中的任何字符）的字段加引号。
+- NONE：从不为字段加引号。当数据中包含分隔符时，输出会在前面加上转义字符。如果未设置转义字符，则格式验证会抛出异常。
 
 ### xml
 
@@ -293,24 +307,6 @@ LocalFile {
 
 ```
 
-## 更新日志
+## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 新增本地文件接收器
-
-### 2.3.0-beta 2022-10-20
-
-- [BugFix] 修复了 Windows 环境中路径错误的 bug ([2980](https://github.com/apache/seatunnel/pull/2980))
-- [BugFix] 修复了文件系统获取错误 ([3117](https://github.com/apache/seatunnel/pull/3117))
-- [BugFix] 解决了无法解析 '\t' 作为配置文件分隔符的 bug ([3083](https://github.com/apache/seatunnel/pull/3083))
-
-### 下一个版本
-
-- [BugFix] 修复了以下导致数据写入文件失败的 bug ([3258](https://github.com/apache/seatunnel/pull/3258))
-  - 当上游字段为 null 时会抛出 NullPointerException
-  - Sink 列映射失败
-  - 从状态恢复 writer 时直接获取事务失败
-- [Improve] 支持为每个文件设置批量大小 ([3625](https://github.com/apache/seatunnel/pull/3625))
-- [Improve] 支持文件压缩 ([3899](https://github.com/apache/seatunnel/pull/3899))
-
+<ChangeLog />

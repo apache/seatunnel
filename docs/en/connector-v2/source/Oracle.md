@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # Oracle
 
 > JDBC Oracle Source Connector
@@ -11,18 +13,6 @@ Read external data source data through JDBC.
 > Spark<br/>
 > Flink<br/>
 > SeaTunnel Zeta<br/>
-
-## Using Dependency
-
-### For Spark/Flink Engine
-
-> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
-> 2. To support the i18n character set, copy the `orai18n.jar` to the `$SEATUNNEL_HOME/plugins/` directory.
-
-### For SeaTunnel Zeta Engine
-
-> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
-> 2. To support the i18n character set, copy the `orai18n.jar` to the `$SEATUNNEL_HOME/lib/` directory.
 
 ## Key Features
 
@@ -43,9 +33,15 @@ Read external data source data through JDBC.
 
 ## Database Dependency
 
-> Please download the support list corresponding to 'Maven' and copy it to the '$SEATUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
-> For example Oracle datasource: cp ojdbc8-xxxxxx.jar $SEATUNNEL_HOME/lib/<br/>
-> To support the i18n character set, copy the orai18n.jar to the $SEATUNNEL_HOME/lib/ directory.
+### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+> 2. To support the i18n character set, copy the `orai18n.jar` to the `$SEATUNNEL_HOME/plugins/` directory.
+
+### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
+> 2. To support the i18n character set, copy the `orai18n.jar` to the `$SEATUNNEL_HOME/lib/` directory.
 
 ## Data Type Mapping
 
@@ -330,3 +326,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

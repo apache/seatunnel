@@ -202,6 +202,16 @@ public class DorisIT extends AbstractDorisIT {
         checkAllTypeSinkData();
     }
 
+    @TestTemplate
+    public void testNoSchemaDoris(TestContainer container)
+            throws IOException, InterruptedException {
+        initializeJdbcTable();
+        batchInsertUniqueTableData();
+        Container.ExecResult execResult1 = container.executeJob("/doris_source_no_schema.conf");
+        Assertions.assertEquals(0, execResult1.getExitCode());
+        checkSinkData();
+    }
+
     private void checkAllTypeSinkData() {
         try {
             assertHasData(sourceDB, DUPLICATE_TABLE);
@@ -412,6 +422,7 @@ public class DorisIT extends AbstractDorisIT {
                 // create source and sink table
                 statement.execute(createUniqueTableForTest(sourceDB));
                 statement.execute(createDuplicateTableForTest(sourceDB));
+                log.info("create source and sink table succeed");
             } catch (SQLException e) {
                 throw new RuntimeException("Initializing table failed!", e);
             }

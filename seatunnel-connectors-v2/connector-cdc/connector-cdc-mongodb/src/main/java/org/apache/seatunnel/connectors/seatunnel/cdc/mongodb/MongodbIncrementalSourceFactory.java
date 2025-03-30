@@ -17,16 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mongodb;
 
-import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
@@ -61,7 +60,7 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
                         MongodbSourceOptions.HOSTS,
                         MongodbSourceOptions.DATABASE,
                         MongodbSourceOptions.COLLECTION)
-                .exclusive(TableSchemaOptions.SCHEMA, TableSchemaOptions.TABLE_CONFIGS)
+                .exclusive(ConnectorCommonOptions.SCHEMA, ConnectorCommonOptions.TABLE_CONFIGS)
                 .optional(
                         MongodbSourceOptions.USERNAME,
                         MongodbSourceOptions.PASSWORD,
@@ -134,8 +133,8 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
     }
 
     private List<CatalogTable> buildWithConfig(ReadonlyConfig config) {
-        String factoryId = config.get(CommonOptions.PLUGIN_NAME).replace("-CDC", "");
-        Map<String, Object> schemaMap = config.get(TableSchemaOptions.SCHEMA);
+        String factoryId = config.get(ConnectorCommonOptions.PLUGIN_NAME).replace("-CDC", "");
+        Map<String, Object> schemaMap = config.get(ConnectorCommonOptions.SCHEMA);
         if (schemaMap != null) {
             if (schemaMap.isEmpty()) {
                 throw new SeaTunnelException("Schema config can not be empty");
@@ -143,7 +142,7 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
             CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(factoryId, config);
             return Collections.singletonList(catalogTable);
         }
-        List<Map<String, Object>> schemaMaps = config.get(TableSchemaOptions.TABLE_CONFIGS);
+        List<Map<String, Object>> schemaMaps = config.get(ConnectorCommonOptions.TABLE_CONFIGS);
         if (schemaMaps != null) {
             if (schemaMaps.isEmpty()) {
                 throw new SeaTunnelException("tables_configs can not be empty");

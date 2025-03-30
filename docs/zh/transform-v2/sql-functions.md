@@ -386,6 +386,27 @@ ABS(I)
 
 ACOS(D)
 
+### ARRAY_MAX
+
+```ARRAY_MAX(ARRAY)```
+
+MAX 函数返回表达式的最大值。
+
+示例:
+
+ARRAY_MAX(I)
+
+### ARRAY_MIN
+
+```ARRAY_MIN(ARRAY)```
+
+MIN 函数返回表达式的最小值。
+
+示例:
+
+ARRAY_MIN(I)
+
+
 ### ASIN
 
 ```ASIN(numeric)```
@@ -987,17 +1008,14 @@ select UUID() as seatunnel_uuid
 
 ### ARRAY
 
-生成一个数组。
+```ARRAY<T> array(T, ...)```
+创建一个由可变参数元素组成的数组并返回它。这里，T 可以是“列”或“常量”。。
 
 示例:
 
-SELECT Array('c_1','c_2') as string_array,
-       Array(1.23,2.34) as double_array,
-       Array(1,2) as int_array,
-       Array(2147483648,2147483649) as long_array,
-       Array(1.23,2147483648) as double_array_1,
-       Array(1.23,2147483648,'c_1') as string_array_1
-FROM fake
+select ARRAY(1,2,3) as arrays
+select ARRAY('c_1',2,3.12) as arrays
+select ARRAY(column1,column2,column3) as arrays
 
 注意：目前仅支持string、double、long、int几种类型
 

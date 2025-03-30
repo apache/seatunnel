@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode;
@@ -53,8 +52,8 @@ public class StarRocksStreamLoadVisitor {
     private static final String RESULT_FAILED = "Fail";
     private static final String RESULT_SUCCESS = "Success";
     private static final String RESULT_LABEL_EXISTED = "Label Already Exists";
-    private static final String LAEBL_STATE_VISIBLE = "VISIBLE";
-    private static final String LAEBL_STATE_COMMITTED = "COMMITTED";
+    private static final String LABEL_STATE_VISIBLE = "VISIBLE";
+    private static final String LABEL_STATE_COMMITTED = "COMMITTED";
     private static final String RESULT_LABEL_PREPARE = "PREPARE";
     private static final String RESULT_LABEL_ABORTED = "ABORTED";
     private static final String RESULT_LABEL_UNKNOWN = "UNKNOWN";
@@ -71,7 +70,7 @@ public class StarRocksStreamLoadVisitor {
         String host = getAvailableHost();
         if (null == host) {
             throw new StarRocksConnectorException(
-                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    StarRocksConnectorErrorCode.HOST_IS_NULL,
                     "None of the host in `load_url` could be connected.");
         }
         String loadUrl =
@@ -226,8 +225,8 @@ public class StarRocksStreamLoadVisitor {
                 }
                 LOG.info(String.format("Checking label[%s] state[%s]\n", label, labelState));
                 switch (labelState) {
-                    case LAEBL_STATE_VISIBLE:
-                    case LAEBL_STATE_COMMITTED:
+                    case LABEL_STATE_VISIBLE:
+                    case LABEL_STATE_COMMITTED:
                         return;
                     case RESULT_LABEL_PREPARE:
                         continue;

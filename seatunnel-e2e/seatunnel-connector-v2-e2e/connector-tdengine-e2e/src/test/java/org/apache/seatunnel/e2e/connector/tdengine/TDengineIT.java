@@ -109,7 +109,7 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
         try (Statement stmt = connection1.createStatement()) {
             stmt.execute("CREATE DATABASE power KEEP 3650");
             stmt.execute(
-                    "CREATE STABLE power.meters (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT, off BOOL) "
+                    "CREATE STABLE power.meters (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT, off BOOL, nc NCHAR(10)) "
                             + "TAGS (location BINARY(64), groupId INT)");
             String sql = getSQL();
             rowCount = stmt.executeUpdate(sql);
@@ -117,7 +117,7 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
         try (Statement stmt = connection2.createStatement()) {
             stmt.execute("CREATE DATABASE power2 KEEP 3650");
             stmt.execute(
-                    "CREATE STABLE power2.meters2 (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT, off BOOL) "
+                    "CREATE STABLE power2.meters2 (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT, off BOOL, nc NCHAR(10)) "
                             + "TAGS (location BINARY(64), groupId INT)");
         }
         return rowCount;
@@ -210,6 +210,8 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
                     .append(ps[4])
                     .append(",") // off
                     .append(ps[7])
+                    .append(",") // nc
+                    .append(ps[8])
                     .append(") "); // phase
         }
         return sb.toString();
@@ -217,13 +219,13 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
 
     private static List<String> getRawData() {
         return Arrays.asList(
-                "d1001,2018-10-03 14:38:05.000,10.30000,219,0.31000,'California.SanFrancisco',2,true",
-                "d1001,2018-10-03 14:38:15.000,12.60000,218,0.33000,'California.SanFrancisco',2,false",
-                "d1001,2018-10-03 14:38:16.800,12.30000,221,0.31000,'California.SanFrancisco',2,true",
-                "d1002,2018-10-03 14:38:16.650,10.30000,218,0.25000,'California.SanFrancisco',3,true",
-                "d1003,2018-10-03 14:38:05.500,11.80000,221,0.28000,'California.LosAngeles',2,true",
-                "d1003,2018-10-03 14:38:16.600,13.40000,223,0.29000,'California.LosAngeles',2,true",
-                "d1004,2018-10-03 14:38:05.000,10.80000,223,0.29000,'California.LosAngeles',3,true",
-                "d1004,2018-10-03 14:38:06.500,11.50000,221,0.35000,'California.LosAngeles',3,false");
+                "d1001,2018-10-03 14:38:05.000,10.30000,219,0.31000,'California.SanFrancisco',2,true,'nc'",
+                "d1001,2018-10-03 14:38:15.000,12.60000,218,0.33000,'California.SanFrancisco',2,false,'nc'",
+                "d1001,2018-10-03 14:38:16.800,12.30000,221,0.31000,'California.SanFrancisco',2,true,'nc'",
+                "d1002,2018-10-03 14:38:16.650,10.30000,218,0.25000,'California.SanFrancisco',3,true,'nc'",
+                "d1003,2018-10-03 14:38:05.500,11.80000,221,0.28000,'California.LosAngeles',2,true,'nc'",
+                "d1003,2018-10-03 14:38:16.600,13.40000,223,0.29000,'California.LosAngeles',2,true,'nc'",
+                "d1004,2018-10-03 14:38:05.000,10.80000,223,0.29000,'California.LosAngeles',3,true,'nc'",
+                "d1004,2018-10-03 14:38:06.500,11.50000,221,0.35000,'California.LosAngeles',3,false,'nc'");
     }
 }

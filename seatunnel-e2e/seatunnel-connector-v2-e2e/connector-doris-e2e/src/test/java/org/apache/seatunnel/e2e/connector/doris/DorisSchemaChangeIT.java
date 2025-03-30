@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.doris;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatabase;
@@ -80,7 +78,9 @@ public class DorisSchemaChangeIT extends AbstractDorisIT {
     private static final String PROJECTION_QUERY =
             "select id,name,description,weight,add_column1,add_column2,add_column3 from %s.%s order by id;";
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
-    private final UniqueDatabase shopDatabase = new UniqueDatabase(MYSQL_CONTAINER, DATABASE);
+    private final UniqueDatabase shopDatabase =
+            new UniqueDatabase(
+                    MYSQL_CONTAINER, DATABASE, MYSQL_USER_NAME, MYSQL_USER_PASSWORD, DATABASE);
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
@@ -107,7 +107,6 @@ public class DorisSchemaChangeIT extends AbstractDorisIT {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger("mysql-docker-image")));
-        mySqlContainer.setPortBindings(Lists.newArrayList(String.format("%s:%s", 3306, 3306)));
         return mySqlContainer;
     }
 

@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
@@ -39,7 +38,7 @@ public class IoTDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private final SeaTunnelRowSerializer serializer;
     private final IoTDBSinkClient sinkClient;
 
-    public IoTDBSinkWriter(Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
+    public IoTDBSinkWriter(ReadonlyConfig pluginConfig, SeaTunnelRowType seaTunnelRowType) {
         SinkConfig sinkConfig = SinkConfig.loadConfig(pluginConfig);
         this.serializer =
                 new DefaultSeaTunnelRowSerializer(

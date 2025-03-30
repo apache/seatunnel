@@ -23,6 +23,7 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
@@ -39,7 +40,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -199,7 +199,13 @@ public class PhysicalPlan {
             return;
         }
 
-        updateJobState(JobStatus.CANCELING);
+        if (runningJobStateIMap.get(jobId) == JobStatus.PENDING) {
+            // The pending task needs to be directly set to 'cancelled' status because it has not
+            // started running yet
+            updateJobState(JobStatus.CANCELED);
+        } else {
+            updateJobState(JobStatus.CANCELING);
+        }
     }
 
     public void savepointJob() {

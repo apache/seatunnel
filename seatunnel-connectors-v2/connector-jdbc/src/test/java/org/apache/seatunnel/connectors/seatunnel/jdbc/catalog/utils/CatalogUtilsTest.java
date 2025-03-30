@@ -52,7 +52,7 @@ public class CatalogUtilsTest {
     }
 
     @Test
-    void testGetCommentWithJdbcDialectTypeMapper() throws SQLException {
+    void testGetTableCommentWithJdbcDialectTypeMapper() throws SQLException {
         TableSchema tableSchema =
                 CatalogUtils.getTableSchema(
                         new TestDatabaseMetaData(),

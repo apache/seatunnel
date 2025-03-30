@@ -34,6 +34,13 @@ public class BaseSourceConfigOptions {
                     .withDescription(
                             "File format type, e.g. json, csv, text, parquet, orc, avro....");
 
+    public static final Option<String> FILENAME_EXTENSION =
+            Options.key("filename_extension")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.");
+
     public static final Option<String> FILE_PATH =
             Options.key("path")
                     .stringType()
@@ -122,6 +129,13 @@ public class BaseSourceConfigOptions {
                     .defaultValue(0L)
                     .withDescription("The number of rows to skip");
 
+    public static final Option<Boolean> CSV_USE_HEADER_LINE =
+            Options.key("csv_use_header_line")
+                    .booleanType()
+                    .defaultValue(Boolean.FALSE)
+                    .withDescription(
+                            "whether to use the header line to parse the file, only used when the file_format is csv");
+
     public static final Option<List<String>> READ_PARTITIONS =
             Options.key("read_partitions")
                     .listType()
@@ -139,6 +153,12 @@ public class BaseSourceConfigOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("To be read sheet name,only valid for excel files");
+
+    public static final Option<ExcelEngine> EXCEL_ENGINE =
+            Options.key("excel_engine")
+                    .enumType(ExcelEngine.class)
+                    .defaultValue(ExcelEngine.POI)
+                    .withDescription("To switch excel read engine,  e.g. POI , EasyExcel");
 
     public static final Option<String> XML_ROW_TAG =
             Options.key("xml_row_tag")

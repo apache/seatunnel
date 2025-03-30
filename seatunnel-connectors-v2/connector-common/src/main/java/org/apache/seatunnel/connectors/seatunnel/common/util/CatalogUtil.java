@@ -30,6 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -43,6 +44,7 @@ public abstract class CatalogUtil {
             String database,
             String table,
             TableSchema tableSchema,
+            String comment,
             String optionsKey) {
         String primaryKey = "";
         if (tableSchema.getPrimaryKey() != null) {
@@ -101,7 +103,12 @@ public abstract class CatalogUtil {
         return template.replaceAll(SaveModePlaceHolder.DATABASE.getReplacePlaceHolder(), database)
                 .replaceAll(SaveModePlaceHolder.TABLE.getReplacePlaceHolder(), table)
                 .replaceAll(
-                        SaveModePlaceHolder.ROWTYPE_FIELDS.getReplacePlaceHolder(), rowTypeFields);
+                        SaveModePlaceHolder.ROWTYPE_FIELDS.getReplacePlaceHolder(), rowTypeFields)
+                .replaceAll(
+                        SaveModePlaceHolder.COMMENT.getReplacePlaceHolder(),
+                        Objects.isNull(comment)
+                                ? ""
+                                : comment.replace("'", "''").replace("\\", "\\\\"));
     }
 
     private String mergeColumnInTemplate(

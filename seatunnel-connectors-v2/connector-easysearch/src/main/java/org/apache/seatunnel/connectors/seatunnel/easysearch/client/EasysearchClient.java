@@ -21,10 +21,10 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.easysearch.config.EzsClusterConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.easysearch.config.EasysearchSinkCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.BulkResponse;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.EasysearchClusterInfo;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.source.IndexDocsCount;
@@ -78,61 +78,23 @@ public class EasysearchClient {
         this.restClient = restClient;
     }
 
-    public static EasysearchClient createInstance(Config pluginConfig) {
-        List<String> hosts = pluginConfig.getStringList(EzsClusterConnectionConfig.HOSTS.key());
-        Optional<String> username = Optional.empty();
-        Optional<String> password = Optional.empty();
-        if (pluginConfig.hasPath(EzsClusterConnectionConfig.USERNAME.key())) {
-            username =
-                    Optional.of(pluginConfig.getString(EzsClusterConnectionConfig.USERNAME.key()));
-            if (pluginConfig.hasPath(EzsClusterConnectionConfig.PASSWORD.key())) {
-                password =
-                        Optional.of(
-                                pluginConfig.getString(EzsClusterConnectionConfig.PASSWORD.key()));
-            }
-        }
-        Optional<String> keystorePath = Optional.empty();
-        Optional<String> keystorePassword = Optional.empty();
-        Optional<String> truststorePath = Optional.empty();
-        Optional<String> truststorePassword = Optional.empty();
+    public static EasysearchClient createInstance(ReadonlyConfig pluginConfig) {
+        List<String> hosts = pluginConfig.get(EasysearchSinkCommonOptions.HOSTS);
+        Optional<String> username = pluginConfig.getOptional(EasysearchSinkCommonOptions.USERNAME);
+        Optional<String> password = pluginConfig.getOptional(EasysearchSinkCommonOptions.PASSWORD);
+        Optional<String> keystorePath =
+                pluginConfig.getOptional(EasysearchSinkCommonOptions.TLS_KEY_STORE_PATH);
+        Optional<String> keystorePassword =
+                pluginConfig.getOptional(EasysearchSinkCommonOptions.TLS_KEY_STORE_PASSWORD);
+        Optional<String> truststorePath =
+                pluginConfig.getOptional(EasysearchSinkCommonOptions.TLS_TRUST_STORE_PATH);
+        Optional<String> truststorePassword =
+                pluginConfig.getOptional(EasysearchSinkCommonOptions.TLS_TRUST_STORE_PASSWORD);
         boolean tlsVerifyCertificate =
-                EzsClusterConnectionConfig.TLS_VERIFY_CERTIFICATE.defaultValue();
-        if (pluginConfig.hasPath(EzsClusterConnectionConfig.TLS_VERIFY_CERTIFICATE.key())) {
-            tlsVerifyCertificate =
-                    pluginConfig.getBoolean(
-                            EzsClusterConnectionConfig.TLS_VERIFY_CERTIFICATE.key());
-        }
-        if (tlsVerifyCertificate) {
-            if (pluginConfig.hasPath(EzsClusterConnectionConfig.TLS_KEY_STORE_PATH.key())) {
-                keystorePath =
-                        Optional.of(
-                                pluginConfig.getString(
-                                        EzsClusterConnectionConfig.TLS_KEY_STORE_PATH.key()));
-            }
-            if (pluginConfig.hasPath(EzsClusterConnectionConfig.TLS_KEY_STORE_PASSWORD.key())) {
-                keystorePassword =
-                        Optional.of(
-                                pluginConfig.getString(
-                                        EzsClusterConnectionConfig.TLS_KEY_STORE_PASSWORD.key()));
-            }
-            if (pluginConfig.hasPath(EzsClusterConnectionConfig.TLS_TRUST_STORE_PATH.key())) {
-                truststorePath =
-                        Optional.of(
-                                pluginConfig.getString(
-                                        EzsClusterConnectionConfig.TLS_TRUST_STORE_PATH.key()));
-            }
-            if (pluginConfig.hasPath(EzsClusterConnectionConfig.TLS_TRUST_STORE_PASSWORD.key())) {
-                truststorePassword =
-                        Optional.of(
-                                pluginConfig.getString(
-                                        EzsClusterConnectionConfig.TLS_TRUST_STORE_PASSWORD.key()));
-            }
-        }
-        boolean tlsVerifyHostnames = EzsClusterConnectionConfig.TLS_VERIFY_HOSTNAME.defaultValue();
-        if (pluginConfig.hasPath(EzsClusterConnectionConfig.TLS_VERIFY_HOSTNAME.key())) {
-            tlsVerifyHostnames =
-                    pluginConfig.getBoolean(EzsClusterConnectionConfig.TLS_VERIFY_HOSTNAME.key());
-        }
+                pluginConfig.get(EasysearchSinkCommonOptions.TLS_VERIFY_CERTIFICATE);
+
+        boolean tlsVerifyHostnames =
+                pluginConfig.get(EasysearchSinkCommonOptions.TLS_VERIFY_HOSTNAME);
         return createInstance(
                 hosts,
                 username,

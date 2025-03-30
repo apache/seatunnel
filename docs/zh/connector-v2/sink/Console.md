@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-console.md';
+
 # Console
 
 > Console 数据接收器
@@ -122,3 +124,6 @@ sink {
 2022-12-19 11:01:46,490 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0 rowIndex=10: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT: hBoib, 929089763
 ```
 
+## 变更日志
+
+<ChangeLog />

@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbCo
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.offset.ChangeStreamDescriptor;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.offset.ChangeStreamOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils;
 
 import org.apache.kafka.common.utils.SystemTime;
 import org.apache.kafka.common.utils.Time;
@@ -46,6 +47,7 @@ import com.mongodb.MongoNamespace;
 import com.mongodb.client.ChangeStreamIterable;
 import com.mongodb.client.MongoChangeStreamCursor;
 import com.mongodb.client.MongoClient;
+import com.mongodb.client.model.changestream.OperationType;
 import com.mongodb.kafka.connect.source.heartbeat.HeartbeatManager;
 import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.pipeline.DataChangeEvent;
@@ -68,6 +70,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.Mongo
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ID_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ILLEGAL_OPERATION_ERROR;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.NS_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.OPERATION_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.SNAPSHOT_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.SOURCE_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.TS_MS_FIELD;
@@ -117,7 +120,23 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
         this.taskRunning = true;
         try {
             while (taskRunning) {
-                Optional<BsonDocument> next = Optional.ofNullable(changeStreamCursor.tryNext());
+                Optional<BsonDocument> next;
+                try {
+                    next = Optional.ofNullable(changeStreamCursor.tryNext());
+                } catch (MongoCommandException e) {
+                    if (MongodbUtils.checkIfChangeStreamCursorExpires(e)) {
+                        log.warn("Change stream cursor has expired, trying to recreate cursor");
+                        boolean resumeTokenExpires = MongodbUtils.checkIfResumeTokenExpires(e);
+                        if (resumeTokenExpires) {
+                            log.warn(
+                                    "Resume token has expired, fallback to timestamp restart mode");
+                        }
+                        changeStreamCursor = openChangeStreamCursor(descriptor, resumeTokenExpires);
+                        next = Optional.ofNullable(changeStreamCursor.tryNext());
+                    } else {
+                        throw e;
+                    }
+                }
                 SourceRecord changeRecord = null;
                 if (!next.isPresent()) {
                     long untilNext = nextUpdate - time.milliseconds();
@@ -138,27 +157,40 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
                     nextUpdate = time.milliseconds() + sourceConfig.getPollAwaitTimeMillis();
                 } else {
                     BsonDocument changeStreamDocument = next.get();
-                    MongoNamespace namespace = getMongoNamespace(changeStreamDocument);
+                    OperationType operationType = getOperationType(changeStreamDocument);
 
-                    BsonDocument resumeToken = changeStreamDocument.getDocument(ID_FIELD);
-                    BsonDocument valueDocument =
-                            normalizeChangeStreamDocument(changeStreamDocument);
+                    switch (operationType) {
+                        case INSERT:
+                        case UPDATE:
+                        case REPLACE:
+                        case DELETE:
+                            MongoNamespace namespace = getMongoNamespace(changeStreamDocument);
 
-                    log.trace("Adding {} to {}", valueDocument, namespace.getFullName());
+                            BsonDocument resumeToken = changeStreamDocument.getDocument(ID_FIELD);
+                            BsonDocument valueDocument =
+                                    normalizeChangeStreamDocument(changeStreamDocument);
 
-                    changeRecord =
-                            MongodbRecordUtils.buildSourceRecord(
-                                    createPartitionMap(
-                                            sourceConfig.getHosts(),
-                                            namespace.getDatabaseName(),
-                                            namespace.getCollectionName()),
-                                    createSourceOffsetMap(resumeToken, false),
-                                    namespace.getFullName(),
-                                    changeStreamDocument.getDocument(ID_FIELD),
-                                    valueDocument);
+                            log.trace("Adding {} to {}", valueDocument, namespace.getFullName());
+
+                            changeRecord =
+                                    MongodbRecordUtils.buildSourceRecord(
+                                            createPartitionMap(
+                                                    sourceConfig.getHosts(),
+                                                    namespace.getDatabaseName(),
+                                                    namespace.getCollectionName()),
+                                            createSourceOffsetMap(resumeToken, false),
+                                            namespace.getFullName(),
+                                            changeStreamDocument.getDocument(ID_FIELD),
+                                            valueDocument);
+                            break;
+                        default:
+                            // Ignore drop、drop_database、rename and other record to prevent
+                            // documentKey from being empty.
+                            log.info("Ignored {} record: {}", operationType, changeStreamDocument);
+                    }
                 }
 
-                if (changeRecord != null) {
+                if (changeRecord != null && !isBoundedRead()) {
                     queue.enqueue(new DataChangeEvent(changeRecord));
                 }
 
@@ -166,6 +198,10 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
                     ChangeStreamOffset currentOffset;
                     if (changeRecord != null) {
                         currentOffset = new ChangeStreamOffset(getResumeToken(changeRecord));
+                        // The log after the high watermark won't emit.
+                        if (currentOffset.isAtOrBefore(streamSplit.getStopOffset())) {
+                            queue.enqueue(new DataChangeEvent(changeRecord));
+                        }
                     } else {
                         // Heartbeat is not turned on or there is no update event
                         currentOffset = new ChangeStreamOffset(getCurrentClusterTime(mongoClient));
@@ -215,6 +251,11 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
 
     private MongoChangeStreamCursor<BsonDocument> openChangeStreamCursor(
             ChangeStreamDescriptor changeStreamDescriptor) {
+        return openChangeStreamCursor(changeStreamDescriptor, false);
+    }
+
+    private MongoChangeStreamCursor<BsonDocument> openChangeStreamCursor(
+            ChangeStreamDescriptor changeStreamDescriptor, boolean forceTimestampStartup) {
         ChangeStreamOffset offset =
                 new ChangeStreamOffset(streamSplit.getStartupOffset().getOffset());
 
@@ -224,7 +265,7 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
         BsonDocument resumeToken = offset.getResumeToken();
         BsonTimestamp timestamp = offset.getTimestamp();
 
-        if (resumeToken != null) {
+        if (resumeToken != null && !forceTimestampStartup) {
             if (supportsStartAfter) {
                 log.info("Open the change stream after the previous offset: {}", resumeToken);
                 changeStreamIterable.startAfter(resumeToken);
@@ -238,6 +279,11 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
             if (supportsStartAtOperationTime) {
                 log.info("Open the change stream at the timestamp: {}", timestamp);
                 changeStreamIterable.startAtOperationTime(timestamp);
+            } else if (forceTimestampStartup) {
+                log.error("Open change stream failed. Unable to resume from timestamp");
+                throw new MongodbConnectorException(
+                        ILLEGAL_ARGUMENT,
+                        "Open change stream failed. Unable to resume from timestamp");
             } else {
                 log.warn("Open the change stream of the latest offset");
             }
@@ -273,6 +319,9 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
                                 "Unauthorized $changeStream operation: %s %s",
                                 e.getErrorMessage(), e.getErrorCode()));
 
+            } else if (!forceTimestampStartup && MongodbUtils.checkIfResumeTokenExpires(e)) {
+                log.info("Failed to open cursor with resume token, fallback to timestamp startup");
+                return openChangeStreamCursor(changeStreamDescriptor, true);
             } else {
                 throw new MongodbConnectorException(ILLEGAL_ARGUMENT, "Open change stream failed");
             }
@@ -351,6 +400,10 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
 
         return new MongoNamespace(
                 ns.getString(DB_FIELD).getValue(), ns.getString(COLL_FIELD).getValue());
+    }
+
+    private OperationType getOperationType(BsonDocument changeStreamDocument) {
+        return OperationType.fromString(changeStreamDocument.getString(OPERATION_TYPE).getValue());
     }
 
     private boolean isBoundedRead() {

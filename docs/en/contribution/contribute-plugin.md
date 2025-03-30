@@ -1,4 +1,4 @@
-# Contribute Connector-v2 Plugins
+# Contribute Connector-V2 Plugins
 
 If you want to contribute Connector-V2, please click the Connector-V2 Contribution Guide below for reference. It can help you enter development more quickly.
 

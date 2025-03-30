@@ -75,6 +75,9 @@ public class RestConstant {
     public static final String REST_URL_SYSTEM_MONITORING_INFORMATION =
             "/system-monitoring-information";
     public static final String REST_URL_SUBMIT_JOB = "/submit-job";
+
+    public static final String REST_URL_SUBMIT_JOB_BY_UPLOAD_FILE = "/submit-job/upload";
+
     public static final String REST_URL_SUBMIT_JOBS = "/submit-jobs";
     public static final String REST_URL_STOP_JOB = "/stop-job";
     public static final String REST_URL_STOP_JOBS = "/stop-jobs";

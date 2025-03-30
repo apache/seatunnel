@@ -71,13 +71,15 @@ public class OceanBaseCatalogFactory implements CatalogFactory {
                     options.get(JdbcCatalogOptions.USERNAME),
                     options.get(JdbcCatalogOptions.PASSWORD),
                     urlInfo,
-                    options.get(JdbcCatalogOptions.SCHEMA));
+                    options.get(JdbcCatalogOptions.SCHEMA),
+                    options.get(JdbcCatalogOptions.DRIVER));
         }
         return new OceanBaseMySqlCatalog(
                 catalogName,
                 options.get(JdbcCatalogOptions.USERNAME),
                 options.get(JdbcCatalogOptions.PASSWORD),
-                urlInfo);
+                urlInfo,
+                options.get(JdbcCatalogOptions.DRIVER));
     }
 
     @Override

@@ -385,6 +385,26 @@ Example:
 
 ACOS(D)
 
+### ARRAY_MAX
+
+```ARRAY_MAX(ARRAY)```
+
+The MAX function returns the maximum value of the expression.
+
+Example:
+
+ARRAY_MAX(I)
+
+### ARRAY_MIN
+
+```ARRAY_MIN(ARRAY)```
+
+The MIN function returns the minimum value of the expression.
+
+Example:
+
+ARRAY_MIN(I)
+
 ### ASIN
 
 ```ASIN(numeric)```
@@ -971,7 +991,11 @@ select
   case
     when c_tinyint <> 117 then 1
     else 0
-  end as c_number_0
+  end as c_number_0,
+  case
+    when c_boolean then 1
+    else 0
+  end as c_boolean_0
 from
   dual
 ```
@@ -994,17 +1018,14 @@ select UUID() as seatunnel_uuid
 
 ### ARRAY
 
-Generate an array.
+```ARRAY<T> array(T, ...)```
+Create an array consisting of variadic elements and return it. Here, T can be either “column” or “literal”.
 
 Example:
 
-SELECT Array('c_1','c_2') as string_array,
-       Array(1.23,2.34) as double_array,
-       Array(1,2) as int_array,
-       Array(2147483648,2147483649) as long_array,
-       Array(1.23,2147483648) as double_array_1,
-       Array(1.23,2147483648,'c_1') as string_array_1
-FROM fake
+select ARRAY(1,2,3) as arrays
+select ARRAY('c_1',2,3.12) as arrays
+select ARRAY(column1,column2,column3) as arrays
 
 notes: Currently only string, double, long, int types are supported
 

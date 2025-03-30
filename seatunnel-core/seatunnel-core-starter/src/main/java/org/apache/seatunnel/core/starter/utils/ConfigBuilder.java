@@ -37,18 +37,17 @@ import lombok.extern.slf4j.Slf4j;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.common.utils.PlaceholderUtils.replacePlaceholders;
-import static org.apache.seatunnel.core.starter.utils.ConfigShadeUtils.DEFAULT_SENSITIVE_KEYWORDS;
 
 /** Used to build the {@link Config} from config file. */
 @Slf4j
@@ -91,10 +90,12 @@ public class ConfigBuilder {
                 adapterSupplier
                         .map(adapter -> of(adapter, filePath, variables))
                         .orElseGet(() -> ofInner(filePath, variables));
-        boolean isJson = filePath.getFileName().toString().endsWith(".json");
         log.info(
                 "Parsed config file: \n{}",
-                mapToString(configDesensitization(config.root().unwrapped())));
+                mapToString(
+                        configDesensitization(
+                                config.root().unwrapped(),
+                                ConfigShadeUtils.getSensitiveOptions(config))));
         return config;
     }
 
@@ -116,23 +117,39 @@ public class ConfigBuilder {
         }
         log.info(
                 "Parsed config file: \n{}",
-                mapToString(configDesensitization(config.root().unwrapped())));
+                mapToString(
+                        configDesensitization(
+                                config.root().unwrapped(),
+                                ConfigShadeUtils.getSensitiveOptions(config))));
         return config;
     }
 
-    public static Map<String, Object> configDesensitization(Map<String, Object> configMap) {
+    public static Map<String, Object> configDesensitization(
+            Map<String, Object> configMap, Set<String> sensitiveKeywords) {
         return configMap.entrySet().stream()
                 .collect(
                         LinkedHashMap::new,
                         (m, p) -> {
                             String key = p.getKey();
                             Object value = p.getValue();
-                            if (Arrays.asList(DEFAULT_SENSITIVE_KEYWORDS)
-                                    .contains(key.toLowerCase())) {
-                                m.put(key, "******");
+                            if (sensitiveKeywords.contains(key.toLowerCase())) {
+                                if (value instanceof List<?>) {
+                                    List<Object> maskedList =
+                                            ((List<?>) value)
+                                                    .stream()
+                                                            .map(v -> "******")
+                                                            .collect(Collectors.toList());
+                                    m.put(key, maskedList);
+                                } else {
+                                    m.put(key, "******");
+                                }
                             } else {
                                 if (value instanceof Map<?, ?>) {
-                                    m.put(key, configDesensitization((Map<String, Object>) value));
+                                    m.put(
+                                            key,
+                                            configDesensitization(
+                                                    (Map<String, Object>) value,
+                                                    sensitiveKeywords));
                                 } else if (value instanceof List<?>) {
                                     List<?> listValue = (List<?>) value;
                                     List<Object> newList =
@@ -141,8 +158,8 @@ public class ConfigBuilder {
                                                             v -> {
                                                                 if (v instanceof Map<?, ?>) {
                                                                     return configDesensitization(
-                                                                            (Map<String, Object>)
-                                                                                    v);
+                                                                            (Map<String, Object>) v,
+                                                                            sensitiveKeywords);
                                                                 } else {
                                                                     return v;
                                                                 }

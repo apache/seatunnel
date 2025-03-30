@@ -403,6 +403,7 @@ public class JdbcCatalogUtils {
                 .ifPresent(val -> catalogConfig.put(JdbcCatalogOptions.COMPATIBLE_MODE.key(), val));
         catalogConfig.put(
                 JdbcOptions.DECIMAL_TYPE_NARROWING.key(), config.isDecimalTypeNarrowing());
+        catalogConfig.put(JdbcCatalogOptions.DRIVER.key(), config.getDriverName());
         return ReadonlyConfig.fromMap(catalogConfig);
     }
 }

@@ -37,7 +37,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.apache.seatunnel.api.ImportShadeClassCheckTest.isWindows;
+import static org.apache.seatunnel.api.ImportClassCheckTest.isWindows;
 
 @Slf4j
 public class UTClassNameCheckTest {

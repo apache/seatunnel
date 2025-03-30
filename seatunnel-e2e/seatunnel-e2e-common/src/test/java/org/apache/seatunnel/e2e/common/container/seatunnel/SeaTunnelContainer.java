@@ -159,8 +159,8 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                                                 "seatunnel-engine:" + JDK_DOCKER_IMAGE)))
                         .waitingFor(Wait.forLogMessage(".*received new worker register:.*", 1));
         copySeaTunnelStarterToContainer(server);
-        server.setPortBindings(Collections.singletonList("5801:5801"));
-        server.setExposedPorts(Collections.singletonList(5801));
+        server.setPortBindings(Arrays.asList("5801:5801", "8080:8080"));
+        server.setExposedPorts(Arrays.asList(5801, 8080));
 
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
@@ -313,16 +313,16 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     @Override
     public Container.ExecResult executeJob(String confFile, List<String> variables)
             throws IOException, InterruptedException {
-        return executeJob(confFile, null, variables);
+        return doExecuteJob(confFile, null, variables);
     }
 
     @Override
-    public Container.ExecResult executeJob(String confFile, String jobId)
+    public Container.ExecResult executeJob(String confFile, String jobId, String... variables)
             throws IOException, InterruptedException {
-        return executeJob(confFile, jobId, null);
+        return doExecuteJob(confFile, jobId, variables != null ? Arrays.asList(variables) : null);
     }
 
-    private Container.ExecResult executeJob(String confFile, String jobId, List<String> variables)
+    private Container.ExecResult doExecuteJob(String confFile, String jobId, List<String> variables)
             throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
         List<String> beforeThreads = ContainerUtil.getJVMThreadNames(server);
@@ -393,6 +393,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || s.startsWith("seatunnel-coordinator-service")
                 || s.startsWith("GC task thread")
                 || s.contains("CompilerThread")
+                || s.startsWith("SeaTunnel-CompletableFuture-Thread-")
                 || s.contains("NioNetworking-closeListenerExecutor")
                 || s.contains("ForkJoinPool.commonPool")
                 || s.contains("DestroyJavaVM")
@@ -497,10 +498,15 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     @Override
-    public Container.ExecResult restoreJob(String confFile, String jobId)
+    public Container.ExecResult restoreJob(String confFile, String jobId, String... variables)
             throws IOException, InterruptedException {
         runningCount.incrementAndGet();
-        Container.ExecResult result = restoreJob(server, confFile, jobId);
+        Container.ExecResult result =
+                restoreJob(
+                        server,
+                        confFile,
+                        jobId,
+                        variables != null ? Arrays.asList(variables) : null);
         runningCount.decrementAndGet();
         return result;
     }

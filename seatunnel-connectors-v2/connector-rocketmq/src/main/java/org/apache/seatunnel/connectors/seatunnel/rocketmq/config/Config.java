@@ -26,6 +26,8 @@ public class Config {
     /** The default field delimiter is “,” */
     public static final String DEFAULT_FIELD_DELIMITER = ",";
 
+    public static final String CONNECTOR_IDENTITY = "Rocketmq";
+
     public static final Option<String> NAME_SRV_ADDR =
             Options.key("name.srv.addr")
                     .stringType()

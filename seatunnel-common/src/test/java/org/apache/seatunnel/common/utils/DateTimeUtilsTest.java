@@ -67,6 +67,15 @@ public class DateTimeUtilsTest {
         datetimeStr = "2020/10/10 10:10:10";
         Assertions.assertEquals("2020-10-10T10:10:10", DateTimeUtils.parse(datetimeStr).toString());
 
+        datetimeStr = "2020/1/1 10:10";
+        Assertions.assertEquals("2020-01-01T10:10", DateTimeUtils.parse(datetimeStr).toString());
+
+        datetimeStr = "2024/12/2 10:10";
+        Assertions.assertEquals("2024-12-02T10:10", DateTimeUtils.parse(datetimeStr).toString());
+
+        datetimeStr = "2024/12/1 10:10";
+        Assertions.assertEquals("2024-12-01T10:10", DateTimeUtils.parse(datetimeStr).toString());
+
         datetimeStr = "2020年10月10日 10时10分10秒";
         Assertions.assertEquals("2020-10-10T10:10:10", DateTimeUtils.parse(datetimeStr).toString());
 

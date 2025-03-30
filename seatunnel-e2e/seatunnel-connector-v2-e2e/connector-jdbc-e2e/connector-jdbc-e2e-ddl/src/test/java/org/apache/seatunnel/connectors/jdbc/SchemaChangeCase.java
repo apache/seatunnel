@@ -23,8 +23,6 @@ import lombok.Data;
 @Data
 @Builder
 public class SchemaChangeCase {
-
-    private String dbType;
     private String driverUrl;
     private String jdbcUrl;
     private String driverClassName;

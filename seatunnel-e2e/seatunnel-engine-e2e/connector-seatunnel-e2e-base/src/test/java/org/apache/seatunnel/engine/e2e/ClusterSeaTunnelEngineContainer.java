@@ -37,7 +37,9 @@ import com.hazelcast.jet.json.JsonUtil;
 import io.restassured.response.Response;
 import scala.Tuple3;
 
+import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -250,6 +252,34 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                             "message",
                                             equalTo(
                                                     "Please provide jobId when start with save point."));
+                        });
+    }
+
+    @Test
+    public void testRestApiSubmitJobByUploadFileV2() {
+        Arrays.asList(server, secondServer)
+                .forEach(
+                        container -> {
+                            Tuple3<Integer, String, Long> task = tasks.get(1);
+                            URL resource =
+                                    this.getClass().getClassLoader().getResource("upload-file");
+                            File fileDirect = new File(resource.getFile());
+                            File[] files = fileDirect.listFiles();
+                            for (File file : files) {
+                                Response response =
+                                        given().multiPart("config_file", file)
+                                                .baseUri(
+                                                        http
+                                                                + container.getHost()
+                                                                + colon
+                                                                + task._1())
+                                                .basePath(
+                                                        RestConstant
+                                                                .REST_URL_SUBMIT_JOB_BY_UPLOAD_FILE)
+                                                .when()
+                                                .post();
+                                Assertions.assertEquals(200, response.getStatusCode());
+                            }
                         });
     }
 

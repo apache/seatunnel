@@ -69,8 +69,8 @@ public class CheckpointTimeOutTest extends AbstractSeaTunnelServerTest {
                         jobid,
                         "Test",
                         false,
-                        nodeEngine.getSerializationService().toData(testLogicalDag),
-                        testLogicalDag.getJobConfig(),
+                        nodeEngine.getSerializationService(),
+                        testLogicalDag,
                         Collections.emptyList(),
                         Collections.emptyList());
 

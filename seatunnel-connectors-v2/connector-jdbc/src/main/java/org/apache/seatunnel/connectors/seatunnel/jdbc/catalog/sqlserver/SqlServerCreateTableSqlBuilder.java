@@ -200,12 +200,14 @@ public class SqlServerCreateTableSqlBuilder {
         } else {
             columnSqls.add(SqlServerTypeConverter.INSTANCE.reconvert(column).getColumnType());
         }
+
         // nullable
-        if (column.isNullable()) {
-            columnSqls.add("NULL");
-        } else {
-            columnSqls.add("NOT NULL");
-        }
+        boolean isPrimaryKeyColumn =
+                createIndex
+                        && primaryKey != null
+                        && primaryKey.getColumnNames().contains(column.getName());
+        String nullability = (column.isNullable() && !isPrimaryKeyColumn) ? "NULL" : "NOT NULL";
+        columnSqls.add(nullability);
 
         // comment
         if (column.getComment() != null) {

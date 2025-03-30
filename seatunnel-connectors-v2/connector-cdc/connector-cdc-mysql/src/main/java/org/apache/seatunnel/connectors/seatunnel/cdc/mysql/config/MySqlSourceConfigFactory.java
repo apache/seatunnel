@@ -95,9 +95,13 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
         }
         if (databaseList != null) {
             props.setProperty("database.include.list", String.join(",", databaseList));
+        } else if (databasePattern != null) {
+            props.setProperty("database.include.list", databasePattern);
         }
         if (tableList != null) {
             props.setProperty("table.include.list", String.join(",", tableList));
+        } else if (tablePattern != null) {
+            props.setProperty("table.include.list", tablePattern);
         }
         if (serverTimeZone != null) {
             props.setProperty("database.serverTimezone", serverTimeZone);

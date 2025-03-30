@@ -21,9 +21,8 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingExcep
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
@@ -84,7 +83,7 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
 
     private EasysearchClient easysearchClient;
 
-    private Config easysearchConfig;
+    private ReadonlyConfig easysearchConfig;
 
     private Catalog catalog;
 
@@ -126,7 +125,7 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
         config.put("tls_verify_certificate", false);
         config.put("tls_verify_hostname", false);
 
-        easysearchConfig = ConfigFactory.parseMap(config);
+        easysearchConfig = ReadonlyConfig.fromMap(config);
 
         easysearchClient = EasysearchClient.createInstance(easysearchConfig);
         catalog = new EasysearchCatalog("easysearch", "default", easysearchConfig);

@@ -43,7 +43,11 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
     protected int batchSize = BaseSinkConfig.BATCH_SIZE.defaultValue();
     protected String path;
     protected String fileNameExpression = BaseSinkConfig.FILE_NAME_EXPRESSION.defaultValue();
-    protected FileFormat fileFormat = FileFormat.TEXT;
+    protected boolean singleFileMode = BaseSinkConfig.SINGLE_FILE_MODE.defaultValue();
+    protected boolean createEmptyFileWhenNoData =
+            BaseSinkConfig.CREATE_EMPTY_FILE_WHEN_NO_DATA.defaultValue();
+    protected FileFormat fileFormat;
+    protected String filenameExtension = BaseSinkConfig.FILENAME_EXTENSION.defaultValue();
     protected DateUtils.Formatter dateFormat = DateUtils.Formatter.YYYY_MM_DD;
     protected DateTimeUtils.Formatter datetimeFormat = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
     protected TimeUtils.Formatter timeFormat = TimeUtils.Formatter.HH_MM_SS;
@@ -82,12 +86,30 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
             this.fileNameExpression = config.getString(BaseSinkConfig.FILE_NAME_EXPRESSION.key());
         }
 
+        if (config.hasPath(BaseSinkConfig.SINGLE_FILE_MODE.key())) {
+            this.singleFileMode = config.getBoolean(BaseSinkConfig.SINGLE_FILE_MODE.key());
+        }
+
+        if (config.hasPath(BaseSinkConfig.CREATE_EMPTY_FILE_WHEN_NO_DATA.key())) {
+            this.createEmptyFileWhenNoData =
+                    config.getBoolean(BaseSinkConfig.CREATE_EMPTY_FILE_WHEN_NO_DATA.key());
+        }
+
         if (config.hasPath(BaseSinkConfig.FILE_FORMAT_TYPE.key())
                 && !StringUtils.isBlank(config.getString(BaseSinkConfig.FILE_FORMAT_TYPE.key()))) {
             this.fileFormat =
                     FileFormat.valueOf(
                             config.getString(BaseSinkConfig.FILE_FORMAT_TYPE.key())
                                     .toUpperCase(Locale.ROOT));
+        } else {
+            // fall back to the default
+            this.fileFormat = BaseSinkConfig.FILE_FORMAT_TYPE.defaultValue();
+        }
+
+        if (config.hasPath(BaseSinkConfig.FILENAME_EXTENSION.key())
+                && !StringUtils.isBlank(
+                        config.getString(BaseSinkConfig.FILENAME_EXTENSION.key()))) {
+            this.filenameExtension = config.getString(BaseSinkConfig.FILENAME_EXTENSION.key());
         }
 
         if (config.hasPath(BaseSinkConfig.DATE_FORMAT.key())) {
