@@ -22,11 +22,10 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonOptions;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceOptions;
 
 import com.google.auto.service.AutoService;
-
-import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig.KEY_CASE_SENSITIVE;
 
 @AutoService(Factory.class)
 public class IcebergCatalogFactory implements CatalogFactory {
@@ -44,16 +43,16 @@ public class IcebergCatalogFactory implements CatalogFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        CommonConfig.KEY_CATALOG_NAME,
-                        CommonConfig.KEY_NAMESPACE,
-                        CommonConfig.KEY_TABLE,
-                        CommonConfig.CATALOG_PROPS)
+                        IcebergCommonOptions.KEY_CATALOG_NAME,
+                        IcebergCommonOptions.KEY_NAMESPACE,
+                        IcebergCommonOptions.KEY_TABLE,
+                        IcebergCommonOptions.CATALOG_PROPS)
                 .optional(
-                        CommonConfig.HADOOP_PROPS,
-                        CommonConfig.KERBEROS_PRINCIPAL,
-                        CommonConfig.KERBEROS_KEYTAB_PATH,
-                        CommonConfig.KRB5_PATH,
-                        KEY_CASE_SENSITIVE)
+                        IcebergCommonOptions.HADOOP_PROPS,
+                        IcebergCommonOptions.KERBEROS_PRINCIPAL,
+                        IcebergCommonOptions.KERBEROS_KEYTAB_PATH,
+                        IcebergCommonOptions.KRB5_PATH,
+                        IcebergSourceOptions.KEY_CASE_SENSITIVE)
                 .build();
     }
 }

@@ -415,13 +415,15 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
                                 "mysql",
                                 MYSQL_CONNECTOR_NAME,
                                 MYSQL_CONNECTOR_PASSWORD,
-                                JdbcUrlUtil.getUrlInfo(MYSQL_CONTAINER.getJdbcUrl()));
+                                JdbcUrlUtil.getUrlInfo(MYSQL_CONTAINER.getJdbcUrl()),
+                                null);
                 OracleCatalog oracleCatalog =
                         new OracleCatalog(
                                 "oracle",
                                 CONNECTOR_USER,
                                 CONNECTOR_PWD,
                                 OracleURLParser.parse(ORACLE_CONTAINER.getJdbcUrl()),
+                                null,
                                 null)) {
             mySqlCatalog.open();
             oracleCatalog.open();

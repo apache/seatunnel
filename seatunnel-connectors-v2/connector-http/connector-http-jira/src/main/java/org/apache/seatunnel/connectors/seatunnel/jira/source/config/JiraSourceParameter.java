@@ -17,18 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jira.source.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
 import java.util.HashMap;
 
 public class JiraSourceParameter extends HttpParameter {
-    public void buildWithConfig(Config pluginConfig, String accessToken) {
+    public void buildWithConfig(ReadonlyConfig pluginConfig, String accessToken) {
         super.buildWithConfig(pluginConfig);
         // put authorization in headers
         this.headers = this.getHeaders() == null ? new HashMap<>() : this.getHeaders();
-        this.headers.put(JiraSourceConfig.AUTHORIZATION, accessToken);
+        this.headers.put(JiraSourceOptions.AUTHORIZATION, accessToken);
         this.setHeaders(this.headers);
     }
 }

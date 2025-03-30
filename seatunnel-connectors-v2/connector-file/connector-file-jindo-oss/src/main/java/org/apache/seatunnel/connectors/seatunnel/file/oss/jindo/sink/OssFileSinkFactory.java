@@ -53,11 +53,13 @@ public class OssFileSinkFactory implements TableSinkFactory {
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.CSV,
+                        BaseSinkConfig.ROW_DELIMITER,
                         BaseSinkConfig.TXT_COMPRESS,
                         BaseSinkConfig.ENABLE_HEADER_WRITE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.JSON,
+                        BaseSinkConfig.ROW_DELIMITER,
                         BaseSinkConfig.TXT_COMPRESS)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
@@ -94,6 +96,7 @@ public class OssFileSinkFactory implements TableSinkFactory {
                 .optional(BaseSinkConfig.SINGLE_FILE_MODE)
                 .optional(BaseSinkConfig.BATCH_SIZE)
                 .optional(BaseSinkConfig.CREATE_EMPTY_FILE_WHEN_NO_DATA)
+                .optional(BaseSinkConfig.FILENAME_EXTENSION)
                 .build();
     }
 }

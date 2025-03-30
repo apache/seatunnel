@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-starrocks.md';
+
 # StarRocks
 
 > StarRocks 数据接收器
@@ -300,9 +302,4 @@ sink {
 
 ## 变更日志
 
-### 随后版本
-
-- 增加StarRocks数据接收器
-- [Improve] 将连接器自定义配置前缀的数据类型更改为Map [3719](https://github.com/apache/seatunnel/pull/3719)
-- [Feature] 支持写入cdc变更事件(INSERT/UPDATE/DELETE) [3865](https://github.com/apache/seatunnel/pull/3865)
-
+<ChangeLog />

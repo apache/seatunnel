@@ -38,7 +38,7 @@ Before starting an integration task, you can select different handling schemes f
 - **`CREATE_SCHEMA_WHEN_NOT_EXIST`**: Creates the table if it does not exist; skips creation if the table already exists.
 - **`ERROR_WHEN_SCHEMA_NOT_EXIST`**: Throws an error if the table does not exist.
 - **`IGNORE`**: Ignores table handling.
-  Many connectors currently support automatic table creation. Refer to the specific connector documentation, such as [Jdbc sink](https://seatunnel.apache.org/docs/2.3.8/connector-v2/sink/Jdbc#schema_save_mode-enum), for more information.
+  Many connectors currently support automatic table creation. Refer to the specific connector documentation, such as [Jdbc sink](https://seatunnel.apache.org/docs/connector-v2/sink/Jdbc/#schema_save_mode-enum), for more information.
 
 ## Does SeaTunnel support handling existing data before starting a data integration task?
 Yes, you can specify different processing schemes for existing data on the target side before starting an integration task, controlled via the `data_save_mode` parameter. Available options include:

@@ -25,6 +25,8 @@ import java.io.Serializable;
 @Getter
 @EqualsAndHashCode
 public class SinkIdentifier implements Serializable {
+    // Use jvm default serial version uid
+    private static final long serialVersionUID = 5378869132870084393L;
 
     private final String tableIdentifier;
 

@@ -40,6 +40,9 @@ public class InMemorySinkFactory
     public static final Option<Boolean> THROW_EXCEPTION =
             Options.key("throw_exception").booleanType().defaultValue(false);
 
+    public static final Option<Boolean> WRITER_SLEEP =
+            Options.key("writer_sleep").booleanType().defaultValue(false);
+
     public static final Option<Boolean> THROW_OUT_OF_MEMORY =
             Options.key("throw_out_of_memory").booleanType().defaultValue(false);
     public static final Option<Boolean> CHECKPOINT_SLEEP =
@@ -66,6 +69,7 @@ public class InMemorySinkFactory
                 .optional(
                         THROW_EXCEPTION,
                         THROW_OUT_OF_MEMORY,
+                        WRITER_SLEEP,
                         CHECKPOINT_SLEEP,
                         THROW_EXCEPTION_OF_COMMITTER,
                         ASSERT_OPTIONS_KEY,

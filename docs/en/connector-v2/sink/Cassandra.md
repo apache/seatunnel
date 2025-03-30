@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-cassandra.md';
+
 # Cassandra
 
 > Cassandra sink connector
@@ -12,7 +14,7 @@ Write data to Apache Cassandra.
 
 ## Options
 
-|       name        |  type   | required | default value |
+|       name        | type    | required | default value |
 |-------------------|---------|----------|---------------|
 | host              | String  | Yes      | -             |
 | keyspace          | String  | Yes      | -             |
@@ -21,7 +23,7 @@ Write data to Apache Cassandra.
 | password          | String  | No       | -             |
 | datacenter        | String  | No       | datacenter1   |
 | consistency_level | String  | No       | LOCAL_ONE     |
-| fields            | String  | No       | LOCAL_ONE     |
+| fields            | Array   | No       | -             |
 | batch_size        | int     | No       | 5000          |
 | batch_type        | String  | No       | UNLOGGED      |
 | async_write       | boolean | No       | true          |
@@ -89,7 +91,4 @@ sink {
 
 ## Changelog
 
-### next version
-
-- Add Cassandra Sink Connector
-
+<ChangeLog />

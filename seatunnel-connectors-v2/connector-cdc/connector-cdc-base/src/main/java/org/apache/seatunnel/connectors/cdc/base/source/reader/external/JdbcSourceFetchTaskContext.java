@@ -22,26 +22,35 @@ import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
+import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 import org.apache.seatunnel.connectors.cdc.debezium.ConnectTableChangeSerializer;
+import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
 
+import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.source.SourceRecord;
 
 import io.debezium.config.CommonConnectorConfig;
 import io.debezium.data.Envelope;
+import io.debezium.jdbc.JdbcConnection;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.spi.OffsetContext;
 import io.debezium.pipeline.spi.Partition;
 import io.debezium.relational.RelationalDatabaseSchema;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
+import io.debezium.relational.history.TableChanges;
 import io.debezium.util.SchemaNameAdjuster;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -153,6 +162,50 @@ public abstract class JdbcSourceFetchTaskContext implements FetchTask.Context {
                             return sourceRecord;
                         })
                 .collect(Collectors.toList());
+    }
+
+    protected void registerDatabaseHistory(
+            SourceSplitBase sourceSplitBase, JdbcConnection connection) {
+        List<TableChanges.TableChange> engineHistory = new ArrayList<>();
+        // TODO: support save table schema
+        if (sourceSplitBase instanceof SnapshotSplit) {
+            SnapshotSplit snapshotSplit = (SnapshotSplit) sourceSplitBase;
+            engineHistory.add(
+                    dataSourceDialect.queryTableSchema(connection, snapshotSplit.getTableId()));
+        } else {
+            IncrementalSplit incrementalSplit = (IncrementalSplit) sourceSplitBase;
+            Map<TableId, byte[]> historyTableChanges = incrementalSplit.getHistoryTableChanges();
+            for (TableId tableId : incrementalSplit.getTableIds()) {
+                if (historyTableChanges != null && historyTableChanges.containsKey(tableId)) {
+                    SchemaAndValue schemaAndValue =
+                            jsonConverter.toConnectData("topic", historyTableChanges.get(tableId));
+                    Struct deserializedStruct = (Struct) schemaAndValue.value();
+
+                    TableChanges tableChanges =
+                            tableChangeSerializer.deserialize(
+                                    Collections.singletonList(deserializedStruct), false);
+
+                    Iterator<TableChanges.TableChange> iterator = tableChanges.iterator();
+                    TableChanges.TableChange tableChange = null;
+                    while (iterator.hasNext()) {
+                        if (tableChange != null) {
+                            throw new IllegalStateException(
+                                    "The table changes should only have one element");
+                        }
+                        tableChange = iterator.next();
+                    }
+                    engineHistory.add(tableChange);
+                    continue;
+                }
+                engineHistory.add(dataSourceDialect.queryTableSchema(connection, tableId));
+            }
+        }
+
+        EmbeddedDatabaseHistory.registerHistory(
+                sourceConfig
+                        .getDbzConfiguration()
+                        .getString(EmbeddedDatabaseHistory.DATABASE_HISTORY_INSTANCE_NAME),
+                engineHistory);
     }
 
     public SourceConfig getSourceConfig() {

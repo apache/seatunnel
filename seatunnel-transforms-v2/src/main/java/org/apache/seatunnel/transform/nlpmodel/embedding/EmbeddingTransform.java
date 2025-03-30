@@ -33,6 +33,7 @@ import org.apache.seatunnel.transform.nlpmodel.embedding.remote.custom.CustomMod
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.doubao.DoubaoModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.openai.OpenAIModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.qianfan.QianfanModel;
+import org.apache.seatunnel.transform.nlpmodel.embedding.remote.zhipu.ZhipuModel;
 import org.apache.seatunnel.transform.nlpmodel.llm.LLMTransformConfig;
 
 import lombok.NonNull;
@@ -132,6 +133,18 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                                     provider.usedEmbeddingPath(
                                             config.get(ModelTransformConfig.API_PATH)),
                                     config.get(ModelTransformConfig.OAUTH_PATH),
+                                    config.get(
+                                            EmbeddingTransformConfig
+                                                    .SINGLE_VECTORIZED_INPUT_NUMBER));
+                    break;
+                case ZHIPU:
+                    model =
+                            new ZhipuModel(
+                                    config.get(ModelTransformConfig.API_KEY),
+                                    config.get(ModelTransformConfig.MODEL),
+                                    provider.usedEmbeddingPath(
+                                            config.get(ModelTransformConfig.API_PATH)),
+                                    config.get(ModelTransformConfig.DIMENSION),
                                     config.get(
                                             EmbeddingTransformConfig
                                                     .SINGLE_VECTORIZED_INPUT_NUMBER));

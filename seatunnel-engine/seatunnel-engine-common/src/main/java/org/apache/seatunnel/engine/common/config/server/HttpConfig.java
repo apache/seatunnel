@@ -26,18 +26,48 @@ import static com.hazelcast.internal.util.Preconditions.checkPositive;
 @Data
 public class HttpConfig implements Serializable {
 
-    private boolean enabled = ServerConfigOptions.ENABLE_HTTP.defaultValue();
+    private boolean enabled =
+            ServerConfigOptions.MasterServerConfigOptions.ENABLE_HTTP.defaultValue();
 
-    private int port = ServerConfigOptions.PORT.defaultValue();
+    private int port = ServerConfigOptions.MasterServerConfigOptions.PORT.defaultValue();
 
-    private String contextPath = ServerConfigOptions.CONTEXT_PATH.defaultValue();
+    /** Whether to enable https. */
+    private boolean enableHttps =
+            ServerConfigOptions.MasterServerConfigOptions.ENABLE_HTTPS.defaultValue();
 
-    private boolean enableDynamicPort = ServerConfigOptions.ENABLE_DYNAMIC_PORT.defaultValue();
+    /** The port of https. */
+    private int httpsPort = ServerConfigOptions.MasterServerConfigOptions.HTTPS_PORT.defaultValue();
 
-    private int portRange = ServerConfigOptions.PORT_RANGE.defaultValue();
+    /** The path of keystore file. */
+    private String keyStorePath =
+            ServerConfigOptions.MasterServerConfigOptions.KEY_STORE_PATH.defaultValue();
+
+    /** The password of keystore file. */
+    private String keyStorePassword =
+            ServerConfigOptions.MasterServerConfigOptions.KEY_STORE_PASSWORD.defaultValue();
+
+    /** The password of key manager. */
+    private String keyManagerPassword =
+            ServerConfigOptions.MasterServerConfigOptions.KEY_MANAGER_PASSWORD.defaultValue();
+
+    /** The path of truststore file. */
+    private String trustStorePath =
+            ServerConfigOptions.MasterServerConfigOptions.TRUST_STORE_PATH.defaultValue();
+
+    /** The password of truststore file. */
+    private String trustStorePassword =
+            ServerConfigOptions.MasterServerConfigOptions.TRUST_STORE_PASSWORD.defaultValue();
+
+    private String contextPath =
+            ServerConfigOptions.MasterServerConfigOptions.CONTEXT_PATH.defaultValue();
+
+    private boolean enableDynamicPort =
+            ServerConfigOptions.MasterServerConfigOptions.ENABLE_DYNAMIC_PORT.defaultValue();
+
+    private int portRange = ServerConfigOptions.MasterServerConfigOptions.PORT_RANGE.defaultValue();
 
     public void setPort(int port) {
-        checkPositive(port, ServerConfigOptions.HTTP + " must be > 0");
+        checkPositive(port, ServerConfigOptions.MasterServerConfigOptions.HTTP + " must be > 0");
         this.port = port;
     }
 }

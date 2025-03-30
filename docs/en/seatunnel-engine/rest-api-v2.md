@@ -1,7 +1,3 @@
----
-sidebar_position: 12
----
-
 # RESTful API V2
 
 SeaTunnel has a monitoring API that can be used to query status and statistics of running jobs, as well as recent
@@ -37,6 +33,10 @@ seatunnel:
       context-path: /seatunnel
 ```
 
+## Enable HTTPS
+
+Please refer [security](security.md)
+
 ## API reference
 
 ### Returns an overview over the Zeta engine cluster.
@@ -54,7 +54,7 @@ seatunnel:
 
 ```json
 {
-    "projectVersion":"2.3.5-SNAPSHOT",
+    "projectVersion":"2.3.10-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",

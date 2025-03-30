@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.ftp.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.sink.SinkCommonOptions;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -52,7 +52,7 @@ public class FtpFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .required(FtpConfigOptions.FTP_USERNAME)
                 .required(FtpConfigOptions.FTP_PASSWORD)
                 .optional(
-                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA,
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA,
                         SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
                 .optional(BaseSinkConfig.TMP_PATH)
                 .optional(BaseSinkConfig.FILE_FORMAT_TYPE)
@@ -68,11 +68,13 @@ public class FtpFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.CSV,
+                        BaseSinkConfig.ROW_DELIMITER,
                         BaseSinkConfig.TXT_COMPRESS,
                         BaseSinkConfig.ENABLE_HEADER_WRITE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.JSON,
+                        BaseSinkConfig.ROW_DELIMITER,
                         BaseSinkConfig.TXT_COMPRESS)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
@@ -110,6 +112,7 @@ public class FtpFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .optional(BaseSinkConfig.SINGLE_FILE_MODE)
                 .optional(BaseSinkConfig.BATCH_SIZE)
                 .optional(BaseSinkConfig.CREATE_EMPTY_FILE_WHEN_NO_DATA)
+                .optional(BaseSinkConfig.FILENAME_EXTENSION)
                 .build();
     }
 

@@ -21,7 +21,7 @@
 CREATE DATABASE IF NOT EXISTS `shop`;
 use shop;
 
-alter table products modify name longtext null;
+alter table products modify name VARCHAR(400) null;
 delete from products where id < 155;
 insert into products
 values (164,"scooter","Small 2-wheel scooter",3.14,1),

@@ -17,10 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeUtil;
 
 import com.aliyun.odps.tunnel.TableTunnel;
@@ -44,22 +43,26 @@ public class MaxcomputeSourceSplitEnumerator
     private final Context<MaxcomputeSourceSplit> enumeratorContext;
     private final Map<Integer, Set<MaxcomputeSourceSplit>> pendingSplits;
     private Set<MaxcomputeSourceSplit> assignedSplits;
-    private Config pluginConfig;
+    private final ReadonlyConfig readonlyConfig;
+    private final Map<TablePath, SourceTableInfo> sourceTableInfos;
 
     public MaxcomputeSourceSplitEnumerator(
             SourceSplitEnumerator.Context<MaxcomputeSourceSplit> enumeratorContext,
-            Config pluginConfig) {
+            ReadonlyConfig readonlyConfig,
+            Map<TablePath, SourceTableInfo> sourceTableInfos) {
         this.enumeratorContext = enumeratorContext;
-        this.pluginConfig = pluginConfig;
+        this.readonlyConfig = readonlyConfig;
+        this.sourceTableInfos = sourceTableInfos;
         this.pendingSplits = new HashMap<>();
         this.assignedSplits = new HashSet<>();
     }
 
     public MaxcomputeSourceSplitEnumerator(
             SourceSplitEnumerator.Context<MaxcomputeSourceSplit> enumeratorContext,
-            Config pluginConfig,
+            ReadonlyConfig readonlyConfig,
+            Map<TablePath, SourceTableInfo> sourceTableInfos,
             MaxcomputeSourceState sourceState) {
-        this(enumeratorContext, pluginConfig);
+        this(enumeratorContext, readonlyConfig, sourceTableInfos);
         this.assignedSplits = sourceState.getAssignedSplit();
     }
 
@@ -100,24 +103,37 @@ public class MaxcomputeSourceSplitEnumerator
     public void handleSplitRequest(int subtaskId) {}
 
     private void discoverySplits() throws TunnelException {
-        TableTunnel.DownloadSession session =
-                MaxcomputeUtil.getDownloadSession(ReadonlyConfig.fromConfig(this.pluginConfig));
-        long recordCount = session.getRecordCount();
         int numReaders = enumeratorContext.currentParallelism();
-        int splitRowNum = (int) Math.ceil((double) recordCount / numReaders);
-        int splitRow = SPLIT_ROW.defaultValue();
-        if (this.pluginConfig.hasPath(SPLIT_ROW.key())) {
-            splitRow = this.pluginConfig.getInt(SPLIT_ROW.key());
-        }
         Set<MaxcomputeSourceSplit> allSplit = new HashSet<>();
-        for (int i = 0; i < numReaders; i++) {
-            int readerStart = i * splitRowNum;
-            int readerEnd = (int) Math.min((i + 1) * splitRowNum, recordCount);
-            for (int num = readerStart; num < readerEnd; num += splitRow) {
-                allSplit.add(new MaxcomputeSourceSplit(num, Math.min(splitRow, readerEnd - num)));
+        for (SourceTableInfo sourceTableInfo : sourceTableInfos.values()) {
+            Set<MaxcomputeSourceSplit> splits = new HashSet<>();
+            TableTunnel.DownloadSession session =
+                    MaxcomputeUtil.getDownloadSession(
+                            readonlyConfig,
+                            sourceTableInfo.getCatalogTable().getTablePath(),
+                            sourceTableInfo.getPartitionSpec());
+            long recordCount = session.getRecordCount();
+            int splitRowNum = (int) Math.ceil((double) recordCount / numReaders);
+            int splitRow = SPLIT_ROW.defaultValue();
+            if (sourceTableInfo.getSplitRow() != null && sourceTableInfo.getSplitRow() > 0) {
+                splitRow = sourceTableInfo.getSplitRow();
             }
+            int splitIndex = 0;
+            for (int i = 0; i < numReaders; i++) {
+                int readerStart = i * splitRowNum;
+                int readerEnd = (int) Math.min((i + 1) * splitRowNum, recordCount);
+                for (int num = readerStart; num < readerEnd; num += splitRow) {
+                    splits.add(
+                            new MaxcomputeSourceSplit(
+                                    num,
+                                    Math.min(splitRow, readerEnd - num),
+                                    sourceTableInfo.getCatalogTable().getTablePath(),
+                                    splitIndex));
+                }
+            }
+            assignedSplits.forEach(splits::remove);
+            allSplit.addAll(splits);
         }
-        assignedSplits.forEach(allSplit::remove);
         addSplitChangeToPendingAssignments(allSplit);
         log.debug("Assigned {} to {} readers.", allSplit, numReaders);
         log.info("Calculated splits successfully, the size of splits is {}.", allSplit.size());
@@ -125,7 +141,7 @@ public class MaxcomputeSourceSplitEnumerator
 
     private void addSplitChangeToPendingAssignments(Collection<MaxcomputeSourceSplit> newSplits) {
         for (MaxcomputeSourceSplit split : newSplits) {
-            int ownerReader = split.getSplitId() % enumeratorContext.currentParallelism();
+            int ownerReader = split.getIndex() % enumeratorContext.currentParallelism();
             pendingSplits.computeIfAbsent(ownerReader, r -> new HashSet<>()).add(split);
         }
     }

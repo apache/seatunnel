@@ -385,6 +385,26 @@ Example:
 
 ACOS(D)
 
+### ARRAY_MAX
+
+```ARRAY_MAX(ARRAY)```
+
+The MAX function returns the maximum value of the expression.
+
+Example:
+
+ARRAY_MAX(I)
+
+### ARRAY_MIN
+
+```ARRAY_MIN(ARRAY)```
+
+The MIN function returns the minimum value of the expression.
+
+Example:
+
+ARRAY_MIN(I)
+
 ### ASIN
 
 ```ASIN(numeric)```
@@ -971,7 +991,11 @@ select
   case
     when c_tinyint <> 117 then 1
     else 0
-  end as c_number_0
+  end as c_number_0,
+  case
+    when c_boolean then 1
+    else 0
+  end as c_boolean_0
 from
   dual
 ```

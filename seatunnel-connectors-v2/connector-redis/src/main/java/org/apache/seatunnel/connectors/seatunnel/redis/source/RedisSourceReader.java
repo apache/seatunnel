@@ -25,9 +25,9 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
-import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -175,7 +175,7 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             return;
         }
         for (Map<String, String> recordsMap : values) {
-            if (redisParameters.getHashKeyParseMode() == RedisConfig.HashKeyParseMode.KV) {
+            if (redisParameters.getHashKeyParseMode() == RedisSourceOptions.HashKeyParseMode.KV) {
                 deserializationSchema.deserialize(
                         JsonUtils.toJsonString(recordsMap).getBytes(), output);
             } else {

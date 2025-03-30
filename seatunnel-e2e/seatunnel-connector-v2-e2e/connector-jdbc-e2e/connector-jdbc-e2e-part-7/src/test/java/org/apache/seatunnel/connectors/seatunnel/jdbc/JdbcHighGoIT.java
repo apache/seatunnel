@@ -303,7 +303,8 @@ public class JdbcHighGoIT extends AbstractJdbcIT {
                         jdbcCase.getUserName(),
                         jdbcCase.getPassword(),
                         JdbcUrlUtil.getUrlInfo(jdbcUrl),
-                        SCHEMA);
+                        SCHEMA,
+                        null);
         catalog.open();
     }
 }

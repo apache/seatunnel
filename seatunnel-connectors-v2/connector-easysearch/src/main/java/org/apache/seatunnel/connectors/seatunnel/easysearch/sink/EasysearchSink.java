@@ -17,26 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.easysearch.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.state.EasysearchAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.state.EasysearchCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.state.EasysearchSinkState;
 
-import com.google.auto.service.AutoService;
-
 import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.SinkConfig.MAX_BATCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.easysearch.config.SinkConfig.MAX_RETRY_COUNT;
-
-@AutoService(SeaTunnelSink.class)
 public class EasysearchSink
         implements SeaTunnelSink<
                 SeaTunnelRow,
@@ -44,12 +35,13 @@ public class EasysearchSink
                 EasysearchCommitInfo,
                 EasysearchAggregatedCommitInfo> {
 
-    private Config pluginConfig;
-    private SeaTunnelRowType seaTunnelRowType;
+    private final ReadonlyConfig pluginConfig;
+    private final CatalogTable catalogTable;
 
-    private int maxBatchSize = MAX_BATCH_SIZE.defaultValue();
-
-    private int maxRetryCount = MAX_RETRY_COUNT.defaultValue();
+    public EasysearchSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
+        this.catalogTable = catalogTable;
+        this.pluginConfig = pluginConfig;
+    }
 
     @Override
     public String getPluginName() {
@@ -57,26 +49,9 @@ public class EasysearchSink
     }
 
     @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        this.pluginConfig = pluginConfig;
-        if (pluginConfig.hasPath(MAX_BATCH_SIZE.key())) {
-            maxBatchSize = pluginConfig.getInt(MAX_BATCH_SIZE.key());
-        }
-        if (pluginConfig.hasPath(MAX_RETRY_COUNT.key())) {
-            maxRetryCount = pluginConfig.getInt(MAX_RETRY_COUNT.key());
-        }
-    }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
-    }
-
-    @Override
     public SinkWriter<SeaTunnelRow, EasysearchCommitInfo, EasysearchSinkState> createWriter(
             SinkWriter.Context context) {
-        return new EasysearchSinkWriter(
-                context, seaTunnelRowType, pluginConfig, maxBatchSize, maxRetryCount);
+        return new EasysearchSinkWriter(context, catalogTable.getSeaTunnelRowType(), pluginConfig);
     }
 
     @Override

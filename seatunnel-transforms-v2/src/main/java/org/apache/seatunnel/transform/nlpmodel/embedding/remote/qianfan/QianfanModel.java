@@ -100,7 +100,7 @@ public class QianfanModel extends AbstractModel {
     }
 
     @Override
-    public List<List<Float>> vector(Object[] fields) throws IOException {
+    public List<List<Double>> vector(Object[] fields) throws IOException {
         return vectorGeneration(fields);
     }
 
@@ -109,7 +109,7 @@ public class QianfanModel extends AbstractModel {
         return vectorGeneration(new Object[] {DIMENSION_EXAMPLE}).get(0).size();
     }
 
-    private List<List<Float>> vectorGeneration(Object[] fields) throws IOException {
+    private List<List<Double>> vectorGeneration(Object[] fields) throws IOException {
         String formattedApiPath =
                 String.format(
                         (apiPath.endsWith("/") ? apiPath : apiPath + "/") + "%s?access_token=%s",
@@ -143,14 +143,14 @@ public class QianfanModel extends AbstractModel {
                     "Failed to get vector from qianfan, response: " + result.get("error_msg"));
         }
 
-        List<List<Float>> embeddings = new ArrayList<>();
+        List<List<Double>> embeddings = new ArrayList<>();
         JsonNode data = result.get("data");
         if (data.isArray()) {
             for (JsonNode node : data) {
-                List<Float> embedding =
+                List<Double> embedding =
                         OBJECT_MAPPER.readValue(
                                 node.get("embedding").traverse(),
-                                new TypeReference<List<Float>>() {});
+                                new TypeReference<List<Double>>() {});
                 embeddings.add(embedding);
             }
         }

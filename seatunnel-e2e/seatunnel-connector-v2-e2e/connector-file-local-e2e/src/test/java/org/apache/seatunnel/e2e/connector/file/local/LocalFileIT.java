@@ -287,6 +287,19 @@ public class LocalFileIT extends TestSuiteBase {
                         container);
 
                 ContainerUtil.copyFileIntoContainers(
+                        "/csv/break_line.csv",
+                        "/seatunnel/read/csv/break_line/break_line.csv",
+                        container);
+                ContainerUtil.copyFileIntoContainers(
+                        "/csv/csv_with_header1.csv",
+                        "/seatunnel/read/csv/header/csv_with_header1.csv",
+                        container);
+                ContainerUtil.copyFileIntoContainers(
+                        "/csv/csv_with_header2.csv",
+                        "/seatunnel/read/csv/header/csv_with_header2.csv",
+                        container);
+
+                ContainerUtil.copyFileIntoContainers(
                         "/text/e2e_null_format.txt",
                         "/seatunnel/read/e2e_null_format/e2e_null_format.txt",
                         container);
@@ -298,6 +311,10 @@ public class LocalFileIT extends TestSuiteBase {
     public void testLocalFileReadAndWrite(TestContainer container)
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
+        helper.execute("/csv/fake_to_local_csv.conf");
+        helper.execute("/csv/local_csv_to_assert.conf");
+        helper.execute("/csv/csv_with_header_to_assert.conf");
+        helper.execute("/csv/breakline_csv_to_assert.conf");
         helper.execute("/excel/fake_to_local_excel.conf");
         helper.execute("/excel/local_excel_to_assert.conf");
         helper.execute("/excel/local_excel_projection_to_assert.conf");

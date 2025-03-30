@@ -50,11 +50,13 @@ public class HdfsFileSinkFactory implements TableSinkFactory {
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.CSV,
+                        BaseSinkConfig.ROW_DELIMITER,
                         BaseSinkConfig.TXT_COMPRESS,
                         BaseSinkConfig.ENABLE_HEADER_WRITE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.JSON,
+                        BaseSinkConfig.ROW_DELIMITER,
                         BaseSinkConfig.TXT_COMPRESS)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
@@ -96,6 +98,7 @@ public class HdfsFileSinkFactory implements TableSinkFactory {
                 .optional(BaseSinkConfig.KRB5_PATH)
                 .optional(BaseSinkConfig.REMOTE_USER)
                 .optional(BaseSinkConfig.CREATE_EMPTY_FILE_WHEN_NO_DATA)
+                .optional(BaseSinkConfig.FILENAME_EXTENSION)
                 .build();
     }
 }

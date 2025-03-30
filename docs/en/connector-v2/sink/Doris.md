@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-doris.md';
+
 # Doris
 
 > Doris sink connector
@@ -47,19 +49,19 @@ The internal implementation of Doris sink connector is cached and imported by st
 | table                          | String  | Yes      | -                            | The table name of `Doris` table,  use `${table_name}` to represent the upstream table name                                                                                                                                                                                             |
 | table.identifier               | String  | Yes      | -                            | The name of `Doris` table, it will deprecate after version 2.3.5, please use `database` and `table` instead.                                                                                                                                                                           |
 | sink.label-prefix              | String  | Yes      | -                            | The label prefix used by stream load imports. In the 2pc scenario, global uniqueness is required to ensure the EOS semantics of SeaTunnel.                                                                                                                                             |
-| sink.enable-2pc                | bool    | No       | false                        | Whether to enable two-phase commit (2pc), the default is false. For two-phase commit, please refer to [here](https://doris.apache.org/docs/dev/sql-manual/sql-statements/Data-Manipulation-Statements/Load/STREAM-LOAD/).                                                              |
+| sink.enable-2pc                | bool    | No       | false                        | Whether to enable two-phase commit (2pc), the default is false. For two-phase commit, please refer to [here](https://doris.apache.org/docs/data-operate/transaction?_highlight=two&_highlight=phase#stream-load-2pc).                                                              |
 | sink.enable-delete             | bool    | No       | -                            | Whether to enable deletion. This option requires Doris table to enable batch delete function (0.15+ version is enabled by default), and only supports Unique model. you can get more detail at this [link](https://doris.apache.org/docs/dev/data-operate/delete/batch-delete-manual/) |
-| sink.check-interval            | int     | No       | 10000                        | check exception with the interval while loading                                                                                                                                                                                                                                        |
-| sink.max-retries               | int     | No       | 3                            | the max retry times if writing records to database failed                                                                                                                                                                                                                              |
-| sink.buffer-size               | int     | No       | 256 * 1024                   | the buffer size to cache data for stream load.                                                                                                                                                                                                                                         |
-| sink.buffer-count              | int     | No       | 3                            | the buffer count to cache data for stream load.                                                                                                                                                                                                                                        |
-| doris.batch.size               | int     | No       | 1024                         | the batch size of the write to doris each http request, when the row reaches the size or checkpoint is executed, the data of cached will write to server.                                                                                                                              |
-| needs_unsupported_type_casting | boolean | No       | false                        | Whether to enable the unsupported type casting, such as Decimal64 to Double                                                                                                                                                                                                            |
-| schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | the schema save mode, please refer to `schema_save_mode` below                                                                                                                                                                                                                         |
-| data_save_mode                 | Enum    | no       | APPEND_DATA                  | the data save mode, please refer to `data_save_mode` below                                                                                                                                                                                                                             |
-| save_mode_create_template      | string  | no       | see below                    | see below                                                                                                                                                                                                                                                                              |
-| custom_sql                     | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.                                                                             |
-| doris.config                   | map     | yes      | -                            | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql,and supported formats.                                                                                                                                              |
+| sink.check-interval            | int     | No       | 10000                        | check exception with the interval while loading                                                                                                                                                                                                                      |
+| sink.max-retries               | int     | No       | 3                            | the max retry times if writing records to database failed                                                                                                                                                                                                            |
+| sink.buffer-size               | int     | No       | 256 * 1024                   | the buffer size to cache data for stream load.                                                                                                                                                                                                                       |
+| sink.buffer-count              | int     | No       | 3                            | the buffer count to cache data for stream load.                                                                                                                                                                                                                      |
+| doris.batch.size               | int     | No       | 1024                         | the batch size of the write to doris each http request, when the row reaches the size or checkpoint is executed, the data of cached will write to server.                                                                                                            |
+| needs_unsupported_type_casting | boolean | No       | false                        | Whether to enable the unsupported type casting, such as Decimal64 to Double                                                                                                                                                                                          |
+| schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | the schema save mode, please refer to `schema_save_mode` below                                                                                                                                                                                                       |
+| data_save_mode                 | Enum    | no       | APPEND_DATA                  | the data save mode, please refer to `data_save_mode` below                                                                                                                                                                                                           |
+| save_mode_create_template      | string  | no       | see below                    | see below                                                                                                                                                                                                                                                            |
+| custom_sql                     | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.                                                           |
+| doris.config                   | map     | yes      | -                            | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql,and supported formats.                                                                                                                            |
 
 ### schema_save_mode[Enum]
 
@@ -438,18 +440,4 @@ sink {
 
 ## Changelog
 
-### 2.3.0-beta 2022-10-20
-
-- Add Doris Sink Connector
-
-### Next version
-
-- [Improve] Change Doris Config Prefix [3856](https://github.com/apache/seatunnel/pull/3856)
-
-- [Improve] Refactor some Doris Sink code as well as support 2pc and cdc [4235](https://github.com/apache/seatunnel/pull/4235)
-
-:::tip
-
-PR 4235 is an incompatible modification to PR 3856. Please refer to PR 4235 to use the new Doris connector
-
-:::
+<ChangeLog />
