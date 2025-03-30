@@ -991,7 +991,11 @@ select
   case
     when c_tinyint <> 117 then 1
     else 0
-  end as c_number_0
+  end as c_number_0,
+  case
+    when c_boolean then 1
+    else 0
+  end as c_boolean_0
 from
   dual
 ```
