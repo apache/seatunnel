@@ -41,12 +41,15 @@ public class BedrockModel extends AbstractModel {
     private final String apiKey;
     private final String model;
     private final String apiPath;
+    private final Integer dimension;
+    private final Integer MAX_INPUT_SIZE = 64;
 
-    public BedrockModel(String apiKey, String model, String apiPath, Integer vectorizedNumber) {
+    public BedrockModel(String apiKey, String model, String apiPath,Integer dimension,Integer vectorizedNumber) {
         super(vectorizedNumber);
         this.apiKey = apiKey;
         this.model = model;
         this.apiPath = apiPath;
+        this.dimension = dimension;
         this.client = HttpClients.createDefault();
     }
 

@@ -29,6 +29,7 @@ import org.apache.seatunnel.transform.exception.TransformCommonError;
 import org.apache.seatunnel.transform.nlpmodel.ModelProvider;
 import org.apache.seatunnel.transform.nlpmodel.ModelTransformConfig;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.Model;
+import org.apache.seatunnel.transform.nlpmodel.embedding.remote.amazon.BedrockModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.custom.CustomModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.doubao.DoubaoModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.openai.OpenAIModel;
@@ -140,6 +141,18 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                 case ZHIPU:
                     model =
                             new ZhipuModel(
+                                    config.get(ModelTransformConfig.API_KEY),
+                                    config.get(ModelTransformConfig.MODEL),
+                                    provider.usedEmbeddingPath(
+                                            config.get(ModelTransformConfig.API_PATH)),
+                                    config.get(ModelTransformConfig.DIMENSION),
+                                    config.get(
+                                            EmbeddingTransformConfig
+                                                    .SINGLE_VECTORIZED_INPUT_NUMBER));
+                    break;
+                case AMAZON:
+                    model =
+                            new BedrockModel(
                                     config.get(ModelTransformConfig.API_KEY),
                                     config.get(ModelTransformConfig.MODEL),
                                     provider.usedEmbeddingPath(
