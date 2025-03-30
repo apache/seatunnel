@@ -53,7 +53,7 @@ public class FtpFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .required(FtpConfigOptions.FTP_PASSWORD)
                 .optional(
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA,
-                        SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
                 .optional(BaseSinkConfig.TMP_PATH)
                 .optional(BaseSinkConfig.FILE_FORMAT_TYPE)
                 .optional(BaseSinkConfig.SCHEMA_SAVE_MODE)

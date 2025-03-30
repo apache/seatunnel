@@ -56,7 +56,7 @@ public class PrometheusSinkFactory extends HttpSinkFactory {
                 .optional(PrometheusSinkOptions.FLUSH_INTERVAL)
                 .optional(
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA,
-                        SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
                 .build();
     }
 }

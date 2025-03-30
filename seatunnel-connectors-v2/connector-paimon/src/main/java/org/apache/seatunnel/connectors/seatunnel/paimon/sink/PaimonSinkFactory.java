@@ -57,7 +57,7 @@ public class PaimonSinkFactory implements TableSinkFactory {
                         PaimonSinkConfig.PARTITION_KEYS,
                         PaimonSinkConfig.WRITE_PROPS,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA,
-                        SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
                 .conditional(
                         PaimonConfig.CATALOG_TYPE, PaimonCatalogEnum.HIVE, PaimonConfig.CATALOG_URI)
                 .build();

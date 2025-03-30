@@ -60,7 +60,7 @@ public class MaxcomputeSinkFactory implements TableSinkFactory {
                         SAVE_MODE_CREATE_TEMPLATE,
                         CUSTOM_SQL,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA,
-                        SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
                 .build();
     }
 

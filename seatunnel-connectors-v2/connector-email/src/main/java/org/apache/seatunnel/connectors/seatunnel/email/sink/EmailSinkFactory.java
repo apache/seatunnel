@@ -63,7 +63,7 @@ public class EmailSinkFactory implements TableSinkFactory {
                         EMAIL_MESSAGE_CONTENT)
                 .optional(
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA,
-                        SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
                 .build();
     }
 }

@@ -186,14 +186,14 @@ public class ConnectorSpecificationCheckTest {
                 sinkOptionRule
                         .getOptionalOptions()
                         .contains(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA),
-                "Please add `SinkCommonOptions.MULTI_TABLE_SINK_REPLICA` optional into the `optionRule` method optional of `"
+                "Please add `SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA` optional into the `optionRule` method optional of `"
                         + sinkFactory.getClass().getSimpleName()
                         + "`");
         Assertions.assertTrue(
                 sinkOptionRule
                         .getOptionalOptions()
-                        .contains(SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC),
-                "Please add `SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC` optional into the `optionRule` method optional of `"
+                        .contains(SinkConnectorCommonOptions.MULTI_TABLE_SINK_TTL_SEC),
+                "Please add `SinkConnectorCommonOptions.MULTI_TABLE_SINK_TTL_SEC` optional into the `optionRule` method optional of `"
                         + sinkFactory.getClass().getSimpleName()
                         + "`");
 

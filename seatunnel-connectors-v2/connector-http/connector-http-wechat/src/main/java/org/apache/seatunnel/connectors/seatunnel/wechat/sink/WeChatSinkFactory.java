@@ -45,7 +45,7 @@ public class WeChatSinkFactory implements TableSinkFactory {
                         WeChatSinkOptions.RETRY_BACKOFF_MAX_MS,
                         WeChatSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA,
-                        SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
                 .build();
     }
 

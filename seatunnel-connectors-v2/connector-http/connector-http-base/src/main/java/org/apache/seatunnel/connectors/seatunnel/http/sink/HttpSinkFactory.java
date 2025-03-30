@@ -50,7 +50,7 @@ public class HttpSinkFactory implements TableSinkFactory {
                 .optional(HttpSinkOptions.RETRY_BACKOFF_MAX_MS)
                 .optional(
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA,
-                        SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
                 .build();
     }
 }

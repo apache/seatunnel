@@ -41,7 +41,7 @@ public class ConsoleSinkFactory implements TableSinkFactory {
                         ConsoleSinkOptions.LOG_PRINT_DATA,
                         ConsoleSinkOptions.LOG_PRINT_DELAY,
                         ConsoleSinkOptions.MULTI_TABLE_SINK_REPLICA,
-                        SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
+                        ConsoleSinkOptions.MULTI_TABLE_SINK_TTL_SEC)
                 .build();
     }
 

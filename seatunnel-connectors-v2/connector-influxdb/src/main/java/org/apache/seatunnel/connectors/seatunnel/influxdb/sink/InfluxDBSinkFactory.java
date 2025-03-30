@@ -62,7 +62,7 @@ public class InfluxDBSinkFactory implements TableSinkFactory {
                         InfluxDBSinkOptions.QUERY_TIMEOUT_SEC,
                         InfluxDBSinkOptions.EPOCH,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA,
-                        SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
                 .build();
     }
 

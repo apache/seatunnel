@@ -69,7 +69,7 @@ public class HudiSinkFactory implements TableSinkFactory {
                         HudiSinkOptions.MAX_COMMITS_TO_KEEP,
                         HudiSinkOptions.CDC_ENABLED,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA,
-                        SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
                 .build();
     }
 

@@ -69,7 +69,7 @@ public class IcebergSinkFactory implements TableSinkFactory {
                         IcebergSinkOptions.TABLE_SCHEMA_EVOLUTION_ENABLED_PROP,
                         IcebergSinkOptions.TABLES_DEFAULT_COMMIT_BRANCH,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA,
-                        SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_TTL_SEC)
                 .conditional(
                         IcebergSinkOptions.DATA_SAVE_MODE,
                         DataSaveMode.CUSTOM_PROCESSING,

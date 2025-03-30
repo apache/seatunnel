@@ -62,7 +62,7 @@ public class MultiTableSink
         this.replicaNum =
                 context.getOptions().get(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA);
         this.multiTableWriterTtl =
-                context.getOptions().get(SinkCommonOptions.MULTI_TABLE_SINK_TTL_SEC);
+                context.getOptions().get(SinkConnectorCommonOptions.MULTI_TABLE_SINK_TTL_SEC);
     }
 
     @Override
