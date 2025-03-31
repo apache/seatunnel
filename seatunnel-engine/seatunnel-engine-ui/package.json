@@ -21,7 +21,7 @@
     "@antv/x6-vue-shape": "^2.1.2",
     "@vicons/ionicons5": "^0.12.0",
     "autoprefixer": "^10.4.20",
-    "axios": "^1.7.7",
+    "axios": "^1.8.4",
     "date-fns": "^3.6.0",
     "date-fns-tz": "^3.1.3",
     "naive-ui": "^2.39.0",
