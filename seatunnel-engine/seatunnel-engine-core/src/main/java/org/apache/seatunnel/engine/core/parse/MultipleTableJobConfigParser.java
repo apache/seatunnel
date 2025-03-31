@@ -206,8 +206,8 @@ public class MultipleTableJobConfigParser {
     }
 
     private Config mergeWithRefConfig(Config pluginConfig, Config refConfigs) {
-        if (pluginConfig.hasPath("__st_config_ref_key__ ")) {
-            String refId = pluginConfig.getString("__st_config_ref_key__ ");
+        if (pluginConfig.hasPath("__st_config_ref_key__")) {
+            String refId = pluginConfig.getString("__st_config_ref_key__");
             if (null != refConfigs) {
                 Config refConfig = refConfigs.getConfig(refId);
                 if (refConfig == null) {
