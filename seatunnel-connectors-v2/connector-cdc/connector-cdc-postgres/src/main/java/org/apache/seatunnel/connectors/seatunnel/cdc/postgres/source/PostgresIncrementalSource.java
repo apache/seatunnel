@@ -109,6 +109,7 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
                 SeaTunnelRowDebeziumDeserializeSchema.builder()
                         .setTables(catalogTables)
                         .setServerTimeZone(ZoneId.of(zoneId))
+                        .setTableIdTableChangeMap(tableIdTableChangeMap)
                         .build();
     }
 

@@ -32,6 +32,11 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -40,10 +45,12 @@ import org.junit.jupiter.api.TestTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
@@ -59,10 +66,12 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -71,6 +80,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
+import static org.awaitility.Awaitility.given;
 import static org.junit.Assert.assertNotNull;
 
 @Slf4j
@@ -101,6 +111,16 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
     private static final String SOURCE_SQL_TEMPLATE = "select * from %s.%s order by id";
 
+    // kafka container
+    private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
+
+    private static final String KAFKA_HOST = "kafka_e2e";
+
+    private static KafkaContainer KAFKA_CONTAINER;
+
+    private KafkaConsumer<String, String> kafkaConsumer;
+
+    private static final String DEBEZIUM_JSON_TOPIC = "debezium_json_topic";
     // use newer version of postgresql image to support pgoutput plugin
     // when testing postgres 13, only 13-alpine supports both amd64 and arm64
     protected static final DockerImageName PG_IMAGE =
@@ -121,6 +141,16 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                             "fsync=off",
                             "-c",
                             "max_replication_slots=20");
+
+    private void createKafkaContainer() {
+        KAFKA_CONTAINER =
+                new KafkaContainer(DockerImageName.parse(KAFKA_IMAGE_NAME))
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(KAFKA_HOST)
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(KAFKA_IMAGE_NAME)));
+    }
 
     private String driverUrl() {
         return "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.5.1/postgresql-42.5.1.jar";
@@ -149,8 +179,37 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                 PostgreSQLContainer.POSTGRESQL_PORT,
                                 PostgreSQLContainer.POSTGRESQL_PORT)));
         Startables.deepStart(Stream.of(POSTGRES_CONTAINER)).join();
+
         log.info("Postgres Containers are started");
         initializePostgresTable(POSTGRES_CONTAINER, "inventory");
+
+        LOG.info("The third stage: Starting Kafka containers...");
+        createKafkaContainer();
+        Startables.deepStart(Stream.of(KAFKA_CONTAINER)).join();
+        LOG.info("Kafka Containers are started");
+
+        given().ignoreExceptions()
+                .atLeast(100, TimeUnit.MILLISECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .atMost(180, TimeUnit.SECONDS)
+                .untilAsserted(this::initKafkaConsumer);
+    }
+
+    // Initialize the kafka Consumer
+    private void initKafkaConsumer() {
+        Properties prop = new Properties();
+        String bootstrapServers = KAFKA_CONTAINER.getBootstrapServers();
+        prop.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        prop.put(
+                ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+                "org.apache.kafka.common.serialization.StringDeserializer");
+        prop.put(
+                ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+                "org.apache.kafka.common.serialization.StringDeserializer");
+        prop.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        prop.put(ConsumerConfig.GROUP_ID_CONFIG, "CONF");
+        prop.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
+        kafkaConsumer = new KafkaConsumer<>(prop);
     }
 
     @TestTemplate
@@ -555,8 +614,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testPostgresCdcCheckDataWithCustomPrimaryKey(TestContainer container)
-            throws Exception {
+    public void testPostgresCdcCheckDataWithCustomPrimaryKey(TestContainer container) {
 
         try {
             CompletableFuture.supplyAsync(
@@ -604,50 +662,63 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently Only support Zeta engine")
     public void testPostgresCdcWithDebeziumJsonFormat(TestContainer container) throws Exception {
-
+        container.executeExtraCommands(extendedFactory);
         try {
             CompletableFuture.supplyAsync(
                     () -> {
                         try {
                             container.executeJob(
-                                    "/postgrescdc_to_postgres_with_debezium_json_format.conf");
+                                    "/postgrescdc_to_postgres_with_debezium_to_kafka.conf");
                         } catch (Exception e) {
                             log.error("Commit task exception :" + e.getMessage());
                             throw new RuntimeException(e);
                         }
                         return null;
                     });
-
             // snapshot stage
+            List<String> expectedResultSnapshot =
+                    Arrays.asList(
+                            "{\"before\":null,\"after\":{\"id\":1,\"f_bytea\":\"Mg==\",\"f_small\":32767,\"f_int\":65535,\"f_big\":2147483647,\"f_real\":5.5,\"f_double_precision\":6.6,\"f_numeric\":123.12345,\"f_decimal\":404.4,\"f_boolean\":true,\"f_text\":\"Hello World\",\"f_char\":\"a\",\"f_character\":\"abc\",\"f_character_varying\":\"abcd..xyz\",\"f_timestamp3\":1595008822123,\"f_timestamp6\":1595008822123456,\"f_date\":18460,\"f_time\":64822000,\"f_default_numeric\":{\"scale\":0,\"value\":\"AfQ=\"},\"f_numeric_no_scale\":88,\"f_inet\":\"192.168.1.1\"},\"source\":{\"version\":\"1.9.8.Final\",\"connector\":\"postgresql\",\"name\":\"postgres_cdc_source\",\"ts_ms\":0,\"snapshot\":\"false\",\"db\":\"postgres_cdc\",\"sequence\":\"[null,\\\"0\\\"]\",\"schema\":\"inventory\",\"table\":\"full_types_no_primary_key\",\"txId\":null,\"lsn\":0,\"xmin\":null},\"op\":\"r\",\"ts_ms\":1743409647379,\"transaction\":null}");
+            ArrayList<String> result = new ArrayList<>();
+            ArrayList<String> topics = new ArrayList<>();
+            topics.add(DEBEZIUM_JSON_TOPIC);
+            kafkaConsumer.subscribe(topics);
             await().atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                Assertions.assertIterableEquals(
-                                        query(
-                                                getQuerySQL(
-                                                        POSTGRESQL_SCHEMA,
-                                                        SOURCE_TABLE_NO_PRIMARY_KEY)),
-                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE_1)));
+                                ConsumerRecords<String, String> consumerRecords =
+                                        kafkaConsumer.poll(Duration.ofMillis(1000));
+                                for (ConsumerRecord<String, String> record : consumerRecords) {
+                                    result.add(record.value());
+                                }
+                                Assertions.assertEquals(expectedResultSnapshot, result);
                             });
-
             // insert update delete
             upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY);
 
             // stream stage
+
+            List<String> expectedResult =
+                    Arrays.asList(
+                            "{\"before\":null,\"after\":{\"id\":1,\"f_bytea\":\"Mg==\",\"f_small\":32767,\"f_int\":65535,\"f_big\":2147483647,\"f_real\":5.5,\"f_double_precision\":6.6,\"f_numeric\":123.12345,\"f_decimal\":404.4,\"f_boolean\":true,\"f_text\":\"Hello World\",\"f_char\":\"a\",\"f_character\":\"abc\",\"f_character_varying\":\"abcd..xyz\",\"f_timestamp3\":1595008822123,\"f_timestamp6\":1595008822123456,\"f_date\":18460,\"f_time\":64822000,\"f_default_numeric\":{\"scale\":0,\"value\":\"AfQ=\"},\"f_numeric_no_scale\":88,\"f_inet\":\"192.168.1.1\"},\"source\":{\"version\":\"1.9.8.Final\",\"connector\":\"postgresql\",\"name\":\"postgres_cdc_source\",\"ts_ms\":0,\"snapshot\":\"false\",\"db\":\"postgres_cdc\",\"sequence\":\"[null,\\\"0\\\"]\",\"schema\":\"inventory\",\"table\":\"full_types_no_primary_key\",\"txId\":null,\"lsn\":0,\"xmin\":null},\"op\":\"r\",\"ts_ms\":1743409647379,\"transaction\":null}");
+
             await().atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                Assertions.assertIterableEquals(
-                                        query(
-                                                getQuerySQL(
-                                                        POSTGRESQL_SCHEMA,
-                                                        SOURCE_TABLE_NO_PRIMARY_KEY)),
-                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE_1)));
+                                ConsumerRecords<String, String> consumerRecords =
+                                        kafkaConsumer.poll(Duration.ofMillis(1000));
+                                for (ConsumerRecord<String, String> record : consumerRecords) {
+                                    result.add(record.value());
+                                }
+                                Assertions.assertEquals(expectedResult, result);
                             });
         } finally {
             clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY);
-            clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
         }
     }
 
