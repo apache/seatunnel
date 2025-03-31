@@ -37,6 +37,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.apache.seatunnel.api.options.SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA;
+import static org.apache.seatunnel.api.options.SinkConnectorCommonOptions.MULTI_TABLE_SINK_TTL_SEC;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSinkOptions.DATA_SAVE_MODE;
 
 @AutoService(Factory.class)
@@ -65,6 +66,7 @@ public class StarRocksSinkFactory implements TableSinkFactory {
                         StarRocksSinkOptions.SCHEMA_SAVE_MODE,
                         DATA_SAVE_MODE,
                         MULTI_TABLE_SINK_REPLICA,
+                        MULTI_TABLE_SINK_TTL_SEC,
                         StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE,
                         StarRocksSinkOptions.HTTP_SOCKET_TIMEOUT_MS)
                 .conditional(
