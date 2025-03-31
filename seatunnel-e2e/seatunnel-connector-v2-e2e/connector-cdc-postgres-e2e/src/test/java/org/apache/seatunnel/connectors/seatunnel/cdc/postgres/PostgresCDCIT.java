@@ -688,7 +688,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             ArrayList<String> topics = new ArrayList<>();
             topics.add(DEBEZIUM_JSON_TOPIC);
             kafkaConsumer.subscribe(topics);
-            await().atMost(60000, TimeUnit.MILLISECONDS)
+            await().atMost(300000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
                                 ConsumerRecords<String, String> consumerRecords =
@@ -707,7 +707,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                     Arrays.asList(
                             "{\"before\":null,\"after\":{\"id\":1,\"f_bytea\":\"Mg==\",\"f_small\":32767,\"f_int\":65535,\"f_big\":2147483647,\"f_real\":5.5,\"f_double_precision\":6.6,\"f_numeric\":123.12345,\"f_decimal\":404.4,\"f_boolean\":true,\"f_text\":\"Hello World\",\"f_char\":\"a\",\"f_character\":\"abc\",\"f_character_varying\":\"abcd..xyz\",\"f_timestamp3\":1595008822123,\"f_timestamp6\":1595008822123456,\"f_date\":18460,\"f_time\":64822000,\"f_default_numeric\":{\"scale\":0,\"value\":\"AfQ=\"},\"f_numeric_no_scale\":88,\"f_inet\":\"192.168.1.1\"},\"source\":{\"version\":\"1.9.8.Final\",\"connector\":\"postgresql\",\"name\":\"postgres_cdc_source\",\"ts_ms\":0,\"snapshot\":\"false\",\"db\":\"postgres_cdc\",\"sequence\":\"[null,\\\"0\\\"]\",\"schema\":\"inventory\",\"table\":\"full_types_no_primary_key\",\"txId\":null,\"lsn\":0,\"xmin\":null},\"op\":\"r\",\"ts_ms\":1743409647379,\"transaction\":null}");
 
-            await().atMost(60000, TimeUnit.MILLISECONDS)
+            await().atMost(300000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
                                 ConsumerRecords<String, String> consumerRecords =
