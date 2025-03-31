@@ -47,7 +47,6 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     private RecordWriter recordWriter;
     private final TableTunnel.UploadSession session;
     private final TableSchema tableSchema;
-    private static final Long BLOCK_0 = 0L;
     private final SeaTunnelRowType rowType;
 
     public MaxcomputeWriter(ReadonlyConfig readonlyConfig, SeaTunnelRowType rowType) {
@@ -68,7 +67,7 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                         tunnel.createUploadSession(
                                 readonlyConfig.get(PROJECT), readonlyConfig.get(TABLE_NAME));
             }
-            this.recordWriter = session.openRecordWriter(BLOCK_0);
+            this.recordWriter = session.openBufferedWriter();
             log.info("open record writer success");
         } catch (Exception e) {
             throw new MaxcomputeConnectorException(
@@ -89,7 +88,7 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         if (recordWriter != null) {
             recordWriter.close();
             try {
-                session.commit(new Long[] {BLOCK_0});
+                session.commit();
             } catch (Exception e) {
                 throw new MaxcomputeConnectorException(
                         CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, e);
