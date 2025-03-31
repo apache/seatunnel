@@ -88,18 +88,18 @@ def submit_job_tool(client: SeaTunnelClient) -> Callable:
     """
     async def submit_job(
         job_content: str,
-        job_name: Optional[str] = None,
+        jobName: Optional[str] = None,
         jobId: Optional[str] = None,
-        is_start_with_save_point: Optional[bool] = None,
+        isStartWithSavePoint: Optional[bool] = None,
         format: str = "hocon",
     ) -> Dict[str, Any]:
         """Submit a new job.
 
         Args:
             job_content: Job configuration content.
-            job_name: Optional job name. In the API, this parameter is named 'jobName'.
+            jobName: Optional job name.
             jobId: Optional job ID.
-            is_start_with_save_point: Whether to start with savepoint. In the API, this parameter is named 'isStartWithSavePoint'.
+            isStartWithSavePoint: Whether to start with savepoint.
             format: Job configuration format (hocon, json, yaml).
 
         Returns:
@@ -107,9 +107,9 @@ def submit_job_tool(client: SeaTunnelClient) -> Callable:
         """
         result = client.submit_job(
             job_content=job_content,
-            job_name=job_name,
+            jobName=jobName,
             jobId=jobId,
-            is_start_with_save_point=is_start_with_save_point,
+            isStartWithSavePoint=isStartWithSavePoint,
             format=format,
         )
         return result
@@ -129,21 +129,21 @@ def stop_job_tool(client: SeaTunnelClient) -> Callable:
     Returns:
         Function that can be registered as a tool.
     """
-    async def stop_job(jobId: Union[str, int], is_stop_with_save_point: bool = False) -> Dict[str, Any]:
+    async def stop_job(jobId: Union[str, int], isStartWithSavePoint: bool = False) -> Dict[str, Any]:
         """Stop a running job.
 
         Args:
             jobId: Job ID. Can be a string or integer.
-            is_stop_with_save_point: Whether to stop with savepoint.
+            isStartWithSavePoint: Whether to stop with savepoint.
 
         Returns:
             Response from the API.
         """
-        result = client.stop_job(jobId=jobId, is_stop_with_save_point=is_stop_with_save_point)
+        result = client.stop_job(jobId=jobId, isStartWithSavePoint=isStartWithSavePoint)
         return result
     
     stop_job.__name__ = "stop-job"
-    stop_job.__doc__ = "Stop a running job by providing the jobId and optional is_stop_with_save_point flag"
+    stop_job.__doc__ = "Stop a running job by providing the jobId and optional isStartWithSavePoint flag"
     
     return stop_job
 

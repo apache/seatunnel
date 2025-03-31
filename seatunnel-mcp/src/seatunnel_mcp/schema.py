@@ -38,7 +38,7 @@ class SubmitJobRequest(BaseModel):
     """Request for submitting a job."""
 
     job_content: str = Field(..., description="Job configuration content in specified format")
-    job_name: Optional[str] = Field(None, description="Optional job name")
+    jobName: Optional[str] = Field(None, description="Optional job name")
     jobId: Optional[str] = Field(None, description="Optional job ID")
     is_start_with_save_point: Optional[bool] = Field(None, description="Whether to start with savepoint")
     format: str = Field("hocon", description="Job configuration format (hocon, json, yaml)")
@@ -48,7 +48,7 @@ class StopJobRequest(BaseModel):
     """Request for stopping a job."""
 
     jobId: Union[str, int] = Field(..., description="Job ID")
-    is_stop_with_save_point: bool = Field(False, description="Whether to stop with savepoint")
+    isStartWithSavePoint: bool = Field(False, description="Whether to stop with savepoint")
 
 
 class JobInfoRequest(BaseModel):

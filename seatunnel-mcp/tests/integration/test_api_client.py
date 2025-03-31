@@ -128,7 +128,7 @@ def test_submit_and_stop_job(client):
         # 提交作业
         submit_response = client.submit_job(
             job_content=job_config,
-            job_name="integration_test_job",
+            jobName="integration_test_job",
             format="hocon"
         )
         assert isinstance(submit_response, dict)

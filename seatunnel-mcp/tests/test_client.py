@@ -77,7 +77,7 @@ def test_submit_job(mock_client, client):
     job_content = "env { job.mode = \"batch\" }"
     result = client.submit_job(
         job_content=job_content,
-        job_name="test_job",
+        jobName="test_job",
         format="hocon",
     )
 

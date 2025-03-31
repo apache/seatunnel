@@ -102,30 +102,30 @@ class SeaTunnelClient:
     def submit_job(
         self, 
         job_content: str, 
-        job_name: Optional[str] = None, 
+        jobName: Optional[str] = None, 
         jobId: Optional[str] = None,
-        is_start_with_save_point: Optional[bool] = None,
+        isStartWithSavePoint: Optional[bool] = None,
         format: str = "hocon"
     ) -> Dict[str, Any]:
         """Submit a new job.
 
         Args:
             job_content: Job configuration content.
-            job_name: Optional job name.
+            jobName: Optional job name.
             jobId: Optional job ID.
-            is_start_with_save_point: Whether to start with savepoint.
+            isStartWithSavePoint: Whether to start with savepoint.
             format: Job configuration format (hocon, json, yaml).
 
         Returns:
             Response from the API.
         """
         params = {}
-        if job_name:
-            params["jobName"] = job_name
+        if jobName:
+            params["jobName"] = jobName
         if jobId:
             params["jobId"] = jobId
-        if is_start_with_save_point is not None:
-            params["isStartWithSavePoint"] = str(is_start_with_save_point).lower()
+        if isStartWithSavePoint is not None:
+            params["isStartWithSavePoint"] = str(isStartWithSavePoint).lower()
         if format:
             params["format"] = format
 
@@ -139,19 +139,19 @@ class SeaTunnelClient:
         
         return response.json()
 
-    def stop_job(self, jobId: Union[str, int], is_stop_with_save_point: bool = False) -> Dict[str, Any]:
+    def stop_job(self, jobId: Union[str, int], isStartWithSavePoint: bool = False) -> Dict[str, Any]:
         """Stop a running job.
 
         Args:
             jobId: Job ID.
-            is_stop_with_save_point: Whether to stop with savepoint.
+            isStartWithSavePoint: Whether to stop with savepoint.
 
         Returns:
             Response from the API.
         """
         data = {
             "jobId": jobId,
-            "isStopWithSavePoint": is_stop_with_save_point
+            "isStopWithSavePoint": isStartWithSavePoint
         }
         
         response = self._make_request("POST", "/stop-job", json=data)

@@ -94,12 +94,12 @@ async def test_submit_job_tool(mock_client):
     job_content = "env { job.mode = \"batch\" }"
     result = await tool.fn(
         job_content=job_content,
-        job_name="test_job",
+        jobName="test_job",
         format="hocon",
     )
     mock_client.submit_job.assert_called_once_with(
         job_content=job_content,
-        job_name="test_job",
+        jobName="test_job",
         jobId=None,
         is_start_with_save_point=None,
         format="hocon",
