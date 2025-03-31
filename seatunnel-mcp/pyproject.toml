@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "seatunnel-mcp"
+version = "0.1.0"
+description = "A Model Context Protocol (MCP) server for interacting with SeaTunnel through LLM interfaces"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "Apache License"}
+authors = [
+    {name = "SeaTunnel MCP Team"}
+]
+dependencies = [
+    "fastapi>=0.95.0",
+    "uvicorn>=0.21.1",
+    "pydantic>=2.0.0",
+    "httpx>=0.24.0",
+    "python-dotenv>=1.0.0",
+    "requests>=2.28.2",
+    "mcp>=0.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.1.0",
+    "isort>=5.12.0",
+    "mypy>=1.0.1",
+    "flake8>=6.0.0",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.21.0",
+    "build>=1.0.3",
+    "twine>=4.0.2",
+    "pre-commit>=3.3.2",
+]
+
+[project.scripts]
+seatunnel-mcp = "src.seatunnel_mcp.cli:main"
+
+[tool.setuptools]
+packages = ["src.seatunnel_mcp"]
+
+[tool.black]
+line-length = 100
+target-version = ["py39"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = false
+no_implicit_optional = true
+strict_optional = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*" 

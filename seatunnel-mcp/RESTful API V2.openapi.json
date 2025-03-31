@@ -1,0 +1,326 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "RESTful API V2",
+    "description": "",
+    "version": "1.0.0"
+  },
+  "tags": [],
+  "paths": {
+    "/submit-job": {
+      "post": {
+        "summary": "hive2es_qymp",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "jobName",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "example": "hive2es_qymp",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "isStartWithSavePoint",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "example": "hocon",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "text/plain": {
+              "schema": {
+                "type": "string"
+              },
+              "example": "env {\n  job.mode = \"batch\"\n}\n \nsource {\n  Jdbc {\n        url = \"jdbc:hive2://ip:10000/default\"\n        user = \"hive\"\n        password = \"hive\"\n        driver = \"org.apache.hive.jdbc.HiveDriver\"\n        connection_check_timeout_sec = 100\n        query = \"select * from tabl1 limit 100\"\n    }\n}\n\ntransform {\n}\n\nsink {\n    Elasticsearch {\n        hosts = [\"http://ip:9200\"]\n        index = \"index1\"\n        username = \"\"\n        password = \"\"\n        schema_save_mode = \"CREATE_SCHEMA_WHEN_NOT_EXIST\"\n        data_save_mode = \"DROP_DATA\"\n    }\n}"
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/overview": {
+      "get": {
+        "summary": "返回Zeta集群的概览",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [
+          {
+            "name": "tag1",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "example": "value1",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tag2",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "example": "value2",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/running-jobs": {
+      "get": {
+        "summary": "返回所有作业及其当前状态的概览",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/job-info/{jobId}": {
+      "get": {
+        "summary": "返回作业的详细信息",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "example": 934327465587769300,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/running-job/{jobId}": {
+      "get": {
+        "summary": "返回作业的详细信息",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "example": 1,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/finished-jobs/{state}": {
+      "get": {
+        "summary": "返回所有已完成的作业信息",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [
+          {
+            "name": "state",
+            "in": "path",
+            "description": "finished job status. FINISHED,CANCELED,FAILED,UNKNOWABLE",
+            "required": true,
+            "example": "FINISHED",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/system-monitoring-information": {
+      "get": {
+        "summary": "返回系统监控信息",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/stop-job": {
+      "post": {
+        "summary": "停止作业",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              },
+              "example": {
+                "jobId": 944829786826473500,
+                "isStopWithSavePoint": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    }
+  },
+  "components": {
+    "schemas": {},
+    "securitySchemes": {}
+  },
+  "servers": [],
+  "security": []
+}
