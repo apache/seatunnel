@@ -116,6 +116,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         taskIndexToTaskLocationMapping = new ConcurrentHashMap<>();
         maxReaderSize = source.getParallelism();
         unfinishedReaders = new CopyOnWriteArraySet<>();
+        enumerator.open();
     }
 
     @Override
@@ -311,7 +312,6 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             case READY_START:
                 if (startCalled && readerRegisterComplete) {
                     currState = STARTING;
-                    enumerator.open();
                     enumeratorContext.getEventListener().onEvent(new EnumeratorOpenEvent());
                 } else {
                     Thread.sleep(100);
