@@ -585,7 +585,8 @@ public class JdbcIrisIT extends AbstractJdbcIT {
                         "iris",
                         jdbcCase.getUserName(),
                         jdbcCase.getPassword(),
-                        JdbcUrlUtil.getUrlInfo(jdbcUrl));
+                        JdbcUrlUtil.getUrlInfo(jdbcUrl),
+                        "com.intersystems.jdbc.IRISDriver");
         // set connection
         ((IrisCatalog) catalog).setConnection(jdbcUrl, connection);
         catalog.open();

@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2] Fix load state check in MilvusSourceReader to consider partition-level status (#8937)|https://github.com/apache/seatunnel/commit/bde235090b|2.3.10|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|2.3.9|
 |[Improve][Core] Refactor common options of column/row (#7911)|https://github.com/apache/seatunnel/commit/d1582afee6|2.3.9|
 |[Feature] [connector-milvus] update milvus connector to support dynamic schema, failed retry, etc. (#7885)|https://github.com/apache/seatunnel/commit/6a31f91729|2.3.9|

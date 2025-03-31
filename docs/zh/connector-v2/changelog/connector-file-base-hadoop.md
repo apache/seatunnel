@@ -2,7 +2,9 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
+|Revert &quot; [improve] update localfile connector config&quot; (#9018)|https://github.com/apache/seatunnel/commit/cdc79e13ad|2.3.10|
+| [improve] update localfile connector config (#8765)|https://github.com/apache/seatunnel/commit/def369a85f|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[Fix] Set all snappy dependency use one version (#8423)|https://github.com/apache/seatunnel/commit/3ac977c8d3|2.3.9|
 |[Fix][Connector-V2][connector-file-base-hadoop] Fixed HdfsFile source load the krb5_path configuration (#7870)|https://github.com/apache/seatunnel/commit/cd9836bced|2.3.9|
 |[Improve][Connector-V2] Change File Read/WriteStrategy `setSeaTunnelRowTypeInfo` to `setCatalogTable` (#7829)|https://github.com/apache/seatunnel/commit/6b5f74e524|2.3.9|

@@ -340,7 +340,8 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                         jdbcCase.getPassword(),
                         SqlServerURLParser.parse(
                                 jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())),
-                        SQLSERVER_SCHEMA);
+                        SQLSERVER_SCHEMA,
+                        null);
         catalog.open();
     }
 

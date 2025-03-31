@@ -2,19 +2,25 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve][connector-file-base] Improved multiple table file source allocation algorithm for subtasks (#8878)|https://github.com/apache/seatunnel/commit/44a12cc55c| dev |
-|[Fix][Connector-V2] Fixed incorrectly setting s3 key in some cases (#8885)|https://github.com/apache/seatunnel/commit/cf4bab5be2| dev |
-|[Fix][Connector-File] Fix conflicting `file_format_type` requirement (#8823)|https://github.com/apache/seatunnel/commit/6e0d630f7c| dev |
-|[Feature][Connector-V2] Add `filename_extension` parameter for read/write file (#8769)|https://github.com/apache/seatunnel/commit/78b23c0ef5| dev |
-|[Improve][Connector-V2] Improve orc read error message (#8751)|https://github.com/apache/seatunnel/commit/d66d9dc9ce| dev |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
-| [improve] update S3File connector config option  (#8615)|https://github.com/apache/seatunnel/commit/80cc9fa6ff| dev |
-|[Fix][Connector-V2] User selects csv string pattern (#8572)|https://github.com/apache/seatunnel/commit/227a11f5aa| dev |
-|[Fix][Connector-V2] Fix CSV String type write type (#8499)|https://github.com/apache/seatunnel/commit/9268f5a255| dev |
-|[Hotfix][Connector-V2][SFTP] Add quote to sftp file names with wildcard characters (#8501)|https://github.com/apache/seatunnel/commit/c5751b001b| dev |
-|[Fix][File] Fix Multi-file with binary format synchronization failed (#8546)|https://github.com/apache/seatunnel/commit/6e4ee468a5| dev |
-|[Feature][Connector-V2] Support create emtpy file when no data (#8543)|https://github.com/apache/seatunnel/commit/275db78918| dev |
-|[Feature][Connector-V2] Support single file mode in file sink (#8518)|https://github.com/apache/seatunnel/commit/e893deed50| dev |
+|[Improve] Refactor file enumerator to prevent duplicate put split (#8989)|https://github.com/apache/seatunnel/commit/fdf1beae9c| dev |
+|[Improve][File] Add row_delimiter options into text file sink (#9017)|https://github.com/apache/seatunnel/commit/92aa855a34| dev |
+|Revert &quot; [improve] update localfile connector config&quot; (#9018)|https://github.com/apache/seatunnel/commit/cdc79e13ad|2.3.10|
+| [improve] update localfile connector config (#8765)|https://github.com/apache/seatunnel/commit/def369a85f|2.3.10|
+|[Fix][File]use common-csv to read csv file (#8919)|https://github.com/apache/seatunnel/commit/3e64a42838|2.3.10|
+|[Improve][Connector-V2] Ensure that the FTP connector behaves reliably during directory operation (#8959)|https://github.com/apache/seatunnel/commit/b5f0b43fcb|2.3.10|
+|[Improve][connector-file-base] Improved multiple table file source allocation algorithm for subtasks (#8878)|https://github.com/apache/seatunnel/commit/44a12cc55c|2.3.10|
+|[Fix][Connector-V2] Fixed incorrectly setting s3 key in some cases (#8885)|https://github.com/apache/seatunnel/commit/cf4bab5be2|2.3.10|
+|[Fix][Connector-File] Fix conflicting `file_format_type` requirement (#8823)|https://github.com/apache/seatunnel/commit/6e0d630f7c|2.3.10|
+|[Feature][Connector-V2] Add `filename_extension` parameter for read/write file (#8769)|https://github.com/apache/seatunnel/commit/78b23c0ef5|2.3.10|
+|[Improve][Connector-V2] Improve orc read error message (#8751)|https://github.com/apache/seatunnel/commit/d66d9dc9ce|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
+| [improve] update S3File connector config option  (#8615)|https://github.com/apache/seatunnel/commit/80cc9fa6ff|2.3.10|
+|[Fix][Connector-V2] User selects csv string pattern (#8572)|https://github.com/apache/seatunnel/commit/227a11f5aa|2.3.10|
+|[Fix][Connector-V2] Fix CSV String type write type (#8499)|https://github.com/apache/seatunnel/commit/9268f5a255|2.3.10|
+|[Hotfix][Connector-V2][SFTP] Add quote to sftp file names with wildcard characters (#8501)|https://github.com/apache/seatunnel/commit/c5751b001b|2.3.10|
+|[Fix][File] Fix Multi-file with binary format synchronization failed (#8546)|https://github.com/apache/seatunnel/commit/6e4ee468a5|2.3.10|
+|[Feature][Connector-V2] Support create emtpy file when no data (#8543)|https://github.com/apache/seatunnel/commit/275db78918|2.3.10|
+|[Feature][Connector-V2] Support single file mode in file sink (#8518)|https://github.com/apache/seatunnel/commit/e893deed50|2.3.10|
 |[Improve][Connector-file-base] Improved file allocation algorithm for subtasks. (#8453)|https://github.com/apache/seatunnel/commit/d61cba233e|2.3.9|
 |[Bug] [connector-file] When the data source field is less than the target (Hive) field，it will throw null pointer exception#8150 (#8200)|https://github.com/apache/seatunnel/commit/25b8a02b76|2.3.9|
 |[Fix] Set all snappy dependency use one version (#8423)|https://github.com/apache/seatunnel/commit/3ac977c8d3|2.3.9|

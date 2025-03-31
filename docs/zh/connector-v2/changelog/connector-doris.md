@@ -2,10 +2,10 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve] doris options (#8745)|https://github.com/apache/seatunnel/commit/268d76cbf3| dev |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
-|[Fix][Connector-V2] fix starRocks automatically creates tables with comment (#8568)|https://github.com/apache/seatunnel/commit/c4cb1fc4a3| dev |
-|[Fix][Connector-V2] Fixed adding table comments (#8514)|https://github.com/apache/seatunnel/commit/edca75b0d6| dev |
+|[Improve] doris options (#8745)|https://github.com/apache/seatunnel/commit/268d76cbf3|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
+|[Fix][Connector-V2] fix starRocks automatically creates tables with comment (#8568)|https://github.com/apache/seatunnel/commit/c4cb1fc4a3|2.3.10|
+|[Fix][Connector-V2] Fixed adding table comments (#8514)|https://github.com/apache/seatunnel/commit/edca75b0d6|2.3.10|
 |[Fix][Doris] Fix catalog not closed (#8415)|https://github.com/apache/seatunnel/commit/2d1db66b9f|2.3.9|
 |[Feature][Connector-V2[Doris]Support sink ddl (#8250)|https://github.com/apache/seatunnel/commit/ecd8269f2e|2.3.9|
 |[Feature][Connector-V2]Support Doris Fe Node HA (#8311)|https://github.com/apache/seatunnel/commit/3e86102f47|2.3.9|

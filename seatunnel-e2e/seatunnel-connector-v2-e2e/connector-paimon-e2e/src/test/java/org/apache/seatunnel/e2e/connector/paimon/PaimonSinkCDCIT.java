@@ -69,8 +69,6 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
     public void startUp() throws Exception {
         this.isWindows =
                 System.getProperties().getProperty("os.name").toUpperCase().contains("WINDOWS");
-        CATALOG_ROOT_DIR_WIN = CATALOG_ROOT_DIR_WIN + System.getProperty("user.name") + "/tmp/";
-        CATALOG_DIR_WIN = CATALOG_ROOT_DIR_WIN + NAMESPACE + "/";
     }
 
     @AfterAll

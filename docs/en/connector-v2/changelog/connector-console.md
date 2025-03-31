@@ -2,8 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[improve] console sink options (#8743)|https://github.com/apache/seatunnel/commit/c439b99f19| dev |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
+|[improve] console sink options (#8743)|https://github.com/apache/seatunnel/commit/c439b99f19|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[Improve][dist]add UT class name check (#8182)|https://github.com/apache/seatunnel/commit/9cf4192fe4|2.3.9|
 |[Feature][Core] Support cdc task ddl restore for zeta (#7463)|https://github.com/apache/seatunnel/commit/8e322281ed|2.3.9|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|2.3.9|

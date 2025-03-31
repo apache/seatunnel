@@ -163,7 +163,9 @@ public class PaimonCatalog implements Catalog, PaimonTable {
         try {
             Schema paimonSchema =
                     SchemaUtil.toPaimonSchema(
-                            table.getTableSchema(), new PaimonSinkConfig(readonlyConfig));
+                            table.getTableSchema(),
+                            new PaimonSinkConfig(readonlyConfig),
+                            table.getComment());
             catalog.createTable(toIdentifier(tablePath), paimonSchema, ignoreIfExists);
         } catch (org.apache.paimon.catalog.Catalog.TableAlreadyExistException e) {
             throw new TableAlreadyExistException(this.catalogName, tablePath);
@@ -276,7 +278,7 @@ public class PaimonCatalog implements Catalog, PaimonTable {
                 builder.build(),
                 paimonFileStoreTableTable.options(),
                 partitionKeys,
-                null,
+                paimonFileStoreTableTable.comment().orElse(null),
                 catalogName);
     }
 
@@ -335,6 +337,19 @@ public class PaimonCatalog implements Catalog, PaimonTable {
             Identifier identifier, SchemaChange schemaChange, boolean ignoreIfNotExists) {
         try {
             catalog.alterTable(identifier, schemaChange, true);
+        } catch (org.apache.paimon.catalog.Catalog.TableNotExistException e) {
+            throw new CatalogException("TableNotExistException: {}", e);
+        } catch (org.apache.paimon.catalog.Catalog.ColumnAlreadyExistException e) {
+            throw new CatalogException("ColumnAlreadyExistException: {}", e);
+        } catch (org.apache.paimon.catalog.Catalog.ColumnNotExistException e) {
+            throw new CatalogException("ColumnNotExistException: {}", e);
+        }
+    }
+
+    public void alterTable(
+            Identifier identifier, List<SchemaChange> schemaChanges, boolean ignoreIfNotExists) {
+        try {
+            catalog.alterTable(identifier, schemaChanges, true);
         } catch (org.apache.paimon.catalog.Catalog.TableNotExistException e) {
             throw new CatalogException("TableNotExistException: {}", e);
         } catch (org.apache.paimon.catalog.Catalog.ColumnAlreadyExistException e) {

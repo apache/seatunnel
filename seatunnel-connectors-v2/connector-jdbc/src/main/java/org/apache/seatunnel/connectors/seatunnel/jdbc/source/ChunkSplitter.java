@@ -85,6 +85,16 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         }
     }
 
+    protected static String filterOutUppercase(String str) {
+        StringBuilder sb = new StringBuilder();
+        for (char c : str.toCharArray()) {
+            if (!Character.isUpperCase(c)) {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
+    }
+
     public Collection<JdbcSourceSplit> generateSplits(JdbcSourceTable table) throws Exception {
         log.info("Start splitting table {} into chunks...", table.getTablePath());
         long start = System.currentTimeMillis();

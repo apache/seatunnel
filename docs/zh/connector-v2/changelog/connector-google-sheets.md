@@ -2,8 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[improve] google sheets options (#8922)|https://github.com/apache/seatunnel/commit/48ede612dc| dev |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
+|[improve] google sheets options (#8922)|https://github.com/apache/seatunnel/commit/48ede612dc|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[Improve][API] Make sure the table name in TablePath not be null (#7252)|https://github.com/apache/seatunnel/commit/764d8b0bc8|2.3.7|
 |[Feature][Kafka] Support multi-table source read  (#5992)|https://github.com/apache/seatunnel/commit/60104602d1|2.3.6|
 |[Improve][Connector-V2] Replace CommonErrorCodeDeprecated.JSON_OPERATION_FAILED (#5978)|https://github.com/apache/seatunnel/commit/456cd17714|2.3.4|

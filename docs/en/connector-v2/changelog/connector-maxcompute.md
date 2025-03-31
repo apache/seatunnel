@@ -2,11 +2,13 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Fix][Connector-V2] Fix MaxCompute cannot get project and tableName when use schema (#8865)|https://github.com/apache/seatunnel/commit/a24fa8fef6| dev |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
-|[Feature][Connector-V2] Support maxcompute source with multi-table (#8582)|https://github.com/apache/seatunnel/commit/0f78242923| dev |
-|[Fix][Connector-V2] Fixed adding table comments (#8514)|https://github.com/apache/seatunnel/commit/edca75b0d6| dev |
-|[Improve][Connector-V2] MaxComputeSink support create partition in savemode (#8474)|https://github.com/apache/seatunnel/commit/0b8f9de465| dev |
+|[Fix][Connector-V2] Fix maxcompute sink write date less than actual date (#8999)|https://github.com/apache/seatunnel/commit/fc942a599b| dev |
+|[Fix][Connector-V2] Fix maxcompute read with partition spec (#8896)|https://github.com/apache/seatunnel/commit/e62bf6c65c|2.3.10|
+|[Fix][Connector-V2] Fix MaxCompute cannot get project and tableName when use schema (#8865)|https://github.com/apache/seatunnel/commit/a24fa8fef6|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
+|[Feature][Connector-V2] Support maxcompute source with multi-table (#8582)|https://github.com/apache/seatunnel/commit/0f78242923|2.3.10|
+|[Fix][Connector-V2] Fixed adding table comments (#8514)|https://github.com/apache/seatunnel/commit/edca75b0d6|2.3.10|
+|[Improve][Connector-V2] MaxComputeSink support create partition in savemode (#8474)|https://github.com/apache/seatunnel/commit/0b8f9de465|2.3.10|
 |[Improve][Transform] Rename sql transform table name from &#x27;fake&#x27; to &#x27;dual&#x27; (#8298)|https://github.com/apache/seatunnel/commit/e6169684fb|2.3.9|
 |[Feature][Connector-V2] Support MaxCompute save mode (#8277)|https://github.com/apache/seatunnel/commit/44ea675f1e|2.3.9|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|2.3.9|
