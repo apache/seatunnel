@@ -276,6 +276,18 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
     }
 
     @TestTemplate
+    public void testMilvusToOceanBaseNotTable(TestContainer container) throws Exception {
+        try {
+            dropOceanBaseTable();
+            Container.ExecResult execResult =
+                    container.executeJob("/jdbc_milvus_source_and_oceanbase_sink.conf");
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        } finally {
+            clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
+        }
+    }
+
+    @TestTemplate
     public void testFakeToOceanBase(TestContainer container)
             throws IOException, InterruptedException {
         try {
@@ -500,6 +512,11 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
         } else {
             return quoteIdentifier(table);
         }
+    }
+
+    private void dropOceanBaseTable() {
+        String sql = String.format("drop table IF EXISTS %s", OCEANBASE_SINK);
+        executeSql(sql);
     }
 
     private String[] getFieldNames() {
