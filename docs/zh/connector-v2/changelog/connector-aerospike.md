@@ -1,6 +1,7 @@
 <details><summary> Change Log </summary>
 
-| Change                                   | Commit | Version |
-|------------------------------------------| --- | --- |
-| [Improve][connector][aerospike] add support sink connector e2e doc dist (#8821) |https://github.com/apache/seatunnel/pull/8821| dev |
+| Change | Commit | Version |
+| --- | --- | --- |
+|[Feature][Connector-V2] Add aerospike sink connector (#8821)|https://github.com/apache/seatunnel/commit/68ebf15cf6| dev |
+
 </details>

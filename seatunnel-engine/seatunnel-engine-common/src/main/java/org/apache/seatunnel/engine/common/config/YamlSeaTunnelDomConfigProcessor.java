@@ -518,6 +518,37 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                         getIntegerValue(
                                 ServerConfigOptions.MasterServerConfigOptions.PORT_RANGE.key(),
                                 getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.ENABLE_HTTPS
+                    .key()
+                    .equals(name)) {
+                httpConfig.setEnableHttps(getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.HTTPS_PORT
+                    .key()
+                    .equals(name)) {
+                httpConfig.setHttpsPort(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions.HTTPS_PORT.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.KEY_STORE_PATH
+                    .key()
+                    .equals(name)) {
+                httpConfig.setKeyStorePath(getTextContent(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.KEY_STORE_PASSWORD
+                    .key()
+                    .equals(name)) {
+                httpConfig.setKeyStorePassword(getTextContent(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.KEY_MANAGER_PASSWORD
+                    .key()
+                    .equals(name)) {
+                httpConfig.setKeyManagerPassword(getTextContent(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.TRUST_STORE_PATH
+                    .key()
+                    .equals(name)) {
+                httpConfig.setTrustStorePath(getTextContent(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.TRUST_STORE_PASSWORD
+                    .key()
+                    .equals(name)) {
+                httpConfig.setTrustStorePassword(getTextContent(node));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }

@@ -2,7 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[Feature]Check Chinese comments in the code (#8319)|https://github.com/apache/seatunnel/commit/d58fce1caf|2.3.9|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|2.3.9|
 |[Improve][Sls] Add sls sink connector、e2e、doc (#7830)|https://github.com/apache/seatunnel/commit/048c47d966|2.3.9|

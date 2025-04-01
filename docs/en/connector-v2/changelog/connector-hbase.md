@@ -2,8 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve] hbase options (#8923)|https://github.com/apache/seatunnel/commit/b6a702b58f| dev |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
+|[Improve] hbase options (#8923)|https://github.com/apache/seatunnel/commit/b6a702b58f|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|2.3.9|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|2.3.9|
 |[Fix][Connector-V2] Fix known directory create and delete ignore issues (#7700)|https://github.com/apache/seatunnel/commit/e2fb679577|2.3.8|

@@ -2,7 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Fix][connector-http] fix when post have param (#8434)|https://github.com/apache/seatunnel/commit/c1b2675ab0| dev |
+|[improve] http connector options (#8969)|https://github.com/apache/seatunnel/commit/63ff9f910a|2.3.10|
+|[Fix][connector-http] fix when post have param (#8434)|https://github.com/apache/seatunnel/commit/c1b2675ab0|2.3.10|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|2.3.9|
 |[Feature][Connector-V2] Support TableSourceFactory/TableSinkFactory on http (#5816)|https://github.com/apache/seatunnel/commit/6f49ec6ead|2.3.4|
 |[Improve][build] Give the maven module a human readable name (#4114)|https://github.com/apache/seatunnel/commit/d7cd601051|2.3.1|

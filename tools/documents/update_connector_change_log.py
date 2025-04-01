@@ -37,7 +37,7 @@ def generate_log_info():
 
 
 def get_git_changes(directory):
-    result = subprocess.run(['git', 'log', '--pretty=format:%s%n'
+    result = subprocess.run(['git', 'log', '--abbrev=10', '--pretty=format:%s%n'
                                            'https://github.com/apache/seatunnel/commit/%h%n' '%h',
                              '--',
                              directory],
@@ -70,7 +70,7 @@ def get_tag_commit_list():
 
     commit_version_map = {}
     for version in sorted_versions:
-        result = subprocess.run(['git', 'log', version, '--pretty=format:%h'],
+        result = subprocess.run(['git', 'log', version, '--abbrev=10', '--pretty=format:%h'],
                                 cwd=directory, stdout=subprocess.PIPE)
         if result.returncode != 0:
             raise RuntimeError("Failed to fetch tag logs")

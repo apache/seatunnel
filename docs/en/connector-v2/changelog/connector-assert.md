@@ -2,8 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
-|[improve] add assert options (#8620)|https://github.com/apache/seatunnel/commit/b159cc0c75| dev |
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
+|[improve] add assert options (#8620)|https://github.com/apache/seatunnel/commit/b159cc0c75|2.3.10|
 |[Feature][API] Support timestamp with timezone offset (#8367)|https://github.com/apache/seatunnel/commit/e18bfeabd2|2.3.9|
 |[fix][connector-v2][connector-assert] Optimize Assert Sink verification method (#8356)|https://github.com/apache/seatunnel/commit/5c9159d7cd|2.3.9|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|2.3.9|

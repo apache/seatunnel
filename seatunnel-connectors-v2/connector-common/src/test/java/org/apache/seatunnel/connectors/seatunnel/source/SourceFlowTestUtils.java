@@ -131,6 +131,7 @@ public class SourceFlowTestUtils {
                                 return event -> {};
                             }
                         });
+        enumerator.open();
         for (int i = 0; i < parallelism; i++) {
             int finalI = i;
             SourceReader<Object, SourceSplit> reader =
@@ -176,6 +177,7 @@ public class SourceFlowTestUtils {
             readers.add(reader);
             enumerator.registerReader(i);
         }
+        enumerator.run();
 
         List<SeaTunnelRow> rows = new ArrayList<>();
         while (!unfinishedReaders.isEmpty()) {
