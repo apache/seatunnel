@@ -45,8 +45,8 @@ public class StarRocksJsonSerializerTest {
 
     @Test
     public void serialize() {
-        String[] filedNames = {"id", "name", "array", "map", "timestamp"};
-        SeaTunnelDataType<?>[] filedTypes = {
+        String[] fieldNames = {"id", "name", "array", "map", "timestamp"};
+        SeaTunnelDataType<?>[] fieldTypes = {
             BasicType.LONG_TYPE,
             BasicType.STRING_TYPE,
             ArrayType.STRING_ARRAY_TYPE,
