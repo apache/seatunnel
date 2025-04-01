@@ -66,6 +66,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.Driver;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
@@ -279,9 +280,11 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
     public void testMilvusToOceanBaseNotTable(TestContainer container) throws Exception {
         try {
             dropOceanBaseTable();
+            checkTableExist();
             Container.ExecResult execResult =
                     container.executeJob("/jdbc_milvus_source_and_oceanbase_sink.conf");
             Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            checkCreateTableSql();
         } finally {
             clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
         }
@@ -515,8 +518,62 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
     }
 
     private void dropOceanBaseTable() {
-        String sql = String.format("drop table IF EXISTS %s", OCEANBASE_SINK);
+        String sql =
+                String.format("drop table IF EXISTS %s.%s", OCEANBASE_DATABASE, OCEANBASE_SINK);
         executeSql(sql);
+    }
+
+    private void checkTableExist() {
+        String sql =
+                String.format(
+                        "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '%s' AND table_name = '%s'",
+                        OCEANBASE_DATABASE, OCEANBASE_SINK);
+
+        boolean isExist = false;
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
+
+            if (resultSet.next()) {
+                isExist = resultSet.getInt(1) > 0;
+            }
+        } catch (Exception e) {
+            throw new SeaTunnelRuntimeException(
+                    JdbcITErrorCode.CREATE_TABLE_FAILED, "Fail to execute sql: " + sql, e);
+        }
+        Assertions.assertFalse(isExist);
+    }
+
+    private void checkCreateTableSql() {
+        String sql = String.format("SHOW CREATE TABLE %s.%s;", OCEANBASE_DATABASE, OCEANBASE_SINK);
+        String createTableSql = "";
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
+
+            if (resultSet.next()) {
+                createTableSql = resultSet.getString(2);
+            }
+        } catch (Exception e) {
+            throw new SeaTunnelRuntimeException(
+                    JdbcITErrorCode.CREATE_TABLE_FAILED, "Fail to execute sql: " + sql, e);
+        }
+        // Removed the column store compression configuration that is automatically set by oceanbase
+        String startToken = "VECTOR KEY `vector_index` (`book_intro`) WITH (DISTANCE=L2, TYPE=HNSW";
+        int startIndex = createTableSql.indexOf(startToken);
+
+        if (startIndex != -1) {
+            String part1 = createTableSql.substring(0, startIndex + startToken.length());
+            createTableSql = part1 + "));";
+        }
+        Assertions.assertEquals(expectationSql(), createTableSql);
+    }
+
+    private String expectationSql() {
+        return "CREATE TABLE `simple_example` (\n"
+                + "  `book_id` bigint(20) NOT NULL,\n"
+                + "  `book_intro` VECTOR(4) NOT NULL,\n"
+                + "  `book_title` text NOT NULL,\n"
+                + "  PRIMARY KEY (`book_id`),\n"
+                + "  VECTOR KEY `vector_index` (`book_intro`) WITH (DISTANCE=L2, TYPE=HNSW));";
     }
 
     private String[] getFieldNames() {
