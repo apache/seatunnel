@@ -97,10 +97,12 @@ public final class ContainerUtil {
 
         List<File> connectorFiles = getConnectorFiles(module, connectorNames, connectorPrefix);
         connectorFiles.forEach(
-                jar ->
-                        container.copyFileToContainer(
-                                MountableFile.forHostPath(jar.getAbsolutePath()),
-                                Paths.get(seatunnelHome, "connectors", jar.getName()).toString()));
+                jar -> {
+                    checkPathExist(jar.getAbsolutePath());
+                    container.copyFileToContainer(
+                            MountableFile.forHostPath(jar.getAbsolutePath()),
+                            Paths.get(seatunnelHome, "connectors", jar.getName()).toString());
+                });
     }
 
     public static void copyAllConnectorJarToContainer(
