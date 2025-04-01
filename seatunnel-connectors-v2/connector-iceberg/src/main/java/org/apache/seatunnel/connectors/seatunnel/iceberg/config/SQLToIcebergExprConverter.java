@@ -202,7 +202,7 @@ class SQLToIcebergExprConverter {
         if (expr instanceof LongValue) {
             return ((LongValue) expr).getValue();
         } else if (expr instanceof NullValue) {
-            return ((LongValue) expr).getValue();
+            return null;
         } else if (expr instanceof StringValue) {
             return ((StringValue) expr).getValue();
         } else if (expr instanceof DoubleValue) {
