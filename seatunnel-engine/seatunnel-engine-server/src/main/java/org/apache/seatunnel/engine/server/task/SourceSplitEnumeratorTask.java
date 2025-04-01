@@ -116,7 +116,6 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         taskIndexToTaskLocationMapping = new ConcurrentHashMap<>();
         maxReaderSize = source.getParallelism();
         unfinishedReaders = new CopyOnWriteArraySet<>();
-        enumerator.open();
     }
 
     @Override
@@ -201,6 +200,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         } else {
             this.enumerator = this.source.getSource().createEnumerator(enumeratorContext);
         }
+        enumerator.open();
         restoreComplete.complete(null);
         log.debug("restoreState split enumerator [{}] finished", actionStateList);
     }
