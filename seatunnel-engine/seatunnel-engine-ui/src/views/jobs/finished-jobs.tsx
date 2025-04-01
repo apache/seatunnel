@@ -53,15 +53,18 @@ export default defineComponent({
         },
         {
           title: 'Id',
-          key: 'jobId'
+          key: 'jobId',
+          sorter: 'default'
         },
         {
           title: 'Name',
-          key: 'jobName'
+          key: 'jobName',
+          sorter: 'default'
         },
         {
           title: 'Create Time',
-          key: 'createTime'
+          key: 'createTime',
+          sorter: 'default'
         },
         {
           title: 'Status',
