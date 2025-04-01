@@ -17,8 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.postgres;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
+import io.debezium.jdbc.JdbcConnection;
+import io.debezium.relational.TableId;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfigFactory;
@@ -31,12 +39,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
-
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -51,10 +54,6 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
-
-import io.debezium.jdbc.JdbcConnection;
-import io.debezium.relational.TableId;
-import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.net.URL;
@@ -73,6 +72,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -192,9 +192,31 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                 .atLeast(100, TimeUnit.MILLISECONDS)
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(180, TimeUnit.SECONDS)
+                .untilAsserted(this::createTopic);
+        LOG.info("Kafka create topic: " + DEBEZIUM_JSON_TOPIC);
+        given().ignoreExceptions()
+                .atLeast(100, TimeUnit.MILLISECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .atMost(180, TimeUnit.SECONDS)
                 .untilAsserted(this::initKafkaConsumer);
     }
+    // Initialize the kafka Topic
+    private void createTopic() {
+        Properties props = new Properties();
+        props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA_CONTAINER.getBootstrapServers());
 
+        try (AdminClient adminClient = AdminClient.create(props)) {
+            // Create a new topic
+            NewTopic newTopic = new NewTopic(DEBEZIUM_JSON_TOPIC, 1, (short) 1);
+
+            // Create the topic (async operation)
+            adminClient.createTopics(Collections.singleton(newTopic)).all().get();
+
+            System.out.println("Topic " + DEBEZIUM_JSON_TOPIC + " created successfully");
+        } catch (InterruptedException | ExecutionException e) {
+            System.err.println("Error creating topic: " + e.getMessage());
+        }
+    }
     // Initialize the kafka Consumer
     private void initKafkaConsumer() {
         Properties prop = new Properties();
