@@ -138,10 +138,18 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testFilterIcebergSource(TestContainer container)
+    public void testFilterIcebergSourceSingleTable(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/iceberg/filter_iceberg_source.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testFilterIcebergSourceTables(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/iceberg/filter_iceberg_source_tables.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
