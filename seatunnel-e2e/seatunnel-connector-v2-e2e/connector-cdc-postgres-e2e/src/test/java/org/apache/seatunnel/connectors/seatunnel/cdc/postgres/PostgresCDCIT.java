@@ -245,7 +245,6 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason = "Currently Only support Zeta engine")
     public void testPostgresCdcWithDebeziumJsonFormat(TestContainer container) throws Exception {
-        container.executeExtraCommands(extendedFactory);
         try {
             CompletableFuture.supplyAsync(
                     () -> {
