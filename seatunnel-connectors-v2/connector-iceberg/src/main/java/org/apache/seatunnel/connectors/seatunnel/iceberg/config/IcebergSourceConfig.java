@@ -17,17 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.config;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.ExpressionUtils;
-
-import org.apache.commons.lang3.StringUtils;
-import org.apache.iceberg.expressions.Expression;
-
 import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.java.Log;
-import net.sf.jsqlparser.JSQLParserException;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import java.util.Collections;
 import java.util.List;
@@ -66,19 +60,8 @@ public class IcebergSourceConfig extends IcebergCommonConfig {
                                             IcebergSourceOptions.KEY_USE_SNAPSHOT_TIMESTAMP))
                             .streamScanStrategy(
                                     readonlyConfig.get(
-                                            IcebergSourceOptions.KEY_STREAM_SCAN_STRATEGY));
-            if (StringUtils.isNotBlank(readonlyConfig.get(IcebergSourceOptions.WHERE_CLAUSE))) {
-                try {
-                    Expression expression =
-                            ExpressionUtils.parseWhereClauseToIcebergExpression(
-                                    readonlyConfig.get(IcebergSourceOptions.WHERE_CLAUSE));
-                    builder.filter(expression);
-                } catch (JSQLParserException e) {
-                    log.warning(
-                            "Failed to parse where clause to iceberg expression: "
-                                    + e.getMessage());
-                }
-            }
+                                            IcebergSourceOptions.KEY_STREAM_SCAN_STRATEGY))
+                            .whereClause(readonlyConfig.get(IcebergSourceOptions.WHERE_CLAUSE));
 
             SourceTableConfig tableConfig = builder.build();
             this.tableList = Collections.singletonList(tableConfig);

@@ -114,6 +114,7 @@ source {
     }
     namespace = "database1"
     table = "source"
+    where_clause = "id > 100"
     plugin_output = "iceberg"
   }
 }
@@ -142,9 +143,11 @@ source {
     table_list = [
       {
         table = "table_1
+        where_clause = "id > 100"
       },
       {
         table = "table_2
+        where_clause = "id > 1001"
       }
     ]
     

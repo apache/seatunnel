@@ -17,20 +17,24 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan;
 
-import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceTableConfig;
-
-import org.apache.iceberg.Schema;
-import org.apache.iceberg.expressions.Expression;
-
 import lombok.Builder;
 import lombok.Getter;
 import lombok.ToString;
+import lombok.extern.java.Log;
+import net.sf.jsqlparser.JSQLParserException;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.expressions.Expression;
+import org.apache.iceberg.expressions.Expressions;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceTableConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.ExpressionUtils;
 
 @Getter
 @Builder(toBuilder = true)
 @ToString
+@Log
 public class IcebergScanContext {
 
     private final TablePath tablePath;
@@ -73,12 +77,28 @@ public class IcebergScanContext {
                 .useSnapshotTimestamp(tableConfig.getUseSnapshotTimestamp())
                 .caseSensitive(sourceConfig.isCaseSensitive())
                 .schema(schema)
-                .filter(tableConfig.getFilter())
+                .filter(getFilter(tableConfig.getWhereClause()))
                 .splitSize(tableConfig.getSplitSize())
                 .splitLookback(tableConfig.getSplitLookback())
                 .splitOpenFileCost(tableConfig.getSplitOpenFileCost())
                 .build();
     }
+
+    private static Expression getFilter(String whereClause) {
+        if (StringUtils.isNotBlank(whereClause)) {
+            try {
+                Expression expression =
+                        ExpressionUtils.parseWhereClauseToIcebergExpression(whereClause);
+                return expression;
+            } catch (JSQLParserException e) {
+                log.warning(
+                        "Failed to parse where clause to iceberg expression: "
+                                + e.getMessage());
+            }
+        }
+        return Expressions.alwaysTrue();
+    }
+
 
     public static IcebergScanContext streamScanContext(
             IcebergSourceConfig sourceConfig, SourceTableConfig tableConfig, Schema schema) {
