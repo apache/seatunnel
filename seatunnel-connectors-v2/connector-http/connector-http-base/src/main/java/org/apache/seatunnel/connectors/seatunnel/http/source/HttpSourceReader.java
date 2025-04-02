@@ -262,18 +262,22 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             List<String> result = jsonReadContext.read(path);
             results.add(result);
         }
-        for (int i = 1; i < results.size(); i++) {
-            List<?> result0 = results.get(0);
-            List<?> result = results.get(i);
-            if (result0.size() != result.size()) {
-                throw new HttpConnectorException(
-                        HttpConnectorErrorCode.FIELD_DATA_IS_INCONSISTENT,
-                        String.format(
-                                "[%s](%d) and [%s](%d) the number of parsing records is inconsistent.",
-                                jsonPaths[0].getPath(),
-                                result0.size(),
-                                jsonPaths[i].getPath(),
-                                result.size()));
+        int maxLength = 0;
+        for (List<?> result : results) {
+            maxLength = Math.max(maxLength, result.size());
+        }
+        for (int i = 0; i < results.size(); i++) {
+            List<String> result = results.get(i);
+            if (result.size() < maxLength) {
+                log.warn(
+                        "Field [{}] with size ({}) is less than max size ({}), will be padded with null values. "
+                                + "This may happen when JSON paths return different numbers of elements.",
+                        jsonPaths[i].getPath(),
+                        result.size(),
+                        maxLength);
+                for (int j = result.size(); j < maxLength; j++) {
+                    result.add(null);
+                }
             }
         }
 
