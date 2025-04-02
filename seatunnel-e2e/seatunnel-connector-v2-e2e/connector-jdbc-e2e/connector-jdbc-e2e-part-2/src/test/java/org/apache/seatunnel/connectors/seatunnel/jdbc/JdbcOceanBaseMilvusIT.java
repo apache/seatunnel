@@ -523,7 +523,7 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
         executeSql(sql);
     }
 
-    private void checkTableExist() {
+    private void checkTableNotExist() {
         String sql =
                 String.format(
                         "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '%s' AND table_name = '%s'",
