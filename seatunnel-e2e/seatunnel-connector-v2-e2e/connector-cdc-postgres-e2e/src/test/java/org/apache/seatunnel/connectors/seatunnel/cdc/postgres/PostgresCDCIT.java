@@ -240,6 +240,61 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently Only support Zeta engine")
+    public void testPostgresCdcWithDebeziumJsonFormat(TestContainer container) throws Exception {
+        container.executeExtraCommands(extendedFactory);
+        try {
+            CompletableFuture.supplyAsync(
+                    () -> {
+                        try {
+                            container.executeJob(
+                                    "/postgrescdc_to_postgres_with_debezium_to_kafka.conf");
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            log.error("Commit task exception :" + e.getMessage());
+                            throw new RuntimeException(e);
+                        }
+                        return null;
+                    });
+            // snapshot stage
+            ArrayList<String> result = new ArrayList<>();
+            ArrayList<String> topics = new ArrayList<>();
+            topics.add(DEBEZIUM_JSON_TOPIC);
+            kafkaConsumer.subscribe(topics);
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                ConsumerRecords<String, String> consumerRecords =
+                                        kafkaConsumer.poll(Duration.ofMillis(1000));
+                                for (ConsumerRecord<String, String> record : consumerRecords) {
+                                    result.add(record.value());
+                                }
+                                Assertions.assertEquals(1, result.size());
+                            });
+            // insert update delete
+            upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY);
+
+            // stream stage
+
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                ConsumerRecords<String, String> consumerRecords =
+                                        kafkaConsumer.poll(Duration.ofMillis(1000));
+                                for (ConsumerRecord<String, String> record : consumerRecords) {
+                                    result.add(record.value());
+                                }
+                                Assertions.assertEquals(5, result.size());
+                            });
+        } finally {
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY);
+        }
+    }
+
+    @TestTemplate
     public void testMPostgresCdcCheckDataE2e(TestContainer container) {
 
         try {
@@ -685,61 +740,6 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         } finally {
             clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY);
             clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
-        }
-    }
-
-    @TestTemplate
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "Currently Only support Zeta engine")
-    public void testPostgresCdcWithDebeziumJsonFormat(TestContainer container) throws Exception {
-        container.executeExtraCommands(extendedFactory);
-        try {
-            CompletableFuture.supplyAsync(
-                    () -> {
-                        try {
-                            container.executeJob(
-                                    "/postgrescdc_to_postgres_with_debezium_to_kafka.conf");
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                            log.error("Commit task exception :" + e.getMessage());
-                            throw new RuntimeException(e);
-                        }
-                        return null;
-                    });
-            // snapshot stage
-            ArrayList<String> result = new ArrayList<>();
-            ArrayList<String> topics = new ArrayList<>();
-            topics.add(DEBEZIUM_JSON_TOPIC);
-            kafkaConsumer.subscribe(topics);
-            await().atMost(60000, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () -> {
-                                ConsumerRecords<String, String> consumerRecords =
-                                        kafkaConsumer.poll(Duration.ofMillis(1000));
-                                for (ConsumerRecord<String, String> record : consumerRecords) {
-                                    result.add(record.value());
-                                }
-                                Assertions.assertEquals(1, result.size());
-                            });
-            // insert update delete
-            upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY);
-
-            // stream stage
-
-            await().atMost(60000, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () -> {
-                                ConsumerRecords<String, String> consumerRecords =
-                                        kafkaConsumer.poll(Duration.ofMillis(1000));
-                                for (ConsumerRecord<String, String> record : consumerRecords) {
-                                    result.add(record.value());
-                                }
-                                Assertions.assertEquals(5, result.size());
-                            });
-        } finally {
-            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY);
         }
     }
 
