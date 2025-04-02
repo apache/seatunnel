@@ -54,7 +54,7 @@ public class StarRocksJsonSerializerTest {
             LocalTimeType.LOCAL_DATE_TIME_TYPE
         };
 
-        SeaTunnelRowType seaTunnelRowType = new SeaTunnelRowType(filedNames, filedTypes);
+        SeaTunnelRowType seaTunnelRowType = new SeaTunnelRowType(fieldNames, fieldTypes);
         StarRocksJsonSerializer starRocksJsonSerializer =
                 new StarRocksJsonSerializer(seaTunnelRowType, false);
         Object[] fields = {
