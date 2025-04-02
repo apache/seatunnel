@@ -17,11 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.config;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+
 import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.java.Log;
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import java.util.Collections;
 import java.util.List;
