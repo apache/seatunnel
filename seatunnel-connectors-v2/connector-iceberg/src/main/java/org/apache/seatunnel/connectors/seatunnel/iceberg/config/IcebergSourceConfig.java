@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.ExpressionUtils;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.iceberg.expressions.Expression;
 
 import lombok.Getter;
@@ -66,14 +67,17 @@ public class IcebergSourceConfig extends IcebergCommonConfig {
                             .streamScanStrategy(
                                     readonlyConfig.get(
                                             IcebergSourceOptions.KEY_STREAM_SCAN_STRATEGY));
-            try {
-                Expression expression =
-                        ExpressionUtils.parseWhereClauseToIcebergExpression(
-                                readonlyConfig.get(IcebergSourceOptions.WHERE_CLAUSE));
-                builder.filter(expression);
-            } catch (JSQLParserException e) {
-                log.warning(
-                        "Failed to parse where clause to iceberg expression: " + e.getMessage());
+            if (StringUtils.isNotBlank(readonlyConfig.get(IcebergSourceOptions.WHERE_CLAUSE))) {
+                try {
+                    Expression expression =
+                            ExpressionUtils.parseWhereClauseToIcebergExpression(
+                                    readonlyConfig.get(IcebergSourceOptions.WHERE_CLAUSE));
+                    builder.filter(expression);
+                } catch (JSQLParserException e) {
+                    log.warning(
+                            "Failed to parse where clause to iceberg expression: "
+                                    + e.getMessage());
+                }
             }
 
             SourceTableConfig tableConfig = builder.build();
