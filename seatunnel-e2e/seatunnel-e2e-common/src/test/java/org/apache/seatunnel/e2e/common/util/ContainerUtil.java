@@ -243,12 +243,7 @@ public final class ContainerUtil {
             return;
         }
         if (connectorNames.contains(currentModule.getName())) {
-            log.info("Current Module Path: {}", currentModule.getAbsolutePath());
             File targetPath = new File(currentModule.getAbsolutePath() + File.separator + "target");
-            log.info("Current targetPath: {}", targetPath.getAbsolutePath());
-            log.info(
-                    "TargetPath fils: {}",
-                    Arrays.toString(Objects.requireNonNull(targetPath.listFiles())));
             for (File file : Objects.requireNonNull(targetPath.listFiles())) {
                 if (file.getName().startsWith(currentModule.getName())
                         && !file.getName().endsWith("javadoc.jar")
