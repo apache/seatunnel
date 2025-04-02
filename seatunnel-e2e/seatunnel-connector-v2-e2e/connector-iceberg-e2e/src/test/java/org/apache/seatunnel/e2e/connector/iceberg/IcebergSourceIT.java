@@ -137,6 +137,14 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
+    @TestTemplate
+    public void testFilterIcebergSource(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/iceberg/filter_iceberg_source.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
     private void initializeIcebergTable() {
 
         Map<String, Object> configs = new HashMap<>();
