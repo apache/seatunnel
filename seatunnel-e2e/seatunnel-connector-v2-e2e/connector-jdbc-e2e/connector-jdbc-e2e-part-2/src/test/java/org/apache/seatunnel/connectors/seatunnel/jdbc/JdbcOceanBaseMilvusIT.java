@@ -280,7 +280,7 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
     public void testMilvusToOceanBaseNotTable(TestContainer container) throws Exception {
         try {
             dropOceanBaseTable();
-            checkTableExist();
+            checkTableNotExist();
             Container.ExecResult execResult =
                     container.executeJob("/jdbc_milvus_source_and_oceanbase_sink.conf");
             Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -422,6 +422,7 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
         connection.setAutoCommit(false);
     }
 
+    /** This parameter is required for OceanBase 4.3.x to enable vector indexing */
     public void setObVectorMemory() {
         String sql = "ALTER SYSTEM SET ob_vector_memory_limit_percentage = 30";
         executeSql(sql);

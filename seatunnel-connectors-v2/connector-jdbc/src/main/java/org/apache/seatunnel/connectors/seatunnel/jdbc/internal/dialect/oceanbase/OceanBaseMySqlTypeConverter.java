@@ -296,8 +296,8 @@ public class OceanBaseMySqlTypeConverter
                 builder.scale(typeDefine.getScale());
                 break;
             case VECTOR_NAME:
-                String columnType = typeDefine.getColumnType();
-                if (columnType.toUpperCase().startsWith("VECTOR(") && columnType.endsWith(")")) {
+                String columnType = typeDefine.getColumnType().toUpperCase();
+                if (columnType.startsWith("VECTOR(") && columnType.endsWith(")")) {
                     Integer number =
                             Integer.parseInt(
                                     columnType.substring(
