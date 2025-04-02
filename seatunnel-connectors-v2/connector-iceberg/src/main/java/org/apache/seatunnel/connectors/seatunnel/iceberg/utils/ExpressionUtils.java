@@ -26,6 +26,7 @@ import lombok.SneakyThrows;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.DoubleValue;
 import net.sf.jsqlparser.expression.LongValue;
+import net.sf.jsqlparser.expression.NotExpression;
 import net.sf.jsqlparser.expression.Parenthesis;
 import net.sf.jsqlparser.expression.StringValue;
 import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
@@ -37,6 +38,7 @@ import net.sf.jsqlparser.expression.operators.relational.GreaterThanEquals;
 import net.sf.jsqlparser.expression.operators.relational.InExpression;
 import net.sf.jsqlparser.expression.operators.relational.IsBooleanExpression;
 import net.sf.jsqlparser.expression.operators.relational.IsNullExpression;
+import net.sf.jsqlparser.expression.operators.relational.LikeExpression;
 import net.sf.jsqlparser.expression.operators.relational.MinorThan;
 import net.sf.jsqlparser.expression.operators.relational.MinorThanEquals;
 import net.sf.jsqlparser.expression.operators.relational.NotEqualsTo;
@@ -65,6 +67,12 @@ public class ExpressionUtils {
                     .appendLiteral(' ')
                     .append(ISO_LOCAL_TIME)
                     .toFormatter();
+
+    public static Expression parseWhereClauseToIcebergExpression(String whereClauseStr)
+            throws JSQLParserException {
+        // use the JsqlParser to parse the where clause
+        return convertDeleteSQL("DELETE FROM t WHERE " + whereClauseStr);
+    }
 
     public static Expression convertDeleteSQL(String sql) throws JSQLParserException {
         Statement statement = CCJSqlParserUtil.parse(sql);
@@ -117,6 +125,10 @@ public class ExpressionUtils {
                                     notEqualsTo.getRightExpression(),
                                     schema.findField(column.getColumnName()));
             return Expressions.notEqual(column.getColumnName(), value);
+        }
+        if (condition instanceof NotExpression) {
+            NotExpression expr = (NotExpression) condition;
+            return Expressions.not(convert(expr.getExpression(), null));
         }
         if (condition instanceof GreaterThan) {
             GreaterThan greaterThan = (GreaterThan) condition;
@@ -198,6 +210,17 @@ public class ExpressionUtils {
                 return Expressions.notEqual(column.getColumnName(), booleanExpression.isTrue());
             }
             return Expressions.equal(column.getColumnName(), booleanExpression.isTrue());
+        }
+        if (condition instanceof LikeExpression) {
+            LikeExpression expr = (LikeExpression) condition;
+            String columnName = ((Column) expr.getLeftExpression()).getColumnName();
+            String value = ((StringValue) expr.getRightExpression()).getValue();
+            LikeExpression.KeyWord keyWord = expr.getLikeKeyWord();
+            if (keyWord == LikeExpression.KeyWord.LIKE) {
+                return Expressions.startsWith(columnName, value);
+            } else {
+                throw new UnsupportedOperationException("Unsupported like keyword: " + keyWord);
+            }
         }
 
         throw new UnsupportedOperationException(

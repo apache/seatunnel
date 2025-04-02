@@ -19,9 +19,14 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.ExpressionUtils;
+
+import org.apache.iceberg.expressions.Expression;
 
 import lombok.Getter;
 import lombok.ToString;
+import lombok.extern.java.Log;
+import net.sf.jsqlparser.JSQLParserException;
 
 import java.util.Collections;
 import java.util.List;
@@ -29,6 +34,7 @@ import java.util.stream.Collectors;
 
 @Getter
 @ToString
+@Log
 public class IcebergSourceConfig extends IcebergCommonConfig {
 
     private static final long serialVersionUID = -1965861967575264253L;
@@ -41,7 +47,7 @@ public class IcebergSourceConfig extends IcebergCommonConfig {
         this.incrementScanInterval =
                 readonlyConfig.get(IcebergSourceOptions.KEY_INCREMENT_SCAN_INTERVAL);
         if (this.getTable() != null) {
-            SourceTableConfig tableConfig =
+            SourceTableConfig.SourceTableConfigBuilder builder =
                     SourceTableConfig.builder()
                             .namespace(this.getNamespace())
                             .table(this.getTable())
@@ -59,8 +65,18 @@ public class IcebergSourceConfig extends IcebergCommonConfig {
                                             IcebergSourceOptions.KEY_USE_SNAPSHOT_TIMESTAMP))
                             .streamScanStrategy(
                                     readonlyConfig.get(
-                                            IcebergSourceOptions.KEY_STREAM_SCAN_STRATEGY))
-                            .build();
+                                            IcebergSourceOptions.KEY_STREAM_SCAN_STRATEGY));
+            try {
+                Expression expression =
+                        ExpressionUtils.parseWhereClauseToIcebergExpression(
+                                readonlyConfig.get(IcebergSourceOptions.WHERE_CLAUSE));
+                builder.filter(expression);
+            } catch (JSQLParserException e) {
+                log.warning(
+                        "Failed to parse where clause to iceberg expression: " + e.getMessage());
+            }
+
+            SourceTableConfig tableConfig = builder.build();
             this.tableList = Collections.singletonList(tableConfig);
         } else {
             this.tableList =
