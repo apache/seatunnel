@@ -79,7 +79,7 @@ public class IcebergScanContext {
                 .useSnapshotTimestamp(tableConfig.getUseSnapshotTimestamp())
                 .caseSensitive(sourceConfig.isCaseSensitive())
                 .schema(schema)
-                .filter(getFilter(tableConfig.getWhereClause()))
+                .filter(getFilter(tableConfig.getFilter()))
                 .splitSize(tableConfig.getSplitSize())
                 .splitLookback(tableConfig.getSplitLookback())
                 .splitOpenFileCost(tableConfig.getSplitOpenFileCost())
