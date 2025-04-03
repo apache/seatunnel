@@ -29,6 +29,7 @@ import java.util.Map;
 @Setter
 @AllArgsConstructor
 public class AmazonDynamoDBSourceState implements Serializable {
+    private static final long serialVersionUID = -8614736648787520123L;
     private boolean shouldEnumerate;
     private Map<Integer, List<AmazonDynamoDBSourceSplit>> pendingSplits;
 }

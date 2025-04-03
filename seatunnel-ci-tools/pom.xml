@@ -27,13 +27,26 @@
 
     <properties>
         <javaparser.version>3.26.1</javaparser.version>
+        <reflections.version>0.10.2</reflections.version>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>com.github.javaparser</groupId>
             <artifactId>javaparser-core</artifactId>
-            <version>${javaparser.version}</version>
+            <version>3.25.8</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.github.javaparser</groupId>
+            <artifactId>javaparser-symbol-solver-core</artifactId>
+            <version>3.25.8</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.reflections</groupId>
+            <artifactId>reflections</artifactId>
+            <version>0.10.2</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

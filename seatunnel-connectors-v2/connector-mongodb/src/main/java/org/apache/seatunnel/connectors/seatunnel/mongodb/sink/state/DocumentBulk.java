@@ -37,6 +37,7 @@ import java.util.List;
 public class DocumentBulk implements Serializable {
 
     public static final int BUFFER_SIZE = 1024;
+    private static final long serialVersionUID = 7203410284346755522L;
 
     private final List<BsonDocument> bufferedDocuments;
 

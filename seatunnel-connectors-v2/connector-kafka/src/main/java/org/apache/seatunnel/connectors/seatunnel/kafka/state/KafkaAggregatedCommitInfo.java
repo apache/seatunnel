@@ -26,5 +26,6 @@ import java.util.List;
 @Data
 @AllArgsConstructor
 public class KafkaAggregatedCommitInfo implements Serializable {
+    private static final long serialVersionUID = 7364827364827364836L;
     List<KafkaCommitInfo> commitInfos;
 }

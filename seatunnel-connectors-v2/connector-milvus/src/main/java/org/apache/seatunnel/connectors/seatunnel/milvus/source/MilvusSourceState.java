@@ -29,6 +29,7 @@ import java.util.Map;
 @Data
 @AllArgsConstructor
 public class MilvusSourceState implements Serializable {
+    private static final long serialVersionUID = 1718378968826165653L;
     private List<TablePath> pendingTables;
     private Map<Integer, List<MilvusSourceSplit>> pendingSplits;
 }

@@ -19,4 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.state;
 
 import java.io.Serializable;
 
-public class ElasticsearchAggregatedCommitInfo implements Serializable {}
+public class ElasticsearchAggregatedCommitInfo implements Serializable {
+    private static final long serialVersionUID = 5142635142635142635L;
+}

@@ -29,6 +29,7 @@ import java.util.Objects;
 
 public class PulsarPartitionSplit implements SourceSplit {
 
+    private static final long serialVersionUID = 3261816890422404491L;
     private final TopicPartition partition;
 
     private final StopCursor stopCursor;

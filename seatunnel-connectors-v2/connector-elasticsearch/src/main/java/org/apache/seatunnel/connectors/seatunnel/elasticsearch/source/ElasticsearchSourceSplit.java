@@ -29,7 +29,7 @@ import lombok.ToString;
 @AllArgsConstructor
 public class ElasticsearchSourceSplit implements SourceSplit {
 
-    private static final long serialVersionUID = -1L;
+    private static final long serialVersionUID = 7364827364827364827L;
 
     private String splitId;
 

@@ -28,6 +28,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class StarRocksSourceSplit implements SourceSplit {
+    private static final long serialVersionUID = 7364827364827364833L;
     private final QueryPartition partition;
     private final String splitId;
 

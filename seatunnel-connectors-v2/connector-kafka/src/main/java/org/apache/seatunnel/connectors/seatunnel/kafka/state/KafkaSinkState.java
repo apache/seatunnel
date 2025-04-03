@@ -26,7 +26,7 @@ import java.util.Properties;
 @Data
 @AllArgsConstructor
 public class KafkaSinkState implements Serializable {
-
+    private static final long serialVersionUID = 7364827364827364835L;
     private final String transactionId;
     private final String transactionIdPrefix;
     private final long checkpointId;

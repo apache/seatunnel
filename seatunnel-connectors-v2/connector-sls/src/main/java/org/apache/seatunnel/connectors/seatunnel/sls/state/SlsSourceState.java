@@ -27,6 +27,7 @@ import java.util.Set;
 @Data
 public class SlsSourceState implements Serializable {
 
+    private static final long serialVersionUID = 803072186979969736L;
     private Set<SlsSourceSplit> assignedSplit;
 
     public SlsSourceState(Set<SlsSourceSplit> assignedSplit) {

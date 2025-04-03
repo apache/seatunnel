@@ -24,6 +24,7 @@ import lombok.Setter;
 
 public class SlsSourceSplit implements SourceSplit {
 
+    private static final long serialVersionUID = 7364827364827364830L;
     @Getter private String project;
     @Getter private String logStore;
     @Getter private String consumer;

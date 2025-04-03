@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
 import org.apache.seatunnel.api.source.SourceSplit;
 
 public class InfluxDBSourceSplit implements SourceSplit {
+    private static final long serialVersionUID = 7364827364827364838L;
     private final String splitId;
 
     private final String query;
