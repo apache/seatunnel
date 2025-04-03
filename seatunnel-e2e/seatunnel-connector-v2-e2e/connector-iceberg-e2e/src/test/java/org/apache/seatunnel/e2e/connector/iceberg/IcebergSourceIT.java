@@ -57,10 +57,14 @@ import org.testcontainers.utility.MountableFile;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -135,9 +139,29 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
     @AfterEach
     public void clean() {
         // clean the catalog dir
-        File catalogDir = new File(CATALOG_DIR);
-        if (catalogDir.exists()) {
-            catalogDir.delete();
+        Path catalogPath = Paths.get(CATALOG_DIR);
+        if (java.nio.file.Files.exists(catalogPath)) {
+            try {
+                java.nio.file.Files.walkFileTree(
+                        catalogPath,
+                        new SimpleFileVisitor<Path>() {
+                            @Override
+                            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+                                    throws IOException {
+                                java.nio.file.Files.delete(file);
+                                return FileVisitResult.CONTINUE;
+                            }
+
+                            @Override
+                            public FileVisitResult postVisitDirectory(Path dir, IOException exc)
+                                    throws IOException {
+                                java.nio.file.Files.delete(dir);
+                                return FileVisitResult.CONTINUE;
+                            }
+                        });
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
