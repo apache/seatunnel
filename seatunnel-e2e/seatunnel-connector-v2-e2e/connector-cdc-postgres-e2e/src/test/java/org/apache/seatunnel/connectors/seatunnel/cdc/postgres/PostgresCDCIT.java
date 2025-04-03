@@ -39,6 +39,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.TopicPartition;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -74,6 +75,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -239,6 +241,21 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         kafkaConsumer = new KafkaConsumer<>(prop);
     }
 
+    private List<String> getKafkaData(List<String> topics, long endOffset) {
+        Long lastProcessedOffset = -1L;
+        List<String> data = new ArrayList<>();
+        do {
+            ConsumerRecords<String, String> consumerRecords =
+                    kafkaConsumer.poll(Duration.ofMillis(1000));
+            for (ConsumerRecord<String, String> record : consumerRecords) {
+                data.add(record.value());
+                lastProcessedOffset = record.offset();
+            }
+            log.info("Data size: {}", data.size());
+        } while (lastProcessedOffset < endOffset - 1);
+        return data;
+    }
+
     @TestTemplate
     @DisabledOnContainer(
             value = {},
@@ -246,6 +263,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             disabledReason = "Currently Only support Zeta engine")
     public void testPostgresCdcWithDebeziumJsonFormat(TestContainer container) throws Exception {
         try {
+            Long endOffset;
             CompletableFuture.supplyAsync(
                     () -> {
                         try {
@@ -258,35 +276,40 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                         }
                         return null;
                     });
-            // snapshot stage
-            ArrayList<String> result = new ArrayList<>();
-            ArrayList<String> topics = new ArrayList<>();
-            topics.add(DEBEZIUM_JSON_TOPIC);
-            kafkaConsumer.subscribe(topics);
+            kafkaConsumer.subscribe(Arrays.asList(DEBEZIUM_JSON_TOPIC));
+            Map<TopicPartition, Long> offsets =
+                    kafkaConsumer.endOffsets(
+                            Arrays.asList(new TopicPartition(DEBEZIUM_JSON_TOPIC, 0)));
+            endOffset = offsets.entrySet().iterator().next().getValue();
+            Long finalEndOffset1 = endOffset;
             await().atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                ConsumerRecords<String, String> consumerRecords =
-                                        kafkaConsumer.poll(Duration.ofMillis(1000));
-                                for (ConsumerRecord<String, String> record : consumerRecords) {
-                                    result.add(record.value());
-                                }
-                                Assertions.assertEquals(1, result.size());
+                                Assertions.assertEquals(
+                                        1,
+                                        getKafkaData(
+                                                        Arrays.asList(DEBEZIUM_JSON_TOPIC),
+                                                        finalEndOffset1)
+                                                .size());
                             });
             // insert update delete
             upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY);
 
             // stream stage
-
+            offsets =
+                    kafkaConsumer.endOffsets(
+                            Arrays.asList(new TopicPartition(DEBEZIUM_JSON_TOPIC, 0)));
+            endOffset = offsets.entrySet().iterator().next().getValue();
+            Long finalEndOffset2 = endOffset;
             await().atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                ConsumerRecords<String, String> consumerRecords =
-                                        kafkaConsumer.poll(Duration.ofMillis(1000));
-                                for (ConsumerRecord<String, String> record : consumerRecords) {
-                                    result.add(record.value());
-                                }
-                                Assertions.assertEquals(5, result.size());
+                                Assertions.assertEquals(
+                                        4,
+                                        getKafkaData(
+                                                        Arrays.asList(DEBEZIUM_JSON_TOPIC),
+                                                        finalEndOffset2)
+                                                .size());
                             });
         } finally {
             clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY);
