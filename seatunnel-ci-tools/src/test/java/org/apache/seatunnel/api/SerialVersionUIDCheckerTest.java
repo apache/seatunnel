@@ -52,9 +52,9 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.fail;
 
-@ExtendWith(SerialVersionUIDChecker.TestResultLogger.class)
-public class SerialVersionUIDChecker {
-    private static final Logger LOG = LoggerFactory.getLogger(SerialVersionUIDChecker.class);
+@ExtendWith(SerialVersionUIDCheckerTest.TestResultLogger.class)
+public class SerialVersionUIDCheckerTest {
+    private static final Logger LOG = LoggerFactory.getLogger(SerialVersionUIDCheckerTest.class);
     private static final String JAVA_FILE_EXTENSION = ".java";
     private static final String CONNECTOR_DIR = "seatunnel-connectors-v2";
     private static final String JAVA_PATH_FRAGMENT =
