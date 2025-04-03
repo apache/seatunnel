@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.dm;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
@@ -28,6 +29,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -35,6 +37,9 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class DamengCreateTableSqlBuilderTest {
 
@@ -133,5 +138,20 @@ public class DamengCreateTableSqlBuilderTest {
                         + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"createTime\" IS 'createTime';\n"
                         + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"lastUpdateTime\" IS 'lastUpdateTime';";
         Assertions.assertEquals(expectSkipIndex, createTableSqlSkipIndex);
+    }
+
+    @Test
+    public void testColumnSinkType() {
+        DamengCreateTableSqlBuilder sqlBuilder = mock(DamengCreateTableSqlBuilder.class);
+
+        Column column = mock(Column.class);
+        when(column.getSinkType()).thenReturn("VARCHAR(10)");
+        when(column.getDataType()).thenReturn((SeaTunnelDataType) BasicType.INT_TYPE);
+        when(column.getName()).thenReturn("col1");
+        when(sqlBuilder.buildColumnSql(column)).thenCallRealMethod();
+
+        String result = sqlBuilder.buildColumnSql(column);
+
+        Assertions.assertEquals("\"col1\" VARCHAR(10) NOT NULL", result);
     }
 }

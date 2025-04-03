@@ -108,14 +108,19 @@ public class DamengCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
         return createTableSql.toString();
     }
 
-    private String buildColumnSql(Column column) {
+    String buildColumnSql(Column column) {
         StringBuilder columnSql = new StringBuilder();
         columnSql.append("\"").append(column.getName()).append("\" ");
 
-        String columnType =
-                StringUtils.equals(DatabaseIdentifier.DAMENG, sourceCatalogName)
-                        ? column.getSourceType()
-                        : DmdbTypeConverter.INSTANCE.reconvert(column).getColumnType();
+        String columnType;
+        if (column.getSinkType() != null) {
+            columnType = column.getSinkType();
+        } else if (StringUtils.equals(DatabaseIdentifier.DAMENG, sourceCatalogName)
+                && StringUtils.isNotEmpty(column.getSourceType())) {
+            columnType = column.getSourceType();
+        } else {
+            columnType = DmdbTypeConverter.INSTANCE.reconvert(column).getColumnType();
+        }
         columnSql.append(columnType);
 
         if (!column.isNullable()) {
