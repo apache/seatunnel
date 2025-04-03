@@ -342,7 +342,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         String multipleDotTopic = "test.multiple.point.topic.json";
         TextSerializationSchema serializer =
                 TextSerializationSchema.builder()
-                        .seaTunnelRowType(SEATUNNEL_ROW_LITE_TYPE)
+                        .seaTunnelRowType(SEATUNNEL_ROW_TYPE)
                         .delimiter(",")
                         .build();
         try (AdminClient adminClient = createKafkaAdmin()) {
@@ -358,7 +358,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        generateLiteTestData(
+        generateTestData(
                 row ->
                         new ProducerRecord<>(
                                 "test.multiple.point.topic.json", null, serializer.serialize(row)),
@@ -1182,20 +1182,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         producer.flush();
     }
 
-    private void generateLiteTestData(ProducerRecordConverter converter, int start, int end) {
-        try {
-            for (int i = start; i < end; i++) {
-                SeaTunnelRow row = new SeaTunnelRow(new Object[] {Long.valueOf(i), "string"});
-
-                ProducerRecord<byte[], byte[]> producerRecord = converter.convert(row);
-                producer.send(producerRecord).get();
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        producer.flush();
-    }
-
     private void generateNativeTestData(String topic, int start, int end) {
         try {
             for (int i = start; i < end; i++) {
@@ -1255,11 +1241,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         LocalTimeType.LOCAL_DATE_TYPE,
                         LocalTimeType.LOCAL_DATE_TIME_TYPE
                     });
-
-    private static final SeaTunnelRowType SEATUNNEL_ROW_LITE_TYPE =
-            new SeaTunnelRowType(
-                    new String[] {"id", "c_string"},
-                    new SeaTunnelDataType[] {BasicType.LONG_TYPE, BasicType.STRING_TYPE});
 
     private Map<String, String> getKafkaConsumerData(String topicName) {
         Map<String, String> data = new HashMap<>();
