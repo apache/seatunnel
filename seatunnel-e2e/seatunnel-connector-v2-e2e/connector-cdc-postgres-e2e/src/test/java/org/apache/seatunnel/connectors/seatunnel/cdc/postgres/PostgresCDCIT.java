@@ -90,7 +90,6 @@ import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
 import static org.awaitility.Awaitility.given;
-import static org.junit.Assert.assertNotNull;
 
 @Slf4j
 @DisabledOnContainer(
@@ -290,14 +289,12 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                     });
 
             await().atMost(1000 * 60 * 3, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () -> Assertions.assertEquals(1, getKafkaData().size()));
+                    .untilAsserted(() -> Assertions.assertEquals(1, getKafkaData().size()));
             // insert update delete
             upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY);
 
             await().atMost(1000 * 60 * 3, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () -> Assertions.assertEquals(5, getKafkaData().size()));
+                    .untilAsserted(() -> Assertions.assertEquals(5, getKafkaData().size()));
         } finally {
             clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY);
         }
