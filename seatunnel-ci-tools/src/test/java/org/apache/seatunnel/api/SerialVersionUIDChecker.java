@@ -115,127 +115,118 @@ public class SerialVersionUIDChecker {
                                                         .getImplementedTypes()
                                                         .forEach(
                                                                 implementedType -> {
-                                                                    String typeName =
-                                                                            implementedType
-                                                                                    .getNameAsString();
-                                                                    if (typeName.equals(
-                                                                                    "SeaTunnelSource")
-                                                                            || typeName.equals(
-                                                                                    "SeaTunnelSink")) {
-                                                                        implementedType
-                                                                                .getTypeArguments()
-                                                                                .ifPresent(
-                                                                                        typeArgs -> {
-                                                                                            for (Type
-                                                                                                    typeArg :
-                                                                                                            typeArgs) {
-                                                                                                if (typeArg
-                                                                                                        .isClassOrInterfaceType()) {
-                                                                                                    ClassOrInterfaceType
-                                                                                                            classType =
-                                                                                                                    typeArg
-                                                                                                                            .asClassOrInterfaceType();
-                                                                                                    try {
-                                                                                                        // 使用符号解析器解析实际类型
-                                                                                                        ResolvedReferenceType
-                                                                                                                resolvedType =
-                                                                                                                        classType
-                                                                                                                                .resolve()
-                                                                                                                                .asReferenceType();
-                                                                                                        if (resolvedType
+                                                                    implementedType
+                                                                            .getTypeArguments()
+                                                                            .ifPresent(
+                                                                                    typeArgs -> {
+                                                                                        for (Type
+                                                                                                typeArg :
+                                                                                                        typeArgs) {
+                                                                                            if (typeArg
+                                                                                                    .isClassOrInterfaceType()) {
+                                                                                                ClassOrInterfaceType
+                                                                                                        classType =
+                                                                                                                typeArg
+                                                                                                                        .asClassOrInterfaceType();
+                                                                                                try {
+                                                                                                    ResolvedReferenceType
+                                                                                                            resolvedType =
+                                                                                                                    classType
+                                                                                                                            .resolve()
+                                                                                                                            .asReferenceType();
+                                                                                                    if (resolvedType
+                                                                                                            == null) {
+                                                                                                        continue;
+                                                                                                    }
+
+                                                                                                    List<
+                                                                                                                    ResolvedReferenceType>
+                                                                                                            allAncestors =
+                                                                                                                    resolvedType
+                                                                                                                            .getAllAncestors();
+
+                                                                                                    boolean
+                                                                                                            isSerializable =
+                                                                                                                    resolvedType
+                                                                                                                                    .getQualifiedName()
+                                                                                                                                    .equals(
+                                                                                                                                            "java.io.Serializable")
+                                                                                                                            || allAncestors
+                                                                                                                                    .stream()
+                                                                                                                                    .anyMatch(
+                                                                                                                                            ancestor ->
+                                                                                                                                                    ancestor.getQualifiedName()
+                                                                                                                                                            .equals(
+                                                                                                                                                                    "java.io.Serializable"));
+
+                                                                                                    if (isSerializable) {
+                                                                                                        ResolvedReferenceTypeDeclaration
+                                                                                                                typeDeclaration =
+                                                                                                                        resolvedType
+                                                                                                                                .getTypeDeclaration()
+                                                                                                                                .orElse(
+                                                                                                                                        null);
+                                                                                                        if (typeDeclaration
                                                                                                                 == null) {
                                                                                                             continue;
                                                                                                         }
+                                                                                                        String
+                                                                                                                paramTypeName =
+                                                                                                                        typeDeclaration
+                                                                                                                                .getQualifiedName();
 
-                                                                                                        List<
-                                                                                                                        ResolvedReferenceType>
-                                                                                                                allAncestors =
-                                                                                                                        resolvedType
-                                                                                                                                .getAllAncestors();
+                                                                                                        if (!checkedClasses
+                                                                                                                .contains(
+                                                                                                                        paramTypeName)) {
+                                                                                                            boolean
+                                                                                                                    hasSerialVersionUID =
+                                                                                                                            false;
 
-                                                                                                        boolean
-                                                                                                                isSerializable =
-                                                                                                                        resolvedType
-                                                                                                                                        .getQualifiedName()
-                                                                                                                                        .equals(
-                                                                                                                                                "java.io.Serializable")
-                                                                                                                                || allAncestors
-                                                                                                                                        .stream()
-                                                                                                                                        .anyMatch(
-                                                                                                                                                ancestor ->
-                                                                                                                                                        ancestor.getQualifiedName()
-                                                                                                                                                                .equals(
-                                                                                                                                                                        "java.io.Serializable"));
-
-                                                                                                        if (isSerializable) {
-                                                                                                            ResolvedReferenceTypeDeclaration
-                                                                                                                    typeDeclaration =
-                                                                                                                            resolvedType
-                                                                                                                                    .getTypeDeclaration()
-                                                                                                                                    .orElse(
-                                                                                                                                            null);
                                                                                                             if (typeDeclaration
-                                                                                                                    == null) {
-                                                                                                                continue;
+                                                                                                                    .isInterface()) {
+                                                                                                                hasSerialVersionUID =
+                                                                                                                        true;
+                                                                                                            } else {
+                                                                                                                hasSerialVersionUID =
+                                                                                                                        typeDeclaration
+                                                                                                                                .getAllFields()
+                                                                                                                                .stream()
+                                                                                                                                .anyMatch(
+                                                                                                                                        field ->
+                                                                                                                                                field.getName()
+                                                                                                                                                        .equals(
+                                                                                                                                                                "serialVersionUID"));
                                                                                                             }
-                                                                                                            String
-                                                                                                                    paramTypeName =
-                                                                                                                            typeDeclaration
-                                                                                                                                    .getQualifiedName();
 
-                                                                                                            if (!checkedClasses
-                                                                                                                    .contains(
-                                                                                                                            paramTypeName)) {
-                                                                                                                boolean
-                                                                                                                        hasSerialVersionUID =
-                                                                                                                                false;
-
-                                                                                                                if (typeDeclaration
-                                                                                                                        .isInterface()) {
-                                                                                                                    hasSerialVersionUID =
-                                                                                                                            true;
-                                                                                                                } else {
-                                                                                                                    hasSerialVersionUID =
-                                                                                                                            typeDeclaration
-                                                                                                                                    .getAllFields()
-                                                                                                                                    .stream()
-                                                                                                                                    .anyMatch(
-                                                                                                                                            field ->
-                                                                                                                                                    field.getName()
-                                                                                                                                                            .equals(
-                                                                                                                                                                    "serialVersionUID"));
-                                                                                                                }
-
-                                                                                                                if (!hasSerialVersionUID) {
-                                                                                                                    missingSerialVersionUID
-                                                                                                                            .add(
-                                                                                                                                    paramTypeName);
-                                                                                                                    LOG
-                                                                                                                            .warn(
-                                                                                                                                    "Class {} is missing serialVersionUID field",
-                                                                                                                                    paramTypeName);
-                                                                                                                }
-
-                                                                                                                checkedClasses
+                                                                                                            if (!hasSerialVersionUID) {
+                                                                                                                missingSerialVersionUID
                                                                                                                         .add(
                                                                                                                                 paramTypeName);
+                                                                                                                LOG
+                                                                                                                        .warn(
+                                                                                                                                "Class {} is missing serialVersionUID field",
+                                                                                                                                paramTypeName);
                                                                                                             }
+
+                                                                                                            checkedClasses
+                                                                                                                    .add(
+                                                                                                                            paramTypeName);
                                                                                                         }
-                                                                                                    } catch (
-                                                                                                            Exception
-                                                                                                                    e) {
-                                                                                                        LOG
-                                                                                                                .warn(
-                                                                                                                        "Could not resolve type: {} in file: {}",
-                                                                                                                        classType
-                                                                                                                                .getNameAsString(),
-                                                                                                                        path,
-                                                                                                                        e);
                                                                                                     }
+                                                                                                } catch (
+                                                                                                        Exception
+                                                                                                                e) {
+                                                                                                    LOG
+                                                                                                            .warn(
+                                                                                                                    "Could not resolve type: {} in file: {}",
+                                                                                                                    classType
+                                                                                                                            .getNameAsString(),
+                                                                                                                    path,
+                                                                                                                    e);
                                                                                                 }
                                                                                             }
-                                                                                        });
-                                                                    }
+                                                                                        }
+                                                                                    });
                                                                 });
                                             }
                                         }
