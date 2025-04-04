@@ -288,13 +288,17 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                         return null;
                     });
 
+            TimeUnit.SECONDS.sleep(10);
+
             await().atMost(1000 * 60 * 3, TimeUnit.MILLISECONDS)
                     .untilAsserted(() -> Assertions.assertEquals(1, getKafkaData().size()));
             // insert update delete
             upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY);
-
+            TimeUnit.SECONDS.sleep(10);
             await().atMost(1000 * 60 * 3, TimeUnit.MILLISECONDS)
                     .untilAsserted(() -> Assertions.assertEquals(5, getKafkaData().size()));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         } finally {
             clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY);
         }
