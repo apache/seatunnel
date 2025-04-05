@@ -282,7 +282,8 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                             container.executeJob(
                                     "/postgrescdc_to_postgres_with_debezium_to_kafka.conf");
                         } catch (Exception e) {
-                            log.error("Commit task exception :" + e.getStackTrace());
+                            e.printStackTrace();
+
                             log.error("Commit task exception :" + e.getMessage());
                             throw new RuntimeException(e);
                         }
