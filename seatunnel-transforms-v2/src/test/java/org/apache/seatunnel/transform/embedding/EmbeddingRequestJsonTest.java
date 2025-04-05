@@ -172,14 +172,12 @@ public class EmbeddingRequestJsonTest {
                 1536,
                 10);
 
-        // Test single input request
         ObjectNode singleNode = model.createRequestForSingleInput(
                 "Determine whether someone is Chinese or American by their name");
         Assertions.assertEquals(
                 "{\"inputText\":\"Determine whether someone is Chinese or American by their name\"}",
                 OBJECT_MAPPER.writeValueAsString(singleNode));
 
-        // Test batch input request
         ObjectNode batchNode = model.createRequestForBatchInput(
                 new Object[] {
                         "First text for embedding",
@@ -194,7 +192,6 @@ public class EmbeddingRequestJsonTest {
 
     @Test
     void testBedrockCohereRequestJson() throws IOException {
-        // Test with default input_type
         BedrockModel defaultModel = new BedrockModel(
                 "apikey",
                 "secretkey",
@@ -209,8 +206,6 @@ public class EmbeddingRequestJsonTest {
                 "{\"texts\":[\"Determine whether someone is Chinese or American by their name\"],\"input_type\":\"search_document\"}",
                 OBJECT_MAPPER.writeValueAsString(defaultNode));
         defaultModel.close();
-
-        // Test with custom input_type
         BedrockModel customModel = new BedrockModel(
                 "apikey",
                 "secretkey",
@@ -220,14 +215,11 @@ public class EmbeddingRequestJsonTest {
                 10,
                 "search_query");
 
-        // Test single input request
         ObjectNode singleNode = customModel.createRequestForSingleInput(
                 "Determine whether someone is Chinese or American by their name");
         Assertions.assertEquals(
                 "{\"texts\":[\"Determine whether someone is Chinese or American by their name\"],\"input_type\":\"search_query\"}",
                 OBJECT_MAPPER.writeValueAsString(singleNode));
-
-        // Test batch input request
         ObjectNode batchNode = customModel.createRequestForBatchInput(
                 new Object[] {
                         "First text for embedding",
@@ -239,6 +231,5 @@ public class EmbeddingRequestJsonTest {
 
         customModel.close();
     }
-
 
 }

@@ -17,17 +17,14 @@
 
 package org.apache.seatunnel.transform.nlpmodel.embedding.remote.amazon;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.AbstractModel;
 
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.SdkBytes;
-import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClientBuilder;
@@ -35,7 +32,6 @@ import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -163,8 +159,7 @@ public class BedrockModel extends AbstractModel {
         AwsBasicCredentials credentials = AwsBasicCredentials.create(accessKey, secretKey);
         BedrockRuntimeClientBuilder builder = BedrockRuntimeClient.builder()
                 .region(Region.of(region))
-                .credentialsProvider(StaticCredentialsProvider.create(credentials))
-                .overrideConfiguration(c -> c.retryPolicy(RetryPolicy.builder().numRetries(3).build()));
+                .credentialsProvider(StaticCredentialsProvider.create(credentials));
 
         return builder.build();
     }
@@ -176,12 +171,10 @@ public class BedrockModel extends AbstractModel {
         }
         
         if (fields.length == 1) {
-            // Single input
             ObjectNode requestBody = createRequestForSingleInput(fields[0]);
             String responseBody = invokeModel(requestBody);
             return parseSingleResponse(responseBody);
         } else {
-            // Batch input
             ObjectNode requestBody = createRequestForBatchInput(fields);
             String responseBody = invokeModel(requestBody);
             return parseBatchResponse(responseBody);
@@ -197,10 +190,8 @@ public class BedrockModel extends AbstractModel {
         ObjectNode requestBody = OBJECT_MAPPER.createObjectNode();
 
         if (modelId.startsWith("amazon.titan")) {
-            // Amazon Titan model format
             requestBody.put("inputText", text);
         } else if (modelId.startsWith("cohere.")) {
-            // Cohere model format
             ArrayNode texts = requestBody.putArray("texts");
             texts.add(text);
             requestBody.put("input_type", inputType);
@@ -223,11 +214,9 @@ public class BedrockModel extends AbstractModel {
         ObjectNode requestBody = OBJECT_MAPPER.createObjectNode();
 
         if (modelId.startsWith("amazon.titan")) {
-            // Amazon Titan model format
             ArrayNode inputTexts = requestBody.putArray("inputTexts");
             texts.forEach(inputTexts::add);
         } else if (modelId.startsWith("cohere.")) {
-            // Cohere model format
             ArrayNode textsArray = requestBody.putArray("texts");
             texts.forEach(textsArray::add);
             requestBody.put("input_type", inputType);
@@ -238,43 +227,12 @@ public class BedrockModel extends AbstractModel {
         return requestBody;
     }
 
-    public Object parseResponse(String responseBody) {
-        try {
-            JsonNode responseJson = OBJECT_MAPPER.readTree(responseBody);
-
-            if (modelId.startsWith("amazon.titan")) {
-                // Amazon Titan model format
-                if (responseJson.has("embedding")) {
-                    // Single embedding
-                    return OBJECT_MAPPER.convertValue(
-                            responseJson.get("embedding"),
-                            new TypeReference<List<Double>>() {});
-                } else if (responseJson.has("embeddings")) {
-                    // Batch embeddings
-                    return OBJECT_MAPPER.convertValue(
-                            responseJson.get("embeddings"),
-                            new TypeReference<List<List<Double>>>() {});
-                }
-            } else if (modelId.startsWith("cohere.")) {
-                // Cohere model format
-                return OBJECT_MAPPER.convertValue(
-                        responseJson.get("embeddings"),
-                        new TypeReference<List<List<Double>>>() {});
-            }
-
-            throw new IOException("Unexpected response format: " + responseBody);
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to parse response: " + responseBody, e);
-        }
-    }
-    
     private List<List<Double>> parseSingleResponse(String responseBody) throws IOException {
         try {
             JsonNode responseJson = OBJECT_MAPPER.readTree(responseBody);
             List<List<Double>> result = new ArrayList<>();
             
             if (modelId.startsWith("amazon.titan")) {
-                // Amazon Titan model format
                 JsonNode embedding = responseJson.get("embedding");
                 if (embedding != null && embedding.isArray()) {
                     List<Double> vector = new ArrayList<>();
@@ -284,9 +242,8 @@ public class BedrockModel extends AbstractModel {
                     result.add(vector);
                 }
             } else if (modelId.startsWith("cohere.")) {
-                // Cohere model format
                 JsonNode embeddings = responseJson.get("embeddings");
-                if (embeddings != null && embeddings.isArray() && embeddings.size() > 0) {
+                if (embeddings != null && embeddings.isArray() && !embeddings.isEmpty()) {
                     List<Double> vector = new ArrayList<>();
                     for (JsonNode value : embeddings.get(0)) {
                         vector.add(value.asDouble());
@@ -305,11 +262,9 @@ public class BedrockModel extends AbstractModel {
         try {
             JsonNode responseJson = OBJECT_MAPPER.readTree(responseBody);
             List<List<Double>> result = new ArrayList<>();
-            
-            if (modelId.startsWith("amazon.titan")) {
-                // Amazon Titan model format
-                JsonNode embeddings = responseJson.get("embeddings");
-                if (embeddings != null && embeddings.isArray()) {
+            JsonNode embeddings = responseJson.get("embeddings");
+            if (embeddings != null && embeddings.isArray()) {
+                if (modelId.startsWith("amazon.titan")) {
                     for (JsonNode embedding : embeddings) {
                         List<Double> vector = new ArrayList<>();
                         for (JsonNode value : embedding) {
@@ -317,11 +272,8 @@ public class BedrockModel extends AbstractModel {
                         }
                         result.add(vector);
                     }
-                }
-            } else if (modelId.startsWith("cohere.")) {
-                // Cohere model format
-                JsonNode embeddings = responseJson.get("embeddings");
-                if (embeddings != null && embeddings.isArray()) {
+
+                } else if (modelId.startsWith("cohere.")) {
                     for (JsonNode embedding : embeddings) {
                         List<Double> vector = new ArrayList<>();
                         for (JsonNode value : embedding) {
@@ -331,14 +283,13 @@ public class BedrockModel extends AbstractModel {
                     }
                 }
             }
-            
             return result;
         } catch (IOException e) {
             throw new IOException("Failed to parse batch response: " + responseBody, e);
         }
     }
     
-    private String invokeModel(ObjectNode requestBody) throws IOException {
+    private String invokeModel(ObjectNode requestBody) {
         String requestString = requestBody.toString();
         InvokeModelRequest request = InvokeModelRequest.builder()
                 .modelId(modelId)
