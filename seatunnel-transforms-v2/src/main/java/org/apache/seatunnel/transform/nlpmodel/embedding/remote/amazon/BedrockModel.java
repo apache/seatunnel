@@ -17,108 +17,341 @@
 
 package org.apache.seatunnel.transform.nlpmodel.embedding.remote.amazon;
 
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.AbstractModel;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.core.retry.RetryPolicy;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
+import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClientBuilder;
+import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
+import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
+/**
+ * Implementation of Amazon Bedrock embedding models.
+ * Supports both Amazon Titan and Cohere embedding models.
+ */
 public class BedrockModel extends AbstractModel {
 
-    private final CloseableHttpClient client;
-    private final String apiKey;
-    private final String model;
-    private final String apiPath;
-    private final Integer dimension;
-    private final Integer MAX_INPUT_SIZE = 64;
+    private final BedrockRuntimeClient client;
+    private final String modelId;
+    private final boolean closeClientOnShutdown;
+    private final String inputType;
+    private final int dimension;
 
-    public BedrockModel(String apiKey, String model, String apiPath,Integer dimension,Integer vectorizedNumber) {
-        super(vectorizedNumber);
-        this.apiKey = apiKey;
-        this.model = model;
-        this.apiPath = apiPath;
+    /**
+     * Create a BedrockModel instance with AWS credentials and region.
+     *
+     * @param accessKey AWS access key
+     * @param secretKey AWS secret key
+     * @param region AWS region
+     * @param modelId Model ID (e.g., "amazon.titan-embed-text-v1", "cohere.embed-english-v3")
+     * @param dimension Embedding dimension
+     * @param batchSize Batch size for processing
+     */
+    public BedrockModel(
+            String accessKey,
+            String secretKey,
+            String region,
+            String modelId,
+            int dimension,
+            int batchSize) {
+        this(createBedrockClient(accessKey, secretKey, region), modelId, dimension, batchSize, true);
+    }
+
+    /**
+     * Create a BedrockModel instance with AWS credentials, region, and input type for Cohere models.
+     *
+     * @param accessKey AWS access key
+     * @param secretKey AWS secret key
+     * @param region AWS region
+     * @param modelId Model ID (e.g., "cohere.embed-english-v3")
+     * @param dimension Embedding dimension
+     * @param batchSize Batch size for processing
+     * @param inputType Input type for Cohere models (e.g., "search_document", "search_query")
+     */
+    public BedrockModel(
+            String accessKey,
+            String secretKey,
+            String region,
+            String modelId,
+            int dimension,
+            int batchSize,
+            String inputType) {
+        this(createBedrockClient(accessKey, secretKey, region), modelId, dimension, batchSize, true, inputType);
+    }
+
+    /**
+     * Create a BedrockModel instance with an existing BedrockRuntimeClient.
+     *
+     * @param client BedrockRuntimeClient instance
+     * @param modelId Model ID (e.g., "amazon.titan-embed-text-v1", "cohere.embed-english-v3")
+     * @param dimension Embedding dimension
+     * @param batchSize Batch size for processing
+     * @param closeClientOnShutdown Whether to close the client when the model is closed
+     */
+    public BedrockModel(
+            BedrockRuntimeClient client,
+            String modelId,
+            int dimension,
+            int batchSize,
+            boolean closeClientOnShutdown) {
+        this(client, modelId, dimension, batchSize, closeClientOnShutdown, 
+             modelId.startsWith("cohere.") ? "search_document" : null);
+    }
+
+    /**
+     * Create a BedrockModel instance with an existing BedrockRuntimeClient and input type.
+     *
+     * @param client BedrockRuntimeClient instance
+     * @param modelId Model ID (e.g., "amazon.titan-embed-text-v1", "cohere.embed-english-v3")
+     * @param dimension Embedding dimension
+     * @param batchSize Batch size for processing
+     * @param closeClientOnShutdown Whether to close the client when the model is closed
+     * @param inputType Input type for Cohere models (e.g., "search_document", "search_query")
+     */
+    public BedrockModel(
+            BedrockRuntimeClient client,
+            String modelId,
+            int dimension,
+            int batchSize,
+            boolean closeClientOnShutdown,
+            String inputType) {
+        super(batchSize);
+        this.client = Objects.requireNonNull(client, "BedrockRuntimeClient cannot be null");
+        this.modelId = Objects.requireNonNull(modelId, "Model ID cannot be null");
         this.dimension = dimension;
-        this.client = HttpClients.createDefault();
+        this.closeClientOnShutdown = closeClientOnShutdown;
+        this.inputType = inputType;
+    }
+    
+    @Override
+    public Integer dimension() {
+        return dimension;
+    }
+
+    /**
+     * Create a BedrockRuntimeClient with AWS credentials and region.
+     *
+     * @param accessKey AWS access key
+     * @param secretKey AWS secret key
+     * @param region AWS region
+     * @return BedrockRuntimeClient instance
+     */
+    public static BedrockRuntimeClient createBedrockClient(
+            String accessKey, String secretKey, String region) {
+        Objects.requireNonNull(accessKey, "AWS access key cannot be null");
+        Objects.requireNonNull(secretKey, "AWS secret key cannot be null");
+        Objects.requireNonNull(region, "AWS region cannot be null");
+
+        AwsBasicCredentials credentials = AwsBasicCredentials.create(accessKey, secretKey);
+        BedrockRuntimeClientBuilder builder = BedrockRuntimeClient.builder()
+                .region(Region.of(region))
+                .credentialsProvider(StaticCredentialsProvider.create(credentials))
+                .overrideConfiguration(c -> c.retryPolicy(RetryPolicy.builder().numRetries(3).build()));
+
+        return builder.build();
     }
 
     @Override
     protected List<List<Double>> vector(Object[] fields) throws IOException {
-        // todo support batch model
-        if (fields.length > 1) {
-            return vectorBatahcGeneration(fields);
+        if (fields == null || fields.length == 0) {
+            return new ArrayList<>();
         }
-        return vectorGeneration(fields);
+        
+        if (fields.length == 1) {
+            // Single input
+            ObjectNode requestBody = createRequestForSingleInput(fields[0]);
+            String responseBody = invokeModel(requestBody);
+            return parseSingleResponse(responseBody);
+        } else {
+            // Batch input
+            ObjectNode requestBody = createRequestForBatchInput(fields);
+            String responseBody = invokeModel(requestBody);
+            return parseBatchResponse(responseBody);
+        }
     }
 
-    @Override
-    public Integer dimension() throws IOException {
-        return vectorGeneration(new Object[] {DIMENSION_EXAMPLE}).size();
-    }
-
-    private List<List<Double>> vectorGeneration(Object[] fields) throws IOException {
-        HttpPost post = new HttpPost(apiPath);
-        post.setHeader("Authorization", "Bearer " + apiKey);
-        post.setHeader("Content-Type", "application/json");
-        post.setConfig(
-                RequestConfig.custom().setConnectTimeout(20000).setSocketTimeout(20000).build());
-
-        post.setEntity(
-                new StringEntity(
-                        OBJECT_MAPPER.writeValueAsString(createJsonNodeFromData(fields)), "UTF-8"));
-
-        CloseableHttpResponse response = client.execute(post);
-        String responseStr = EntityUtils.toString(response.getEntity());
-
-        if (response.getStatusLine().getStatusCode() != 200) {
-            throw new IOException("Failed to get vector from Bedrock, response: " + responseStr);
+    public ObjectNode createRequestForSingleInput(Object input) {
+        if (input == null) {
+            throw new IllegalArgumentException("Input cannot be null");
         }
 
-        JsonNode data = OBJECT_MAPPER.readTree(responseStr).get("data");
-        List<List<Double>> embeddings = new ArrayList<>();
+        String text = input.toString();
+        ObjectNode requestBody = OBJECT_MAPPER.createObjectNode();
 
-        if (data.isArray()) {
-            for (JsonNode node : data) {
-                JsonNode embeddingNode = node.get("embedding");
-                List<Double> embedding =
-                        OBJECT_MAPPER.readValue(
-                                embeddingNode.traverse(), new TypeReference<List<Double>>() {});
-                embeddings.add(embedding);
+        if (modelId.startsWith("amazon.titan")) {
+            // Amazon Titan model format
+            requestBody.put("inputText", text);
+        } else if (modelId.startsWith("cohere.")) {
+            // Cohere model format
+            ArrayNode texts = requestBody.putArray("texts");
+            texts.add(text);
+            requestBody.put("input_type", inputType);
+        } else {
+            throw new IllegalArgumentException("Unsupported model ID: " + modelId);
+        }
+
+        return requestBody;
+    }
+
+    public ObjectNode createRequestForBatchInput(Object[] inputs) {
+        if (inputs == null || inputs.length == 0) {
+            throw new IllegalArgumentException("Inputs cannot be null or empty");
+        }
+
+        List<String> texts = Arrays.stream(inputs)
+                .map(Object::toString)
+                .collect(Collectors.toList());
+
+        ObjectNode requestBody = OBJECT_MAPPER.createObjectNode();
+
+        if (modelId.startsWith("amazon.titan")) {
+            // Amazon Titan model format
+            ArrayNode inputTexts = requestBody.putArray("inputTexts");
+            texts.forEach(inputTexts::add);
+        } else if (modelId.startsWith("cohere.")) {
+            // Cohere model format
+            ArrayNode textsArray = requestBody.putArray("texts");
+            texts.forEach(textsArray::add);
+            requestBody.put("input_type", inputType);
+        } else {
+            throw new IllegalArgumentException("Unsupported model ID: " + modelId);
+        }
+
+        return requestBody;
+    }
+
+    public Object parseResponse(String responseBody) {
+        try {
+            JsonNode responseJson = OBJECT_MAPPER.readTree(responseBody);
+
+            if (modelId.startsWith("amazon.titan")) {
+                // Amazon Titan model format
+                if (responseJson.has("embedding")) {
+                    // Single embedding
+                    return OBJECT_MAPPER.convertValue(
+                            responseJson.get("embedding"),
+                            new TypeReference<List<Double>>() {});
+                } else if (responseJson.has("embeddings")) {
+                    // Batch embeddings
+                    return OBJECT_MAPPER.convertValue(
+                            responseJson.get("embeddings"),
+                            new TypeReference<List<List<Double>>>() {});
+                }
+            } else if (modelId.startsWith("cohere.")) {
+                // Cohere model format
+                return OBJECT_MAPPER.convertValue(
+                        responseJson.get("embeddings"),
+                        new TypeReference<List<List<Double>>>() {});
             }
+
+            throw new IOException("Unexpected response format: " + responseBody);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to parse response: " + responseBody, e);
         }
-        return embeddings;
     }
-
-    private List<List<Double>> vectorBatahcGeneration(Object[] fields) throws IOException {
-        HttpPost post = new HttpPost(apiPath);
-        post.setHeader("Authorization", "Bearer " + apiKey);
-        post.setHeader("Content-Type", "application/json");
-        List<List<Double>> embeddings = new ArrayList<>();
-        return embeddings;
-
+    
+    private List<List<Double>> parseSingleResponse(String responseBody) throws IOException {
+        try {
+            JsonNode responseJson = OBJECT_MAPPER.readTree(responseBody);
+            List<List<Double>> result = new ArrayList<>();
+            
+            if (modelId.startsWith("amazon.titan")) {
+                // Amazon Titan model format
+                JsonNode embedding = responseJson.get("embedding");
+                if (embedding != null && embedding.isArray()) {
+                    List<Double> vector = new ArrayList<>();
+                    for (JsonNode value : embedding) {
+                        vector.add(value.asDouble());
+                    }
+                    result.add(vector);
+                }
+            } else if (modelId.startsWith("cohere.")) {
+                // Cohere model format
+                JsonNode embeddings = responseJson.get("embeddings");
+                if (embeddings != null && embeddings.isArray() && embeddings.size() > 0) {
+                    List<Double> vector = new ArrayList<>();
+                    for (JsonNode value : embeddings.get(0)) {
+                        vector.add(value.asDouble());
+                    }
+                    result.add(vector);
+                }
+            }
+            
+            return result;
+        } catch (IOException e) {
+            throw new IOException("Failed to parse single response: " + responseBody, e);
+        }
     }
-    @VisibleForTesting
-    public ObjectNode createJsonNodeFromData(Object[] data) throws JsonProcessingException {
-        ObjectNode objectNode = OBJECT_MAPPER.createObjectNode();
-        objectNode.put("model", model);
-        objectNode.put("input", data[0].toString());
-        return objectNode;
+    
+    private List<List<Double>> parseBatchResponse(String responseBody) throws IOException {
+        try {
+            JsonNode responseJson = OBJECT_MAPPER.readTree(responseBody);
+            List<List<Double>> result = new ArrayList<>();
+            
+            if (modelId.startsWith("amazon.titan")) {
+                // Amazon Titan model format
+                JsonNode embeddings = responseJson.get("embeddings");
+                if (embeddings != null && embeddings.isArray()) {
+                    for (JsonNode embedding : embeddings) {
+                        List<Double> vector = new ArrayList<>();
+                        for (JsonNode value : embedding) {
+                            vector.add(value.asDouble());
+                        }
+                        result.add(vector);
+                    }
+                }
+            } else if (modelId.startsWith("cohere.")) {
+                // Cohere model format
+                JsonNode embeddings = responseJson.get("embeddings");
+                if (embeddings != null && embeddings.isArray()) {
+                    for (JsonNode embedding : embeddings) {
+                        List<Double> vector = new ArrayList<>();
+                        for (JsonNode value : embedding) {
+                            vector.add(value.asDouble());
+                        }
+                        result.add(vector);
+                    }
+                }
+            }
+            
+            return result;
+        } catch (IOException e) {
+            throw new IOException("Failed to parse batch response: " + responseBody, e);
+        }
     }
-
+    
+    private String invokeModel(ObjectNode requestBody) throws IOException {
+        String requestString = requestBody.toString();
+        InvokeModelRequest request = InvokeModelRequest.builder()
+                .modelId(modelId)
+                .body(SdkBytes.fromString(requestString, StandardCharsets.UTF_8))
+                .build();
+        
+        InvokeModelResponse response = client.invokeModel(request);
+        return response.body().asString(StandardCharsets.UTF_8);
+    }
+    
     @Override
-    public void close() throws IOException {
-        if (client != null) {
+    public void close() {
+        if (closeClientOnShutdown) {
             client.close();
         }
     }

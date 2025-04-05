@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.apache.seatunnel.transform.nlpmodel.embedding.remote.amazon.BedrockModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.custom.CustomModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.doubao.DoubaoModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.openai.OpenAIModel;
@@ -160,4 +161,84 @@ public class EmbeddingRequestJsonTest {
         Assertions.assertEquals(2, lists.size());
         Assertions.assertEquals(2560, lists.get(0).size());
     }
+
+    @Test
+    void testBedrockTitanRequestJson() throws IOException {
+        BedrockModel model = new BedrockModel(
+                "apikey",
+                "secretkey",
+                "us-east-1",
+                "amazon.titan-embed-text-v1",
+                1536,
+                10);
+
+        // Test single input request
+        ObjectNode singleNode = model.createRequestForSingleInput(
+                "Determine whether someone is Chinese or American by their name");
+        Assertions.assertEquals(
+                "{\"inputText\":\"Determine whether someone is Chinese or American by their name\"}",
+                OBJECT_MAPPER.writeValueAsString(singleNode));
+
+        // Test batch input request
+        ObjectNode batchNode = model.createRequestForBatchInput(
+                new Object[] {
+                        "First text for embedding",
+                        "Second text for embedding"
+                });
+        Assertions.assertEquals(
+                "{\"inputTexts\":[\"First text for embedding\",\"Second text for embedding\"]}",
+                OBJECT_MAPPER.writeValueAsString(batchNode));
+
+        model.close();
+    }
+
+    @Test
+    void testBedrockCohereRequestJson() throws IOException {
+        // Test with default input_type
+        BedrockModel defaultModel = new BedrockModel(
+                "apikey",
+                "secretkey",
+                "us-east-1",
+                "cohere.embed-english-v3",
+                1024,
+                10);
+
+        ObjectNode defaultNode = defaultModel.createRequestForSingleInput(
+                "Determine whether someone is Chinese or American by their name");
+        Assertions.assertEquals(
+                "{\"texts\":[\"Determine whether someone is Chinese or American by their name\"],\"input_type\":\"search_document\"}",
+                OBJECT_MAPPER.writeValueAsString(defaultNode));
+        defaultModel.close();
+
+        // Test with custom input_type
+        BedrockModel customModel = new BedrockModel(
+                "apikey",
+                "secretkey",
+                "us-east-1",
+                "cohere.embed-english-v3",
+                1024,
+                10,
+                "search_query");
+
+        // Test single input request
+        ObjectNode singleNode = customModel.createRequestForSingleInput(
+                "Determine whether someone is Chinese or American by their name");
+        Assertions.assertEquals(
+                "{\"texts\":[\"Determine whether someone is Chinese or American by their name\"],\"input_type\":\"search_query\"}",
+                OBJECT_MAPPER.writeValueAsString(singleNode));
+
+        // Test batch input request
+        ObjectNode batchNode = customModel.createRequestForBatchInput(
+                new Object[] {
+                        "First text for embedding",
+                        "Second text for embedding"
+                });
+        Assertions.assertEquals(
+                "{\"texts\":[\"First text for embedding\",\"Second text for embedding\"],\"input_type\":\"search_query\"}",
+                OBJECT_MAPPER.writeValueAsString(batchNode));
+
+        customModel.close();
+    }
+
+
 }

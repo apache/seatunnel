@@ -137,6 +137,7 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                                     config.get(
                                             EmbeddingTransformConfig
                                                     .SINGLE_VECTORIZED_INPUT_NUMBER));
+
                     break;
                 case ZHIPU:
                     model =
@@ -154,9 +155,9 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                     model =
                             new BedrockModel(
                                     config.get(ModelTransformConfig.API_KEY),
+                                    config.get(ModelTransformConfig.SECRET_KEY),
+                                    config.get(ModelTransformConfig.AWS_REGION),
                                     config.get(ModelTransformConfig.MODEL),
-                                    provider.usedEmbeddingPath(
-                                            config.get(ModelTransformConfig.API_PATH)),
                                     config.get(ModelTransformConfig.DIMENSION),
                                     config.get(
                                             EmbeddingTransformConfig
