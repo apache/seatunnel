@@ -276,6 +276,11 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             disabledReason = "Currently Only support Zeta engine")
     public void testPostgresCdcWithDebeziumJsonFormat(TestContainer container) {
         try {
+
+            log.info(
+                    "Table {} has {} rows.",
+                    SOURCE_TABLE_NO_PRIMARY_KEY,
+                    query(getQuerySQL(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY)));
             CompletableFuture.supplyAsync(
                     () -> {
                         try {
