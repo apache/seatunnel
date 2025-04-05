@@ -117,6 +117,9 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
     private static final String SOURCE_TABLE_NO_PRIMARY_KEY = "full_types_no_primary_key";
 
+    private static final String SOURCE_TABLE_NO_PRIMARY_KEY_DEBEZIUM =
+            "full_types_no_primary_key_with_debezium";
+
     private static final String SOURCE_SQL_TEMPLATE = "select * from %s.%s order by id";
 
     // kafka container
@@ -279,35 +282,29 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
             log.info(
                     "Table {} has {} rows.",
-                    SOURCE_TABLE_NO_PRIMARY_KEY,
-                    query(getQuerySQL(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY)));
+                    SOURCE_TABLE_NO_PRIMARY_KEY_DEBEZIUM,
+                    query(getQuerySQL(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY_DEBEZIUM)));
             CompletableFuture.supplyAsync(
                     () -> {
                         try {
                             container.executeJob(
                                     "/postgrescdc_to_postgres_with_debezium_to_kafka.conf");
                         } catch (Exception e) {
-                            e.printStackTrace();
-
                             log.error("Commit task exception :" + e.getMessage());
                             throw new RuntimeException(e);
                         }
                         return null;
                     });
 
-            TimeUnit.SECONDS.sleep(10);
-
             await().atMost(1000 * 60 * 3, TimeUnit.MILLISECONDS)
                     .untilAsserted(() -> Assertions.assertEquals(1, getKafkaData().size()));
             // insert update delete
-            upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY);
-            TimeUnit.SECONDS.sleep(10);
+            upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY_DEBEZIUM);
+
             await().atMost(1000 * 60 * 3, TimeUnit.MILLISECONDS)
                     .untilAsserted(() -> Assertions.assertEquals(5, getKafkaData().size()));
-        } catch (InterruptedException e) {
-            e.printStackTrace();
         } finally {
-            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY);
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY_DEBEZIUM);
         }
     }
 
