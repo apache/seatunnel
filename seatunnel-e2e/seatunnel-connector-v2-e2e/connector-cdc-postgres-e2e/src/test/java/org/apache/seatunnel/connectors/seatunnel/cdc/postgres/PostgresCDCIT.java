@@ -73,7 +73,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -83,6 +82,7 @@ import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -128,6 +128,8 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     private static final String KAFKA_HOST = "kafka_e2e";
 
     private static KafkaContainer KAFKA_CONTAINER;
+
+    private static KafkaConsumer<String, String> kafkaConsumer;
 
     private static final String DEBEZIUM_JSON_TOPIC = "debezium_json_topic";
     // use newer version of postgresql image to support pgoutput plugin
@@ -249,27 +251,24 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         long endOffset;
         long lastProcessedOffset = -1L;
         List<String> data = new ArrayList<>();
-        Properties props = kafkaConsumerConfig();
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "group-" + Instant.now().toString());
-        try (KafkaConsumer<String, String> kafkaConsumer = new KafkaConsumer<>(props)) {
-            kafkaConsumer.subscribe(Collections.singletonList(PostgresCDCIT.DEBEZIUM_JSON_TOPIC));
-            Map<TopicPartition, Long> offsets =
-                    kafkaConsumer.endOffsets(
-                            Collections.singletonList(
-                                    new TopicPartition(PostgresCDCIT.DEBEZIUM_JSON_TOPIC, 0)));
-            endOffset = offsets.entrySet().iterator().next().getValue();
-            do {
-                ConsumerRecords<String, String> consumerRecords =
-                        kafkaConsumer.poll(Duration.ofMillis(1000));
-                for (ConsumerRecord<String, String> record : consumerRecords) {
-                    data.add(record.value());
-                    lastProcessedOffset = record.offset();
-                }
-                log.info("Data size: {}", data.size());
-            } while (lastProcessedOffset < endOffset - 1);
-            kafkaConsumer.close();
-            return data;
-        }
+        kafkaConsumer.subscribe(Collections.singletonList(PostgresCDCIT.DEBEZIUM_JSON_TOPIC));
+        Map<TopicPartition, Long> offsets =
+                kafkaConsumer.endOffsets(
+                        Collections.singletonList(
+                                new TopicPartition(PostgresCDCIT.DEBEZIUM_JSON_TOPIC, 0)));
+        endOffset = offsets.entrySet().iterator().next().getValue();
+        log.info("End offset: {}", endOffset);
+        do {
+            ConsumerRecords<String, String> consumerRecords =
+                    kafkaConsumer.poll(Duration.ofMillis(1000));
+            for (ConsumerRecord<String, String> record : consumerRecords) {
+                data.add(record.value());
+                lastProcessedOffset = record.offset();
+            }
+            log.info("Data size: {}", data.size());
+        } while (lastProcessedOffset < endOffset - 1);
+
+        return data;
     }
 
     @TestTemplate
@@ -284,6 +283,11 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                     "Table {} has {} rows.",
                     SOURCE_TABLE_NO_PRIMARY_KEY_DEBEZIUM,
                     query(getQuerySQL(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY_DEBEZIUM)));
+
+            Properties props = kafkaConsumerConfig();
+            props.put(ConsumerConfig.GROUP_ID_CONFIG, "group-debezium-json-format");
+            kafkaConsumer = new KafkaConsumer<>(props);
+
             CompletableFuture.supplyAsync(
                     () -> {
                         try {
@@ -295,16 +299,26 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                         }
                         return null;
                     });
+            AtomicReference<Integer> dataSize = new AtomicReference<>(0);
 
             await().atMost(1000 * 60 * 3, TimeUnit.MILLISECONDS)
-                    .untilAsserted(() -> Assertions.assertEquals(1, getKafkaData().size()));
+                    .untilAsserted(
+                            () -> {
+                                dataSize.updateAndGet(v -> v + getKafkaData().size());
+                                Assertions.assertEquals(1, dataSize.get());
+                            });
             // insert update delete
             upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY_DEBEZIUM);
 
             await().atMost(1000 * 60 * 3, TimeUnit.MILLISECONDS)
-                    .untilAsserted(() -> Assertions.assertEquals(5, getKafkaData().size()));
+                    .untilAsserted(
+                            () -> {
+                                dataSize.updateAndGet(v -> v + getKafkaData().size());
+                                Assertions.assertEquals(5, dataSize.get());
+                            });
         } finally {
             clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY_DEBEZIUM);
+            kafkaConsumer.close();
         }
     }
 
