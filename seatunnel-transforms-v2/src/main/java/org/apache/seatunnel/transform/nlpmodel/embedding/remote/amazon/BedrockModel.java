@@ -20,6 +20,7 @@ package org.apache.seatunnel.transform.nlpmodel.embedding.remote.amazon;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.AbstractModel;
 
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -40,8 +41,8 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
- * Implementation of Amazon Bedrock embedding models.
- * Supports both Amazon Titan and Cohere embedding models.
+ * Implementation of Amazon Bedrock embedding models. Supports both Amazon Titan and Cohere
+ * embedding models.
  */
 public class BedrockModel extends AbstractModel {
 
@@ -68,11 +69,17 @@ public class BedrockModel extends AbstractModel {
             String modelId,
             int dimension,
             int batchSize) {
-        this(createBedrockClient(accessKey, secretKey, region), modelId, dimension, batchSize, true);
+        this(
+                createBedrockClient(accessKey, secretKey, region),
+                modelId,
+                dimension,
+                batchSize,
+                true);
     }
 
     /**
-     * Create a BedrockModel instance with AWS credentials, region, and input type for Cohere models.
+     * Create a BedrockModel instance with AWS credentials, region, and input type for Cohere
+     * models.
      *
      * @param accessKey AWS access key
      * @param secretKey AWS secret key
@@ -90,7 +97,13 @@ public class BedrockModel extends AbstractModel {
             int dimension,
             int batchSize,
             String inputType) {
-        this(createBedrockClient(accessKey, secretKey, region), modelId, dimension, batchSize, true, inputType);
+        this(
+                createBedrockClient(accessKey, secretKey, region),
+                modelId,
+                dimension,
+                batchSize,
+                true,
+                inputType);
     }
 
     /**
@@ -108,8 +121,13 @@ public class BedrockModel extends AbstractModel {
             int dimension,
             int batchSize,
             boolean closeClientOnShutdown) {
-        this(client, modelId, dimension, batchSize, closeClientOnShutdown, 
-             modelId.startsWith("cohere.") ? "search_document" : null);
+        this(
+                client,
+                modelId,
+                dimension,
+                batchSize,
+                closeClientOnShutdown,
+                modelId.startsWith("cohere.") ? "search_document" : null);
     }
 
     /**
@@ -136,7 +154,7 @@ public class BedrockModel extends AbstractModel {
         this.closeClientOnShutdown = closeClientOnShutdown;
         this.inputType = inputType;
     }
-    
+
     @Override
     public Integer dimension() {
         return dimension;
@@ -157,9 +175,10 @@ public class BedrockModel extends AbstractModel {
         Objects.requireNonNull(region, "AWS region cannot be null");
 
         AwsBasicCredentials credentials = AwsBasicCredentials.create(accessKey, secretKey);
-        BedrockRuntimeClientBuilder builder = BedrockRuntimeClient.builder()
-                .region(Region.of(region))
-                .credentialsProvider(StaticCredentialsProvider.create(credentials));
+        BedrockRuntimeClientBuilder builder =
+                BedrockRuntimeClient.builder()
+                        .region(Region.of(region))
+                        .credentialsProvider(StaticCredentialsProvider.create(credentials));
 
         return builder.build();
     }
@@ -169,7 +188,7 @@ public class BedrockModel extends AbstractModel {
         if (fields == null || fields.length == 0) {
             return new ArrayList<>();
         }
-        
+
         if (fields.length == 1) {
             ObjectNode requestBody = createRequestForSingleInput(fields[0]);
             String responseBody = invokeModel(requestBody);
@@ -207,9 +226,8 @@ public class BedrockModel extends AbstractModel {
             throw new IllegalArgumentException("Inputs cannot be null or empty");
         }
 
-        List<String> texts = Arrays.stream(inputs)
-                .map(Object::toString)
-                .collect(Collectors.toList());
+        List<String> texts =
+                Arrays.stream(inputs).map(Object::toString).collect(Collectors.toList());
 
         ObjectNode requestBody = OBJECT_MAPPER.createObjectNode();
 
@@ -231,7 +249,7 @@ public class BedrockModel extends AbstractModel {
         try {
             JsonNode responseJson = OBJECT_MAPPER.readTree(responseBody);
             List<List<Double>> result = new ArrayList<>();
-            
+
             if (modelId.startsWith("amazon.titan")) {
                 JsonNode embedding = responseJson.get("embedding");
                 if (embedding != null && embedding.isArray()) {
@@ -251,13 +269,13 @@ public class BedrockModel extends AbstractModel {
                     result.add(vector);
                 }
             }
-            
+
             return result;
         } catch (IOException e) {
             throw new IOException("Failed to parse single response: " + responseBody, e);
         }
     }
-    
+
     private List<List<Double>> parseBatchResponse(String responseBody) throws IOException {
         try {
             JsonNode responseJson = OBJECT_MAPPER.readTree(responseBody);
@@ -288,18 +306,19 @@ public class BedrockModel extends AbstractModel {
             throw new IOException("Failed to parse batch response: " + responseBody, e);
         }
     }
-    
+
     private String invokeModel(ObjectNode requestBody) {
         String requestString = requestBody.toString();
-        InvokeModelRequest request = InvokeModelRequest.builder()
-                .modelId(modelId)
-                .body(SdkBytes.fromString(requestString, StandardCharsets.UTF_8))
-                .build();
-        
+        InvokeModelRequest request =
+                InvokeModelRequest.builder()
+                        .modelId(modelId)
+                        .body(SdkBytes.fromString(requestString, StandardCharsets.UTF_8))
+                        .build();
+
         InvokeModelResponse response = client.invokeModel(request);
         return response.body().asString(StandardCharsets.UTF_8);
     }
-    
+
     @Override
     public void close() {
         if (closeClientOnShutdown) {

@@ -164,25 +164,20 @@ public class EmbeddingRequestJsonTest {
 
     @Test
     void testBedrockTitanRequestJson() throws IOException {
-        BedrockModel model = new BedrockModel(
-                "apikey",
-                "secretkey",
-                "us-east-1",
-                "amazon.titan-embed-text-v1",
-                1536,
-                10);
+        BedrockModel model =
+                new BedrockModel(
+                        "apikey", "secretkey", "us-east-1", "amazon.titan-embed-text-v1", 1536, 10);
 
-        ObjectNode singleNode = model.createRequestForSingleInput(
-                "Determine whether someone is Chinese or American by their name");
+        ObjectNode singleNode =
+                model.createRequestForSingleInput(
+                        "Determine whether someone is Chinese or American by their name");
         Assertions.assertEquals(
                 "{\"inputText\":\"Determine whether someone is Chinese or American by their name\"}",
                 OBJECT_MAPPER.writeValueAsString(singleNode));
 
-        ObjectNode batchNode = model.createRequestForBatchInput(
-                new Object[] {
-                        "First text for embedding",
-                        "Second text for embedding"
-                });
+        ObjectNode batchNode =
+                model.createRequestForBatchInput(
+                        new Object[] {"First text for embedding", "Second text for embedding"});
         Assertions.assertEquals(
                 "{\"inputTexts\":[\"First text for embedding\",\"Second text for embedding\"]}",
                 OBJECT_MAPPER.writeValueAsString(batchNode));
@@ -192,44 +187,40 @@ public class EmbeddingRequestJsonTest {
 
     @Test
     void testBedrockCohereRequestJson() throws IOException {
-        BedrockModel defaultModel = new BedrockModel(
-                "apikey",
-                "secretkey",
-                "us-east-1",
-                "cohere.embed-english-v3",
-                1024,
-                10);
+        BedrockModel defaultModel =
+                new BedrockModel(
+                        "apikey", "secretkey", "us-east-1", "cohere.embed-english-v3", 1024, 10);
 
-        ObjectNode defaultNode = defaultModel.createRequestForSingleInput(
-                "Determine whether someone is Chinese or American by their name");
+        ObjectNode defaultNode =
+                defaultModel.createRequestForSingleInput(
+                        "Determine whether someone is Chinese or American by their name");
         Assertions.assertEquals(
                 "{\"texts\":[\"Determine whether someone is Chinese or American by their name\"],\"input_type\":\"search_document\"}",
                 OBJECT_MAPPER.writeValueAsString(defaultNode));
         defaultModel.close();
-        BedrockModel customModel = new BedrockModel(
-                "apikey",
-                "secretkey",
-                "us-east-1",
-                "cohere.embed-english-v3",
-                1024,
-                10,
-                "search_query");
+        BedrockModel customModel =
+                new BedrockModel(
+                        "apikey",
+                        "secretkey",
+                        "us-east-1",
+                        "cohere.embed-english-v3",
+                        1024,
+                        10,
+                        "search_query");
 
-        ObjectNode singleNode = customModel.createRequestForSingleInput(
-                "Determine whether someone is Chinese or American by their name");
+        ObjectNode singleNode =
+                customModel.createRequestForSingleInput(
+                        "Determine whether someone is Chinese or American by their name");
         Assertions.assertEquals(
                 "{\"texts\":[\"Determine whether someone is Chinese or American by their name\"],\"input_type\":\"search_query\"}",
                 OBJECT_MAPPER.writeValueAsString(singleNode));
-        ObjectNode batchNode = customModel.createRequestForBatchInput(
-                new Object[] {
-                        "First text for embedding",
-                        "Second text for embedding"
-                });
+        ObjectNode batchNode =
+                customModel.createRequestForBatchInput(
+                        new Object[] {"First text for embedding", "Second text for embedding"});
         Assertions.assertEquals(
                 "{\"texts\":[\"First text for embedding\",\"Second text for embedding\"],\"input_type\":\"search_query\"}",
                 OBJECT_MAPPER.writeValueAsString(batchNode));
 
         customModel.close();
     }
-
 }
