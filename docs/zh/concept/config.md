@@ -322,6 +322,87 @@ sink {
 - 值不能包含空格`' '`。例如, `-i jobName='this is a job name'`将被替换为`job.name = "this"`。 你可以使用环境变量传递带有空格的值。 
 - 如果要使用动态参数,可以使用以下格式: `-i date=$(date +"%Y%m%d")`。
 - 不能使用指定系统保留字符，它将不会被`-i`替换，如:`${database_name}`、`${schema_name}`、`${table_name}`、`${schema_full_name}`、`${table_full_name}`、`${primary_key}`、`${unique_key}`、`${field_names}`。具体可参考[Sink参数占位符](sink-options-placeholders.md)
+
+## 配置引用
+
+在配置文件中,我们可以定义一些通用的配置信息，在Job配置中直接引用，从而复用相同的配置。
+常见应用于连接信息复用，以及开发和生产环境的变量配置文件独立，极大提高配置维护性。
+
+具体样例：
+ref.conf
+```hocon
+# 定义 MySQL 连接配置
+mysql_prod {
+    url = "jdbc:mysql://192.168.1.19:3306/test"
+    driver = "com.mysql.cj.jdbc.Driver"
+    connection_check_timeout_sec = 100
+    user = "root"
+    password = "111111"
+    fetch_size = 10000
+    query="select * from not_exist"
+}
+
+# 定义 Kafka 连接配置
+kafka_test {
+    bootstrap.servers = "kafka-test:9092"
+    topic = "test_topic"
+}
+```
+
+mysql_to_console_by_ref.conf
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+  ref_config_path = "./ref.conf"
+}
+
+source {
+  Jdbc {
+    st_ref_key = "mysql_prod"
+    query="select * from department"
+  }
+}
+
+transform {
+}
+
+sink {
+  console {
+  }
+}
+```
+如果在`plugin`配置和`ref`配置中均定义了同名的配置项，优先级为：`plugin配置 > ref配置`。
+
+故在配置合并时，将使用plugin中的query配置`query="select * from department"`。
+然后最终提交的配置是:
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+  ref_config_path = "./ref.conf"
+}
+
+source {
+  Jdbc {
+    url = "jdbc:mysql://192.168.1.19:3306/test"
+    driver = "com.mysql.cj.jdbc.Driver"
+    connection_check_timeout_sec = 100
+    user = "root"
+    password = "111111"
+    fetch_size = 10000
+    query="select * from department"
+  }
+}
+
+transform {
+}
+
+sink {
+  console {
+  }
+}
+```
 ## 此外
 
 如果你想了解更多关于格式配置的详细信息，请查看 [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md)。

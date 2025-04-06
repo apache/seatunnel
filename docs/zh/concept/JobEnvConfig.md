@@ -56,6 +56,12 @@
 当值为`CLIENT`时，SaveMode操作在作业提交的过程中执行，使用shell脚本提交作业时，该过程在提交作业的shell进程中执行。使用rest api提交作业时，该过程在http请求的处理线程中执行。
 请尽量使用`CLUSTER`模式，因为当`CLUSTER`模式没有问题时，我们将删除`CLIENT`模式。
 
+### ref_config_path
+
+此参数用于复用参数配置，通过Ref指定通用的配置文件。
+当设置该参数后，就可以在job config中的source、transform、sink中使用`st_ref_key`指定复用的配置信息，并合并至Job配置信息。
+
+
 ## Flink 引擎参数
 
 这里列出了一些与 Flink 中名称相对应的 SeaTunnel 参数名称，并非全部，更多内容请参考官方 [Flink Documentation](https://flink.apache.org/) for more.

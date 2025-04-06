@@ -55,6 +55,11 @@ This parameter is used to specify the location of the savemode when the job is e
 The default value is `CLUSTER`, which means that the savemode is executed on the cluster. If you want to execute the savemode on the client,
 you can set it to `CLIENT`. Please use `CLUSTER` mode as much as possible, because when there are no problems with `CLUSTER` mode, we will remove `CLIENT` mode.
 
+### ref_config_path
+
+This parameter is used for reusing parameter configuration. a common configuration file can be referenced.
+After setting this parameter, in the source, transform and sink sections of job config, `st_ref_key` can be used to specify the reused configuration information and merge it into the Job configuration information.
+
 ## Flink Engine Parameter
 
 Here are some SeaTunnel parameter names corresponding to the names in Flink, not all of them. Please refer to the official [Flink Documentation](https://flink.apache.org/).
