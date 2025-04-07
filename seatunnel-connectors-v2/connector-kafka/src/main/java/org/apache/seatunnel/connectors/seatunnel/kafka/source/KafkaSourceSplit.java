@@ -29,6 +29,7 @@ import java.util.Objects;
 
 public class KafkaSourceSplit implements SourceSplit {
 
+    private static final long serialVersionUID = 3999766278482118380L;
     private TablePath tablePath;
     private TopicPartition topicPartition;
     private long startOffset = -1L;
