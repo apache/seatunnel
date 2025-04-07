@@ -2,14 +2,15 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve][Connector-V2] Random pick the starrocks fe address which can be connected (#8898)|https://github.com/apache/seatunnel/commit/bef76078f9| dev |
-|[Feature][Connector-v2] Support multi starrocks source (#8789)|https://github.com/apache/seatunnel/commit/26b5529aaf| dev |
-|[Fix][Connector-V2] Fix possible data loss in scenarios of request_tablet_size is less than the number of BUCKETS (#8768)|https://github.com/apache/seatunnel/commit/3c6f216135| dev |
-|[Fix][Connector-V2]Fix Descriptions for CUSTOM_SQL in Connector (#8778)|https://github.com/apache/seatunnel/commit/96b610eb7e| dev |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
-|[improve] add StarRocks options (#8639)|https://github.com/apache/seatunnel/commit/da8d9cbd35| dev |
-|[Fix][Connector-V2] fix starRocks automatically creates tables with comment (#8568)|https://github.com/apache/seatunnel/commit/c4cb1fc4a3| dev |
-|[Fix][Connector-V2] Fixed adding table comments (#8514)|https://github.com/apache/seatunnel/commit/edca75b0d6| dev |
+|[Fix][Connector-V2] Fix StarRocksCatalogTest#testCatalog() NPE (#8987)|https://github.com/apache/seatunnel/commit/53f0a9eb52|2.3.10|
+|[Improve][Connector-V2] Random pick the starrocks fe address which can be connected (#8898)|https://github.com/apache/seatunnel/commit/bef76078f9|2.3.10|
+|[Feature][Connector-v2] Support multi starrocks source (#8789)|https://github.com/apache/seatunnel/commit/26b5529aaf|2.3.10|
+|[Fix][Connector-V2] Fix possible data loss in scenarios of request_tablet_size is less than the number of BUCKETS (#8768)|https://github.com/apache/seatunnel/commit/3c6f216135|2.3.10|
+|[Fix][Connector-V2]Fix Descriptions for CUSTOM_SQL in Connector (#8778)|https://github.com/apache/seatunnel/commit/96b610eb7e|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
+|[improve] add StarRocks options (#8639)|https://github.com/apache/seatunnel/commit/da8d9cbd35|2.3.10|
+|[Fix][Connector-V2] fix starRocks automatically creates tables with comment (#8568)|https://github.com/apache/seatunnel/commit/c4cb1fc4a3|2.3.10|
+|[Fix][Connector-V2] Fixed adding table comments (#8514)|https://github.com/apache/seatunnel/commit/edca75b0d6|2.3.10|
 |[Feature][Connector-V2] Starrocks implements multi table sink (#8467)|https://github.com/apache/seatunnel/commit/55eebfa8af|2.3.9|
 |[Improve][Connector-V2] Add pre-check starrocks version before exeucte alter table field name (#8237)|https://github.com/apache/seatunnel/commit/c24e3b12ba|2.3.9|
 |[Fix][Connector-starrocks] Fix drop column bug for starrocks (#8216)|https://github.com/apache/seatunnel/commit/082814da1f|2.3.9|

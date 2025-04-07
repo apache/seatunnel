@@ -1,7 +1,3 @@
----
-sidebar_position: 11
----
-
 # RESTful API V1
 
 :::caution warn

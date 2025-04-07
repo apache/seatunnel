@@ -2,7 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
+|[Fix] [Mongo-cdc] Fallback to timestamp startup mode when resume token has expired (#8754)|https://github.com/apache/seatunnel/commit/afc990d84e|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[Feature][Mongodb-CDC] Support multi-table read (#8029)|https://github.com/apache/seatunnel/commit/49cbaeb9b3|2.3.9|
 |[Bug][connectors-v2] fix mongodb bson convert exception (#8044)|https://github.com/apache/seatunnel/commit/b222c13f2f|2.3.9|
 |[Feature][Core] Support cdc task ddl restore for zeta (#7463)|https://github.com/apache/seatunnel/commit/8e322281ed|2.3.9|

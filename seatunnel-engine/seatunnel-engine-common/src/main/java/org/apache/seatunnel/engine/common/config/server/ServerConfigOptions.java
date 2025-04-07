@@ -193,6 +193,48 @@ public class ServerConfigOptions {
                         .defaultValue(false)
                         .withDescription("Whether to enable the http server.");
 
+        public static final Option<Boolean> ENABLE_HTTPS =
+                Options.key("enable-https")
+                        .booleanType()
+                        .defaultValue(false)
+                        .withDescription("Whether to enable the https server.");
+
+        public static final Option<Integer> HTTPS_PORT =
+                Options.key("port")
+                        .intType()
+                        .defaultValue(8443)
+                        .withDescription("The port of the https server.");
+
+        public static final Option<String> KEY_STORE_PATH =
+                Options.key("key-store-path")
+                        .stringType()
+                        .noDefaultValue()
+                        .withDescription("The key store path of the https server.");
+
+        public static final Option<String> KEY_STORE_PASSWORD =
+                Options.key("key-store-password")
+                        .stringType()
+                        .noDefaultValue()
+                        .withDescription("The key store password of the https server.");
+
+        public static final Option<String> KEY_MANAGER_PASSWORD =
+                Options.key("key-manager-password")
+                        .stringType()
+                        .noDefaultValue()
+                        .withDescription("The key manager password of the https server.");
+
+        public static final Option<String> TRUST_STORE_PATH =
+                Options.key("trust-store-path")
+                        .stringType()
+                        .noDefaultValue()
+                        .withDescription("The trust store path of the https server.");
+
+        public static final Option<String> TRUST_STORE_PASSWORD =
+                Options.key("trust-store-password")
+                        .stringType()
+                        .noDefaultValue()
+                        .withDescription("The trust store password of the https server.");
+
         public static final Option<String> CONTEXT_PATH =
                 Options.key("context-path")
                         .stringType()

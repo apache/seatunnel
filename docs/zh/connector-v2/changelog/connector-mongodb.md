@@ -2,9 +2,9 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve] sink mongodb schema is not required (#8887)|https://github.com/apache/seatunnel/commit/3cfe8c12b9| dev |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
-|[Fix][Connector-Mongodb] close MongodbClient when close MongodbReader (#8592)|https://github.com/apache/seatunnel/commit/06b2fc0e06| dev |
+|[Improve] sink mongodb schema is not required (#8887)|https://github.com/apache/seatunnel/commit/3cfe8c12b9|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
+|[Fix][Connector-Mongodb] close MongodbClient when close MongodbReader (#8592)|https://github.com/apache/seatunnel/commit/06b2fc0e06|2.3.10|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|2.3.9|
 |[Bug][connectors-v2] fix mongodb bson convert exception (#8044)|https://github.com/apache/seatunnel/commit/b222c13f2f|2.3.9|
 |[Hotfix][Connector-v2] Fix the ClassCastException for connector-mongodb (#7586)|https://github.com/apache/seatunnel/commit/dc43370e8c|2.3.8|

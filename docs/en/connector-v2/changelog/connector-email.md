@@ -2,7 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
+|[improve] email connector options (#8983)|https://github.com/apache/seatunnel/commit/7821e824dd|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[Improve][Transform] Rename sql transform table name from &#x27;fake&#x27; to &#x27;dual&#x27; (#8298)|https://github.com/apache/seatunnel/commit/e6169684fb|2.3.9|
 |[Feature][Core] Rename `result_table_name`/`source_table_name` to `plugin_input/plugin_output` (#8072)|https://github.com/apache/seatunnel/commit/c7bbd322db|2.3.9|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|2.3.9|

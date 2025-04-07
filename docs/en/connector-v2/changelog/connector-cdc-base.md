@@ -2,11 +2,11 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve][CDC] Extract duplicate code (#8906)|https://github.com/apache/seatunnel/commit/b922bb90e6| dev |
-|[Improve][CDC] Filter heartbeat event (#8569)|https://github.com/apache/seatunnel/commit/1870653393| dev |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
-|[Fix][MySQL-CDC]fix recovery task failure caused by binlog deletion (#8587)|https://github.com/apache/seatunnel/commit/087087e592| dev |
-|[Feature] [Postgre CDC]support array type (#8560)|https://github.com/apache/seatunnel/commit/021af147cc| dev |
+|[Improve][CDC] Extract duplicate code (#8906)|https://github.com/apache/seatunnel/commit/b922bb90e6|2.3.10|
+|[Improve][CDC] Filter heartbeat event (#8569)|https://github.com/apache/seatunnel/commit/1870653393|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
+|[Fix][MySQL-CDC]fix recovery task failure caused by binlog deletion (#8587)|https://github.com/apache/seatunnel/commit/087087e592|2.3.10|
+|[Feature] [Postgre CDC]support array type (#8560)|https://github.com/apache/seatunnel/commit/021af147cc|2.3.10|
 |[Feature][MySQL-CDC] Support database/table wildcards scan read (#8323)|https://github.com/apache/seatunnel/commit/2116843ce8|2.3.9|
 |[Feature][CDC] Add &#x27;schema-changes.enabled&#x27; options (#8285)|https://github.com/apache/seatunnel/commit/8e29ecf54f|2.3.9|
 |Revert &quot;[Feature][Redis] Flush data when the time reaches checkpoint interval&quot; and &quot;[Feature][CDC] Add &#x27;schema-changes.enabled&#x27; options&quot; (#8278)|https://github.com/apache/seatunnel/commit/fcb2938286|2.3.9|

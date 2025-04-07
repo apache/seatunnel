@@ -51,8 +51,10 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class CsvReadStrategy extends AbstractReadStrategy {
@@ -67,6 +69,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
     private int[] indexes;
     private String encoding = BaseSourceConfigOptions.ENCODING.defaultValue();
     private CatalogTable inputCatalogTable;
+    private boolean firstLineAsHeader = BaseSourceConfigOptions.CSV_USE_HEADER_LINE.defaultValue();
 
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
@@ -102,9 +105,19 @@ public class CsvReadStrategy extends AbstractReadStrategy {
         }
 
         CSVFormat csvFormat = CSVFormat.DEFAULT;
+        if (firstLineAsHeader) {
+            csvFormat = csvFormat.withFirstRecordAsHeader();
+        }
         try (BufferedReader reader =
                         new BufferedReader(new InputStreamReader(actualInputStream, encoding));
                 CSVParser csvParser = new CSVParser(reader, csvFormat); ) {
+            // test and skip `\uFEFF` BOM
+            reader.mark(1);
+            int firstChar = reader.read();
+            if (firstChar != 0xFEFF) {
+                reader.reset();
+            }
+            // skip lines
             for (int i = 0; i < skipHeaderNumber; i++) {
                 if (reader.readLine() == null) {
                     throw new IOException(
@@ -114,10 +127,18 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 }
             }
             // read lines
+            List<String> headers = getHeaders(csvParser);
             for (CSVRecord csvRecord : csvParser) {
                 HashMap<Integer, String> fieldIdValueMap = new HashMap<>();
-                for (int i = 0; i < inputCatalogTable.getTableSchema().getColumns().size(); i++) {
-                    fieldIdValueMap.put(i, csvRecord.get(i));
+                for (int i = 0; i < headers.size(); i++) {
+                    // the user input schema may not contain all the columns in the csv header
+                    // and may contain columns in a different order with the csv header
+                    int index =
+                            inputCatalogTable.getSeaTunnelRowType().indexOf(headers.get(i), false);
+                    if (index == -1) {
+                        continue;
+                    }
+                    fieldIdValueMap.put(index, csvRecord.get(i));
                 }
                 SeaTunnelRow seaTunnelRow = deserializationSchema.getSeaTunnelRow(fieldIdValueMap);
                 if (!readColumns.isEmpty()) {
@@ -150,6 +171,19 @@ public class CsvReadStrategy extends AbstractReadStrategy {
             throw new FileConnectorException(
                     FileConnectorErrorCode.DATA_DESERIALIZE_FAILED, errorMsg, e);
         }
+    }
+
+    private List<String> getHeaders(CSVParser csvParser) {
+        List<String> headers;
+        if (firstLineAsHeader) {
+            headers = csvParser.getHeaderNames().stream().collect(Collectors.toList());
+        } else {
+            headers =
+                    inputCatalogTable.getTableSchema().getColumns().stream()
+                            .map(column -> column.getName())
+                            .collect(Collectors.toList());
+        }
+        return headers;
     }
 
     @Override
@@ -205,6 +239,10 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                                 readonlyConfig
                                         .getOptional(BaseSourceConfigOptions.NULL_FORMAT)
                                         .orElse(null));
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.CSV_USE_HEADER_LINE.key())) {
+            firstLineAsHeader =
+                    pluginConfig.getBoolean(BaseSourceConfigOptions.CSV_USE_HEADER_LINE.key());
+        }
         if (isMergePartition) {
             deserializationSchema =
                     builder.seaTunnelRowType(userDefinedRowTypeWithPartition).build();

@@ -113,6 +113,14 @@ public class ImportClassCheckTest {
     }
 
     @Test
+    public void hikariShadeCheck() {
+        Map<String, List<String>> errorMap =
+                checkImportClassPrefixWithAll(Collections.singletonList("com.zaxxer.hikari"));
+        Assertions.assertEquals(0, errorMap.size(), shadeErrorMsg("hikari", errorMap));
+        log.info("check hikari shade successfully");
+    }
+
+    @Test
     public void janinoShadeCheck() {
         Map<String, List<String>> errorMap =
                 checkImportClassPrefixWithAll(

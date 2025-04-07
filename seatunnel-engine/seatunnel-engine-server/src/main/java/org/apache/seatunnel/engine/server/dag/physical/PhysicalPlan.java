@@ -199,7 +199,13 @@ public class PhysicalPlan {
             return;
         }
 
-        updateJobState(JobStatus.CANCELING);
+        if (runningJobStateIMap.get(jobId) == JobStatus.PENDING) {
+            // The pending task needs to be directly set to 'cancelled' status because it has not
+            // started running yet
+            updateJobState(JobStatus.CANCELED);
+        } else {
+            updateJobState(JobStatus.CANCELING);
+        }
     }
 
     public void savepointJob() {

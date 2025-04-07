@@ -19,6 +19,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.com.zaxxer.hikari.pool.HikariProxyConnection;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -33,6 +34,7 @@ import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcMultiTableResourceManager;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSink;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkWriter;
@@ -459,6 +461,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     public void parametersTest() throws Exception {
         defaultSinkParametersTest();
         defaultSourceParametersTest();
+        defaultMultiSinkParametersTest();
     }
 
     void defaultSinkParametersTest() throws IOException, SQLException, ClassNotFoundException {
@@ -544,6 +547,118 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         Properties connectionProperties4 = getSinkProperties(jdbcSink4);
         Assertions.assertEquals(connectionProperties4.get("useSSL"), "true");
         Assertions.assertEquals(connectionProperties4.get("rewriteBatchedStatements"), "false");
+    }
+
+    void defaultMultiSinkParametersTest() throws IOException, SQLException, ClassNotFoundException {
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "c_bigint",
+                                        BasicType.LONG_TYPE,
+                                        22,
+                                        false,
+                                        null,
+                                        "c_bigint"))
+                        .build();
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test_catalog", "seatunnel", "source"),
+                        tableSchema,
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "User table");
+
+        // case1 url not contains parameters and properties not contains parameters
+        Map<String, Object> map1 = getDefaultConfigMap();
+        map1.put("url", getUrl());
+        ReadonlyConfig config1 = ReadonlyConfig.fromMap(map1);
+        TableSinkFactoryContext context1 =
+                TableSinkFactoryContext.replacePlaceholderAndCreate(
+                        catalogTable,
+                        config1,
+                        Thread.currentThread().getContextClassLoader(),
+                        Collections.emptyList());
+        JdbcSink jdbcSink1 = (JdbcSink) new JdbcSinkFactory().createSink(context1).createSink();
+        JdbcMultiTableResourceManager multiTableResourceManager1 =
+                (JdbcMultiTableResourceManager)
+                        jdbcSink1.createWriter(null).initMultiTableResourceManager(1, 1);
+        Properties connectionProperties1 = getMultiSinkProperties(multiTableResourceManager1);
+        Assertions.assertEquals(connectionProperties1.get("rewriteBatchedStatements"), "true");
+
+        // case2 url contains parameters and properties not contains parameters
+        Map<String, Object> map2 = getDefaultConfigMap();
+        map2.put("url", getUrl() + "?rewriteBatchedStatements=false");
+        ReadonlyConfig config2 = ReadonlyConfig.fromMap(map2);
+        TableSinkFactoryContext context2 =
+                TableSinkFactoryContext.replacePlaceholderAndCreate(
+                        catalogTable,
+                        config2,
+                        Thread.currentThread().getContextClassLoader(),
+                        Collections.emptyList());
+        JdbcSink jdbcSink2 = (JdbcSink) new JdbcSinkFactory().createSink(context2).createSink();
+        JdbcMultiTableResourceManager multiTableResourceManager2 =
+                (JdbcMultiTableResourceManager)
+                        jdbcSink2.createWriter(null).initMultiTableResourceManager(1, 1);
+        Properties connectionProperties2 = getMultiSinkProperties(multiTableResourceManager2);
+        Assertions.assertEquals(connectionProperties2.get("rewriteBatchedStatements"), "false");
+
+        // case3 url not contains parameters and properties not contains parameters
+        Map<String, Object> map3 = getDefaultConfigMap();
+        Map<String, String> properties3 = new HashMap<>();
+        properties3.put("rewriteBatchedStatements", "false");
+        map3.put("properties", properties3);
+        map3.put("url", getUrl());
+        ReadonlyConfig config3 = ReadonlyConfig.fromMap(map3);
+        TableSinkFactoryContext context3 =
+                TableSinkFactoryContext.replacePlaceholderAndCreate(
+                        catalogTable,
+                        config3,
+                        Thread.currentThread().getContextClassLoader(),
+                        Collections.emptyList());
+        JdbcSink jdbcSink3 = (JdbcSink) new JdbcSinkFactory().createSink(context3).createSink();
+        JdbcMultiTableResourceManager multiTableResourceManager3 =
+                (JdbcMultiTableResourceManager)
+                        jdbcSink3.createWriter(null).initMultiTableResourceManager(1, 1);
+        Properties connectionProperties3 = getMultiSinkProperties(multiTableResourceManager3);
+        Assertions.assertEquals(connectionProperties3.get("rewriteBatchedStatements"), "false");
+
+        // case4 url contains parameters and properties contains parameters
+        Map<String, Object> map4 = getDefaultConfigMap();
+        Map<String, String> properties4 = new HashMap<>();
+        properties4.put("useSSL", "true");
+        properties4.put("rewriteBatchedStatements", "false");
+        map4.put("properties", properties4);
+        map4.put("url", getUrl() + "?useSSL=false&rewriteBatchedStatements=true");
+        ReadonlyConfig config4 = ReadonlyConfig.fromMap(map4);
+        TableSinkFactoryContext context4 =
+                TableSinkFactoryContext.replacePlaceholderAndCreate(
+                        catalogTable,
+                        config4,
+                        Thread.currentThread().getContextClassLoader(),
+                        Collections.emptyList());
+        JdbcSink jdbcSink4 = (JdbcSink) new JdbcSinkFactory().createSink(context4).createSink();
+        JdbcMultiTableResourceManager multiTableResourceManager4 =
+                (JdbcMultiTableResourceManager)
+                        jdbcSink4.createWriter(null).initMultiTableResourceManager(1, 1);
+        Properties connectionProperties4 = getMultiSinkProperties(multiTableResourceManager4);
+        Assertions.assertEquals(connectionProperties4.get("useSSL"), "true");
+        Assertions.assertEquals(connectionProperties4.get("rewriteBatchedStatements"), "false");
+    }
+
+    private Properties getMultiSinkProperties(
+            JdbcMultiTableResourceManager multiTableResourceManager) throws SQLException {
+        HikariProxyConnection hikariProxyConnection =
+                (HikariProxyConnection)
+                        multiTableResourceManager
+                                .getSharedResource()
+                                .get()
+                                .getConnectionPool()
+                                .getConnection();
+        Properties connectionProperties =
+                ((ConnectionImpl) ReflectionUtils.getField(hikariProxyConnection, "delegate").get())
+                        .getProperties();
+        return connectionProperties;
     }
 
     void defaultSourceParametersTest() throws Exception {
