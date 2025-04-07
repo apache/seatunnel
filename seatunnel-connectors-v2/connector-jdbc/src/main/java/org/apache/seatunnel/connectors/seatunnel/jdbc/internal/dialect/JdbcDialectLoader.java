@@ -36,8 +36,8 @@ public final class JdbcDialectLoader {
 
     private JdbcDialectLoader() {}
 
-    public static JdbcDialect load(String url, String compatibleMode) {
-        return load(url, compatibleMode, "");
+    public static JdbcDialect load(String url, String dialect, String compatibleMode) {
+        return load(url, compatibleMode, dialect, "");
     }
 
     /**
@@ -45,11 +45,12 @@ public final class JdbcDialectLoader {
      *
      * @param url A database URL.
      * @param compatibleMode The compatible mode.
+     * @return The loaded dialect.
      * @throws IllegalStateException if the loader cannot find exactly one dialect that can
      *     unambiguously process the given database URL.
-     * @return The loaded dialect.
      */
-    public static JdbcDialect load(String url, String compatibleMode, String fieldIde) {
+    public static JdbcDialect load(
+            String url, String compatibleMode, String dialect, String fieldIde) {
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
         List<JdbcDialectFactory> foundFactories = discoverFactories(cl);
 
@@ -60,9 +61,18 @@ public final class JdbcDialectLoader {
                             "Could not find any jdbc dialect factories that implement '%s' in the classpath.",
                             JdbcDialectFactory.class.getName()));
         }
-
-        List<JdbcDialectFactory> matchingFactories =
-                foundFactories.stream().filter(f -> f.acceptsURL(url)).collect(Collectors.toList());
+        List<JdbcDialectFactory> matchingFactories;
+        if (dialect != null) {
+            matchingFactories =
+                    foundFactories.stream()
+                            .filter(f -> f.dialectFactoryName().equalsIgnoreCase(dialect))
+                            .collect(Collectors.toList());
+        } else {
+            matchingFactories =
+                    foundFactories.stream()
+                            .filter(f -> f.acceptsURL(url))
+                            .collect(Collectors.toList());
+        }
 
         // filter out generic dialect factory
         if (matchingFactories.size() > 1) {

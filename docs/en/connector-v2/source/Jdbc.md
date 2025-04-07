@@ -49,6 +49,7 @@ supports query SQL and can achieve projection effect.
 | password                                   | String  | No       | -               | password                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | query                                      | String  | No       | -               | Query statement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | compatible_mode                            | String  | No       | -               | The compatible mode of database, required when the database supports multiple compatible modes.<br/> For example, when using OceanBase database, you need to set it to 'mysql' or 'oracle'. <br/> when using starrocks, you need set it to `starrocks`                                                                                                                                                                                                                                                                                                                                                                                             |
+| dialect                                    | String  | No       | -               | The appointed dialect, if it does not exist, is still obtained according to the url, and the priority is higher than the url. <br/> For example,when using starrocks, you need set it to `starrocks`                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | connection_check_timeout_sec               | Int     | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | partition_column                           | String  | No       | -               | The column name for split data.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | partition_upper_bound                      | Long    | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -92,6 +93,24 @@ decimal_type_narrowing = false
 | NUMBER(1, 0)  | Decimal(1, 0)  |
 | NUMBER(6, 0)  | Decimal(6, 0)  |
 | NUMBER(10, 0) | Decimal(10, 0) |
+
+### dialect [string]
+
+The appointed dialect, if it does not exist, is still obtained according to the url, and the priority is higher than the url. For example,when using starrocks, you need set it to `starrocks`. Similarly, when using mysql, you need to set its value to `mysql`.
+
+#### dialect list
+
+|           | Dialect Name |          |
+|-----------|--------------|----------|
+| Greenplum | DB2          | Dameng   |
+| Gbase8a   | HIVE         | KingBase |
+| MySQL     | StarRocks    | Oracle   |
+| Phoenix   | Postgres     | Redshift |
+| SapHana   | Snowflake    | Sqlite   |
+| SqlServer | Tablestore   | Teradata |
+| Vertica   | OceanBase    | XUGU     |
+| IRIS      | Inceptor     | Highgo   |
+
 
 ## Parallel Reader
 
