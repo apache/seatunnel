@@ -185,6 +185,8 @@ source {
 
 ### Kerberos Authentication Example
 
+Please set JVM parameters `java.security.krb5.conf` before starting the SeaTunnel or update default `krb5.conf` in `/etc/krb5.conf`.
+
 Source Config
 
 ```
@@ -197,7 +199,6 @@ source {
             security.protocol=SASL_PLAINTEXT
             sasl.kerberos.service.name=kafka
             sasl.mechanism=GSSAPI
-            java.security.krb5.conf="/etc/krb5.conf"
             sasl.jaas.config="com.sun.security.auth.module.Krb5LoginModule required \n        useKeyTab=true \n        storeKey=true  \n        keyTab=\"/path/to/xxx.keytab\" \n        principal=\"user@xxx.com\";"
         }
     }

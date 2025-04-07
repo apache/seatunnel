@@ -152,7 +152,7 @@ public class SqlServerCreateTableSqlBuilder {
             tableAndColumnComment.append(
                     String.format(
                             "EXEC %s.sys.sp_addextendedproperty 'MS_Description', N'%s', 'schema', N'%s', 'table', N'%s';\n",
-                            tablePath.getDatabaseName(),
+                            "[" + tablePath.getDatabaseName() + "]",
                             comment,
                             tablePath.getSchemaName(),
                             tablePath.getTableName()));
@@ -164,7 +164,7 @@ public class SqlServerCreateTableSqlBuilder {
                     tableAndColumnComment.append(
                             String.format(
                                     columnComment,
-                                    tablePath.getDatabaseName(),
+                                    "[" + tablePath.getDatabaseName() + "]",
                                     com,
                                     tablePath.getSchemaName(),
                                     tablePath.getTableName(),
