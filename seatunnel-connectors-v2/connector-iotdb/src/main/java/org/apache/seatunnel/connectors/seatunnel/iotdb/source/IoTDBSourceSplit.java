@@ -24,7 +24,7 @@ import lombok.ToString;
 @ToString
 public class IoTDBSourceSplit implements SourceSplit {
 
-    private static final long serialVersionUID = -1L;
+    private static final long serialVersionUID = 7364827364827364829L;
 
     private final String splitId;
 

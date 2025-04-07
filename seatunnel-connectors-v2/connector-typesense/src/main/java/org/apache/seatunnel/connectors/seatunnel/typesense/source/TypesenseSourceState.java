@@ -27,6 +27,7 @@ import java.util.Map;
 @AllArgsConstructor
 @Getter
 public class TypesenseSourceState implements Serializable {
+    private static final long serialVersionUID = -4243324393187167712L;
     private boolean shouldEnumerate;
     private Map<Integer, List<TypesenseSourceSplit>> pendingSplit;
 }

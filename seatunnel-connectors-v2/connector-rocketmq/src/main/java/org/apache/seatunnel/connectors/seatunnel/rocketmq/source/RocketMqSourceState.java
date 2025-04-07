@@ -22,6 +22,7 @@ import java.util.Set;
 
 public class RocketMqSourceState implements Serializable {
 
+    private static final long serialVersionUID = 3341725159083754488L;
     private Set<RocketMqSourceSplit> assignSplits;
 
     public RocketMqSourceState(Set<RocketMqSourceSplit> assignSplits) {

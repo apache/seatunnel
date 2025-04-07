@@ -29,7 +29,7 @@ import java.util.Map;
 @AllArgsConstructor
 @Getter
 public class InfluxDBSourceState implements Serializable {
-
+    private static final long serialVersionUID = 7364827364827364839L;
     private boolean shouldEnumerate;
     private Map<Integer, List<InfluxDBSourceSplit>> pendingSplit;
 }

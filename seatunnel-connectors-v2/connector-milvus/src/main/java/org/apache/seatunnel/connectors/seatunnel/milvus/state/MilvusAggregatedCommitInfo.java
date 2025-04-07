@@ -26,5 +26,6 @@ import java.util.List;
 @Data
 @AllArgsConstructor
 public class MilvusAggregatedCommitInfo implements Serializable {
+    private static final long serialVersionUID = 4363355126863163926L;
     List<MilvusCommitInfo> commitInfos;
 }

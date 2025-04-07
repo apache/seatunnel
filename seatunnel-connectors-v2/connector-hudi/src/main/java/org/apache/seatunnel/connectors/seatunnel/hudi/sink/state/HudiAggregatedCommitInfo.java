@@ -19,4 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.hudi.sink.state;
 
 import java.io.Serializable;
 
-public class HudiAggregatedCommitInfo implements Serializable {}
+public class HudiAggregatedCommitInfo implements Serializable {
+    private static final long serialVersionUID = -5342563020191900441L;
+}
