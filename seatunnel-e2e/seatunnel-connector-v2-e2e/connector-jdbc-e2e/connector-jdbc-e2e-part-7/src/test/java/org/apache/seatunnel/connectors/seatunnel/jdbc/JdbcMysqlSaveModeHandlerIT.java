@@ -323,7 +323,8 @@ public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
                         jdbcCase.getUserName(),
                         jdbcCase.getPassword(),
                         JdbcUrlUtil.getUrlInfo(
-                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())));
+                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())),
+                        null);
         catalog.open();
     }
 

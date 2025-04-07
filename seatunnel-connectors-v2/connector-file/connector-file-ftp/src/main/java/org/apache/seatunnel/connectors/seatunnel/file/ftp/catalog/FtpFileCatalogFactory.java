@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConf;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
@@ -37,7 +37,7 @@ public class FtpFileCatalogFactory implements CatalogFactory {
                 new HadoopFileSystemProxy(FtpConf.buildWithConfig(options));
         return new FtpFileCatalog(
                 fileSystemUtils,
-                options.get(FileBaseSourceOptions.FILE_PATH),
+                options.get(BaseSourceConfigOptions.FILE_PATH),
                 FileSystemType.FTP.getFileSystemPluginName());
     }
 

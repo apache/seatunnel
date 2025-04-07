@@ -81,14 +81,16 @@ public class OracleCatalog extends AbstractJdbcCatalog {
             String username,
             String pwd,
             JdbcUrlUtil.UrlInfo urlInfo,
-            String defaultSchema) {
+            String defaultSchema,
+            String driverClass) {
         this(
                 catalogName,
                 username,
                 pwd,
                 urlInfo,
                 defaultSchema,
-                JdbcOptions.DECIMAL_TYPE_NARROWING.defaultValue());
+                JdbcOptions.DECIMAL_TYPE_NARROWING.defaultValue(),
+                driverClass);
     }
 
     public OracleCatalog(
@@ -97,8 +99,9 @@ public class OracleCatalog extends AbstractJdbcCatalog {
             String pwd,
             JdbcUrlUtil.UrlInfo urlInfo,
             String defaultSchema,
-            boolean decimalTypeNarrowing) {
-        super(catalogName, username, pwd, urlInfo, defaultSchema);
+            boolean decimalTypeNarrowing,
+            String driverClass) {
+        super(catalogName, username, pwd, urlInfo, defaultSchema, driverClass);
         this.decimalTypeNarrowing = decimalTypeNarrowing;
     }
 

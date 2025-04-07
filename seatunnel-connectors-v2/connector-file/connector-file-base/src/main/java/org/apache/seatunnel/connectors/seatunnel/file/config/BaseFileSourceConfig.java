@@ -59,7 +59,7 @@ public abstract class BaseFileSourceConfig implements Serializable {
 
     public BaseFileSourceConfig(ReadonlyConfig readonlyConfig) {
         this.baseFileSourceConfig = readonlyConfig;
-        this.fileFormat = readonlyConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE);
+        this.fileFormat = readonlyConfig.get(BaseSourceConfigOptions.FILE_FORMAT_TYPE);
         this.readStrategy = ReadStrategyFactory.of(readonlyConfig, getHadoopConfig());
         this.filePaths = parseFilePaths(readonlyConfig);
 
@@ -69,7 +69,7 @@ public abstract class BaseFileSourceConfig implements Serializable {
     private List<String> parseFilePaths(ReadonlyConfig readonlyConfig) {
         String rootPath = null;
         try {
-            rootPath = readonlyConfig.get(FileBaseSourceOptions.FILE_PATH);
+            rootPath = readonlyConfig.get(BaseSourceConfigOptions.FILE_PATH);
             return readStrategy.getFileNamesByPath(rootPath);
         } catch (Exception ex) {
             String errorMsg = String.format("Get file list from this path [%s] failed", rootPath);

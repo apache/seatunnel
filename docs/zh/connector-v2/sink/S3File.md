@@ -109,7 +109,7 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 | filename_time_format                  | string  | 否       | "yyyy.MM.dd"                                          | 仅当 custom_filename 为 true 时使用                                                                                                                            |
 | file_format_type                      | string  | 否       | "csv"                                                 |                                                                                                                                                                |
 | field_delimiter                       | string  | 否       | '\001'                                                | 仅当 file_format 为 text 时使用                                                                                                                                |
-| row_delimiter                         | string  | 否       | "\n"                                                  | 仅当 file_format 为 text 时使用                                                                                                                                |
+| row_delimiter                         | string  | 否       | "\n"                                                  | 仅当 file_format 为 `text`、`csv`、`json` 时使用                                                                                                                                |
 | have_partition                        | boolean | 否       | false                                                 | 是否需要处理分区。                                                                                                                                             |
 | partition_by                          | array   | 否       | -                                                     | 仅当 have_partition 为 true 时使用                                                                                                                             |
 | partition_dir_expression              | string  | 否       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/"            | 仅当 have_partition 为 true 时使用                                                                                                                             |
@@ -192,7 +192,7 @@ hadoop_s3_properties {
 
 ### row_delimiter [string]
 
-文件中行之间的分隔符。仅在 `text` 文件格式中需要。
+文件中行之间的分隔符。仅在 `text`、`csv`、`json` 文件格式中需要。
 
 ### have_partition [boolean]
 

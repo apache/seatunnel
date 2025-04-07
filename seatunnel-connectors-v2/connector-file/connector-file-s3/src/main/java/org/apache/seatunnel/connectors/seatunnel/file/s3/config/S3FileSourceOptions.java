@@ -17,4 +17,4 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.s3.config;
 
-public class S3FileSourceOptions extends S3FileBaseOptions {}
+public class S3FileSourceOptions extends S3ConfigOptions {}

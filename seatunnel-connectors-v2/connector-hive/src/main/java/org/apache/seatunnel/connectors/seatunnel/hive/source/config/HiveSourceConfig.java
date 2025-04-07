@@ -61,10 +61,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.FIELD_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.FILE_FORMAT_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.ROW_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions.NULL_FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_FORMAT_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.ROW_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions.NULL_FORMAT;
 
 @Getter
 public class HiveSourceConfig implements Serializable {

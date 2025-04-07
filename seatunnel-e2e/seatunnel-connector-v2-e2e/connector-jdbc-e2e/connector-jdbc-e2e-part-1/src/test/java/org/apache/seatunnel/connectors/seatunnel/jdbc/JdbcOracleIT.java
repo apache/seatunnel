@@ -308,7 +308,8 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                         jdbcCase.getUserName(),
                         jdbcCase.getPassword(),
                         OracleURLParser.parse(jdbcUrl),
-                        SCHEMA);
+                        SCHEMA,
+                        null);
         catalog.open();
     }
 

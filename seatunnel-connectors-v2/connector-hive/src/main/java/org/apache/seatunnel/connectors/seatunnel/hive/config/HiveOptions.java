@@ -19,9 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.hive.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 
-public class HiveOptions extends FileBaseSourceOptions {
+public class HiveOptions extends BaseSourceConfigOptions {
 
     public static final Option<String> TABLE_NAME =
             Options.key("table_name")

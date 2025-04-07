@@ -115,8 +115,9 @@ public class XuguCatalog extends AbstractJdbcCatalog {
             String username,
             String pwd,
             JdbcUrlUtil.UrlInfo urlInfo,
-            String defaultSchema) {
-        super(catalogName, username, pwd, urlInfo, defaultSchema);
+            String defaultSchema,
+            String driverClass) {
+        super(catalogName, username, pwd, urlInfo, defaultSchema, driverClass);
     }
 
     @Override

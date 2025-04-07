@@ -29,12 +29,10 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosConf;
-import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosFileBaseOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosFileSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
@@ -56,12 +54,12 @@ public class CosFileSource extends BaseFileSource {
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
-                        FileBaseOptions.FILE_PATH.key(),
-                        CosFileSourceOptions.FILE_FORMAT_TYPE.key(),
-                        CosFileSourceOptions.SECRET_ID.key(),
-                        CosFileSourceOptions.SECRET_KEY.key(),
-                        CosFileSourceOptions.REGION.key(),
-                        CosFileSourceOptions.BUCKET.key());
+                        CosConfigOptions.FILE_PATH.key(),
+                        CosConfigOptions.FILE_FORMAT_TYPE.key(),
+                        CosConfigOptions.SECRET_ID.key(),
+                        CosConfigOptions.SECRET_KEY.key(),
+                        CosConfigOptions.REGION.key(),
+                        CosConfigOptions.BUCKET.key());
         if (!result.isSuccess()) {
             throw new FileConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -69,11 +67,11 @@ public class CosFileSource extends BaseFileSource {
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-        String path = pluginConfig.getString(CosFileBaseOptions.FILE_PATH.key());
+        String path = pluginConfig.getString(CosConfigOptions.FILE_PATH.key());
         hadoopConf = CosConf.buildWithConfig(pluginConfig);
         readStrategy =
                 ReadStrategyFactory.of(
-                        pluginConfig.getString(CosFileBaseOptions.FILE_FORMAT_TYPE.key()));
+                        pluginConfig.getString(CosConfigOptions.FILE_FORMAT_TYPE.key()));
         readStrategy.setPluginConfig(pluginConfig);
         readStrategy.init(hadoopConf);
         try {
@@ -87,7 +85,7 @@ public class CosFileSource extends BaseFileSource {
         FileFormat fileFormat =
                 FileFormat.valueOf(
                         pluginConfig
-                                .getString(CosFileBaseOptions.FILE_FORMAT_TYPE.key())
+                                .getString(CosConfigOptions.FILE_FORMAT_TYPE.key())
                                 .toUpperCase());
         // only json text csv type support user-defined schema now
         if (pluginConfig.hasPath(ConnectorCommonOptions.SCHEMA.key())) {

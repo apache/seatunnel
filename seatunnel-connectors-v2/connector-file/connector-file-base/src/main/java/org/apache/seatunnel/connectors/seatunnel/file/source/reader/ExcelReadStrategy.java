@@ -26,8 +26,8 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.ExcelEngine;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.excel.ExcelCellUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.excel.ExcelReaderListener;
@@ -96,15 +96,17 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                     "Skip the number of rows exceeds the maximum or minimum limit of Sheet");
         }
 
-        if (pluginConfig.hasPath(FileBaseSourceOptions.DATE_FORMAT.key())) {
-            dateFormatterPattern = pluginConfig.getString(FileBaseSourceOptions.DATE_FORMAT.key());
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.DATE_FORMAT.key())) {
+            dateFormatterPattern =
+                    pluginConfig.getString(BaseSourceConfigOptions.DATE_FORMAT.key());
         }
-        if (pluginConfig.hasPath(FileBaseSourceOptions.DATETIME_FORMAT.key())) {
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.DATETIME_FORMAT.key())) {
             dateTimeFormatterPattern =
-                    pluginConfig.getString(FileBaseSourceOptions.DATETIME_FORMAT.key());
+                    pluginConfig.getString(BaseSourceConfigOptions.DATETIME_FORMAT.key());
         }
-        if (pluginConfig.hasPath(FileBaseSourceOptions.TIME_FORMAT.key())) {
-            timeFormatterPattern = pluginConfig.getString(FileBaseSourceOptions.TIME_FORMAT.key());
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.TIME_FORMAT.key())) {
+            timeFormatterPattern =
+                    pluginConfig.getString(BaseSourceConfigOptions.TIME_FORMAT.key());
         }
 
         ExcelCellUtils excelCellUtils =
@@ -114,9 +116,9 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                         dateTimeFormatterPattern,
                         timeFormatterPattern);
 
-        if (pluginConfig.hasPath(FileBaseSourceOptions.EXCEL_ENGINE.key())
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.EXCEL_ENGINE.key())
                 && pluginConfig
-                        .getString(FileBaseSourceOptions.EXCEL_ENGINE.key())
+                        .getString(BaseSourceConfigOptions.EXCEL_ENGINE.key())
                         .equals(ExcelEngine.EASY_EXCEL.getExcelEngineName())) {
             log.info("Parsing Excel with EasyExcel");
 
@@ -125,8 +127,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                             inputStream,
                             new ExcelReaderListener(
                                     tableId, output, excelCellUtils, seaTunnelRowType));
-            if (pluginConfig.hasPath(FileBaseSourceOptions.SHEET_NAME.key())) {
-                read.sheet(pluginConfig.getString(FileBaseSourceOptions.SHEET_NAME.key()))
+            if (pluginConfig.hasPath(BaseSourceConfigOptions.SHEET_NAME.key())) {
+                read.sheet(pluginConfig.getString(BaseSourceConfigOptions.SHEET_NAME.key()))
                         .headRowNumber((int) skipHeaderNumber)
                         .doReadSync();
             } else {
@@ -150,9 +152,10 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             }
             DataFormatter formatter = new DataFormatter();
             Sheet sheet =
-                    pluginConfig.hasPath(FileBaseSourceOptions.SHEET_NAME.key())
+                    pluginConfig.hasPath(BaseSourceConfigOptions.SHEET_NAME.key())
                             ? workbook.getSheet(
-                                    pluginConfig.getString(FileBaseSourceOptions.SHEET_NAME.key()))
+                                    pluginConfig.getString(
+                                            BaseSourceConfigOptions.SHEET_NAME.key()))
                             : workbook.getSheetAt(0);
             cellCount = seaTunnelRowType.getTotalFields();
             cellCount = partitionsMap.isEmpty() ? cellCount : cellCount + partitionsMap.size();
@@ -212,7 +215,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
         SeaTunnelRowType userDefinedRowTypeWithPartition =
                 mergePartitionTypes(fileNames.get(0), rowType);
         // column projection
-        if (pluginConfig.hasPath(FileBaseSourceOptions.READ_COLUMNS.key())) {
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_COLUMNS.key())) {
             // get the read column index from user-defined row type
             indexes = new int[readColumns.size()];
             String[] fields = new String[readColumns.size()];
