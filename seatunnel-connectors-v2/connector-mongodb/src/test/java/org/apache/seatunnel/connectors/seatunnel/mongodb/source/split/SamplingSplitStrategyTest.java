@@ -44,8 +44,6 @@ public class SamplingSplitStrategyTest {
 
     @Mock private MongoDatabase database;
 
-    @Mock private BsonDocument matchQuery;
-
     private SamplingSplitStrategy strategy;
 
     @BeforeEach
@@ -61,19 +59,15 @@ public class SamplingSplitStrategyTest {
 
     @Test
     public void testGetDocumentNumAndAvgSize() {
-        // 准备测试数据
         BsonDocument statsCmd = new BsonDocument("collStats", new BsonString("collectionName"));
         Document res = new Document();
         res.put("count", "1.3360484963E10");
         res.put("avgObjSize", 200.0);
 
-        // 设置Mock行为
         when(database.runCommand(statsCmd)).thenReturn(res);
 
-        // 直接调用包可见的方法
         ImmutablePair<Long, Long> result = strategy.getDocumentNumAndAvgSize();
 
-        // 验证结果
         assertEquals(Long.valueOf(13360484963L), result.getLeft());
         assertEquals(Long.valueOf(200), result.getRight());
     }
