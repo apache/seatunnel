@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.source.split;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
@@ -104,7 +105,8 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
         return createSplits(splitKey, rightBoundaries);
     }
 
-    private ImmutablePair<Long, Long> getDocumentNumAndAvgSize() {
+    @VisibleForTesting
+    protected ImmutablePair<Long, Long> getDocumentNumAndAvgSize() {
         String collectionName =
                 clientProvider.getDefaultCollection().getNamespace().getCollectionName();
         BsonDocument statsCmd = new BsonDocument("collStats", new BsonString(collectionName));

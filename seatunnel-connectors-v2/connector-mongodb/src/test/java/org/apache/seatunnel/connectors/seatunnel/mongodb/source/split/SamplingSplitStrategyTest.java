@@ -33,9 +33,6 @@ import com.mongodb.MongoNamespace;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
 
@@ -63,20 +60,20 @@ public class SamplingSplitStrategyTest {
     }
 
     @Test
-    public void testGetDocumentNumAndAvgSize()
-            throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+    public void testGetDocumentNumAndAvgSize() {
+        // 准备测试数据
         BsonDocument statsCmd = new BsonDocument("collStats", new BsonString("collectionName"));
         Document res = new Document();
         res.put("count", "1.3360484963E10");
         res.put("avgObjSize", 200.0);
 
+        // 设置Mock行为
         when(database.runCommand(statsCmd)).thenReturn(res);
 
-        // The getDocumentNumAndAvgSize method is private, so we need to use reflection
-        Method method = SamplingSplitStrategy.class.getDeclaredMethod("getDocumentNumAndAvgSize");
-        method.setAccessible(true);
-        ImmutablePair<Long, Long> result = (ImmutablePair<Long, Long>) method.invoke(strategy);
+        // 直接调用包可见的方法
+        ImmutablePair<Long, Long> result = strategy.getDocumentNumAndAvgSize();
 
+        // 验证结果
         assertEquals(Long.valueOf(13360484963L), result.getLeft());
         assertEquals(Long.valueOf(200), result.getRight());
     }
