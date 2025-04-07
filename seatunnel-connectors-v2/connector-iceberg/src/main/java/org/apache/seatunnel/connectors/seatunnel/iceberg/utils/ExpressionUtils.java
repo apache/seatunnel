@@ -46,6 +46,7 @@ import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.delete.Delete;
+import net.sf.jsqlparser.statement.select.PlainSelect;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -71,7 +72,9 @@ public class ExpressionUtils {
     public static Expression parseWhereClauseToIcebergExpression(String whereClauseStr)
             throws JSQLParserException {
         // use the JsqlParser to parse the where clause
-        return convertDeleteSQL("DELETE FROM t WHERE " + whereClauseStr);
+        Statement statement = CCJSqlParserUtil.parse("SELECT * FROM t WHERE " + whereClauseStr);
+        PlainSelect select = (PlainSelect) statement;
+        return convert(select.getWhere(), null);
     }
 
     public static Expression convertDeleteSQL(String sql) throws JSQLParserException {
