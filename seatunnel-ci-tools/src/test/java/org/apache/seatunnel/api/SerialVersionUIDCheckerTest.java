@@ -65,7 +65,13 @@ public class SerialVersionUIDCheckerTest {
     static {
         CombinedTypeSolver typeSolver = new CombinedTypeSolver();
         typeSolver.add(new ReflectionTypeSolver());
+        setupTypeSolver(typeSolver);
+        JavaSymbolSolver symbolSolver = new JavaSymbolSolver(typeSolver);
+        JAVA_PARSER = new JavaParser();
+        JAVA_PARSER.getParserConfiguration().setSymbolResolver(symbolSolver);
+    }
 
+    private static void setupTypeSolver(CombinedTypeSolver typeSolver) {
         try (Stream<Path> paths = Files.walk(Paths.get(".."), FileVisitOption.FOLLOW_LINKS)) {
             paths.filter(path -> path.toString().contains("src/main/java"))
                     .forEach(
@@ -73,226 +79,168 @@ public class SerialVersionUIDCheckerTest {
                                 try {
                                     typeSolver.add(new JavaParserTypeSolver(path.toFile()));
                                 } catch (Exception e) {
+                                    // ignore
                                 }
                             });
         } catch (IOException e) {
             LOG.error("Failed to setup type solver", e);
         }
-
-        JavaSymbolSolver symbolSolver = new JavaSymbolSolver(typeSolver);
-        JAVA_PARSER = new JavaParser();
-        JAVA_PARSER.getParserConfiguration().setSymbolResolver(symbolSolver);
     }
 
     @Test
     public void checkSerialVersionUID() {
         List<String> missingSerialVersionUID = new ArrayList<>();
+        List<Path> connectorClassPaths = findConnectorClassPaths();
+        LOG.info("Found {} connector class files to check", connectorClassPaths.size());
 
+        for (Path path : connectorClassPaths) {
+            checkClassPath(path, missingSerialVersionUID);
+        }
+
+        LOG.info("Check completed. Checked {} connector classes.", connectorClassPaths.size());
+        if (!missingSerialVersionUID.isEmpty()) {
+            String errorMessage = generateErrorMessage(missingSerialVersionUID);
+            LOG.error("Test failed: {}", errorMessage);
+            fail(errorMessage);
+        }
+        LOG.info("All checked classes have correct serialVersionUID.");
+    }
+
+    private List<Path> findConnectorClassPaths() {
         try (Stream<Path> paths = Files.walk(Paths.get(".."), FileVisitOption.FOLLOW_LINKS)) {
-            List<Path> connectorClassPaths =
-                    paths.filter(
-                                    path -> {
-                                        String pathString = path.toString();
-                                        return pathString.endsWith(JAVA_FILE_EXTENSION)
-                                                && pathString.contains(CONNECTOR_DIR)
-                                                && pathString.contains(JAVA_PATH_FRAGMENT);
-                                    })
-                            .collect(Collectors.toList());
-
-            LOG.info("Found {} connector class files to check", connectorClassPaths.size());
-
-            for (Path path : connectorClassPaths) {
-                try {
-                    ParseResult<CompilationUnit> parseResult =
-                            JAVA_PARSER.parse(Files.newInputStream(path));
-                    parseResult
-                            .getResult()
-                            .ifPresent(
-                                    compilationUnit -> {
-                                        List<ClassOrInterfaceDeclaration> classes =
-                                                compilationUnit.findAll(
-                                                        ClassOrInterfaceDeclaration.class);
-                                        for (ClassOrInterfaceDeclaration classDeclaration :
-                                                classes) {
-                                            boolean implementsSeaTunnelSourceOrSink =
-                                                    classDeclaration.getImplementedTypes().stream()
-                                                            .anyMatch(
-                                                                    type -> {
-                                                                        String typeName =
-                                                                                type
-                                                                                        .getNameAsString();
-                                                                        return typeName.equals(
-                                                                                        "SeaTunnelSource")
-                                                                                || typeName.equals(
-                                                                                        "SeaTunnelSink");
-                                                                    });
-
-                                            if (implementsSeaTunnelSourceOrSink) {
-                                                classDeclaration
-                                                        .getImplementedTypes()
-                                                        .forEach(
-                                                                implementedType -> {
-                                                                    implementedType
-                                                                            .getTypeArguments()
-                                                                            .ifPresent(
-                                                                                    typeArgs -> {
-                                                                                        for (Type
-                                                                                                typeArg :
-                                                                                                        typeArgs) {
-                                                                                            if (typeArg
-                                                                                                    .isClassOrInterfaceType()) {
-                                                                                                ClassOrInterfaceType
-                                                                                                        classType =
-                                                                                                                typeArg
-                                                                                                                        .asClassOrInterfaceType();
-                                                                                                try {
-                                                                                                    ResolvedReferenceType
-                                                                                                            resolvedType =
-                                                                                                                    classType
-                                                                                                                            .resolve()
-                                                                                                                            .asReferenceType();
-                                                                                                    if (resolvedType
-                                                                                                            == null) {
-                                                                                                        continue;
-                                                                                                    }
-
-                                                                                                    List<
-                                                                                                                    ResolvedReferenceType>
-                                                                                                            allAncestors =
-                                                                                                                    resolvedType
-                                                                                                                            .getAllAncestors();
-
-                                                                                                    boolean
-                                                                                                            isSerializable =
-                                                                                                                    resolvedType
-                                                                                                                                    .getQualifiedName()
-                                                                                                                                    .equals(
-                                                                                                                                            "java.io.Serializable")
-                                                                                                                            || allAncestors
-                                                                                                                                    .stream()
-                                                                                                                                    .anyMatch(
-                                                                                                                                            ancestor ->
-                                                                                                                                                    ancestor.getQualifiedName()
-                                                                                                                                                            .equals(
-                                                                                                                                                                    "java.io.Serializable"));
-
-                                                                                                    if (isSerializable) {
-                                                                                                        ResolvedReferenceTypeDeclaration
-                                                                                                                typeDeclaration =
-                                                                                                                        resolvedType
-                                                                                                                                .getTypeDeclaration()
-                                                                                                                                .orElse(
-                                                                                                                                        null);
-                                                                                                        if (typeDeclaration
-                                                                                                                == null) {
-                                                                                                            continue;
-                                                                                                        }
-                                                                                                        String
-                                                                                                                paramTypeName =
-                                                                                                                        typeDeclaration
-                                                                                                                                .getQualifiedName();
-
-                                                                                                        if (!checkedClasses
-                                                                                                                .contains(
-                                                                                                                        paramTypeName)) {
-                                                                                                            boolean
-                                                                                                                    hasSerialVersionUID =
-                                                                                                                            false;
-
-                                                                                                            if (typeDeclaration
-                                                                                                                    .isInterface()) {
-                                                                                                                hasSerialVersionUID =
-                                                                                                                        true;
-                                                                                                            } else {
-                                                                                                                hasSerialVersionUID =
-                                                                                                                        typeDeclaration
-                                                                                                                                .getAllFields()
-                                                                                                                                .stream()
-                                                                                                                                .anyMatch(
-                                                                                                                                        field ->
-                                                                                                                                                field.getName()
-                                                                                                                                                        .equals(
-                                                                                                                                                                "serialVersionUID"));
-                                                                                                            }
-
-                                                                                                            if (!hasSerialVersionUID) {
-                                                                                                                missingSerialVersionUID
-                                                                                                                        .add(
-                                                                                                                                paramTypeName);
-                                                                                                                LOG
-                                                                                                                        .warn(
-                                                                                                                                "Class {} is missing serialVersionUID field",
-                                                                                                                                paramTypeName);
-                                                                                                            }
-
-                                                                                                            checkedClasses
-                                                                                                                    .add(
-                                                                                                                            paramTypeName);
-                                                                                                        }
-                                                                                                    }
-                                                                                                } catch (
-                                                                                                        Exception
-                                                                                                                e) {
-                                                                                                    LOG
-                                                                                                            .warn(
-                                                                                                                    "Could not resolve type: {} in file: {}",
-                                                                                                                    classType
-                                                                                                                            .getNameAsString(),
-                                                                                                                    path,
-                                                                                                                    e);
-                                                                                                }
-                                                                                            }
-                                                                                        }
-                                                                                    });
-                                                                });
-                                            }
-                                        }
-                                    });
-                } catch (IOException e) {
-                    LOG.warn("Could not parse file: {}", path, e);
-                }
-            }
-
-            LOG.info("Check completed. Checked {} connector classes.", connectorClassPaths.size());
-
-            if (!missingSerialVersionUID.isEmpty()) {
-                StringBuilder errorMessage = new StringBuilder();
-                errorMessage.append(
-                        "=================================================================\n");
-                errorMessage.append(
-                        "Test failed: The following classes are missing serialVersionUID fields or have a serialVersionUID value of -1L\n");
-                errorMessage.append(
-                        "=================================================================\n");
-                errorMessage
-                        .append("A total of ")
-                        .append(missingSerialVersionUID.size())
-                        .append(" Question:\n\n");
-
-                for (int i = 0; i < missingSerialVersionUID.size(); i++) {
-                    errorMessage
-                            .append(i + 1)
-                            .append(". ")
-                            .append(missingSerialVersionUID.get(i))
-                            .append("\n");
-                }
-
-                errorMessage.append(
-                        "\n=================================================================\n");
-                errorMessage.append(
-                        "Please add a serialVersionUID field to the above class and make sure its value is not -1L, for example:\n");
-                errorMessage.append(
-                        "private static final long serialVersionUID = 5967888460683065669L;\n");
-                errorMessage.append(
-                        "=================================================================\n");
-
-                LOG.error("Test failed: {}", errorMessage.toString());
-                fail(errorMessage.toString());
-            }
-
-            LOG.info("All checked classes have correct serialVersionUID.");
+            return paths.filter(
+                            path -> {
+                                String pathString = path.toString();
+                                return pathString.endsWith(JAVA_FILE_EXTENSION)
+                                        && pathString.contains(CONNECTOR_DIR)
+                                        && pathString.contains(JAVA_PATH_FRAGMENT);
+                            })
+                    .collect(Collectors.toList());
         } catch (IOException e) {
             throw new RuntimeException("Failed to walk through connector directories", e);
         }
+    }
+
+    private void checkClassPath(Path path, List<String> missingSerialVersionUID) {
+        try {
+            ParseResult<CompilationUnit> parseResult =
+                    JAVA_PARSER.parse(Files.newInputStream(path));
+            parseResult
+                    .getResult()
+                    .ifPresent(
+                            compilationUnit -> {
+                                List<ClassOrInterfaceDeclaration> classes =
+                                        compilationUnit.findAll(ClassOrInterfaceDeclaration.class);
+                                for (ClassOrInterfaceDeclaration classDeclaration : classes) {
+                                    if (implementsSeaTunnelSourceOrSink(classDeclaration)) {
+                                        checkImplementedTypes(
+                                                classDeclaration, missingSerialVersionUID);
+                                    }
+                                }
+                            });
+        } catch (IOException e) {
+            LOG.warn("Could not parse file: {}", path, e);
+        }
+    }
+
+    private boolean implementsSeaTunnelSourceOrSink(ClassOrInterfaceDeclaration classDeclaration) {
+        return classDeclaration.getImplementedTypes().stream()
+                .anyMatch(
+                        type -> {
+                            String typeName = type.getNameAsString();
+                            return typeName.equals("SeaTunnelSource")
+                                    || typeName.equals("SeaTunnelSink");
+                        });
+    }
+
+    private void checkImplementedTypes(
+            ClassOrInterfaceDeclaration classDeclaration, List<String> missingSerialVersionUID) {
+        classDeclaration
+                .getImplementedTypes()
+                .forEach(
+                        implementedType -> {
+                            implementedType
+                                    .getTypeArguments()
+                                    .ifPresent(
+                                            typeArgs -> {
+                                                for (Type typeArg : typeArgs) {
+                                                    if (typeArg.isClassOrInterfaceType()) {
+                                                        checkClassType(
+                                                                typeArg.asClassOrInterfaceType(),
+                                                                missingSerialVersionUID);
+                                                    }
+                                                }
+                                            });
+                        });
+    }
+
+    private void checkClassType(
+            ClassOrInterfaceType classType, List<String> missingSerialVersionUID) {
+        try {
+            ResolvedReferenceType resolvedType = classType.resolve().asReferenceType();
+            if (resolvedType == null) {
+                return;
+            }
+            if (isSerializable(resolvedType)) {
+                ResolvedReferenceTypeDeclaration typeDeclaration =
+                        resolvedType.getTypeDeclaration().orElse(null);
+                if (typeDeclaration == null) {
+                    return;
+                }
+                String paramTypeName = typeDeclaration.getQualifiedName();
+                if (!checkedClasses.contains(paramTypeName)) {
+                    if (!hasSerialVersionUID(typeDeclaration)) {
+                        missingSerialVersionUID.add(paramTypeName);
+                        LOG.warn("Class {} is missing serialVersionUID field", paramTypeName);
+                    }
+                    checkedClasses.add(paramTypeName);
+                }
+            }
+        } catch (Exception e) {
+            LOG.warn("Could not resolve type: {} in file: {}", classType.getNameAsString(), e);
+        }
+    }
+
+    private boolean isSerializable(ResolvedReferenceType resolvedType) {
+        return resolvedType.getQualifiedName().equals("java.io.Serializable")
+                || resolvedType.getAllAncestors().stream()
+                        .anyMatch(
+                                ancestor ->
+                                        ancestor.getQualifiedName().equals("java.io.Serializable"));
+    }
+
+    private boolean hasSerialVersionUID(ResolvedReferenceTypeDeclaration typeDeclaration) {
+        return typeDeclaration.isInterface()
+                || typeDeclaration.getAllFields().stream()
+                        .anyMatch(field -> field.getName().equals("serialVersionUID"));
+    }
+
+    private String generateErrorMessage(List<String> missingSerialVersionUID) {
+        StringBuilder errorMessage = new StringBuilder();
+        errorMessage.append("=================================================================\n");
+        errorMessage.append(
+                "Test failed: The following classes are missing serialVersionUID fields or have a serialVersionUID value of -1L\n");
+        errorMessage.append("=================================================================\n");
+        errorMessage
+                .append("A total of ")
+                .append(missingSerialVersionUID.size())
+                .append(" Question:\n\n");
+
+        for (int i = 0; i < missingSerialVersionUID.size(); i++) {
+            errorMessage
+                    .append(i + 1)
+                    .append(". ")
+                    .append(missingSerialVersionUID.get(i))
+                    .append("\n");
+        }
+
+        errorMessage.append(
+                "\n=================================================================\n");
+        errorMessage.append(
+                "Please add a serialVersionUID field to the above class and make sure its value is not -1L, for example:\n");
+        errorMessage.append("private static final long serialVersionUID = 5967888460683065669L;\n");
+        errorMessage.append("=================================================================\n");
+        return errorMessage.toString();
     }
 
     public static class TestResultLogger implements TestWatcher {
