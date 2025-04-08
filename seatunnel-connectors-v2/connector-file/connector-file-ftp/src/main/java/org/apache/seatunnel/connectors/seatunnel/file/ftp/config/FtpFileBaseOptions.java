@@ -19,12 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.file.ftp.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.system.FtpConnectionMode;
 
 import static org.apache.seatunnel.connectors.seatunnel.file.ftp.system.FtpConnectionMode.ACTIVE_LOCAL;
 
-public class FtpConfigOptions extends BaseSourceConfigOptions {
+public class FtpFileBaseOptions extends FileBaseOptions {
     public static final Option<String> FTP_PASSWORD =
             Options.key("password")
                     .stringType()

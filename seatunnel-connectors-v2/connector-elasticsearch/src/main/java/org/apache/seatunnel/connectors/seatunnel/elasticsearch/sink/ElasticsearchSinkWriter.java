@@ -23,11 +23,14 @@ import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
+import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventHandler;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
@@ -66,12 +69,14 @@ public class ElasticsearchSinkWriter
 
     private final int maxBatchSize;
 
-    private final SeaTunnelRowSerializer seaTunnelRowSerializer;
+    private SeaTunnelRowSerializer seaTunnelRowSerializer;
     private final List<String> requestEsList;
     private EsRestClient esRestClient;
     private RetryMaterial retryMaterial;
     private static final long DEFAULT_SLEEP_TIME_MS = 200L;
     private final IndexInfo indexInfo;
+    private TableSchema tableSchema;
+    private final TableSchemaChangeEventHandler tableSchemaChangeEventHandler;
 
     public ElasticsearchSinkWriter(
             Context context,
@@ -94,6 +99,8 @@ public class ElasticsearchSinkWriter
         this.requestEsList = new ArrayList<>(maxBatchSize);
         this.retryMaterial =
                 new RetryMaterial(maxRetryCount, true, exception -> true, DEFAULT_SLEEP_TIME_MS);
+        this.tableSchema = catalogTable.getTableSchema();
+        this.tableSchemaChangeEventHandler = new TableSchemaChangeEventDispatcher();
     }
 
     @Override
@@ -120,6 +127,13 @@ public class ElasticsearchSinkWriter
         } else {
             throw new UnsupportedOperationException("Unsupported alter table event: " + event);
         }
+
+        this.tableSchema = tableSchemaChangeEventHandler.reset(tableSchema).apply(event);
+        this.seaTunnelRowSerializer =
+                new ElasticsearchRowSerializer(
+                        esRestClient.getClusterInfo(),
+                        indexInfo,
+                        tableSchema.toPhysicalRowDataType());
     }
 
     private void applySingleSchemaChangeEvent(SchemaChangeEvent event) {

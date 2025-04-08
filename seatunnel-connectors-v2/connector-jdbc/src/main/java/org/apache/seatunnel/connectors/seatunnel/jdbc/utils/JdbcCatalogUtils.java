@@ -71,7 +71,9 @@ public class JdbcCatalogUtils {
 
         JdbcDialect jdbcDialect =
                 JdbcDialectLoader.load(
-                        jdbcConnectionConfig.getUrl(), jdbcConnectionConfig.getCompatibleMode());
+                        jdbcConnectionConfig.getUrl(),
+                        jdbcConnectionConfig.getDialect(),
+                        jdbcConnectionConfig.getCompatibleMode());
         Optional<Catalog> catalog = findCatalog(jdbcConnectionConfig, jdbcDialect);
         if (catalog.isPresent()) {
             try (AbstractJdbcCatalog jdbcCatalog = (AbstractJdbcCatalog) catalog.get()) {
