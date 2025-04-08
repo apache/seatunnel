@@ -18,6 +18,7 @@
 
 package org.apache.seatunnel.format.json;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonGenerator;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -36,18 +37,29 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 public class JsonSerializationSchema implements SerializationSchema {
 
     public static final String FORMAT = "Common";
-    /** RowType to generate the runtime converter. */
+    /**
+     * RowType to generate the runtime converter.
+     */
     private final SeaTunnelRowType rowType;
 
-    /** Reusable object node. */
+    /**
+     * Reusable object node.
+     */
     private transient ObjectNode node;
 
-    /** Object mapper that is used to create output JSON objects. */
-    @Getter private final ObjectMapper mapper = new ObjectMapper();
+    /**
+     * Object mapper that is used to create output JSON objects.
+     */
+    @Getter
+    private final ObjectMapper mapper = new ObjectMapper();
 
     private final Charset charset;
 
     private final RowToJsonConverters.RowToJsonConverter runtimeConverter;
+
+    {
+        mapper.configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
+    }
 
     public JsonSerializationSchema(SeaTunnelRowType rowType) {
         this(rowType, StandardCharsets.UTF_8);
