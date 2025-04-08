@@ -40,10 +40,16 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 
 public class CosFileSource extends BaseFileSource {
 
-    public CosFileSource() {}
+    private final CatalogTable catalogTable;
+
+    public CosFileSource(CatalogTable catalogTable) {
+        this.catalogTable = catalogTable;
+    }
 
     @Override
     public String getPluginName() {
@@ -128,5 +134,10 @@ public class CosFileSource extends BaseFileSource {
                         CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED, errorMsg, e);
             }
         }
+    }
+
+    @Override
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(catalogTable);
     }
 }
