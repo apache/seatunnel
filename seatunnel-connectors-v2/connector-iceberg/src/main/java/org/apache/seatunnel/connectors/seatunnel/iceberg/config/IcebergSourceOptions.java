@@ -78,8 +78,5 @@ public class IcebergSourceOptions extends IcebergCommonOptions {
                     .withDescription(" the interval of increment scan(mills)");
 
     public static final Option<String> FILTER =
-            Options.key("filter")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the iceberg where clause");
+            Options.key("filter").stringType().noDefaultValue().withDescription("the select sql");
 }

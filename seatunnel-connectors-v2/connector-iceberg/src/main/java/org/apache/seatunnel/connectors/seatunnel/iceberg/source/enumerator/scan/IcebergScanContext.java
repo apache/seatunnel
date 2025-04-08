@@ -86,11 +86,11 @@ public class IcebergScanContext {
                 .build();
     }
 
-    private static Expression getFilter(String whereClause) {
-        if (StringUtils.isNotBlank(whereClause)) {
+    private static Expression getFilter(String selectStr) {
+        if (StringUtils.isNotBlank(selectStr)) {
             try {
                 Expression expression =
-                        ExpressionUtils.parseWhereClauseToIcebergExpression(whereClause);
+                        ExpressionUtils.parseWhereClauseToIcebergExpression(selectStr);
                 return expression;
             } catch (JSQLParserException e) {
                 log.warning(

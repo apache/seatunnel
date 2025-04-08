@@ -34,9 +34,11 @@ import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergCatalogLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.ExpressionUtils;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.SchemaUtils;
 
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
@@ -269,22 +271,35 @@ public class IcebergCatalog implements Catalog {
     public CatalogTable toCatalogTable(Table icebergTable, TablePath tablePath) {
         Schema schema = icebergTable.schema();
         List<Types.NestedField> columns = schema.columns();
+        List<String> selectColumns =
+                ExpressionUtils.parseSelectColumns(readonlyConfig.get(IcebergSourceOptions.FILTER));
         TableSchema.Builder builder = TableSchema.builder();
-        columns.forEach(
-                nestedField -> {
-                    String name = nestedField.name();
-                    SeaTunnelDataType<?> seaTunnelType =
-                            SchemaUtils.toSeaTunnelType(name, nestedField.type());
-                    PhysicalColumn physicalColumn =
-                            PhysicalColumn.of(
-                                    name,
-                                    seaTunnelType,
-                                    (Long) null,
-                                    nestedField.isOptional(),
-                                    null,
-                                    nestedField.doc());
-                    builder.column(physicalColumn);
-                });
+        columns.stream()
+                .filter(
+                        col -> {
+                            if (CollectionUtils.isNotEmpty(selectColumns)) {
+                                if ("*".equals(selectColumns.get(0))) {
+                                    return true;
+                                }
+                                return selectColumns.contains(col.name());
+                            }
+                            return true;
+                        })
+                .forEach(
+                        nestedField -> {
+                            String name = nestedField.name();
+                            SeaTunnelDataType<?> seaTunnelType =
+                                    SchemaUtils.toSeaTunnelType(name, nestedField.type());
+                            PhysicalColumn physicalColumn =
+                                    PhysicalColumn.of(
+                                            name,
+                                            seaTunnelType,
+                                            (Long) null,
+                                            nestedField.isOptional(),
+                                            null,
+                                            nestedField.doc());
+                            builder.column(physicalColumn);
+                        });
         Optional.ofNullable(schema.identifierFieldNames())
                 .filter(names -> !names.isEmpty())
                 .map(

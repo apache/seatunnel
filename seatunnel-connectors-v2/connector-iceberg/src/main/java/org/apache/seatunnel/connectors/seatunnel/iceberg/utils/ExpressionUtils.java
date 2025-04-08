@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.utils;
 
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.types.Types;
@@ -54,6 +56,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -69,10 +72,27 @@ public class ExpressionUtils {
                     .append(ISO_LOCAL_TIME)
                     .toFormatter();
 
-    public static Expression parseWhereClauseToIcebergExpression(String whereClauseStr)
+    public static List<String> parseSelectColumns(String selectQuery) {
+        if (StringUtils.isNotBlank(selectQuery)) {
+            try {
+                Statement statement = CCJSqlParserUtil.parse(selectQuery);
+                PlainSelect select = (PlainSelect) statement;
+                if (CollectionUtils.isNotEmpty(select.getSelectItems())) {
+                    return select.getSelectItems().stream()
+                            .map(selectItem -> selectItem.toString())
+                            .collect(Collectors.toList());
+                }
+            } catch (JSQLParserException e) {
+                throw new RuntimeException("Failed to parse select columns: " + e.getMessage());
+            }
+        }
+        return new ArrayList<>();
+    }
+
+    public static Expression parseWhereClauseToIcebergExpression(String selectQuery)
             throws JSQLParserException {
         // use the JsqlParser to parse the where clause
-        Statement statement = CCJSqlParserUtil.parse("SELECT * FROM t WHERE " + whereClauseStr);
+        Statement statement = CCJSqlParserUtil.parse(selectQuery);
         PlainSelect select = (PlainSelect) statement;
         return convert(select.getWhere(), null);
     }
