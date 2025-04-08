@@ -43,9 +43,7 @@ import java.io.IOException;
 
 public class CosFileSource extends BaseFileSource {
 
-    public CosFileSource() {
-
-    }
+    public CosFileSource() {}
 
     @Override
     public String getPluginName() {
@@ -131,5 +129,4 @@ public class CosFileSource extends BaseFileSource {
             }
         }
     }
-
 }
