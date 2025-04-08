@@ -35,7 +35,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
-import com.google.common.collect.Maps;
+import org.apache.seatunnel.shade.com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
