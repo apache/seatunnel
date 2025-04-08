@@ -98,11 +98,9 @@ public class IncrementalSourceRecordEmitter<T>
         final Iterator<SourceRecord> elementIterator = sourceRecords.iterator();
         while (elementIterator.hasNext()) {
             SourceRecord next = elementIterator.next();
-            if (next.value() != null) {
-                reportMetrics(next);
-                processElement(next, collector, splitState);
-                markEnterPureIncrementPhase(next, splitState);
-            }
+            reportMetrics(next);
+            processElement(next, collector, splitState);
+            markEnterPureIncrementPhase(next, splitState);
         }
     }
 
