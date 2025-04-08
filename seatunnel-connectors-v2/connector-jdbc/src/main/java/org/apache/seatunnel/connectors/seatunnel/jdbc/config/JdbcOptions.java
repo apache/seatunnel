@@ -164,6 +164,13 @@ public interface JdbcOptions {
                     .defaultValue(false)
                     .withDescription("support copy in statement (postgresql)");
 
+    Option<String> DIALECT =
+            Options.key("dialect")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The appointed dialect, if it does not exist, is still obtained according to the url");
+
     /** source config */
     Option<String> PARTITION_COLUMN =
             Options.key("partition_column")

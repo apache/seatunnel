@@ -26,7 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.ArchiveCompressFormat;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
@@ -80,11 +80,12 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected List<String> readPartitions = new ArrayList<>();
     protected List<String> readColumns = new ArrayList<>();
     protected boolean isMergePartition = true;
-    protected long skipHeaderNumber = BaseSourceConfigOptions.SKIP_HEADER_ROW_NUMBER.defaultValue();
+    protected long skipHeaderNumber = FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER.defaultValue();
+    protected transient boolean isKerberosAuthorization = false;
     protected String filenameExtension;
     protected HadoopFileSystemProxy hadoopFileSystemProxy;
     protected ArchiveCompressFormat archiveCompressFormat =
-            BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC.defaultValue();
+            FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC.defaultValue();
 
     protected Pattern pattern;
 
@@ -148,36 +149,35 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     public void setPluginConfig(Config pluginConfig) {
         this.pluginConfig = pluginConfig;
         // Determine whether it is a compressed file
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC.key())) {
             String archiveCompressCodec =
-                    pluginConfig.getString(BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC.key());
+                    pluginConfig.getString(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC.key());
             archiveCompressFormat =
                     ArchiveCompressFormat.valueOf(archiveCompressCodec.toUpperCase());
         }
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH.key())) {
             isMergePartition =
-                    pluginConfig.getBoolean(
-                            BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH.key());
+                    pluginConfig.getBoolean(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH.key());
         }
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.SKIP_HEADER_ROW_NUMBER.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER.key())) {
             skipHeaderNumber =
-                    pluginConfig.getLong(BaseSourceConfigOptions.SKIP_HEADER_ROW_NUMBER.key());
+                    pluginConfig.getLong(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER.key());
         }
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.FILENAME_EXTENSION.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.FILENAME_EXTENSION.key())) {
             filenameExtension =
-                    pluginConfig.getString(BaseSourceConfigOptions.FILENAME_EXTENSION.key());
+                    pluginConfig.getString(FileBaseSourceOptions.FILENAME_EXTENSION.key());
         }
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_PARTITIONS.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.READ_PARTITIONS.key())) {
             readPartitions.addAll(
-                    pluginConfig.getStringList(BaseSourceConfigOptions.READ_PARTITIONS.key()));
+                    pluginConfig.getStringList(FileBaseSourceOptions.READ_PARTITIONS.key()));
         }
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_COLUMNS.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.READ_COLUMNS.key())) {
             readColumns.addAll(
-                    pluginConfig.getStringList(BaseSourceConfigOptions.READ_COLUMNS.key()));
+                    pluginConfig.getStringList(FileBaseSourceOptions.READ_COLUMNS.key()));
         }
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.FILE_FILTER_PATTERN.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_FILTER_PATTERN.key())) {
             String filterPattern =
-                    pluginConfig.getString(BaseSourceConfigOptions.FILE_FILTER_PATTERN.key());
+                    pluginConfig.getString(FileBaseSourceOptions.FILE_FILTER_PATTERN.key());
             this.pattern = Pattern.compile(Matcher.quoteReplacement(filterPattern));
         }
     }

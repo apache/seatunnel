@@ -198,6 +198,31 @@ sink {
 }
 ```
 
+### Kerberos 认证示例
+
+请在启动 SeaTunnel 之前设置 JVM 参数 `java.security.krb5.conf` 或更新 `/etc/krb5.conf` 中的默认 `krb5.conf`。
+
+源配置示例：
+
+```hocon
+source {
+   Kafka {
+      topic = "seatunnel"
+      bootstrap.servers = "localhost:9092"
+      format = json
+      kafka.request.timeout.ms = 60000
+      semantics = EXACTLY_ONCE
+      kafka.config = {
+         security.protocol = SASL_PLAINTEXT
+         sasl.kerberos.service.name = kafka
+         sasl.mechanism = GSSAPI
+         sasl.jaas.config = "com.sun.security.auth.module.Krb5LoginModule required \n        useKeyTab=true \n        storeKey=true  \n        keyTab=\"/path/to/xxx.keytab\" \n        principal=\"user@xxx.com\";"
+      }
+   }
+}
+```
+
+
 ### Protobuf配置
 
 `format` 设置为 `protobuf`，配置`protobuf`数据结构，`protobuf_message_name`和`protobuf_schema`参数
