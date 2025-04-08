@@ -22,7 +22,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -40,12 +39,14 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
 
-import com.google.auto.service.AutoService;
-
 import java.io.IOException;
 
-@AutoService(SeaTunnelSource.class)
 public class CosFileSource extends BaseFileSource {
+
+    public CosFileSource() {
+
+    }
+
     @Override
     public String getPluginName() {
         return FileSystemType.COS.getFileSystemPluginName();
@@ -130,4 +131,5 @@ public class CosFileSource extends BaseFileSource {
             }
         }
     }
+
 }

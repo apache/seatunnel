@@ -21,7 +21,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
@@ -33,12 +32,16 @@ import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosFileSinkOpti
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
 
-import com.google.auto.service.AutoService;
-
 import java.util.Optional;
 
-@AutoService(SeaTunnelSink.class)
 public class CosFileSink extends BaseFileSink {
+
+    private final CatalogTable catalogTable;
+
+    public CosFileSink(CatalogTable catalogTable) {
+        this.catalogTable = catalogTable;
+    }
+
     @Override
     public String getPluginName() {
         return FileSystemType.COS.getFileSystemPluginName();
@@ -67,6 +70,6 @@ public class CosFileSink extends BaseFileSink {
 
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
-        return super.getWriteCatalogTable();
+        return Optional.ofNullable(catalogTable);
     }
 }
