@@ -22,7 +22,6 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingExcep
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -114,63 +113,63 @@ public class JsonRowDataSerDeSchemaTest {
 
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(
-                        new String[]{
-                                "bool",
-                                "int",
-                                "longValue",
-                                "float",
-                                "name",
-                                "date",
-                                "time",
-                                "timestamp3",
-                                "timestamp9",
-                                "map",
-                                "multiSet",
-                                "map2map",
-                                "row"
+                        new String[] {
+                            "bool",
+                            "int",
+                            "longValue",
+                            "float",
+                            "name",
+                            "date",
+                            "time",
+                            "timestamp3",
+                            "timestamp9",
+                            "map",
+                            "multiSet",
+                            "map2map",
+                            "row"
                         },
-                        new SeaTunnelDataType[]{
-                                BOOLEAN_TYPE,
-                                INT_TYPE,
-                                LONG_TYPE,
-                                FLOAT_TYPE,
-                                STRING_TYPE,
-                                LocalTimeType.LOCAL_DATE_TYPE,
-                                LocalTimeType.LOCAL_TIME_TYPE,
-                                LocalTimeType.LOCAL_DATE_TIME_TYPE,
-                                LocalTimeType.LOCAL_DATE_TIME_TYPE,
-                                new MapType(STRING_TYPE, LONG_TYPE),
-                                new MapType(STRING_TYPE, INT_TYPE),
-                                new MapType(STRING_TYPE, new MapType(STRING_TYPE, INT_TYPE)),
-                                new SeaTunnelRowType(
-                                        new String[]{
-                                                "bool",
-                                                "int",
-                                                "longValue",
-                                                "float",
-                                                "name",
-                                                "date",
-                                                "time",
-                                                "timestamp3",
-                                                "timestamp9",
-                                                "map",
-                                                "multiSet",
-                                                "map2map"
-                                        },
-                                        new SeaTunnelDataType[]{
-                                                BOOLEAN_TYPE,
-                                                INT_TYPE,
-                                                LONG_TYPE,
-                                                FLOAT_TYPE,
-                                                STRING_TYPE,
-                                                LocalTimeType.LOCAL_DATE_TIME_TYPE,
-                                                LocalTimeType.LOCAL_TIME_TYPE,
-                                                LocalTimeType.LOCAL_DATE_TIME_TYPE,
-                                                LocalTimeType.LOCAL_DATE_TIME_TYPE,
-                                                new MapType(STRING_TYPE, LONG_TYPE),
-                                                new MapType(STRING_TYPE, INT_TYPE),
-                                                new MapType(STRING_TYPE, new MapType(STRING_TYPE, INT_TYPE))
-                                        })
+                        new SeaTunnelDataType[] {
+                            BOOLEAN_TYPE,
+                            INT_TYPE,
+                            LONG_TYPE,
+                            FLOAT_TYPE,
+                            STRING_TYPE,
+                            LocalTimeType.LOCAL_DATE_TYPE,
+                            LocalTimeType.LOCAL_TIME_TYPE,
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                            new MapType(STRING_TYPE, LONG_TYPE),
+                            new MapType(STRING_TYPE, INT_TYPE),
+                            new MapType(STRING_TYPE, new MapType(STRING_TYPE, INT_TYPE)),
+                            new SeaTunnelRowType(
+                                    new String[] {
+                                        "bool",
+                                        "int",
+                                        "longValue",
+                                        "float",
+                                        "name",
+                                        "date",
+                                        "time",
+                                        "timestamp3",
+                                        "timestamp9",
+                                        "map",
+                                        "multiSet",
+                                        "map2map"
+                                    },
+                                    new SeaTunnelDataType[] {
+                                        BOOLEAN_TYPE,
+                                        INT_TYPE,
+                                        LONG_TYPE,
+                                        FLOAT_TYPE,
+                                        STRING_TYPE,
+                                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                        LocalTimeType.LOCAL_TIME_TYPE,
+                                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                        new MapType(STRING_TYPE, LONG_TYPE),
+                                        new MapType(STRING_TYPE, INT_TYPE),
+                                        new MapType(STRING_TYPE, new MapType(STRING_TYPE, INT_TYPE))
+                                    })
                         });
         CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
         JsonDeserializationSchema deserializationSchema =
@@ -220,16 +219,16 @@ public class JsonRowDataSerDeSchemaTest {
     public void testSerDeMultiRows() throws Exception {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(
-                        new String[]{"f1", "f2", "f3", "f4", "f5", "f6"},
-                        new SeaTunnelDataType[]{
-                                INT_TYPE,
-                                BOOLEAN_TYPE,
-                                STRING_TYPE,
-                                new MapType(STRING_TYPE, STRING_TYPE),
-                                STRING_ARRAY_TYPE,
-                                new SeaTunnelRowType(
-                                        new String[]{"f1", "f2"},
-                                        new SeaTunnelDataType[]{STRING_TYPE, INT_TYPE})
+                        new String[] {"f1", "f2", "f3", "f4", "f5", "f6"},
+                        new SeaTunnelDataType[] {
+                            INT_TYPE,
+                            BOOLEAN_TYPE,
+                            STRING_TYPE,
+                            new MapType(STRING_TYPE, STRING_TYPE),
+                            STRING_ARRAY_TYPE,
+                            new SeaTunnelRowType(
+                                    new String[] {"f1", "f2"},
+                                    new SeaTunnelDataType[] {STRING_TYPE, INT_TYPE})
                         });
 
         CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
@@ -284,30 +283,30 @@ public class JsonRowDataSerDeSchemaTest {
     @Test
     public void testSerDeMultiRowsWithNullValues() throws Exception {
         String[] jsons =
-                new String[]{
-                        "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"metrics\":{\"k1\":10.01,\"k2\":\"invalid\"}}",
-                        "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"ops\":{\"id\":\"281708d0-4092-4c21-9233-931950b6eccf\"},"
-                                + "\"ids\":[1,2,3]}",
-                        "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"metrics\":{}}",
+                new String[] {
+                    "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"metrics\":{\"k1\":10.01,\"k2\":\"invalid\"}}",
+                    "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"ops\":{\"id\":\"281708d0-4092-4c21-9233-931950b6eccf\"},"
+                            + "\"ids\":[1,2,3]}",
+                    "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"metrics\":{}}",
                 };
 
         String[] expected =
-                new String[]{
-                        "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"ops\":null,\"ids\":null,\"metrics\":{\"k1\":10.01,\"k2\":null}}",
-                        "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"ops\":{\"id\":\"281708d0-4092-4c21-9233-931950b6eccf\"},"
-                                + "\"ids\":[1,2,3],\"metrics\":null}",
-                        "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"ops\":null,\"ids\":null,\"metrics\":{}}",
+                new String[] {
+                    "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"ops\":null,\"ids\":null,\"metrics\":{\"k1\":10.01,\"k2\":null}}",
+                    "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"ops\":{\"id\":\"281708d0-4092-4c21-9233-931950b6eccf\"},"
+                            + "\"ids\":[1,2,3],\"metrics\":null}",
+                    "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"ops\":null,\"ids\":null,\"metrics\":{}}",
                 };
 
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        new String[]{"svt", "ops", "ids", "metrics"},
-                        new SeaTunnelDataType[]{
-                                STRING_TYPE,
-                                new SeaTunnelRowType(
-                                        new String[]{"id"}, new SeaTunnelDataType[]{STRING_TYPE}),
-                                INT_ARRAY_TYPE,
-                                new MapType(STRING_TYPE, DOUBLE_TYPE)
+                        new String[] {"svt", "ops", "ids", "metrics"},
+                        new SeaTunnelDataType[] {
+                            STRING_TYPE,
+                            new SeaTunnelRowType(
+                                    new String[] {"id"}, new SeaTunnelDataType[] {STRING_TYPE}),
+                            INT_ARRAY_TYPE,
+                            new MapType(STRING_TYPE, DOUBLE_TYPE)
                         });
 
         CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
@@ -328,7 +327,7 @@ public class JsonRowDataSerDeSchemaTest {
     @Test
     public void testDeserializationNullRow() throws Exception {
         SeaTunnelRowType schema =
-                new SeaTunnelRowType(new String[]{"name"}, new SeaTunnelDataType[]{STRING_TYPE});
+                new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
         CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
 
         JsonDeserializationSchema deserializationSchema =
@@ -340,7 +339,7 @@ public class JsonRowDataSerDeSchemaTest {
     @Test
     public void testDeserializationMissingNode() throws Exception {
         SeaTunnelRowType schema =
-                new SeaTunnelRowType(new String[]{"name"}, new SeaTunnelDataType[]{STRING_TYPE});
+                new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
         CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
 
         JsonDeserializationSchema deserializationSchema =
@@ -359,7 +358,7 @@ public class JsonRowDataSerDeSchemaTest {
         byte[] serializedJson = objectMapper.writeValueAsBytes(root);
 
         SeaTunnelRowType schema =
-                new SeaTunnelRowType(new String[]{"name"}, new SeaTunnelDataType[]{STRING_TYPE});
+                new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
 
         CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
 
@@ -382,7 +381,7 @@ public class JsonRowDataSerDeSchemaTest {
         byte[] serializedJson = objectMapper.writeValueAsBytes(root);
 
         SeaTunnelRowType schema =
-                new SeaTunnelRowType(new String[]{"name"}, new SeaTunnelDataType[]{STRING_TYPE});
+                new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
 
         CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
 
@@ -418,7 +417,7 @@ public class JsonRowDataSerDeSchemaTest {
         byte[] serializedJson = objectMapper.writeValueAsBytes(root);
 
         SeaTunnelRowType schema =
-                new SeaTunnelRowType(new String[]{"name"}, new SeaTunnelDataType[]{STRING_TYPE});
+                new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
         SeaTunnelRow expected = new SeaTunnelRow(1);
         CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
 
@@ -446,7 +445,7 @@ public class JsonRowDataSerDeSchemaTest {
     @Test
     public void testDeserializationNoJson() throws Exception {
         SeaTunnelRowType schema =
-                new SeaTunnelRowType(new String[]{"name"}, new SeaTunnelDataType[]{STRING_TYPE});
+                new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
 
         CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
 
@@ -573,8 +572,8 @@ public class JsonRowDataSerDeSchemaTest {
     public void testParseUnsupportedDateTimeFormat() throws IOException {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        new String[]{"date_field"},
-                        new SeaTunnelDataType<?>[]{LocalTimeType.LOCAL_DATE_TYPE});
+                        new String[] {"date_field"},
+                        new SeaTunnelDataType<?>[] {LocalTimeType.LOCAL_DATE_TYPE});
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(false, false, rowType);
         String content = "{\"date_field\":\"2022-092-24\"}";
@@ -588,9 +587,9 @@ public class JsonRowDataSerDeSchemaTest {
 
         SeaTunnelRowType rowType2 =
                 new SeaTunnelRowType(
-                        new String[]{"timestamp_field"},
-                        new SeaTunnelDataType<?>[]{
-                                LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                        new String[] {"timestamp_field"},
+                        new SeaTunnelDataType<?>[] {
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
                         });
         JsonDeserializationSchema deserializationSchema2 =
                 new JsonDeserializationSchema(false, false, rowType2);
@@ -608,21 +607,21 @@ public class JsonRowDataSerDeSchemaTest {
     public void testSerializationWithNullValue() {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(
-                        new String[]{
-                                "bool", "int", "longValue", "float", "name", "date", "time", "timestamp"
+                        new String[] {
+                            "bool", "int", "longValue", "float", "name", "date", "time", "timestamp"
                         },
-                        new SeaTunnelDataType[]{
-                                BOOLEAN_TYPE,
-                                INT_TYPE,
-                                LONG_TYPE,
-                                FLOAT_TYPE,
-                                STRING_TYPE,
-                                LocalTimeType.LOCAL_DATE_TYPE,
-                                LocalTimeType.LOCAL_TIME_TYPE,
-                                LocalTimeType.LOCAL_DATE_TIME_TYPE
+                        new SeaTunnelDataType[] {
+                            BOOLEAN_TYPE,
+                            INT_TYPE,
+                            LONG_TYPE,
+                            FLOAT_TYPE,
+                            STRING_TYPE,
+                            LocalTimeType.LOCAL_DATE_TYPE,
+                            LocalTimeType.LOCAL_TIME_TYPE,
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE
                         });
 
-        Object[] fields = new Object[]{null, null, null, null, null, null, null, null};
+        Object[] fields = new Object[] {null, null, null, null, null, null, null, null};
         SeaTunnelRow expected = new SeaTunnelRow(fields);
         assertEquals(
                 "{\"bool\":\"\\\\N\",\"int\":\"\\\\N\",\"longValue\":\"\\\\N\",\"float\":\"\\\\N\",\"name\":\"\\\\N\",\"date\":\"\\\\N\",\"time\":\"\\\\N\",\"timestamp\":\"\\\\N\"}",
@@ -633,9 +632,9 @@ public class JsonRowDataSerDeSchemaTest {
     public void testSerializationWithMapHasNonStringKey() {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(
-                        new String[]{"mapii", "mapbb"},
-                        new SeaTunnelDataType[]{
-                                new MapType(INT_TYPE, INT_TYPE), new MapType(BOOLEAN_TYPE, INT_TYPE)
+                        new String[] {"mapii", "mapbb"},
+                        new SeaTunnelDataType[] {
+                            new MapType(INT_TYPE, INT_TYPE), new MapType(BOOLEAN_TYPE, INT_TYPE)
                         });
         Map<Integer, Integer> mapII = new HashMap<>();
         mapII.put(1, 2);
@@ -643,7 +642,7 @@ public class JsonRowDataSerDeSchemaTest {
         Map<Boolean, Integer> mapBI = new HashMap<>();
         mapBI.put(true, 3);
 
-        Object[] fields = new Object[]{mapII, mapBI};
+        Object[] fields = new Object[] {mapII, mapBI};
         SeaTunnelRow expected = new SeaTunnelRow(fields);
         assertEquals(
                 "{\"mapii\":{\"1\":2},\"mapbb\":{\"true\":3}}",
@@ -654,28 +653,28 @@ public class JsonRowDataSerDeSchemaTest {
     public void testSerializationWithTimestamp() {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(
-                        new String[]{"timestamp"},
-                        new SeaTunnelDataType[]{LocalTimeType.LOCAL_DATE_TIME_TYPE});
+                        new String[] {"timestamp"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
         LocalDateTime timestamp = LocalDateTime.of(2022, 9, 24, 22, 45, 0, 123456000);
-        SeaTunnelRow row = new SeaTunnelRow(new Object[]{timestamp});
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {timestamp});
         assertEquals(
                 "{\"timestamp\":\"2022-09-24T22:45:00.123456\"}",
                 new String(new JsonSerializationSchema(schema, "\\N").serialize(row)));
 
         timestamp = LocalDateTime.of(2022, 9, 24, 22, 45, 0, 0);
-        row = new SeaTunnelRow(new Object[]{timestamp});
+        row = new SeaTunnelRow(new Object[] {timestamp});
         assertEquals(
                 "{\"timestamp\":\"2022-09-24T22:45:00\"}",
                 new String(new JsonSerializationSchema(schema, "\\N").serialize(row)));
 
         timestamp = LocalDateTime.of(2022, 9, 24, 22, 45, 0, 1000);
-        row = new SeaTunnelRow(new Object[]{timestamp});
+        row = new SeaTunnelRow(new Object[] {timestamp});
         assertEquals(
                 "{\"timestamp\":\"2022-09-24T22:45:00.000001\"}",
                 new String(new JsonSerializationSchema(schema, "\\N").serialize(row)));
 
         timestamp = LocalDateTime.of(2022, 9, 24, 22, 45, 0, 123456);
-        row = new SeaTunnelRow(new Object[]{timestamp});
+        row = new SeaTunnelRow(new Object[] {timestamp});
         assertEquals(
                 "{\"timestamp\":\"2022-09-24T22:45:00.000123456\"}",
                 new String(new JsonSerializationSchema(schema, "\\N").serialize(row)));
@@ -685,10 +684,11 @@ public class JsonRowDataSerDeSchemaTest {
     public void testSerializationWithNumber() {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(
-                        new String[]{"id", "code", "fe_result"},
-                        new SeaTunnelDataType[]{INT_TYPE, STRING_TYPE, new DecimalType(10, 2)});
-        JsonSerializationSchema jsonSerializationSchema = new JsonSerializationSchema(schema, Charset.forName("UTF-8"));
-        Object[] fields = new Object[]{1, "1001015", BigDecimal.valueOf(80.00)};
+                        new String[] {"id", "code", "fe_result"},
+                        new SeaTunnelDataType[] {INT_TYPE, STRING_TYPE, new DecimalType(10, 2)});
+        JsonSerializationSchema jsonSerializationSchema =
+                new JsonSerializationSchema(schema, Charset.forName("UTF-8"));
+        Object[] fields = new Object[] {1, "1001015", BigDecimal.valueOf(80.00)};
         SeaTunnelRow row = new SeaTunnelRow(fields);
         byte[] serialize = jsonSerializationSchema.serialize(row);
         String expected = "{\"id\":1,\"code\":\"1001015\",\"fe_result\":80}";
