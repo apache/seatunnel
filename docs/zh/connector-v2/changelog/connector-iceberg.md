@@ -2,8 +2,9 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
-|[Feature][Iceberg] Support read multi-table (#8524)|https://github.com/apache/seatunnel/commit/2bfb97e502| dev |
+|[Improve] iceberg options (#8967)|https://github.com/apache/seatunnel/commit/82a374ec87|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
+|[Feature][Iceberg] Support read multi-table (#8524)|https://github.com/apache/seatunnel/commit/2bfb97e502|2.3.10|
 |[Improve][Iceberg] Filter catalog table primaryKey is empty (#8413)|https://github.com/apache/seatunnel/commit/857aab5e83|2.3.9|
 |[Improve][Connector-V2] Reduce the create times of iceberg sink writer (#8155)|https://github.com/apache/seatunnel/commit/45a7a715a2|2.3.9|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|2.3.9|

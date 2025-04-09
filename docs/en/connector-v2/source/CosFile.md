@@ -66,6 +66,7 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | sheet_name                | string  | no       | -                   |
 | xml_row_tag               | string  | no       | -                   |
 | xml_use_attr_format       | boolean | no       | -                   |
+| csv_use_header_line       | boolean | no       | false               |
 | file_filter_pattern       | string  | no       | -                   |
 | filename_extension            | string  | no       | -                   |
 | compress_codec            | string  | no       | none                |
@@ -273,6 +274,10 @@ Specifies the tag name of the data rows within the XML file.
 Only need to be configured when file_format is xml.
 
 Specifies Whether to process data using the tag attribute format.
+
+### csv_use_header_line [boolean]
+
+Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180
 
 ### file_filter_pattern [string]
 

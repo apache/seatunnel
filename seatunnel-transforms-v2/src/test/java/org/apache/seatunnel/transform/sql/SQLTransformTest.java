@@ -282,4 +282,37 @@ public class SQLTransformTest {
                 BasicType.STRING_TYPE, tableSchema.getColumns().get(1).getDataType());
         Assertions.assertEquals("a", result.get(0).getField(1));
     }
+
+    @Test
+    public void tesCaseWhenClausesWithBooleanField() {
+        String tableName = "test";
+        String[] fields = new String[] {"id", "bool"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {
+                                    BasicType.INT_TYPE, BasicType.BOOLEAN_TYPE
+                                }));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select `id`, `bool`, case when bool then 1 else 2 end as bool_1 from dual"));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        List<SeaTunnelRow> result =
+                sqlTransform.transformRow(
+                        new SeaTunnelRow(new Object[] {Integer.valueOf(1), true}));
+        Assertions.assertEquals(1, result.get(0).getField(0));
+        Assertions.assertEquals(true, result.get(0).getField(1));
+        Assertions.assertEquals(1, result.get(0).getField(2));
+
+        result =
+                sqlTransform.transformRow(
+                        new SeaTunnelRow(new Object[] {Integer.valueOf(1), false}));
+        Assertions.assertEquals(1, result.get(0).getField(0));
+        Assertions.assertEquals(false, result.get(0).getField(1));
+        Assertions.assertEquals(2, result.get(0).getField(2));
+    }
 }

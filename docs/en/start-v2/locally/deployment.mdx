@@ -30,7 +30,7 @@ Or you can also download it through the terminal:
 <TabItem value="Unix/Linux">
 
 ```shell
-export version="2.3.10"
+export version="2.3.11"
 wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${version}-bin.tar.gz"
 tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 ```
@@ -61,6 +61,7 @@ sh bin/install-plugin.sh
 ```
 </TabItem>
 
+If you need a specific connector version, taking 2.3.11 as an example, you need to execute the following command:
 <TabItem value="windows">
 
 ```bash
@@ -68,7 +69,7 @@ call .\bin\install-plugin.cmd
 ```
 </TabItem>
 </Tabs>
-If you need a specific connector version, taking 2.3.10 as an example, you need to execute the following command:
+If you need a specific connector version, taking 2.3.11 as an example, you need to execute the following command:
 <Tabs
     groupId="env-type"
     defaultValue="Unix/Linux"
@@ -79,7 +80,7 @@ If you need a specific connector version, taking 2.3.10 as an example, you need 
 <TabItem value="Unix/Linux">
 
 ```bash
-sh bin/install-plugin.sh 2.3.10
+sh bin/install-plugin.sh 2.3.11
 ```
 </TabItem>
 
@@ -96,7 +97,7 @@ Typically, you do not need all the connector plugins. You can specify the requir
 --seatunnel-connectors--
 connector-fake
 connector-console
---end--mv d
+--end--
 ```
 
 You can find all supported connectors and the corresponding plugin_config configuration names under `${SEATUNNEL_HOME}/connectors/plugins-mapping.properties`.
@@ -120,7 +121,7 @@ You can download the source code from the [download page](https://seatunnel.apac
 cd seatunnel
 sh ./mvnw clean install -DskipTests -Dskip.spotless=true
 # get the binary package
-cp seatunnel-dist/target/apache-seatunnel-2.3.10-bin.tar.gz /The-Path-You-Want-To-Copy
+cp seatunnel-dist/target/apache-seatunnel-2.3.11-bin.tar.gz /The-Path-You-Want-To-Copy
 
 cd /The-Path-You-Want-To-Copy
 tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"

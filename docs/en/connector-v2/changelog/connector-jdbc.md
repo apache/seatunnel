@@ -2,16 +2,21 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Fix][Connector-JDBC] Fix JDBC driver selection for data source connections(#8986) | https://github.com/apache/seatunnel/pull/8986 | dev |
-|[Fix][Connector-V2] Fix parse SqlServer JDBC Url error (#8784)|https://github.com/apache/seatunnel/commit/373d2162d3| dev |
-|[Improve][Jdbc] Support upsert for opengauss (#8627)|https://github.com/apache/seatunnel/commit/56110bf392| dev |
-|[Improve][Jdbc] Remove useless utils. (#8793)|https://github.com/apache/seatunnel/commit/36a7533e85| dev |
-|[Improve][Jdbc] Improve catalog connection cache (#8626)|https://github.com/apache/seatunnel/commit/6205065b25| dev |
-|[Fix][Connector-V2] Fix jdbc sink statement buffer wrong time to clear (#8653)|https://github.com/apache/seatunnel/commit/cf35eecdfc| dev |
-|[Feature][Jdbc] Support sink ddl for dameng (#8380)|https://github.com/apache/seatunnel/commit/5ff3427428| dev |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
-|[Improve][Jdbc] Remove oracle &#x27;v$database&#x27; query (#8571)|https://github.com/apache/seatunnel/commit/3cf09f61ca| dev |
-|[Fix] [Connector-V2] Postgres support for multiple primary keys (#8526)|https://github.com/apache/seatunnel/commit/04db40d973| dev |
+|[Hotfix][Jdbc] Fix mysql tinyint(1) type mapping for TypeMapper (#9012)|https://github.com/apache/seatunnel/commit/5f85d7668a| dev |
+|[Feature][Jdbc] Add String type column split Support by charset-based splitting algorithm (#9002)|https://github.com/apache/seatunnel/commit/dbe41e74cd| dev |
+|[Fix][Paimon] nullable and comment attribute was lost during automatic table creation (#9020)|https://github.com/apache/seatunnel/commit/eb54fdd52c| dev |
+|[Fix][Connector-JDBC] Fix JDBC driver selection for data source connections (#8986)|https://github.com/apache/seatunnel/commit/a5aafa7301| dev |
+|[Improve][Jdbc] Upgrade sap-hana driver from 2.14.7 to 2.23.10 (#9013)|https://github.com/apache/seatunnel/commit/9ba9f169be| dev |
+|[Feature][Jdbc] Support sink ddl for sqlserver #8114 (#8936)|https://github.com/apache/seatunnel/commit/30aa485b38|2.3.10|
+|[Fix][Connector-V2] Fix parse SqlServer JDBC Url error (#8784)|https://github.com/apache/seatunnel/commit/373d2162d3|2.3.10|
+|[Improve][Jdbc] Support upsert for opengauss (#8627)|https://github.com/apache/seatunnel/commit/56110bf392|2.3.10|
+|[Improve][Jdbc] Remove useless utils. (#8793)|https://github.com/apache/seatunnel/commit/36a7533e85|2.3.10|
+|[Improve][Jdbc] Improve catalog connection cache (#8626)|https://github.com/apache/seatunnel/commit/6205065b25|2.3.10|
+|[Fix][Connector-V2] Fix jdbc sink statement buffer wrong time to clear (#8653)|https://github.com/apache/seatunnel/commit/cf35eecdfc|2.3.10|
+|[Feature][Jdbc] Support sink ddl for dameng (#8380)|https://github.com/apache/seatunnel/commit/5ff3427428|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
+|[Improve][Jdbc] Remove oracle &#x27;v$database&#x27; query (#8571)|https://github.com/apache/seatunnel/commit/3cf09f61ca|2.3.10|
+|[Fix] [Connector-V2] Postgres support for multiple primary keys (#8526)|https://github.com/apache/seatunnel/commit/04db40d973|2.3.10|
 |[Feature][JDBC source] pg support char types (#8420)|https://github.com/apache/seatunnel/commit/776ac94478|2.3.9|
 |[Feature][Jdbc] Support sink ddl for postgresql (#8276)|https://github.com/apache/seatunnel/commit/353bbd21a1|2.3.9|
 |[Feature][Connector-V2] Support the jdbc connector for highgo db (#8282)|https://github.com/apache/seatunnel/commit/aa381cbfb4|2.3.9|

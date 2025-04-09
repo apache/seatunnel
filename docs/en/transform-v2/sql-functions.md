@@ -923,6 +923,18 @@ Example:
 
 CONVERT(NAME AS INT)
 
+### TRY_CAST
+
+```TRY_CAST(value as dataType)```
+
+This function is similar to CAST, but when the conversion fails, it returns NULL instead of throwing an exception.
+
+Supported data types: STRING | VARCHAR, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP, DATE, TIME, BYTES
+
+Example:
+
+TRY_CAST(NAME AS INT)
+
 ### COALESCE
 
 ```COALESCE(aValue, bValue [,...])```
@@ -991,7 +1003,11 @@ select
   case
     when c_tinyint <> 117 then 1
     else 0
-  end as c_number_0
+  end as c_number_0,
+  case
+    when c_boolean then 1
+    else 0
+  end as c_boolean_0
 from
   dual
 ```
