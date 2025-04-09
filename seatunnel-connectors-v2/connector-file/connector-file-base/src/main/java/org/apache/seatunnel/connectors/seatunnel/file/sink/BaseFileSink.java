@@ -76,12 +76,6 @@ public abstract class BaseFileSink
     }
 
     @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
-        this.fileSinkConfig = new FileSinkConfig(pluginConfig, seaTunnelRowType);
-    }
-
-    @Override
     public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> restoreWriter(
             SinkWriter.Context context, List<FileSinkState> states) {
         return new BaseFileSinkWriter(createWriteStrategy(), hadoopConf, context, jobId, states);

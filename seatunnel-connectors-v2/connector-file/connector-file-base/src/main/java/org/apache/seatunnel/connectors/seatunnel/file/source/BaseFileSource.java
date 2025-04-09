@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
@@ -49,11 +49,6 @@ public abstract class BaseFileSource
     }
 
     @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return rowType;
-    }
-
-    @Override
     public SourceReader<SeaTunnelRow, FileSourceSplit> createReader(
             SourceReader.Context readerContext) {
         return new BaseFileSourceReader(readStrategy, readerContext);
@@ -71,5 +66,10 @@ public abstract class BaseFileSource
             FileSourceState checkpointState)
             throws Exception {
         return new FileSourceSplitEnumerator(enumeratorContext, filePaths, checkpointState);
+    }
+
+    @Override
+    public List<CatalogTable> getProducedCatalogTables() {
+        return SeaTunnelSource.super.getProducedCatalogTables();
     }
 }
