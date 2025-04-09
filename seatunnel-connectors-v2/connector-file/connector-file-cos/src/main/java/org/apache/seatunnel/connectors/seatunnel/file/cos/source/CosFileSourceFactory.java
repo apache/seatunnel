@@ -108,8 +108,6 @@ public class CosFileSourceFactory implements TableSourceFactory {
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         return () ->
                 (SeaTunnelSource<T, SplitT, StateT>)
-                        new CosFileSource(
-                                context.getOptions(),
-                                CatalogTableUtil.buildWithConfig(context.getOptions()));
+                        new CosFileSource(CatalogTableUtil.buildWithConfig(context.getOptions()));
     }
 }
