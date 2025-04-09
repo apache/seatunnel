@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.source.split;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
@@ -33,6 +34,7 @@ import com.mongodb.client.model.Projections;
 import com.mongodb.client.model.Sorts;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -103,7 +105,8 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
         return createSplits(splitKey, rightBoundaries);
     }
 
-    private ImmutablePair<Long, Long> getDocumentNumAndAvgSize() {
+    @VisibleForTesting
+    protected ImmutablePair<Long, Long> getDocumentNumAndAvgSize() {
         String collectionName =
                 clientProvider.getDefaultCollection().getNamespace().getCollectionName();
         BsonDocument statsCmd = new BsonDocument("collStats", new BsonString(collectionName));
@@ -112,7 +115,7 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
         // fix issue https://github.com/apache/seatunnel/issues/7575
         long total =
                 Optional.ofNullable(count)
-                        .map(v -> Long.parseLong(String.valueOf(count)))
+                        .map(v -> new BigDecimal(String.valueOf(count)).longValue())
                         .orElse(0L);
         Object avgDocumentBytes = res.get("avgObjSize");
         long avgObjSize =

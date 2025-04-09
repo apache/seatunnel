@@ -59,6 +59,18 @@ jobs:
         env:
           MAVEN_OPTS: -Xmx512m
 
+  helm-chart-check:
+    name: Check Helm Chart Syntax
+    needs: [ license-header, code-style]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Helm
+        uses: azure/setup-helm@v4.3.0
+        id: install
+      - name: Lint Chart
+        run: helm lint deploy/kubernetes/seatunnel
+
   dead-link:
     name: Dead links
     runs-on: ubuntu-latest

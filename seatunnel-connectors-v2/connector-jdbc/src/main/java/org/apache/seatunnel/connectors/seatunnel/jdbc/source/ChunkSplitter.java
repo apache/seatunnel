@@ -65,7 +65,9 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         this.fetchSize = config.getFetchSize();
         this.jdbcDialect =
                 JdbcDialectLoader.load(
-                        config.getJdbcConnectionConfig().getUrl(), config.getCompatibleMode());
+                        config.getJdbcConnectionConfig().getUrl(),
+                        config.getJdbcConnectionConfig().getDialect(),
+                        config.getCompatibleMode());
         this.connectionProvider =
                 jdbcDialect.getJdbcConnectionProvider(config.getJdbcConnectionConfig());
     }
@@ -83,6 +85,16 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         if (connectionProvider != null) {
             connectionProvider.closeConnection();
         }
+    }
+
+    protected static String filterOutUppercase(String str) {
+        StringBuilder sb = new StringBuilder();
+        for (char c : str.toCharArray()) {
+            if (!Character.isUpperCase(c)) {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 
     public Collection<JdbcSourceSplit> generateSplits(JdbcSourceTable table) throws Exception {

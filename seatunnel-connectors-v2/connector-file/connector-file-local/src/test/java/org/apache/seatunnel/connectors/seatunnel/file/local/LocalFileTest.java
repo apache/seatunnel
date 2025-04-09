@@ -293,4 +293,19 @@ public class LocalFileTest {
 
         Assertions.assertEquals(0, emptyRows.size());
     }
+
+    @Test
+    void testReadOneFileButHasTwoParallelism() throws Exception {
+        Map<String, Object> readOptions =
+                new HashMap<String, Object>() {
+                    {
+                        put("path", LocalFileTest.class.getResource("/test_data.txt").getPath());
+                        put("file_format_type", "text");
+                    }
+                };
+        List<SeaTunnelRow> rows =
+                SourceFlowTestUtils.runParallelSubtasksBatchWithCheckpointDisabled(
+                        ReadonlyConfig.fromMap(readOptions), new LocalFileSourceFactory(), 2);
+        Assertions.assertEquals(3, rows.size());
+    }
 }

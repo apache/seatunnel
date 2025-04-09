@@ -152,7 +152,8 @@ public class SeaTunnelServer
         }
 
         // Start Jetty server
-        if (seaTunnelConfig.getEngineConfig().getHttpConfig().isEnabled()) {
+        if (seaTunnelConfig.getEngineConfig().getHttpConfig().isEnabled()
+                || seaTunnelConfig.getEngineConfig().getHttpConfig().isEnableHttps()) {
             jettyService = new JettyService(nodeEngine, seaTunnelConfig);
             jettyService.createJettyServer();
         }

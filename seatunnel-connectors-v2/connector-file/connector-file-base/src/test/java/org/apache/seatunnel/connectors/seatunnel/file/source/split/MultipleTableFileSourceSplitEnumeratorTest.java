@@ -28,6 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFi
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import lombok.extern.slf4j.Slf4j;
@@ -37,14 +38,13 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
 @Slf4j
 public class MultipleTableFileSourceSplitEnumeratorTest {
 
     @Test
-    void assignSplitTest() {
+    void assignSplitTest() throws Exception {
         int parallelism = 4;
         int fileSize = 50;
 
@@ -80,24 +80,25 @@ public class MultipleTableFileSourceSplitEnumeratorTest {
                 new MultipleTableFileSourceSplitEnumerator(
                         context, baseMultipleTableFileSourceConfig);
 
-        AtomicInteger unAssignedSplitSize = new AtomicInteger(fileSize);
-        IntStream.range(0, parallelism)
-                .forEach(
-                        id -> {
-                            enumerator.registerReader(id);
+        enumerator.open();
+        Assertions.assertEquals(50, enumerator.currentUnassignedSplitSize());
+        IntStream.range(0, parallelism).forEach(enumerator::registerReader);
+        enumerator.run();
 
-                            // check the number of files assigned each time
-                            Assertions.assertEquals(
-                                    enumerator.currentUnassignedSplitSize(),
-                                    unAssignedSplitSize.get()
-                                            - allocateFiles(id, parallelism, fileSize));
-                            unAssignedSplitSize.set(enumerator.currentUnassignedSplitSize());
+        ArgumentCaptor<Integer> subtaskId = ArgumentCaptor.forClass(Integer.class);
+        ArgumentCaptor<List> split = ArgumentCaptor.forClass(List.class);
 
-                            log.info(
-                                    "unAssigned splits => {}, allocate files => {}",
-                                    enumerator.currentUnassignedSplitSize(),
-                                    allocateFiles(id, parallelism, fileSize));
-                        });
+        Mockito.verify(context, Mockito.times(parallelism))
+                .assignSplit(subtaskId.capture(), split.capture());
+
+        List<Integer> subTaskAllValues = subtaskId.getAllValues();
+        List<List> splitAllValues = split.getAllValues();
+
+        for (int i = 0; i < parallelism; i++) {
+            Assertions.assertEquals(i, subTaskAllValues.get(i));
+            Assertions.assertEquals(
+                    allocateFiles(i, parallelism, fileSize), splitAllValues.get(i).size());
+        }
 
         // check no duplicate file assigned
         Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());

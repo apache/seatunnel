@@ -118,7 +118,7 @@ source {
 
 transform {
   # 如果你想了解更多关于如何配置seatunnel的信息，并查看转换插件的完整列表
-    # 请前往 https://seatunnel.apache.org/docs/category/transform-v2
+    # 请前往 https://seatunnel.apache.org/docs/transform-v2
 }
 
 sink {

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.maxcompute;
 
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -32,6 +33,8 @@ import com.aliyun.odps.TableSchema;
 import com.aliyun.odps.data.ArrayRecord;
 import com.aliyun.odps.data.Record;
 import lombok.SneakyThrows;
+
+import java.time.LocalDate;
 
 public class BasicTypeToOdpsTypeTest {
 
@@ -101,5 +104,11 @@ public class BasicTypeToOdpsTypeTest {
     @Test
     void testVOID_TYPE_2_VOID() {
         testType("VOID_TYPE_2_VOID", BasicType.VOID_TYPE, OdpsType.VOID, null);
+    }
+
+    @SneakyThrows
+    @Test
+    void testDATE_TYPE_2_DATE() {
+        testType("DATE_TYPE_2_DATE", LocalTimeType.LOCAL_DATE_TYPE, OdpsType.DATE, LocalDate.now());
     }
 }

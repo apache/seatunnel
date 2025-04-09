@@ -284,7 +284,7 @@ public class RowTypeConverter {
                     int timestampScale =
                             Objects.isNull(scale) ? TimestampType.DEFAULT_PRECISION : scale;
                     TimestampType timestampType = DataTypes.TIMESTAMP(timestampScale);
-                    builder.nativeType(timestampType);
+                    builder.nativeType(timestampType.copy(column.isNullable()));
                     builder.dataType(timestampType.getTypeRoot().name());
                     builder.columnType(timestampType.toString());
                     builder.scale(timestampScale);
@@ -293,7 +293,7 @@ public class RowTypeConverter {
                 case TIME:
                     int timeScale = Objects.isNull(scale) ? TimeType.DEFAULT_PRECISION : scale;
                     TimeType timeType = DataTypes.TIME(timeScale);
-                    builder.nativeType(timeType);
+                    builder.nativeType(timeType.copy(column.isNullable()));
                     builder.columnType(timeType.toString());
                     builder.dataType(timeType.getTypeRoot().name());
                     builder.scale(timeScale);
@@ -356,7 +356,7 @@ public class RowTypeConverter {
                     }
 
                     DecimalType paimonDecimalType = DataTypes.DECIMAL(precision, scale);
-                    builder.nativeType(paimonDecimalType);
+                    builder.nativeType(paimonDecimalType.copy(column.isNullable()));
                     builder.columnType(paimonDecimalType.toString());
                     builder.dataType(paimonDecimalType.getTypeRoot().name());
                     builder.scale(scale);
@@ -364,7 +364,7 @@ public class RowTypeConverter {
                     builder.length(column.getColumnLength());
                     return builder.build();
                 default:
-                    builder.nativeType(visit(column.getName(), dataType));
+                    builder.nativeType(visit(column.getName(), dataType).copy(column.isNullable()));
                     builder.columnType(dataType.toString());
                     builder.length(column.getColumnLength());
                     builder.dataType(dataType.getSqlType().name());

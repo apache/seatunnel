@@ -2,7 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
+|[improve] hudi options (#8952)|https://github.com/apache/seatunnel/commit/b24d0e7f86|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[Improve][CI]skip ui module, improve module dependent (#8225)|https://github.com/apache/seatunnel/commit/81de0a69cc|2.3.9|
 |[Feature][Connector-V2] Support write cdc changelog event into hudi sink (#7845)|https://github.com/apache/seatunnel/commit/934434cc75|2.3.9|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|2.3.9|

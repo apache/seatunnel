@@ -56,6 +56,8 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | common-options                      |                                                                            | No       | -                        | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | protobuf_message_name               | String                                                                     | No       | -                        | Effective when the format is set to protobuf, specifies the Message name                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | protobuf_schema                     | String                                                                     | No       | -                        | Effective when the format is set to protobuf, specifies the Schema definition                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| reader_cache_queue_size             | Integer                                                                     | No       | 1024                     | The reader shard cache queue is used to cache the data corresponding to the shards. The size of the shard cache depends on the number of shards obtained by each reader, rather than the amount of data in each shard.                                                                                                                                                                                                                                                                                            |
+| is_native                           | Boolean                                                                     | No       | false                    | Supports retaining the source information of the record.   
 
 ### debezium_record_table_filter
 
@@ -183,6 +185,8 @@ source {
 
 ### Kerberos Authentication Example
 
+Please set JVM parameters `java.security.krb5.conf` before starting the SeaTunnel or update default `krb5.conf` in `/etc/krb5.conf`.
+
 Source Config
 
 ```
@@ -195,7 +199,6 @@ source {
             security.protocol=SASL_PLAINTEXT
             sasl.kerberos.service.name=kafka
             sasl.mechanism=GSSAPI
-            java.security.krb5.conf="/etc/krb5.conf"
             sasl.jaas.config="com.sun.security.auth.module.Krb5LoginModule required \n        useKeyTab=true \n        storeKey=true  \n        keyTab=\"/path/to/xxx.keytab\" \n        principal=\"user@xxx.com\";"
         }
     }
