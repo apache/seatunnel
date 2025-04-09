@@ -19,11 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.file.s3.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 
 import java.util.Map;
 
-public class S3ConfigOptions extends BaseSourceConfigOptions {
+public class S3FileBaseOptions extends FileBaseSourceOptions {
     public static final Option<String> S3_ACCESS_KEY =
             Options.key("access_key")
                     .stringType()
