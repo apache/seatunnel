@@ -272,7 +272,7 @@ public class IcebergCatalog implements Catalog {
         Schema schema = icebergTable.schema();
         List<Types.NestedField> columns = schema.columns();
         List<String> selectColumns =
-                ExpressionUtils.parseSelectColumns(readonlyConfig.get(IcebergSourceOptions.FILTER));
+                ExpressionUtils.parseSelectColumns(readonlyConfig.get(IcebergSourceOptions.QUERY));
         TableSchema.Builder builder = TableSchema.builder();
         columns.stream()
                 .filter(

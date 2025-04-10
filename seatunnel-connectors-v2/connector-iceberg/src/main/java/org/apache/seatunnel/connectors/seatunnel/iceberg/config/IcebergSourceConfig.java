@@ -62,7 +62,7 @@ public class IcebergSourceConfig extends IcebergCommonConfig {
                             .streamScanStrategy(
                                     readonlyConfig.get(
                                             IcebergSourceOptions.KEY_STREAM_SCAN_STRATEGY))
-                            .filter(readonlyConfig.get(IcebergSourceOptions.FILTER));
+                            .filter(readonlyConfig.get(IcebergSourceOptions.QUERY));
 
             SourceTableConfig tableConfig = builder.build();
             this.tableList = Collections.singletonList(tableConfig);

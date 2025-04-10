@@ -92,7 +92,7 @@ libfb303-xxx.jar
 | stream_scan_strategy     | enum    | no       | FROM_LATEST_SNAPSHOT | Starting strategy for stream mode execution, Default to use `FROM_LATEST_SNAPSHOT` if don’t specify any value,The optional values are:<br/>TABLE_SCAN_THEN_INCREMENTAL: Do a regular table scan then switch to the incremental mode.<br/>FROM_LATEST_SNAPSHOT: Start incremental mode from the latest snapshot inclusive.<br/>FROM_EARLIEST_SNAPSHOT: Start incremental mode from the earliest snapshot inclusive.<br/>FROM_SNAPSHOT_ID: Start incremental mode from a snapshot with a specific id inclusive.<br/>FROM_SNAPSHOT_TIMESTAMP: Start incremental mode from a snapshot with a specific timestamp inclusive. |
 | increment.scan-interval  | long    | no       | 2000                 | The interval of increment scan(mills)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | common-options           |         | no       | -                    | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| filter                   | String  | no       | -                    | The select DML to select the iceberg data. It mustn't contain the table name, and doesn't support alias. For example: `select * from table where f1 > 100`, `select fn from table where f1 > 100`.                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| query                    | String  | no       | -                    | The select DML to select the iceberg data. It mustn't contain the table name, and doesn't support alias. For example: `select * from table where f1 > 100`, `select fn from table where f1 > 100`.                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 
 ## Task Example
@@ -114,7 +114,7 @@ source {
     }
     namespace = "database1"
     table = "source"
-    filter = "select * from table where f1 > 100"
+    query = "select fn from table where f1 > 100"
     plugin_output = "iceberg"
   }
 }
@@ -143,11 +143,11 @@ source {
     table_list = [
       {
         table = "table_1
-        filter = "select * from table where f1 > 100"
+        query = "select * from table where f1 > 100"
       },
       {
         table = "table_2
-        filter = "select * from table where f1 > 100"
+        query = "select fn from table where f1 > 100"
       }
     ]
     
