@@ -49,7 +49,7 @@ public class SourceTableConfig implements Serializable {
     private Long useSnapshotTimestamp;
 
     private IcebergStreamScanStrategy streamScanStrategy = KEY_STREAM_SCAN_STRATEGY.defaultValue();
-    private String filter;
+    private String query;
     private Long splitSize;
     private Integer splitLookback;
     private Long splitOpenFileCost;
