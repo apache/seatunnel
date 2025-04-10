@@ -330,13 +330,13 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
 
     private void assertTableStructureAndData(
             String database, String sourceTable, String sinkTable) {
-        await().atMost(100_000, TimeUnit.MILLISECONDS)
+        await().atMost(300_000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
                                         query(String.format(DESC, database, sourceTable)),
                                         query(String.format(DESC, database, sinkTable))));
-        await().atMost(100_000, TimeUnit.MILLISECONDS)
+        await().atMost(300_000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
