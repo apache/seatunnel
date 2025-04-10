@@ -186,8 +186,6 @@ RPAD(TEXT, 10, '-')
 
 移除字符串中所有前导空格或其他指定的字符。
 
-此函数已被弃用，请使用 TRIM 替代。
-
 示例:
 
 LTRIM(NAME)
@@ -198,8 +196,6 @@ LTRIM(NAME)
 
 移除字符串中所有尾随空格或其他指定的字符。
 
-此函数已被弃用，请使用 TRIM 替代。
-
 示例:
 
 RTRIM(NAME)
@@ -208,13 +204,11 @@ RTRIM(NAME)
 
 ```TRIM(string[, characterToTrimString])```
 
-移除字符串中所有前导空格或其他指定的字符。
-
-此函数已被弃用，请使用 TRIM 替代。
+移除字符串中所有前导空格和尾随空格或其他指定的字符。
 
 示例:
 
-LTRIM(NAME)
+TRIM(NAME)
 
 ### REGEXP_REPLACE
 
