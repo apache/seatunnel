@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
@@ -106,8 +105,6 @@ public class CosFileSourceFactory implements TableSourceFactory {
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
-        return () ->
-                (SeaTunnelSource<T, SplitT, StateT>)
-                        new CosFileSource(CatalogTableUtil.buildWithConfig(context.getOptions()));
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new CosFileSource(context.getOptions());
     }
 }
