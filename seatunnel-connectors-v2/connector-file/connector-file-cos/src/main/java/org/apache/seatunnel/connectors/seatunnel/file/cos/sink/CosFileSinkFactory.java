@@ -115,6 +115,6 @@ public class CosFileSinkFactory implements TableSinkFactory {
 
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
-        return () -> new CosFileSink(context.getCatalogTable());
+        return () -> new CosFileSink(context.getOptions(), context.getCatalogTable());
     }
 }
