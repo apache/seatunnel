@@ -41,6 +41,9 @@ support version >= 2.x and <= 8.x.
 | tls_keystore_password   | string  | no       | -                                                              |
 | tls_truststore_path     | string  | no       | -                                                              |
 | tls_truststore_password | string  | no       | -                                                              |
+| use_pit                 | boolean | no       | false                                                          |
+| pit_keep_alive          | long    | no       | 60000 (1 minute)                                               |
+| pit_batch_size          | int     | no       | 100                                                            |
 | common-options          |         | no       | -                                                              |
 
 
@@ -112,6 +115,15 @@ The path to PEM or JKS trust store. This file must be readable by the operating 
 ### tls_truststore_password [string]
 
 The key password for the trust store specified
+
+### use_pit [boolean]
+Whether to use Point-in-Time (PIT) API instead of scroll API
+
+### pit_keep_alive [long]
+The amount of time (in milliseconds) for which the PIT should be keep alive
+
+### pit_batch_size  [long]
+Maximum number of hits to be returned with each PIT search request
 
 ### common options
 
@@ -264,6 +276,25 @@ source {
     search_type = "sql"
   }
 }
+```
+
+Demo7:  PIT
+```hocon
+source {
+  Elasticsearch {
+    hosts = ["https://elasticsearch:9200"]
+    username = "elastic"
+    password = "elasticsearch"
+    tls_verify_certificate = false
+    tls_verify_hostname = false
+
+    index = "st_index"
+    query = {"range": {"c_int": {"gte": 10, "lte": 20}}}
+   
+    # Enable PIT API
+    use_pit = true
+    pit_keep_alive = 60000  # 1 minute in milliseconds
+    pit_batch_size = 100
 ```
 
 ## Changelog

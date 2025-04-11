@@ -39,7 +39,10 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 | tls_keystore_password   | string  | no       | -                                   |
 | tls_truststore_path     | string  | no       | -                                   |
 | tls_truststore_password | string  | no       | -                                   |
-| common-options          |         | no       | -                                   |
+| use_pit                 | boolean | no       | false                                |
+| pit_keep_alive          | long    | no       | 60000 (1 minute)                    |
+| pit_batch_size          | int     | no       | 100                                 |
+| common-options          |         | no       | -                                                              |
 
 ### hosts [array]
 
@@ -114,6 +117,16 @@ PEM 或 JKS 信任库的路径。该文件必须对运行 SeaTunnel 的操作系
 ### tls_truststore_password [string]
 
 指定信任库的密钥密码。
+
+
+### use_pit [boolean]
+是否使用时间点 (PIT) API 代替滚动 API
+
+### pit_keep_alive [long]
+PIT 应保持活动的时间量（以毫秒为单位）
+
+### pit_batch_size  [long]
+每次 PIT 搜索请求返回的最大数量
 
 ### common options
 
@@ -265,6 +278,25 @@ source {
     search_type = "sql"
   }
 }
+```
+
+Demo7:  PIT方式滚动查询
+```hocon
+source {
+  Elasticsearch {
+    hosts = ["https://elasticsearch:9200"]
+    username = "elastic"
+    password = "elasticsearch"
+    tls_verify_certificate = false
+    tls_verify_hostname = false
+
+    index = "st_index"
+    query = {"range": {"c_int": {"gte": 10, "lte": 20}}}
+   
+    # Enable PIT API
+    use_pit = true
+    pit_keep_alive = 60000  # 1 minute in milliseconds
+    pit_batch_size = 100
 ```
 
 ## 变更日志
