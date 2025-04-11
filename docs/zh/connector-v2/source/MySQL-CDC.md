@@ -148,7 +148,7 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | gtid_mode                | OFF            |
 | log_bin                  | ON             |
 +--------------------------+----------------+  
-     
+     5 rows in set (0.00 sec)
 
 ### 提示
 
