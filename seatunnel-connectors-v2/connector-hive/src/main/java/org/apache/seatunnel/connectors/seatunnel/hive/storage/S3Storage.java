@@ -22,7 +22,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3ConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3FileBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOnS3Conf;
 
 import org.apache.commons.lang3.StringUtils;
@@ -38,15 +38,15 @@ public class S3Storage extends AbstractStorage {
         Config config = fillBucket(readonlyConfig, configuration);
         config =
                 config.withValue(
-                        S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(),
+                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(),
                         ConfigValueFactory.fromAnyRef(
                                 configuration.get(
-                                        S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER.key())));
+                                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key())));
         config =
                 config.withValue(
-                        S3ConfigOptions.FS_S3A_ENDPOINT.key(),
+                        S3FileBaseOptions.FS_S3A_ENDPOINT.key(),
                         ConfigValueFactory.fromAnyRef(
-                                configuration.get(S3ConfigOptions.FS_S3A_ENDPOINT.key())));
+                                configuration.get(S3FileBaseOptions.FS_S3A_ENDPOINT.key())));
         HadoopConf hadoopConf =
                 HiveOnS3Conf.buildWithReadOnlyConfig(ReadonlyConfig.fromConfig(config));
         Map<String, String> propsWithPrefix = configuration.getPropsWithPrefix(StringUtils.EMPTY);

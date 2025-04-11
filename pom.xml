@@ -568,6 +568,13 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-inline</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+
         <!-- The prometheus simpleclient -->
         <dependency>
             <groupId>io.prometheus</groupId>

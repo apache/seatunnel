@@ -19,20 +19,14 @@ package org.apache.seatunnel.connectors.seatunnel.file.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
-import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
 import java.util.List;
 
-public class BaseSourceConfigOptions {
-    public static final Option<FileFormat> FILE_FORMAT_TYPE =
-            Options.key("file_format_type")
-                    .objectType(FileFormat.class)
-                    .noDefaultValue()
-                    .withDescription(
-                            "File format type, e.g. json, csv, text, parquet, orc, avro....");
+public class FileBaseOptions extends ConnectorCommonOptions {
 
     public static final Option<String> FILENAME_EXTENSION =
             Options.key("filename_extension")
@@ -45,28 +39,13 @@ public class BaseSourceConfigOptions {
             Options.key("path")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("The file path of source files");
-
-    public static final Option<String> FIELD_DELIMITER =
-            Options.key("field_delimiter")
-                    .stringType()
-                    .defaultValue(TextFormatConstant.SEPARATOR[0])
-                    .withFallbackKeys("delimiter")
-                    .withDescription(
-                            "The separator between columns in a row of data. Only needed by `text` file format");
-
-    public static final Option<String> NULL_FORMAT =
-            Options.key("null_format")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The string that represents a null value");
+                    .withDescription("The file path of target files");
 
     public static final Option<String> ENCODING =
             Options.key("encoding")
                     .stringType()
                     .defaultValue("UTF-8")
-                    .withDescription(
-                            "The encoding of the file to read, e.g. UTF-8, ISO-8859-1....");
+                    .withDescription("The encoding of the file, e.g. UTF-8, ISO-8859-1....");
 
     public static final Option<DateUtils.Formatter> DATE_FORMAT =
             Options.key("date_format")

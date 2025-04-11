@@ -15,25 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.oss.config;
+package org.apache.seatunnel.connectors.seatunnel.file.obs.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
 
-public class OssConfigOptions extends BaseSourceConfigOptions {
+public class ObsFileBaseOptions extends FileBaseOptions {
     public static final Option<String> ACCESS_KEY =
             Options.key("access_key")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("OSS bucket access key");
+                    .withDescription("OBS bucket access key");
     public static final Option<String> ACCESS_SECRET =
             Options.key("access_secret")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("OSS bucket access secret");
+                    .withDescription("OBS bucket access secret");
     public static final Option<String> ENDPOINT =
-            Options.key("endpoint").stringType().noDefaultValue().withDescription("OSS endpoint");
+            Options.key("endpoint").stringType().noDefaultValue().withDescription("OBS endpoint");
     public static final Option<String> BUCKET =
-            Options.key("bucket").stringType().noDefaultValue().withDescription("OSS bucket");
+            Options.key("bucket").stringType().noDefaultValue().withDescription("OBS bucket");
 }
