@@ -28,7 +28,7 @@
   - [x] json
   - [x] excel
   - [x] xml
-  - [x] 二进制
+  - [x] binary
 
 ## 选项
 
