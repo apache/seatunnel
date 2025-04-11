@@ -135,7 +135,20 @@ mysql> show variables where variable_name in ('log_bin', 'binlog_format', 'binlo
 | log_bin                  | ON             |
 +--------------------------+----------------+
 5 rows in set (0.00 sec)
-```
+
+MySQL 8.0+:
+```sql
+show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_image', 'gtid_mode', 'enforce_gtid_consistency')
++--------------------------+----------------+
+| Variable_name            | Value          |
++--------------------------+----------------+
+| binlog_format            | ROW            |
+| binlog_row_image         | FULL           |
+| enforce_gtid_consistency | OFF            |
+| gtid_mode                | OFF            |
+| log_bin                  | ON             |
++--------------------------+----------------+  
+     
 
 ### 提示
 
