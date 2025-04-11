@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-cdc-mysql.md';
+
 # MySQL CDC
 
 > MySQL CDC Source 连接器
