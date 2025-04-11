@@ -351,7 +351,4 @@ sink {
 
 ## 更新日志
 
-- 新增MySQL CDC源连接器
-
-### 下个版本
-
+<ChangeLog />
