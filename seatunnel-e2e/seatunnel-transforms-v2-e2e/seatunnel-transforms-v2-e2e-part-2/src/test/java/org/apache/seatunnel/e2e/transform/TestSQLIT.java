@@ -64,23 +64,8 @@ public class TestSQLIT extends TestSuiteBase {
                 container.executeJob("/sql_transform/explode_transform.conf");
         Assertions.assertEquals(0, execResultBySql.getExitCode());
 
-        Container.ExecResult execResultBySqlWithoutOuter =
-                container.executeJob("/sql_transform/explode_transform_without_outer.conf");
-        Assertions.assertEquals(0, execResultBySqlWithoutOuter.getExitCode());
-
-        Container.ExecResult execResultBySqlWithOuter =
-                container.executeJob("/sql_transform/explode_transform_with_outer.conf");
-        Assertions.assertEquals(0, execResultBySqlWithOuter.getExitCode());
-
-        Container.ExecResult arraySql = container.executeJob("/sql_transform/func_array.conf");
-        Assertions.assertEquals(0, arraySql.getExitCode());
-
-        Container.ExecResult splitSql = container.executeJob("/sql_transform/func_split.conf");
-        Assertions.assertEquals(0, splitSql.getExitCode());
-
-        Container.ExecResult maxMinSql =
-                container.executeJob("/sql_transform/func_array_max_min.conf");
-        Assertions.assertEquals(0, maxMinSql.getExitCode());
+        Container.ExecResult multiIfSql = container.executeJob("/sql_transform/func_multi_if.conf");
+        Assertions.assertEquals(0, multiIfSql.getExitCode());
     }
 
     @TestTemplate

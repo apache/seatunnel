@@ -952,6 +952,15 @@ IFNULL(A, B)
 
 NULLIF(A, B)
 
+### MULTI_IF
+```MULTI_IF(condition1, value1, condition2, value2, ... conditionN, valueN, bValue)```
+
+返回第一个满足相应条件的值。如果所有条件均为假，则返回最后一个值。
+
+示例:
+
+MULTI_IF(A > 1, 'A', B > 1, 'B', C > 1, 'C', 'D')
+
 ### CASE WHEN
 
 ```

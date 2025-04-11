@@ -959,6 +959,16 @@ Example:
 
 NULLIF(A, B)
 
+
+### MULTI_IF
+```MULTI_IF(condition1, value1, condition2, value2, ... conditionN, valueN, bValue)```
+
+returns the first value for which the corresponding condition is true. If all conditions are false, it returns the last value.
+
+Example:
+
+MULTI_IF(A > 1, 'A', B > 1, 'B', C > 1, 'C', 'D')
+
 ### CASE WHEN
 
 ```
