@@ -40,6 +40,13 @@ public class ElasticsearchConfig implements Serializable {
     private SearchTypeEnum searchType;
     private String sqlQuery;
 
+    // PIT API related fields
+    private boolean usePit;
+    private long pitKeepAlive;
+    private int pitBatchSize;
+    private String pitId;
+    private Object[] searchAfter;
+
     private CatalogTable catalogTable;
 
     public ElasticsearchConfig clone() {
@@ -52,6 +59,14 @@ public class ElasticsearchConfig implements Serializable {
         elasticsearchConfig.setCatalogTable(catalogTable);
         elasticsearchConfig.setSearchType(searchType);
         elasticsearchConfig.setSqlQuery(sqlQuery);
+
+        // PIT API related fields
+        elasticsearchConfig.setUsePit(usePit);
+        elasticsearchConfig.setPitKeepAlive(pitKeepAlive);
+        elasticsearchConfig.setPitBatchSize(pitBatchSize);
+        elasticsearchConfig.setPitId(pitId);
+        elasticsearchConfig.setSearchAfter(searchAfter != null ? searchAfter.clone() : null);
+
         return elasticsearchConfig;
     }
 }

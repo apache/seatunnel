@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchConfig;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SearchTypeEnum;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.PointInTimeResult;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source.DefaultSeaTunnelRowDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source.ElasticsearchRecord;
@@ -96,8 +97,14 @@ public class ElasticsearchSourceReader
 
         SeaTunnelRowDeserializer deserializer =
                 new DefaultSeaTunnelRowDeserializer(seaTunnelRowType);
-        // sql client
-        if (SearchTypeEnum.SQL.equals(sourceIndexInfo.getSearchType())) {
+
+        // Check if we should use PIT API
+        if (sourceIndexInfo.isUsePit()) {
+            log.info("Using Point-in-Time (PIT) API for index: {}", sourceIndexInfo.getIndex());
+            searchWithPointInTime(sourceIndexInfo, output, deserializer);
+        }
+        // SQL client
+        else if (SearchTypeEnum.SQL.equals(sourceIndexInfo.getSearchType())) {
             ScrollResult scrollResult =
                     esRestClient.searchBySql(
                             sourceIndexInfo.getSqlQuery(), sourceIndexInfo.getScrollSize());
@@ -109,7 +116,9 @@ public class ElasticsearchSourceReader
                                 scrollResult.getScrollId(), scrollResult.getColumnNodes());
                 outputFromScrollResult(scrollResult, sourceIndexInfo, output, deserializer);
             }
-        } else {
+        }
+        // Default scroll API
+        else {
             ScrollResult scrollResult =
                     esRestClient.searchByScroll(
                             sourceIndexInfo.getIndex(),
@@ -127,6 +136,73 @@ public class ElasticsearchSourceReader
         }
     }
 
+    /**
+     * Search using Point-in-Time API.
+     *
+     * @param sourceIndexInfo The Elasticsearch configuration
+     * @param output The collector to output rows
+     * @param deserializer The deserializer to convert Elasticsearch records to SeaTunnel rows
+     */
+    private void searchWithPointInTime(
+            ElasticsearchConfig sourceIndexInfo,
+            Collector<SeaTunnelRow> output,
+            SeaTunnelRowDeserializer deserializer) {
+
+        // Create a PIT
+        String pitId =
+                esRestClient.createPointInTime(
+                        sourceIndexInfo.getIndex(), sourceIndexInfo.getPitKeepAlive());
+        sourceIndexInfo.setPitId(pitId);
+        log.info(
+                "Created Point-in-Time with ID: {} for index: {}",
+                pitId,
+                sourceIndexInfo.getIndex());
+
+        try {
+            // Initial search
+            PointInTimeResult pitResult =
+                    esRestClient.searchWithPointInTime(
+                            pitId,
+                            sourceIndexInfo.getSource(),
+                            sourceIndexInfo.getQuery(),
+                            sourceIndexInfo.getPitBatchSize(),
+                            null, // No search_after for first request
+                            sourceIndexInfo.getPitKeepAlive());
+
+            // Output the results
+            outputFromPitResult(pitResult, sourceIndexInfo, output, deserializer);
+
+            // Continue searching while there are more results
+            while (pitResult.isHasMore()) {
+                // Update the PIT ID and search_after values for the next request
+                sourceIndexInfo.setPitId(pitResult.getPitId());
+                sourceIndexInfo.setSearchAfter(pitResult.getSearchAfter());
+
+                // Execute the next search
+                pitResult =
+                        esRestClient.searchWithPointInTime(
+                                sourceIndexInfo.getPitId(),
+                                sourceIndexInfo.getSource(),
+                                sourceIndexInfo.getQuery(),
+                                sourceIndexInfo.getPitBatchSize(),
+                                sourceIndexInfo.getSearchAfter(),
+                                sourceIndexInfo.getPitKeepAlive());
+
+                // Output the results
+                outputFromPitResult(pitResult, sourceIndexInfo, output, deserializer);
+            }
+        } finally {
+            // Always clean up the PIT when done
+            if (pitId != null) {
+                try {
+                    esRestClient.deletePointInTime(pitId);
+                } catch (Exception e) {
+                    log.warn("Failed to delete Point-in-Time with ID: " + pitId, e);
+                }
+            }
+        }
+    }
+
     private void outputFromScrollResult(
             ScrollResult scrollResult,
             ElasticsearchConfig elasticsearchConfig,
@@ -135,6 +211,28 @@ public class ElasticsearchSourceReader
         List<String> source = elasticsearchConfig.getSource();
         String tableId = elasticsearchConfig.getCatalogTable().getTablePath().toString();
         for (Map<String, Object> doc : scrollResult.getDocs()) {
+            SeaTunnelRow seaTunnelRow =
+                    deserializer.deserialize(new ElasticsearchRecord(doc, source, tableId));
+            output.collect(seaTunnelRow);
+        }
+    }
+
+    /**
+     * Output rows from a Point-in-Time search result.
+     *
+     * @param pitResult The Point-in-Time search result
+     * @param elasticsearchConfig The Elasticsearch configuration
+     * @param output The collector to output rows
+     * @param deserializer The deserializer to convert Elasticsearch records to SeaTunnel rows
+     */
+    private void outputFromPitResult(
+            PointInTimeResult pitResult,
+            ElasticsearchConfig elasticsearchConfig,
+            Collector<SeaTunnelRow> output,
+            SeaTunnelRowDeserializer deserializer) {
+        List<String> source = elasticsearchConfig.getSource();
+        String tableId = elasticsearchConfig.getCatalogTable().getTablePath().toString();
+        for (Map<String, Object> doc : pitResult.getDocs()) {
             SeaTunnelRow seaTunnelRow =
                     deserializer.deserialize(new ElasticsearchRecord(doc, source, tableId));
             output.collect(seaTunnelRow);

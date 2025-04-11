@@ -29,6 +29,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @Getter
 @Setter
@@ -87,4 +88,25 @@ public class ElasticsearchSourceOptions extends ElasticsearchBaseOptions {
                             Collections.singletonMap("match_all", new HashMap<String, String>()))
                     .withDescription(
                             "Elasticsearch query language. You can control the range of data read");
+
+    public static final Option<Boolean> USE_PIT =
+            Options.key("use_pit")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to use Point-in-Time (PIT) API instead of scroll API. PIT API is more efficient and is the recommended approach in newer Elasticsearch versions (7.10+).");
+
+    public static final Option<Long> PIT_KEEP_ALIVE =
+            Options.key("pit_keep_alive")
+                    .longType()
+                    .defaultValue(TimeUnit.MINUTES.toMillis(1)) // 1 minute in milliseconds
+                    .withDescription(
+                            "The amount of time (in milliseconds) for which the PIT should be kept alive. Default is 1 minute.");
+
+    public static final Option<Integer> PIT_BATCH_SIZE =
+            Options.key("pit_batch_size")
+                    .intType()
+                    .defaultValue(100)
+                    .withDescription(
+                            "Maximum number of hits to be returned with each PIT search request. Similar to scroll_size but for PIT API.");
 }
