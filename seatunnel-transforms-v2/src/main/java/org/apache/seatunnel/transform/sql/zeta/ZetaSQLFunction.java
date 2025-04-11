@@ -568,7 +568,6 @@ public class ZetaSQLFunction {
                 return SystemFunction.ifnull(args);
             case NULLIF:
                 return SystemFunction.nullif(args);
-                // MULTI_IF is now handled directly in computeForValue
             case ARRAY:
                 return ArrayFunction.array(args);
             case ARRAY_MAX:
