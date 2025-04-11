@@ -186,8 +186,6 @@ RPAD(TEXT, 10, '-')
 
 Removes all leading spaces or other specified characters from a string.
 
-This function is deprecated, use TRIM instead of it.
-
 Example:
 
 LTRIM(NAME)
@@ -198,8 +196,6 @@ LTRIM(NAME)
 
 Removes all trailing spaces or other specified characters from a string.
 
-This function is deprecated, use TRIM instead of it.
-
 Example:
 
 RTRIM(NAME)
@@ -208,13 +204,11 @@ RTRIM(NAME)
 
 ```TRIM(string[, characterToTrimString])```
 
-Removes all leading spaces or other specified characters from a string.
-
-This function is deprecated, use TRIM instead of it.
+Removes all leading spaces and trailing spaces or other specified characters from a string.
 
 Example:
 
-LTRIM(NAME)
+TRIM(NAME)
 
 ### REGEXP_REPLACE
 
