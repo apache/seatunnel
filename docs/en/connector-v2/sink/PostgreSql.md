@@ -142,7 +142,7 @@ When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to JDBC Sink. FakeSource generates a total of 16 rows of data (row.num=16), with each row having two fields, name (string type) and age (int type). The final target table is test_table will also be 16 rows of data in the table. Before run this job, you need create database test and table test_table in your PostgreSQL. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../start-v2/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../start-v2/locally/quick-start-seatunnel-engine.md) to run this job.
 
@@ -208,7 +208,7 @@ sink {
 }
 ```
 
-### Exactly-once :
+### Exactly-once
 
 > For accurate write scene we guarantee accurate once
 

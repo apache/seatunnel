@@ -67,7 +67,7 @@ Cloudberry supports parallel reading following the same rules as PostgreSQL conn
 
 ## Task Example
 
-### Simple:
+### Simple
 
 ```hocon
 env {
@@ -90,7 +90,7 @@ sink {
 }
 ```
 
-### Parallel reading with table_path:
+### Parallel reading with table_path
 
 ```hocon
 env {
@@ -114,7 +114,7 @@ sink {
 }
 ```
 
-### Multiple table read:
+### Multiple table read
 
 ```hocon
 env {

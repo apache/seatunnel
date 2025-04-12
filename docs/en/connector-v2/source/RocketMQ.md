@@ -66,7 +66,7 @@ start.mode.offsets = {
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > Consumer reads Rocketmq data and prints it to the console type
 
@@ -114,7 +114,7 @@ sink {
 }
 ```
 
-### Specified format consumption Simple:
+### Specified format consumption simple
 
 > When I consume the topic data in json format parsing and pulling the number of bars each time is 400, the consumption starts from the original location
 
@@ -165,7 +165,7 @@ sink {
 }
 ```
 
-### Specified timestamp Simple:
+### Specified timestamp simple
 
 > This is to specify a time to consume, and I dynamically sense the existence of a new partition every 1000 milliseconds to pull the consumption
 
@@ -221,7 +221,7 @@ sink {
 }
 ```
 
-### Specified tag example:
+### Specified tag example
 
 > Here you can specify a tag to consume data. If there are multiple tags, use `,` to separate them, for example: "tag1,tag2"
 
