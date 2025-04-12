@@ -1,4 +1,4 @@
-import ChangeLog from '../changelog/connector-cdc-mysql.md';
+
 
 # MySQL CDC
 
@@ -351,4 +351,3 @@ sink {
 
 ## 更新日志
 
-<ChangeLog />
