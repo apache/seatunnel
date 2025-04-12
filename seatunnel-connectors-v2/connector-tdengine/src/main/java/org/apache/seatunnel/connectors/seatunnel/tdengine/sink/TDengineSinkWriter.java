@@ -133,6 +133,9 @@ public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         return Arrays.stream(objects)
                 .map(
                         object -> {
+                            if (object == null) {
+                                return null;
+                            }
                             if (LocalDateTime.class.equals(object.getClass())) {
                                 // transform timezone according to the config
                                 return "'"
