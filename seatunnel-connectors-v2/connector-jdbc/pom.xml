@@ -42,7 +42,7 @@
         <tablestore.version>5.13.9</tablestore.version>
         <teradata.version>17.20.00.12</teradata.version>
         <redshift.version>2.1.0.9</redshift.version>
-        <saphana.version>2.14.7</saphana.version>
+        <saphana.version>2.23.10</saphana.version>
         <snowflake.version>3.13.29</snowflake.version>
         <vertica.version>12.0.3-0</vertica.version>
         <hikari.version>4.0.3</hikari.version>
@@ -240,9 +240,10 @@
         </dependency>
 
         <dependency>
-            <groupId>com.zaxxer</groupId>
-            <artifactId>HikariCP</artifactId>
-            <version>${hikari.version}</version>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-hikari</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
         </dependency>
 
         <dependency>
@@ -353,43 +354,4 @@
         </dependency>
     </dependencies>
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                        <phase>package</phase>
-                        <configuration>
-                            <createSourcesJar>false</createSourcesJar>
-                            <shadeSourcesContent>true</shadeSourcesContent>
-                            <shadedArtifactAttached>false</shadedArtifactAttached>
-                            <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <filters>
-                                <filter>
-                                    <artifact>*:*</artifact>
-                                    <excludes>
-                                        <exclude>META-INF/*.SF</exclude>
-                                        <exclude>META-INF/*.DSA</exclude>
-                                        <exclude>META-INF/*.RSA</exclude>
-                                    </excludes>
-                                </filter>
-                            </filters>
-                            <relocations>
-                                <!-- rename hikari to avoid jar conflict from spark -->
-                                <relocation>
-                                    <pattern>com.zaxxer.hikari</pattern>
-                                    <shadedPattern>${seatunnel.shade.package}.com.zaxxer.hikari</shadedPattern>
-                                </relocation>
-                            </relocations>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
 </project>

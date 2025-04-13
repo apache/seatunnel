@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-iotdb.md';
+
 # IoTDB
 
 > IoTDB source connector
@@ -174,14 +176,5 @@ Loaded to SeaTunnelRow data format is the following:
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add IoTDB Source Connector
-
-### 2.3.0-beta 2022-10-20
-
-- [Improve] Improve IoTDB Source Connector ([2917](https://github.com/apache/seatunnel/pull/2917))
-  - Support extract timestamp、device、measurement from SeaTunnelRow
-  - Support TINYINT、SMALLINT
-  - Support flush cache to database before prepareCommit
+<ChangeLog />
 

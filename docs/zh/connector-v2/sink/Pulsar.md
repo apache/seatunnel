@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-pulsar.md';
+
 # Pulsar
 
 > Pulsar 数据连接器
@@ -160,9 +162,6 @@ sink {
 }
 ```
 
-## 更改日志
+## 变更日志
 
-### 下一个版本
-
-- 添加 Pulsar Sink 连接器
-
+<ChangeLog />

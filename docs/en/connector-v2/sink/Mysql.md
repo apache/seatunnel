@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # MySQL
 
 > JDBC Mysql Sink Connector
@@ -208,3 +210,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

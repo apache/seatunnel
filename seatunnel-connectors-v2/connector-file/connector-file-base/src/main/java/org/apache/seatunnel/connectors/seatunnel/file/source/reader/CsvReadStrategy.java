@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
@@ -29,8 +28,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
@@ -38,6 +37,10 @@ import org.apache.seatunnel.format.csv.CsvDeserializationSchema;
 import org.apache.seatunnel.format.csv.constant.CsvFormatConstant;
 import org.apache.seatunnel.format.csv.processor.CsvLineProcessor;
 import org.apache.seatunnel.format.csv.processor.DefaultCsvLineProcessor;
+
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
 
 import io.airlift.compress.lzo.LzopCodec;
 import lombok.extern.slf4j.Slf4j;
@@ -47,21 +50,26 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class CsvReadStrategy extends AbstractReadStrategy {
-    private DeserializationSchema<SeaTunnelRow> deserializationSchema;
-    private String fieldDelimiter = BaseSourceConfigOptions.FIELD_DELIMITER.defaultValue();
-    private DateUtils.Formatter dateFormat = BaseSourceConfigOptions.DATE_FORMAT.defaultValue();
+    private CsvDeserializationSchema deserializationSchema;
+    private String fieldDelimiter = FileBaseSourceOptions.FIELD_DELIMITER.defaultValue();
+    private DateUtils.Formatter dateFormat = FileBaseSourceOptions.DATE_FORMAT.defaultValue();
     private DateTimeUtils.Formatter datetimeFormat =
-            BaseSourceConfigOptions.DATETIME_FORMAT.defaultValue();
-    private TimeUtils.Formatter timeFormat = BaseSourceConfigOptions.TIME_FORMAT.defaultValue();
-    private CompressFormat compressFormat = BaseSourceConfigOptions.COMPRESS_CODEC.defaultValue();
+            FileBaseSourceOptions.DATETIME_FORMAT.defaultValue();
+    private TimeUtils.Formatter timeFormat = FileBaseSourceOptions.TIME_FORMAT.defaultValue();
+    private CompressFormat compressFormat = FileBaseSourceOptions.COMPRESS_CODEC.defaultValue();
     private CsvLineProcessor processor;
     private int[] indexes;
-    private String encoding = BaseSourceConfigOptions.ENCODING.defaultValue();
+    private String encoding = FileBaseSourceOptions.ENCODING.defaultValue();
+    private CatalogTable inputCatalogTable;
+    private boolean firstLineAsHeader = FileBaseSourceOptions.CSV_USE_HEADER_LINE.defaultValue();
 
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
@@ -96,52 +104,86 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 break;
         }
 
-        try (BufferedReader reader =
-                new BufferedReader(new InputStreamReader(actualInputStream, encoding))) {
-            reader.lines()
-                    .skip(skipHeaderNumber)
-                    .forEach(
-                            line -> {
-                                try {
-                                    SeaTunnelRow seaTunnelRow =
-                                            deserializationSchema.deserialize(
-                                                    line.getBytes(StandardCharsets.UTF_8));
-                                    if (!readColumns.isEmpty()) {
-                                        // need column projection
-                                        Object[] fields;
-                                        if (isMergePartition) {
-                                            fields =
-                                                    new Object
-                                                            [readColumns.size()
-                                                                    + partitionsMap.size()];
-                                        } else {
-                                            fields = new Object[readColumns.size()];
-                                        }
-                                        for (int i = 0; i < indexes.length; i++) {
-                                            fields[i] = seaTunnelRow.getField(indexes[i]);
-                                        }
-                                        seaTunnelRow = new SeaTunnelRow(fields);
-                                    }
-                                    if (isMergePartition) {
-                                        int index = seaTunnelRowType.getTotalFields();
-                                        for (String value : partitionsMap.values()) {
-                                            seaTunnelRow.setField(index++, value);
-                                        }
-                                    }
-                                    seaTunnelRow.setTableId(tableId);
-                                    output.collect(seaTunnelRow);
-                                } catch (IOException e) {
-                                    String errorMsg =
-                                            String.format(
-                                                    "Deserialize this data [%s] failed, please check the origin data",
-                                                    line);
-                                    throw new FileConnectorException(
-                                            FileConnectorErrorCode.DATA_DESERIALIZE_FAILED,
-                                            errorMsg,
-                                            e);
-                                }
-                            });
+        CSVFormat csvFormat = CSVFormat.DEFAULT;
+        if (firstLineAsHeader) {
+            csvFormat = csvFormat.withFirstRecordAsHeader();
         }
+        try (BufferedReader reader =
+                        new BufferedReader(new InputStreamReader(actualInputStream, encoding));
+                CSVParser csvParser = new CSVParser(reader, csvFormat); ) {
+            // test and skip `\uFEFF` BOM
+            reader.mark(1);
+            int firstChar = reader.read();
+            if (firstChar != 0xFEFF) {
+                reader.reset();
+            }
+            // skip lines
+            for (int i = 0; i < skipHeaderNumber; i++) {
+                if (reader.readLine() == null) {
+                    throw new IOException(
+                            String.format(
+                                    "File [%s] has fewer lines than expected to skip.",
+                                    currentFileName));
+                }
+            }
+            // read lines
+            List<String> headers = getHeaders(csvParser);
+            for (CSVRecord csvRecord : csvParser) {
+                HashMap<Integer, String> fieldIdValueMap = new HashMap<>();
+                for (int i = 0; i < headers.size(); i++) {
+                    // the user input schema may not contain all the columns in the csv header
+                    // and may contain columns in a different order with the csv header
+                    int index =
+                            inputCatalogTable.getSeaTunnelRowType().indexOf(headers.get(i), false);
+                    if (index == -1) {
+                        continue;
+                    }
+                    fieldIdValueMap.put(index, csvRecord.get(i));
+                }
+                SeaTunnelRow seaTunnelRow = deserializationSchema.getSeaTunnelRow(fieldIdValueMap);
+                if (!readColumns.isEmpty()) {
+                    // need column projection
+                    Object[] fields;
+                    if (isMergePartition) {
+                        fields = new Object[readColumns.size() + partitionsMap.size()];
+                    } else {
+                        fields = new Object[readColumns.size()];
+                    }
+                    for (int i = 0; i < indexes.length; i++) {
+                        fields[i] = seaTunnelRow.getField(indexes[i]);
+                    }
+                    seaTunnelRow = new SeaTunnelRow(fields);
+                }
+                if (isMergePartition) {
+                    int index = seaTunnelRowType.getTotalFields();
+                    for (String value : partitionsMap.values()) {
+                        seaTunnelRow.setField(index++, value);
+                    }
+                }
+                seaTunnelRow.setTableId(tableId);
+                output.collect(seaTunnelRow);
+            }
+        } catch (IOException e) {
+            String errorMsg =
+                    String.format(
+                            "Deserialize this file [%s] failed, please check the origin data",
+                            currentFileName);
+            throw new FileConnectorException(
+                    FileConnectorErrorCode.DATA_DESERIALIZE_FAILED, errorMsg, e);
+        }
+    }
+
+    private List<String> getHeaders(CSVParser csvParser) {
+        List<String> headers;
+        if (firstLineAsHeader) {
+            headers = csvParser.getHeaderNames().stream().collect(Collectors.toList());
+        } else {
+            headers =
+                    inputCatalogTable.getTableSchema().getColumns().stream()
+                            .map(column -> column.getName())
+                            .collect(Collectors.toList());
+        }
+        return headers;
     }
 
     @Override
@@ -150,7 +192,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
         this.seaTunnelRowTypeWithPartition =
                 mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
         initFormatter();
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_COLUMNS.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.READ_COLUMNS.key())) {
             throw new FileConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     "When reading csv files, if user has not specified schema information, "
@@ -163,7 +205,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                         .csvLineProcessor(processor)
                         .nullFormat(
                                 readonlyConfig
-                                        .getOptional(BaseSourceConfigOptions.NULL_FORMAT)
+                                        .getOptional(FileBaseSourceOptions.NULL_FORMAT)
                                         .orElse(null));
         if (isMergePartition) {
             deserializationSchema =
@@ -177,14 +219,15 @@ public class CsvReadStrategy extends AbstractReadStrategy {
     @Override
     public void setCatalogTable(CatalogTable catalogTable) {
         SeaTunnelRowType rowType = catalogTable.getSeaTunnelRowType();
+        this.inputCatalogTable = catalogTable;
         SeaTunnelRowType userDefinedRowTypeWithPartition =
                 mergePartitionTypes(fileNames.get(0), rowType);
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
         Optional<String> fieldDelimiterOptional =
-                readonlyConfig.getOptional(BaseSourceConfigOptions.FIELD_DELIMITER);
+                readonlyConfig.getOptional(FileBaseSourceOptions.FIELD_DELIMITER);
         encoding =
                 readonlyConfig
-                        .getOptional(BaseSourceConfigOptions.ENCODING)
+                        .getOptional(FileBaseSourceOptions.ENCODING)
                         .orElse(StandardCharsets.UTF_8.name());
         fieldDelimiter = ",";
         initFormatter();
@@ -194,8 +237,12 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                         .csvLineProcessor(processor)
                         .nullFormat(
                                 readonlyConfig
-                                        .getOptional(BaseSourceConfigOptions.NULL_FORMAT)
+                                        .getOptional(FileBaseSourceOptions.NULL_FORMAT)
                                         .orElse(null));
+        if (pluginConfig.hasPath(FileBaseSourceOptions.CSV_USE_HEADER_LINE.key())) {
+            firstLineAsHeader =
+                    pluginConfig.getBoolean(FileBaseSourceOptions.CSV_USE_HEADER_LINE.key());
+        }
         if (isMergePartition) {
             deserializationSchema =
                     builder.seaTunnelRowType(userDefinedRowTypeWithPartition).build();
@@ -203,7 +250,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
             deserializationSchema = builder.seaTunnelRowType(rowType).build();
         }
         // column projection
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_COLUMNS.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.READ_COLUMNS.key())) {
             // get the read column index from user-defined row type
             indexes = new int[readColumns.size()];
             String[] fields = new String[readColumns.size()];
@@ -223,24 +270,24 @@ public class CsvReadStrategy extends AbstractReadStrategy {
     }
 
     private void initFormatter() {
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.DATE_FORMAT.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.DATE_FORMAT.key())) {
             dateFormat =
                     DateUtils.Formatter.parse(
-                            pluginConfig.getString(BaseSourceConfigOptions.DATE_FORMAT.key()));
+                            pluginConfig.getString(FileBaseSourceOptions.DATE_FORMAT.key()));
         }
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.DATETIME_FORMAT.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.DATETIME_FORMAT.key())) {
             datetimeFormat =
                     DateTimeUtils.Formatter.parse(
-                            pluginConfig.getString(BaseSourceConfigOptions.DATETIME_FORMAT.key()));
+                            pluginConfig.getString(FileBaseSourceOptions.DATETIME_FORMAT.key()));
         }
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.TIME_FORMAT.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.TIME_FORMAT.key())) {
             timeFormat =
                     TimeUtils.Formatter.parse(
-                            pluginConfig.getString(BaseSourceConfigOptions.TIME_FORMAT.key()));
+                            pluginConfig.getString(FileBaseSourceOptions.TIME_FORMAT.key()));
         }
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.COMPRESS_CODEC.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.COMPRESS_CODEC.key())) {
             String compressCodec =
-                    pluginConfig.getString(BaseSourceConfigOptions.COMPRESS_CODEC.key());
+                    pluginConfig.getString(FileBaseSourceOptions.COMPRESS_CODEC.key());
             compressFormat = CompressFormat.valueOf(compressCodec.toUpperCase());
         }
 

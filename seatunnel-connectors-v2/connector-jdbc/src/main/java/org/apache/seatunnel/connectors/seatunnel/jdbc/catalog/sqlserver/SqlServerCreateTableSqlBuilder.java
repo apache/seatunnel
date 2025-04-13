@@ -152,7 +152,7 @@ public class SqlServerCreateTableSqlBuilder {
             tableAndColumnComment.append(
                     String.format(
                             "EXEC %s.sys.sp_addextendedproperty 'MS_Description', N'%s', 'schema', N'%s', 'table', N'%s';\n",
-                            tablePath.getDatabaseName(),
+                            "[" + tablePath.getDatabaseName() + "]",
                             comment,
                             tablePath.getSchemaName(),
                             tablePath.getTableName()));
@@ -164,7 +164,7 @@ public class SqlServerCreateTableSqlBuilder {
                     tableAndColumnComment.append(
                             String.format(
                                     columnComment,
-                                    tablePath.getDatabaseName(),
+                                    "[" + tablePath.getDatabaseName() + "]",
                                     com,
                                     tablePath.getSchemaName(),
                                     tablePath.getTableName(),
@@ -200,12 +200,14 @@ public class SqlServerCreateTableSqlBuilder {
         } else {
             columnSqls.add(SqlServerTypeConverter.INSTANCE.reconvert(column).getColumnType());
         }
+
         // nullable
-        if (column.isNullable()) {
-            columnSqls.add("NULL");
-        } else {
-            columnSqls.add("NOT NULL");
-        }
+        boolean isPrimaryKeyColumn =
+                createIndex
+                        && primaryKey != null
+                        && primaryKey.getColumnNames().contains(column.getName());
+        String nullability = (column.isNullable() && !isPrimaryKeyColumn) ? "NULL" : "NOT NULL";
+        columnSqls.add(nullability);
 
         // comment
         if (column.getComment() != null) {

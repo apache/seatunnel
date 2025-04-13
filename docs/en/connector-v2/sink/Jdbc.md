@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # JDBC
 
 > JDBC sink connector
@@ -29,7 +31,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
 ## Options
 
-|                   Name                    |  Type   | Required |           Default            |
+| Name                                      | Type    | Required | Default                      |
 |-------------------------------------------|---------|----------|------------------------------|
 | url                                       | String  | Yes      | -                            |
 | driver                                    | String  | Yes      | -                            |
@@ -37,6 +39,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | password                                  | String  | No       | -                            |
 | query                                     | String  | No       | -                            |
 | compatible_mode                           | String  | No       | -                            |
+| dialect                                   | String  | No       | -                            | 
 | database                                  | String  | No       | -                            |
 | table                                     | String  | No       | -                            |
 | primary_keys                              | Array   | No       | -                            |
@@ -88,6 +91,23 @@ For example, when using OceanBase database, you need to set it to 'mysql' or 'or
 
 Postgres 9.5 version or below,please set it to `postgresLow` to support cdc
 
+### dialect [string]
+
+The appointed dialect, if it does not exist, is still obtained according to the url, and the priority is higher than the url. For example,when using starrocks, you need set it to `starrocks`. Similarly, when using mysql, you need to set its value to `mysql`.
+
+#### dialect list
+
+|           | Dialect Name |          |
+|-----------|--------------|----------|
+| Greenplum | DB2          | Dameng   |
+| Gbase8a   | HIVE         | KingBase |
+| MySQL     | StarRocks    | Oracle   |
+| Phoenix   | Postgres     | Redshift |
+| SapHana   | Snowflake    | Sqlite   |
+| SqlServer | Tablestore   | Teradata |
+| Vertica   | OceanBase    | XUGU     |
+| IRIS      | Inceptor     | Highgo   |
+
 ### database [string]
 
 Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.
@@ -103,11 +123,13 @@ This option is mutually exclusive with `query` and has a higher priority.
 The table parameter can fill in the name of an unwilling table, which will eventually be used as the table name of the creation table, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the name of the table passed to the table at the target side.
 
 mysql sink for example:
+
 1. test_${schema_name}_${table_name}_test
 2. sink_sinktable
 3. ss_${table_name}
 
 pgsql (Oracle Sqlserver ...) Sink for example:
+
 1. ${schema_name}.${table_name} _test
 2. dbo.tt_${table_name} _sink
 3. public.sink_table
@@ -434,28 +456,5 @@ sink {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Console Sink Connector
-
-### 2.3.0-beta 2022-10-20
-
-- [BugFix] Fix JDBC split exception ([2904](https://github.com/apache/seatunnel/pull/2904))
-- [Feature] Support Phoenix JDBC Sink ([2499](https://github.com/apache/seatunnel/pull/2499))
-- [Feature] Support SQL Server JDBC Sink ([2646](https://github.com/apache/seatunnel/pull/2646))
-- [Feature] Support Oracle JDBC Sink ([2550](https://github.com/apache/seatunnel/pull/2550))
-- [Feature] Support StarRocks JDBC Sink ([3060](https://github.com/apache/seatunnel/pull/3060))
-- [Feature] Support DB2 JDBC Sink ([2410](https://github.com/apache/seatunnel/pull/2410))
-
-### next version
-
-- [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3378](https://github.com/apache/seatunnel/issues/3378))
-- [Feature] Support Teradata JDBC　Sink ([3362](https://github.com/apache/seatunnel/pull/3362))
-- [Feature] Support Sqlite JDBC Sink ([3089](https://github.com/apache/seatunnel/pull/3089))
-- [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3378](https://github.com/apache/seatunnel/issues/3378))
-- [Feature] Support Doris JDBC Sink
-- [Feature] Support Redshift JDBC Sink([#3615](https://github.com/apache/seatunnel/pull/3615))
-- [Improve] Add config item enable upsert by query([#3708](https://github.com/apache/seatunnel/pull/3708))
-- [Improve] Add database field to sink config([#4199](https://github.com/apache/seatunnel/pull/4199))
-- [Improve] Add Vertica connector([#4303](https://github.com/apache/seatunnel/pull/4303))
+<ChangeLog />
 

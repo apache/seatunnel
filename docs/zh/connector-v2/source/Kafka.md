@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-kafka.md';
+
 # Kafka
 
 > Kafka 源连接器
@@ -54,7 +56,8 @@
 | common-options                      |                                     | 否    | -                        | 源插件的常见参数，详情请参考 [Source Common Options](../source-common-options.md)。                                                                                                                                                                                                                                                           |
 | protobuf_message_name               | String                              | 否    | -                        | 当格式设置为 protobuf 时有效，指定消息名称。                                                                                                                                                                                                                                                                                                    |
 | protobuf_schema                     | String                              | 否    | -                        | 当格式设置为 protobuf 时有效，指定 Schema 定义。                                                                                                                                                                                                                                                                                              |
-| is_native                           | Boolean                                                                    | No       | false                    | 支持保留record的源信息。                                                                                                                                                                                                                                                                                                                |
+| reader_cache_queue_size             | Integer                             | 否    | 1024                     | Reader分片缓存队列，用于缓存分片对应的数据。占用大小取决于每个reader得到的分片量，而不是每个分片的数据量。                                                                                                                                                                                                                                               |
+| is_native                           | Boolean                             | No       | false                    | 支持保留record的源信息。                                                                                                                                                                                                                                                                                                                |
 
 ### debezium_record_table_filter
 
@@ -174,6 +177,8 @@ source {
 
 ### Kerberos 认证示例
 
+请在启动 SeaTunnel 之前设置 JVM 参数 `java.security.krb5.conf` 或更新 `/etc/krb5.conf` 中的默认 `krb5.conf`。
+
 源配置示例：
 
 ```hocon
@@ -186,7 +191,6 @@ source {
             security.protocol=SASL_PLAINTEXT
             sasl.kerberos.service.name=kafka
             sasl.mechanism=GSSAPI
-            java.security.krb5.conf="/etc/krb5.conf"
             sasl.jaas.config="com.sun.security.auth.module.Krb5LoginModule required \n        useKeyTab=true \n        storeKey=true  \n        keyTab=\"/path/to/xxx.keytab\" \n        principal=\"user@xxx.com\";"
         }
     }
@@ -396,3 +400,7 @@ source {
 }
 ```
 注意：key/value是byte[]类型。
+
+## 变更日志
+
+<ChangeLog />

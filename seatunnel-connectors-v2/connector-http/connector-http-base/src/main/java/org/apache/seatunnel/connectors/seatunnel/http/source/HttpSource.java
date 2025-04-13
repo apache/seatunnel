@@ -22,7 +22,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -34,10 +34,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
@@ -45,6 +42,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSpl
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.http.config.JsonField;
 import org.apache.seatunnel.connectors.seatunnel.http.config.PageInfo;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
@@ -52,7 +50,6 @@ import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 
 public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     protected final HttpParameter httpParameter = new HttpParameter();
@@ -64,16 +61,7 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     protected CatalogTable catalogTable;
 
-    public HttpSource(Config pluginConfig) {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HttpConfig.URL.key());
-        if (!result.isSuccess()) {
-            throw new HttpConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
-
+    public HttpSource(ReadonlyConfig pluginConfig) {
         this.httpParameter.buildWithConfig(pluginConfig);
         buildSchemaWithConfig(pluginConfig);
         buildPagingWithConfig(pluginConfig);
@@ -91,54 +79,51 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                 : Boundedness.UNBOUNDED;
     }
 
-    private void buildPagingWithConfig(Config pluginConfig) {
-        if (pluginConfig.hasPath(HttpConfig.PAGEING.key())) {
+    private void buildPagingWithConfig(ReadonlyConfig config) {
+        Config pluginConfig = config.toConfig();
+        if (pluginConfig.hasPath(HttpSourceOptions.PAGEING.key())) {
             pageInfo = new PageInfo();
-            Config pageConfig = pluginConfig.getConfig(HttpConfig.PAGEING.key());
-            if (pageConfig.hasPath(HttpConfig.TOTAL_PAGE_SIZE.key())) {
-                pageInfo.setTotalPageSize(pageConfig.getLong(HttpConfig.TOTAL_PAGE_SIZE.key()));
+            Config pageConfig = pluginConfig.getConfig(HttpSourceOptions.PAGEING.key());
+            if (pageConfig.hasPath(HttpSourceOptions.TOTAL_PAGE_SIZE.key())) {
+                pageInfo.setTotalPageSize(
+                        pageConfig.getLong(HttpSourceOptions.TOTAL_PAGE_SIZE.key()));
             } else {
-                pageInfo.setTotalPageSize(HttpConfig.TOTAL_PAGE_SIZE.defaultValue());
+                pageInfo.setTotalPageSize(HttpSourceOptions.TOTAL_PAGE_SIZE.defaultValue());
             }
-            if (pageConfig.hasPath(HttpConfig.START_PAGE_NUMBER.key())) {
-                pageInfo.setPageIndex(pageConfig.getLong(HttpConfig.START_PAGE_NUMBER.key()));
+            if (pageConfig.hasPath(HttpSourceOptions.START_PAGE_NUMBER.key())) {
+                pageInfo.setPageIndex(
+                        pageConfig.getLong(HttpSourceOptions.START_PAGE_NUMBER.key()));
             } else {
-                pageInfo.setPageIndex(HttpConfig.START_PAGE_NUMBER.defaultValue());
+                pageInfo.setPageIndex(HttpSourceOptions.START_PAGE_NUMBER.defaultValue());
             }
 
-            if (pageConfig.hasPath(HttpConfig.BATCH_SIZE.key())) {
-                pageInfo.setBatchSize(pageConfig.getInt(HttpConfig.BATCH_SIZE.key()));
+            if (pageConfig.hasPath(HttpSourceOptions.BATCH_SIZE.key())) {
+                pageInfo.setBatchSize(pageConfig.getInt(HttpSourceOptions.BATCH_SIZE.key()));
             } else {
-                pageInfo.setBatchSize(HttpConfig.BATCH_SIZE.defaultValue());
+                pageInfo.setBatchSize(HttpSourceOptions.BATCH_SIZE.defaultValue());
             }
-            if (pageConfig.hasPath(HttpConfig.PAGE_FIELD.key())) {
-                pageInfo.setPageField(pageConfig.getString(HttpConfig.PAGE_FIELD.key()));
+            if (pageConfig.hasPath(HttpSourceOptions.PAGE_FIELD.key())) {
+                pageInfo.setPageField(pageConfig.getString(HttpSourceOptions.PAGE_FIELD.key()));
             }
         }
     }
 
-    protected void buildSchemaWithConfig(Config pluginConfig) {
-        if (pluginConfig.hasPath(ConnectorCommonOptions.SCHEMA.key())) {
+    protected void buildSchemaWithConfig(ReadonlyConfig pluginConfig) {
+        if (pluginConfig.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
             this.catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
             // default use json format
-            HttpConfig.ResponseFormat format = HttpConfig.FORMAT.defaultValue();
-            if (pluginConfig.hasPath(HttpConfig.FORMAT.key())) {
-                format =
-                        HttpConfig.ResponseFormat.valueOf(
-                                pluginConfig
-                                        .getString(HttpConfig.FORMAT.key())
-                                        .toUpperCase(Locale.ROOT));
-            }
+            HttpConfig.ResponseFormat format = pluginConfig.get(HttpSourceOptions.FORMAT);
             switch (format) {
                 case JSON:
                     this.deserializationSchema =
                             new JsonDeserializationSchema(catalogTable, false, false);
-                    if (pluginConfig.hasPath(HttpConfig.JSON_FIELD.key())) {
+                    Config config = pluginConfig.toConfig();
+                    if (config.hasPath(HttpSourceOptions.JSON_FIELD.key())) {
                         jsonField =
-                                getJsonField(pluginConfig.getConfig(HttpConfig.JSON_FIELD.key()));
+                                getJsonField(config.getConfig(HttpSourceOptions.JSON_FIELD.key()));
                     }
-                    if (pluginConfig.hasPath(HttpConfig.CONTENT_FIELD.key())) {
-                        contentField = pluginConfig.getString(HttpConfig.CONTENT_FIELD.key());
+                    if (config.hasPath(HttpSourceOptions.CONTENT_FIELD.key())) {
+                        contentField = config.getString(HttpSourceOptions.CONTENT_FIELD.key());
                     }
                     break;
                 default:

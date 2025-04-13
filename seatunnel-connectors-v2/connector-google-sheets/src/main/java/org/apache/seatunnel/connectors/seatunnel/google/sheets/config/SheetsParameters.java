@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.google.sheets.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import lombok.Data;
 
@@ -34,12 +34,11 @@ public class SheetsParameters implements Serializable {
 
     private String range;
 
-    public SheetsParameters buildWithConfig(Config config) {
-        this.serviceAccountKey =
-                config.getString(SheetsConfig.SERVICE_ACCOUNT_KEY.key()).getBytes();
-        this.sheetId = config.getString(SheetsConfig.SHEET_ID.key());
-        this.sheetName = config.getString(SheetsConfig.SHEET_NAME.key());
-        this.range = config.getString(SheetsConfig.RANGE.key());
+    public SheetsParameters buildWithConfig(ReadonlyConfig config) {
+        this.serviceAccountKey = config.get(SheetsSourceOptions.SERVICE_ACCOUNT_KEY).getBytes();
+        this.sheetId = config.get(SheetsSourceOptions.SHEET_ID);
+        this.sheetName = config.get(SheetsSourceOptions.SHEET_NAME);
+        this.range = config.get(SheetsSourceOptions.RANGE);
         return this;
     }
 }

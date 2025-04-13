@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-local.md';
+
 # LocalFile
 
 > Local file source connector
@@ -59,6 +61,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | excel_engine              | string  | no       | POI                                  |                                             
 | xml_row_tag               | string  | no       | -                                    |
 | xml_use_attr_format       | boolean | no       | -                                    |
+| csv_use_header_line       | boolean | no       | false                                |
 | file_filter_pattern       | string  | no       | -                                    |
 | filename_extension            | string  | no       | -                                    |
 | compress_codec            | string  | no       | none                                 |
@@ -262,6 +265,10 @@ Specifies the tag name of the data rows within the XML file.
 Only need to be configured when file_format is xml.
 
 Specifies Whether to process data using the tag attribute format.
+
+### csv_use_header_line [boolean]
+
+Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180
 
 ### file_filter_pattern [string]
 
@@ -508,15 +515,4 @@ sink {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Local File Source Connector
-
-### 2.3.0-beta 2022-10-20
-
-- [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/seatunnel/pull/2980))
-- [Improve] Support extract partition from SeaTunnelRow fields ([3085](https://github.com/apache/seatunnel/pull/3085))
-- [Improve] Support parse field from file path ([2985](https://github.com/apache/seatunnel/pull/2985))
-### 2.3.9-beta 2024-11-12
-- [Improve] Support parse field from file path ([8019](https://github.com/apache/seatunnel/issues/8019))
-
+<ChangeLog />

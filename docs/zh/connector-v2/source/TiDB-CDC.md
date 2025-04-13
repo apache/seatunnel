@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-cdc-tidb.md';
+
 # TiDB CDC
 
 > TiDB CDC模式的连接器
@@ -119,3 +121,6 @@ sink {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />

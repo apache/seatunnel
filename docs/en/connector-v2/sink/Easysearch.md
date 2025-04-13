@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-easysearch.md';
+
 # INFINI Easysearch
 
 ## Support Those Engines
@@ -194,9 +196,5 @@ sink {
 
 ## Changelog
 
-### 2.3.4 2023-11-16
-
-- Add Easysearch Sink Connector
-- Support http/https protocol
-- Support CDC write DELETE/UPDATE/INSERT events
+<ChangeLog />
 

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-prometheus.md';
+
 # Prometheus
 
 > Prometheus 数据源连接器
@@ -143,10 +145,6 @@ source {
   }
 ```
 
-## Changelog
+## 变更日志
 
-### next version
-
-- 添加Prometheus源连接器
-- 减少配置项
-
+<ChangeLog />

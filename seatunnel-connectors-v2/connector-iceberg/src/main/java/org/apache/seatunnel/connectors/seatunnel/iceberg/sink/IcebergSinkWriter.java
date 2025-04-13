@@ -32,7 +32,7 @@ import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventHandler;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit.IcebergCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit.IcebergFilesCommitter;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.state.IcebergSinkState;
@@ -59,7 +59,7 @@ public class IcebergSinkWriter
                 SupportSchemaEvolutionSinkWriter {
     private TableSchema tableSchema;
     private SeaTunnelRowType rowType;
-    private final SinkConfig config;
+    private final IcebergSinkConfig config;
     private final IcebergTableLoader icebergTableLoader;
     private volatile RecordWriter writer;
     private final IcebergFilesCommitter filesCommitter;
@@ -70,7 +70,7 @@ public class IcebergSinkWriter
 
     public IcebergSinkWriter(
             IcebergTableLoader icebergTableLoader,
-            SinkConfig config,
+            IcebergSinkConfig config,
             TableSchema tableSchema,
             List<IcebergSinkState> states) {
         this.config = config;
@@ -100,12 +100,12 @@ public class IcebergSinkWriter
         }
     }
 
-    public static IcebergSinkWriter of(SinkConfig config, CatalogTable catalogTable) {
+    public static IcebergSinkWriter of(IcebergSinkConfig config, CatalogTable catalogTable) {
         return of(config, catalogTable, null);
     }
 
     public static IcebergSinkWriter of(
-            SinkConfig config, CatalogTable catalogTable, List<IcebergSinkState> states) {
+            IcebergSinkConfig config, CatalogTable catalogTable, List<IcebergSinkState> states) {
         IcebergTableLoader icebergTableLoader = IcebergTableLoader.create(config, catalogTable);
         return new IcebergSinkWriter(
                 icebergTableLoader, config, catalogTable.getTableSchema(), states);

@@ -41,6 +41,12 @@ public class KafkaSourceOptions extends KafkaBaseOptions {
                     .withDescription(
                             "Kafka consumer group id, used to distinguish different consumer groups.");
 
+    public static final Option<Integer> READER_CACHE_QUEUE_SIZE =
+            Options.key("reader_cache_queue_size")
+                    .intType()
+                    .defaultValue(1024)
+                    .withDescription("The size of reader queue.");
+
     public static final Option<Boolean> COMMIT_ON_CHECKPOINT =
             Options.key("commit_on_checkpoint")
                     .booleanType()

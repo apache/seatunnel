@@ -38,6 +38,10 @@ public class TimeUtils {
         return LocalTime.parse(time, FORMATTER_MAP.get(formatter));
     }
 
+    public static LocalTime parse(String dateTime) {
+        return LocalTime.parse(dateTime, FORMATTER_MAP.get(matchTimeFormatter(dateTime)));
+    }
+
     public static final Pattern[] PATTERN_ARRAY =
             new Pattern[] {
                 Pattern.compile("\\d{2}:\\d{2}:\\d{2}"),

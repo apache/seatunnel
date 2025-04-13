@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-socket.md';
+
 # Socket
 
 > Socket 数据接收器
@@ -71,9 +73,6 @@ nc -l -v 9999
 {"name":"jared","age":17}
 ```
 
-## 更改日志
+## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 添加Socket 数据接收器
-
+<ChangeLog />

@@ -57,6 +57,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -90,7 +91,8 @@ public class RowConverterTest {
         "c_date",
         "c_timestamp",
         "c_map",
-        "c_array"
+        "c_array",
+        "c_time"
     };
 
     public static final SeaTunnelDataType<?>[] seaTunnelDataTypes = {
@@ -107,7 +109,8 @@ public class RowConverterTest {
         LocalTimeType.LOCAL_DATE_TYPE,
         LocalTimeType.LOCAL_DATE_TIME_TYPE,
         new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE),
-        ArrayType.STRING_ARRAY_TYPE
+        ArrayType.STRING_ARRAY_TYPE,
+        LocalTimeType.LOCAL_TIME_TYPE
     };
 
     public static final List<String> KEY_NAME_LIST = Arrays.asList("c_tinyint");
@@ -129,7 +132,8 @@ public class RowConverterTest {
                             DataTypes.DATE(),
                             DataTypes.TIMESTAMP(),
                             DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING()),
-                            DataTypes.ARRAY(DataTypes.STRING())
+                            DataTypes.ARRAY(DataTypes.STRING()),
+                            DataTypes.TIME()
                         },
                         new String[] {
                             "c_tinyint",
@@ -145,7 +149,8 @@ public class RowConverterTest {
                             "c_date",
                             "c_timestamp",
                             "c_map",
-                            "c_array"
+                            "c_array",
+                            "c_time",
                         });
 
         return new TableSchema(
@@ -172,11 +177,12 @@ public class RowConverterTest {
         byte[] bytes = new byte[] {1, 2, 3, 4};
         boolean booleanValue = false;
         LocalDate date = LocalDate.of(1996, 3, 16);
+        LocalTime time = LocalTime.of(12, 0, 0);
         LocalDateTime timestamp = LocalDateTime.of(1996, 3, 16, 4, 16, 20);
         Map<String, String> map = new HashMap<>();
         map.put("name", "paimon");
         String[] strings = new String[] {"paimon", "seatunnel"};
-        Object[] objects = new Object[14];
+        Object[] objects = new Object[15];
         objects[0] = tinyint;
         objects[1] = smallint;
         objects[2] = intNum;
@@ -191,8 +197,9 @@ public class RowConverterTest {
         objects[11] = timestamp;
         objects[12] = map;
         objects[13] = strings;
+        objects[14] = time;
         seaTunnelRow = new SeaTunnelRow(objects);
-        BinaryRow binaryRow = new BinaryRow(14);
+        BinaryRow binaryRow = new BinaryRow(15);
         BinaryRowWriter binaryRowWriter = new BinaryRowWriter(binaryRow);
         binaryRowWriter.writeByte(0, tinyint);
         binaryRowWriter.writeShort(1, smallint);
@@ -234,6 +241,7 @@ public class RowConverterTest {
         binaryArrayWriter2.complete();
         binaryRowWriter.writeArray(
                 13, binaryArray2, new InternalArraySerializer(DataTypes.STRING()));
+        binaryRowWriter.writeInt(14, DateTimeUtils.toInternal(time));
         internalRow = binaryRow;
     }
 

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # DB2
 
 > JDBC DB2 Sink Connector
@@ -173,3 +175,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />
