@@ -26,7 +26,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.ElasticsearchClusterInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.IndexDocsCount;
@@ -63,10 +63,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.AGGREGATE_METRIC_DOUBLE;
@@ -92,23 +95,23 @@ public class EsRestClient implements Closeable {
     }
 
     public static EsRestClient createInstance(ReadonlyConfig config) {
-        List<String> hosts = config.get(EsClusterConnectionConfig.HOSTS);
-        Optional<String> username = config.getOptional(EsClusterConnectionConfig.USERNAME);
-        Optional<String> password = config.getOptional(EsClusterConnectionConfig.PASSWORD);
+        List<String> hosts = config.get(ElasticsearchBaseOptions.HOSTS);
+        Optional<String> username = config.getOptional(ElasticsearchBaseOptions.USERNAME);
+        Optional<String> password = config.getOptional(ElasticsearchBaseOptions.PASSWORD);
         Optional<String> keystorePath = Optional.empty();
         Optional<String> keystorePassword = Optional.empty();
         Optional<String> truststorePath = Optional.empty();
         Optional<String> truststorePassword = Optional.empty();
-        boolean tlsVerifyCertificate = config.get(EsClusterConnectionConfig.TLS_VERIFY_CERTIFICATE);
+        boolean tlsVerifyCertificate = config.get(ElasticsearchBaseOptions.TLS_VERIFY_CERTIFICATE);
         if (tlsVerifyCertificate) {
-            keystorePath = config.getOptional(EsClusterConnectionConfig.TLS_KEY_STORE_PATH);
-            keystorePassword = config.getOptional(EsClusterConnectionConfig.TLS_KEY_STORE_PASSWORD);
-            truststorePath = config.getOptional(EsClusterConnectionConfig.TLS_TRUST_STORE_PATH);
+            keystorePath = config.getOptional(ElasticsearchBaseOptions.TLS_KEY_STORE_PATH);
+            keystorePassword = config.getOptional(ElasticsearchBaseOptions.TLS_KEY_STORE_PASSWORD);
+            truststorePath = config.getOptional(ElasticsearchBaseOptions.TLS_TRUST_STORE_PATH);
             truststorePassword =
-                    config.getOptional(EsClusterConnectionConfig.TLS_TRUST_STORE_PASSWORD);
+                    config.getOptional(ElasticsearchBaseOptions.TLS_TRUST_STORE_PASSWORD);
         }
 
-        boolean tlsVerifyHostnames = config.get(EsClusterConnectionConfig.TLS_VERIFY_HOSTNAME);
+        boolean tlsVerifyHostnames = config.get(ElasticsearchBaseOptions.TLS_VERIFY_HOSTNAME);
         return createInstance(
                 hosts,
                 username,
@@ -295,6 +298,43 @@ public class EsRestClient implements Closeable {
     }
 
     /**
+     * first time to request search documents by scroll call /_sql?format=json
+     *
+     * @param scrollSize fetch documents count in one request
+     */
+    public ScrollResult searchBySql(String query, int scrollSize) {
+        Map<String, Object> param = new HashMap<>();
+        param.put("query", query);
+        param.put("fetch_size", scrollSize);
+        String endpoint = "/_sql?format=json";
+        return getDocsFromSqlResult(endpoint, JsonUtils.toJsonString(param), null);
+    }
+
+    /** first time to request search documents by scroll call /_sql?format=json */
+    public Map<String, BasicTypeDefine<EsType>> getSqlMapping(String query, List<String> source) {
+        Map<String, Object> param = new HashMap<>();
+        String limitRegex = "(?i)\\s+LIMIT\\s+\\d+";
+        Pattern pattern = Pattern.compile(limitRegex);
+        Matcher matcher = pattern.matcher(query);
+        if (matcher.find()) {
+            query = matcher.replaceAll(" LIMIT 0");
+        } else {
+            query = query.trim() + " LIMIT 0";
+        }
+        param.put("query", query);
+        String endpoint = "/_sql?format=json";
+        ScrollResult scrollResult =
+                getDocsFromSqlResult(endpoint, JsonUtils.toJsonString(param), null);
+        JsonNode columnNodes = scrollResult.getColumnNodes();
+        Map<String, Object> columnMap = new LinkedHashMap<>();
+        for (JsonNode columnNode : columnNodes) {
+            String fieldName = columnNode.get("name").asText();
+            columnMap.put(fieldName, columnNode);
+        }
+        return getFieldTypeMappingFromProperties(JsonUtils.toJsonNode(columnMap), source);
+    }
+
+    /**
      * scroll to get result call _search/scroll
      *
      * @param scrollId the scroll id of the last request
@@ -305,6 +345,43 @@ public class EsRestClient implements Closeable {
         param.put("scroll_id", scrollId);
         param.put("scroll", scrollTime);
         return getDocsFromScrollRequest("/_search/scroll", JsonUtils.toJsonString(param));
+    }
+
+    public ScrollResult searchWithSql(String scrollId, JsonNode columnNodes) {
+        Map<String, String> param = new HashMap<>();
+        param.put("cursor", scrollId);
+        String endpoint = "/_sql?format=json";
+        return getDocsFromSqlResult(endpoint, JsonUtils.toJsonString(param), columnNodes);
+    }
+
+    private ScrollResult getDocsFromSqlResult(
+            String endpoint, String requestBody, JsonNode columnNodes) {
+        Request request = new Request("POST", endpoint);
+        request.setJsonEntity(requestBody);
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.SCROLL_REQUEST_ERROR,
+                        "POST " + endpoint + " response null");
+            }
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                String entity = EntityUtils.toString(response.getEntity());
+                ObjectNode responseJson = JsonUtils.parseObject(entity);
+                return getDocsFromSqlResponse(responseJson, columnNodes);
+            } else {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.SCROLL_REQUEST_ERROR,
+                        String.format(
+                                "POST %s response status code=%d,request body=%s",
+                                endpoint, response.getStatusLine().getStatusCode(), requestBody));
+            }
+        } catch (IOException e) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.SCROLL_REQUEST_ERROR,
+                    String.format("POST %s error,request body=%s", endpoint, requestBody),
+                    e);
+        }
     }
 
     private ScrollResult getDocsFromScrollRequest(String endpoint, String requestBody) {
@@ -344,6 +421,38 @@ public class EsRestClient implements Closeable {
                     String.format("POST %s error,request body=%s", endpoint, requestBody),
                     e);
         }
+    }
+
+    private ScrollResult getDocsFromSqlResponse(ObjectNode responseJson, JsonNode columnNodes) {
+        ScrollResult scrollResult = new ScrollResult();
+        if (responseJson.get("cursor") != null) {
+            scrollResult.setScrollId(responseJson.get("cursor").asText());
+        }
+        if (columnNodes == null) {
+            columnNodes = responseJson.get("columns");
+        }
+        JsonNode valueNodes = responseJson.get("rows");
+        List<Map<String, Object>> docs = new ArrayList<>();
+        if (valueNodes != null) {
+
+            for (int i = 0; i < valueNodes.size(); i++) {
+                JsonNode valueNode = valueNodes.get(i);
+                Map<String, Object> doc = new HashMap<>();
+                for (int j = 0; j < columnNodes.size(); j++) {
+                    String fieldName = columnNodes.get(j).get("name").asText();
+                    if (valueNode.get(j) instanceof TextNode) {
+                        doc.put(fieldName, valueNode.get(j).textValue());
+                    } else {
+                        doc.put(fieldName, valueNode.get(j));
+                    }
+                }
+                docs.add(doc);
+            }
+        }
+        scrollResult.setDocs(docs);
+        scrollResult.setColumnNodes(columnNodes);
+
+        return scrollResult;
     }
 
     private ScrollResult getDocsFromScrollResponse(ObjectNode responseJson) {

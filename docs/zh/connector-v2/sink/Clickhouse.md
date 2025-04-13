@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-clickhouse.md';
+
 # Clickhouse
 
 > Clickhouse 数据连接器
@@ -60,6 +62,7 @@
 | allow_experimental_lightweight_delete | Boolean | No   | false | 允许基于`MergeTree`表引擎实验性轻量级删除.                                                                                                                                                      |
 | schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | schema保存模式，请参考下面的`schema_save_mode`                                                                                                                    |
 | data_save_mode                 | Enum    | no       | APPEND_DATA                  | 数据保存模式，请参考下面的`data_save_mode`。                                                                                                                         |
+| custom_sql                  | String  | no   | -                            | 当data_save_mode设置为CUSTOM_PROCESSING时，必须同时设置CUSTOM_SQL参数。CUSTOM_SQL的值为可执行的SQL语句，在同步任务开启前SQL将会被执行                     |
 | save_mode_create_template      | string  | no       | see below                    | 见下文。                                                                                                                                                   |
 | common-options                        |         | No   | -     | Sink插件查用参数,详见[Sink常用选项](../sink-common-options.md).                                                                                                                              |
 
@@ -96,7 +99,8 @@ CREATE TABLE IF NOT EXISTS  `${database}`.`${table}` (
 ORDER BY (${rowtype_primary_key})
 PRIMARY KEY (${rowtype_primary_key})
 SETTINGS
-    index_granularity = 8192;
+    index_granularity = 8192
+COMMENT '${comment}';
 ```
 
 如果模板中填写了自定义字段，例如添加 id 字段
@@ -109,7 +113,8 @@ CREATE TABLE IF NOT EXISTS  `${database}`.`${table}` (
     ORDER BY (${rowtype_primary_key})
     PRIMARY KEY (${rowtype_primary_key})
     SETTINGS
-    index_granularity = 8192;
+    index_granularity = 8192
+    COMMENT '${comment}';
 ```
 
 连接器会自动从上游获取对应类型完成填充，
@@ -122,6 +127,7 @@ CREATE TABLE IF NOT EXISTS  `${database}`.`${table}` (
 - rowtype_fields：用于获取上游schema中的所有字段，自动映射到 Clickhouse 的字段描述。
 - rowtype_primary_key：用于获取上游模式中的主键（可能是列表）。
 - rowtype_unique_key：用于获取上游模式中的唯一键（可能是列表）。
+- comment：用于获取上游模式中的表注释。
 
 ## 如何创建一个clickhouse 同步任务
 
@@ -240,3 +246,6 @@ sink {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-hadoop.md';
+
 # Hdfs文件
 
 > Hdfs文件 数据源连接器
@@ -56,11 +58,14 @@
 | kerberos_keytab_path      | string  | 否    | -              | kerberos 的 keytab 路径。                                                                                                                                                                                                                       |
 | skip_header_row_number    | long    | 否    | 0              | 跳过前几行，但仅适用于 txt 和 csv。例如，设置如下：`skip_header_row_number = 2`。然后 Seatunnel 将跳过源文件中的前两行。                                                                                                                                                        |
 | file_filter_pattern       | string  | 否    | -              | 过滤模式，用于过滤文件。                                                                                                                                                                                                                                |
+| filename_extension        | string  | 否    | -              | 过滤文件扩展名， 用于过滤出指定扩展名的文件。 例如 `csv` `.txt` `json` `.xml`。                                                                                                                                                                                      |
 | null_format               | string  | 否    | -              | 定义哪些字符串可以表示为 null，但仅适用于 txt 和 csv. 例如: `\N`                                                                                                                                                                                                 |
 | schema                    | config  | 否    | -              | 上游数据的模式字段。                                                                                                                                                                                                                                  |
 | sheet_name                | string  | 否    | -              | 读取工作簿的表格，仅在文件格式为 excel 时使用。                                                                                                                                                                                                                 |
 | compress_codec            | string  | 否    | none           | 文件的压缩编解码器。                                                                                                                                                                                                                                  |
 | common-options            |         | 否    | -              | 源插件通用参数，请参阅 [源通用选项](../../../en/connector-v2/source-common-options.md) 获取详细信息。                                                                                                                                                              |
+| csv_use_header_line       | boolean | 否    | false          | 是否使用标题行来解析文件，仅当 file_format 为 `csv` 且文件包含与 RFC 4180 匹配的标题行时使用                                                                                                                                                                                         |
+
 
 ### delimiter/field_delimiter [string]
 
@@ -167,7 +172,7 @@ source {
 
 transform {
   # 如果您想获取有关如何配置 seatunnel 和查看转换插件完整列表的更多信息，
-    # 请访问 https://seatunnel.apache.org/docs/category/transform-v2
+    # 请访问 https://seatunnel.apache.org/docs/transform-v2
 }
 
 sink {
@@ -203,3 +208,7 @@ sink {
   }
 }
 ```
+
+## 变更日志
+
+<ChangeLog />

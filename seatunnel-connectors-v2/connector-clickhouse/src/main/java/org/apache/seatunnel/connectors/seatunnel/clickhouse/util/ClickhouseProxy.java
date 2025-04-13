@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
@@ -351,14 +351,19 @@ public class ClickhouseProxy {
     }
 
     public void createTable(
-            String database, String table, String template, TableSchema tableSchema) {
+            String database,
+            String table,
+            String template,
+            String comment,
+            TableSchema tableSchema) {
         String createTableSql =
                 ClickhouseCatalogUtil.INSTANCE.getCreateTableSql(
                         template,
                         database,
                         table,
                         tableSchema,
-                        ClickhouseConfig.SAVE_MODE_CREATE_TEMPLATE.key());
+                        comment,
+                        ClickhouseSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key());
         log.debug("Create Clickhouse table sql: {}", createTableSql);
         executeSql(createTableSql);
     }

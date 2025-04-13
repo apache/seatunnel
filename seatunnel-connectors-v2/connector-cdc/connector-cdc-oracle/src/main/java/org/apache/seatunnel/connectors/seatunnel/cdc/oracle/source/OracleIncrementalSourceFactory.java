@@ -18,9 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.table.catalog.CatalogOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -54,7 +54,7 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
     public OptionRule optionRule() {
         return JdbcSourceOptions.getBaseRule()
                 .required(JdbcSourceOptions.USERNAME, JdbcSourceOptions.PASSWORD)
-                .exclusive(CatalogOptions.TABLE_NAMES, CatalogOptions.TABLE_PATTERN)
+                .exclusive(ConnectorCommonOptions.TABLE_NAMES, ConnectorCommonOptions.TABLE_PATTERN)
                 .bundled(JdbcSourceOptions.HOSTNAME, JdbcSourceOptions.PORT)
                 .optional(
                         JdbcCatalogOptions.BASE_URL,

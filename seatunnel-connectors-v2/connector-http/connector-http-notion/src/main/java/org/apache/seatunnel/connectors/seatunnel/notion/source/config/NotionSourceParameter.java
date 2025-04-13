@@ -17,25 +17,21 @@
 
 package org.apache.seatunnel.connectors.seatunnel.notion.source.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
 import java.util.HashMap;
 
 public class NotionSourceParameter extends HttpParameter {
-    public void buildWithConfig(Config pluginConfig) {
+    public void buildWithConfig(ReadonlyConfig pluginConfig) {
         super.buildWithConfig(pluginConfig);
         // put authorization in headers
         this.headers = this.getHeaders() == null ? new HashMap<>() : this.getHeaders();
         this.headers.put(
-                NotionSourceConfig.AUTHORIZATION,
-                NotionSourceConfig.BEARER
-                        + " "
-                        + pluginConfig.getString(NotionSourceConfig.PASSWORD.key()));
+                NotionSourceOptions.AUTHORIZATION,
+                NotionSourceOptions.BEARER + " " + pluginConfig.get(NotionSourceOptions.PASSWORD));
         this.headers.put(
-                NotionSourceConfig.NOTION_VERSION,
-                pluginConfig.getString(NotionSourceConfig.VERSION.key()));
+                NotionSourceOptions.NOTION_VERSION, pluginConfig.get(NotionSourceOptions.VERSION));
         this.setHeaders(this.headers);
     }
 }

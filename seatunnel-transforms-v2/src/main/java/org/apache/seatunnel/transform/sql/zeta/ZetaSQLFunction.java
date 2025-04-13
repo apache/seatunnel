@@ -148,6 +148,8 @@ public class ZetaSQLFunction {
     public static final String SIGN = "SIGN";
     public static final String TRUNC = "TRUNC";
     public static final String TRUNCATE = "TRUNCATE";
+    public static final String ARRAY_MAX = "ARRAY_MAX";
+    public static final String ARRAY_MIN = "ARRAY_MIN";
 
     // -------------------------time and date functions----------------------------
     public static final String CURRENT_DATE = "CURRENT_DATE";
@@ -190,6 +192,8 @@ public class ZetaSQLFunction {
     public static final String NULLIF = "NULLIF";
 
     public static final String UUID = "UUID";
+
+    public static final String TRY_CAST = "TRY_CAST";
 
     private final SeaTunnelRowType inputRowType;
 
@@ -347,6 +351,9 @@ public class ZetaSQLFunction {
             CastExpression castExpression = (CastExpression) expression;
             Expression leftExpr = castExpression.getLeftExpression();
             Object leftValue = computeForValue(leftExpr, inputFields);
+            if (castExpression.keyword.equalsIgnoreCase(TRY_CAST)) {
+                return executeTryCastExpr(castExpression, leftValue);
+            }
             return executeCastExpr(castExpression, leftValue);
         }
         throw new TransformException(
@@ -554,6 +561,10 @@ public class ZetaSQLFunction {
                 return SystemFunction.nullif(args);
             case ARRAY:
                 return ArrayFunction.array(args);
+            case ARRAY_MAX:
+                return ArrayFunction.arrayMax(args);
+            case ARRAY_MIN:
+                return ArrayFunction.arrayMin(args);
             case UUID:
                 return randomUUID().toString();
             default:
@@ -596,6 +607,14 @@ public class ZetaSQLFunction {
             args.add(Integer.parseInt(ps.get(1)));
         }
         return SystemFunction.castAs(args);
+    }
+
+    private Object executeTryCastExpr(CastExpression castExpression, Object arg) {
+        try {
+            return this.executeCastExpr(castExpression, arg);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private Object executeBinaryExpr(BinaryExpression binaryExpression, Object[] inputFields) {

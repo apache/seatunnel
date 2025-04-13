@@ -56,7 +56,7 @@ public class ArrayType<T, E> implements SeaTunnelDataType<T> {
     private final Class<T> arrayClass;
     private final SeaTunnelDataType<E> elementType;
 
-    protected ArrayType(Class<T> arrayClass, SeaTunnelDataType<E> elementType) {
+    public ArrayType(Class<T> arrayClass, SeaTunnelDataType<E> elementType) {
         this.arrayClass = arrayClass;
         this.elementType = elementType;
     }

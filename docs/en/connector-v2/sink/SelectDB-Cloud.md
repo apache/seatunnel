@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-selectdb-cloud.md';
+
 # SelectDB Cloud
 
 > SelectDB Cloud sink connector
@@ -171,3 +173,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

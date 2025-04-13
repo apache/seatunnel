@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
@@ -47,7 +47,7 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
     @Override
     public void init(HadoopConf conf) {
         super.init(conf);
-        basePath = new File(pluginConfig.getString(BaseSourceConfigOptions.FILE_PATH.key()));
+        basePath = new File(pluginConfig.getString(FileBaseSourceOptions.FILE_PATH.key()));
     }
 
     @Override
@@ -77,6 +77,7 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
                 }
                 SeaTunnelRow row = new SeaTunnelRow(new Object[] {buffer, relativePath, partIndex});
                 buffer = new byte[1024];
+                row.setTableId(tableId);
                 output.collect(row);
                 partIndex++;
             }

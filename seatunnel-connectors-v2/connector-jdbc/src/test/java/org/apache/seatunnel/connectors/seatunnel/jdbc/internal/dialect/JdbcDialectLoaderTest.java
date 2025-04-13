@@ -19,6 +19,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialect;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -27,13 +28,22 @@ import org.junit.jupiter.api.Test;
 public class JdbcDialectLoaderTest {
     @Test
     public void shouldFindGenericDialect() throws Exception {
-        JdbcDialect jdbcDialect = JdbcDialectLoader.load("jdbc:someting:", "");
-        Assertions.assertTrue(jdbcDialect instanceof GenericDialect);
+        JdbcDialect jdbcDialect = JdbcDialectLoader.load("jdbc:someting:", null, "");
+        Assertions.assertInstanceOf(GenericDialect.class, jdbcDialect);
     }
 
     @Test
     public void shouldFindMysqlDialect() throws Exception {
-        JdbcDialect jdbcDialect = JdbcDialectLoader.load("jdbc:mysql://localhost:3306/test", "");
-        Assertions.assertTrue(jdbcDialect instanceof MysqlDialect);
+        JdbcDialect jdbcDialect =
+                JdbcDialectLoader.load("jdbc:mysql://localhost:3306/test", null, "");
+        Assertions.assertInstanceOf(MysqlDialect.class, jdbcDialect);
+    }
+
+    /** Test for {@link JdbcDialectLoader} for appointDialect */
+    @Test
+    public void shouldFindPostgresSQLDialectByDialect() throws Exception {
+        JdbcDialect jdbcDialect =
+                JdbcDialectLoader.load("error:errorurl://xxxxx:3306/test", "Postgres", "");
+        Assertions.assertInstanceOf(PostgresDialect.class, jdbcDialect);
     }
 }

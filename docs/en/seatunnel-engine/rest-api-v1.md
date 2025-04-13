@@ -1,12 +1,8 @@
----
-sidebar_position: 11
----
-
 # RESTful API V1
 
 :::caution warn
 
-It is recommended to use the v2 version of the Rest API. The v1 version is deprecated and will be removed in the future.
+It is recommended to use the v2 version of the Rest API. The v1 version is deprecated and will be removed in the future. We already disabled the v1 version by default. If you want to use the v1 version, you need to enable it in the `hazelcast.yaml` file.
 
 :::
 
@@ -16,7 +12,8 @@ completed jobs. The monitoring API is a RESTful API that accepts HTTP requests a
 ## Overview
 
 The monitoring API is backed by a web server that runs as part of the node, each node member can provide RESTful api capability.
-By default, this server listens at port 5801, which can be configured in hazelcast.yaml like :
+By default, the server disables the RESTful API V1, and it can be enabled by setting the `rest-api.enabled` configuration in the `hazelcast.yaml` file.
+This server listens at port 5801, which can be configured in hazelcast.yaml like :
 
 ```yaml
 network:
@@ -55,7 +52,7 @@ network:
 
 ```json
 {
-    "projectVersion":"2.3.5-SNAPSHOT",
+    "projectVersion":"2.3.10-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",

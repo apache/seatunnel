@@ -186,8 +186,6 @@ RPAD(TEXT, 10, '-')
 
 移除字符串中所有前导空格或其他指定的字符。
 
-此函数已被弃用，请使用 TRIM 替代。
-
 示例:
 
 LTRIM(NAME)
@@ -198,8 +196,6 @@ LTRIM(NAME)
 
 移除字符串中所有尾随空格或其他指定的字符。
 
-此函数已被弃用，请使用 TRIM 替代。
-
 示例:
 
 RTRIM(NAME)
@@ -208,13 +204,11 @@ RTRIM(NAME)
 
 ```TRIM(string[, characterToTrimString])```
 
-移除字符串中所有前导空格或其他指定的字符。
-
-此函数已被弃用，请使用 TRIM 替代。
+移除字符串中所有前导空格和尾随空格或其他指定的字符。
 
 示例:
 
-LTRIM(NAME)
+TRIM(NAME)
 
 ### REGEXP_REPLACE
 
@@ -385,6 +379,27 @@ ABS(I)
 示例:
 
 ACOS(D)
+
+### ARRAY_MAX
+
+```ARRAY_MAX(ARRAY)```
+
+MAX 函数返回表达式的最大值。
+
+示例:
+
+ARRAY_MAX(I)
+
+### ARRAY_MIN
+
+```ARRAY_MIN(ARRAY)```
+
+MIN 函数返回表达式的最小值。
+
+示例:
+
+ARRAY_MIN(I)
+
 
 ### ASIN
 
@@ -894,6 +909,18 @@ CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss','UTC+6')
 示例:
 
 CONVERT(NAME AS INT)
+
+### TRY_CAST
+
+```TRY_CAST(value as dataType)```
+
+该函数类似于 CAST，但当转换失败时，它返回 NULL 而不是抛出异常。
+
+支持的数据类型有：STRING | VARCHAR，INT | INTEGER，LONG | BIGINT，BYTE，FLOAT，DOUBLE，DECIMAL(p,s)，TIMESTAMP，DATE，TIME，BYTES
+
+示例:
+
+TRY_CAST(NAME AS INT)
 
 ### COALESCE
 

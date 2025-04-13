@@ -28,12 +28,16 @@ public class CheckpointConfig implements Serializable {
 
     public static final long MINIMAL_CHECKPOINT_TIME = 10;
 
-    private long checkpointInterval = ServerConfigOptions.CHECKPOINT_INTERVAL.defaultValue();
-    private long checkpointTimeout = ServerConfigOptions.CHECKPOINT_TIMEOUT.defaultValue();
+    private long checkpointInterval =
+            ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_INTERVAL.defaultValue();
+    private long checkpointTimeout =
+            ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_TIMEOUT.defaultValue();
     private long schemaChangeCheckpointTimeout =
-            ServerConfigOptions.SCHEMA_CHANGE_CHECKPOINT_TIMEOUT.defaultValue();
+            ServerConfigOptions.MasterServerConfigOptions.SCHEMA_CHANGE_CHECKPOINT_TIMEOUT
+                    .defaultValue();
 
-    private CheckpointStorageConfig storage = ServerConfigOptions.CHECKPOINT_STORAGE.defaultValue();
+    private CheckpointStorageConfig storage =
+            ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_STORAGE.defaultValue();
 
     private boolean checkpointEnable = true;
 

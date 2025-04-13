@@ -21,8 +21,10 @@
         <artifactId>seatunnel-shade</artifactId>
         <version>${revision}</version>
     </parent>
+
     <artifactId>seatunnel-hazelcast</artifactId>
     <packaging>pom</packaging>
+    <name>SeaTunnel : Shade : Hazelcast</name>
     <modules>
         <module>seatunnel-hazelcast-base</module>
         <module>seatunnel-hazelcast-shade</module>

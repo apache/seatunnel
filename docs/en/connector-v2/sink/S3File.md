@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-s3.md';
+
 # S3File
 
 > S3 File Sink Connector
@@ -49,7 +51,7 @@ If write to `csv`, `text` file type, All column will be string.
 
 ### Orc File Type
 
-| SeaTunnel Data type  |     Orc Data type     |
+| SeaTunnel Data type  | Orc Data type         |
 |----------------------|-----------------------|
 | STRING               | STRING                |
 | BOOLEAN              | BOOLEAN               |
@@ -71,7 +73,7 @@ If write to `csv`, `text` file type, All column will be string.
 
 ### Parquet File Type
 
-| SeaTunnel Data type  |   Parquet Data type   |
+| SeaTunnel Data type  | Parquet Data type     |
 |----------------------|-----------------------|
 | STRING               | STRING                |
 | BOOLEAN              | BOOLEAN               |
@@ -93,42 +95,46 @@ If write to `csv`, `text` file type, All column will be string.
 
 ## Sink Options
 
-|                 name                  |  type   | required |                     default value                     |                                                                              Description                                                                              |
-|---------------------------------------|---------|----------|-------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| path                                  | string  | yes      | -                                                     |                                                                                                                                                                       |
-| tmp_path                              | string  | no       | /tmp/seatunnel                                        | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a S3 dir.                                                      |
-| bucket                                | string  | yes      | -                                                     |                                                                                                                                                                       |
-| fs.s3a.endpoint                       | string  | yes      | -                                                     |                                                                                                                                                                       |
-| fs.s3a.aws.credentials.provider       | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider | The way to authenticate s3a. We only support `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` and `com.amazonaws.auth.InstanceProfileCredentialsProvider` now. |
-| access_key                            | string  | no       | -                                                     | Only used when fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider                                                                |
-| access_secret                         | string  | no       | -                                                     | Only used when fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider                                                                |
-| custom_filename                       | boolean | no       | false                                                 | Whether you need custom the filename                                                                                                                                  |
-| file_name_expression                  | string  | no       | "${transactionId}"                                    | Only used when custom_filename is true                                                                                                                                |
-| filename_time_format                  | string  | no       | "yyyy.MM.dd"                                          | Only used when custom_filename is true                                                                                                                                |
-| file_format_type                      | string  | no       | "csv"                                                 |                                                                                                                                                                       |
-| field_delimiter                       | string  | no       | '\001'                                                | Only used when file_format is text                                                                                                                                    |
-| row_delimiter                         | string  | no       | "\n"                                                  | Only used when file_format is text                                                                                                                                    |
-| have_partition                        | boolean | no       | false                                                 | Whether you need processing partitions.                                                                                                                               |
-| partition_by                          | array   | no       | -                                                     | Only used when have_partition is true                                                                                                                                 |
-| partition_dir_expression              | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/"            | Only used when have_partition is true                                                                                                                                 |
-| is_partition_field_write_in_file      | boolean | no       | false                                                 | Only used when have_partition is true                                                                                                                                 |
-| sink_columns                          | array   | no       |                                                       | When this parameter is empty, all fields are sink columns                                                                                                             |
-| is_enable_transaction                 | boolean | no       | true                                                  |                                                                                                                                                                       |
-| batch_size                            | int     | no       | 1000000                                               |                                                                                                                                                                       |
-| compress_codec                        | string  | no       | none                                                  |                                                                                                                                                                       |
-| common-options                        | object  | no       | -                                                     |                                                                                                                                                                       |
-| max_rows_in_memory                    | int     | no       | -                                                     | Only used when file_format is excel.                                                                                                                                  |
-| sheet_name                            | string  | no       | Sheet${Random number}                                 | Only used when file_format is excel.                                                                                                                                  |
-| xml_root_tag                          | string  | no       | RECORDS                                               | Only used when file_format is xml, specifies the tag name of the root element within the XML file.                                                                    |
-| xml_row_tag                           | string  | no       | RECORD                                                | Only used when file_format is xml, specifies the tag name of the data rows within the XML file                                                                        |
-| xml_use_attr_format                   | boolean | no       | -                                                     | Only used when file_format is xml, specifies Whether to process data using the tag attribute format.                                                                  |
-| parquet_avro_write_timestamp_as_int96 | boolean | no       | false                                                 | Only used when file_format is parquet.                                                                                                                                |
-| parquet_avro_write_fixed_as_int96     | array   | no       | -                                                     | Only used when file_format is parquet.                                                                                                                                |
-| hadoop_s3_properties                  | map     | no       |                                                       | If you need to add a other option, you could add it here and refer to this [link](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)       |
-| schema_save_mode                      | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST                          | Before turning on the synchronous task, do different treatment of the target path                                                                                     |
-| data_save_mode                        | Enum    | no       | APPEND_DATA                                           | Before opening the synchronous task, the data file in the target path is differently processed                                                                        |
-| enable_header_write                   | boolean | no       | false                                      | Only used when file_format_type is text,csv.<br/> false:don't write header,true:write header.     |
-| encoding                              | string  | no       | "UTF-8"                                               | Only used when file_format_type is json,text,csv,xml.                                                                                                                 |
+| name                                  | type    | required | default value                                         | Description                                                                                                                                                            |
+|---------------------------------------|---------|----------|-------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| path                                  | string  | yes      | -                                                     |                                                                                                                                                                        |
+| tmp_path                              | string  | no       | /tmp/seatunnel                                        | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a S3 dir.                                                       |
+| bucket                                | string  | yes      | -                                                     |                                                                                                                                                                        |
+| fs.s3a.endpoint                       | string  | yes      | -                                                     |                                                                                                                                                                        |
+| fs.s3a.aws.credentials.provider       | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider | The way to authenticate s3a. We only support `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` and `com.amazonaws.auth.InstanceProfileCredentialsProvider` now.  |
+| access_key                            | string  | no       | -                                                     | Only used when fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider                                                                 |
+| secret_key                            | string  | no       | -                                                     | Only used when fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider                                                                 |
+| custom_filename                       | boolean | no       | false                                                 | Whether you need custom the filename                                                                                                                                   |
+| file_name_expression                  | string  | no       | "${transactionId}"                                    | Only used when custom_filename is true                                                                                                                                 |
+| filename_time_format                  | string  | no       | "yyyy.MM.dd"                                          | Only used when custom_filename is true                                                                                                                                 |
+| file_format_type                      | string  | no       | "csv"                                                 |                                                                                                                                                                        |
+| filename_extension                    | string  | no       | -                                                     | Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`                                                 |
+| field_delimiter                       | string  | no       | '\001'                                                | Only used when file_format is text                                                                                                                                     |
+| row_delimiter                         | string  | no       | "\n"                                                  | Only used when file_format is `text`, `csv` and `json`                                                                                                                  |
+| have_partition                        | boolean | no       | false                                                 | Whether you need processing partitions.                                                                                                                                |
+| partition_by                          | array   | no       | -                                                     | Only used when have_partition is true                                                                                                                                  |
+| partition_dir_expression              | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/"            | Only used when have_partition is true                                                                                                                                  |
+| is_partition_field_write_in_file      | boolean | no       | false                                                 | Only used when have_partition is true                                                                                                                                  |
+| sink_columns                          | array   | no       |                                                       | When this parameter is empty, all fields are sink columns                                                                                                              |
+| is_enable_transaction                 | boolean | no       | true                                                  |                                                                                                                                                                        |
+| batch_size                            | int     | no       | 1000000                                               |                                                                                                                                                                        |
+| compress_codec                        | string  | no       | none                                                  |                                                                                                                                                                        |
+| common-options                        | object  | no       | -                                                     |                                                                                                                                                                        |
+| max_rows_in_memory                    | int     | no       | -                                                     | Only used when file_format is excel.                                                                                                                                   |
+| sheet_name                            | string  | no       | Sheet${Random number}                                 | Only used when file_format is excel.                                                                                                                                   |
+| csv_string_quote_mode                 | enum    | no       | MINIMAL                                               | Only used when file_format is csv.                                                                                                                                     |
+| xml_root_tag                          | string  | no       | RECORDS                                               | Only used when file_format is xml, specifies the tag name of the root element within the XML file.                                                                     |
+| xml_row_tag                           | string  | no       | RECORD                                                | Only used when file_format is xml, specifies the tag name of the data rows within the XML file                                                                         |
+| xml_use_attr_format                   | boolean | no       | -                                                     | Only used when file_format is xml, specifies Whether to process data using the tag attribute format.                                                                   |
+| single_file_mode                      | boolean | no       | false                                                 | Each parallelism will only output one file. When this parameter is turned on, batch_size will not take effect. The output file name does not have a file block suffix. |
+| create_empty_file_when_no_data        | boolean | no       | false                                                 | When there is no data synchronization upstream, the corresponding data files are still generated.                                                                      |
+| parquet_avro_write_timestamp_as_int96 | boolean | no       | false                                                 | Only used when file_format is parquet.                                                                                                                                 |
+| parquet_avro_write_fixed_as_int96     | array   | no       | -                                                     | Only used when file_format is parquet.                                                                                                                                 |
+| hadoop_s3_properties                  | map     | no       |                                                       | If you need to add a other option, you could add it here and refer to this [link](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)        |
+| schema_save_mode                      | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST                          | Before turning on the synchronous task, do different treatment of the target path                                                                                      |
+| data_save_mode                        | Enum    | no       | APPEND_DATA                                           | Before opening the synchronous task, the data file in the target path is differently processed                                                                         |
+| enable_header_write                   | boolean | no       | false                                                 | Only used when file_format_type is text,csv.<br/> false:don't write header,true:write header.                                                                          |
+| encoding                              | string  | no       | "UTF-8"                                               | Only used when file_format_type is json,text,csv,xml.                                                                                                                  |
 
 ### path [string]
 
@@ -187,7 +193,7 @@ The separator between columns in a row of data. Only needed by `text` file forma
 
 ### row_delimiter [string]
 
-The separator between rows in a file. Only needed by `text` file format.
+The separator between rows in a file. Only needed by `text`, `csv` and `json` file format.
 
 ### have_partition [boolean]
 
@@ -255,6 +261,14 @@ When File Format is Excel,The maximum number of data items that can be cached in
 ### sheet_name [string]
 
 Writer the sheet of the workbook
+
+### csv_string_quote_mode [string]
+
+When File Format is CSV,The string quote mode of CSV.
+
+- ALL: All String fields will be quoted.
+- MINIMAL: Quotes fields which contain special characters such as a the field delimiter, quote character or any of the characters in the line separator string.
+- NONE: Never quotes fields. When the delimiter occurs in data, the printer prefixes it with the escape character. If the escape character is not set, format validation throws an exception.
 
 ### xml_root_tag [string]
 
@@ -344,7 +358,7 @@ source {
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/category/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transform-v2
 }
 
 sink {
@@ -376,7 +390,8 @@ sink {
 }
 ```
 
-For text file format with `have_partition` and `custom_filename` and `sink_columns` and `com.amazonaws.auth.InstanceProfileCredentialsProvider`
+For text file format with `have_partition` and `custom_filename` and `sink_columns`
+and `com.amazonaws.auth.InstanceProfileCredentialsProvider`
 
 ```hocon
 
@@ -489,30 +504,11 @@ sink {
   }
 }
 ```
+
 ### enable_header_write [boolean]
 
 Only used when file_format_type is text,csv.false:don't write header,true:write header.
 
 ## Changelog
 
-### 2.3.0-beta 2022-10-20
-
-- Add S3File Sink Connector
-
-### 2.3.0 2022-12-30
-
-- [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/seatunnel/pull/3258))
-  - When field from upstream is null it will throw NullPointerException
-  - Sink columns mapping failed
-  - When restore writer from states getting transaction directly failed
-- [Feature] Support S3A protocol ([3632](https://github.com/apache/seatunnel/pull/3632))
-  - Allow user to add additional hadoop-s3 parameters
-  - Allow the use of the s3a protocol
-  - Decouple hadoop-aws dependencies
-- [Improve] Support setting batch size for every file ([3625](https://github.com/apache/seatunnel/pull/3625))
-- [Feature]Set S3 AK to optional ([3688](https://github.com/apache/seatunnel/pull/))
-
-### Next version
-
-- ​	[Improve] Support file compress ([3899](https://github.com/apache/seatunnel/pull/3899))
-
+<ChangeLog />

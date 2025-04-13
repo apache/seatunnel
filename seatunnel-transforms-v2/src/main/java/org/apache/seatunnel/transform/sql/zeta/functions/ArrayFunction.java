@@ -17,8 +17,11 @@
 package org.apache.seatunnel.transform.sql.zeta.functions;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.transform.exception.TransformException;
 
 import net.sf.jsqlparser.expression.DoubleValue;
 import net.sf.jsqlparser.expression.Expression;
@@ -30,9 +33,59 @@ import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
 import net.sf.jsqlparser.schema.Column;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 
 public class ArrayFunction {
+
+    public static Object arrayMax(List<Object> args) {
+        if (args == null || args.isEmpty()) {
+            return null;
+        }
+        Object[] dataList = (Object[]) args.get(0);
+        if (dataList == null || dataList.length == 0) {
+            return null;
+        }
+        if (dataList[0] instanceof String) {
+            return Arrays.stream(dataList)
+                    .map(String.class::cast)
+                    .max(String::compareTo)
+                    .orElse(null);
+        } else if (dataList[0] instanceof Number) {
+            return Arrays.stream(dataList)
+                    .map(Number.class::cast)
+                    .max(Comparator.comparingDouble(Number::doubleValue))
+                    .orElse(null);
+        }
+        throw new TransformException(
+                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                String.format("Unsupported function max() arguments: %s", args));
+    }
+
+    public static Object arrayMin(List<Object> args) {
+        if (args == null || args.isEmpty()) {
+            return null;
+        }
+        Object[] dataList = (Object[]) args.get(0);
+        if (dataList == null || dataList.length == 0) {
+            return null;
+        }
+        if (dataList[0] instanceof String) {
+            return Arrays.stream(dataList)
+                    .map(String.class::cast)
+                    .min(String::compareTo)
+                    .orElse(null);
+        } else if (dataList[0] instanceof Number) {
+            return Arrays.stream(dataList)
+                    .map(Number.class::cast)
+                    .min(Comparator.comparingDouble(Number::doubleValue))
+                    .orElse(null);
+        }
+        throw new TransformException(
+                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                String.format("Unsupported function max() arguments: %s", args));
+    }
 
     public static Object[] array(List<Object> args) {
         if (args == null || args.isEmpty()) {
@@ -148,6 +201,14 @@ public class ArrayFunction {
             }
         }
         return arrayType == null ? String.class : arrayType;
+    }
+
+    public static SeaTunnelDataType<?> getElementType(
+            Function function, SeaTunnelRowType inputRowType) {
+        String columnName = function.getParameters().getExpressions().get(0).toString();
+        int columnIndex = inputRowType.indexOf(columnName);
+        ArrayType arrayType = (ArrayType) inputRowType.getFieldType(columnIndex);
+        return arrayType.getElementType();
     }
 
     private static List<Class<?>> getFunctionArgs(

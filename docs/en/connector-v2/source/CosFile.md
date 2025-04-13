@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-cos.md';
+
 # CosFile
 
 > Cos file source connector
@@ -64,7 +66,9 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | sheet_name                | string  | no       | -                   |
 | xml_row_tag               | string  | no       | -                   |
 | xml_use_attr_format       | boolean | no       | -                   |
-| file_filter_pattern       | string  | no       |                     |
+| csv_use_header_line       | boolean | no       | false               |
+| file_filter_pattern       | string  | no       | -                   |
+| filename_extension            | string  | no       | -                   |
 | compress_codec            | string  | no       | none                |
 | archive_compress_codec    | string  | no       | none                |
 | encoding                  | string  | no       | UTF-8               |
@@ -271,6 +275,10 @@ Only need to be configured when file_format is xml.
 
 Specifies Whether to process data using the tag attribute format.
 
+### csv_use_header_line [boolean]
+
+Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180
+
 ### file_filter_pattern [string]
 
 Filter pattern, which used for filtering files.
@@ -323,6 +331,10 @@ The result of this example matching is:
 /data/seatunnel/20241002/abcg202410.csv
 /data/seatunnel/20241005/old_data.csv
 ```
+
+### filename_extension [string]
+
+Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.
 
 ### compress_codec [string]
 
@@ -453,7 +465,5 @@ sink {
 
 ## Changelog
 
-### next version
-
-- Add file cos source connector ([4979](https://github.com/apache/seatunnel/pull/4979))
+<ChangeLog />
 

@@ -47,18 +47,18 @@ public class HudiSinkConfig implements Serializable {
     public static HudiSinkConfig of(ReadonlyConfig config) {
         Builder builder = HudiSinkConfig.builder();
         Optional<SchemaSaveMode> optionalSchemaSaveMode =
-                config.getOptional(HudiOptions.SCHEMA_SAVE_MODE);
+                config.getOptional(HudiSinkOptions.SCHEMA_SAVE_MODE);
         Optional<DataSaveMode> optionalDataSaveMode =
-                config.getOptional(HudiOptions.DATA_SAVE_MODE);
+                config.getOptional(HudiSinkOptions.DATA_SAVE_MODE);
 
-        builder.tableDfsPath(config.get(HudiOptions.TABLE_DFS_PATH));
-        builder.confFilesPath(config.get(HudiOptions.CONF_FILES_PATH));
+        builder.tableDfsPath(config.get(HudiSinkOptions.TABLE_DFS_PATH));
+        builder.confFilesPath(config.get(HudiSinkOptions.CONF_FILES_PATH));
         builder.tableList(HudiTableConfig.of(config));
 
         builder.schemaSaveMode(
-                optionalSchemaSaveMode.orElseGet(HudiOptions.SCHEMA_SAVE_MODE::defaultValue));
+                optionalSchemaSaveMode.orElseGet(HudiSinkOptions.SCHEMA_SAVE_MODE::defaultValue));
         builder.dataSaveMode(
-                optionalDataSaveMode.orElseGet(HudiOptions.DATA_SAVE_MODE::defaultValue));
+                optionalDataSaveMode.orElseGet(HudiSinkOptions.DATA_SAVE_MODE::defaultValue));
         return builder.build();
     }
 }

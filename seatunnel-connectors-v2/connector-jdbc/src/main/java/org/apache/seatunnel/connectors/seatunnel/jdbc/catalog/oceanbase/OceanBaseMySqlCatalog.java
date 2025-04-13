@@ -66,8 +66,12 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
     private OceanBaseMySqlTypeConverter typeConverter;
 
     public OceanBaseMySqlCatalog(
-            String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
-        super(catalogName, username, pwd, urlInfo, null);
+            String catalogName,
+            String username,
+            String pwd,
+            JdbcUrlUtil.UrlInfo urlInfo,
+            String driverClass) {
+        super(catalogName, username, pwd, urlInfo, null, driverClass);
         this.typeConverter = new OceanBaseMySqlTypeConverter();
     }
 
@@ -143,6 +147,11 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
         String comment = resultSet.getString("COLUMN_COMMENT");
         Object defaultValue = resultSet.getObject("COLUMN_DEFAULT");
         String isNullableStr = resultSet.getString("IS_NULLABLE");
+
+        if (dataType.toUpperCase().startsWith("VECTOR")) {
+            dataType = "VECTOR";
+        }
+
         boolean isNullable = isNullableStr.equals("YES");
         // e.g. `decimal(10, 2)` is 10
         long numberPrecision = resultSet.getInt("NUMERIC_PRECISION");
@@ -204,55 +213,53 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
 
     @Override
     public CatalogTable getTable(String sqlQuery) throws SQLException {
-        try (Connection connection = getConnection(defaultUrl)) {
-            String tableName = null;
-            String databaseName = null;
-            String schemaName = null;
-            String catalogName = "jdbc_catalog";
-            TableSchema.Builder schemaBuilder = TableSchema.builder();
+        String tableName = null;
+        String databaseName = null;
+        String schemaName = null;
+        String catalogName = "jdbc_catalog";
+        TableSchema.Builder schemaBuilder = TableSchema.builder();
 
-            try (Statement statement = connection.createStatement();
-                    ResultSet resultSet = statement.executeQuery(sqlQuery)) {
-                ResultSetMetaData metaData = resultSet.getMetaData();
-                tableName = metaData.getTableName(1);
-                databaseName = metaData.getCatalogName(1);
-                schemaName = metaData.getSchemaName(1);
-                catalogName = metaData.getCatalogName(1);
-            }
-            databaseName = StringUtils.defaultIfBlank(databaseName, null);
-            schemaName = StringUtils.defaultIfBlank(schemaName, null);
-
-            TablePath tablePath =
-                    StringUtils.isBlank(tableName)
-                            ? TablePath.DEFAULT
-                            : TablePath.of(databaseName, schemaName, tableName);
-
-            try (PreparedStatement ps =
-                            connection.prepareStatement(getSelectColumnsSql(tablePath));
-                    ResultSet columnResultSet = ps.executeQuery();
-                    ResultSet primaryKeys =
-                            connection
-                                    .getMetaData()
-                                    .getPrimaryKeys(catalogName, schemaName, tableName)) {
-                while (primaryKeys.next()) {
-                    String primaryKeyColumnName = primaryKeys.getString("COLUMN_NAME");
-                    schemaBuilder.primaryKey(
-                            PrimaryKey.of(
-                                    primaryKeyColumnName,
-                                    Collections.singletonList(primaryKeyColumnName)));
-                }
-                while (columnResultSet.next()) {
-                    schemaBuilder.column(buildColumn(columnResultSet));
-                }
-            }
-            return CatalogTable.of(
-                    TableIdentifier.of(catalogName, tablePath),
-                    schemaBuilder.build(),
-                    new HashMap<>(),
-                    new ArrayList<>(),
-                    "",
-                    catalogName);
+        Connection connection = getConnection(defaultUrl);
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sqlQuery)) {
+            ResultSetMetaData metaData = resultSet.getMetaData();
+            tableName = metaData.getTableName(1);
+            databaseName = metaData.getCatalogName(1);
+            schemaName = metaData.getSchemaName(1);
+            catalogName = metaData.getCatalogName(1);
         }
+        databaseName = StringUtils.defaultIfBlank(databaseName, null);
+        schemaName = StringUtils.defaultIfBlank(schemaName, null);
+
+        TablePath tablePath =
+                StringUtils.isBlank(tableName)
+                        ? TablePath.DEFAULT
+                        : TablePath.of(databaseName, schemaName, tableName);
+
+        try (PreparedStatement ps = connection.prepareStatement(getSelectColumnsSql(tablePath));
+                ResultSet columnResultSet = ps.executeQuery();
+                ResultSet primaryKeys =
+                        connection
+                                .getMetaData()
+                                .getPrimaryKeys(catalogName, schemaName, tableName)) {
+            while (primaryKeys.next()) {
+                String primaryKeyColumnName = primaryKeys.getString("COLUMN_NAME");
+                schemaBuilder.primaryKey(
+                        PrimaryKey.of(
+                                primaryKeyColumnName,
+                                Collections.singletonList(primaryKeyColumnName)));
+            }
+            while (columnResultSet.next()) {
+                schemaBuilder.column(buildColumn(columnResultSet));
+            }
+        }
+        return CatalogTable.of(
+                TableIdentifier.of(catalogName, tablePath),
+                schemaBuilder.build(),
+                new HashMap<>(),
+                new ArrayList<>(),
+                "",
+                catalogName);
     }
 
     @Override

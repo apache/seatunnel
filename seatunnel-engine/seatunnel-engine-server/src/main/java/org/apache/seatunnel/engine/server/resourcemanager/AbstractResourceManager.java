@@ -20,6 +20,10 @@ package org.apache.seatunnel.engine.server.resourcemanager;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.RandomStrategy;
+import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SlotAllocationStrategy;
+import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SlotRatioStrategy;
+import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SystemLoadStrategy;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReleaseSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ResetResourceOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.SyncWorkerProfileOperation;
@@ -33,6 +37,7 @@ import com.hazelcast.cluster.Member;
 import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.Operation;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -40,6 +45,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
@@ -49,21 +55,36 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     private static final long DEFAULT_WORKER_CHECK_INTERVAL = 500;
 
-    protected final ConcurrentMap<Address, WorkerProfile> registerWorker;
+    @Getter public final ConcurrentMap<Address, WorkerProfile> registerWorker;
 
     private final NodeEngine nodeEngine;
 
     private final ExecutionMode mode;
 
-    private final EngineConfig engineConfig;
+    @Getter private final EngineConfig engineConfig;
 
     private volatile boolean isRunning = true;
+
+    @Getter private final SlotAllocationStrategy slotAllocationStrategy;
 
     public AbstractResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
         this.registerWorker = new ConcurrentHashMap<>();
         this.nodeEngine = nodeEngine;
         this.engineConfig = engineConfig;
         this.mode = engineConfig.getMode();
+
+        switch (engineConfig.getSlotServiceConfig().getAllocateStrategy()) {
+            case SYSTEM_LOAD:
+                this.slotAllocationStrategy = new SystemLoadStrategy();
+                break;
+            case SLOT_RATIO:
+                this.slotAllocationStrategy = new SlotRatioStrategy();
+                break;
+            case RANDOM:
+            default:
+                this.slotAllocationStrategy = new RandomStrategy();
+                break;
+        }
     }
 
     @Override
@@ -98,6 +119,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
                                                         }))
                         .collect(Collectors.toList());
         futures.forEach(CompletableFuture::join);
+
         log.info("registerWorker: {}", registerWorker);
     }
 
@@ -151,7 +173,8 @@ public abstract class AbstractResourceManager implements ResourceManager {
             log.error("No matched worker with tag filter {}.", tagFilter);
             throw new NoEnoughResourceException();
         }
-        return new ResourceRequestHandler(jobId, resourceProfile, matchedWorker, this)
+        return new ResourceRequestHandler(
+                        jobId, resourceProfile, matchedWorker, this, slotAllocationStrategy)
                 .request(tagFilter);
     }
 
@@ -240,6 +263,18 @@ public abstract class AbstractResourceManager implements ResourceManager {
             log.debug("received worker heartbeat from: " + workerProfile.getAddress());
         }
         registerWorker.put(workerProfile.getAddress(), workerProfile);
+
+        this.updateWorkerLoad(workerProfile);
+    }
+
+    /** Update worker load info. */
+    private void updateWorkerLoad(WorkerProfile workerProfile) {
+        if (slotAllocationStrategy instanceof SystemLoadStrategy
+                && Objects.nonNull(workerProfile.getSystemLoadInfo())) {
+            ((SystemLoadStrategy) slotAllocationStrategy)
+                    .updateWorkerLoad(
+                            workerProfile.getAddress(), workerProfile.getSystemLoadInfo());
+        }
     }
 
     @Override

@@ -27,11 +27,12 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig
 import org.apache.hadoop.conf.Configuration;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.LinkedHashMap;
 import java.util.List;
 
-public interface WriteStrategy extends Transaction, Serializable, Closeable {
+public interface WriteStrategy<T> extends Transaction, Serializable, Closeable {
     /**
      * init hadoop conf
      *
@@ -69,6 +70,8 @@ public interface WriteStrategy extends Transaction, Serializable, Closeable {
      * @return the map of partition directory
      */
     LinkedHashMap<String, List<String>> generatorPartitionDir(SeaTunnelRow seaTunnelRow);
+
+    T getOrCreateOutputStream(String path) throws IOException;
 
     /**
      * use transaction id generate file name

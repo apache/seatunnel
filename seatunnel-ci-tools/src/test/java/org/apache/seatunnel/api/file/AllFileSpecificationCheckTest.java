@@ -46,7 +46,8 @@ public class AllFileSpecificationCheckTest {
     @BeforeAll
     public static void beforeAll() throws IOException {
         List<String> fileTypesCanNotRead =
-                Arrays.asList("parquet", "orc", "xlsx", "xls", "png", "jar", "lzo", "zip", "ico");
+                Arrays.asList(
+                        "parquet", "orc", "xlsx", "xls", "png", "jar", "lzo", "zip", "ico", "jks");
         List<String> fileCanNotRead =
                 Arrays.asList(
                         "seatunnel-connectors-v2/connector-file/connector-file-base/src/test/resources/encoding/gbk.json",
@@ -112,13 +113,16 @@ public class AllFileSpecificationCheckTest {
                         "docs/en/connector-v2/sink-common-options.md",
                         "docs/en/transform-v2/common-options.md",
                         "docs/en/concept/config.md",
-                        "seatunnel-api/src/main/java/org/apache/seatunnel/api/common/CommonOptions.java",
+                        "seatunnel-api/src/main/java/org/apache/seatunnel/api/options/ConnectorCommonOptions.java",
                         "seatunnel-e2e/seatunnel-connector-v2-e2e/connector-fake-e2e/src/test/resources/fake_to_assert_with_compatible_source_and_result_table_name.conf",
                         "seatunnel-e2e/seatunnel-connector-v2-e2e/connector-fake-e2e/src/test/java/org/apache/seatunnel/e2e/connector/fake/FakeIT.java",
                         "seatunnel-ci-tools/src/test/java/org/apache/seatunnel/api/file/AllFileSpecificationCheckTest.java");
 
         fileContents.forEach(
                 (path, lines) -> {
+                    if (path.contains("/changelog/")) {
+                        return;
+                    }
                     if (whiteList.contains(path.trim())) {
                         return;
                     }

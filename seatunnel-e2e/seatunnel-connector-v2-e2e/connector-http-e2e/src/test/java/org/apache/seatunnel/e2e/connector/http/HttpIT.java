@@ -271,6 +271,11 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testSourceToAssertSink(TestContainer container)
             throws IOException, InterruptedException {
+        // dynamic param for body
+        Container.ExecResult execResult0 =
+                container.executeJob("/http_post_param_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult0.getExitCode());
+
         // normal http
         Container.ExecResult execResult1 = container.executeJob("/http_json_to_assert.conf");
         Assertions.assertEquals(0, execResult1.getExitCode());
@@ -324,6 +329,10 @@ public class HttpIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult13 =
                 container.executeJob("/http_formrequestbody_to_assert.conf");
         Assertions.assertEquals(0, execResult13.getExitCode());
+
+        Container.ExecResult execResult20 =
+                container.executeJob("/http_formrequestbody_to_assert2.conf");
+        Assertions.assertEquals(0, execResult20.getExitCode());
 
         // http httpJsonRequestBody
         Container.ExecResult execResult14 =

@@ -18,15 +18,15 @@
 package org.apache.seatunnel.api.env;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.EnvOptionRule;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class EnvOptionRuleTest {
-    /** Method: getEnvOptionRules() */
     @Test
     public void testGetEnvOptionRules() throws Exception {
-        OptionRule envOptionRules = EnvOptionRule.getEnvOptionRules();
+        OptionRule envOptionRules = new EnvOptionRule().optionRule();
         Assertions.assertNotNull(envOptionRules);
     }
 }

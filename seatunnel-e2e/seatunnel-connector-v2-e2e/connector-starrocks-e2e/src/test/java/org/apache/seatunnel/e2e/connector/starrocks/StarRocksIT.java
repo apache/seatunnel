@@ -76,6 +76,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
     private static final String DATABASE = "test";
     private static final String URL = "jdbc:mysql://%s:" + SR_PORT;
     private static final String SOURCE_TABLE = "e2e_table_source";
+    private static final String SOURCE_TABLE_3 = "e2e_table_source_3";
     private static final String SINK_TABLE = "e2e_table_sink";
     private static final String SR_DRIVER_JAR =
             "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
@@ -87,6 +88,36 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     + DATABASE
                     + "."
                     + SOURCE_TABLE
+                    + " (\n"
+                    + "  BIGINT_COL     BIGINT,\n"
+                    // add comment for test
+                    + "  LARGEINT_COL   LARGEINT COMMENT '''N''-N',\n"
+                    + "  SMALLINT_COL   SMALLINT COMMENT '\\N\\-N',\n"
+                    + "  TINYINT_COL    TINYINT,\n"
+                    + "  BOOLEAN_COL    BOOLEAN,\n"
+                    + "  DECIMAL_COL    Decimal(12, 1),\n"
+                    + "  DOUBLE_COL     DOUBLE,\n"
+                    + "  FLOAT_COL      FLOAT,\n"
+                    + "  INT_COL        INT,\n"
+                    + "  CHAR_COL       CHAR,\n"
+                    + "  VARCHAR_11_COL VARCHAR(11),\n"
+                    + "  STRING_COL     STRING,\n"
+                    + "  DATETIME_COL   DATETIME,\n"
+                    + "  DATE_COL       DATE\n"
+                    + ")ENGINE=OLAP\n"
+                    + "DUPLICATE KEY(`BIGINT_COL`)\n"
+                    + "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 3\n"
+                    + "PROPERTIES (\n"
+                    + "\"replication_num\" = \"1\",\n"
+                    + "\"in_memory\" = \"false\","
+                    + "\"storage_format\" = \"DEFAULT\""
+                    + ")";
+
+    private static final String DDL_SOURCE_2 =
+            "create table "
+                    + DATABASE
+                    + "."
+                    + SOURCE_TABLE_3
                     + " (\n"
                     + "  BIGINT_COL     BIGINT,\n"
                     + "  LARGEINT_COL   LARGEINT,\n"
@@ -104,7 +135,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     + "  DATE_COL       DATE\n"
                     + ")ENGINE=OLAP\n"
                     + "DUPLICATE KEY(`BIGINT_COL`)\n"
-                    + "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 1\n"
+                    + "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 3\n"
                     + "PROPERTIES (\n"
                     + "\"replication_num\" = \"1\",\n"
                     + "\"in_memory\" = \"false\","
@@ -160,6 +191,30 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"
                     + ")";
 
+    private static final String INIT_DATA_SQL_2 =
+            "insert into "
+                    + DATABASE
+                    + "."
+                    + SOURCE_TABLE_3
+                    + " (\n"
+                    + "  BIGINT_COL,\n"
+                    + "  LARGEINT_COL,\n"
+                    + "  SMALLINT_COL,\n"
+                    + "  TINYINT_COL,\n"
+                    + "  BOOLEAN_COL,\n"
+                    + "  DECIMAL_COL,\n"
+                    + "  DOUBLE_COL,\n"
+                    + "  FLOAT_COL,\n"
+                    + "  INT_COL,\n"
+                    + "  CHAR_COL,\n"
+                    + "  VARCHAR_11_COL,\n"
+                    + "  STRING_COL,\n"
+                    + "  DATETIME_COL,\n"
+                    + "  DATE_COL\n"
+                    + ")values(\n"
+                    + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"
+                    + ")";
+
     private Connection jdbcConnection;
     private GenericContainer<?> starRocksServer;
     private static final List<SeaTunnelRow> TEST_DATASET = generateTestDataSet();
@@ -194,7 +249,8 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                 .atMost(360, TimeUnit.SECONDS)
                 .untilAsserted(this::initializeJdbcConnection);
         initializeJdbcTable();
-        batchInsertData();
+        batchInsertData(INIT_DATA_SQL);
+        batchInsertData(INIT_DATA_SQL_2);
     }
 
     private static List<SeaTunnelRow> generateTestDataSet() {
@@ -306,6 +362,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             statement.execute("create database test");
             // create source table
             statement.execute(DDL_SOURCE);
+            statement.execute(DDL_SOURCE_2);
             // create sink table
             statement.execute(DDL_FAKE_SINK_TABLE);
         } catch (SQLException e) {
@@ -313,12 +370,12 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private void batchInsertData() {
+    private void batchInsertData(String initDataSQL) {
         List<SeaTunnelRow> rows = TEST_DATASET;
         try {
             jdbcConnection.setAutoCommit(false);
             try (PreparedStatement preparedStatement =
-                    jdbcConnection.prepareStatement(INIT_DATA_SQL)) {
+                    jdbcConnection.prepareStatement(initDataSQL)) {
                 for (int i = 0; i < rows.size(); i++) {
                     for (int index = 0; index < rows.get(i).getFields().length; index++) {
                         preparedStatement.setObject(index + 1, rows.get(i).getFields()[index]);
@@ -362,9 +419,23 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                         "root",
                         PASSWORD,
                         String.format(URL, starRocksServer.getHost()),
-                        "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (\n ${rowtype_fields}\n ) ENGINE=OLAP \n  DUPLICATE KEY(`BIGINT_COL`) \n  DISTRIBUTED BY HASH (BIGINT_COL) BUCKETS 1 \n PROPERTIES (\n   \"replication_num\" = \"1\", \n  \"in_memory\" = \"false\" , \n  \"storage_format\" = \"DEFAULT\"  \n )");
+                        "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (\n ${rowtype_fields}\n ) ENGINE=OLAP \n  DUPLICATE KEY(`BIGINT_COL`) \n COMMENT '${comment}' \n DISTRIBUTED BY HASH (BIGINT_COL) BUCKETS 1 \n PROPERTIES (\n   \"replication_num\" = \"1\", \n  \"in_memory\" = \"false\" , \n  \"storage_format\" = \"DEFAULT\"  \n )");
         starRocksCatalog.open();
+
+        String tmpDB = "test_tmp";
+        if (!starRocksCatalog.databaseExists(tmpDB)) {
+            starRocksCatalog.createDatabase(TablePath.of(tmpDB, "default"), true);
+        }
+        Assertions.assertTrue(starRocksCatalog.listDatabases().contains(tmpDB));
+
         CatalogTable catalogTable = starRocksCatalog.getTable(tablePathStarRocksSource);
+        catalogTable =
+                CatalogTable.of(
+                        catalogTable.getTableId(),
+                        catalogTable.getTableSchema(),
+                        catalogTable.getOptions(),
+                        catalogTable.getPartitionKeys(),
+                        "test'1'");
         // sink tableExists ?
         starRocksCatalog.dropTable(tablePathStarRocksSink, true);
         boolean tableExistsBefore = starRocksCatalog.tableExists(tablePathStarRocksSink);
@@ -410,5 +481,21 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         starRocksCatalog.dropTable(tablePathStarRocksSink, true);
         Assertions.assertFalse(starRocksCatalog.tableExists(tablePathStarRocksSink));
         starRocksCatalog.close();
+    }
+
+    @TestTemplate
+    public void testStarRocksReadRowCount(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/starrocks-to-assert.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testStarRocksMultipleRead(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/starrocks-to-assert-with-multipletable.conf");
+        System.out.println(execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 }
