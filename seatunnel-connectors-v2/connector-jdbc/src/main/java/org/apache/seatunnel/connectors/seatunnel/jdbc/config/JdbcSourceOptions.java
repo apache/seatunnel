@@ -20,38 +20,40 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 @SuppressWarnings("checkstyle:MagicNumber")
-public interface JdbcSourceOptions {
+public class JdbcSourceOptions extends JdbcBaseOptions {
 
-    Option<String> TABLE_PATH =
+    public static final Option<String> TABLE_PATH =
             Options.key("table_path")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("table full path");
 
-    Option<String> WHERE_CONDITION =
+    public static final Option<String> WHERE_CONDITION =
             Options.key("where_condition")
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
                             "Common row filter conditions for all tables/queries, must start with `where`. for example `where id > 100`");
 
-    Option<List<JdbcSourceTableConfig>> TABLE_LIST =
+    public static final Option<List<JdbcSourceTableConfig>> TABLE_LIST =
             Options.key("table_list")
                     .listType(JdbcSourceTableConfig.class)
                     .noDefaultValue()
                     .withDescription("table list config");
 
-    Option<Integer> SPLIT_SIZE =
+    public static final Option<Integer> SPLIT_SIZE =
             Options.key("split.size")
                     .intType()
                     .defaultValue(8096)
                     .withDescription(
                             "The split size (number of rows) of table snapshot, captured tables are split into multiple splits when read     of table.");
 
-    Option<Double> SPLIT_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND =
+    public static final Option<Double> SPLIT_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND =
             Options.key("split.even-distribution.factor.upper-bound")
                     .doubleType()
                     .defaultValue(100.0d)
@@ -62,7 +64,7 @@ public interface JdbcSourceOptions {
                                     + " and the query for splitting would happen when it is uneven."
                                     + " The distribution factor could be calculated by (MAX(id) - MIN(id) + 1) / rowCount.");
 
-    Option<Double> SPLIT_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND =
+    public static final Option<Double> SPLIT_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND =
             Options.key("split.even-distribution.factor.lower-bound")
                     .doubleType()
                     .defaultValue(0.05d)
@@ -73,7 +75,7 @@ public interface JdbcSourceOptions {
                                     + " and the query for splitting would happen when it is uneven."
                                     + " The distribution factor could be calculated by (MAX(id) - MIN(id) + 1) / rowCount.");
 
-    Option<Integer> SPLIT_SAMPLE_SHARDING_THRESHOLD =
+    public static final Option<Integer> SPLIT_SAMPLE_SHARDING_THRESHOLD =
             Options.key("split.sample-sharding.threshold")
                     .intType()
                     .defaultValue(1000) // 1000 shards
@@ -84,7 +86,7 @@ public interface JdbcSourceOptions {
                                     + "the sample sharding strategy will be used. "
                                     + "This strategy can help to handle large datasets more efficiently. "
                                     + "The default value is 1000 shards.");
-    Option<Integer> SPLIT_INVERSE_SAMPLING_RATE =
+    public static final Option<Integer> SPLIT_INVERSE_SAMPLING_RATE =
             Options.key("split.inverse-sampling.rate")
                     .intType()
                     .defaultValue(1000) // 1/1000 sampling rate
@@ -94,15 +96,61 @@ public interface JdbcSourceOptions {
                                     + "For example, a value of 1000 means a sampling rate of 1/1000. "
                                     + "This parameter is used when the sample sharding strategy is triggered.");
 
-    Option<Boolean> USE_SELECT_COUNT =
+    public static final Option<Boolean> USE_SELECT_COUNT =
             Options.key("use_select_count")
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("Use select count for table count");
 
-    Option<Boolean> SKIP_ANALYZE =
+    public static final Option<Boolean> SKIP_ANALYZE =
             Options.key("skip_analyze")
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("Skip the analysis of table count");
+
+    public static final Option<Map<String, String>> PROPERTIES =
+            Options.key("properties")
+                    .mapType()
+                    .noDefaultValue()
+                    .withDescription("additional connection configuration parameters");
+
+    public static final Option<String> PARTITION_COLUMN =
+            Options.key("partition_column")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("partition column");
+
+    public static final Option<BigDecimal> PARTITION_UPPER_BOUND =
+            Options.key("partition_upper_bound")
+                    .bigDecimalType()
+                    .noDefaultValue()
+                    .withDescription("partition upper bound");
+    public static final Option<BigDecimal> PARTITION_LOWER_BOUND =
+            Options.key("partition_lower_bound")
+                    .bigDecimalType()
+                    .noDefaultValue()
+                    .withDescription("partition lower bound");
+    public static final Option<Integer> PARTITION_NUM =
+            Options.key("partition_num")
+                    .intType()
+                    .noDefaultValue()
+                    .withDescription("partition num");
+
+    public static final Option<Integer> FETCH_SIZE =
+            Options.key("fetch_size")
+                    .intType()
+                    .defaultValue(0)
+                    .withDescription(
+                            "For queries that return a large number of objects, "
+                                    + "you can configure the row fetch size used in the query to improve performance by reducing the number database hits required to satisfy the selection criteria. Zero means use jdbc default value.");
+
+    public static final Option<Boolean> DECIMAL_TYPE_NARROWING =
+            Options.key("decimal_type_narrowing")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "decimal type narrowing, if true, the decimal type will be narrowed to the int or long type if without loss of precision. Only support for Oracle at now.");
+
+
+
 }

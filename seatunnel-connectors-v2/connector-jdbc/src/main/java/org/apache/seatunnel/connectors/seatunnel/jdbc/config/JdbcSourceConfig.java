@@ -53,12 +53,12 @@ public class JdbcSourceConfig implements Serializable {
         JdbcSourceConfig.Builder builder = JdbcSourceConfig.builder();
         builder.jdbcConnectionConfig(JdbcConnectionConfig.of(config));
         builder.tableConfigList(JdbcSourceTableConfig.of(config));
-        builder.fetchSize(config.get(JdbcOptions.FETCH_SIZE));
-        config.getOptional(JdbcOptions.COMPATIBLE_MODE).ifPresent(builder::compatibleMode);
+        builder.fetchSize(config.get(JdbcSourceOptions.FETCH_SIZE));
+        config.getOptional(JdbcSourceOptions.COMPATIBLE_MODE).ifPresent(builder::compatibleMode);
 
         boolean isOldVersion =
-                config.getOptional(JdbcOptions.QUERY).isPresent()
-                        && config.getOptional(JdbcOptions.PARTITION_COLUMN).isPresent();
+                config.getOptional(JdbcSourceOptions.QUERY).isPresent()
+                        && config.getOptional(JdbcSourceOptions.PARTITION_COLUMN).isPresent();
         builder.useDynamicSplitter(!isOldVersion);
         builder.stringSplitMode(config.get(JdbcOptions.STRING_SPLIT_MODE));
         builder.stringSplitModeCollate(config.get(JdbcOptions.STRING_SPLIT_MODE_COLLATE));
@@ -71,7 +71,7 @@ public class JdbcSourceConfig implements Serializable {
                 config.get(JdbcSourceOptions.SPLIT_SAMPLE_SHARDING_THRESHOLD));
         builder.splitInverseSamplingRate(config.get(JdbcSourceOptions.SPLIT_INVERSE_SAMPLING_RATE));
 
-        builder.decimalTypeNarrowing(config.get(JdbcOptions.DECIMAL_TYPE_NARROWING));
+        builder.decimalTypeNarrowing(config.get(JdbcSourceOptions.DECIMAL_TYPE_NARROWING));
 
         config.getOptional(JdbcSourceOptions.WHERE_CONDITION)
                 .ifPresent(

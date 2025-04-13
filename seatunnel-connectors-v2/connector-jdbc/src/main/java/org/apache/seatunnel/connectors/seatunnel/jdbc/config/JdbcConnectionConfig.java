@@ -34,63 +34,63 @@ public class JdbcConnectionConfig implements Serializable {
     private String driverName;
     private String compatibleMode;
     private int connectionCheckTimeoutSeconds =
-            JdbcOptions.CONNECTION_CHECK_TIMEOUT_SEC.defaultValue();
-    private int maxRetries = JdbcOptions.MAX_RETRIES.defaultValue();
+            JdbcBaseOptions.CONNECTION_CHECK_TIMEOUT_SEC.defaultValue();
+    private int maxRetries = JdbcSinkOptions.MAX_RETRIES.defaultValue();
     private String username;
     private String password;
     private String query;
 
-    private boolean autoCommit = JdbcOptions.AUTO_COMMIT.defaultValue();
+    private boolean autoCommit = JdbcSinkOptions.AUTO_COMMIT.defaultValue();
 
-    private int batchSize = JdbcOptions.BATCH_SIZE.defaultValue();
+    private int batchSize = JdbcSinkOptions.BATCH_SIZE.defaultValue();
 
     private String xaDataSourceClassName;
 
-    private boolean decimalTypeNarrowing = JdbcOptions.DECIMAL_TYPE_NARROWING.defaultValue();
+    private boolean decimalTypeNarrowing = JdbcSourceOptions.DECIMAL_TYPE_NARROWING.defaultValue();
 
-    private int maxCommitAttempts = JdbcOptions.MAX_COMMIT_ATTEMPTS.defaultValue();
+    private int maxCommitAttempts = JdbcSinkOptions.MAX_COMMIT_ATTEMPTS.defaultValue();
 
-    private int transactionTimeoutSec = JdbcOptions.TRANSACTION_TIMEOUT_SEC.defaultValue();
+    private int transactionTimeoutSec = JdbcSinkOptions.TRANSACTION_TIMEOUT_SEC.defaultValue();
 
-    private boolean useKerberos = JdbcOptions.USE_KERBEROS.defaultValue();
+    private boolean useKerberos = JdbcSourceOptions.USE_KERBEROS.defaultValue();
 
     private String kerberosPrincipal;
 
     private String kerberosKeytabPath;
 
-    private String krb5Path = JdbcOptions.KRB5_PATH.defaultValue();
+    private String krb5Path = JdbcSourceOptions.KRB5_PATH.defaultValue();
 
-    private String dialect = JdbcOptions.DIALECT.defaultValue();
+    private String dialect = JdbcBaseOptions.DIALECT.defaultValue();
 
     private Map<String, String> properties;
 
     public static JdbcConnectionConfig of(ReadonlyConfig config) {
         JdbcConnectionConfig.Builder builder = JdbcConnectionConfig.builder();
-        builder.url(config.get(JdbcOptions.URL));
-        builder.compatibleMode(config.get(JdbcOptions.COMPATIBLE_MODE));
-        builder.driverName(config.get(JdbcOptions.DRIVER));
-        builder.autoCommit(config.get(JdbcOptions.AUTO_COMMIT));
-        builder.maxRetries(config.get(JdbcOptions.MAX_RETRIES));
-        builder.connectionCheckTimeoutSeconds(config.get(JdbcOptions.CONNECTION_CHECK_TIMEOUT_SEC));
-        builder.batchSize(config.get(JdbcOptions.BATCH_SIZE));
-        if (config.get(JdbcOptions.IS_EXACTLY_ONCE)) {
-            builder.xaDataSourceClassName(config.get(JdbcOptions.XA_DATA_SOURCE_CLASS_NAME));
-            builder.maxCommitAttempts(config.get(JdbcOptions.MAX_COMMIT_ATTEMPTS));
-            builder.transactionTimeoutSec(config.get(JdbcOptions.TRANSACTION_TIMEOUT_SEC));
+        builder.url(config.get(JdbcBaseOptions.URL));
+        builder.compatibleMode(config.get(JdbcBaseOptions.COMPATIBLE_MODE));
+        builder.driverName(config.get(JdbcBaseOptions.DRIVER));
+        builder.autoCommit(config.get(JdbcSinkOptions.AUTO_COMMIT));
+        builder.maxRetries(config.get(JdbcSinkOptions.MAX_RETRIES));
+        builder.connectionCheckTimeoutSeconds(config.get(JdbcBaseOptions.CONNECTION_CHECK_TIMEOUT_SEC));
+        builder.batchSize(config.get(JdbcSinkOptions.BATCH_SIZE));
+        if (config.get(JdbcSinkOptions.IS_EXACTLY_ONCE)) {
+            builder.xaDataSourceClassName(config.get(JdbcSinkOptions.XA_DATA_SOURCE_CLASS_NAME));
+            builder.maxCommitAttempts(config.get(JdbcSinkOptions.MAX_COMMIT_ATTEMPTS));
+            builder.transactionTimeoutSec(config.get(JdbcSinkOptions.TRANSACTION_TIMEOUT_SEC));
             builder.maxRetries(0);
         }
-        if (config.get(JdbcOptions.USE_KERBEROS)) {
-            builder.useKerberos(config.get(JdbcOptions.USE_KERBEROS));
-            builder.kerberosPrincipal(config.get(JdbcOptions.KERBEROS_PRINCIPAL));
-            builder.kerberosKeytabPath(config.get(JdbcOptions.KERBEROS_KEYTAB_PATH));
-            builder.krb5Path(config.get(JdbcOptions.KRB5_PATH));
+        if (config.get(JdbcBaseOptions.USE_KERBEROS)) {
+            builder.useKerberos(config.get(JdbcBaseOptions.USE_KERBEROS));
+            builder.kerberosPrincipal(config.get(JdbcBaseOptions.KERBEROS_PRINCIPAL));
+            builder.kerberosKeytabPath(config.get(JdbcBaseOptions.KERBEROS_KEYTAB_PATH));
+            builder.krb5Path(config.get(JdbcBaseOptions.KRB5_PATH));
         }
-        config.getOptional(JdbcOptions.USER).ifPresent(builder::username);
-        config.getOptional(JdbcOptions.PASSWORD).ifPresent(builder::password);
-        config.getOptional(JdbcOptions.PROPERTIES).ifPresent(builder::properties);
-        config.getOptional(JdbcOptions.DECIMAL_TYPE_NARROWING)
+        config.getOptional(JdbcBaseOptions.USER).ifPresent(builder::username);
+        config.getOptional(JdbcBaseOptions.PASSWORD).ifPresent(builder::password);
+        config.getOptional(JdbcSourceOptions.PROPERTIES).ifPresent(builder::properties);
+        config.getOptional(JdbcSourceOptions.DECIMAL_TYPE_NARROWING)
                 .ifPresent(builder::decimalTypeNarrowing);
-        config.getOptional(JdbcOptions.DIALECT).ifPresent(builder::dialect);
+        config.getOptional(JdbcBaseOptions.DIALECT).ifPresent(builder::dialect);
         return builder.build();
     }
 
@@ -115,23 +115,23 @@ public class JdbcConnectionConfig implements Serializable {
         private String driverName;
         private String compatibleMode;
         private int connectionCheckTimeoutSeconds =
-                JdbcOptions.CONNECTION_CHECK_TIMEOUT_SEC.defaultValue();
-        private int maxRetries = JdbcOptions.MAX_RETRIES.defaultValue();
+                JdbcBaseOptions.CONNECTION_CHECK_TIMEOUT_SEC.defaultValue();
+        private int maxRetries = JdbcSinkOptions.MAX_RETRIES.defaultValue();
         private String username;
         private String password;
         private String query;
-        private boolean autoCommit = JdbcOptions.AUTO_COMMIT.defaultValue();
-        private int batchSize = JdbcOptions.BATCH_SIZE.defaultValue();
+        private boolean autoCommit = JdbcSinkOptions.AUTO_COMMIT.defaultValue();
+        private int batchSize = JdbcSinkOptions.BATCH_SIZE.defaultValue();
         private String xaDataSourceClassName;
-        private boolean decimalTypeNarrowing = JdbcOptions.DECIMAL_TYPE_NARROWING.defaultValue();
-        private int maxCommitAttempts = JdbcOptions.MAX_COMMIT_ATTEMPTS.defaultValue();
-        private int transactionTimeoutSec = JdbcOptions.TRANSACTION_TIMEOUT_SEC.defaultValue();
+        private boolean decimalTypeNarrowing = JdbcSourceOptions.DECIMAL_TYPE_NARROWING.defaultValue();
+        private int maxCommitAttempts = JdbcSinkOptions.MAX_COMMIT_ATTEMPTS.defaultValue();
+        private int transactionTimeoutSec = JdbcSinkOptions.TRANSACTION_TIMEOUT_SEC.defaultValue();
         private Map<String, String> properties;
-        public boolean useKerberos = JdbcOptions.USE_KERBEROS.defaultValue();
+        public boolean useKerberos = JdbcSourceOptions.USE_KERBEROS.defaultValue();
         public String kerberosPrincipal;
         public String kerberosKeytabPath;
-        public String krb5Path = JdbcOptions.KRB5_PATH.defaultValue();
-        public String dialect = JdbcOptions.DIALECT.defaultValue();
+        public String krb5Path = JdbcBaseOptions.KRB5_PATH.defaultValue();
+        public String dialect = JdbcBaseOptions.DIALECT.defaultValue();
 
         private Builder() {}
 
