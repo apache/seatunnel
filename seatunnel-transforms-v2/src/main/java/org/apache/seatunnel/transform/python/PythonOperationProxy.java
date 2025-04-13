@@ -17,17 +17,21 @@
 
 package org.apache.seatunnel.transform.python;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowAccessor;
 import py4j.GatewayServer;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 public class PythonOperationProxy implements RowOperation {
 
     private GatewayServer javaServer;
-    private final Map<Long,SeaTunnelRowAccessor> threadDataMap = new ConcurrentHashMap<>();
-    private final Map<Long,Long> threadDataOffsetMap = new ConcurrentHashMap<>();
+    private final Map<Long, SeaTunnelRowAccessor> inputDataMap = new ConcurrentHashMap<>();
+
+    private final Map<Long, EndTagList> outputDataMap = new ConcurrentHashMap<>();
     private PythonOperationProxy(){
         if (INSTANCE != null) {
             throw new RuntimeException("Please use newInstance() method for getting the single instance of this class.");
@@ -51,14 +55,33 @@ public class PythonOperationProxy implements RowOperation {
     }
 
     public void putThreadData(long threadId, SeaTunnelRowAccessor inputRow) {
-        this.threadDataMap.put(threadId,inputRow);
-        this.threadDataOffsetMap.compute(threadId,(thread,offset) ->{
-            if (offset == null){
-                offset = 0L;
-            }else {
-                offset = offset + 1;
-            }
-            return offset;
-        });
+        this.inputDataMap.put(threadId,inputRow);
+    }
+
+    public Object[] getOutputData(long threadId) {
+        EndTagList endTagList = outputDataMap.get(threadId);
+        while (endTagList == null || !endTagList.isEnd()){
+            log.info("wait python process data");
+        }
+        return outputDataMap.get(threadId).getList().toArray(new Object[0]);
+    }
+
+    public void addData(Long threadId,Object obj){
+        EndTagList array = this.outputDataMap.getOrDefault(threadId, new EndTagList());
+        array.add(obj);
+        this.outputDataMap.put(threadId,array);
+    }
+
+    public void addDataList(Long threadId,List<Object> dataList){
+        EndTagList array = new EndTagList();
+        this.outputDataMap.put(threadId,array);
+    }
+
+
+    public void end(Long threadId){
+        EndTagList endTagList = this.outputDataMap.get(threadId);
+        if (endTagList != null){
+            endTagList.end();
+        }
     }
 }

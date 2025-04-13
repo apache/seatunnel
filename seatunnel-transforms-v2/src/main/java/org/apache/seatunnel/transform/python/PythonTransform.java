@@ -34,7 +34,7 @@ public class PythonTransform extends MultipleFieldOutputTransform {
     protected Object[] getOutputFieldValues(SeaTunnelRowAccessor inputRow) {
         long threadId = Thread.currentThread().getId();
         pythonOperationProxy.putThreadData(threadId,inputRow);
-        return new Object[0];
+        return pythonOperationProxy.getOutputData(threadId);
     }
 
     @Override
