@@ -17,11 +17,17 @@
 
 package org.apache.seatunnel.transform.python;
 
+import org.apache.seatunnel.api.table.type.SeaTunnelRowAccessor;
 import py4j.GatewayServer;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class PythonOperationProxy implements RowOperation {
 
     private GatewayServer javaServer;
+    private final Map<Long,SeaTunnelRowAccessor> threadDataMap = new ConcurrentHashMap<>();
+    private final Map<Long,Long> threadDataOffsetMap = new ConcurrentHashMap<>();
     private PythonOperationProxy(){
         if (INSTANCE != null) {
             throw new RuntimeException("Please use newInstance() method for getting the single instance of this class.");
@@ -42,5 +48,17 @@ public class PythonOperationProxy implements RowOperation {
 
     public void shutdown(){
         this.javaServer.shutdown();
+    }
+
+    public void putThreadData(long threadId, SeaTunnelRowAccessor inputRow) {
+        this.threadDataMap.put(threadId,inputRow);
+        this.threadDataOffsetMap.compute(threadId,(thread,offset) ->{
+            if (offset == null){
+                offset = 0L;
+            }else {
+                offset = offset + 1;
+            }
+            return offset;
+        });
     }
 }

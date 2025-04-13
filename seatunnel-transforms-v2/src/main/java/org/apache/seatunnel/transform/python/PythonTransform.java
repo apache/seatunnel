@@ -11,14 +11,14 @@ public class PythonTransform extends MultipleFieldOutputTransform {
 
     public static final String PLUGIN_NAME = "Python";
 
-    private final PythonTransformConfig config;
+    private final PythonTransformConfig transformConfig;
 
     private final PythonOperationProxy pythonOperationProxy;
 
     public PythonTransform(@NonNull CatalogTable inputCatalogTable, PythonTransformConfig transformConfig) {
         super(inputCatalogTable, transformConfig.getErrorHandleWay());
-        this.config = transformConfig;
-        pythonOperationProxy = initLocalSingletonJavaServer(config.getJavaServerPort());
+        this.transformConfig = transformConfig;
+        this.pythonOperationProxy = initLocalSingletonJavaServer(transformConfig.getJavaServerPort());
     }
 
     private PythonOperationProxy initLocalSingletonJavaServer(Integer javaServerPort) {
@@ -32,6 +32,8 @@ public class PythonTransform extends MultipleFieldOutputTransform {
 
     @Override
     protected Object[] getOutputFieldValues(SeaTunnelRowAccessor inputRow) {
+        long threadId = Thread.currentThread().getId();
+        pythonOperationProxy.putThreadData(threadId,inputRow);
         return new Object[0];
     }
 
