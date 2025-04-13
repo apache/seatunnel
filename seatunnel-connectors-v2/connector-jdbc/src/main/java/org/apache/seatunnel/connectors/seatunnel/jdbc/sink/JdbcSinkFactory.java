@@ -83,7 +83,8 @@ public class JdbcSinkFactory implements TableSinkFactory {
         String sourceSchemaName = tableId.getSchemaName();
         String pluginInputIdentifier = tableId.getTableName();
         // get sink table relevant information
-        String sinkDatabaseName = optionalDatabase.orElse(SinkReplaceNameConstant.REPLACE_DATABASE_NAME_KEY);
+        String sinkDatabaseName =
+                optionalDatabase.orElse(SinkReplaceNameConstant.REPLACE_DATABASE_NAME_KEY);
         String sinkTableNameBefore = optionalTable.get();
         String[] sinkTableSplitArray = sinkTableNameBefore.split("\\.");
         String sinkTableName = sinkTableSplitArray[sinkTableSplitArray.length - 1];

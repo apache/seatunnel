@@ -60,8 +60,8 @@ public class JdbcSourceConfig implements Serializable {
                 config.getOptional(JdbcSourceOptions.QUERY).isPresent()
                         && config.getOptional(JdbcSourceOptions.PARTITION_COLUMN).isPresent();
         builder.useDynamicSplitter(!isOldVersion);
-        builder.stringSplitMode(config.get(JdbcOptions.STRING_SPLIT_MODE));
-        builder.stringSplitModeCollate(config.get(JdbcOptions.STRING_SPLIT_MODE_COLLATE));
+        builder.stringSplitMode(config.get(JdbcSourceOptions.STRING_SPLIT_MODE));
+        builder.stringSplitModeCollate(config.get(JdbcSourceOptions.STRING_SPLIT_MODE_COLLATE));
         builder.splitSize(config.get(JdbcSourceOptions.SPLIT_SIZE));
         builder.splitEvenDistributionFactorUpperBound(
                 config.get(JdbcSourceOptions.SPLIT_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND));
