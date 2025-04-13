@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.openmldb.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class OpenMldbConfig {
+public class OpenMldbSourceOptions {
     private static final int DEFAULT_SESSION_TIMEOUT = 10000;
     private static final int DEFAULT_REQUEST_TIMEOUT = 60000;
     public static final Option<String> ZK_HOST =
