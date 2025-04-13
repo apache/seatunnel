@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeUtil;
@@ -36,10 +37,6 @@ import com.aliyun.odps.tunnel.TableTunnel;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PARTITION_SPEC;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PROJECT;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.TABLE_NAME;
 
 @Slf4j
 public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
@@ -55,17 +52,19 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             Table table = MaxcomputeUtil.getTable(readonlyConfig);
             this.tableSchema = table.getSchema();
             TableTunnel tunnel = MaxcomputeUtil.getTableTunnel(readonlyConfig);
-            if (readonlyConfig.getOptional(PARTITION_SPEC).isPresent()) {
-                PartitionSpec partitionSpec = new PartitionSpec(readonlyConfig.get(PARTITION_SPEC));
+            if (readonlyConfig.getOptional(MaxcomputeSinkOptions.PARTITION_SPEC).isPresent()) {
+                PartitionSpec partitionSpec =
+                        new PartitionSpec(readonlyConfig.get(MaxcomputeSinkOptions.PARTITION_SPEC));
                 session =
                         tunnel.createUploadSession(
-                                readonlyConfig.get(PROJECT),
-                                readonlyConfig.get(TABLE_NAME),
+                                readonlyConfig.get(MaxcomputeSinkOptions.PROJECT),
+                                readonlyConfig.get(MaxcomputeSinkOptions.TABLE_NAME),
                                 partitionSpec);
             } else {
                 session =
                         tunnel.createUploadSession(
-                                readonlyConfig.get(PROJECT), readonlyConfig.get(TABLE_NAME));
+                                readonlyConfig.get(MaxcomputeSinkOptions.PROJECT),
+                                readonlyConfig.get(MaxcomputeSinkOptions.TABLE_NAME));
             }
             this.recordWriter = session.openBufferedWriter();
             log.info("open record writer success");
