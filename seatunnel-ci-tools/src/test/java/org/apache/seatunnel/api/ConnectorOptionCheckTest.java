@@ -195,7 +195,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("PulsarSinkOptions");
         whiteList.add("SlsSinkOptions");
         whiteList.add("Neo4jSinkOptions");
-        whiteList.add("MaxcomputeSinkOptions");
         whiteList.add("PaimonSinkOptions");
         whiteList.add("TDengineSourceOptions");
         whiteList.add("PulsarSourceOptions");
@@ -206,7 +205,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("QdrantSinkOptions");
         whiteList.add("MilvusSourceOptions");
         whiteList.add("RocketMqSinkOptions");
-        whiteList.add("MaxcomputeSourceOptions");
         whiteList.add("KuduSourceOptions");
         whiteList.add("SocketSinkOptions");
         whiteList.add("SelectDBSinkOptions");
