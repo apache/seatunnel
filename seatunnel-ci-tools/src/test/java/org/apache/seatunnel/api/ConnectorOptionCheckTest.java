@@ -204,13 +204,11 @@ public class ConnectorOptionCheckTest {
         whiteList.add("SlsSourceOptions");
         whiteList.add("SentrySinkOptions");
         whiteList.add("QdrantSinkOptions");
-        whiteList.add("MilvusSourceOptions");
         whiteList.add("RocketMqSinkOptions");
         whiteList.add("MaxcomputeSourceOptions");
         whiteList.add("KuduSourceOptions");
         whiteList.add("SocketSinkOptions");
         whiteList.add("SelectDBSinkOptions");
-        whiteList.add("MilvusSinkOptions");
         whiteList.add("RocketMqSourceOptions");
         whiteList.add("TablestoreSinkOptions");
         whiteList.add("TableStoreDBSourceOptions");

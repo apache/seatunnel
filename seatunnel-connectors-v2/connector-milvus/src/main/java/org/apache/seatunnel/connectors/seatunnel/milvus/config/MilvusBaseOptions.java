@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.milvus.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public abstract class MilvusCommonConfig {
+public abstract class MilvusBaseOptions {
 
     public static final String CONNECTOR_IDENTITY = "Milvus";
 
