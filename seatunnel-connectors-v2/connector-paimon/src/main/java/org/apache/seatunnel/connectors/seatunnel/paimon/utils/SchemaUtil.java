@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.paimon.data.PaimonTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
@@ -70,7 +71,7 @@ public class SchemaUtil {
         Map<String, String> writeProps = paimonSinkConfig.getWriteProps();
         CoreOptions.ChangelogProducer changelogProducer = paimonSinkConfig.getChangelogProducer();
         if (changelogProducer != null) {
-            writeProps.remove(PaimonSinkConfig.CHANGELOG_TMP_PATH);
+            writeProps.remove(PaimonSinkOptions.CHANGELOG_TMP_PATH);
         }
         if (!writeProps.isEmpty()) {
             paiSchemaBuilder.options(writeProps);

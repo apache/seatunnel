@@ -17,17 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.config;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 
-import lombok.Getter;
+public class PaimonSourceOptions extends PaimonBaseOptions {
 
-@Getter
-public class PaimonSourceConfig extends PaimonConfig {
-
-    private String query;
-
-    public PaimonSourceConfig(ReadonlyConfig readonlyConfig) {
-        super(readonlyConfig);
-        this.query = readonlyConfig.get(PaimonSourceOptions.QUERY_SQL);
-    }
+    public static final Option<String> QUERY_SQL =
+            Options.key("query")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The query of paimon source");
 }

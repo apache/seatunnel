@@ -196,11 +196,9 @@ public class ConnectorOptionCheckTest {
         whiteList.add("SlsSinkOptions");
         whiteList.add("Neo4jSinkOptions");
         whiteList.add("MaxcomputeSinkOptions");
-        whiteList.add("PaimonSinkOptions");
         whiteList.add("TDengineSourceOptions");
         whiteList.add("PulsarSourceOptions");
         whiteList.add("MongodbSinkOptions");
-        whiteList.add("PaimonSourceOptions");
         whiteList.add("SlsSourceOptions");
         whiteList.add("SentrySinkOptions");
         whiteList.add("QdrantSinkOptions");
