@@ -65,8 +65,14 @@ public class ElasticsearchSourceOptions extends ElasticsearchBaseOptions {
     public static final Option<SearchTypeEnum> SEARCH_TYPE =
             Options.key("search_type")
                     .enumType(SearchTypeEnum.class)
-                    .defaultValue(SearchTypeEnum.SCROLL)
-                    .withDescription("Choose dsl syntax or x-pack sql.");
+                    .defaultValue(SearchTypeEnum.DSL)
+                    .withDescription("Choose query type: DSL (Domain Specific Language) or SQL.");
+
+    public static final Option<SearchApiTypeEnum> SEARCH_API_TYPE =
+            Options.key("search_api_type")
+                    .enumType(SearchApiTypeEnum.class)
+                    .defaultValue(SearchApiTypeEnum.SCROLL)
+                    .withDescription("Choose API type for pagination: SCROLL or PIT (Point in Time).");
 
     public static final Option<String> SQL_QUERY =
             Options.key("sql_query")

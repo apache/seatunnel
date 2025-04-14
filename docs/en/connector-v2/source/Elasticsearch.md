@@ -30,8 +30,9 @@ support version >= 2.x and <= 8.x.
 | index_list              | array   | no       | used to define a multiple table task                           |
 | source                  | array   | no       | -                                                              |
 | query                   | json    | no       | {"match_all": {}}                                              |
-| search_type             | json    | no       | Search method,SQL、PIT、SCROLL,default SCROLL                    |
-| sql_query               | json    | no       | sql query                                                      |
+| search_type             | enum    | no       | Query type, SQL or DSL, default DSL                            |
+| search_api_type         | enum    | no       | Pagination API type, SCROLL or PIT, default SCROLL             |
+| sql_query               | json    | no       | SQL query, required when search_type is SQL                    |
 | scroll_time             | string  | no       | 1m                                                             |
 | scroll_size             | int     | no       | 100                                                            |
 | tls_verify_certificate  | boolean | no       | true                                                           |
@@ -116,9 +117,14 @@ The path to PEM or JKS trust store. This file must be readable by the operating 
 The key password for the trust store specified
 
 ### search_type
-PIT: Whether to use the Point in Time (PIT) API instead of the scroll API
-SQL: Use SQL query
-SCROLL: Use the scroll API by default
+Query type, available values:
+- DSL: Use Domain Specific Language query (default)
+- SQL: Use SQL query
+
+### search_api_type
+Pagination API type, available values:
+- SCROLL: Use Scroll API for pagination (default)
+- PIT: Use Point in Time (PIT) API for pagination
 
 ### pit_keep_alive [long]
 The amount of time (in milliseconds) for which the PIT should be keep alive
@@ -190,7 +196,7 @@ source {
            c_date2,
            c_null
            ]
-           
+
        }
 
     ]
@@ -227,7 +233,7 @@ source {
         hosts = ["https://localhost:9200"]
         username = "elastic"
         password = "elasticsearch"
-        
+
         tls_verify_certificate = false
     }
 }
@@ -241,7 +247,7 @@ source {
         hosts = ["https://localhost:9200"]
         username = "elastic"
         password = "elasticsearch"
-        
+
         tls_verify_hostname = false
     }
 }
@@ -255,7 +261,7 @@ source {
         hosts = ["https://localhost:9200"]
         username = "elastic"
         password = "elasticsearch"
-        
+
         tls_keystore_path = "${your elasticsearch home}/config/certs/http.p12"
         tls_keystore_password = "${your password}"
     }
@@ -291,9 +297,10 @@ source {
 
     index = "st_index"
     query = {"range": {"c_int": {"gte": 10, "lte": 20}}}
-   
-    # Enable PIT API
-    use_pit = true
+
+    # Use DSL query with PIT API
+    search_type = DSL
+    search_api_type = PIT
     pit_keep_alive = 60000  # 1 minute in milliseconds
     pit_batch_size = 100
 ```

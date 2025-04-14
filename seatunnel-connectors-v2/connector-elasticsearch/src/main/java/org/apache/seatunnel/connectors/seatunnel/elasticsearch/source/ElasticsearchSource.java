@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SearchApiTypeEnum;
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -56,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions.SEARCH_API_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions.SEARCH_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions.SQL_QUERY;
 
@@ -175,6 +177,7 @@ public class ElasticsearchSource
                             "");
         }
         SearchTypeEnum searchType = readonlyConfig.get(SEARCH_TYPE);
+        SearchApiTypeEnum searchApiType = readonlyConfig.get(SEARCH_API_TYPE);
         String sqlQuery = readonlyConfig.get(ElasticsearchSourceOptions.SQL_QUERY);
         String scrollTime = readonlyConfig.get(ElasticsearchSourceOptions.SCROLL_TIME);
         int scrollSize = readonlyConfig.get(ElasticsearchSourceOptions.SCROLL_SIZE);
@@ -192,6 +195,7 @@ public class ElasticsearchSource
         elasticsearchConfig.setCatalogTable(catalogTable);
         elasticsearchConfig.setSqlQuery(sqlQuery);
         elasticsearchConfig.setSearchType(searchType);
+        elasticsearchConfig.setSearchApiType(searchApiType);
 
         elasticsearchConfig.setPitKeepAlive(pitKeepAlive);
         elasticsearchConfig.setPitBatchSize(pitBatchSize);

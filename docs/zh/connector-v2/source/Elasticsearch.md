@@ -28,8 +28,9 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 | index_list              | array   | no       | 用来定义多索引同步任务                         |
 | source                  | array   | no       | -                                   |
 | query                   | json    | no       | {"match_all": {}}                   |
-| search_type             | json    | no       | 查询方式，SQL、PIT、SCROLL,默认 SCROLL       |
-| sql_query               | json    | no       | sql 查询语句                            |
+| search_type             | enum    | no       | 查询类型，SQL 或 DSL，默认 DSL              |
+| search_api_type         | enum    | no       | 分页 API 类型，SCROLL 或 PIT，默认 SCROLL    |
+| sql_query               | json    | no       | SQL 查询语句，当 search_type 为 SQL 时必须    |
 | scroll_time             | string  | no       | 1m                                  |
 | scroll_size             | int     | no       | 100                                 |
 | tls_verify_certificate  | boolean | no       | true                                |
@@ -118,9 +119,14 @@ PEM 或 JKS 信任库的路径。该文件必须对运行 SeaTunnel 的操作系
 指定信任库的密钥密码。
 
 ### search_type
-PIT:是否使用时间点 (PIT) API 代替滚动 API
-SQL:使用sql 方式查询
-SCROLL:默认使用scroll API
+查询类型，可选值：
+- DSL: 使用 Domain Specific Language 查询（默认）
+- SQL: 使用 SQL 查询
+
+### search_api_type
+分页 API 类型，可选值：
+- SCROLL: 使用 Scroll API 进行分页（默认）
+- PIT: 使用 Point in Time (PIT) API 进行分页
 
 ### pit_keep_alive [long]
 PIT 应保持活动的时间量（以毫秒为单位）
@@ -193,7 +199,7 @@ source {
            c_date2,
            c_null
            ]
-           
+
        }
 
     ]
@@ -228,7 +234,7 @@ source {
         hosts = ["https://localhost:9200"]
         username = "elastic"
         password = "elasticsearch"
-        
+
         tls_verify_certificate = false
     }
 }
@@ -242,7 +248,7 @@ source {
         hosts = ["https://localhost:9200"]
         username = "elastic"
         password = "elasticsearch"
-        
+
         tls_verify_hostname = false
     }
 }
@@ -256,7 +262,7 @@ source {
         hosts = ["https://localhost:9200"]
         username = "elastic"
         password = "elasticsearch"
-        
+
         tls_keystore_path = "${your elasticsearch home}/config/certs/http.p12"
         tls_keystore_password = "${your password}"
     }
@@ -292,9 +298,10 @@ source {
 
     index = "st_index"
     query = {"range": {"c_int": {"gte": 10, "lte": 20}}}
-   
-    # Enable PIT API
-    search_type = PIT
+
+    # 使用 DSL 查询和 PIT API
+    search_type = DSL
+    search_api_type = PIT
     pit_keep_alive = 60000  # 1 minute in milliseconds
     pit_batch_size = 100
 ```

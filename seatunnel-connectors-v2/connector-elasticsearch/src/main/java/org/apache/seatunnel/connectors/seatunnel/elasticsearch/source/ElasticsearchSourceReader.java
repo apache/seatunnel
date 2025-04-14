@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchConfig;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SearchApiTypeEnum;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SearchTypeEnum;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.PointInTimeResult;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
@@ -98,13 +99,9 @@ public class ElasticsearchSourceReader
         SeaTunnelRowDeserializer deserializer =
                 new DefaultSeaTunnelRowDeserializer(seaTunnelRowType);
 
-        // Check if we should use PIT API
-        if (SearchTypeEnum.PIT.equals(sourceIndexInfo.getSearchType())) {
-            log.info("Using Point-in-Time (PIT) API for index: {}", sourceIndexInfo.getIndex());
-            searchWithPointInTime(sourceIndexInfo, output, deserializer);
-        }
         // SQL client
-        else if (SearchTypeEnum.SQL.equals(sourceIndexInfo.getSearchType())) {
+        if (SearchTypeEnum.SQL.equals(sourceIndexInfo.getSearchType())) {
+            log.info("Using SQL query for index: {}", sourceIndexInfo.getIndex());
             ScrollResult scrollResult =
                     esRestClient.searchBySql(
                             sourceIndexInfo.getSqlQuery(), sourceIndexInfo.getScrollSize());
@@ -117,21 +114,30 @@ public class ElasticsearchSourceReader
                 outputFromScrollResult(scrollResult, sourceIndexInfo, output, deserializer);
             }
         }
-        // Default scroll API
+        // DSL query
         else {
-            ScrollResult scrollResult =
-                    esRestClient.searchByScroll(
-                            sourceIndexInfo.getIndex(),
-                            sourceIndexInfo.getSource(),
-                            sourceIndexInfo.getQuery(),
-                            sourceIndexInfo.getScrollTime(),
-                            sourceIndexInfo.getScrollSize());
-            outputFromScrollResult(scrollResult, sourceIndexInfo, output, deserializer);
-            while (scrollResult.getDocs() != null && !scrollResult.getDocs().isEmpty()) {
-                scrollResult =
-                        esRestClient.searchWithScrollId(
-                                scrollResult.getScrollId(), sourceIndexInfo.getScrollTime());
+            // Check if we should use PIT API
+            if (SearchApiTypeEnum.PIT.equals(sourceIndexInfo.getSearchApiType())) {
+                log.info("Using Point-in-Time (PIT) API for index: {}", sourceIndexInfo.getIndex());
+                searchWithPointInTime(sourceIndexInfo, output, deserializer);
+            }
+            // Default scroll API
+            else {
+                log.info("Using Scroll API for index: {}", sourceIndexInfo.getIndex());
+                ScrollResult scrollResult =
+                        esRestClient.searchByScroll(
+                                sourceIndexInfo.getIndex(),
+                                sourceIndexInfo.getSource(),
+                                sourceIndexInfo.getQuery(),
+                                sourceIndexInfo.getScrollTime(),
+                                sourceIndexInfo.getScrollSize());
                 outputFromScrollResult(scrollResult, sourceIndexInfo, output, deserializer);
+                while (scrollResult.getDocs() != null && !scrollResult.getDocs().isEmpty()) {
+                    scrollResult =
+                            esRestClient.searchWithScrollId(
+                                    scrollResult.getScrollId(), sourceIndexInfo.getScrollTime());
+                    outputFromScrollResult(scrollResult, sourceIndexInfo, output, deserializer);
+                }
             }
         }
     }

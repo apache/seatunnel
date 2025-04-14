@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.config;
 
-public enum SearchTypeEnum {
-    /** Use Domain Specific Language (DSL) query */
-    DSL,
+public enum SearchApiTypeEnum {
+    /** Use Scroll API for pagination */
+    SCROLL,
 
-    /** Use SQL query */
-    SQL
+    /** Use Point-in-Time (PIT) API for pagination */
+    PIT
 }
