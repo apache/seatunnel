@@ -20,8 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.graphql.util;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.graphql.Exception.GraphQLConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.graphql.Exception.GraphQLConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.graphql.exception.GraphQLConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.graphql.exception.GraphQLConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.http.source.DeserializationCollector;
 
 import com.jayway.jsonpath.Configuration;
