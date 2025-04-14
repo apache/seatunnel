@@ -173,7 +173,7 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 
 ## 任务示例
 
-### 简单示例:
+### 简单示例
 
 > 下面的例子描述了向Doris写入多种数据类型，用户需要在下游创建对应的表。
 
@@ -231,7 +231,7 @@ sink {
 }
 ```
 
-### CDC（监听数据变更捕获）事件：
+### CDC（监听数据变更捕获）事件
 
 > 本示例定义了一个SeaTunnel同步任务，通过FakeSource自动生成数据并发送给Doris Sink，FakeSource使用schema、score（int类型）模拟CDC数据，Doris需要创建一个名为test.e2e_table_sink的sink任务及其对应的表 。
 
@@ -345,24 +345,6 @@ sink {
     }
 }
 ```
-
-## 变更日志
-
-### 2.3.0-beta 2022-10-20
-
-- 添加 Doris sink连接器
-
-### Next version
-
-- [Improve] Change Doris Config Prefix [3856](https://github.com/apache/seatunnel/pull/3856)
-
-- [Improve] Refactor some Doris Sink code as well as support 2pc and cdc [4235](https://github.com/apache/seatunnel/pull/4235)
-
-:::tip
-
-PR 4235 is an incompatible modification to PR 3856. Please refer to PR 4235 to use the new Doris connector
-
-:::
 
 ## 变更日志
 

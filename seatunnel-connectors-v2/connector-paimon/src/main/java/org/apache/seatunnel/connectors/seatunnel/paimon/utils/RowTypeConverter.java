@@ -26,7 +26,7 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
-import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonBaseOptions;
 
 import org.apache.paimon.schema.TableSchema;
 import org.apache.paimon.types.ArrayType;
@@ -185,7 +185,7 @@ public class RowTypeConverter {
                 seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((ArrayType) dataType);
                 if (seaTunnelDataType == null) {
                     throw CommonError.unsupportedArrayGenericType(
-                            PaimonConfig.CONNECTOR_IDENTITY,
+                            PaimonBaseOptions.CONNECTOR_IDENTITY,
                             dataType.getTypeRoot().toString(),
                             typeDefine.getName());
                 }
@@ -198,7 +198,7 @@ public class RowTypeConverter {
                 break;
             default:
                 throw CommonError.unsupportedDataType(
-                        PaimonConfig.CONNECTOR_IDENTITY,
+                        PaimonBaseOptions.CONNECTOR_IDENTITY,
                         dataType.asSQLString(),
                         typeDefine.getName());
         }
@@ -431,7 +431,7 @@ public class RowTypeConverter {
                     return DataTypes.ROW(dataTypes);
                 default:
                     throw CommonError.unsupportedDataType(
-                            PaimonConfig.CONNECTOR_IDENTITY,
+                            PaimonBaseOptions.CONNECTOR_IDENTITY,
                             dataType.getSqlType().toString(),
                             fieldName);
             }
@@ -576,7 +576,9 @@ public class RowTypeConverter {
         @Override
         protected SeaTunnelDataType defaultMethod(DataType dataType) {
             throw CommonError.unsupportedDataType(
-                    PaimonConfig.CONNECTOR_IDENTITY, dataType.getTypeRoot().name(), UNKNOWN_FIELD);
+                    PaimonBaseOptions.CONNECTOR_IDENTITY,
+                    dataType.getTypeRoot().name(),
+                    UNKNOWN_FIELD);
         }
     }
 }

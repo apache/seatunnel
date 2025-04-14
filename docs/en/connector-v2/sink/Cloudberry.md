@@ -64,7 +64,7 @@ Key options include:
 
 ## Task Example
 
-### Simple:
+### Simple
 
 ```hocon
 env {
@@ -114,7 +114,7 @@ sink {
 }
 ```
 
-### Exactly-once:
+### Exactly-once
 
 ```hocon
 sink {

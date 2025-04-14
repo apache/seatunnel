@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.milvus.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class MilvusSourceConfig extends MilvusCommonConfig {
+public class MilvusSourceOptions extends MilvusBaseOptions {
 
     public static final Option<String> DATABASE =
             Options.key("database")
