@@ -1040,7 +1040,7 @@ EXPLODE(ARRAY(值1, 值2, ...))：将自定义数组展开为多行。
 
 示例:
 ```
-SELECT * FROM fake
+SELECT * FROM dual
 	LATERAL VIEW EXPLODE ( SPLIT ( NAME, ',' ) ) AS NAME
 	LATERAL VIEW EXPLODE ( SPLIT ( pk_id, ';' ) ) AS pk_id
 	LATERAL VIEW OUTER EXPLODE ( age ) AS age
