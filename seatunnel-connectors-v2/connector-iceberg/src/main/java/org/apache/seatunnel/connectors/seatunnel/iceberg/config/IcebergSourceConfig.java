@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import lombok.Getter;
 import lombok.ToString;
-import lombok.extern.java.Log;
 
 import java.util.Collections;
 import java.util.List;
@@ -30,7 +29,6 @@ import java.util.stream.Collectors;
 
 @Getter
 @ToString
-@Log
 public class IcebergSourceConfig extends IcebergCommonConfig {
 
     private static final long serialVersionUID = -1965861967575264253L;

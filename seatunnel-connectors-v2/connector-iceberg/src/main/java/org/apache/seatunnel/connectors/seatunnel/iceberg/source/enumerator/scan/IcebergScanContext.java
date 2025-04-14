@@ -30,13 +30,13 @@ import org.apache.iceberg.expressions.Expressions;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.ToString;
-import lombok.extern.java.Log;
+import lombok.extern.slf4j.Slf4j;
 import net.sf.jsqlparser.JSQLParserException;
 
 @Getter
 @Builder(toBuilder = true)
 @ToString
-@Log
+@Slf4j
 public class IcebergScanContext {
 
     private final TablePath tablePath;
@@ -93,8 +93,7 @@ public class IcebergScanContext {
                         ExpressionUtils.parseWhereClauseToIcebergExpression(selectStr);
                 return expression;
             } catch (JSQLParserException e) {
-                log.warning(
-                        "Failed to parse where clause to iceberg expression: " + e.getMessage());
+                log.error("Failed to parse where clause to iceberg expression", e);
             }
         }
         return Expressions.alwaysTrue();

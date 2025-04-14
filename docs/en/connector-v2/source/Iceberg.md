@@ -143,7 +143,6 @@ source {
     table_list = [
       {
         table = "table_1
-        query = "select * from table where f1 > 100"
       },
       {
         table = "table_2
