@@ -116,7 +116,7 @@ Source plugin common parameters, please refer to [Source Common Options](../sour
 
 ## Example
 
-### Query:
+### Query
 
 ```hocon
 source {

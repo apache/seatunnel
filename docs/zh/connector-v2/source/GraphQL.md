@@ -116,7 +116,7 @@ HTTP请求参数
 
 ## 示例
 
-### Query:
+### Query
 
 ```hocon
 source {
