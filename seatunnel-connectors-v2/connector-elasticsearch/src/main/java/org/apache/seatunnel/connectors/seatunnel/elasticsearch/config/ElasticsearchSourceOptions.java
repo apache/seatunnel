@@ -72,7 +72,8 @@ public class ElasticsearchSourceOptions extends ElasticsearchBaseOptions {
             Options.key("search_api_type")
                     .enumType(SearchApiTypeEnum.class)
                     .defaultValue(SearchApiTypeEnum.SCROLL)
-                    .withDescription("Choose API type for pagination: SCROLL or PIT (Point in Time).");
+                    .withDescription(
+                            "Choose API type for pagination: SCROLL or PIT (Point in Time).");
 
     public static final Option<String> SQL_QUERY =
             Options.key("sql_query")
