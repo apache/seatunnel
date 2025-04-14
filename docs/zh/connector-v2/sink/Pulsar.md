@@ -123,7 +123,7 @@ Pulsar 服务的 Service URL 提供程序。要使用客户端库连接到 Pulsa
 
 ## 任务示例
 
-### 简单:
+### 简单
 
 > 该示例定义了一个 SeaTunnel 同步任务，该任务通过 FakeSource 自动生成数据并将其发送到 Pulsar Sink。FakeSource 总共生成 16 行数据 （row.num=16），每行有两个字段，name（字符串类型）和 age（int 类型）。最终目标主题是test_topic主题中还将有 16 行数据。 如果您尚未安装和部署 SeaTunnel，则需要按照[安装Seatunnel](../../start-v2/locally/deployment.md) SeaTunnel 中的说明安装和部署 SeaTunnel。然后按照 [SeaTunnel 引擎快速入门](../../start-v2/locally/quick-start-seatunnel-engine.md)中的说明运行此作业。
 

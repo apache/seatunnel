@@ -15,24 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.milvus.config;
+package org.apache.seatunnel.connectors.seatunnel.paimon.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public abstract class MilvusCommonConfig {
+public class PaimonSourceOptions extends PaimonBaseOptions {
 
-    public static final String CONNECTOR_IDENTITY = "Milvus";
-
-    public static final Option<String> URL =
-            Options.key("url")
+    public static final Option<String> QUERY_SQL =
+            Options.key("query")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Milvus public endpoint");
-
-    public static final Option<String> TOKEN =
-            Options.key("token")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Milvus token for authentication");
+                    .withDescription("The query of paimon source");
 }

@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectionErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
 
@@ -81,8 +81,8 @@ public class MilvusSourceSplitEnumerator
     public void open() {
         ConnectParam connectParam =
                 ConnectParam.newBuilder()
-                        .withUri(config.get(MilvusSourceConfig.URL))
-                        .withToken(config.get(MilvusSourceConfig.TOKEN))
+                        .withUri(config.get(MilvusSourceOptions.URL))
+                        .withToken(config.get(MilvusSourceOptions.TOKEN))
                         .build();
         this.client = new MilvusServiceClient(connectParam);
     }
