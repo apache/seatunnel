@@ -30,6 +30,15 @@ public class SeaTunnelEngineClusterServerExample {
 
     public static void main(String[] args) throws CommandException {
         ServerCommandArgs serverCommandArgs = new ServerCommandArgs();
+
+        // You can enable basic authentication by uncommenting the following lines
+        // serverCommandArgs.setEnableBasicAuth(true);
+        // serverCommandArgs.setBasicAuthUsername("your_username");
+        // serverCommandArgs.setBasicAuthPassword("your_password");
+
+        // Or you can pass these parameters via command line:
+        // --enable-basic-auth --basic-auth-username your_username --basic-auth-password your_password
+
         SeaTunnel.run(serverCommandArgs.buildCommand());
     }
 }

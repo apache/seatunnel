@@ -66,6 +66,14 @@ public class ServerExecuteCommand implements Command<ServerCommandArgs> {
                     .setClusterRole(EngineConfig.ClusterRole.MASTER_AND_WORKER);
         }
 
+        // Apply basic authentication settings if enabled
+        if (serverCommandArgs.isEnableBasicAuth()) {
+            log.info("Enabling basic authentication for web UI");
+            seaTunnelConfig.getEngineConfig().getHttpConfig().setEnableBasicAuth(true);
+            seaTunnelConfig.getEngineConfig().getHttpConfig().setBasicAuthUsername(serverCommandArgs.getBasicAuthUsername());
+            seaTunnelConfig.getEngineConfig().getHttpConfig().setBasicAuthPassword(serverCommandArgs.getBasicAuthPassword());
+        }
+
         SeaTunnelServerStarter.createHazelcastInstance(
                 seaTunnelConfig, Thread.currentThread().getName());
     }

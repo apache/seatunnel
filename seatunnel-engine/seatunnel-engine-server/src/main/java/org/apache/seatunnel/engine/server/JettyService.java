@@ -27,6 +27,7 @@ import org.apache.seatunnel.shade.org.eclipse.jetty.util.ssl.SslContextFactory;
 
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
+import org.apache.seatunnel.engine.server.rest.filter.BasicAuthFilter;
 import org.apache.seatunnel.engine.server.rest.filter.ExceptionHandlingFilter;
 import org.apache.seatunnel.engine.server.rest.servlet.AllLogNameServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.AllNodeLogServlet;
@@ -149,8 +150,17 @@ public class JettyService {
         ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
         context.setContextPath(seaTunnelConfig.getEngineConfig().getHttpConfig().getContextPath());
 
-        FilterHolder filterHolder = new FilterHolder(new ExceptionHandlingFilter());
-        context.addFilter(filterHolder, "/*", EnumSet.of(DispatcherType.REQUEST));
+        // Add exception handling filter
+        FilterHolder exceptionFilterHolder = new FilterHolder(new ExceptionHandlingFilter());
+        context.addFilter(exceptionFilterHolder, "/*", EnumSet.of(DispatcherType.REQUEST));
+
+        // Add basic authentication filter if enabled
+        HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
+        if (httpConfig.isEnableBasicAuth()) {
+            log.info("Basic authentication is enabled for web UI");
+            FilterHolder basicAuthFilterHolder = new FilterHolder(new BasicAuthFilter(httpConfig));
+            context.addFilter(basicAuthFilterHolder, "/*", EnumSet.of(DispatcherType.REQUEST));
+        }
 
         ServletHolder defaultServlet = new ServletHolder("default", DefaultServlet.class);
         URL uiResource = JettyService.class.getClassLoader().getResource("ui");

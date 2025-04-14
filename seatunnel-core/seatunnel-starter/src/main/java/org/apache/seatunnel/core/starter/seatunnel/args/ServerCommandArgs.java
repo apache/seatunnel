@@ -44,6 +44,21 @@ public class ServerCommandArgs extends CommandArgs {
                     "The cluster node role, default is master_and_worker, support master, worker, master_and_worker")
     private String clusterRole;
 
+    @Parameter(
+            names = {"--enable-basic-auth"},
+            description = "Enable basic authentication for web UI")
+    private boolean enableBasicAuth = false;
+
+    @Parameter(
+            names = {"--basic-auth-username"},
+            description = "Username for basic authentication")
+    private String basicAuthUsername = "admin";
+
+    @Parameter(
+            names = {"--basic-auth-password"},
+            description = "Password for basic authentication")
+    private String basicAuthPassword = "admin";
+
     @Override
     public Command<?> buildCommand() {
         return new ServerExecuteCommand(this);
