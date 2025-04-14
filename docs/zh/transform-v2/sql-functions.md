@@ -1037,6 +1037,8 @@ OUTER EXPLODE：当数组为 NULL 或为空时返回 NULL，确保至少生成�
 EXPLODE(SPLIT(字段名, 分隔符))：使用指定的分隔符将字符串拆分为数组，然后将其展开为多行。
 
 EXPLODE(ARRAY(值1, 值2, ...))：将自定义数组展开为多行。
+
+示例:
 ```
 SELECT * FROM fake
 	LATERAL VIEW EXPLODE ( SPLIT ( NAME, ',' ) ) AS NAME

@@ -1047,6 +1047,8 @@ OUTER EXPLODE: Returns NULL when array is NULL or empty, ensuring at least one r
 EXPLODE(SPLIT(field_name, separator)): Splits a string into an array using the specified separator, then explodes it into rows.
 
 EXPLODE(ARRAY(value1, value2, ...)): Explodes a custom-defined array into multiple rows.
+
+Example:
 ```
 SELECT * FROM dual
 	LATERAL VIEW EXPLODE ( SPLIT ( NAME, ',' ) ) AS NAME
