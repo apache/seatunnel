@@ -70,8 +70,14 @@ public class ServerExecuteCommand implements Command<ServerCommandArgs> {
         if (serverCommandArgs.isEnableBasicAuth()) {
             log.info("Enabling basic authentication for web UI");
             seaTunnelConfig.getEngineConfig().getHttpConfig().setEnableBasicAuth(true);
-            seaTunnelConfig.getEngineConfig().getHttpConfig().setBasicAuthUsername(serverCommandArgs.getBasicAuthUsername());
-            seaTunnelConfig.getEngineConfig().getHttpConfig().setBasicAuthPassword(serverCommandArgs.getBasicAuthPassword());
+            seaTunnelConfig
+                    .getEngineConfig()
+                    .getHttpConfig()
+                    .setBasicAuthUsername(serverCommandArgs.getBasicAuthUsername());
+            seaTunnelConfig
+                    .getEngineConfig()
+                    .getHttpConfig()
+                    .setBasicAuthPassword(serverCommandArgs.getBasicAuthPassword());
         }
 
         SeaTunnelServerStarter.createHazelcastInstance(

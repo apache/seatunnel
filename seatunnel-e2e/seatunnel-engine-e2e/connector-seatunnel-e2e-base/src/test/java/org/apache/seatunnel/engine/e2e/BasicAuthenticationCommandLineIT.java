@@ -20,8 +20,6 @@ package org.apache.seatunnel.engine.e2e;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
-import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
-
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,12 +39,11 @@ import java.util.Base64;
 import java.util.concurrent.TimeUnit;
 
 import static io.restassured.RestAssured.given;
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.notNullValue;
 
-/**
- * Integration test for basic authentication in SeaTunnel Engine using command line arguments.
- */
+/** Integration test for basic authentication in SeaTunnel Engine using command line arguments. */
 public class BasicAuthenticationCommandLineIT extends SeaTunnelEngineContainer {
 
     private static final String HTTP = "http://";
@@ -57,7 +54,8 @@ public class BasicAuthenticationCommandLineIT extends SeaTunnelEngineContainer {
     private static final String BASIC_AUTH_PREFIX = "Basic ";
     private static final Path binPath = Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL);
     private static final Path config = Paths.get(SEATUNNEL_HOME, "config");
-    private static final Path hadoopJar = Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar");
+    private static final Path hadoopJar =
+            Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar");
     private static final String confFile = "/fakesource_to_console.conf";
     private final Network NETWORK = Network.newNetwork();
 
@@ -70,22 +68,30 @@ public class BasicAuthenticationCommandLineIT extends SeaTunnelEngineContainer {
         // Wait for server to be ready
         Awaitility.await()
                 .atMost(2, TimeUnit.MINUTES)
-                .until(() -> {
-                    try {
-                        // Try to access with correct credentials
-                        String credentials = USERNAME + ":" + PASSWORD;
-                        String encodedCredentials = Base64.getEncoder().encodeToString(credentials.getBytes());
+                .until(
+                        () -> {
+                            try {
+                                // Try to access with correct credentials
+                                String credentials = USERNAME + ":" + PASSWORD;
+                                String encodedCredentials =
+                                        Base64.getEncoder().encodeToString(credentials.getBytes());
 
-                        given()
-                            .header(BASIC_AUTH_HEADER, BASIC_AUTH_PREFIX + encodedCredentials)
-                            .get(HTTP + server.getHost() + COLON + server.getMappedPort(8080) + "/")
-                            .then()
-                            .statusCode(200);
-                        return true;
-                    } catch (Exception e) {
-                        return false;
-                    }
-                });
+                                given().header(
+                                                BASIC_AUTH_HEADER,
+                                                BASIC_AUTH_PREFIX + encodedCredentials)
+                                        .get(
+                                                HTTP
+                                                        + server.getHost()
+                                                        + COLON
+                                                        + server.getMappedPort(8080)
+                                                        + "/")
+                                        .then()
+                                        .statusCode(200);
+                                return true;
+                            } catch (Exception e) {
+                                return false;
+                            }
+                        });
     }
 
     @Override
@@ -99,53 +105,55 @@ public class BasicAuthenticationCommandLineIT extends SeaTunnelEngineContainer {
      */
     @Test
     public void testAccessWithoutCredentials() {
-        given()
-            .get(HTTP + server.getHost() + COLON + server.getMappedPort(8080) + "/")
-            .then()
-            .statusCode(401);
+        given().get(HTTP + server.getHost() + COLON + server.getMappedPort(8080) + "/")
+                .then()
+                .statusCode(401);
     }
 
-    /**
-     * Test that accessing the web UI with correct credentials returns 200 OK.
-     */
+    /** Test that accessing the web UI with correct credentials returns 200 OK. */
     @Test
     public void testAccessWithCorrectCredentials() {
         String credentials = USERNAME + ":" + PASSWORD;
         String encodedCredentials = Base64.getEncoder().encodeToString(credentials.getBytes());
 
-        given()
-            .header(BASIC_AUTH_HEADER, BASIC_AUTH_PREFIX + encodedCredentials)
-            .get(HTTP + server.getHost() + COLON + server.getMappedPort(8080) + "/")
-            .then()
-            .statusCode(200)
-            .contentType(containsString("text/html"))
-            .body(containsString("<title>Seatunnel Engine UI</title>"));
+        given().header(BASIC_AUTH_HEADER, BASIC_AUTH_PREFIX + encodedCredentials)
+                .get(HTTP + server.getHost() + COLON + server.getMappedPort(8080) + "/")
+                .then()
+                .statusCode(200)
+                .contentType(containsString("text/html"))
+                .body(containsString("<title>Seatunnel Engine UI</title>"));
     }
 
-    /**
-     * Test that accessing the REST API with correct credentials returns 200 OK.
-     */
+    /** Test that accessing the REST API with correct credentials returns 200 OK. */
     @Test
     public void testRestApiAccessWithCorrectCredentials() {
         String credentials = USERNAME + ":" + PASSWORD;
         String encodedCredentials = Base64.getEncoder().encodeToString(credentials.getBytes());
 
-        given()
-            .header(BASIC_AUTH_HEADER, BASIC_AUTH_PREFIX + encodedCredentials)
-            .get(HTTP + server.getHost() + COLON + server.getMappedPort(8080) + RestConstant.REST_URL_OVERVIEW)
-            .then()
-            .statusCode(200)
-            .body("projectVersion", notNullValue());
+        given().header(BASIC_AUTH_HEADER, BASIC_AUTH_PREFIX + encodedCredentials)
+                .get(
+                        HTTP
+                                + server.getHost()
+                                + COLON
+                                + server.getMappedPort(8080)
+                                + RestConstant.REST_URL_OVERVIEW)
+                .then()
+                .statusCode(200)
+                .body("projectVersion", notNullValue());
     }
 
     /**
      * Create a SeaTunnel container with basic authentication enabled via command line arguments.
      */
-    private GenericContainer<?> createServerWithCommandLineAuth() throws IOException, InterruptedException {
+    private GenericContainer<?> createServerWithCommandLineAuth()
+            throws IOException, InterruptedException {
         // Command with basic auth parameters
-        String command = ContainerUtil.adaptPathForWin(binPath.toString()) +
-                " --enable-basic-auth --basic-auth-username " + USERNAME +
-                " --basic-auth-password " + PASSWORD;
+        String command =
+                ContainerUtil.adaptPathForWin(binPath.toString())
+                        + " --enable-basic-auth --basic-auth-username "
+                        + USERNAME
+                        + " --basic-auth-password "
+                        + PASSWORD;
 
         GenericContainer<?> server =
                 new GenericContainer<>(getDockerImage())

@@ -37,7 +37,8 @@ public class SeaTunnelEngineClusterServerExample {
         // serverCommandArgs.setBasicAuthPassword("your_password");
 
         // Or you can pass these parameters via command line:
-        // --enable-basic-auth --basic-auth-username your_username --basic-auth-password your_password
+        // --enable-basic-auth --basic-auth-username your_username --basic-auth-password
+        // your_password
 
         SeaTunnel.run(serverCommandArgs.buildCommand());
     }

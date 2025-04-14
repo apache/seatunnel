@@ -19,8 +19,9 @@ package org.apache.seatunnel.engine.server.rest.filter;
 
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Base64;
+
+import lombok.extern.slf4j.Slf4j;
 
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
@@ -34,9 +35,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
-/**
- * Basic authentication filter for the web UI.
- */
+/** Basic authentication filter for the web UI. */
 @Slf4j
 public class BasicAuthFilter implements Filter {
 
@@ -58,7 +57,7 @@ public class BasicAuthFilter implements Filter {
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
-        
+
         // Skip authentication if not enabled
         if (!httpConfig.isEnableBasicAuth()) {
             chain.doFilter(request, response);
@@ -75,7 +74,8 @@ public class BasicAuthFilter implements Filter {
         if (authHeader != null && authHeader.startsWith(BASIC_PREFIX)) {
             // Extract the Base64 encoded username:password
             String base64Credentials = authHeader.substring(BASIC_PREFIX.length());
-            String credentials = new String(Base64.decodeBase64(base64Credentials), StandardCharsets.UTF_8);
+            String credentials =
+                    new String(Base64.decodeBase64(base64Credentials), StandardCharsets.UTF_8);
 
             // Split the username and password
             final String[] values = credentials.split(":", 2);
@@ -84,8 +84,8 @@ public class BasicAuthFilter implements Filter {
                 String password = values[1];
 
                 // Check if the username and password match the configured values
-                if (username.equals(httpConfig.getBasicAuthUsername()) && 
-                    password.equals(httpConfig.getBasicAuthPassword())) {
+                if (username.equals(httpConfig.getBasicAuthUsername())
+                        && password.equals(httpConfig.getBasicAuthPassword())) {
                     // Authentication successful, proceed with the request
                     chain.doFilter(request, response);
                     return;
