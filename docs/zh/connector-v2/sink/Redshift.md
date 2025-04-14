@@ -59,7 +59,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 任务示例
 
-### 简单示例:
+### 简单示例
 
 ```
 sink {

@@ -80,7 +80,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 
 ## 任务示例
 
-### 简单示例:
+### 简单示例
 
 > 此示例定义了一个 SeaTunnel 同步任务，通过 FakeSource 自动生成数据并将其发送到 Hdfs。
 

@@ -96,7 +96,7 @@ semantics (using XA transaction guarantee).
 
 ## Task Example
 
-### simple:
+### simple
 
 > This is one that reads Sqlserver data and inserts it directly into another table
 

@@ -1035,17 +1035,24 @@ select ARRAY(column1,column2,column3) as arrays
 
 notes: Currently only string, double, long, int types are supported
 
-### LATERAL VIEW 
+### LATERAL VIEW
 #### EXPLODE
 
-explode array column to rows.
-OUTER EXPLODE will return NULL, while array is NULL or empty
-EXPLODE(SPLIT(FIELD_NAME,separator))Used to split string type. The first parameter of SPLIT function  is the field name, the second parameter is the separator
-EXPLODE(ARRAY(value1,value2)) Used to custom array type.
+Used to flatten array columns into multiple rows. It applies the EXPLODE function to an array and generates a new row for each element.
+
+EXPLODE: Converts an array column into multiple rows. No rows generated if array is NULL or empty.
+
+OUTER EXPLODE: Returns NULL when array is NULL or empty, ensuring at least one row is generated.
+
+EXPLODE(SPLIT(field_name, separator)): Splits a string into an array using the specified separator, then explodes it into rows.
+
+EXPLODE(ARRAY(value1, value2, ...)): Explodes a custom-defined array into multiple rows.
+
+Example:
 ```
-SELECT * FROM dual 
-	LATERAL VIEW EXPLODE ( SPLIT ( NAME, ',' ) ) AS NAME 
-	LATERAL VIEW EXPLODE ( SPLIT ( pk_id, ';' ) ) AS pk_id 
+SELECT * FROM dual
+	LATERAL VIEW EXPLODE ( SPLIT ( NAME, ',' ) ) AS NAME
+	LATERAL VIEW EXPLODE ( SPLIT ( pk_id, ';' ) ) AS pk_id
 	LATERAL VIEW OUTER EXPLODE ( age ) AS age
 	LATERAL VIEW OUTER EXPLODE ( ARRAY(1,1) ) AS num
 ```

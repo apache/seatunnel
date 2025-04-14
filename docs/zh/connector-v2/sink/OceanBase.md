@@ -98,7 +98,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 任务示例
 
-### 简单示例:
+### 简单示例
 
 > 此示例定义了一个SeaTunnel同步任务，该任务通过FakeSource自动生成数据并将其发送到JDBC Sink。FakeSource总共生成16行数据（row.num=16），每行有两个字段，name（字符串类型）和age（int类型）。最终的目标表是test_table，表中也将有16行数据。在运行此作业之前，您需要在mysql中创建数据库测试和表test_table。如果您尚未安装和部署SeaTunnel，则需要按照[安装SeaTunnel]（../../start-v2/local/deployment.md）中的说明安装和部署SeaTunnel。然后按照[快速启动SeaTunnel引擎]（../../Start-v2/locale/Quick-Start-SeaTunnel-Engine.md）中的说明运行此作业。
 
