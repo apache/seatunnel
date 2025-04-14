@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.common.utils;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -28,6 +30,10 @@ public class PlaceholderUtils {
 
     public static String replacePlaceholders(
             String input, String placeholderName, String value, String defaultValue) {
+        if (StringUtils.isNotBlank(value)) {
+            value = value.replaceAll("\"(.*?)\"", "$1");
+        }
+
         String placeholderRegex = "\\$\\{" + Pattern.quote(placeholderName) + "(:[^}]*)?\\}";
         Pattern pattern = Pattern.compile(placeholderRegex);
         Matcher matcher = pattern.matcher(input);
