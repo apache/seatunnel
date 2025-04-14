@@ -28,7 +28,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 | index_list              | array   | no       | 用来定义多索引同步任务                         |
 | source                  | array   | no       | -                                   |
 | query                   | json    | no       | {"match_all": {}}                   |
-| search_type             | json    | no       | 查询方式，sql或者dsl,默认 dsl                |
+| search_type             | json    | no       | 查询方式，SQL、PIT、SCROLL,默认 SCROLL       |
 | sql_query               | json    | no       | sql 查询语句                            |
 | scroll_time             | string  | no       | 1m                                  |
 | scroll_size             | int     | no       | 100                                 |
@@ -39,10 +39,9 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 | tls_keystore_password   | string  | no       | -                                   |
 | tls_truststore_path     | string  | no       | -                                   |
 | tls_truststore_password | string  | no       | -                                   |
-| use_pit                 | boolean | no       | false                                |
 | pit_keep_alive          | long    | no       | 60000 (1 minute)                    |
 | pit_batch_size          | int     | no       | 100                                 |
-| common-options          |         | no       | -                                                              |
+| common-options          |         | no       | -                                   |
 
 ### hosts [array]
 
@@ -118,9 +117,10 @@ PEM 或 JKS 信任库的路径。该文件必须对运行 SeaTunnel 的操作系
 
 指定信任库的密钥密码。
 
-
-### use_pit [boolean]
-是否使用时间点 (PIT) API 代替滚动 API
+### search_type
+PIT:是否使用时间点 (PIT) API 代替滚动 API
+SQL:使用sql 方式查询
+SCROLL:默认使用scroll API
 
 ### pit_keep_alive [long]
 PIT 应保持活动的时间量（以毫秒为单位）
@@ -294,7 +294,7 @@ source {
     query = {"range": {"c_int": {"gte": 10, "lte": 20}}}
    
     # Enable PIT API
-    use_pit = true
+    search_type = PIT
     pit_keep_alive = 60000  # 1 minute in milliseconds
     pit_batch_size = 100
 ```

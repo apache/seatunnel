@@ -45,7 +45,6 @@ import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.Ela
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions.QUERY;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions.SCROLL_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions.SCROLL_TIME;
-import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions.USE_PIT;
 
 @AutoService(Factory.class)
 public class ElasticsearchSourceFactory implements TableSourceFactory {
@@ -66,7 +65,6 @@ public class ElasticsearchSourceFactory implements TableSourceFactory {
                         SCROLL_TIME,
                         SCROLL_SIZE,
                         QUERY,
-                        USE_PIT,
                         PIT_KEEP_ALIVE,
                         PIT_BATCH_SIZE,
                         TLS_VERIFY_CERTIFICATE,

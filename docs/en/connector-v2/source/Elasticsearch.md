@@ -30,7 +30,7 @@ support version >= 2.x and <= 8.x.
 | index_list              | array   | no       | used to define a multiple table task                           |
 | source                  | array   | no       | -                                                              |
 | query                   | json    | no       | {"match_all": {}}                                              |
-| search_type             | json    | no       | Search method,sql or dsl,default dsl                           |
+| search_type             | json    | no       | Search method,SQL、PIT、SCROLL,default SCROLL                    |
 | sql_query               | json    | no       | sql query                                                      |
 | scroll_time             | string  | no       | 1m                                                             |
 | scroll_size             | int     | no       | 100                                                            |
@@ -41,7 +41,6 @@ support version >= 2.x and <= 8.x.
 | tls_keystore_password   | string  | no       | -                                                              |
 | tls_truststore_path     | string  | no       | -                                                              |
 | tls_truststore_password | string  | no       | -                                                              |
-| use_pit                 | boolean | no       | false                                                          |
 | pit_keep_alive          | long    | no       | 60000 (1 minute)                                               |
 | pit_batch_size          | int     | no       | 100                                                            |
 | common-options          |         | no       | -                                                              |
@@ -116,8 +115,10 @@ The path to PEM or JKS trust store. This file must be readable by the operating 
 
 The key password for the trust store specified
 
-### use_pit [boolean]
-Whether to use Point-in-Time (PIT) API instead of scroll API
+### search_type
+PIT: Whether to use the Point in Time (PIT) API instead of the scroll API
+SQL: Use SQL query
+SCROLL: Use the scroll API by default
 
 ### pit_keep_alive [long]
 The amount of time (in milliseconds) for which the PIT should be keep alive

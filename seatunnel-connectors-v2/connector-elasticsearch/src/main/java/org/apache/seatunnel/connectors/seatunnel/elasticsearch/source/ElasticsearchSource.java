@@ -179,8 +179,6 @@ public class ElasticsearchSource
         String scrollTime = readonlyConfig.get(ElasticsearchSourceOptions.SCROLL_TIME);
         int scrollSize = readonlyConfig.get(ElasticsearchSourceOptions.SCROLL_SIZE);
 
-        // PIT API related configuration
-        boolean usePit = readonlyConfig.get(ElasticsearchSourceOptions.USE_PIT);
         long pitKeepAlive = readonlyConfig.get(ElasticsearchSourceOptions.PIT_KEEP_ALIVE);
         int pitBatchSize = readonlyConfig.get(ElasticsearchSourceOptions.PIT_BATCH_SIZE);
 
@@ -195,8 +193,6 @@ public class ElasticsearchSource
         elasticsearchConfig.setSqlQuery(sqlQuery);
         elasticsearchConfig.setSearchType(searchType);
 
-        // Set PIT API related configuration
-        elasticsearchConfig.setUsePit(usePit);
         elasticsearchConfig.setPitKeepAlive(pitKeepAlive);
         elasticsearchConfig.setPitBatchSize(pitBatchSize);
         return elasticsearchConfig;

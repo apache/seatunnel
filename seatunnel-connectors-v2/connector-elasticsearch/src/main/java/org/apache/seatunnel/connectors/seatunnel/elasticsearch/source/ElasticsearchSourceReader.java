@@ -99,7 +99,7 @@ public class ElasticsearchSourceReader
                 new DefaultSeaTunnelRowDeserializer(seaTunnelRowType);
 
         // Check if we should use PIT API
-        if (sourceIndexInfo.isUsePit()) {
+        if (SearchTypeEnum.PIT.equals(sourceIndexInfo.getSearchType())) {
             log.info("Using Point-in-Time (PIT) API for index: {}", sourceIndexInfo.getIndex());
             searchWithPointInTime(sourceIndexInfo, output, deserializer);
         }

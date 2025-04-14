@@ -65,7 +65,7 @@ public class ElasticsearchSourceOptions extends ElasticsearchBaseOptions {
     public static final Option<SearchTypeEnum> SEARCH_TYPE =
             Options.key("search_type")
                     .enumType(SearchTypeEnum.class)
-                    .defaultValue(SearchTypeEnum.DSL)
+                    .defaultValue(SearchTypeEnum.SCROLL)
                     .withDescription("Choose dsl syntax or x-pack sql.");
 
     public static final Option<String> SQL_QUERY =
@@ -88,13 +88,6 @@ public class ElasticsearchSourceOptions extends ElasticsearchBaseOptions {
                             Collections.singletonMap("match_all", new HashMap<String, String>()))
                     .withDescription(
                             "Elasticsearch query language. You can control the range of data read");
-
-    public static final Option<Boolean> USE_PIT =
-            Options.key("use_pit")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription(
-                            "Whether to use Point-in-Time (PIT) API instead of scroll API. PIT API is more efficient and is the recommended approach in newer Elasticsearch versions (7.10+).");
 
     public static final Option<Long> PIT_KEEP_ALIVE =
             Options.key("pit_keep_alive")

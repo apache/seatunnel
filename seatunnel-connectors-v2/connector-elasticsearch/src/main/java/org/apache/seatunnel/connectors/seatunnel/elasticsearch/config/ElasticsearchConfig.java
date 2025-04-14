@@ -40,8 +40,6 @@ public class ElasticsearchConfig implements Serializable {
     private SearchTypeEnum searchType;
     private String sqlQuery;
 
-    // PIT API related fields
-    private boolean usePit;
     private long pitKeepAlive;
     private int pitBatchSize;
     private String pitId;
@@ -59,9 +57,6 @@ public class ElasticsearchConfig implements Serializable {
         elasticsearchConfig.setCatalogTable(catalogTable);
         elasticsearchConfig.setSearchType(searchType);
         elasticsearchConfig.setSqlQuery(sqlQuery);
-
-        // PIT API related fields
-        elasticsearchConfig.setUsePit(usePit);
         elasticsearchConfig.setPitKeepAlive(pitKeepAlive);
         elasticsearchConfig.setPitBatchSize(pitBatchSize);
         elasticsearchConfig.setPitId(pitId);
