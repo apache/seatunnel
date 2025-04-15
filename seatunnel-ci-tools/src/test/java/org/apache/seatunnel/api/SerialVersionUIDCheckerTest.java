@@ -135,14 +135,15 @@ public class SerialVersionUIDCheckerTest {
                             compilationUnit -> {
                                 List<ClassOrInterfaceDeclaration> classes =
                                         compilationUnit.findAll(ClassOrInterfaceDeclaration.class);
-
-                                // Store all class declarations in the map for later use
                                 for (ClassOrInterfaceDeclaration classDeclaration : classes) {
                                     String className =
                                             classDeclaration.getFullyQualifiedName().orElse("");
                                     if (!className.isEmpty()) {
                                         classDeclarationMap.put(className, classDeclaration);
                                     }
+                                }
+                                // Store all class declarations in the map for later use
+                                for (ClassOrInterfaceDeclaration classDeclaration : classes) {
 
                                     if (implementsSeaTunnelSourceOrSink(classDeclaration)) {
                                         checkImplementedTypes(
