@@ -256,7 +256,7 @@ public class SerialVersionUIDCheckerTest {
         StringBuilder errorMessage = new StringBuilder();
         errorMessage.append("=================================================================\n");
         errorMessage.append(
-                "Test failed: The following classes are missing serialVersionUID fields or have a serialVersionUID value of -1L\n");
+                "Test failed: The following classes are missing serialVersionUID fields\n");
         errorMessage.append("=================================================================\n");
         errorMessage
                 .append("A total of ")
