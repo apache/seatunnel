@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceOptions;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
@@ -44,8 +44,8 @@ public class MilvusSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(MilvusSourceConfig.URL, MilvusSourceConfig.TOKEN)
-                .optional(MilvusSourceConfig.DATABASE, MilvusSourceConfig.COLLECTION)
+                .required(MilvusSourceOptions.URL, MilvusSourceOptions.TOKEN)
+                .optional(MilvusSourceOptions.DATABASE, MilvusSourceOptions.COLLECTION)
                 .build();
     }
 

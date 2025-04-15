@@ -15,24 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.milvus.config;
+package org.apache.seatunnel.connectors.seatunnel.graphql.exception;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-public abstract class MilvusCommonConfig {
+public class GraphQLConnectorException extends SeaTunnelRuntimeException {
+    public GraphQLConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+        super(seaTunnelErrorCode, errorMessage);
+    }
 
-    public static final String CONNECTOR_IDENTITY = "Milvus";
+    public GraphQLConnectorException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+        super(seaTunnelErrorCode, errorMessage, cause);
+    }
 
-    public static final Option<String> URL =
-            Options.key("url")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Milvus public endpoint");
-
-    public static final Option<String> TOKEN =
-            Options.key("token")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Milvus token for authentication");
+    public GraphQLConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+        super(seaTunnelErrorCode, cause);
+    }
 }

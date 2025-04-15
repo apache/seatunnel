@@ -77,7 +77,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 任务示例
 
-### 简单示例：
+### 简单示例
 
 > 此示例定义了一个SeaTunnel同步任务，通过FakeSource自动生成数据并发送到JDBC Sink。FakeSource总共生成16行数据（row.num=16），每行有两个字段，name（字符串类型）和age（int类型）。最终目标表`test_table`中也将有16行数据。在运行此作业之前，您需要在Snowflake数据库中创建数据库`test`和表`test_table`。如果您尚未安装和部署SeaTunnel，请按照[安装SeaTunnel](../../start-v2/locally/deployment.md)中的说明进行安装和部署。然后按照[使用SeaTunnel Engine快速入门](../../start-v2/locally/quick-start-seatunnel-engine.md)中的说明运行此作业。
 
