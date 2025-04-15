@@ -139,6 +139,23 @@ public class BasicAuthenticationIT extends SeaTunnelEngineContainer {
                 .body("projectVersion", notNullValue());
     }
 
+    /** Test that accessing the REST API with Incorrect credentials returns 200 OK. */
+    @Test
+    public void testRestApiAccessWithIncorrectCredentials() {
+        String credentials = "wronguser:wrongpassword";
+        String encodedCredentials = Base64.getEncoder().encodeToString(credentials.getBytes());
+
+        given().header(BASIC_AUTH_HEADER, BASIC_AUTH_PREFIX + encodedCredentials)
+                .get(
+                        HTTP
+                                + server.getHost()
+                                + COLON
+                                + server.getMappedPort(8080)
+                                + RestConstant.REST_URL_OVERVIEW)
+                .then()
+                .statusCode(401);
+    }
+
     /** Create a SeaTunnel container with basic authentication enabled. */
     private GenericContainer<?> createSeaTunnelContainerWithBasicAuth()
             throws IOException, InterruptedException {
