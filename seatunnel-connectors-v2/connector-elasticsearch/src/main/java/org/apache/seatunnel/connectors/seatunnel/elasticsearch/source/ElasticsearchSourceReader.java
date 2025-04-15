@@ -113,16 +113,12 @@ public class ElasticsearchSourceReader
                                 scrollResult.getScrollId(), scrollResult.getColumnNodes());
                 outputFromScrollResult(scrollResult, sourceIndexInfo, output, deserializer);
             }
-        }
-        // DSL query
-        else {
+        } else {
             // Check if we should use PIT API
             if (SearchApiTypeEnum.PIT.equals(sourceIndexInfo.getSearchApiType())) {
                 log.info("Using Point-in-Time (PIT) API for index: {}", sourceIndexInfo.getIndex());
                 searchWithPointInTime(sourceIndexInfo, output, deserializer);
-            }
-            // Default scroll API
-            else {
+            } else {
                 log.info("Using Scroll API for index: {}", sourceIndexInfo.getIndex());
                 ScrollResult scrollResult =
                         esRestClient.searchByScroll(

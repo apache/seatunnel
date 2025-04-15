@@ -981,8 +981,6 @@ public class EsRestClient implements Closeable {
 
         // Add sort for search_after
         List<Map<String, String>> sort = new ArrayList<>();
-        Map<String, String> sortField = new HashMap<>();
-        sortField.put("order", "asc");
         sort.add(Collections.singletonMap("_shard_doc", "asc"));
         requestBody.put("sort", sort);
 
