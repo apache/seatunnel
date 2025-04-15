@@ -97,6 +97,13 @@ public class SerialVersionUIDCheckerTest {
         List<Path> connectorClassPaths = findConnectorClassPaths();
         LOG.info("Found {} connector class files to check", connectorClassPaths.size());
 
+        // First, populate the classDeclarationMap with all classes
+        for (Path path : connectorClassPaths) {
+            populateClassDeclarationMap(path);
+        }
+        LOG.info("Populated class declaration map with {} classes", classDeclarationMap.size());
+
+        // Then check each class path for serialVersionUID
         for (Path path : connectorClassPaths) {
             checkClassPath(path, missingSerialVersionUID);
         }
@@ -125,7 +132,8 @@ public class SerialVersionUIDCheckerTest {
         }
     }
 
-    private void checkClassPath(Path path, List<String> missingSerialVersionUID) {
+    /** Populate the classDeclarationMap with all class declarations from the given path. */
+    private void populateClassDeclarationMap(Path path) {
         try {
             ParseResult<CompilationUnit> parseResult =
                     JAVA_PARSER.parse(Files.newInputStream(path));
@@ -142,9 +150,27 @@ public class SerialVersionUIDCheckerTest {
                                         classDeclarationMap.put(className, classDeclaration);
                                     }
                                 }
-                                // Store all class declarations in the map for later use
-                                for (ClassOrInterfaceDeclaration classDeclaration : classes) {
+                            });
+        } catch (IOException e) {
+            LOG.warn("Could not parse file: {}", path, e);
+        }
+    }
 
+    /**
+     * Check the class path for classes that implement SeaTunnelSource or SeaTunnelSink and verify
+     * they have serialVersionUID.
+     */
+    private void checkClassPath(Path path, List<String> missingSerialVersionUID) {
+        try {
+            ParseResult<CompilationUnit> parseResult =
+                    JAVA_PARSER.parse(Files.newInputStream(path));
+            parseResult
+                    .getResult()
+                    .ifPresent(
+                            compilationUnit -> {
+                                List<ClassOrInterfaceDeclaration> classes =
+                                        compilationUnit.findAll(ClassOrInterfaceDeclaration.class);
+                                for (ClassOrInterfaceDeclaration classDeclaration : classes) {
                                     if (implementsSeaTunnelSourceOrSink(classDeclaration)) {
                                         checkImplementedTypes(
                                                 classDeclaration, missingSerialVersionUID);
