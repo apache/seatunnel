@@ -25,6 +25,11 @@ import javax.annotation.Nonnull;
 @AutoService(JdbcDialectFactory.class)
 public class GenericDialectFactory implements JdbcDialectFactory {
 
+    @Override
+    public String dialectFactoryName() {
+        return DatabaseIdentifier.GENERIC;
+    }
+
     // GenericDialect does not have any special requirements.
     @Override
     public boolean acceptsURL(String url) {

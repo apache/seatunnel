@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.hive.storage;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosConf;
-import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosFileBaseOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -41,9 +41,9 @@ public class CosStorageTest {
                                     new HashMap<String, String>() {
                                         {
                                             put("bucket", "cosn://my_bucket");
-                                            put(CosConfigOptions.SECRET_ID.key(), "test");
-                                            put(CosConfigOptions.SECRET_KEY.key(), "test");
-                                            put(CosConfigOptions.REGION.key(), "ap-shanghai");
+                                            put(CosFileBaseOptions.SECRET_ID.key(), "test");
+                                            put(CosFileBaseOptions.SECRET_KEY.key(), "test");
+                                            put(CosFileBaseOptions.REGION.key(), "ap-shanghai");
                                         }
                                     });
                         }

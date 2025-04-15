@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
-import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonBaseOptions;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.paimon.data.BinaryArray;
@@ -124,7 +124,7 @@ public class RowConverter {
                 return doubles;
             default:
                 throw CommonError.unsupportedArrayGenericType(
-                        PaimonConfig.CONNECTOR_IDENTITY,
+                        PaimonBaseOptions.CONNECTOR_IDENTITY,
                         dataType.getSqlType().toString(),
                         fieldName);
         }
@@ -226,7 +226,7 @@ public class RowConverter {
                 break;
             default:
                 throw CommonError.unsupportedArrayGenericType(
-                        PaimonConfig.CONNECTOR_IDENTITY,
+                        PaimonBaseOptions.CONNECTOR_IDENTITY,
                         dataType.getSqlType().toString(),
                         fieldName);
         }
@@ -338,7 +338,7 @@ public class RowConverter {
                     break;
                 default:
                     throw CommonError.unsupportedDataType(
-                            PaimonConfig.CONNECTOR_IDENTITY,
+                            PaimonBaseOptions.CONNECTOR_IDENTITY,
                             fieldType.getSqlType().toString(),
                             fieldName);
             }
@@ -371,7 +371,7 @@ public class RowConverter {
                 RowKindConverter.convertSeaTunnelRowKind2PaimonRowKind(seaTunnelRow.getRowKind());
         if (rowKind == null) {
             throw CommonError.unsupportedRowKind(
-                    PaimonConfig.CONNECTOR_IDENTITY,
+                    PaimonBaseOptions.CONNECTOR_IDENTITY,
                     seaTunnelRow.getRowKind().shortString(),
                     seaTunnelRow.getTableId());
         }
@@ -488,7 +488,7 @@ public class RowConverter {
                     break;
                 default:
                     throw CommonError.unsupportedDataType(
-                            PaimonConfig.CONNECTOR_IDENTITY,
+                            PaimonBaseOptions.CONNECTOR_IDENTITY,
                             seaTunnelRowType.getFieldType(i).getSqlType().toString(),
                             fieldName);
             }

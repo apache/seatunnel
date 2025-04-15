@@ -33,10 +33,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class DorisSourceSplitEnumerator
@@ -51,6 +54,8 @@ public class DorisSourceSplitEnumerator
 
     private final Map<TablePath, DorisSourceTable> dorisSourceTables;
     private final Object stateLock = new Object();
+
+    private final AtomicInteger assignCount = new AtomicInteger(0);
 
     public DorisSourceSplitEnumerator(
             Context<DorisSourceSplit> context,
@@ -162,15 +167,24 @@ public class DorisSourceSplitEnumerator
 
     private void addPendingSplit(Collection<DorisSourceSplit> splits) {
         int readerCount = context.currentParallelism();
-        for (DorisSourceSplit split : splits) {
-            int ownerReader = getSplitOwner(split.splitId(), readerCount);
+
+        // sorting the splits to ensure the order
+        List<DorisSourceSplit> sortedSplits =
+                splits.stream()
+                        .sorted(Comparator.comparing(DorisSourceSplit::getSplitId))
+                        .collect(Collectors.toList());
+
+        // allocate splits in load balancing mode
+        assignCount.set(0);
+        for (DorisSourceSplit split : sortedSplits) {
+            int ownerReader = getSplitOwner(assignCount.getAndIncrement(), readerCount);
             log.info("Assigning split {} to reader {} .", split.splitId(), ownerReader);
             pendingSplit.computeIfAbsent(ownerReader, f -> new ArrayList<>()).add(split);
         }
     }
 
-    private static int getSplitOwner(String tp, int numReaders) {
-        return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
+    private static int getSplitOwner(int assignCount, int numReaders) {
+        return assignCount % numReaders;
     }
 
     private void assignSplit(Collection<Integer> readers) {

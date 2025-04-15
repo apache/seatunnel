@@ -313,7 +313,7 @@ Sink 插件通用参数，请参考 [Sink 通用选项](../sink-common-options.m
 
 ## 示例
 
-### 简单示例：
+### 简单示例
 
 > 此示例定义了一个 SeaTunnel 同步任务，通过 FakeSource 自动生成数据并将其发送到 S3File Sink。FakeSource 总共生成 16 行数据 (row.num=16)，每行有两个字段，name (字符串类型) 和 age (int 类型)。最终的目标 s3 目录将创建一个文件，并将所有数据写入其中。
 > 在运行此作业之前，您需要创建 s3 路径：/seatunnel/text。如果您尚未安装和部署 SeaTunnel，您需要按照 [安装 SeaTunnel](../../start-v2/locally/deployment.md) 中的说明安装和部署 SeaTunnel。然后按照 [使用 SeaTunnel Engine 快速入门](../../start-v2/locally/quick-start-seatunnel-engine.md) 中的说明运行此作业。

@@ -147,6 +147,11 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
         String comment = resultSet.getString("COLUMN_COMMENT");
         Object defaultValue = resultSet.getObject("COLUMN_DEFAULT");
         String isNullableStr = resultSet.getString("IS_NULLABLE");
+
+        if (dataType.toUpperCase().startsWith("VECTOR")) {
+            dataType = "VECTOR";
+        }
+
         boolean isNullable = isNullableStr.equals("YES");
         // e.g. `decimal(10, 2)` is 10
         long numberPrecision = resultSet.getInt("NUMERIC_PRECISION");

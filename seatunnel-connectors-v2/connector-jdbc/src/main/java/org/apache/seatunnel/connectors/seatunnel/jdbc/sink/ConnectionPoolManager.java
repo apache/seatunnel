@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
-import com.zaxxer.hikari.HikariDataSource;
+import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariDataSource;
+
 import lombok.Getter;
 
 import java.sql.Connection;

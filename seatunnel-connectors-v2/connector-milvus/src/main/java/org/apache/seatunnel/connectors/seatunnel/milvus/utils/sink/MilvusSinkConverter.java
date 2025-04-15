@@ -49,8 +49,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.table.catalog.PrimaryKey.isPrimaryKeyField;
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig.ENABLE_AUTO_ID;
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig.ENABLE_DYNAMIC_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions.ENABLE_AUTO_ID;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions.ENABLE_DYNAMIC_FIELD;
 
 public class MilvusSinkConverter {
     private static final Gson gson = new Gson();

@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeBaseOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -73,7 +73,7 @@ public class MaxComputeDataTypeConvertorTest {
     @Test
     public void getIdentity() {
         Assertions.assertEquals(
-                MaxcomputeConfig.PLUGIN_NAME, maxComputeDataTypeConvertor.getIdentity());
+                MaxcomputeBaseOptions.PLUGIN_NAME, maxComputeDataTypeConvertor.getIdentity());
     }
 
     @Test

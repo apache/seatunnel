@@ -32,7 +32,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.common.utils.BufferUtils;
 import org.apache.seatunnel.connectors.seatunnel.milvus.catalog.MilvusCatalog;
-import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -128,8 +128,8 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
             throws SQLException, ClassNotFoundException, InstantiationException,
                     IllegalAccessException {
         Map<String, Object> config = new HashMap<>();
-        config.put(MilvusSinkConfig.URL.key(), this.container.getEndpoint());
-        config.put(MilvusSinkConfig.TOKEN.key(), TOKEN);
+        config.put(MilvusSinkOptions.URL.key(), this.container.getEndpoint());
+        config.put(MilvusSinkOptions.TOKEN.key(), TOKEN);
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(config);
         catalog = new MilvusCatalog(COLLECTION_NAME, readonlyConfig);
         catalog.open();
