@@ -17,21 +17,19 @@
 
 package org.apache.seatunnel.connectors.selectdb.sink;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.*;
+import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.factory.CatalogFactory;
+import org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkConfig;
+import org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.serialization.Serializer;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
-import org.apache.seatunnel.api.sink.SinkCommitter;
-import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.sink.SupportMultiTableSink;
-import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -48,30 +46,41 @@ import org.apache.seatunnel.connectors.selectdb.sink.writer.SelectDBSinkStateSer
 import org.apache.seatunnel.connectors.selectdb.sink.writer.SelectDBSinkWriter;
 import org.apache.seatunnel.connectors.selectdb.sink.writer.SelectDBStreamLoadSinkWriter;
 
-import com.google.auto.service.AutoService;
-
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 import static org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig.CLUSTER_NAME;
 import static org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig.JDBC_URL;
 import static org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig.LOAD_URL;
-import static org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig.SINK_ENABLE_STREAM_LOAD;
-import static org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig.TABLE_IDENTIFIER;
-import static org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig.USERNAME;
+import static org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkOptions.TABLE_IDENTIFIER;
+import static org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkOptions.USERNAME;
 
-@AutoService(SeaTunnelSink.class)
 public class SelectDBSink
         implements SeaTunnelSink<
                         SeaTunnelRow, SelectDBSinkState, SelectDBCommitInfo, SelectDBCommitInfo>,
+                SupportSaveMode,
                 SupportMultiTableSink,
                 SupportSchemaEvolutionSink {
+
+    @Deprecated
     private Config pluginConfig;
+    @Deprecated
     private SeaTunnelRowType seaTunnelRowType;
+
+    private final SelectDBSinkConfig selectDBSinkConfig;
+    private final ReadonlyConfig config;
+    private final CatalogTable catalogTable;
     private String jobId;
+
+    public SelectDBSink(ReadonlyConfig config, CatalogTable catalogTable) {
+        this.config = config;
+        this.catalogTable = catalogTable;
+        this.selectDBSinkConfig = SelectDBSinkConfig.of(config);
+    }
 
     @Override
     public String getPluginName() {
@@ -79,6 +88,7 @@ public class SelectDBSink
     }
 
     @Override
+    @Deprecated
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
         CheckResult result =
@@ -104,6 +114,7 @@ public class SelectDBSink
     }
 
     @Override
+    @Deprecated
     public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelRowType = seaTunnelRowType;
     }
@@ -111,38 +122,39 @@ public class SelectDBSink
     @Override
     public SinkWriter<SeaTunnelRow, SelectDBCommitInfo, SelectDBSinkState> createWriter(
             SinkWriter.Context context) throws IOException {
-        if (pluginConfig.hasPath(SINK_ENABLE_STREAM_LOAD.key())) {
-            return new SelectDBStreamLoadSinkWriter(
-                    context,
-                    Collections.emptyList(),
-                    seaTunnelRowType,
-                    SelectDBConfig.loadConfig(pluginConfig),
-                    jobId);
+        // Compatible history
+        if (pluginConfig.hasPath(TABLE_IDENTIFIER.key())) {
+            SelectDBSinkWriter selectDBSinkWriter =
+                    new SelectDBSinkWriter(
+                            context, Collections.emptyList(), seaTunnelRowType, pluginConfig, jobId);
+            selectDBSinkWriter.initializeLoad(Collections.emptyList());
+            return selectDBSinkWriter;
         }
 
-        SelectDBSinkWriter selectDBSinkWriter =
-                new SelectDBSinkWriter(
-                        context, Collections.emptyList(), seaTunnelRowType, pluginConfig, jobId);
-        selectDBSinkWriter.initializeLoad(Collections.emptyList());
-        return selectDBSinkWriter;
+        return new SelectDBStreamLoadSinkWriter(
+                context,
+                Collections.emptyList(),
+                catalogTable,
+                selectDBSinkConfig,
+                jobId);
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, SelectDBCommitInfo, SelectDBSinkState> restoreWriter(
             SinkWriter.Context context, List<SelectDBSinkState> states) throws IOException {
-        if (pluginConfig.hasPath(SINK_ENABLE_STREAM_LOAD.key())) {
-            return new SelectDBStreamLoadSinkWriter(
-                    context,
-                    states,
-                    seaTunnelRowType,
-                    SelectDBConfig.loadConfig(pluginConfig),
-                    jobId);
+        if (pluginConfig.hasPath(TABLE_IDENTIFIER.key())) {
+            SelectDBSinkWriter selectDBSinkWriter =
+                    new SelectDBSinkWriter(context, states, seaTunnelRowType, pluginConfig, jobId);
+            selectDBSinkWriter.initializeLoad(states);
+            return selectDBSinkWriter;
         }
 
-        SelectDBSinkWriter selectDBSinkWriter =
-                new SelectDBSinkWriter(context, states, seaTunnelRowType, pluginConfig, jobId);
-        selectDBSinkWriter.initializeLoad(states);
-        return selectDBSinkWriter;
+        return new SelectDBStreamLoadSinkWriter(
+                context,
+                states,
+                catalogTable,
+                selectDBSinkConfig,
+                jobId);
     }
 
     @Override
@@ -152,7 +164,7 @@ public class SelectDBSink
 
     @Override
     public Optional<SinkCommitter<SelectDBCommitInfo>> createCommitter() throws IOException {
-        return Optional.of(new SelectDBCommitter(pluginConfig));
+        return Optional.of(new SelectDBCommitter(selectDBSinkConfig));
     }
 
     @Override
@@ -161,27 +173,38 @@ public class SelectDBSink
     }
 
     @Override
-    public Optional<SinkAggregatedCommitter<SelectDBCommitInfo, SelectDBCommitInfo>>
-            createAggregatedCommitter() throws IOException {
-        return Optional.empty();
-    }
+    public Optional<SaveModeHandler> getSaveModeHandler() {
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+        CatalogFactory catalogFactory =
+                discoverFactory(
+                        Thread.currentThread().getContextClassLoader(),
+                        CatalogFactory.class,
+                        "SelectDBCloud");
+        if (catalogFactory == null) {
+            throw new SelectDBConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SINK, "Cannot find selectDB catalog factory"));
+        }
 
-    @Override
-    public Optional<Serializer<SelectDBCommitInfo>> getAggregatedCommitInfoSerializer() {
-        return Optional.empty();
+        Catalog catalog = catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), config);
+        return Optional.of(
+                new DefaultSaveModeHandler(
+                        config.get(SelectDBSinkOptions.SCHEMA_SAVE_MODE),
+                        config.get(SelectDBSinkOptions.DATA_SAVE_MODE),
+                        catalog,
+                        catalogTable,
+                        config.get(SelectDBSinkOptions.CUSTOM_SQL)));
     }
 
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
-        SelectDBConfig selectDBConfig = SelectDBConfig.loadConfig(pluginConfig);
-        TablePath tablePath = TablePath.of(selectDBConfig.getTableIdentifier());
-        CatalogTable catalogTable =
-                CatalogTableUtil.getCatalogTable(
-                        selectDBConfig.getCatalog(),
-                        tablePath.getDatabaseName(),
-                        selectDBConfig.getSchema(),
-                        tablePath.getTableName(),
-                        seaTunnelRowType);
         return Optional.of(catalogTable);
     }
 

@@ -23,6 +23,7 @@ public class LabelGenerator {
 
     private boolean enable2PC;
 
+    @Deprecated
     public LabelGenerator(String labelPrefix) {
         this.labelPrefix = labelPrefix;
     }
@@ -32,6 +33,7 @@ public class LabelGenerator {
         this.enable2PC = enable2PC;
     }
 
+    @Deprecated
     public String generateLabel(long chkId, int fileNum) {
         return labelPrefix + "_" + chkId + "_" + fileNum;
     }

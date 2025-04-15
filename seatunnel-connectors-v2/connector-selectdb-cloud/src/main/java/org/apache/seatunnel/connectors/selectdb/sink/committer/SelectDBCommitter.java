@@ -17,12 +17,13 @@
 
 package org.apache.seatunnel.connectors.selectdb.sink.committer;
 
+import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkConfig;
+import org.apache.seatunnel.connectors.selectdb.sink.LoadStatus;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.sink.SinkCommitter;
-import org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig;
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorErrorCode;
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorException;
 import org.apache.seatunnel.connectors.selectdb.rest.CopySQLUtil;
@@ -48,16 +49,15 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
     private static final String COMMIT_PATTERN = "http://%s/api/%s/_stream_load_2pc";
     private static final int HTTP_TEMPORARY_REDIRECT = 200;
     private final CloseableHttpClient httpClient;
+    private final SelectDBSinkConfig selectDBSinkConfig;
     int maxRetry;
 
-    private final SelectDBConfig selectdbConfig;
-
-    public SelectDBCommitter(Config pluginConfig) {
-        this(SelectDBConfig.loadConfig(pluginConfig), HttpUtil.getHttpRedirectClient());
+    public SelectDBCommitter(SelectDBSinkConfig selectDBSinkConfig) {
+        this(selectDBSinkConfig, HttpUtil.getHttpRedirectClient());
     }
 
-    public SelectDBCommitter(SelectDBConfig selectdbConfig, CloseableHttpClient client) {
-        this.selectdbConfig = selectdbConfig;
+    public SelectDBCommitter(SelectDBSinkConfig selectDBSinkConfig, CloseableHttpClient client) {
+        this.selectDBSinkConfig = selectDBSinkConfig;
         this.httpClient = client;
     }
 
@@ -72,22 +72,21 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
 
     @Override
     public void abort(List<SelectDBCommitInfo> commitInfos) throws IOException {
-        if (selectdbConfig.isEnableStreamLoad()) {
-            for (SelectDBCommitInfo commitInfo : commitInfos) {
-                streamLoadAbortTransaction(commitInfo);
-            }
+        for (SelectDBCommitInfo commitInfo : commitInfos) {
+            streamLoadAbortTransaction(commitInfo);
         }
     }
 
     private void commitTransaction(SelectDBCommitInfo commitInfo) throws IOException {
         String hostPort = commitInfo.getHostPort();
-        String clusterName = commitInfo.getClusterName();
-        String copySQL = commitInfo.getCopySQL();
-        log.info("commit to cluster {} with copy sql: {}", clusterName, copySQL);
-        if (selectdbConfig.isEnableStreamLoad()) {
-            streamLoadCommitTransaction(commitInfo);
+
+        if (StringUtils.isBlank(selectDBSinkConfig.getTableIdentifier())) {
+            String clusterName = commitInfo.getClusterName();
+            String copySQL = commitInfo.getCopySQL();
+            log.info("commit to cluster {} with copy sql: {}", clusterName, copySQL);
+            CopySQLUtil.copyFileToDatabase(selectDBSinkConfig, clusterName, copySQL, hostPort);
         } else {
-            CopySQLUtil.copyFileToDatabase(selectdbConfig, clusterName, copySQL, hostPort);
+            streamLoadCommitTransaction(commitInfo);
         }
     }
 
@@ -97,27 +96,27 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
         int retry = 0;
         String hostPort = commitInfo.getHostPort();
         CloseableHttpResponse response = null;
-        while (retry++ <= selectdbConfig.getMaxRetries()) {
+        while (retry++ <= selectDBSinkConfig.getMaxRetries()) {
             HttpPutBuilder putBuilder = new HttpPutBuilder();
             putBuilder
-                    .setUrl(String.format(COMMIT_PATTERN, hostPort, commitInfo.getClusterName()))
-                    .baseAuth(selectdbConfig.getUsername(), selectdbConfig.getPassword())
+                    .setUrl(String.format(COMMIT_PATTERN, hostPort, commitInfo.getDb()))
+                    .baseAuth(selectDBSinkConfig.getUsername(), selectDBSinkConfig.getPassword())
                     .addCommonHeader()
-                    .addTxnId(Long.valueOf(commitInfo.getCopySQL()))
+                    .addTxnId(commitInfo.getTxbID())
                     .setEmptyEntity()
                     .commit();
             try {
                 response = httpClient.execute(putBuilder.build());
             } catch (IOException e) {
                 log.error("commit transaction failed: ", e);
-                hostPort = selectdbConfig.getLoadUrl();
+                hostPort = selectDBSinkConfig.getFrontends();
                 continue;
             }
             statusCode = response.getStatusLine().getStatusCode();
             reasonPhrase = response.getStatusLine().getReasonPhrase();
             if (statusCode != HTTP_TEMPORARY_REDIRECT) {
                 log.warn("commit failed with {}, reason {}", hostPort, reasonPhrase);
-                hostPort = selectdbConfig.getLoadUrl();
+                hostPort = selectDBSinkConfig.getFrontends();
             } else {
                 break;
             }
@@ -133,11 +132,11 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
             String loadResult = EntityUtils.toString(response.getEntity());
             Map<String, String> res =
                     mapper.readValue(loadResult, new TypeReference<HashMap<String, String>>() {});
-            if (!"Success".equals(res.get("status"))) {
+            if (!LoadStatus.SUCCESS.equals(res.get("status"))) {
                 log.error(
                         "commit transaction error url:{},TxnId:{},result:{}",
-                        String.format(COMMIT_PATTERN, hostPort, commitInfo.getClusterName()),
-                        commitInfo.getCopySQL(),
+                        String.format(COMMIT_PATTERN, hostPort, commitInfo.getDb()),
+                        commitInfo.getTxbID(),
                         loadResult);
                 throw new SelectDBConnectorException(
                         SelectDBConnectorErrorCode.COMMIT_FAILED, loadResult);
@@ -154,10 +153,10 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
         CloseableHttpResponse response = null;
         while (retry++ <= maxRetry) {
             HttpPutBuilder builder = new HttpPutBuilder();
-            builder.setUrl(String.format(COMMIT_PATTERN, hostPort, committable.getClusterName()))
-                    .baseAuth(selectdbConfig.getUsername(), selectdbConfig.getPassword())
+            builder.setUrl(String.format(COMMIT_PATTERN, hostPort, committable.getDb()))
+                    .baseAuth(selectDBSinkConfig.getUsername(), selectDBSinkConfig.getPassword())
                     .addCommonHeader()
-                    .addTxnId(Long.valueOf(committable.getCopySQL()))
+                    .addTxnId(committable.getTxbID())
                     .setEmptyEntity()
                     .abort();
             response = httpClient.execute(builder.build());
@@ -167,10 +166,10 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
                 throw new SelectDBConnectorException(
                         SelectDBConnectorErrorCode.STREAM_LOAD_FAILED,
                         "Fail to abort transaction "
-                                + committable.getCopySQL()
+                                + committable.getTxbID()
                                 + " with url "
                                 + String.format(
-                                        COMMIT_PATTERN, hostPort, committable.getClusterName()));
+                                        COMMIT_PATTERN, hostPort, committable.getDb()));
             }
         }
 
@@ -178,7 +177,7 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
         String loadResult = EntityUtils.toString(response.getEntity());
         Map<String, String> res =
                 mapper.readValue(loadResult, new TypeReference<HashMap<String, String>>() {});
-        if (!"Success".equals(res.get("status"))) {
+        if (!LoadStatus.SUCCESS.equals(res.get("status"))) {
             if (ResponseUtil.isStreamLoadCommitted(res.get("msg"))) {
                 throw new SelectDBConnectorException(
                         SelectDBConnectorErrorCode.STREAM_LOAD_FAILED,
@@ -186,7 +185,7 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
             }
             log.warn(
                     "Fail to abort transaction. txnId: {}, error: {}",
-                    committable.getCopySQL(),
+                    committable.getTxbID(),
                     res.get("msg"));
         }
     }

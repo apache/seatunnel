@@ -24,6 +24,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.util.Objects;
 
 /** define how to serialize SelectDBCommitInfo. */
 public class SelectDBCommitInfoSerializer implements Serializer<SelectDBCommitInfo> {
@@ -32,9 +33,11 @@ public class SelectDBCommitInfoSerializer implements Serializer<SelectDBCommitIn
     public byte[] serialize(SelectDBCommitInfo obj) throws IOException {
         try (final ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 final DataOutputStream out = new DataOutputStream(baos)) {
-            out.writeUTF(obj.getHostPort());
-            out.writeUTF(obj.getClusterName());
-            out.writeUTF(obj.getCopySQL());
+            out.writeUTF(Objects.isNull(obj.getHostPort()) ? "" : obj.getHostPort());
+            out.writeUTF(Objects.isNull(obj.getDb()) ? "" : obj.getDb());
+            out.writeLong(obj.getTxbID());
+            out.writeUTF(Objects.isNull(obj.getClusterName()) ? "" : obj.getClusterName());
+            out.writeUTF(Objects.isNull(obj.getCopySQL()) ? "" : obj.getCopySQL());
             out.flush();
             return baos.toByteArray();
         }
@@ -45,9 +48,11 @@ public class SelectDBCommitInfoSerializer implements Serializer<SelectDBCommitIn
         try (final ByteArrayInputStream bais = new ByteArrayInputStream(serialized);
                 final DataInputStream in = new DataInputStream(bais)) {
             final String hostPort = in.readUTF();
+            final String db = in.readUTF();
+            final long txbID = in.readLong();
             final String clusterName = in.readUTF();
             final String copySQL = in.readUTF();
-            return new SelectDBCommitInfo(hostPort, clusterName, copySQL);
+            return new SelectDBCommitInfo(hostPort, db, txbID, clusterName, copySQL);
         }
     }
 }

@@ -30,11 +30,24 @@ import java.io.Serializable;
 @EqualsAndHashCode
 public class SelectDBCommitInfo implements Serializable {
     private final String hostPort;
-    private final String clusterName;
-    private final String copySQL;
+    private final String db;
+    private final long txbID;
 
-    public SelectDBCommitInfo(String hostPort, String clusterName, String copySQL) {
+    @Deprecated
+    private String clusterName;
+    @Deprecated
+    private String copySQL;
+
+    public SelectDBCommitInfo(String hostPort, String db, long txbID) {
         this.hostPort = hostPort;
+        this.db = db;
+        this.txbID = txbID;
+    }
+
+    public SelectDBCommitInfo(String hostPort,String db, long txbID, String clusterName, String copySQL) {
+        this.hostPort = hostPort;
+        this.db = db;
+        this.txbID = txbID;
         this.clusterName = clusterName;
         this.copySQL = copySQL;
     }

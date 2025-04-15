@@ -17,13 +17,14 @@
 
 package org.apache.seatunnel.connectors.selectdb.rest;
 
+import org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkConfig;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig;
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorErrorCode;
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorException;
-import org.apache.seatunnel.connectors.selectdb.sink.writer.LoadStatus;
+import org.apache.seatunnel.connectors.selectdb.sink.LoadStatus;
 import org.apache.seatunnel.connectors.selectdb.util.HttpPostBuilder;
 import org.apache.seatunnel.connectors.selectdb.util.HttpUtil;
 import org.apache.seatunnel.connectors.selectdb.util.ResponseUtil;
@@ -48,6 +49,16 @@ public class CopySQLUtil {
 
     public static void copyFileToDatabase(
             SelectDBConfig selectdbConfig, String clusterName, String copySQL, String hostPort)
+            throws IOException {
+        SelectDBSinkConfig selectDBSinkConfig = new SelectDBSinkConfig();
+        selectDBSinkConfig.setMaxRetries(selectdbConfig.getMaxRetries());
+        selectDBSinkConfig.setUsername(selectdbConfig.getUsername());
+        selectDBSinkConfig.setPassword(selectdbConfig.getPassword());
+        copyFileToDatabase(selectDBSinkConfig, clusterName, copySQL, hostPort);
+    }
+
+    public static void copyFileToDatabase(
+            SelectDBSinkConfig selectdbConfig, String clusterName, String copySQL, String hostPort)
             throws IOException {
         long start = System.currentTimeMillis();
         CloseableHttpClient httpClient = HttpUtil.getHttpClient();
@@ -113,7 +124,7 @@ public class CopySQLUtil {
         BaseResponse<CopyIntoResp> baseResponse =
                 OBJECT_MAPPER.readValue(
                         loadResult, new TypeReference<BaseResponse<CopyIntoResp>>() {});
-        if (baseResponse.getCode() == LoadStatus.SUCCESS) {
+        if (baseResponse.getCode() == 0) {
             CopyIntoResp dataResp = baseResponse.getData();
             if (LoadStatus.FAIL.equals(dataResp.getDataCode())) {
                 log.error("copy into execute failed, reason:{}", loadResult);

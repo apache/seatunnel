@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.selectdb.sink.writer;
 
+import org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkConfig;
+import org.apache.seatunnel.connectors.selectdb.sink.LoadStatus;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -24,7 +26,6 @@ import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactor
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig;
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorErrorCode;
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorException;
 import org.apache.seatunnel.connectors.selectdb.rest.models.RespContent;
@@ -56,90 +57,53 @@ import static org.apache.seatunnel.connectors.selectdb.sink.writer.LoadConstants
 import static org.apache.seatunnel.connectors.selectdb.util.ResponseUtil.LABEL_EXIST_PATTERN;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkState;
 
-/** load data to doris. */
+/** load data to selectdb. */
 @Slf4j
 public class SelectDBStreamLoad implements Serializable {
-
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
     private static final int HTTP_TEMPORARY_REDIRECT = 200;
-
     private final LabelGenerator labelGenerator;
-
     private final byte[] lineDelimiter;
-
     private static final String LOAD_URL_PATTERN = "http://%s/api/%s/%s/_stream_load";
-
     private static final String ABORT_URL_PATTERN = "http://%s/api/%s/_stream_load_2pc";
-
     private static final String JOB_EXIST_FINISHED = "FINISHED";
-
     private final String loadUrlStr;
-
     @Getter private final String hostPort;
-
     private final String abortUrlStr;
-
     private final String user;
-
     private final String passwd;
-
     @Getter private final String db;
-
     private final String table;
-
     private final boolean enable2PC;
-
     private final boolean enableDelete;
-
     private final Properties streamLoadProp;
-
     private final RecordStream recordStream;
-
     @Getter private Future<CloseableHttpResponse> pendingLoadFuture;
-
     private final CloseableHttpClient httpClient;
-
     private final ExecutorService executorService;
-
     private volatile boolean loadBatchFirstRecord;
-
     private volatile boolean loading = false;
-
     private String label;
-
     @Getter private long recordCount = 0;
 
     public SelectDBStreamLoad(
+            String hostPort,
             TablePath tablePath,
-            SelectDBConfig selectDBConfig,
+            SelectDBSinkConfig selectDBSinkConfig,
             LabelGenerator labelGenerator,
             CloseableHttpClient httpClient) {
-
-        this.hostPort = selectDBConfig.getLoadUrl();
-
+        this.hostPort = hostPort;
         this.db = tablePath.getDatabaseName();
-
         this.table = tablePath.getTableName();
-
-        this.user = selectDBConfig.getUsername();
-
-        this.passwd = selectDBConfig.getPassword();
-
+        this.user = selectDBSinkConfig.getUsername();
+        this.passwd = selectDBSinkConfig.getPassword();
         this.labelGenerator = labelGenerator;
-
         this.loadUrlStr = String.format(LOAD_URL_PATTERN, hostPort, db, table);
-
         this.abortUrlStr = String.format(ABORT_URL_PATTERN, hostPort, db);
-
-        this.enable2PC = selectDBConfig.isEnable2PC();
-
-        this.streamLoadProp = selectDBConfig.getStreamLoadProps();
-
-        this.enableDelete = selectDBConfig.getEnableDelete();
-
+        this.enable2PC = selectDBSinkConfig.getEnable2PC();
+        this.streamLoadProp = selectDBSinkConfig.getStreamLoadProps();
+        this.enableDelete = selectDBSinkConfig.getEnableDelete();
         this.httpClient = httpClient;
-
         this.executorService =
                 new ThreadPoolExecutor(
                         1,
@@ -148,30 +112,20 @@ public class SelectDBStreamLoad implements Serializable {
                         TimeUnit.MILLISECONDS,
                         new LinkedBlockingQueue<>(),
                         new ThreadFactoryBuilder().setNameFormat("stream-load-upload").build());
-
         this.recordStream =
-                new RecordStream(selectDBConfig.getBufferSize(), selectDBConfig.getBufferCount());
-
+                new RecordStream(selectDBSinkConfig.getBufferSize(), selectDBSinkConfig.getBufferCount());
         lineDelimiter =
                 streamLoadProp.getProperty(LINE_DELIMITER_KEY, LINE_DELIMITER_DEFAULT).getBytes();
-
         loadBatchFirstRecord = true;
     }
 
     public void abortPreCommit(String labelSuffix, long chkID) throws Exception {
-
         long startChkID = chkID;
-
         log.info("abort for labelSuffix {}. start chkId {}.", labelSuffix, chkID);
-
         while (true) {
-
             try {
-
                 String label = labelGenerator.generateLabel(startChkID);
-
                 HttpPutBuilder builder = new HttpPutBuilder();
-
                 builder.setUrl(loadUrlStr)
                         .baseAuth(user, passwd)
                         .addCommonHeader()
@@ -179,18 +133,12 @@ public class SelectDBStreamLoad implements Serializable {
                         .setLabel(label)
                         .setEmptyEntity()
                         .addProperties(streamLoadProp);
-
                 RespContent respContent =
                         handlePreCommitResponse(httpClient.execute(builder.build()));
-
                 checkState("true".equals(respContent.getTwoPhaseCommit()));
-
                 if (LoadStatus.LABEL_ALREADY_EXIST.equals(respContent.getStatus())) {
-
                     // label already exist and job finished
-
                     if (JOB_EXIST_FINISHED.equals(respContent.getExistingJobStatus())) {
-
                         throw new SelectDBConnectorException(
                                 SelectDBConnectorErrorCode.STREAM_LOAD_FAILED,
                                 "Load status is "
@@ -198,23 +146,14 @@ public class SelectDBStreamLoad implements Serializable {
                                         + " and load job finished, "
                                         + "change you label prefix or restore from latest savepoint!");
                     }
-
                     // job not finished, abort.
-
                     Matcher matcher = LABEL_EXIST_PATTERN.matcher(respContent.getMessage());
-
                     if (matcher.find()) {
-
                         checkState(label.equals(matcher.group(1)));
-
                         long txnId = Long.parseLong(matcher.group(2));
-
                         log.info("abort {} for exist label {}", txnId, label);
-
                         abortTransaction(txnId);
-
                     } else {
-
                         throw new SelectDBConnectorException(
                                 SelectDBConnectorErrorCode.STREAM_LOAD_FAILED,
                                 "Load Status is "
@@ -223,147 +162,91 @@ public class SelectDBStreamLoad implements Serializable {
                                         + "response: "
                                         + respContent);
                     }
-
                 } else {
-
                     log.info("abort {} for check label {}.", respContent.getTxnId(), label);
-
                     abortTransaction(respContent.getTxnId());
-
                     break;
                 }
-
                 startChkID++;
-
             } catch (Exception e) {
-
                 log.warn("failed to stream load data", e);
-
                 throw e;
             }
         }
-
         log.info("abort for labelSuffix {} finished", labelSuffix);
     }
 
     public void writeRecord(byte[] record) throws IOException {
-
         if (loadBatchFirstRecord) {
-
             loadBatchFirstRecord = false;
-
             recordStream.startInput();
-
             startStreamLoad();
-
         } else {
-
             recordStream.write(lineDelimiter);
         }
-
         recordStream.write(record);
-
         recordCount++;
     }
 
     public String getLoadFailedMsg() {
-
         if (!loading) {
-
             return null;
         }
-
         if (this.getPendingLoadFuture() != null && this.getPendingLoadFuture().isDone()) {
-
             String errorMessage;
-
             try {
-
                 errorMessage = handlePreCommitResponse(pendingLoadFuture.get()).getMessage();
-
             } catch (Exception e) {
-
                 errorMessage = ExceptionUtils.getMessage(e);
             }
-
             recordStream.setErrorMessageByStreamLoad(errorMessage);
-
             return errorMessage;
-
         } else {
-
             return null;
         }
     }
 
     private RespContent handlePreCommitResponse(CloseableHttpResponse response) throws Exception {
-
         final int statusCode = response.getStatusLine().getStatusCode();
-
         if (statusCode == HTTP_TEMPORARY_REDIRECT && response.getEntity() != null) {
-
             String loadResult = EntityUtils.toString(response.getEntity());
-
             log.info("load Result {}", loadResult);
-
             return OBJECT_MAPPER.readValue(loadResult, RespContent.class);
         }
-
         throw new SelectDBConnectorException(
                 SelectDBConnectorErrorCode.STREAM_LOAD_FAILED, response.getStatusLine().toString());
     }
 
     public RespContent stopLoad() throws IOException {
-
         loading = false;
-
         if (pendingLoadFuture != null) {
-
             log.info("stream load stopped.");
-
             recordStream.endInput();
-
             try {
-
                 return handlePreCommitResponse(pendingLoadFuture.get());
-
             } catch (Exception e) {
-
                 throw new SelectDBConnectorException(
                         SelectDBConnectorErrorCode.STREAM_LOAD_FAILED, e);
-
             } finally {
-
                 pendingLoadFuture = null;
             }
-
         } else {
-
             return null;
         }
     }
 
     public void startLoad(String label) {
-
         loadBatchFirstRecord = true;
-
         recordCount = 0;
-
         this.label = label;
-
         this.loading = true;
     }
 
     private void startStreamLoad() {
-
         HttpPutBuilder putBuilder = new HttpPutBuilder();
-
         log.info("stream load started for {}", label);
-
         try {
-
             InputStreamEntity entity = new InputStreamEntity(recordStream);
-
             putBuilder
                     .setUrl(loadUrlStr)
                     .baseAuth(user, passwd)
@@ -372,88 +255,61 @@ public class SelectDBStreamLoad implements Serializable {
                     .setLabel(label)
                     .setEntity(entity)
                     .addProperties(streamLoadProp);
-
             if (enable2PC) {
-
                 putBuilder.enable2PC();
             }
-
             pendingLoadFuture =
                     executorService.submit(
                             () -> {
                                 log.info("start execute load");
-
                                 return httpClient.execute(putBuilder.build());
                             });
-
         } catch (Exception e) {
-
             String err = "failed to stream load data with label: " + label;
-
             log.warn(err, e);
-
             throw e;
         }
     }
 
     public void abortTransaction(long txnID) throws Exception {
-
         HttpPutBuilder builder = new HttpPutBuilder();
-
         builder.setUrl(abortUrlStr)
                 .baseAuth(user, passwd)
                 .addCommonHeader()
                 .addTxnId(txnID)
                 .setEmptyEntity()
                 .abort();
-
         CloseableHttpResponse response = httpClient.execute(builder.build());
-
         int statusCode = response.getStatusLine().getStatusCode();
-
         if (statusCode != HTTP_TEMPORARY_REDIRECT || response.getEntity() == null) {
-
             log.warn("abort transaction response: " + response.getStatusLine().toString());
-
             throw new SelectDBConnectorException(
                     SelectDBConnectorErrorCode.STREAM_LOAD_FAILED,
                     "Fail to abort transaction " + txnID + " with url " + abortUrlStr);
         }
 
         String loadResult = EntityUtils.toString(response.getEntity());
-
         Map<String, String> res =
                 JsonUtils.parseObject(loadResult, new TypeReference<HashMap<String, String>>() {});
-
         if (!"Success".equals(res.get("status"))) {
-
             if (ResponseUtil.isCommitted(res.get("msg"))) {
-
                 throw new SelectDBConnectorException(
                         SelectDBConnectorErrorCode.STREAM_LOAD_FAILED,
                         "try abort committed transaction, " + "do you recover from old savepoint?");
             }
-
             log.warn("Fail to abort transaction. txnId: {}, error: {}", txnID, res.get("msg"));
         }
     }
 
     public void close() throws IOException {
-
         if (null != httpClient) {
-
             try {
-
                 httpClient.close();
-
             } catch (IOException e) {
-
                 throw new IOException("Closing httpClient failed.", e);
             }
         }
-
         if (null != executorService) {
-
             executorService.shutdownNow();
         }
     }

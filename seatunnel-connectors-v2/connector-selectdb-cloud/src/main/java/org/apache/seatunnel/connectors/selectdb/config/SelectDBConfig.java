@@ -34,11 +34,12 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 
-import static org.apache.seatunnel.api.sink.SinkCommonOptions.MULTI_TABLE_SINK_REPLICA;
+//import static org.apache.seatunnel.api.sink.SinkCommonOptions.MULTI_TABLE_SINK_REPLICA;
 
 @Setter
 @Getter
 @ToString
+@Deprecated
 public class SelectDBConfig {
     private static final int DEFAULT_SINK_MAX_RETRIES = 3;
     private static final int DEFAULT_SINK_BUFFER_SIZE = 256 * 1024;
@@ -47,11 +48,13 @@ public class SelectDBConfig {
     private static final int SELECTDB_BATCH_SIZE_DEFAULT = 1024;
 
     // common option
+    @Deprecated
     public static final Option<String> LOAD_URL =
             Options.key("load-url")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("SelectDB load http address.");
+    @Deprecated
     public static final Option<String> JDBC_URL =
             Options.key("jdbc-url")
                     .stringType()
@@ -75,48 +78,57 @@ public class SelectDBConfig {
                     .noDefaultValue()
                     .withDescription("the jdbc schema name.");
 
+    @Deprecated
     public static final Option<String> TABLE_IDENTIFIER =
             Options.key("table.identifier")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("the jdbc table name.");
+    @Deprecated
     public static final Option<String> USERNAME =
             Options.key("username")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("the jdbc user name.");
+    @Deprecated
     public static final Option<String> PASSWORD =
             Options.key("password")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("the jdbc password.");
 
+    @Deprecated
     public static final Option<Boolean> SINK_ENABLE_2PC =
             Options.key("sink.enable-2pc")
                     .booleanType()
                     .defaultValue(true)
                     .withDescription("enable 2PC while loading");
     // sink config options
+    @Deprecated
     public static final Option<Integer> SINK_MAX_RETRIES =
             Options.key("sink.max-retries")
                     .intType()
                     .defaultValue(DEFAULT_SINK_MAX_RETRIES)
                     .withDescription("the max retry times if writing records to database failed.");
+    @Deprecated
     public static final Option<Integer> SINK_BUFFER_SIZE =
             Options.key("sink.buffer-size")
                     .intType()
                     .defaultValue(DEFAULT_SINK_BUFFER_SIZE)
                     .withDescription("the buffer size to cache data for stream load.");
+    @Deprecated
     public static final Option<Integer> SINK_BUFFER_COUNT =
             Options.key("sink.buffer-count")
                     .intType()
                     .defaultValue(DEFAULT_SINK_BUFFER_COUNT)
                     .withDescription("the buffer count to cache data for stream load.");
+    @Deprecated
     public static final Option<String> SINK_LABEL_PREFIX =
             Options.key("sink.label-prefix")
                     .stringType()
                     .defaultValue(UUID.randomUUID().toString())
                     .withDescription("the unique label prefix.");
+    @Deprecated
     public static final Option<Boolean> SINK_ENABLE_DELETE =
             Options.key("sink.enable-delete")
                     .booleanType()
@@ -129,6 +141,7 @@ public class SelectDBConfig {
                     .defaultValue(1)
                     .withDescription("Queue length for async upload to object storage");
 
+    @Deprecated
     public static final Option<Map<String, String>> SELECTDB_SINK_CONFIG_PREFIX =
             Options.key("selectdb.config")
                     .mapType()
@@ -137,18 +150,21 @@ public class SelectDBConfig {
                             "The parameter of the Copy Into data_desc. "
                                     + "The way to specify the parameter is to add the prefix `selectdb.config` to the original load parameter name ");
 
+    @Deprecated
     public static final Option<Boolean> SINK_ENABLE_STREAM_LOAD =
             Options.key("enable-stream-load")
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("whether to enable the streamLoad function");
 
+    @Deprecated
     public static final Option<Integer> SINK_CHECK_INTERVAL =
             Options.key("check-interval")
                     .intType()
                     .defaultValue(DEFAULT_SINK_CHECK_INTERVAL)
                     .withDescription("check exception with the interval while loading");
 
+    @Deprecated
     public static final Option<Boolean> NEEDS_UNSUPPORTED_TYPE_CASTING =
             Options.key("needs_unsupported_type_casting")
                     .booleanType()
@@ -156,12 +172,14 @@ public class SelectDBConfig {
                     .withDescription(
                             "Whether to enable the unsupported type casting, such as Decimal64 to Double");
 
+    @Deprecated
     public static final Option<Integer> SELECTDB_BATCH_SIZE =
             Options.key("batch.size")
                     .intType()
                     .defaultValue(SELECTDB_BATCH_SIZE_DEFAULT)
                     .withDescription("the batch size of the selectdb read/write.");
 
+    @Deprecated
     public static final Option<String> SAVE_MODE_CREATE_TEMPLATE =
             Options.key("save_mode_create_template")
                     .stringType()
@@ -189,14 +207,17 @@ public class SelectDBConfig {
                                     + "\"disable_auto_compaction\" = \"false\"\n"
                                     + ")")
                     .withDescription("Create table statement template, used to create Doris table");
+    @Deprecated
     public static final Option<DataSaveMode> DATA_SAVE_MODE =
             Options.key("data_save_mode")
                     .enumType(DataSaveMode.class)
                     .defaultValue(DataSaveMode.APPEND_DATA)
                     .withDescription("data_save_mode");
+    @Deprecated
     public static final Option<String> CUSTOM_SQL =
             Options.key("custom_sql").stringType().noDefaultValue().withDescription("custom_sql");
 
+    @Deprecated
     public static final OptionRule.Builder SINK_RULE =
             OptionRule.builder()
                     .required(LOAD_URL, USERNAME, PASSWORD, SINK_LABEL_PREFIX)
@@ -204,7 +225,7 @@ public class SelectDBConfig {
                             TABLE_IDENTIFIER,
                             SINK_ENABLE_2PC,
                             SINK_ENABLE_DELETE,
-                            MULTI_TABLE_SINK_REPLICA,
+//                            MULTI_TABLE_SINK_REPLICA,
                             SAVE_MODE_CREATE_TEMPLATE,
                             NEEDS_UNSUPPORTED_TYPE_CASTING);
 

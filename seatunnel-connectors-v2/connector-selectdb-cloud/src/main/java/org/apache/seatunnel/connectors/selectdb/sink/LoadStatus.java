@@ -15,25 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.selectdb.sink.writer;
+package org.apache.seatunnel.connectors.selectdb.sink;
 
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
-
-import java.io.Serializable;
-
-@Setter
-@Getter
-@ToString
-@EqualsAndHashCode
-public class SelectDBSinkState implements Serializable {
-    private final String labelPrefix;
-    private final long checkpointId;
-
-    public SelectDBSinkState(String labelPrefix, long checkpointId) {
-        this.labelPrefix = labelPrefix;
-        this.checkpointId = checkpointId;
-    }
+/** enum of LoadStatus. */
+public class LoadStatus {
+    public static final String SUCCESS = "Success";
+    public static final String PUBLISH_TIMEOUT = "Publish Timeout";
+    public static final String LABEL_ALREADY_EXIST = "Label Already Exists";
+    public static final String FAIL = "Fail";
 }

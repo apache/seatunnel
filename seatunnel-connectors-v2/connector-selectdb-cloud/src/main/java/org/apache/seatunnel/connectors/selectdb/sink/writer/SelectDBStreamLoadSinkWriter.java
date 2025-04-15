@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.selectdb.sink.writer;
 
+import org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkConfig;
 import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -36,6 +37,7 @@ import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorExcep
 import org.apache.seatunnel.connectors.selectdb.rest.models.RespContent;
 import org.apache.seatunnel.connectors.selectdb.schema.SchemaChangeManager;
 import org.apache.seatunnel.connectors.selectdb.serialize.SeaTunnelRowSerializer;
+import org.apache.seatunnel.connectors.selectdb.sink.LoadStatus;
 import org.apache.seatunnel.connectors.selectdb.serialize.SelectDBSerializer;
 import org.apache.seatunnel.connectors.selectdb.sink.committer.SelectDBCommitInfo;
 import org.apache.seatunnel.connectors.selectdb.util.HttpUtil;
@@ -63,20 +65,19 @@ public class SelectDBStreamLoadSinkWriter
                 SupportSchemaEvolutionSinkWriter {
 
     private static final int INITIAL_DELAY = 200;
-    private static final List<String> SUCCESS_STATUS =
-            new ArrayList<>(Arrays.asList("Success", LoadStatus.PUBLISH_TIMEOUT));
+    private static final List<String> SELECTDB_SUCCESS_STATUS =
+            new ArrayList<>(Arrays.asList(LoadStatus.SUCCESS, LoadStatus.PUBLISH_TIMEOUT));
     private long lastCheckpointId;
     private SelectDBStreamLoad selectDBStreamLoad;
-    private final SelectDBConfig selectDBSinkConfig;
+    private final SelectDBSinkConfig selectDBSinkConfig;
     private final String labelPrefix;
     private final LabelGenerator labelGenerator;
     private final int intervalTime;
     private SelectDBSerializer serializer;
-    private final SeaTunnelRowType seaTunnelRowType;
+    private final CatalogTable catalogTable;
     private final ScheduledExecutorService scheduledExecutorService;
     private volatile Exception loadException = null;
     private TableSchema tableSchema;
-
     private final TablePath sinkTablePath;
     protected TableSchemaChangeEventDispatcher tableSchemaChanger =
             new TableSchemaChangeEventDispatcher();
@@ -85,57 +86,61 @@ public class SelectDBStreamLoadSinkWriter
     public SelectDBStreamLoadSinkWriter(
             Context context,
             List<SelectDBSinkState> state,
-            SeaTunnelRowType seaTunnelRowType,
-            SelectDBConfig selectDBSinkConfig,
+            CatalogTable catalogTable,
+            SelectDBSinkConfig selectDBSinkConfig,
             String jobId) {
-
         this.selectDBSinkConfig = selectDBSinkConfig;
-        this.seaTunnelRowType = seaTunnelRowType;
-        sinkTablePath = TablePath.of(selectDBSinkConfig.getTableIdentifier());
-        CatalogTable catalogTable =
-                CatalogTableUtil.getCatalogTable(
-                        selectDBSinkConfig.getCatalog(),
-                        sinkTablePath.getDatabaseName(),
-                        selectDBSinkConfig.getSchema(),
-                        sinkTablePath.getTableName(),
-                        seaTunnelRowType);
-        tableSchema = catalogTable.getTableSchema();
+        this.catalogTable = catalogTable;
         this.lastCheckpointId = !state.isEmpty() ? state.get(0).getCheckpointId() : 0;
         log.info("restore checkpointId {}", lastCheckpointId);
         log.info("labelPrefix " + selectDBSinkConfig.getLabelPrefix());
         this.labelPrefix =
                 selectDBSinkConfig.getLabelPrefix()
                         + "_"
-                        + selectDBSinkConfig.getTableIdentifier().replaceAll("\\.", "_")
+                        + catalogTable.getTablePath().getFullName().replaceAll("\\.", "_")
                         + "_"
                         + jobId
                         + "_"
                         + context.getIndexOfSubtask();
-        this.labelGenerator = new LabelGenerator(labelPrefix, selectDBSinkConfig.isEnable2PC());
+        this.labelGenerator = new LabelGenerator(labelPrefix, selectDBSinkConfig.getEnable2PC());
         this.scheduledExecutorService =
                 new ScheduledThreadPoolExecutor(
                         1, new ThreadFactoryBuilder().setNameFormat("stream-load-check").build());
-        this.serializer = createSerializer(selectDBSinkConfig, seaTunnelRowType);
+        this.serializer = createSerializer(selectDBSinkConfig, catalogTable.getSeaTunnelRowType());
         this.intervalTime = selectDBSinkConfig.getCheckInterval();
+        this.tableSchema = catalogTable.getTableSchema();
+        this.sinkTablePath = catalogTable.getTablePath();
         this.schemaChangeManager = new SchemaChangeManager(selectDBSinkConfig);
         this.initializeLoad();
     }
 
     private void initializeLoad() {
+        List<String> feNodes = Arrays.asList(selectDBSinkConfig.getFrontends().split(","));
+        Collections.shuffle(feNodes);
+        int feNodesNum = feNodes.size();
 
-        try {
-
-            this.selectDBStreamLoad =
-                    new SelectDBStreamLoad(
-                            TablePath.of(selectDBSinkConfig.getTableIdentifier()),
-                            selectDBSinkConfig,
-                            labelGenerator,
-                            HttpUtil.getHttpRedirectClient());
-            if (selectDBSinkConfig.isEnable2PC()) {
-                selectDBStreamLoad.abortPreCommit(labelPrefix, lastCheckpointId + 1);
+        for (int i = 0; i <  feNodesNum; i++) {
+            try {
+                this.selectDBStreamLoad =
+                        new SelectDBStreamLoad(
+                                feNodes.get(i),
+                                catalogTable.getTablePath(),
+                                selectDBSinkConfig,
+                                labelGenerator,
+                                HttpUtil.getHttpRedirectClient());
+                if (selectDBSinkConfig.getEnable2PC()) {
+                    selectDBStreamLoad.abortPreCommit(labelPrefix, lastCheckpointId + 1);
+                }
+                break;
+            } catch (Exception e) {
+                if (i == feNodesNum - 1) {
+                    throw new SelectDBConnectorException(
+                            SelectDBConnectorErrorCode.STREAM_LOAD_FAILED, e);
+                }
+                log.error("stream load error for feNode: {} with exception: {}",
+                        feNodes.get(i),
+                        e.getMessage());
             }
-        } catch (Exception e) {
-            log.error("stream load error with exception: {}", e.getMessage());
         }
 
         startLoad(labelGenerator.generateLabel(lastCheckpointId + 1));
@@ -158,7 +163,7 @@ public class SelectDBStreamLoadSinkWriter
         }
 
         selectDBStreamLoad.writeRecord(serialize);
-        if (!selectDBSinkConfig.isEnable2PC()
+        if (!selectDBSinkConfig.getEnable2PC()
                 && selectDBStreamLoad.getRecordCount() >= selectDBSinkConfig.getBatchSize()) {
             flush();
             startLoad(labelGenerator.generateLabel(lastCheckpointId));
@@ -183,23 +188,21 @@ public class SelectDBStreamLoadSinkWriter
     @Override
     public Optional<SelectDBCommitInfo> prepareCommit() throws IOException {
         RespContent respContent = flush();
-        if (!selectDBSinkConfig.isEnable2PC() || respContent == null) {
+        if (!selectDBSinkConfig.getEnable2PC() || respContent == null) {
             return Optional.empty();
         }
 
         long txnId = respContent.getTxnId();
         return Optional.of(
                 new SelectDBCommitInfo(
-                        selectDBStreamLoad.getHostPort(),
-                        TablePath.of(selectDBSinkConfig.getTableIdentifier()).getDatabaseName(),
-                        String.valueOf(txnId)));
+                        selectDBStreamLoad.getHostPort(), selectDBStreamLoad.getDb(), txnId));
     }
 
     private RespContent flush() throws IOException {
         // disable exception checker before stop load.
         checkState(selectDBStreamLoad != null);
         RespContent respContent = selectDBStreamLoad.stopLoad();
-        if (respContent != null && !SUCCESS_STATUS.contains(respContent.getStatus())) {
+        if (respContent != null && !SELECTDB_SUCCESS_STATUS.contains(respContent.getStatus())) {
             String errMsg =
                     String.format(
                             "stream load error: %s, see more in %s",
@@ -224,7 +227,7 @@ public class SelectDBStreamLoadSinkWriter
 
     @Override
     public void abortPrepare() {
-        if (selectDBSinkConfig.isEnable2PC()) {
+        if (selectDBSinkConfig.getEnable2PC()) {
             try {
                 selectDBStreamLoad.abortPreCommit(labelPrefix, lastCheckpointId + 1);
             } catch (Exception e) {
@@ -254,7 +257,7 @@ public class SelectDBStreamLoadSinkWriter
 
     @Override
     public void close() throws IOException {
-        if (!selectDBSinkConfig.isEnable2PC()) {
+        if (!selectDBSinkConfig.getEnable2PC()) {
             flush();
         }
         if (scheduledExecutorService != null) {
@@ -266,16 +269,14 @@ public class SelectDBStreamLoadSinkWriter
     }
 
     private SelectDBSerializer createSerializer(
-            SelectDBConfig selectDBSinkConfig, SeaTunnelRowType seaTunnelRowType) {
+            SelectDBSinkConfig selectDBSinkConfig, SeaTunnelRowType seaTunnelRowType) {
         return new SeaTunnelRowSerializer(
                 selectDBSinkConfig
                         .getStreamLoadProps()
                         .getProperty(LoadConstants.FORMAT_KEY)
                         .toLowerCase(),
                 seaTunnelRowType,
-                selectDBSinkConfig
-                        .getStreamLoadProps()
-                        .getProperty(LoadConstants.FIELD_DELIMITER_KEY),
+                selectDBSinkConfig.getStreamLoadProps().getProperty(LoadConstants.FIELD_DELIMITER_KEY),
                 selectDBSinkConfig.getEnableDelete());
     }
 }
