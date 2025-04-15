@@ -247,6 +247,11 @@ public class ExpressionUtilsTest {
         String whereClause4 = "SELECT * FROM t WHERE age IN (30, 40, 50)";
         Expression expr4 = ExpressionUtils.parseWhereClauseToIcebergExpression(whereClause4);
         assertEquals(Expressions.in("age", new Object[] {30, 40, 50}).toString(), expr4.toString());
+
+        // start with
+        String whereClause5 = "SELECT * FROM t WHERE name LIKE 'John%'";
+        Expression expr5 = ExpressionUtils.parseWhereClauseToIcebergExpression(whereClause5);
+        assertEquals(Expressions.startsWith("name", "John%").toString(), expr5.toString());
     }
 
     @Test

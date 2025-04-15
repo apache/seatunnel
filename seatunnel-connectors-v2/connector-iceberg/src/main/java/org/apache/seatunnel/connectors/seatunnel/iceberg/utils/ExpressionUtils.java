@@ -40,6 +40,7 @@ import net.sf.jsqlparser.expression.operators.relational.GreaterThanEquals;
 import net.sf.jsqlparser.expression.operators.relational.InExpression;
 import net.sf.jsqlparser.expression.operators.relational.IsBooleanExpression;
 import net.sf.jsqlparser.expression.operators.relational.IsNullExpression;
+import net.sf.jsqlparser.expression.operators.relational.LikeExpression;
 import net.sf.jsqlparser.expression.operators.relational.MinorThan;
 import net.sf.jsqlparser.expression.operators.relational.MinorThanEquals;
 import net.sf.jsqlparser.expression.operators.relational.NotEqualsTo;
@@ -232,6 +233,17 @@ public class ExpressionUtils {
                 return Expressions.notEqual(column.getColumnName(), booleanExpression.isTrue());
             }
             return Expressions.equal(column.getColumnName(), booleanExpression.isTrue());
+        }
+        if (condition instanceof LikeExpression) {
+            LikeExpression expr = (LikeExpression) condition;
+            String columnName = ((Column) expr.getLeftExpression()).getColumnName();
+            String value = ((StringValue) expr.getRightExpression()).getValue();
+            LikeExpression.KeyWord keyWord = expr.getLikeKeyWord();
+            if (keyWord == LikeExpression.KeyWord.LIKE) {
+                return Expressions.startsWith(columnName, value);
+            } else {
+                throw new UnsupportedOperationException("Unsupported like keyword: " + keyWord);
+            }
         }
 
         throw new UnsupportedOperationException(
