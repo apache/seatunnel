@@ -50,9 +50,21 @@ public class ParameterSplitter implements IParameterSplitter {
         }
 
         if (currentToken.length() > 0) {
-            result.add(currentToken.toString().trim());
+            String token = processToken(currentToken.toString().trim());
+            result.add(token);
         }
 
         return result;
+    }
+
+    private String processToken(String token) {
+        int eqIdx = token.indexOf('=');
+        if (eqIdx <= 0 || eqIdx == token.length() - 1) {
+            return token;
+        }
+        String key = token.substring(0, eqIdx);
+        String val = token.substring(eqIdx + 1).trim();
+        val = val.replaceAll("^\"|\"$", "");
+        return String.format("%s=%s", key, val);
     }
 }
