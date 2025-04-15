@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -15,42 +15,44 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+set -
 
-set -eu
 if [ -f "/etc/seatunnel/conf/seatunnel-env.sh" ]; then
     . "/etc/seatunnel/conf/seatunnel-env.sh"
     echo "Using /etc/seatunnel/conf/seatunnel-env.sh."
-fi
-# resolve links - $0 may be a softlink
-PRG="$0"
-
-while [ -h "$PRG" ] ; do
-  # shellcheck disable=SC2006
-  ls=`ls -ld "$PRG"`
-  # shellcheck disable=SC2006
-  link=`expr "$ls" : '.*-> \(.*\)$'`
-  if expr "$link" : '/.*' > /dev/null; then
-    PRG="$link"
-  else
-    # shellcheck disable=SC2006
-    PRG=`dirname "$PRG"`/"$link"
-  fi
-done
-
-PRG_DIR=$(dirname "$PRG")
-APP_DIR_DEFAULT=$(cd "$PRG_DIR/.." >/dev/null; pwd)
-APP_DIR=${APP_DIR:-$APP_DIR_DEFAULT}
-APP_JAR=${APP_DIR}/starter/seatunnel-starter.jar
-LOAD_CLASS="org.apache.seatunnel.core.starter.seatunnel.SeaTunnelConnector"
-
-if [ $# == 0 ]
-then
-    args="-h"
 else
-    args=$@
+    echo "File /etc/seatunnel/conf/seatunnel-env.sh does not exist."
+    exit 1
 fi
+if [ -z "${APP_DIR}" ]; then
+    echo "APP_DIR is not set. It must be set in seatunnel-env.sh"
+    exit 1
+fi
+BIN_DIR="${APP_DIR}/bin"
 
-set +u
-CLASS_PATH=${APP_DIR}/connectors/*:${APP_JAR}:${APP_DIR}/lib/seatunnel-transforms-v2.jar
+start() {
+  echo "starting seatunnel"
+  . "${BIN_DIR}/seatunnel-cluster.sh" -d
+  echo "seatunnel started"
+}
 
-java -cp ${CLASS_PATH} ${LOAD_CLASS} ${args} | grep -v 'org\.apache\.seatunnel\.plugin\.discovery\.AbstractPluginDiscovery'
+stop() {
+  echo "stopping seatunnel..."
+  . "${BIN_DIR}/stop-seatunnel-cluster.sh"
+  echo "seatunnel stopped"
+}
+
+status() {
+  if jcmd | grep -q -i 'org.apache.seatunnel.core.starter.seatunnel.SeaTunnelServer'; then
+    echo "seatunnel is running"
+  else
+    echo "seatunnel is not running"
+  fi
+}
+
+case "$1" in
+  "start") start ;;
+  "stop") stop ;;
+  "status") status ;;
+  *) echo "Usage: seatunnel {start|stop|status}"; exit 1 ;;
+esac

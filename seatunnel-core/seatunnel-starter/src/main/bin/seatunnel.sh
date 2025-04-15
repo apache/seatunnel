@@ -17,6 +17,12 @@
 #
 
 set -eu
+
+if [ -f "/etc/seatunnel/conf/seatunnel-env.sh" ]; then
+    . "/etc/seatunnel/conf/seatunnel-env.sh"
+    echo "Using /etc/seatunnel/conf/seatunnel-env.sh."
+fi
+
 # resolve links - $0 may be a softlink
 PRG="$0"
 
@@ -34,9 +40,11 @@ while [ -h "$PRG" ] ; do
 done
 
 PRG_DIR=`dirname "$PRG"`
-APP_DIR=`cd "$PRG_DIR/.." >/dev/null; pwd`
-SEATUNNEL_HOME=${APP_DIR}
-CONF_DIR=${APP_DIR}/config
+APP_DIR_DEFAULT=`cd "$PRG_DIR/.." >/dev/null; pwd`
+APP_DIR=${APP_DIR:-$APP_DIR_DEFAULT}
+LOG_DIR=${LOG_DIR:-${APP_DIR}/logs}
+CONF_DIR=${CONF_DIR:-${APP_DIR}/config}
+
 APP_JAR=${APP_DIR}/starter/seatunnel-starter.jar
 APP_MAIN="org.apache.seatunnel.core.starter.seatunnel.SeaTunnelClient"
 
@@ -83,7 +91,7 @@ JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.config=${HAZELCAST_CONFIG}"
 JAVA_OPTS="${JAVA_OPTS} -Dlog4j2.isThreadContextMapInheritable=true"
 if [ -e "${CONF_DIR}/log4j2_client.properties" ]; then
   JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.logging.type=log4j2 -Dlog4j2.configurationFile=${CONF_DIR}/log4j2_client.properties"
-  JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.path=${APP_DIR}/logs"
+  JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.path=${LOG_DIR}"
   if [[ $args == *" -m local"* || $args == *" --master local"* || $args == *" -e local"* || $args == *" --deploy-mode local"* ]]; then
     ntime=$(echo `date "+%N"`|sed -r 's/^0+//')
     JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-starter-client-$((`date '+%s'`*1000+$ntime/1000000))"
@@ -98,7 +106,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     if [[ ! $line == \#* ]]; then
         JAVA_OPTS="$JAVA_OPTS $line"
     fi
-done < ${APP_DIR}/config/jvm_client_options
+done < "${CONF_DIR}"/jvm_client_options
 
 # Parse JvmOption from command line, it should be parsed after jvm_client_options
 for i in "$@"
