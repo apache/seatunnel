@@ -237,7 +237,7 @@ sink {
 }
 ```
 
-### Parallel Boundary:
+### Parallel Boundary
 
 > It is more efficient to specify the data within the upper and lower bounds of the query. It is more efficient to read your data source according to the upper and lower boundaries you configured.
 
@@ -291,7 +291,7 @@ sink {
 }
 ```
 
-### multiple table read:
+### multiple table read
 
 ***Configuring `table_list` will turn on auto split, you can configure `split.*` to adjust the split strategy***
 

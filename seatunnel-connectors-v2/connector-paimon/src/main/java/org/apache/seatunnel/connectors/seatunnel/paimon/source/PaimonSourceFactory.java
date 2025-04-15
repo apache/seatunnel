@@ -28,8 +28,8 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalogEnum;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalogFactory;
-import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
-import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -40,21 +40,26 @@ public class PaimonSourceFactory implements TableSourceFactory {
 
     @Override
     public String factoryIdentifier() {
-        return "Paimon";
+        return PaimonSinkOptions.CONNECTOR_IDENTITY;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(PaimonConfig.WAREHOUSE, PaimonConfig.DATABASE, PaimonConfig.TABLE)
+                .required(
+                        PaimonSourceOptions.WAREHOUSE,
+                        PaimonSourceOptions.DATABASE,
+                        PaimonSourceOptions.TABLE)
                 .optional(
-                        PaimonConfig.CATALOG_TYPE,
-                        PaimonConfig.HDFS_SITE_PATH,
-                        PaimonSourceConfig.QUERY_SQL,
-                        PaimonConfig.HADOOP_CONF,
-                        PaimonConfig.HADOOP_CONF_PATH)
+                        PaimonSourceOptions.CATALOG_TYPE,
+                        PaimonSourceOptions.HDFS_SITE_PATH,
+                        PaimonSourceOptions.QUERY_SQL,
+                        PaimonSourceOptions.HADOOP_CONF,
+                        PaimonSourceOptions.HADOOP_CONF_PATH)
                 .conditional(
-                        PaimonConfig.CATALOG_TYPE, PaimonCatalogEnum.HIVE, PaimonConfig.CATALOG_URI)
+                        PaimonSourceOptions.CATALOG_TYPE,
+                        PaimonCatalogEnum.HIVE,
+                        PaimonSourceOptions.CATALOG_URI)
                 .build();
     }
 

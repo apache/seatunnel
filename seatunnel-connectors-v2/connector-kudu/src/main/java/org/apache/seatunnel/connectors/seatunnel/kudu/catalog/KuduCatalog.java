@@ -31,6 +31,7 @@ import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistExcepti
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig;
+import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.kudu.util.KuduUtil;
 
@@ -50,15 +51,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig.ADMIN_OPERATION_TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig.ENABLE_KERBEROS;
-import static org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig.KERBEROS_KEYTAB;
-import static org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig.KERBEROS_KRB5_CONF;
-import static org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig.KERBEROS_PRINCIPAL;
-import static org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig.MASTER;
-import static org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig.OPERATION_TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig.TABLE_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig.WORKER_COUNT;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 public class KuduCatalog implements Catalog {
@@ -184,19 +176,22 @@ public class KuduCatalog implements Catalog {
     private Map<String, String> buildConnectorOptions(TablePath tablePath) {
         Map<String, String> options = new HashMap<>(8);
         options.put("connector", "kudu");
-        options.put(TABLE_NAME.key(), tablePath.getFullName());
-        options.put(MASTER.key(), config.getMasters());
-        options.put(WORKER_COUNT.key(), config.getWorkerCount().toString());
-        options.put(OPERATION_TIMEOUT.key(), config.getOperationTimeout().toString());
-        options.put(ADMIN_OPERATION_TIMEOUT.key(), config.getAdminOperationTimeout().toString());
+        options.put(KuduBaseOptions.TABLE_NAME.key(), tablePath.getFullName());
+        options.put(KuduBaseOptions.MASTER.key(), config.getMasters());
+        options.put(KuduBaseOptions.WORKER_COUNT.key(), config.getWorkerCount().toString());
+        options.put(
+                KuduBaseOptions.OPERATION_TIMEOUT.key(), config.getOperationTimeout().toString());
+        options.put(
+                KuduBaseOptions.ADMIN_OPERATION_TIMEOUT.key(),
+                config.getAdminOperationTimeout().toString());
         if (config.getEnableKerberos()) {
-            options.put(KERBEROS_PRINCIPAL.key(), config.getPrincipal());
-            options.put(KERBEROS_KEYTAB.key(), config.getKeytab());
+            options.put(KuduBaseOptions.KERBEROS_PRINCIPAL.key(), config.getPrincipal());
+            options.put(KuduBaseOptions.KERBEROS_KEYTAB.key(), config.getKeytab());
             if (StringUtils.isNotBlank(config.getKrb5conf())) {
-                options.put(KERBEROS_KRB5_CONF.key(), config.getKrb5conf());
+                options.put(KuduBaseOptions.KERBEROS_KRB5_CONF.key(), config.getKrb5conf());
             }
         }
-        options.put(ENABLE_KERBEROS.key(), config.getEnableKerberos().toString());
+        options.put(KuduBaseOptions.ENABLE_KERBEROS.key(), config.getEnableKerberos().toString());
         return options;
     }
 

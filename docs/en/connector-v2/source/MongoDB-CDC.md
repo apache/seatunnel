@@ -124,7 +124,7 @@ For specific types in MongoDB, we use Extended JSON format to map them to Seatun
 | incremental.snapshot.chunk.size.mb | Long   | No       | 64      | The chunk size mb of incremental snapshot.                                                                                                                                                                                                                                  |
 | common-options                     |        | No       | -       | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                          |
 
-### Tips:
+### Tips
 
 > 1.If the collection changes at a slow pace, it is strongly recommended to set an appropriate value greater than 0 for the heartbeat.interval.ms parameter. When we recover a Seatunnel job from a checkpoint or savepoint, the heartbeat events can push the resumeToken forward to avoid its expiration.<br/>
 > 2.MongoDB has a limit of 16MB for a single document. Change documents include additional information, so even if the original document is not larger than 15MB, the change document may exceed the 16MB limit, resulting in the termination of the Change Stream operation.<br/>

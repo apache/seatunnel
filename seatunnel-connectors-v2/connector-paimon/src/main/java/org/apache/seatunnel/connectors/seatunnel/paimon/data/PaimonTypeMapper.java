@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.data;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
-import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowTypeConverter;
 
 import org.apache.paimon.types.DataType;
@@ -35,7 +35,7 @@ public class PaimonTypeMapper implements TypeConverter<BasicTypeDefine<DataType>
 
     @Override
     public String identifier() {
-        return PaimonConfig.CONNECTOR_IDENTITY;
+        return PaimonBaseOptions.CONNECTOR_IDENTITY;
     }
 
     @Override
