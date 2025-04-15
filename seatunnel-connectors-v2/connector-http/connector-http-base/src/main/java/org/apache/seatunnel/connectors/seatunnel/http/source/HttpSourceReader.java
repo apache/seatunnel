@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.common.utils.PlaceholderUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
@@ -148,7 +149,13 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
     }
 
-    private void updateRequestParam(PageInfo pageInfo) {
+    /**
+     * Update request parameters based on page information
+     *
+     * @param pageInfo The page information containing page field and index
+     * @param usePlaceholderReplacement If true, use placeholder replacement (${field}), otherwise use key-based replacement
+     */
+    private void updateRequestParam(PageInfo pageInfo, boolean usePlaceholderReplacement) {
         // keep page param as http param
         if (this.httpParameter.isKeepPageParamAsHttpParam()) {
             if (this.httpParameter.getParams() == null) {
@@ -160,17 +167,82 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             return;
         }
 
-        if (MapUtils.isNotEmpty(this.httpParameter.getParams())
-                && this.httpParameter.getParams().containsKey(pageInfo.getPageField())) {
-            this.httpParameter
-                    .getParams()
-                    .put(pageInfo.getPageField(), pageInfo.getPageIndex().toString());
-        }
-        if (MapUtils.isNotEmpty(this.httpParameter.getBody())
-                && this.httpParameter.getBody().containsKey(pageInfo.getPageField())) {
-            this.httpParameter.getBody().put(pageInfo.getPageField(), pageInfo.getPageIndex());
+        String pageValue = pageInfo.getPageIndex().toString();
+        String pageField = pageInfo.getPageField();
+
+        // Process headers
+        processMap(this.httpParameter.getHeaders(), pageField, pageValue, usePlaceholderReplacement);
+
+        // Process params
+        processMap(this.httpParameter.getParams(), pageField, pageValue, usePlaceholderReplacement);
+
+        // Process body
+        processBodyMap(this.httpParameter.getBody(), pageField, pageInfo.getPageIndex(), pageValue, usePlaceholderReplacement);
+    }
+
+    /**
+     * Process a string map for parameter replacement
+     *
+     * @param map The map to process (headers or params)
+     * @param pageField The page field name
+     * @param pageValue The page value
+     * @param usePlaceholderReplacement Whether to use placeholder replacement
+     */
+    private <T extends Map<String, String>> void processMap(T map, String pageField, String pageValue, boolean usePlaceholderReplacement) {
+        if (MapUtils.isNotEmpty(map)) {
+            if (usePlaceholderReplacement) {
+                // Placeholder replacement
+                Map<String, String> updatedMap = new HashMap<>();
+                for (Map.Entry<String, String> entry : map.entrySet()) {
+                    String key = entry.getKey();
+                    String value = entry.getValue();
+                    String updatedValue = PlaceholderUtils.replacePlaceholders(value, pageField, pageValue);
+                    updatedMap.put(key, updatedValue);
+                }
+                map.clear();
+                map.putAll(updatedMap);
+            } else if (map.containsKey(pageField)) {
+                // Key-based replacement
+                map.put(pageField, pageValue);
+            }
         }
     }
+
+    /**
+     * Process the body map for parameter replacement
+     *
+     * @param bodyMap The body map to process
+     * @param pageField The page field name
+     * @param pageIndex The page index (Long value for direct replacement)
+     * @param pageValue The page value as string
+     * @param usePlaceholderReplacement Whether to use placeholder replacement
+     */
+    private void processBodyMap(Map<String, Object> bodyMap, String pageField, Long pageIndex, String pageValue, boolean usePlaceholderReplacement) {
+        if (MapUtils.isNotEmpty(bodyMap)) {
+            if (usePlaceholderReplacement) {
+                // Placeholder replacement
+                Map<String, Object> updatedBody = new HashMap<>();
+                for (Map.Entry<String, Object> entry : bodyMap.entrySet()) {
+                    String key = entry.getKey();
+                    Object value = entry.getValue();
+                    if (value instanceof String) {
+                        // Replace placeholders in string values
+                        String updatedValue = PlaceholderUtils.replacePlaceholders(
+                                (String) value, pageField, pageValue);
+                        updatedBody.put(key, updatedValue);
+                    } else {
+                        updatedBody.put(key, value);
+                    }
+                }
+                bodyMap.clear();
+                bodyMap.putAll(updatedBody);
+            } else if (bodyMap.containsKey(pageField)) {
+                // Key-based replacement - use the Long value directly
+                bodyMap.put(pageField, pageIndex);
+            }
+        }
+    }
+
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
@@ -189,8 +261,8 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 while (!noMoreElementFlag) {
                     // increment page
                     info.setPageIndex(pageIndex);
-                    // set request param
-                    updateRequestParam(info);
+                    // set request param - use placeholder replacement if configured in PageInfo
+                    updateRequestParam(info, info.isUsePlaceholderReplacement());
                     pollAndCollectData(output);
                     pageIndex += 1;
                     Thread.sleep(10);

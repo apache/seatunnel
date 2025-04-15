@@ -32,4 +32,5 @@ public class PageInfo implements Serializable {
     private Integer batchSize;
     private String pageField;
     private Long pageIndex;
+    private boolean usePlaceholderReplacement = false;
 }
