@@ -24,7 +24,6 @@ import java.util.Objects;
 /** The split of table comes from a Table that splits by primary key. */
 public abstract class SourceSplitBase implements SourceSplit {
 
-    private static final long serialVersionUID = 7297409680030335117L;
     protected final String splitId;
 
     public SourceSplitBase(String splitId) {

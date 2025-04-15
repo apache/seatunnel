@@ -44,8 +44,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -61,6 +63,8 @@ public class SerialVersionUIDCheckerTest {
             "src" + File.separator + "main" + File.separator + "java";
     private static final JavaParser JAVA_PARSER;
     private static final Set<String> checkedClasses = new HashSet<>();
+    private static final Map<String, ClassOrInterfaceDeclaration> classDeclarationMap =
+            new HashMap<>();
 
     static {
         CombinedTypeSolver typeSolver = new CombinedTypeSolver();
@@ -131,7 +135,15 @@ public class SerialVersionUIDCheckerTest {
                             compilationUnit -> {
                                 List<ClassOrInterfaceDeclaration> classes =
                                         compilationUnit.findAll(ClassOrInterfaceDeclaration.class);
+
+                                // Store all class declarations in the map for later use
                                 for (ClassOrInterfaceDeclaration classDeclaration : classes) {
+                                    String className =
+                                            classDeclaration.getFullyQualifiedName().orElse("");
+                                    if (!className.isEmpty()) {
+                                        classDeclarationMap.put(className, classDeclaration);
+                                    }
+
                                     if (implementsSeaTunnelSourceOrSink(classDeclaration)) {
                                         checkImplementedTypes(
                                                 classDeclaration, missingSerialVersionUID);
@@ -176,6 +188,7 @@ public class SerialVersionUIDCheckerTest {
 
     private void checkClassType(
             ClassOrInterfaceType classType, List<String> missingSerialVersionUID) {
+
         try {
             ResolvedReferenceType resolvedType = classType.resolve().asReferenceType();
             if (resolvedType == null) {
@@ -189,6 +202,12 @@ public class SerialVersionUIDCheckerTest {
                 }
                 String paramTypeName = typeDeclaration.getQualifiedName();
                 if (!checkedClasses.contains(paramTypeName)) {
+                    // Check if the class is abstract and return early if it is
+                    if (isAbstractClass(typeDeclaration)) {
+                        checkedClasses.add(paramTypeName);
+                        return;
+                    }
+
                     if (!hasSerialVersionUID(typeDeclaration)) {
                         missingSerialVersionUID.add(paramTypeName);
                         LOG.warn("Class {} is missing serialVersionUID field", paramTypeName);
@@ -213,6 +232,24 @@ public class SerialVersionUIDCheckerTest {
         return typeDeclaration.isInterface()
                 || typeDeclaration.getAllFields().stream()
                         .anyMatch(field -> field.getName().equals("serialVersionUID"));
+    }
+
+    private boolean isAbstractClass(ResolvedReferenceTypeDeclaration typeDeclaration) {
+        // Only check classes, not interfaces
+        if (!typeDeclaration.isClass()) {
+            return false;
+        }
+
+        String className = typeDeclaration.getQualifiedName();
+
+        // First check if we have the class declaration in our map
+        ClassOrInterfaceDeclaration classDeclaration = classDeclarationMap.get(className);
+        if (classDeclaration != null) {
+            // Directly check if the class is abstract using the declaration
+            return classDeclaration.isAbstract();
+        }
+
+        return false;
     }
 
     private String generateErrorMessage(List<String> missingSerialVersionUID) {
