@@ -23,7 +23,7 @@ When the job configuration `plugin_output` you must set the `plugin_input` param
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > This registers a stream or batch data source and returns the table name `fake_table` at registration
 

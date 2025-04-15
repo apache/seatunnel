@@ -1028,14 +1028,21 @@ select ARRAY(column1,column2,column3) as arrays
 ### LATERAL VIEW
 #### EXPLODE
 
-将 array 列展开成多行。
-OUTER EXPLODE 当 array 为NULL或者为空时，返回NULL
-EXPLODE(SPLIT(FIELD_NAME,separator))用来切分字符串类型，SPLIT 第一个参数是字段名，第二个参数是分隔符
-EXPLODE(ARRAY(value1,value2)) 用于自定义数组切分，在原有基础上生成一个新的字段。
+用于将数组列展开成多行。它通过对数组应用 EXPLODE 函数，为数组中的每个元素生成一个新行。
+
+EXPLODE：将数组列转换为多行。如果数组为 NULL 或为空，则不生成行。
+
+OUTER EXPLODE：当数组为 NULL 或为空时返回 NULL，确保至少生成一行。
+
+EXPLODE(SPLIT(字段名, 分隔符))：使用指定的分隔符将字符串拆分为数组，然后将其展开为多行。
+
+EXPLODE(ARRAY(值1, 值2, ...))：将自定义数组展开为多行。
+
+示例:
 ```
-SELECT * FROM fake 
-	LATERAL VIEW EXPLODE ( SPLIT ( NAME, ',' ) ) AS NAME 
-	LATERAL VIEW EXPLODE ( SPLIT ( pk_id, ';' ) ) AS pk_id 
+SELECT * FROM dual
+	LATERAL VIEW EXPLODE ( SPLIT ( NAME, ',' ) ) AS NAME
+	LATERAL VIEW EXPLODE ( SPLIT ( pk_id, ';' ) ) AS pk_id
 	LATERAL VIEW OUTER EXPLODE ( age ) AS age
 	LATERAL VIEW OUTER EXPLODE ( ARRAY(1,1) ) AS num
 ```

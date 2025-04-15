@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.maxcompute.source;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeUtil;
 
 import com.aliyun.odps.tunnel.TableTunnel;
@@ -34,8 +35,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.SPLIT_ROW;
 
 @Slf4j
 public class MaxcomputeSourceSplitEnumerator
@@ -114,7 +113,7 @@ public class MaxcomputeSourceSplitEnumerator
                             sourceTableInfo.getPartitionSpec());
             long recordCount = session.getRecordCount();
             int splitRowNum = (int) Math.ceil((double) recordCount / numReaders);
-            int splitRow = SPLIT_ROW.defaultValue();
+            int splitRow = MaxcomputeSourceOptions.SPLIT_ROW.defaultValue();
             if (sourceTableInfo.getSplitRow() != null && sourceTableInfo.getSplitRow() > 0) {
                 splitRow = sourceTableInfo.getSplitRow();
             }

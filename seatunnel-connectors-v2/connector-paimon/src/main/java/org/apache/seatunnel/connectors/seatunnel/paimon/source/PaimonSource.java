@@ -75,7 +75,7 @@ public class PaimonSource
         this.catalogTable = paimonCatalog.getTable(tablePath);
         this.paimonTable = paimonCatalog.getPaimonTable(tablePath);
 
-        String filterSql = readonlyConfig.get(PaimonSourceConfig.QUERY_SQL);
+        String filterSql = paimonSourceConfig.getQuery();
         PlainSelect plainSelect = convertToPlainSelect(filterSql);
         RowType paimonRowType = this.paimonTable.rowType();
         String[] filedNames = paimonRowType.getFieldNames().toArray(new String[0]);

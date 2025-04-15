@@ -75,11 +75,12 @@ public class KuduSourceTableConfig implements Serializable {
     public static KuduSourceTableConfig parseKuduSourceConfig(
             ReadonlyConfig config, KuduCatalog kuduCatalog) {
         CatalogTable catalogTable;
-        String tableName = config.get(CommonConfig.TABLE_NAME);
+        String tableName = config.get(KuduBaseOptions.TABLE_NAME);
         if (config.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
             catalogTable = CatalogTableUtil.buildWithConfig(config);
         } else {
-            catalogTable = kuduCatalog.getTable(TablePath.of(config.get(CommonConfig.TABLE_NAME)));
+            catalogTable =
+                    kuduCatalog.getTable(TablePath.of(config.get(KuduBaseOptions.TABLE_NAME)));
         }
         return new KuduSourceTableConfig(tableName, catalogTable);
     }
