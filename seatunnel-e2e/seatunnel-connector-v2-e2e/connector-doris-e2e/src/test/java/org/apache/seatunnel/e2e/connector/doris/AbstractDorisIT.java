@@ -123,25 +123,47 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
     // The Host of the official image [apache/doris:doris-all-in-one-2.1.0] BE is 127.0.0.1, causing
     // cross-container access failure. Delete the BE and add it again
     private void initializeBE() {
-        try (Statement statement = jdbcConnection.createStatement()) {
-            ResultSet beResultSet = statement.executeQuery(SHOW_BE);
-            List<String> beList = new ArrayList<>();
-            while (beResultSet.next()) {
-                beList.add(beResultSet.getString("Host"));
-            }
-            if (beList.stream().anyMatch("127.0.0.1"::equals)) {
-                ResultSet resultSet = statement.executeQuery(SHOW_FE);
-                String feIp = null;
-                while (resultSet.next()) {
-                    feIp = resultSet.getString("Host");
+        int maxRetries = 5;
+        int retryIntervalSeconds = 10;
+        int attempt = 0;
+
+        while (attempt < maxRetries) {
+            try (Statement statement = jdbcConnection.createStatement()) {
+                ResultSet beResultSet = statement.executeQuery(SHOW_BE);
+                List<String> beList = new ArrayList<>();
+                while (beResultSet.next()) {
+                    beList.add(beResultSet.getString("Host"));
                 }
-                statement.execute(DROP_BE);
-                statement.execute(String.format(ADD_BE, feIp));
-                log.info("doris BE initialized");
+                if (beList.stream().anyMatch("127.0.0.1"::equals)) {
+                    ResultSet resultSet = statement.executeQuery(SHOW_FE);
+                    String feIp = null;
+                    while (resultSet.next()) {
+                        feIp = resultSet.getString("Host");
+                    }
+                    statement.execute(DROP_BE);
+                    statement.execute(String.format(ADD_BE, feIp));
+                    log.info("doris BE initialized");
+                }
+                return;
+            } catch (SQLException e) {
+                log.warn(
+                        "Failed to initialize BE, attempt {}/{}. Retrying in {} seconds...",
+                        attempt + 1,
+                        maxRetries,
+                        retryIntervalSeconds,
+                        e);
+                attempt++;
+                try {
+                    TimeUnit.SECONDS.sleep(retryIntervalSeconds);
+                } catch (InterruptedException interruptedException) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException(
+                            "Thread interrupted during BE initialization retry",
+                            interruptedException);
+                }
             }
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
         }
+        throw new RuntimeException("Failed to initialize BE after " + maxRetries + " attempts");
     }
 
     private boolean isBeReady(ResultSet rs, Duration duration) throws SQLException {
