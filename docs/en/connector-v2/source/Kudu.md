@@ -64,7 +64,7 @@ The tested kudu version is 1.11.1.
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > The following example is for a Kudu table named "kudu_source_table", The goal is to print the data from this table on the console and write kudu table "kudu_sink_table"
 

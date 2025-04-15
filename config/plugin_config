@@ -45,6 +45,7 @@ connector-file-sftp
 connector-file-obs
 connector-google-sheets
 connector-google-firestore
+connector-graphql
 connector-hive
 connector-http-base
 connector-http-feishu

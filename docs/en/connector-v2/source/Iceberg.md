@@ -95,7 +95,7 @@ libfb303-xxx.jar
 
 ## Task Example
 
-### Simple:
+### Simple
 
 ```hocon
 env {
@@ -126,7 +126,7 @@ sink {
 }
 ```
 
-### Multi-Table Read:
+### Multi-Table Read
 
 ```hocon
 source {
@@ -151,7 +151,7 @@ source {
 }
 ```
 
-### Hadoop S3 Catalog:
+### Hadoop S3 Catalog
 
 ```hocon
 source {
@@ -175,7 +175,7 @@ source {
 }
 ```
 
-### Hive Catalog:
+### Hive Catalog
 
 ```hocon
 source {
@@ -194,7 +194,7 @@ source {
 }
 ```
 
-### Column Projection:
+### Column Projection
 
 ```hocon
 source {

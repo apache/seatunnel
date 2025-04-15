@@ -20,6 +20,12 @@ package org.apache.seatunnel.common.utils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.temporal.TemporalAccessor;
+import java.time.temporal.TemporalQueries;
+
 public class DateUtilsTest {
 
     @Test
@@ -78,5 +84,16 @@ public class DateUtilsTest {
         Assertions.assertEquals(
                 "2024-01-10",
                 DateUtils.parse(datetimeStr, DateUtils.matchDateFormatter(datetimeStr)).toString());
+    }
+
+    @Test
+    public void testConvertDateTimeWithLocalTimeZone() {
+        String datetimeStr = "2024-12-16T15:33:45";
+        TemporalAccessor parsedTimestamp =
+                DateUtils.matchDateFormatter(datetimeStr).parse(datetimeStr);
+        LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
+        LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
+        LocalDateTime dateTime = LocalDateTime.of(localDate, localTime);
+        Assertions.assertEquals("2024-12-16T15:33:45", dateTime.toString());
     }
 }

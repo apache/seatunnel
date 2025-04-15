@@ -271,7 +271,8 @@ public class JobMaster {
                                                     logicalVertexIdClassLoaderMap.get(
                                                             sink.getId()));
                                     JobMaster.handleSaveMode(
-                                            ((SinkAction<?, ?, ?, ?>) sink).getSink());
+                                            ((SinkAction<?, ?, ?, ?>) sink).getSink(),
+                                            logicalDag.isStartWithSavePoint());
                                 });
                 Thread.currentThread().setContextClassLoader(appClassLoader);
             }
@@ -556,14 +557,18 @@ public class JobMaster {
         }
     }
 
-    public static void handleSaveMode(SeaTunnelSink sink) {
+    public static void handleSaveMode(SeaTunnelSink sink, boolean isStartWithSavePoint) {
         if (sink instanceof SupportSaveMode) {
             Optional<SaveModeHandler> saveModeHandler =
                     ((SupportSaveMode) sink).getSaveModeHandler();
             if (saveModeHandler.isPresent()) {
                 try (SaveModeHandler handler = saveModeHandler.get()) {
                     handler.open();
-                    new SaveModeExecuteWrapper(handler).execute();
+                    if (!isStartWithSavePoint) {
+                        new SaveModeExecuteWrapper(handler).execute();
+                    } else {
+                        handler.handleSchemaSaveModeWithRestore();
+                    }
                 } catch (Exception e) {
                     throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);
                 }
@@ -571,7 +576,7 @@ public class JobMaster {
         } else if (sink instanceof MultiTableSink) {
             Map<TablePath, SeaTunnelSink> sinks = ((MultiTableSink) sink).getSinks();
             for (SeaTunnelSink seaTunnelSink : sinks.values()) {
-                handleSaveMode(seaTunnelSink);
+                handleSaveMode(seaTunnelSink, isStartWithSavePoint);
             }
         }
     }

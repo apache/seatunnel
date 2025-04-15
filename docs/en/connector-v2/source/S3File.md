@@ -427,18 +427,4 @@ sink {
 
 ## Changelog
 
-### 2.3.0-beta 2022-10-20
-
-- Add S3File Source Connector
-
-### Next version
-
-- [Feature] Support S3A protocol ([3632](https://github.com/apache/seatunnel/pull/3632))
-    - Allow user to add additional hadoop-s3 parameters
-    - Allow the use of the s3a protocol
-    - Decouple hadoop-aws dependencies
-- [Feature]Set S3 AK to optional ([3688](https://github.com/apache/seatunnel/pull/))
-
-## Changelog
-
 <ChangeLog />

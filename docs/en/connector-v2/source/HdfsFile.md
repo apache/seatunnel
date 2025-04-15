@@ -165,7 +165,7 @@ The encoding of the file to read. This param will be parsed by `Charset.forName(
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > This example defines a SeaTunnel synchronization task that  read data from Hdfs and sends it to Hdfs.
 

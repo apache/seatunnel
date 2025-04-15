@@ -143,6 +143,11 @@ google-sheets:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-google-sheets/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(google-sheets)/**'
+graphql:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-graphql/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(graphql)/**'
 hbase:
   - all:
       - changed-files:
