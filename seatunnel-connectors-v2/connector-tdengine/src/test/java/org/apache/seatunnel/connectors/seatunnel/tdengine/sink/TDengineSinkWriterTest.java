@@ -29,7 +29,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 
 import org.mockito.MockedStatic;
@@ -95,11 +94,7 @@ public class TDengineSinkWriterTest {
     }
 
     @Test
-    void testConvertDataType_withNull() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
-        // Use reflection to access the private method
-        Method method = TDengineSinkWriter.class.getDeclaredMethod("convertDataType", Object[].class);
-        method.setAccessible(true);
-
+    void testConvertDataTypeWithNull(){
         // Prepare test data
         LocalDateTime dateTime = LocalDateTime.of(2023, 4, 14, 15, 30, 45); // 2023-04-14 15:30:45
         Object[] input = {
@@ -119,21 +114,20 @@ public class TDengineSinkWriterTest {
                 45.67                           // Double remains unchanged
         };
 
-        // Invoke the private method
-        Object[] result = (Object[]) method.invoke(writer, (Object) input);
+        Object[] result = writer.convertDataType(input);
         // Verify the results
         assertArrayEquals(expectedOutput, result);
 
         // Test for an empty array
         Object[] input1 = {};
         Object[] expectedOutput1 = {};
-        Object[] result1 = (Object[]) method.invoke(writer, (Object) input1);
+        Object[] result1 = writer.convertDataType(input1);
         assertArrayEquals(expectedOutput1, result1, "Empty input array should return an empty output array.");
 
         // Test for an array containing only null
         Object[] input2 = {null};
         Object[] expectedOutput2 = {null};
-        Object[] result2 = (Object[]) method.invoke(writer, (Object) input2);
+        Object[] result2 = writer.convertDataType(input2);
         assertArrayEquals(expectedOutput2, result2, "Array with only null should return an array with null.");
     }
 }
