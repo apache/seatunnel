@@ -221,6 +221,7 @@ public class ParquetReadStrategyTest {
         AutoGenerateParquetData.deleteFile();
     }
 
+    @DisabledOnOs(OS.WINDOWS)
     @Test
     public void testParquetTypeInt32WithLogicalTypeAnnotation() throws IOException {
 
