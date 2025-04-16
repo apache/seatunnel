@@ -183,7 +183,10 @@ source {
     startup.mode="latest"
     database-names = ["column_type_test"]
     table-names = ["column_type_test.dbo.full_types"]
-    base-url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
+    base-url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test;trustServerCertificate=true"
+    debezium = {
+         database.trustServerCertificate=true
+    }
   }
 }
 
