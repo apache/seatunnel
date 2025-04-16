@@ -26,15 +26,12 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceOptions;
 
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
-
-import static org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig.MASTER;
-import static org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig.TABLE_NAME;
 
 @AutoService(Factory.class)
 public class KuduSourceFactory implements TableSourceFactory {
@@ -47,22 +44,22 @@ public class KuduSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(MASTER)
-                .optional(ConnectorCommonOptions.SCHEMA)
-                .optional(KuduSourceConfig.WORKER_COUNT)
-                .optional(KuduSourceConfig.OPERATION_TIMEOUT)
-                .optional(KuduSourceConfig.ADMIN_OPERATION_TIMEOUT)
-                .optional(KuduSourceConfig.QUERY_TIMEOUT)
-                .optional(KuduSourceConfig.SCAN_BATCH_SIZE_BYTES)
-                .optional(KuduSourceConfig.FILTER)
-                .optional(KuduSinkConfig.ENABLE_KERBEROS)
-                .optional(KuduSinkConfig.KERBEROS_KRB5_CONF)
-                .exclusive(TABLE_NAME, ConnectorCommonOptions.TABLE_LIST)
+                .required(KuduSourceOptions.MASTER)
+                .optional(KuduSourceOptions.SCHEMA)
+                .optional(KuduSourceOptions.WORKER_COUNT)
+                .optional(KuduSourceOptions.OPERATION_TIMEOUT)
+                .optional(KuduSourceOptions.ADMIN_OPERATION_TIMEOUT)
+                .optional(KuduSourceOptions.QUERY_TIMEOUT)
+                .optional(KuduSourceOptions.SCAN_BATCH_SIZE_BYTES)
+                .optional(KuduSourceOptions.FILTER)
+                .optional(KuduSourceOptions.ENABLE_KERBEROS)
+                .optional(KuduSourceOptions.KERBEROS_KRB5_CONF)
+                .exclusive(KuduSourceOptions.TABLE_NAME, ConnectorCommonOptions.TABLE_LIST)
                 .conditional(
-                        KuduSinkConfig.ENABLE_KERBEROS,
+                        KuduSourceOptions.ENABLE_KERBEROS,
                         true,
-                        KuduSinkConfig.KERBEROS_PRINCIPAL,
-                        KuduSinkConfig.KERBEROS_KEYTAB)
+                        KuduSourceOptions.KERBEROS_PRINCIPAL,
+                        KuduSourceOptions.KERBEROS_KEYTAB)
                 .build();
     }
 

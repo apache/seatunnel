@@ -32,4 +32,8 @@ public class PageInfo implements Serializable {
     private Integer batchSize;
     private String pageField;
     private Long pageIndex;
+    private String pageType;
+    private String cursor;
+    private String pageCursorFieldName;
+    private String pageCursorResponseField;
 }

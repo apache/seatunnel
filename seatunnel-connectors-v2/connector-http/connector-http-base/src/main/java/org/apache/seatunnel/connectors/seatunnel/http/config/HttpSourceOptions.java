@@ -66,6 +66,29 @@ public class HttpSourceOptions extends HttpCommonOptions {
     public static final Option<Map<String, String>> PAGEING =
             Options.key("pageing").mapType().noDefaultValue().withDescription("pageing");
 
+    public static final Option<HttpPaginationType> PAGE_TYPE =
+            Options.key("page_type")
+                    .enumType(HttpPaginationType.class)
+                    .defaultValue(HttpPaginationType.PAGE_NUMBER)
+                    .withDescription(
+                            "this parameter specifies the pagination type and defaults to `PageNumber` if not explicitly set. "
+                                    + "Valid options include `PageNumber` (traditional page-number-based pagination) "
+                                    + "and `Cursor` (token-based cursor pagination).");
+
+    public static final Option<String> PAGE_CURSOR_FIELD_NAME =
+            Options.key("cursor_field")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "this parameter is used to specify the Cursor field name in the request parameter");
+
+    public static final Option<String> PAGE_CURSOR_RESPONSE_FIELD =
+            Options.key("cursor_response_field")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "This parameter specifies the field in the response from which the cursor is retrieved");
+
     public static final Option<HttpRequestMethod> METHOD =
             Options.key("method")
                     .enumType(HttpRequestMethod.class)

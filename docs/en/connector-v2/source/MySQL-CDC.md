@@ -320,7 +320,10 @@ sink {
 
 ```
 ### Support table-pattern for multi-table reading
+
 > `table-pattern` and `table-names` are mutually exclusive
+
+
 ```hocon
 env {
   # You can set engine configuration here

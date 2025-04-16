@@ -29,7 +29,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.datatype.MaxComputeTypeConverter;
 
 import org.apache.commons.collections4.MapUtils;
@@ -82,7 +82,7 @@ public class MaxComputeDataTypeConvertor implements DataTypeConvertor<TypeInfo> 
                     return ArrayType.DOUBLE_ARRAY_TYPE;
                 default:
                     throw CommonError.convertToSeaTunnelTypeError(
-                            MaxcomputeConfig.PLUGIN_NAME, connectorDataType, field);
+                            MaxcomputeBaseOptions.PLUGIN_NAME, connectorDataType, field);
             }
         }
         if (connectorDataType.startsWith("STRUCT")) {
@@ -141,7 +141,7 @@ public class MaxComputeDataTypeConvertor implements DataTypeConvertor<TypeInfo> 
                 return BasicType.VOID_TYPE;
             default:
                 throw CommonError.convertToSeaTunnelTypeError(
-                        MaxcomputeConfig.PLUGIN_NAME, connectorDataType, field);
+                        MaxcomputeBaseOptions.PLUGIN_NAME, connectorDataType, field);
         }
     }
 
@@ -183,6 +183,6 @@ public class MaxComputeDataTypeConvertor implements DataTypeConvertor<TypeInfo> 
 
     @Override
     public String getIdentity() {
-        return MaxcomputeConfig.PLUGIN_NAME;
+        return MaxcomputeBaseOptions.PLUGIN_NAME;
     }
 }

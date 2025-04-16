@@ -83,6 +83,7 @@
         <module>connector-email-e2e</module>
         <module>connector-cdc-opengauss-e2e</module>
         <module>connector-cdc-tidb-e2e</module>
+        <module>connector-graphql-e2e</module>
         <module>connector-aerospike-e2e</module>
     </modules>
 

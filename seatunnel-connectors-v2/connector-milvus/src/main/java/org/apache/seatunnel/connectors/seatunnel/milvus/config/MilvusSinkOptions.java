@@ -30,7 +30,7 @@ import static org.apache.seatunnel.api.sink.DataSaveMode.APPEND_DATA;
 import static org.apache.seatunnel.api.sink.DataSaveMode.DROP_DATA;
 import static org.apache.seatunnel.api.sink.DataSaveMode.ERROR_WHEN_DATA_EXISTS;
 
-public class MilvusSinkConfig extends MilvusCommonConfig {
+public class MilvusSinkOptions extends MilvusBaseOptions {
 
     public static final Option<String> DATABASE =
             Options.key("database").stringType().noDefaultValue().withDescription("database");

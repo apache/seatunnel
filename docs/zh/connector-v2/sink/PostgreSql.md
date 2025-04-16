@@ -137,7 +137,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 任务示例
 
-### 简单示例：
+### 简单示例
 
 > 此示例定义了一个 SeaTunnel 同步任务，通过 FakeSource 自动生成数据并将其发送到 JDBC Sink。FakeSource 生成总共 16 行数据（`row.num=16`），每行有两个字段，`name`（字符串类型）和 `age`（整数类型）。最终目标表 `test_table` 也将包含 16 行数据。在运行此作业之前，您需要在 PostgreSQL 中创建数据库 `test` 和表 `test_table`。如果您还未安装和部署 SeaTunnel，请按照 [安装 SeaTunnel](../../start-v2/locally/deployment.md) 中的说明进行安装和部署。然后按照 [快速开始 SeaTunnel 引擎](../../start-v2/locally/quick-start-seatunnel-engine.md) 中的说明运行此作业。
 
@@ -204,7 +204,7 @@ sink {
 }
 ```
 
-### 精确一次：
+### 精确一次
 
 > 对于精确写入场景，我们保证精确一次。
 
