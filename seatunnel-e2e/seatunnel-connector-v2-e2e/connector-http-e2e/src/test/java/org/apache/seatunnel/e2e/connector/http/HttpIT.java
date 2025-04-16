@@ -358,6 +358,10 @@ public class HttpIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/http_page_increase_start_num.conf");
         Assertions.assertEquals(0, execResult19.getExitCode());
 
+        Container.ExecResult execResult21 =
+                container.executeJob("/http_page_cursor_num_assert.conf");
+        Assertions.assertEquals(0, execResult21.getExitCode());
+
         // Test placeholder replacement with use_placeholder_replacement = true
         Container.ExecResult execResult21 =
                 container.executeJob("/http_placeholder_replacement_true.conf");

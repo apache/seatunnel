@@ -14,27 +14,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.connectors.seatunnel.http.config;
 
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+package org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source;
 
-import java.io.Serializable;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Setter
-@Getter
-@ToString
-public class PageInfo implements Serializable {
+import java.util.List;
+import java.util.Map;
 
-    private Long totalPageSize;
+/** DTO for Elasticsearch Point-in-Time search results. */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class PointInTimeResult {
 
-    private Integer batchSize;
-    private String pageField;
-    private Long pageIndex;
-    private String pageType;
-    private String cursor;
-    private String pageCursorFieldName;
-    private String pageCursorResponseField;
-    private boolean usePlaceholderReplacement = false;
+    /** The PIT ID used for this search */
+    private String pitId;
+
+    /** Documents returned by the search */
+    private List<Map<String, Object>> docs;
+
+    /** Total number of hits matching the query */
+    private long totalHits;
+
+    /** Sort values of the last document, used for pagination with search_after */
+    private Object[] searchAfter;
+
+    /** Whether there are more results to fetch */
+    private boolean hasMore;
 }

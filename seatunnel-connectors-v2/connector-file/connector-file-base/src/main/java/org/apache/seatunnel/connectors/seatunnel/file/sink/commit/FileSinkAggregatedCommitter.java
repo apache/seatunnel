@@ -33,8 +33,14 @@ import java.util.Map;
 public class FileSinkAggregatedCommitter
         implements SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo> {
     protected HadoopFileSystemProxy hadoopFileSystemProxy;
+    private final HadoopConf hadoopConf;
 
     public FileSinkAggregatedCommitter(HadoopConf hadoopConf) {
+        this.hadoopConf = hadoopConf;
+    }
+
+    @Override
+    public void init() {
         this.hadoopFileSystemProxy = new HadoopFileSystemProxy(hadoopConf);
     }
 

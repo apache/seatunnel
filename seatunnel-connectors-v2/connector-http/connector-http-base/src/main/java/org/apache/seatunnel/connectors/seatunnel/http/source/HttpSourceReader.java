@@ -28,6 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSpl
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpPaginationType;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.config.JsonField;
 import org.apache.seatunnel.connectors.seatunnel.http.config.PageInfo;
@@ -156,17 +157,62 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
      *     use key-based replacement
      */
     private void updateRequestParam(PageInfo pageInfo, boolean usePlaceholderReplacement) {
-        // keep page param as http param
+        // 1. keep page param as http param
         if (this.httpParameter.isKeepPageParamAsHttpParam()) {
             if (this.httpParameter.getParams() == null) {
                 httpParameter.setParams(new HashMap<>());
             }
-            this.httpParameter
-                    .getParams()
-                    .put(pageInfo.getPageField(), pageInfo.getPageIndex().toString());
+            // keep page cursor as http param
+            if (pageInfo.getPageCursorFieldName() != null && pageInfo.getCursor() != null) {
+                this.httpParameter
+                        .getParams()
+                        .put(pageInfo.getPageCursorFieldName(), pageInfo.getCursor());
+            }
+
+            // keep page index as http param
+            if (pageInfo.getPageField() != null && pageInfo.getPageIndex() != null) {
+                this.httpParameter
+                        .getParams()
+                        .put(pageInfo.getPageField(), pageInfo.getPageIndex().toString());
+            }
             return;
         }
 
+        // if not set keepPageParamAsHttpParam, but page field is in params, then set page index as
+        // params
+        if (MapUtils.isNotEmpty(this.httpParameter.getParams())) {
+
+            // set page index as params
+            if (this.httpParameter.getParams().containsKey(pageInfo.getPageField())) {
+                this.httpParameter
+                        .getParams()
+                        .put(pageInfo.getPageField(), pageInfo.getPageIndex().toString());
+            }
+
+            // set page cursor as params
+            if (this.httpParameter.getParams().containsKey(pageInfo.getPageCursorFieldName())
+                    && pageInfo.getCursor() != null) {
+                this.httpParameter
+                        .getParams()
+                        .put(pageInfo.getPageCursorFieldName(), pageInfo.getCursor());
+            }
+        }
+
+        // 2. param in body
+        if (MapUtils.isNotEmpty(this.httpParameter.getBody())) {
+
+            // set page index as body
+            if (this.httpParameter.getBody().containsKey(pageInfo.getPageField())) {
+                this.httpParameter.getBody().put(pageInfo.getPageField(), pageInfo.getPageIndex());
+            }
+
+            // set page cursor as body
+            if (this.httpParameter.getBody().containsKey(pageInfo.getPageCursorFieldName())
+                    && pageInfo.getCursor() != null) {
+                this.httpParameter
+                        .getBody()
+                        .put(pageInfo.getPageCursorFieldName(), pageInfo.getCursor());
+            }
         Long pageValue = pageInfo.getPageIndex();
         String pageField = pageInfo.getPageField();
 
@@ -266,15 +312,26 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             if (pageInfoOptional.isPresent()) {
                 noMoreElementFlag = false;
                 PageInfo info = pageInfoOptional.get();
-                Long pageIndex = info.getPageIndex();
-                while (!noMoreElementFlag) {
-                    // increment page
-                    info.setPageIndex(pageIndex);
-                    // set request param - use placeholder replacement if configured in PageInfo
-                    updateRequestParam(info, info.isUsePlaceholderReplacement());
-                    pollAndCollectData(output);
-                    pageIndex += 1;
-                    Thread.sleep(10);
+                // cursor pagination
+                if (HttpPaginationType.CURSOR.getCode().equals(info.getPageType())) {
+                    while (!noMoreElementFlag) {
+                        updateRequestParam(info);
+                        pollAndCollectData(output);
+                        Thread.sleep(10);
+                    }
+
+                } else {
+                    // default page number pagination
+                    Long pageIndex = info.getPageIndex();
+                    while (!noMoreElementFlag) {
+                        // increment page
+                        info.setPageIndex(pageIndex);
+                        // set request param - use placeholder replacement if configured in PageInfo
+                        updateRequestParam(info, info.isUsePlaceholderReplacement());
+                        pollAndCollectData(output);
+                        pageIndex += 1;
+                        Thread.sleep(10);
+                    }
                 }
             } else {
                 pollAndCollectData(output);
@@ -293,29 +350,47 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     private void collect(Collector<SeaTunnelRow> output, String data) throws IOException {
+        String contentData = data;
         if (contentJson != null) {
-            data = JsonUtils.stringToJsonNode(getPartOfJson(data)).toString();
+            contentData = JsonUtils.stringToJsonNode(getPartOfJson(data)).toString();
         }
         if (jsonField != null && contentJson == null) {
             this.initJsonPath(jsonField);
-            data = JsonUtils.toJsonNode(parseToMap(decodeJSON(data), jsonField)).toString();
+            contentData = JsonUtils.toJsonNode(parseToMap(decodeJSON(data), jsonField)).toString();
         }
-        // page increase
+        // page
         if (pageInfoOptional.isPresent()) {
-            // Determine whether the task is completed by specifying the presence of the 'total
-            // page' field
             PageInfo pageInfo = pageInfoOptional.get();
-            if (pageInfo.getTotalPageSize() > 0) {
-                noMoreElementFlag = pageInfo.getPageIndex() >= pageInfo.getTotalPageSize();
+
+            // cursor pagination
+            if (HttpPaginationType.CURSOR.getCode().equals(pageInfo.getPageType())) {
+                // get cursor value from response JSON with fileName
+                String cursorResponseField = pageInfo.getPageCursorResponseField();
+                ReadContext context = JsonPath.using(jsonConfiguration).parse(data);
+                List<String> cursorList = context.read(cursorResponseField, List.class);
+                String newCursor = null;
+                if (cursorList != null && !cursorList.isEmpty()) {
+                    newCursor = cursorList.get(0);
+                }
+                pageInfo.setCursor(newCursor);
+                // if not present cursor, then no more data
+                noMoreElementFlag = Strings.isNullOrEmpty(newCursor);
             } else {
-                // no 'total page' configured
-                int readSize = JsonUtils.stringToJsonNode(data).size();
-                // if read size < BatchSize : read finish
-                // if read size = BatchSize : read next page.
-                noMoreElementFlag = readSize < pageInfo.getBatchSize();
+                // if not set page pagination is default
+                // Determine whether the task is completed by specifying the presence of the 'total
+                // page' field
+                if (pageInfo.getTotalPageSize() > 0) {
+                    noMoreElementFlag = pageInfo.getPageIndex() >= pageInfo.getTotalPageSize();
+                } else {
+                    // no 'total page' configured
+                    int readSize = JsonUtils.stringToJsonNode(contentData).size();
+                    // if read size < BatchSize : read finish
+                    // if read size = BatchSize : read next page.
+                    noMoreElementFlag = readSize < pageInfo.getBatchSize();
+                }
             }
         }
-        deserializationCollector.collect(data.getBytes(), output);
+        deserializationCollector.collect(contentData.getBytes(), output);
     }
 
     private List<Map<String, String>> parseToMap(List<List<String>> datas, JsonField jsonField) {
