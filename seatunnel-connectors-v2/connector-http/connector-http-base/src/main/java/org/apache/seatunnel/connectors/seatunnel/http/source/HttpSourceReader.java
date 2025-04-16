@@ -258,27 +258,25 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             String pageField,
             Long pageValue,
             boolean usePlaceholderReplacement) {
-        if (MapUtils.isNotEmpty(bodyMap)) {
-            if (usePlaceholderReplacement) {
-                // Placeholder replacement
-                Map<String, Object> updatedBody = new HashMap<>();
-                for (Map.Entry<String, Object> entry : bodyMap.entrySet()) {
-                    String key = entry.getKey();
-                    Object value = entry.getValue();
-                    if (value instanceof String) {
-                        String strValue = (String) value;
-                        // Check if the value is exactly the placeholder for pageField
-                        if (strValue.equals("${" + pageField + "}")) {
-                            // If the value is exactly the placeholder, use pageValue directly
-                            updatedBody.put(key, pageValue);
-                        }
+        if (usePlaceholderReplacement) {
+            // Placeholder replacement
+            Map<String, Object> updatedBody = new HashMap<>();
+            for (Map.Entry<String, Object> entry : bodyMap.entrySet()) {
+                String key = entry.getKey();
+                Object value = entry.getValue();
+                if (value instanceof String) {
+                    String strValue = (String) value;
+                    // Check if the value is exactly the placeholder for pageField
+                    if (strValue.equals("${" + pageField + "}")) {
+                        // If the value is exactly the placeholder, use pageValue directly
+                        updatedBody.put(key, pageValue);
                     }
                 }
-                bodyMap.putAll(updatedBody);
-            } else if (bodyMap.containsKey(pageField)) {
-                // Key-based replacement - use the Long value directly
-                bodyMap.put(pageField, pageValue);
             }
+            bodyMap.putAll(updatedBody);
+        } else if (bodyMap.containsKey(pageField)) {
+            // Key-based replacement - use the Long value directly
+            bodyMap.put(pageField, pageValue);
         }
     }
 
