@@ -362,10 +362,6 @@ public class HttpIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/http_page_cursor_num_assert.conf");
         Assertions.assertEquals(0, execResult21.getExitCode());
 
-        // Test placeholder replacement with use_placeholder_replacement = true
-        Container.ExecResult execResult21 =
-                container.executeJob("/http_placeholder_replacement_true.conf");
-        Assertions.assertEquals(0, execResult21.getExitCode());
 
         // Test placeholder replacement with use_placeholder_replacement = false
         Container.ExecResult execResult22 =
@@ -390,6 +386,11 @@ public class HttpIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult26 =
                 container.executeJob("/http_header_placeholder_false.conf");
         Assertions.assertEquals(0, execResult26.getExitCode());
+
+        // Test placeholder replacement with use_placeholder_replacement = true
+        Container.ExecResult execResult27 =
+                container.executeJob("/http_placeholder_replacement_true.conf");
+        Assertions.assertEquals(0, execResult27.getExitCode());
     }
 
     @TestTemplate
