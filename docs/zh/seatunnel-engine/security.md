@@ -4,15 +4,15 @@ sidebar_position: 16
 
 # Security
 
-## 基本认证
+## Basic 认证
 
-您可以通过开启基本认证来保护您的 Web UI。这将要求用户在访问 Web 界面时输入用户名和密码。
+您可以通过开启 Basic 认证来保护您的 Web UI。这将要求用户在访问 Web 界面时输入用户名和密码。
 
 | 参数名称 | 是否必填 | 参数描述 |
 |--------|---------|--------|
-| `enable-basic-auth` | 否 | 是否开启基本认证，默认为 `false` |
-| `basic-auth-username` | 否 | 基本认证的用户名，默认为 `admin` |
-| `basic-auth-password` | 否 | 基本认证的密码，默认为 `admin` |
+| `enable-basic-auth` | 否 | 是否开启Basic 认证，默认为 `false` |
+| `basic-auth-username` | 否 | Basic 认证的用户名，默认为 `admin` |
+| `basic-auth-password` | 否 | Basic 认证的密码，默认为 `admin` |
 
 ```yaml
 seatunnel:

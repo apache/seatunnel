@@ -25,6 +25,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 
+import io.restassured.http.ContentType;
+import io.restassured.response.Response;
+
 import java.io.IOException;
 import java.util.Base64;
 import java.util.concurrent.TimeUnit;
@@ -152,6 +155,95 @@ public class BasicAuthenticationIT extends SeaTunnelEngineContainer {
                                 + COLON
                                 + server.getMappedPort(8080)
                                 + RestConstant.REST_URL_OVERVIEW)
+                .then()
+                .statusCode(401);
+    }
+
+    /** Test submitting a job via REST API with correct credentials. */
+    @Test
+    public void testSubmitJobWithCorrectCredentials() {
+        String credentials = USERNAME + ":" + PASSWORD;
+        String encodedCredentials = Base64.getEncoder().encodeToString(credentials.getBytes());
+
+        // Simple batch job configuration
+        String jobConfig =
+                "{\n"
+                        + "  \"env\": {\n"
+                        + "    \"job.mode\": \"BATCH\"\n"
+                        + "  },\n"
+                        + "  \"source\": {\n"
+                        + "    \"FakeSource\": {\n"
+                        + "      \"result_table_name\": \"fake\",\n"
+                        + "      \"row.num\": 100,\n"
+                        + "      \"schema\": {\n"
+                        + "        \"fields\": {\n"
+                        + "          \"id\": \"int\",\n"
+                        + "          \"name\": \"string\"\n"
+                        + "        }\n"
+                        + "      }\n"
+                        + "    }\n"
+                        + "  },\n"
+                        + "  \"sink\": {\n"
+                        + "    \"Console\": {\n"
+                        + "      \"source_table_name\": \"fake\"\n"
+                        + "    }\n"
+                        + "  }\n"
+                        + "}";
+
+        Response response =
+                given().header(BASIC_AUTH_HEADER, BASIC_AUTH_PREFIX + encodedCredentials)
+                        .contentType(ContentType.JSON)
+                        .body(jobConfig)
+                        .post(
+                                HTTP
+                                        + server.getHost()
+                                        + COLON
+                                        + server.getMappedPort(8080)
+                                        + RestConstant.REST_URL_SUBMIT_JOB);
+
+        response.then().statusCode(200).body("jobId", notNullValue());
+    }
+
+    /** Test submitting a job via REST API with incorrect credentials. */
+    @Test
+    public void testSubmitJobWithIncorrectCredentials() {
+        String credentials = "wronguser:wrongpassword";
+        String encodedCredentials = Base64.getEncoder().encodeToString(credentials.getBytes());
+
+        // Simple batch job configuration
+        String jobConfig =
+                "{\n"
+                        + "  \"env\": {\n"
+                        + "    \"job.mode\": \"BATCH\"\n"
+                        + "  },\n"
+                        + "  \"source\": {\n"
+                        + "    \"FakeSource\": {\n"
+                        + "      \"result_table_name\": \"fake\",\n"
+                        + "      \"row.num\": 100,\n"
+                        + "      \"schema\": {\n"
+                        + "        \"fields\": {\n"
+                        + "          \"id\": \"int\",\n"
+                        + "          \"name\": \"string\"\n"
+                        + "        }\n"
+                        + "      }\n"
+                        + "    }\n"
+                        + "  },\n"
+                        + "  \"sink\": {\n"
+                        + "    \"Console\": {\n"
+                        + "      \"source_table_name\": \"fake\"\n"
+                        + "    }\n"
+                        + "  }\n"
+                        + "}";
+
+        given().header(BASIC_AUTH_HEADER, BASIC_AUTH_PREFIX + encodedCredentials)
+                .contentType(ContentType.JSON)
+                .body(jobConfig)
+                .post(
+                        HTTP
+                                + server.getHost()
+                                + COLON
+                                + server.getMappedPort(8080)
+                                + RestConstant.REST_URL_SUBMIT_JOB)
                 .then()
                 .statusCode(401);
     }
