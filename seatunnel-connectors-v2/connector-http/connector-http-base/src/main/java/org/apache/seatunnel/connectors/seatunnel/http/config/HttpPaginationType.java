@@ -16,24 +16,34 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.http.config;
 
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+public enum HttpPaginationType {
+    /** Page number based pagination */
+    PAGE_NUMBER(
+            "PageNumber",
+            "traditional page-number-based pagination,uses a page number and page size to retrieve a specific slice of data"),
+    /** Cursor based pagination */
+    CURSOR(
+            "Cursor",
+            "token-based cursor pagination,uses a cursor/token to fetch the next set of data based on a specific point or marker");
 
-import java.io.Serializable;
+    private final String code;
+    private final String description;
 
-@Setter
-@Getter
-@ToString
-public class PageInfo implements Serializable {
+    HttpPaginationType(String code, String description) {
+        this.code = code;
+        this.description = description;
+    }
 
-    private Long totalPageSize;
+    public String getCode() {
+        return code;
+    }
 
-    private Integer batchSize;
-    private String pageField;
-    private Long pageIndex;
-    private String pageType;
-    private String cursor;
-    private String pageCursorFieldName;
-    private String pageCursorResponseField;
+    public String getDescription() {
+        return description;
+    }
+
+    @Override
+    public String toString() {
+        return code;
+    }
 }

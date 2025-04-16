@@ -39,15 +39,19 @@ import java.util.stream.Collectors;
 public class JdbcSinkAggregatedCommitter
         implements SinkAggregatedCommitter<XidInfo, JdbcAggregatedCommitInfo> {
 
-    private final XaFacade xaFacade;
-    private final XaGroupOps xaGroupOps;
+    private XaFacade xaFacade;
+    private XaGroupOps xaGroupOps;
     private final JdbcSinkConfig jdbcSinkConfig;
 
     public JdbcSinkAggregatedCommitter(JdbcSinkConfig jdbcSinkConfig) {
+        this.jdbcSinkConfig = jdbcSinkConfig;
+    }
+
+    @Override
+    public void init() {
         this.xaFacade =
                 XaFacade.fromJdbcConnectionOptions(jdbcSinkConfig.getJdbcConnectionConfig());
         this.xaGroupOps = new XaGroupOpsImpl(xaFacade);
-        this.jdbcSinkConfig = jdbcSinkConfig;
     }
 
     private void tryOpen() throws IOException {

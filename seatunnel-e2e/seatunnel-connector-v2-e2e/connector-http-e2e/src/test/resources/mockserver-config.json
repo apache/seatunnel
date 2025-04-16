@@ -4773,5 +4773,60 @@
         "Content-Type": "application/json"
       }
     }
+  },
+  {
+    "httpRequest": {
+      "method": "GET",
+      "path": "/query/cursor_pages",
+      "queryStringParameters": {
+       "cursor": "cursor_1"
+      }
+    },
+    "httpResponse": {
+      "body": {
+        "status": null,
+        "msg": null,
+        "data": [
+          {
+            "name": "name1",
+            "age": 69
+          },
+          {
+            "name": "name2",
+            "age": 51
+          }
+        ],
+        "paging": {
+          "cursors": {
+            "next": "cursor_2"
+          }
+        }
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "GET",
+      "path": "/query/cursor_pages",
+      "queryStringParameters": {
+        "cursor": "cursor_2"
+      }
+    },
+    "httpResponse": {
+      "body": {
+        "status": null,
+        "msg": null,
+        "data": [
+          {
+            "name": "name3",
+            "age": 45
+          },
+          {
+            "name": "name4",
+            "age": 32
+          }
+        ]
+      }
+    }
   }
 ]

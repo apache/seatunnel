@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tdengine.sink;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.google.common.base.Throwables;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -129,10 +130,14 @@ public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         }
     }
 
-    private Object[] convertDataType(Object[] objects) {
+    @VisibleForTesting
+    Object[] convertDataType(Object[] objects) {
         return Arrays.stream(objects)
                 .map(
                         object -> {
+                            if (object == null) {
+                                return null;
+                            }
                             if (LocalDateTime.class.equals(object.getClass())) {
                                 // transform timezone according to the config
                                 return "'"

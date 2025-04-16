@@ -14,26 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.connectors.seatunnel.http.config;
 
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+package org.apache.seatunnel.connectors.seatunnel.elasticsearch.config;
 
-import java.io.Serializable;
+public enum SearchApiTypeEnum {
+    /** Use Scroll API for pagination */
+    SCROLL,
 
-@Setter
-@Getter
-@ToString
-public class PageInfo implements Serializable {
-
-    private Long totalPageSize;
-
-    private Integer batchSize;
-    private String pageField;
-    private Long pageIndex;
-    private String pageType;
-    private String cursor;
-    private String pageCursorFieldName;
-    private String pageCursorResponseField;
+    /** Use Point-in-Time (PIT) API for pagination */
+    PIT
 }
