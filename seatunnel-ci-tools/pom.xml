@@ -27,7 +27,6 @@
 
     <properties>
         <javaparser.version>3.26.1</javaparser.version>
-        <reflections.version>0.10.2</reflections.version>
     </properties>
 
     <dependencies>
