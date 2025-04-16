@@ -17,36 +17,23 @@
 package org.apache.seatunnel.transform.python;
 
 
-import java.util.ArrayList;
-import java.util.List;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowAccessor;
 
-public class EndTagList {
-    private final List<Object> list;
-    private volatile boolean end;
+public class SeaTunnelRowAccessorWithThread {
 
-    public EndTagList(){
-        this.list = new ArrayList<>();
-        this.end = false;
+    private final long threadId;
+    private final SeaTunnelRowAccessor rowAccessor;
+
+    public SeaTunnelRowAccessorWithThread(long threadId, SeaTunnelRowAccessor rowAccessor) {
+        this.threadId = threadId;
+        this.rowAccessor = rowAccessor;
     }
 
-    public EndTagList(List<Object> dataList){
-        this.list = dataList;
-        this.end = false;
+    public long getThreadId() {
+        return threadId;
     }
 
-    public List<Object> getList() {
-        return list;
-    }
-
-    public boolean isEnd() {
-        return end;
-    }
-
-    public void end(){
-        this.end = true;
-    }
-
-    public void add(Object obj) {
-        this.list.add(obj);
+    public SeaTunnelRowAccessor getRowAccessor() {
+        return rowAccessor;
     }
 }

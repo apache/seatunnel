@@ -20,68 +20,92 @@ package org.apache.seatunnel.transform.python;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowAccessor;
 import py4j.GatewayServer;
+import py4j.Py4JException;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingQueue;
 
 @Slf4j
 public class PythonOperationProxy implements RowOperation {
 
+    private CloseRemotePython remotePython;
     private GatewayServer javaServer;
-    private final Map<Long, SeaTunnelRowAccessor> inputDataMap = new ConcurrentHashMap<>();
+    private final LinkedBlockingQueue<SeaTunnelRowAccessorWithThread> dataQueue = new LinkedBlockingQueue<>();
 
-    private final Map<Long, EndTagList> outputDataMap = new ConcurrentHashMap<>();
-    private PythonOperationProxy(){
+    private final Map<Long, CompletableFuture<Object[]>> outputDataMap = new ConcurrentHashMap<>();
+
+
+    /**
+     * this method wait remote python client register close callback
+     * @param remotePython python process
+     */
+    public void registerCloseRemotePython(CloseRemotePython remotePython) {
+        this.remotePython = remotePython;
+    }
+
+    private PythonOperationProxy() {
         if (INSTANCE != null) {
             throw new RuntimeException("Please use newInstance() method for getting the single instance of this class.");
         }
     }
+
     private static volatile PythonOperationProxy INSTANCE;
+
     public static PythonOperationProxy newInstance(Integer javaServerPort) {
-        if (INSTANCE == null){
-            synchronized (PythonOperationProxy.class){
-                if (INSTANCE == null){
+        if (INSTANCE == null) {
+            synchronized (PythonOperationProxy.class) {
+                if (INSTANCE == null) {
                     PythonOperationProxy operationProxy = new PythonOperationProxy();
-                    operationProxy.javaServer = new GatewayServer(operationProxy,javaServerPort);
+                    operationProxy.javaServer = new GatewayServer(operationProxy, javaServerPort);
                 }
             }
         }
         return INSTANCE;
     }
 
-    public void shutdown(){
-        this.javaServer.shutdown();
+    public void shutdown() {
+        //1.shutdown remote python
+        try {
+            this.remotePython.shutdownNow();
+            //The shutdown of the remote side will result in no further responses,
+            //which would cause an error due to the command not being received. This issue should be ignored.
+        } catch (Py4JException ignore) {}
+        this.javaServer.shutdown(true);
     }
 
-    public void putThreadData(long threadId, SeaTunnelRowAccessor inputRow) {
-        this.inputDataMap.put(threadId,inputRow);
+
+    public void putData(Long threadId, List<Object> dataList) {
+        Object[] outputData = dataList.toArray(new Object[0]);
+        CompletableFuture<Object[]> future = outputDataMap.get(threadId);
+        future.complete(outputData);
     }
 
-    public Object[] getOutputData(long threadId) {
-        EndTagList endTagList = outputDataMap.get(threadId);
-        while (endTagList == null || !endTagList.isEnd()){
-            log.info("wait python process data");
+
+    public SeaTunnelRowAccessorWithThread waitGetNextData() {
+        SeaTunnelRowAccessorWithThread data = null;
+        try {
+            data = dataQueue.take();
+        } catch (InterruptedException e) {
+            //TODO
         }
-        return outputDataMap.get(threadId).getList().toArray(new Object[0]);
+        return data;
     }
 
-    public void addData(Long threadId,Object obj){
-        EndTagList array = this.outputDataMap.getOrDefault(threadId, new EndTagList());
-        array.add(obj);
-        this.outputDataMap.put(threadId,array);
-    }
-
-    public void addDataList(Long threadId,List<Object> dataList){
-        EndTagList array = new EndTagList();
-        this.outputDataMap.put(threadId,array);
-    }
-
-
-    public void end(Long threadId){
-        EndTagList endTagList = this.outputDataMap.get(threadId);
-        if (endTagList != null){
-            endTagList.end();
+    public Object[] processData(long threadId, SeaTunnelRowAccessor inputRow) {
+        CompletableFuture<Object[]> future = new CompletableFuture<>();
+        outputDataMap.put(threadId, future);
+        dataQueue.add(new SeaTunnelRowAccessorWithThread(threadId, inputRow));
+        try {
+            Object[] objects = future.get();
+            outputDataMap.remove(threadId);
+            return objects;
+        } catch (InterruptedException | ExecutionException e) {
+            //TODO
+            return null;
         }
     }
 }
