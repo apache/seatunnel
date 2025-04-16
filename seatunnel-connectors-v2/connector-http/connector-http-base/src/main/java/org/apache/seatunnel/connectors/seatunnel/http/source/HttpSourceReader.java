@@ -149,13 +149,6 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
     }
 
-    /**
-     * Update request parameters based on page information
-     *
-     * @param pageInfo The page information containing page field and index
-     * @param usePlaceholderReplacement If true, use placeholder replacement (${field}), otherwise
-     *     use key-based replacement
-     */
     private void updateRequestParam(PageInfo pageInfo, boolean usePlaceholderReplacement) {
         // 1. keep page param as http param
         if (this.httpParameter.isKeepPageParamAsHttpParam()) {
@@ -177,17 +170,25 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             }
             return;
         }
+        Long pageValue = pageInfo.getPageIndex();
+        String pageField = pageInfo.getPageField();
 
+        // Process headers
+        if (MapUtils.isNotEmpty(this.httpParameter.getHeaders())) {
+            processPageMap(
+                    this.httpParameter.getHeaders(),
+                    pageField,
+                    pageValue,
+                    usePlaceholderReplacement);
+        }
         // if not set keepPageParamAsHttpParam, but page field is in params, then set page index as
-        // params
         if (MapUtils.isNotEmpty(this.httpParameter.getParams())) {
 
-            // set page index as params
-            if (this.httpParameter.getParams().containsKey(pageInfo.getPageField())) {
-                this.httpParameter
-                        .getParams()
-                        .put(pageInfo.getPageField(), pageInfo.getPageIndex().toString());
-            }
+            processPageMap(
+                    this.httpParameter.getHeaders(),
+                    pageField,
+                    pageValue,
+                    usePlaceholderReplacement);
 
             // set page cursor as params
             if (this.httpParameter.getParams().containsKey(pageInfo.getPageCursorFieldName())
@@ -200,11 +201,8 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
         // 2. param in body
         if (MapUtils.isNotEmpty(this.httpParameter.getBody())) {
-
-            // set page index as body
-            if (this.httpParameter.getBody().containsKey(pageInfo.getPageField())) {
-                this.httpParameter.getBody().put(pageInfo.getPageField(), pageInfo.getPageIndex());
-            }
+            processBodyPageMap(
+                    this.httpParameter.getBody(), pageField, pageValue, usePlaceholderReplacement);
 
             // set page cursor as body
             if (this.httpParameter.getBody().containsKey(pageInfo.getPageCursorFieldName())
@@ -213,20 +211,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                         .getBody()
                         .put(pageInfo.getPageCursorFieldName(), pageInfo.getCursor());
             }
-        Long pageValue = pageInfo.getPageIndex();
-        String pageField = pageInfo.getPageField();
-
-        // Process headers
-        processPageMap(
-                this.httpParameter.getHeaders(), pageField, pageValue, usePlaceholderReplacement);
-
-        // Process params
-        processPageMap(
-                this.httpParameter.getParams(), pageField, pageValue, usePlaceholderReplacement);
-
-        // Process body
-        processBodyPageMap(
-                this.httpParameter.getBody(), pageField, pageValue, usePlaceholderReplacement);
+        }
     }
 
     /**
@@ -242,23 +227,21 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             String pageField,
             Long pageValue,
             boolean usePlaceholderReplacement) {
-        if (MapUtils.isNotEmpty(map)) {
-            if (usePlaceholderReplacement) {
-                // Placeholder replacement
-                Map<String, String> updatedMap = new HashMap<>();
-                for (Map.Entry<String, String> entry : map.entrySet()) {
-                    String key = entry.getKey();
-                    String value = entry.getValue();
-                    if (value.equals("${" + pageField + "}")) {
-                        // If the value is exactly the placeholder, use pageValue directly
-                        updatedMap.put(key, pageValue.toString());
-                    }
+        if (usePlaceholderReplacement) {
+            // Placeholder replacement
+            Map<String, String> updatedMap = new HashMap<>();
+            for (Map.Entry<String, String> entry : map.entrySet()) {
+                String key = entry.getKey();
+                String value = entry.getValue();
+                if (value.equals("${" + pageField + "}")) {
+                    // If the value is exactly the placeholder, use pageValue directly
+                    updatedMap.put(key, pageValue.toString());
                 }
-                map.putAll(updatedMap);
-            } else if (map.containsKey(pageField)) {
-                // Key-based replacement
-                map.put(pageField, pageValue.toString());
             }
+            map.putAll(updatedMap);
+        } else if (map.containsKey(pageField)) {
+            // Key-based replacement
+            map.put(pageField, pageValue.toString());
         }
     }
 
@@ -315,7 +298,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 // cursor pagination
                 if (HttpPaginationType.CURSOR.getCode().equals(info.getPageType())) {
                     while (!noMoreElementFlag) {
-                        updateRequestParam(info);
+                        updateRequestParam(info, info.isUsePlaceholderReplacement());
                         pollAndCollectData(output);
                         Thread.sleep(10);
                     }
@@ -326,7 +309,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                     while (!noMoreElementFlag) {
                         // increment page
                         info.setPageIndex(pageIndex);
-                        // set request param - use placeholder replacement if configured in PageInfo
+                        // set request param
                         updateRequestParam(info, info.isUsePlaceholderReplacement());
                         pollAndCollectData(output);
                         pageIndex += 1;
