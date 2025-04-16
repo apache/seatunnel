@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.common.utils.PlaceholderUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
@@ -153,7 +152,8 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
      * Update request parameters based on page information
      *
      * @param pageInfo The page information containing page field and index
-     * @param usePlaceholderReplacement If true, use placeholder replacement (${field}), otherwise use key-based replacement
+     * @param usePlaceholderReplacement If true, use placeholder replacement (${field}), otherwise
+     *     use key-based replacement
      */
     private void updateRequestParam(PageInfo pageInfo, boolean usePlaceholderReplacement) {
         // keep page param as http param
@@ -167,17 +167,20 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             return;
         }
 
-        String pageValue = pageInfo.getPageIndex().toString();
+        Long pageValue = pageInfo.getPageIndex();
         String pageField = pageInfo.getPageField();
 
         // Process headers
-        processMap(this.httpParameter.getHeaders(), pageField, pageValue, usePlaceholderReplacement);
+        processPageMap(
+                this.httpParameter.getHeaders(), pageField, pageValue, usePlaceholderReplacement);
 
         // Process params
-        processMap(this.httpParameter.getParams(), pageField, pageValue, usePlaceholderReplacement);
+        processPageMap(
+                this.httpParameter.getParams(), pageField, pageValue, usePlaceholderReplacement);
 
         // Process body
-        processBodyMap(this.httpParameter.getBody(), pageField, pageInfo.getPageIndex(), pageValue, usePlaceholderReplacement);
+        processBodyPageMap(
+                this.httpParameter.getBody(), pageField, pageValue, usePlaceholderReplacement);
     }
 
     /**
@@ -188,7 +191,11 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
      * @param pageValue The page value
      * @param usePlaceholderReplacement Whether to use placeholder replacement
      */
-    private <T extends Map<String, String>> void processMap(T map, String pageField, String pageValue, boolean usePlaceholderReplacement) {
+    private void processPageMap(
+            Map<String, String> map,
+            String pageField,
+            Long pageValue,
+            boolean usePlaceholderReplacement) {
         if (MapUtils.isNotEmpty(map)) {
             if (usePlaceholderReplacement) {
                 // Placeholder replacement
@@ -196,14 +203,15 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 for (Map.Entry<String, String> entry : map.entrySet()) {
                     String key = entry.getKey();
                     String value = entry.getValue();
-                    String updatedValue = PlaceholderUtils.replacePlaceholders(value, pageField, pageValue);
-                    updatedMap.put(key, updatedValue);
+                    if (value.equals("${" + pageField + "}")) {
+                        // If the value is exactly the placeholder, use pageValue directly
+                        updatedMap.put(key, pageValue.toString());
+                    }
                 }
-                map.clear();
                 map.putAll(updatedMap);
             } else if (map.containsKey(pageField)) {
                 // Key-based replacement
-                map.put(pageField, pageValue);
+                map.put(pageField, pageValue.toString());
             }
         }
     }
@@ -213,11 +221,14 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
      *
      * @param bodyMap The body map to process
      * @param pageField The page field name
-     * @param pageIndex The page index (Long value for direct replacement)
-     * @param pageValue The page value as string
+     * @param pageValue The page index (Long value for direct replacement)
      * @param usePlaceholderReplacement Whether to use placeholder replacement
      */
-    private void processBodyMap(Map<String, Object> bodyMap, String pageField, Long pageIndex, String pageValue, boolean usePlaceholderReplacement) {
+    private void processBodyPageMap(
+            Map<String, Object> bodyMap,
+            String pageField,
+            Long pageValue,
+            boolean usePlaceholderReplacement) {
         if (MapUtils.isNotEmpty(bodyMap)) {
             if (usePlaceholderReplacement) {
                 // Placeholder replacement
@@ -226,23 +237,21 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                     String key = entry.getKey();
                     Object value = entry.getValue();
                     if (value instanceof String) {
-                        // Replace placeholders in string values
-                        String updatedValue = PlaceholderUtils.replacePlaceholders(
-                                (String) value, pageField, pageValue);
-                        updatedBody.put(key, updatedValue);
-                    } else {
-                        updatedBody.put(key, value);
+                        String strValue = (String) value;
+                        // Check if the value is exactly the placeholder for pageField
+                        if (strValue.equals("${" + pageField + "}")) {
+                            // If the value is exactly the placeholder, use pageValue directly
+                            updatedBody.put(key, pageValue);
+                        }
                     }
                 }
-                bodyMap.clear();
                 bodyMap.putAll(updatedBody);
             } else if (bodyMap.containsKey(pageField)) {
                 // Key-based replacement - use the Long value directly
-                bodyMap.put(pageField, pageIndex);
+                bodyMap.put(pageField, pageValue);
             }
         }
     }
-
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {

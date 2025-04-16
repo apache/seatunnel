@@ -51,7 +51,8 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | schema.fields               | Config  | No       | -       | The schema fields of upstream data                                                                                                                                                |
 | json_field                  | Config  | No       | -       | This parameter helps you configure the schema,so this parameter must be used with schema.                                                                                         |
 | pageing                     | Config  | No       | -       | This parameter is used for paging queries                                                                                                                                         |
-| pageing.page_field          | String  | No       | -       | This parameter is used to specify the page field name in the request parameter                                                                                                    |
+| pageing.page_field          | String  | No       | -       | This parameter is used to specify the page field name in the request. It can be used in headers, params, or body with placeholders like ${page_field}.                             |
+| pageing.use_placeholder_replacement | Boolean | No | false | If true, use placeholder replacement (${field}) for headers, parameters and body values, otherwise use key-based replacement.                                                  |
 | pageing.total_page_size     | Int     | No       | -       | This parameter is used to control the total number of pages                                                                                                                       |
 | pageing.batch_size          | Int     | No       | -       | The batch size returned per request is used to determine whether to continue when the total number of pages is unknown                                                            |
 | pageing.start_page_number   | Int     | No       | 1       | Specify the page number from which synchronization starts                                                                                                                         |
@@ -362,9 +363,13 @@ source {
 - See this link for task configuration [http_jsonpath_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_jsonpath_to_assert.conf).
 
 ### pageing
-When you need to concatenate page param in the URL,then add params.
+When you need to concatenate page param in the URL, then add params.
 
-When you need to set page param to the body,add the key of page param in body.
+When you need to set page param to the body, add the key of page param in body.
+
+You can also use page parameters in headers by using placeholders with `use_placeholder_replacement = true`.
+
+#### Example 1: Using page parameters in body and params
 
 ```hocon
 source {
@@ -380,6 +385,7 @@ source {
       pageing={
        total_page_size=20
        page_field=page
+       use_placeholder_replacement=true
        #when don't know the total_page_size use batch_size if read size<batch_size finish ,otherwise continue
        #batch_size=10
       }
@@ -391,8 +397,61 @@ source {
       }
     }
 }
+```
 
+#### Example 2: Using page parameters in headers
 
+```hocon
+source {
+    Http {
+      url = "http://localhost:8080/mock/queryData"
+      method = "GET"
+      format = "json"
+      headers={
+        Page-Number = "${pageNo}"
+        Authorization = "Bearer token-123"
+      }
+      pageing={
+        page_field = pageNo
+        start_page_number = 1
+        batch_size = 10
+        use_placeholder_replacement = true
+      }
+      schema = {
+        fields {
+          name = string
+          age = string
+        }
+      }
+    }
+}
+```
+
+#### Example 3: Using key-based replacement (without placeholders)
+
+```hocon
+source {
+    Http {
+      url = "http://localhost:8080/mock/queryData"
+      method = "GET"
+      format = "json"
+      params={
+        page = "1"
+      }
+      pageing={
+        page_field = page
+        start_page_number = 1
+        batch_size = 10
+        use_placeholder_replacement = false
+      }
+      schema = {
+        fields {
+          name = string
+          age = string
+        }
+      }
+    }
+}
 ```
 
 ## Changelog

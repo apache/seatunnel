@@ -4587,6 +4587,30 @@
   {
     "httpRequest": {
       "method" : "GET",
+      "path": "/page/placeholder",
+      "queryStringParameters": {
+        "page": ["1"]
+      }
+    },
+    "httpResponse": {
+      "body": [
+        {
+          "name": "lzl",
+          "age": 18
+        },
+        {
+          "name": "pizz",
+          "age": 19
+        }
+      ],
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method" : "GET",
       "path": "/query/pages",
       "queryStringParameters": {
         "page": "2"
@@ -4766,6 +4790,30 @@
         },
         {
           "name": "pizz2",
+          "age": 19
+        }
+      ],
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "GET",
+      "path": "/example/header-page",
+      "headers": {
+        "Page-Number": ["1"]
+      }
+    },
+    "httpResponse": {
+      "body": [
+        {
+          "name": "lzl",
+          "age": 18
+        },
+        {
+          "name": "pizz",
           "age": 19
         }
       ],

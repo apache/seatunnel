@@ -67,7 +67,8 @@ public class HttpSourceOptions extends HttpCommonOptions {
             Options.key("use_placeholder_replacement")
                     .booleanType()
                     .defaultValue(false)
-                    .withDescription("If true, use placeholder replacement (${field}) for headers, parameters and body values, otherwise use key-based replacement.");
+                    .withDescription(
+                            "If true, use placeholder replacement (${field}) for headers, parameters and body values, otherwise use key-based replacement.");
 
     public static final Option<Map<String, String>> PAGEING =
             Options.key("pageing").mapType().noDefaultValue().withDescription("pageing");
@@ -123,6 +124,4 @@ public class HttpSourceOptions extends HttpCommonOptions {
                     .intType()
                     .defaultValue(DEFAULT_SOCKET_TIMEOUT_MS)
                     .withDescription("Socket timeout setting, default 60s.");
-
-
 }

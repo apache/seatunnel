@@ -367,6 +367,25 @@ public class HttpIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult22 =
                 container.executeJob("/http_placeholder_replacement_false.conf");
         Assertions.assertEquals(0, execResult22.getExitCode());
+
+        // Test GET request with placeholder replacement = true
+        Container.ExecResult execResult23 =
+                container.executeJob("/http_get_placeholder_replacement_true.conf");
+        Assertions.assertEquals(0, execResult23.getExitCode());
+
+        // Test GET request with placeholder replacement = false
+        Container.ExecResult execResult24 =
+                container.executeJob("/http_get_placeholder_replacement_false.conf");
+        Assertions.assertEquals(0, execResult24.getExitCode());
+
+        // Test HTTP headers with placeholder replacement
+        Container.ExecResult execResult25 =
+                container.executeJob("/http_header_placeholder_true.conf");
+        Assertions.assertEquals(0, execResult25.getExitCode());
+
+        Container.ExecResult execResult26 =
+                container.executeJob("/http_header_placeholder_false.conf");
+        Assertions.assertEquals(0, execResult26.getExitCode());
     }
 
     @TestTemplate
