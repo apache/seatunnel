@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.engine.e2e;
 
-import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
 import org.awaitility.Awaitility;
@@ -54,13 +53,6 @@ public class BasicAuthenticationIT extends SeaTunnelEngineContainer {
         // Create server with basic authentication enabled
 
         server = createSeaTunnelContainerWithBasicAuth();
-
-        ContainerUtil.copyAllConnectorJarToContainer(
-                server,
-                getConnectorModulePath(),
-                getConnectorNamePrefix(),
-                getConnectorType(),
-                SEATUNNEL_HOME);
         // Wait for server to be ready
         Awaitility.await()
                 .atMost(2, TimeUnit.MINUTES)
@@ -197,8 +189,9 @@ public class BasicAuthenticationIT extends SeaTunnelEngineContainer {
                         + "    ],\n"
                         + "    \"sink\": [\n"
                         + "        {\n"
-                        + "            \"plugin_name\": \"Console\",\n"
-                        + "            \"plugin_input\": [\"fake\"]\n"
+                        + "            \"plugin_name\": \"InMemory\",\n"
+                        + "            \"plugin_input\": \"fake\",\n"
+                        + "            \"throw_exception\": true\n"
                         + "        }\n"
                         + "    ]\n"
                         + "}";
