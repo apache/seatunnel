@@ -185,7 +185,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         if (MapUtils.isNotEmpty(this.httpParameter.getParams())) {
 
             processPageMap(
-                    this.httpParameter.getHeaders(),
+                    this.httpParameter.getParams(),
                     pageField,
                     pageValue,
                     usePlaceholderReplacement);
