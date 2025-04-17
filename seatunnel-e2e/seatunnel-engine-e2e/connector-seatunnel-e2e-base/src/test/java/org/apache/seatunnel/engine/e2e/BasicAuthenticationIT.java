@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.e2e;
 
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
 import org.awaitility.Awaitility;
@@ -51,8 +52,15 @@ public class BasicAuthenticationIT extends SeaTunnelEngineContainer {
     @BeforeEach
     public void startUp() throws Exception {
         // Create server with basic authentication enabled
+
         server = createSeaTunnelContainerWithBasicAuth();
 
+        ContainerUtil.copyAllConnectorJarToContainer(
+                server,
+                getConnectorModulePath(),
+                getConnectorNamePrefix(),
+                getConnectorType(),
+                SEATUNNEL_HOME);
         // Wait for server to be ready
         Awaitility.await()
                 .atMost(2, TimeUnit.MINUTES)
@@ -168,26 +176,31 @@ public class BasicAuthenticationIT extends SeaTunnelEngineContainer {
         // Simple batch job configuration
         String jobConfig =
                 "{\n"
-                        + "  \"env\": {\n"
-                        + "    \"job.mode\": \"BATCH\"\n"
-                        + "  },\n"
-                        + "  \"source\": {\n"
-                        + "    \"FakeSource\": {\n"
-                        + "      \"plugin_output\": \"fake\",\n"
-                        + "      \"row.num\": 100,\n"
-                        + "      \"schema\": {\n"
-                        + "        \"fields\": {\n"
-                        + "          \"id\": \"int\",\n"
-                        + "          \"name\": \"string\"\n"
+                        + "    \"env\": {\n"
+                        + "        \"job.mode\": \"batch\"\n"
+                        + "    },\n"
+                        + "    \"source\": [\n"
+                        + "        {\n"
+                        + "            \"plugin_name\": \"FakeSource\",\n"
+                        + "            \"plugin_output\": \"fake\",\n"
+                        + "            \"row.num\": 100,\n"
+                        + "            \"schema\": {\n"
+                        + "                \"fields\": {\n"
+                        + "                    \"name\": \"string\",\n"
+                        + "                    \"age\": \"int\",\n"
+                        + "                    \"card\": \"int\"\n"
+                        + "                }\n"
+                        + "            }\n"
                         + "        }\n"
-                        + "      }\n"
-                        + "    }\n"
-                        + "  },\n"
-                        + "  \"sink\": {\n"
-                        + "    \"Console\": {\n"
-                        + "      \"plugin_input\": \"fake\"\n"
-                        + "    }\n"
-                        + "  }\n"
+                        + "    ],\n"
+                        + "    \"transform\": [\n"
+                        + "    ],\n"
+                        + "    \"sink\": [\n"
+                        + "        {\n"
+                        + "            \"plugin_name\": \"Console\",\n"
+                        + "            \"plugin_input\": [\"fake\"]\n"
+                        + "        }\n"
+                        + "    ]\n"
                         + "}";
 
         Response response =
