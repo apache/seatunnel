@@ -52,12 +52,14 @@ public class JsonSerializationSchema implements SerializationSchema {
 
     public JsonSerializationSchema(SeaTunnelRowType rowType) {
         this(rowType, StandardCharsets.UTF_8);
+        mapper.configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
     }
 
     public JsonSerializationSchema(SeaTunnelRowType rowType, Charset charset) {
         this.rowType = rowType;
         this.runtimeConverter = new RowToJsonConverters().createConverter(checkNotNull(rowType));
         this.charset = charset;
+        mapper.configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
     }
 
     public JsonSerializationSchema(SeaTunnelRowType rowType, String nullValue) {
@@ -65,9 +67,6 @@ public class JsonSerializationSchema implements SerializationSchema {
         this.runtimeConverter =
                 new RowToJsonConverters().createConverter(checkNotNull(rowType), nullValue);
         this.charset = StandardCharsets.UTF_8;
-    }
-
-    {
         mapper.configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
     }
 
