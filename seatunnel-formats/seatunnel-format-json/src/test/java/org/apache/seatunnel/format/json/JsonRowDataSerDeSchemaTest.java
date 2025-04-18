@@ -42,7 +42,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -679,5 +678,4 @@ public class JsonRowDataSerDeSchemaTest {
                 "{\"timestamp\":\"2022-09-24T22:45:00.000123456\"}",
                 new String(new JsonSerializationSchema(schema, "\\N").serialize(row)));
     }
-
 }
