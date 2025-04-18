@@ -680,18 +680,4 @@ public class JsonRowDataSerDeSchemaTest {
                 new String(new JsonSerializationSchema(schema, "\\N").serialize(row)));
     }
 
-    @Test
-    public void testSerializationWithNumber() {
-        SeaTunnelRowType schema =
-                new SeaTunnelRowType(
-                        new String[] {"id", "code", "fe_result"},
-                        new SeaTunnelDataType[] {INT_TYPE, STRING_TYPE, new DecimalType(10, 2)});
-        JsonSerializationSchema jsonSerializationSchema =
-                new JsonSerializationSchema(schema, StandardCharsets.UTF_8.name());
-        Object[] fields = new Object[] {1, "1001015", BigDecimal.valueOf(80.00)};
-        SeaTunnelRow row = new SeaTunnelRow(fields);
-        byte[] serialize = jsonSerializationSchema.serialize(row);
-        String expected = "{\"id\":1,\"code\":\"1001015\",\"fe_result\":80}";
-        assertEquals(new String(serialize), expected);
-    }
 }

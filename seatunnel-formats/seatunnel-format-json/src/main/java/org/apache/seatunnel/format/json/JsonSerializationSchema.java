@@ -50,10 +50,6 @@ public class JsonSerializationSchema implements SerializationSchema {
 
     private final RowToJsonConverters.RowToJsonConverter runtimeConverter;
 
-    {
-        mapper.configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
-    }
-
     public JsonSerializationSchema(SeaTunnelRowType rowType) {
         this(rowType, StandardCharsets.UTF_8);
     }
