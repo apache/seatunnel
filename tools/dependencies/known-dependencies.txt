@@ -121,9 +121,3 @@ netty-common-4.1.112.Final.jar
 netty-handler-4.1.112.Final.jar
 netty-resolver-4.1.112.Final.jar
 eventstream-1.0.1.jar
-seatunnel-format-json-2.3.11-SNAPSHOT.jar
-connector-common-2.3.11-SNAPSHOT.jar
-seatunnel-flink-starter-common-2.3.11-SNAPSHOT.jar
-seatunnel-translation-flink-13-2.3.11-SNAPSHOT.jar
-seatunnel-translation-flink-15-2.3.11-SNAPSHOT.jar
-seatunnel-translation-spark-common-2.3.11-SNAPSHOT.jar
