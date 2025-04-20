@@ -19,4 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.state;
 
 import java.io.Serializable;
 
-public class ElasticsearchSinkState implements Serializable {}
+public class ElasticsearchSinkState implements Serializable {
+    private static final long serialVersionUID = -3180616525364355053L;
+}

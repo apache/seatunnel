@@ -30,6 +30,7 @@ import java.util.Map;
 @Getter
 public class IoTDBSourceState implements Serializable {
 
+    private static final long serialVersionUID = 7142773921678153583L;
     private boolean shouldEnumerate;
     private Map<Integer, List<IoTDBSourceSplit>> pendingSplit;
 }

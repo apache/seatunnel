@@ -94,7 +94,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 任务示例
 
-### 简单示例：
+### 简单示例
 
 > 这是一个读取 SQL Server 数据并直接插入到另一个表的示例
 

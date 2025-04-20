@@ -99,7 +99,7 @@ assign_partitions = ["shoe", "clothing"]
 
 ## 任务示例
 
-### 简单:
+### 简单
 
 > 此示例展示了如何定义一个 SeaTunnel 同步任务，该任务能够通过 FakeSource 自动产生数据并将其发送到 Kafka Sink。在这个例子中，FakeSource 会生成总共 16 行数据（`row.num=16`），每一行都包含两个字段，即 `name`（字符串类型）和 `age`（整型）。最终，这些数据将被发送到名为 test_topic 的 topic 中，因此该 topic 也将包含 16 行数据。
 > 如果你还未安装和部署 SeaTunnel，你需要参照 [安装SeaTunnel](../../start-v2/locally/deployment.md) 的指南来进行安装和部署。完成安装和部署后，你可以按照 [快速开始使用 SeaTunnel 引擎](../../start-v2/locally/quick-start-seatunnel-engine.md) 的指南来运行任务。

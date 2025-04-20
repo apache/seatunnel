@@ -143,7 +143,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 
 ## 任务示例
 
-### 简单示例:
+### 简单示例
 
 > 此示例定义了一个 SeaTunnel 同步任务，从 Hdfs 中读取数据并将其发送到 Hdfs。
 

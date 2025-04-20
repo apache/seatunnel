@@ -52,7 +52,7 @@ import ChangeLog from '../changelog/connector-http-feishu.md';
 
 ## 任务示例
 
-### 简单示例:
+### 简单示例
 
 ```hocon
 Feishu {

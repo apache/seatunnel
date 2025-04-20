@@ -66,6 +66,18 @@ public class HttpConfig implements Serializable {
 
     private int portRange = ServerConfigOptions.MasterServerConfigOptions.PORT_RANGE.defaultValue();
 
+    /** Whether to enable basic authentication. */
+    private boolean enableBasicAuth =
+            ServerConfigOptions.MasterServerConfigOptions.ENABLE_BASIC_AUTH.defaultValue();
+
+    /** The username for basic authentication. */
+    private String basicAuthUsername =
+            ServerConfigOptions.MasterServerConfigOptions.BASIC_AUTH_USERNAME.defaultValue();
+
+    /** The password for basic authentication. */
+    private String basicAuthPassword =
+            ServerConfigOptions.MasterServerConfigOptions.BASIC_AUTH_PASSWORD.defaultValue();
+
     public void setPort(int port) {
         checkPositive(port, ServerConfigOptions.MasterServerConfigOptions.HTTP + " must be > 0");
         this.port = port;

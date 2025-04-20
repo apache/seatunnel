@@ -53,14 +53,14 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig.BATCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig.CREATE_INDEX;
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig.ENABLE_AUTO_ID;
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig.ENABLE_UPSERT;
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig.LOAD_COLLECTION;
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig.RATE_LIMIT;
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig.TOKEN;
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig.URL;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions.BATCH_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions.CREATE_INDEX;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions.ENABLE_AUTO_ID;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions.ENABLE_UPSERT;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions.LOAD_COLLECTION;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions.RATE_LIMIT;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions.TOKEN;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions.URL;
 
 @Slf4j
 public class MilvusBufferBatchWriter {

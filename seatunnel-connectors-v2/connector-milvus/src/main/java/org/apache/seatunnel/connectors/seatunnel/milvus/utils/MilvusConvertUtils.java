@@ -29,7 +29,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.VectorIndex;
 import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.milvus.catalog.MilvusOptions;
-import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectionErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.milvus.utils.source.MilvusSourceConverter;
@@ -77,14 +77,14 @@ public class MilvusConvertUtils {
         MilvusServiceClient client =
                 new MilvusServiceClient(
                         ConnectParam.newBuilder()
-                                .withUri(config.get(MilvusSourceConfig.URL))
-                                .withToken(config.get(MilvusSourceConfig.TOKEN))
+                                .withUri(config.get(MilvusSourceOptions.URL))
+                                .withToken(config.get(MilvusSourceOptions.TOKEN))
                                 .build());
 
-        String database = config.get(MilvusSourceConfig.DATABASE);
+        String database = config.get(MilvusSourceOptions.DATABASE);
         List<String> collectionList = new ArrayList<>();
-        if (StringUtils.isNotEmpty(config.get(MilvusSourceConfig.COLLECTION))) {
-            collectionList.add(config.get(MilvusSourceConfig.COLLECTION));
+        if (StringUtils.isNotEmpty(config.get(MilvusSourceOptions.COLLECTION))) {
+            collectionList.add(config.get(MilvusSourceOptions.COLLECTION));
         } else {
             R<ShowCollectionsResponse> response =
                     client.showCollections(

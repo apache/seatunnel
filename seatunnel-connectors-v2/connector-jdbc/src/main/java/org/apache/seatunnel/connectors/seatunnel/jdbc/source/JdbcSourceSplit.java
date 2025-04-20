@@ -29,6 +29,7 @@ import lombok.ToString;
 @ToString
 @AllArgsConstructor
 public class JdbcSourceSplit implements SourceSplit {
+    private static final long serialVersionUID = -815542654355310611L;
     private final TablePath tablePath;
     private final String splitId;
     private final String splitQuery;

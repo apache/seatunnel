@@ -30,6 +30,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 @Setter
 @AllArgsConstructor
 public class StarRocksSourceState implements Serializable {
+    private static final long serialVersionUID = -147928488869915694L;
     private Map<Integer, List<StarRocksSourceSplit>> pendingSplit;
     private final ConcurrentLinkedQueue<String> pendingTables;
 }
