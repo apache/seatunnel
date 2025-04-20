@@ -83,3 +83,6 @@ flatbuffers-java-23.5.26.jar
 netty-buffer-4.1.104.Final.jar
 netty-common-4.1.104.Final.jar
 seatunnel-arrow-2.3.11-SNAPSHOT-optional.jar
+sdk-core-2.27.21.jar
+third-party-jackson-core-2.27.21.jar
+utils-2.27.21.jar
