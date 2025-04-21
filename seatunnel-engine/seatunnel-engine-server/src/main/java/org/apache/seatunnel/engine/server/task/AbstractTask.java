@@ -27,6 +27,8 @@ import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
+import com.hazelcast.cluster.Address;
+import com.hazelcast.logging.ILogger;
 import lombok.NonNull;
 
 import java.io.IOException;
@@ -81,6 +83,16 @@ public abstract class AbstractTask implements Task {
     public void init() throws Exception {
         this.restoreComplete = new CompletableFuture<>();
         progress.start();
+
+        // 记录任务执行位置的日志
+        if (executionContext != null) {
+            ILogger logger = executionContext.getLogger();
+            Address workerAddress =
+                    executionContext.getInstance().getCluster().getLocalMember().getAddress();
+            logger.info(
+                    String.format(
+                            "Task [%s] executing on worker [%s]", getTaskID(), workerAddress));
+        }
     }
 
     @NonNull @Override
