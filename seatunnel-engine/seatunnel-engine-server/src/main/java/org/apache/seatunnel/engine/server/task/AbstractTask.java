@@ -84,7 +84,7 @@ public abstract class AbstractTask implements Task {
         this.restoreComplete = new CompletableFuture<>();
         progress.start();
 
-        if (executionContext != null) {
+        if (executionContext != null && executionContext.getInstance() != null) {
             ILogger logger = executionContext.getLogger();
             Address workerAddress =
                     executionContext.getInstance().getCluster().getLocalMember().getAddress();
