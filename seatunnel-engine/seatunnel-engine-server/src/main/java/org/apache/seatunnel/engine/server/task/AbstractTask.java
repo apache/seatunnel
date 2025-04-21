@@ -84,7 +84,6 @@ public abstract class AbstractTask implements Task {
         this.restoreComplete = new CompletableFuture<>();
         progress.start();
 
-        // 记录任务执行位置的日志
         if (executionContext != null) {
             ILogger logger = executionContext.getLogger();
             Address workerAddress =
