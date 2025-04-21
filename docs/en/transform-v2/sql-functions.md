@@ -920,7 +920,7 @@ Converts a value to another data type.
 Supported data types: STRING | VARCHAR, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP, DATE, TIME, BYTES, BOOLEAN
 
 Example:
-* CONVERT(NAME AS INT)
+* CAST(NAME AS INT)
 * CAST(FLAG AS BOOLEAN)
 
 NOTE:
