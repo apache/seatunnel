@@ -32,19 +32,15 @@ public class TaskExecutionLocationLogIT extends SeaTunnelEngineContainer {
 
     @Test
     public void testTaskExecutionLocationLogging() throws IOException, InterruptedException {
-        // Execute a simple job
         Container.ExecResult execResult = executeSeaTunnelJob("/batch_fakesource_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
-        // Get the logs from the container
         String logs = server.getLogs();
 
-        // Wait for logs to be available
         Awaitility.await()
                 .atMost(30, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            // Check for task execution location logs from AbstractTask.init()
                             Pattern initLogPattern =
                                     Pattern.compile(
                                             "Task \\[\\d+\\] executing on worker \\[.+?\\]");
@@ -52,8 +48,6 @@ public class TaskExecutionLocationLogIT extends SeaTunnelEngineContainer {
                                     initLogPattern.matcher(logs).find(),
                                     "Log should contain task execution location from init()");
 
-                            // Check for task execution location logs from TaskExecutionService
-                            // (start)
                             Pattern startLogPattern =
                                     Pattern.compile(
                                             "Starting task \\[\\d+\\] execution on worker \\[.+?\\]");
@@ -61,8 +55,6 @@ public class TaskExecutionLocationLogIT extends SeaTunnelEngineContainer {
                                     startLogPattern.matcher(logs).find(),
                                     "Log should contain task start execution location");
 
-                            // Check for task execution location logs from TaskExecutionService
-                            // (complete)
                             Pattern completeLogPattern =
                                     Pattern.compile(
                                             "Task \\[\\d+\\] completed on worker \\[.+?\\]");
