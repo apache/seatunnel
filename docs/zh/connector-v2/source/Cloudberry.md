@@ -14,11 +14,11 @@ import ChangeLog from '../changelog/connector-cloudberry.md';
 
 ### 适用于 Spark/Flink 引擎
 
-1. 您需要确保[jdbc驱动程序jar包](https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc)已放置在目录`${SEATUNNEL_HOME}/plugins/`中。
+> 1. 您需要确保[jdbc驱动程序jar包](https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc)已放置在目录`${SEATUNNEL_HOME}/plugins/`中。
 
 ### 适用于 SeaTunnel Zeta 引擎
 
-1. 您需要确保[jdbc驱动程序jar包](https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc)已放置在目录`${SEATUNNEL_HOME}/lib/`中。
+> 1. 您需要确保[jdbc驱动程序jar包](https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc)已放置在目录`${SEATUNNEL_HOME}/lib/`中。
 
 ## 关键特性
 
@@ -48,23 +48,23 @@ import ChangeLog from '../changelog/connector-cloudberry.md';
 
 ## 数据类型映射
 
-> Cloudberry 使用 PostgreSQL 的数据类型实现。有关数据类型的兼容性和映射关系，请参考 PostgreSQL 文档。
+Cloudberry 使用 PostgreSQL 的数据类型实现。有关数据类型的兼容性和映射关系，请参考 PostgreSQL 文档。
 
 ## 配置项
 
-> Cloudberry 连接器使用与 PostgreSQL 相同的配置项。有关详细的配置选项，请参考 PostgreSQL 连接器文档。
+Cloudberry 连接器使用与 PostgreSQL 相同的配置项。有关详细的配置选项，请参考 PostgreSQL 连接器文档。
 
 关键配置项包括：
 
-- `url` (必需): JDBC 连接 URL。
-- `driver` (必需): 驱动程序类名 (`org.postgresql.Driver`)。
-- `user`/`password`: 认证凭据。
-- `query` 或 `table_path`: 要读取的数据。
+- url (必需): JDBC 连接 URL。
+- driver (必需): 驱动程序类名 (org.postgresql.Driver)。
+- user/password: 认证凭据。
+- query or table_path: 要读取的数据。
 - 用于并行读取的分区选项。
 
 ## 并行读取
 
-> Cloudberry 支持与 PostgreSQL 连接器相同的并行读取规则。有关切片策略和并行读取选项的详细信息，请参考 PostgreSQL 连接器文档。
+Cloudberry 支持与 PostgreSQL 连接器相同的并行读取规则。有关切片策略和并行读取选项的详细信息，请参考 PostgreSQL 连接器文档。
 
 ## 任务示例
 
@@ -146,7 +146,7 @@ sink {
 }
 ```
 
-> 有关更详细的示例和配置，请参阅PostgreSQL连接器文档。
+有关更详细的示例和配置，请参阅PostgreSQL连接器文档。
 
 ## 变更日志
 
