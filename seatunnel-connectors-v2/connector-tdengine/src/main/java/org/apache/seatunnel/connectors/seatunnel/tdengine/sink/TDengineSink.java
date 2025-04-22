@@ -26,16 +26,20 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSinkConfig;
 
 import java.io.IOException;
+import java.util.Optional;
 
 // @AutoService(SeaTunnelSink.class)
 public class TDengineSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         implements SupportMultiTableSink {
-    private final SeaTunnelRowType seaTunnelRowType;
 
     private final TDengineSinkConfig tdengineSinkConfig;
+    private final CatalogTable catalogTable;
+
+    private final SeaTunnelRowType seaTunnelRowType;
 
     public TDengineSink(TDengineSinkConfig tdengineSinkConfig, CatalogTable catalogTable) {
         this.tdengineSinkConfig = tdengineSinkConfig;
+        this.catalogTable = catalogTable;
         this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
     }
 
@@ -47,5 +51,10 @@ public class TDengineSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     @Override
     public String getPluginName() {
         return "TDengine";
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.of(catalogTable);
     }
 }
