@@ -83,7 +83,7 @@ public class KafkaSourceConfigTest {
 
         Map<String, Object> schema = new HashMap<>();
         schema.put("fields", schemaFields);
-        schema.put(TABLE.key(), "test.test");
+        schema.put(TABLE.key(), "db1.table1");
 
         Map<String, Object> configMap = new HashMap<>();
         configMap.put("bootstrap.servers", "localhost:9092");
@@ -97,7 +97,7 @@ public class KafkaSourceConfigTest {
         DeserializationSchema<SeaTunnelRow> deserializationSchema =
                 sourceConfig
                         .getMapMetadata()
-                        .get(TablePath.of("test.test"))
+                        .get(TablePath.of("db1.table1"))
                         .getDeserializationSchema();
 
         Assertions.assertNotNull(deserializationSchema);
