@@ -67,15 +67,6 @@ class TDengineSinkWriterTest {
                         .password("taosdata")
                         .timezone("UTC")
                         .build();
-        //                ConfigFactory.empty()
-        //                        .withValue(
-        //                                "url",
-        // ConfigValueFactory.fromAnyRef("jdbc:TAOS://localhost:6030/"))
-        //                        .withValue("database", ConfigValueFactory.fromAnyRef("test_db"))
-        //                        .withValue("stable", ConfigValueFactory.fromAnyRef("test_stable"))
-        //                        .withValue("username", ConfigValueFactory.fromAnyRef("root"))
-        //                        .withValue("password", ConfigValueFactory.fromAnyRef("taosdata"))
-        //                        .withValue("timezone", ConfigValueFactory.fromAnyRef("UTC"));
 
         // Mock JDBC objects
         Connection mockConnection = Mockito.mock(Connection.class);
