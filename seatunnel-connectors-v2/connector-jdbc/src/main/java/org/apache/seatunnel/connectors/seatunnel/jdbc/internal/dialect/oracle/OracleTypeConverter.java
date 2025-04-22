@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import com.google.auto.service.AutoService;
@@ -87,13 +88,22 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final OracleTypeConverter INSTANCE = new OracleTypeConverter();
 
     private final boolean decimalTypeNarrowing;
+    private final boolean handleBlobAsString;
 
     public OracleTypeConverter() {
-        this(true);
+        this(true, JdbcOptions.HANDLE_BLOB_AS_STRING.defaultValue());
     }
 
     public OracleTypeConverter(boolean decimalTypeNarrowing) {
+        this(decimalTypeNarrowing, JdbcOptions.HANDLE_BLOB_AS_STRING.defaultValue());
+    }
+
+    public OracleTypeConverter(boolean decimalTypeNarrowing, boolean handleBlobAsString) {
         this.decimalTypeNarrowing = decimalTypeNarrowing;
+        this.handleBlobAsString = handleBlobAsString;
+        log.info(
+                "Initializing OracleTypeConverter with handleBlobAsString={}",
+                this.handleBlobAsString);
     }
 
     @Override
@@ -103,6 +113,10 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
 
     @Override
     public Column convert(BasicTypeDefine typeDefine) {
+        log.info(
+                "Converting type: {} for column: {}",
+                typeDefine.getDataType(),
+                typeDefine.getName());
         PhysicalColumn.PhysicalColumnBuilder builder =
                 PhysicalColumn.builder()
                         .name(typeDefine.getName())
@@ -112,6 +126,8 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                         .comment(typeDefine.getComment());
 
         String oracleType = typeDefine.getDataType().toUpperCase();
+        log.debug("Oracle type after uppercase: {}", oracleType);
+
         switch (oracleType) {
             case ORACLE_INTEGER:
                 builder.dataType(new DecimalType(DEFAULT_PRECISION, 0));
@@ -202,9 +218,21 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.columnLength(BYTES_4GB - 1);
                 break;
             case ORACLE_BLOB:
-                builder.dataType(PrimitiveByteArrayType.INSTANCE);
-                // The maximum length of the column is 4GB-1
-                builder.columnLength(BYTES_4GB - 1);
+                log.info(
+                        "Converting BLOB column: {} with handleBlobAsString={}",
+                        typeDefine.getName(),
+                        handleBlobAsString);
+                if (handleBlobAsString) {
+                    builder.dataType(BasicType.STRING_TYPE);
+                    builder.columnLength(BYTES_4GB - 1);
+                    log.info("Converted BLOB to STRING_TYPE with length: {}", BYTES_4GB - 1);
+                } else {
+                    builder.dataType(PrimitiveByteArrayType.INSTANCE);
+                    builder.columnLength(BYTES_4GB - 1);
+                    log.info(
+                            "Converted BLOB to PrimitiveByteArrayType with length: {}",
+                            BYTES_4GB - 1);
+                }
                 break;
             case ORACLE_RAW:
                 builder.dataType(PrimitiveByteArrayType.INSTANCE);
@@ -236,7 +264,14 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                 throw CommonError.convertToSeaTunnelTypeError(
                         DatabaseIdentifier.ORACLE, oracleType, typeDefine.getName());
         }
-        return builder.build();
+        Column result = builder.build();
+        log.info(
+                "Conversion result for column {}: dataType={}, sourceType={}, length={}",
+                result.getName(),
+                result.getDataType(),
+                result.getSourceType(),
+                result.getColumnLength());
+        return result;
     }
 
     @Override
