@@ -31,7 +31,6 @@ import com.google.auto.service.AutoService;
 import java.io.IOException;
 import java.util.Optional;
 
-@AutoService(SeaTunnelSink.class)
 public class TDengineSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         implements SupportMultiTableSink {
 
