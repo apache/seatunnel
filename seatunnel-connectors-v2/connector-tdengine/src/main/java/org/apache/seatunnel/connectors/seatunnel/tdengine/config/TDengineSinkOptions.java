@@ -17,10 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tdengine.config;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
 @Data
 @AllArgsConstructor
