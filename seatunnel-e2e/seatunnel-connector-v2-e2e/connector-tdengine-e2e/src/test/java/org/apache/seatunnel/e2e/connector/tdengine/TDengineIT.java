@@ -128,6 +128,12 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
                     "CREATE STABLE power2.meters3 (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT, off BOOL, nc NCHAR(10)) "
                             + "TAGS (location BINARY(64), groupId INT)");
         }
+        // create power2.meter4 for multi write test
+        try (Statement stmt = connection2.createStatement()) {
+            stmt.execute(
+                    "CREATE STABLE power2.meters4 (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT, off BOOL, nc NCHAR(10)) "
+                            + "TAGS (location BINARY(64), groupId INT)");
+        }
         return rowCount;
     }
 
@@ -147,8 +153,8 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/tdengine/tdengine_fake_to_sink_multitable.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
-        long rowCountInserted = readSinkDataset("meters2");
-        long rowCountInserted2 = readSinkDataset("meters3");
+        long rowCountInserted = readSinkDataset("meters3");
+        long rowCountInserted2 = readSinkDataset("meters4");
         Assertions.assertEquals(rowCountInserted, testDataCountMulti_Table1);
         Assertions.assertEquals(rowCountInserted2, testDataCountMulti_Table2);
     }
