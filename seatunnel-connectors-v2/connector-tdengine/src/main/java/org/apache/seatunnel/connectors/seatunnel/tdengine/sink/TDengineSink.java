@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tdengine.sink;
 
+import com.google.auto.service.AutoService;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -28,7 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSinkCon
 import java.io.IOException;
 import java.util.Optional;
 
-// @AutoService(SeaTunnelSink.class)
+@AutoService(SeaTunnelSink.class)
 public class TDengineSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         implements SupportMultiTableSink {
 
