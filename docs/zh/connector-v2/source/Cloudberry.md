@@ -117,8 +117,8 @@ sink {
 
 ### 读取多张表
 
-```
-hocon已复制！env {
+```hocon
+env {
   job.mode = "BATCH"
   parallelism = 4
 }
