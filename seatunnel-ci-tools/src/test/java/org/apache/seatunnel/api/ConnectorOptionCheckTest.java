@@ -195,7 +195,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("PulsarSinkOptions");
         whiteList.add("SlsSinkOptions");
         whiteList.add("Neo4jSinkOptions");
-        whiteList.add("TDengineSourceOptions");
         whiteList.add("PulsarSourceOptions");
         whiteList.add("MongodbSinkOptions");
         whiteList.add("SlsSourceOptions");
