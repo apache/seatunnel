@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -53,7 +52,7 @@ public class DataHubSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(Context context) throws IOException {
+    public DataHubWriter createWriter(Context context) throws IOException {
         return new DataHubWriter(
                 catalogTable.getSeaTunnelRowType(),
                 pluginConfig.get(ENDPOINT),
