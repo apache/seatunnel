@@ -89,7 +89,13 @@ public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT>
     public void commit(WriterCommitMessage[] messages) {
         if (aggregatedCommitter != null) {
             try {
-                aggregatedCommitter.commit(combineCommitMessage(messages));
+                List<AggregatedCommitInfoT> aggregatedCommitInfoTS =
+                        aggregatedCommitter.commit(combineCommitMessage(messages));
+                if (!aggregatedCommitInfoTS.isEmpty()) {
+                    throw new RuntimeException(
+                            "Aggregated commit info should be empty, but got size: "
+                                    + aggregatedCommitInfoTS.size());
+                }
             } catch (IOException e) {
                 throw new RuntimeException("SinkAggregatedCommitter commit failed in driver", e);
             }
