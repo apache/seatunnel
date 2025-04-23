@@ -19,4 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.rabbitmq.split;
 
 import java.io.Serializable;
 
-public class RabbitmqSplitEnumeratorState implements Serializable {}
+public class RabbitmqSplitEnumeratorState implements Serializable {
+    private static final long serialVersionUID = 3490818116676796863L;
+}

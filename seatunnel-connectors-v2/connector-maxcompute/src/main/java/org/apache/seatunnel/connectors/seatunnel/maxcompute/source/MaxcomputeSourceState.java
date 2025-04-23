@@ -21,6 +21,7 @@ import java.io.Serializable;
 import java.util.Set;
 
 public class MaxcomputeSourceState implements Serializable {
+    private static final long serialVersionUID = 3097170139569235106L;
     private Set<MaxcomputeSourceSplit> assignedSplit;
 
     public MaxcomputeSourceState(Set<MaxcomputeSourceSplit> assignedSplit) {

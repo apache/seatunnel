@@ -255,6 +255,24 @@ public class ServerConfigOptions {
                         .withDescription(
                                 "The port range of the http server. If enable-dynamic-port is true, We will use the unused port in the range");
 
+        public static final Option<Boolean> ENABLE_BASIC_AUTH =
+                Options.key("enable-basic-auth")
+                        .booleanType()
+                        .defaultValue(false)
+                        .withDescription("Whether to enable basic authentication for the web UI.");
+
+        public static final Option<String> BASIC_AUTH_USERNAME =
+                Options.key("basic-auth-username")
+                        .stringType()
+                        .defaultValue("admin")
+                        .withDescription("The username for basic authentication.");
+
+        public static final Option<String> BASIC_AUTH_PASSWORD =
+                Options.key("basic-auth-password")
+                        .stringType()
+                        .defaultValue("admin")
+                        .withDescription("The password for basic authentication.");
+
         public static final Option<HttpConfig> HTTP =
                 Options.key("http")
                         .type(new TypeReference<HttpConfig>() {})

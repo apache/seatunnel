@@ -28,6 +28,7 @@ import lombok.Setter;
 @Setter
 @EqualsAndHashCode
 public class MaxcomputeSourceSplit implements SourceSplit {
+    private static final long serialVersionUID = 573028372948731375L;
     private final long rowStart;
     private final long rowNum;
     private final TablePath tablePath;

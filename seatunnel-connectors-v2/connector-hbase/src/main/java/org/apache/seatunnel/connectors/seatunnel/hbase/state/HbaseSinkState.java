@@ -19,4 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.hbase.state;
 
 import java.io.Serializable;
 
-public class HbaseSinkState implements Serializable {}
+public class HbaseSinkState implements Serializable {
+    private static final long serialVersionUID = 4863333264891339699L;
+}
