@@ -31,7 +31,6 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.GenericDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
@@ -97,31 +96,15 @@ public class JdbcSource
         if (jdbcSourceConfig.getTableConfigList().isEmpty()) {
             throw new IllegalStateException("Table config list cannot be empty.");
         }
-        Map<String, JdbcSourceTableConfig> tableConfigMap =
-                jdbcSourceConfig.getTableConfigList().stream()
-                        .collect(
-                                Collectors.toMap(
-                                        JdbcSourceTableConfig::getTablePath,
-                                        tableConfig -> tableConfig));
         return catalogTables.stream()
                 .collect(
                         Collectors.toMap(
                                 CatalogTable::getTablePath,
-                                catalogTable -> {
-                                    String fullName = catalogTable.getTablePath().getFullName();
-                                    JdbcSourceTableConfig tableConfig =
-                                            tableConfigMap.get(fullName);
-                                    return JdbcSourceTable.builder()
-                                            .tablePath(catalogTable.getTableId().toTablePath())
-                                            .partitionColumn(tableConfig.getPartitionColumn())
-                                            .partitionNumber(tableConfig.getPartitionNumber())
-                                            .partitionStart(tableConfig.getPartitionStart())
-                                            .partitionEnd(tableConfig.getPartitionEnd())
-                                            .useSelectCount(tableConfig.getUseSelectCount())
-                                            .skipAnalyze(tableConfig.getSkipAnalyze())
-                                            .catalogTable(catalogTable)
-                                            .build();
-                                }));
+                                catalogTable ->
+                                        JdbcSourceTable.builder()
+                                                .tablePath(catalogTable.getTableId().toTablePath())
+                                                .catalogTable(catalogTable)
+                                                .build()));
     }
 
     private Map<TablePath, JdbcSourceTable> createSourceTablesWithoutPattern()
