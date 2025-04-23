@@ -62,6 +62,9 @@ public class ResourceUtils {
         // applied resource
         subPlan.getJobMaster().setOwnedSlotProfiles(subPlan.getPipelineLocation(), slotProfiles);
 
+        // Set slotProfiles to SubPlan so it can be accessed in stateProcess method
+        subPlan.setSlotProfiles(slotProfiles);
+
         if (futures.size() != slotProfiles.size()) {
             throw new NoEnoughResourceException();
         }

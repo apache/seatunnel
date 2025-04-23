@@ -630,6 +630,27 @@ public class SubPlan {
                             "slotProfiles: {}, PipelineLocation: {}",
                             slotProfiles,
                             this.getPipelineLocation());
+
+                    // Log task execution locations for the entire pipeline
+                    if (slotProfiles != null && !slotProfiles.isEmpty()) {
+                        log.info(
+                                "Resource allocation for pipeline {} completed. Task execution locations:",
+                                getPipelineFullName());
+                        slotProfiles.forEach(
+                                (taskLocation, slotProfile) -> {
+                                    if (slotProfile != null) {
+                                        log.info(
+                                                "  Task [{}] will be executed on worker [{}], slotID [{}], resourceProfile [{}], sequence [{}], assigned [{}]",
+                                                taskLocation,
+                                                slotProfile.getWorker(),
+                                                slotProfile.getSlotID(),
+                                                slotProfile.getResourceProfile(),
+                                                slotProfile.getSequence(),
+                                                slotProfile.getOwnerJobID() != 0);
+                                    }
+                                });
+                    }
+
                     updatePipelineState(PipelineStatus.DEPLOYING);
                 } catch (Exception e) {
                     makePipelineFailing(e);

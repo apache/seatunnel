@@ -686,14 +686,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
             Thread.currentThread().setContextClassLoader(classLoader);
             final Task t = tracker.task;
-
-            // Log worker address for task execution
-            String workerAddress = nodeEngine.getThisAddress().toString();
-            logger.info(
-                    String.format(
-                            "Starting task [%s] execution on worker [%s]",
-                            t.getTaskID(), workerAddress));
-
             ProgressState result = null;
             try {
                 startedLatch.countDown();
@@ -804,14 +796,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                     .get(taskGroupExecutionTracker.taskGroup.getTaskGroupLocation())
                                     .getClassLoaders()
                                     .get(taskTracker.task.getTaskID()));
-
-                    // Log worker address for task execution
-                    String workerAddress = nodeEngine.getThisAddress().toString();
-                    logger.info(
-                            String.format(
-                                    "Starting task [%s] execution on worker [%s]",
-                                    taskTracker.task.getTaskID(), workerAddress));
-
                     call = taskTracker.task.call();
                     synchronized (timer) {
                         timer.timerStop();
@@ -954,11 +938,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
         void taskDone(Task task) {
             TaskGroupLocation taskGroupLocation = taskGroup.getTaskGroupLocation();
-            String workerAddress = nodeEngine.getThisAddress().toString();
             logger.info(
                     String.format(
-                            "Task [%d] completed on worker [%s], taskGroup = %s",
-                            task.getTaskID(), workerAddress, taskGroupLocation));
+                            "taskDone, taskId = %d, taskGroup = %s",
+                            task.getTaskID(), taskGroupLocation));
             Throwable ex = executionException.get();
             if (completionLatch.decrementAndGet() == 0) {
                 recycleClassLoader(taskGroupLocation);
