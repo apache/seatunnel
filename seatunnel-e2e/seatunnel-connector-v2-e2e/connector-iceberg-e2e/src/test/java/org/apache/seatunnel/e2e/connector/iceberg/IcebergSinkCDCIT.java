@@ -263,9 +263,71 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                                     Assertions.assertEquals("add column field", f_string_add);
                                 }
                             }
+                        });
 
-                            // for next test.
-                            dropTableColumn(MYSQL_DATABASE, SOURCE_TABLE, addField);
+        String modifyField = "f_varchar";
+        modifyTableColumn(MYSQL_DATABASE, SOURCE_TABLE, modifyField, "text");
+        insertModifyColumnData(MYSQL_DATABASE, SOURCE_TABLE);
+        // Waiting 30s for source capture data
+        sleep(30000);
+
+        given().ignoreExceptions()
+                .await()
+                .atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            // copy iceberg to local
+                            container.executeExtraCommands(containerExtendedFactory);
+                            List<Record> records = loadIcebergTable();
+                            Assertions.assertEquals(5, records.size());
+                            for (Record record : records) {
+                                Integer id = (Integer) record.getField("id");
+                                if (id == 101) {
+                                    String f_varchar = (String) record.getField("f_varchar");
+                                    Assertions.assertEquals(
+                                            "This is a modified varchar field with longer text that would exceed the original varchar length",
+                                            f_varchar);
+                                }
+                            }
+                        });
+
+        dropTableColumn(MYSQL_DATABASE, SOURCE_TABLE, addField);
+        insertAfterDropColumnData(MYSQL_DATABASE, SOURCE_TABLE);
+        // Waiting 30s for source capture data
+        sleep(30000);
+
+        given().ignoreExceptions()
+                .await()
+                .atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            // copy iceberg to local
+                            container.executeExtraCommands(containerExtendedFactory);
+                            Schema schema = loadIcebergSchema();
+                            Types.NestedField nestedField = schema.findField(addField);
+                            // The column should be marked as deleted in Iceberg
+                            Assertions.assertEquals(
+                                    true, nestedField == null || !nestedField.isRequired());
+
+                            List<Record> records = loadIcebergTable();
+                            Assertions.assertEquals(6, records.size());
+                            for (Record record : records) {
+                                Integer id = (Integer) record.getField("id");
+                                if (id == 102) {
+                                    // The dropped column should not be accessible or should be null
+                                    try {
+                                        Object droppedField = record.getField(addField);
+                                        Assertions.assertNull(
+                                                droppedField, "Dropped field should be null");
+                                    } catch (Exception e) {
+                                        // It's also acceptable if the field is not accessible at
+                                        // all
+                                        log.info(
+                                                "Field {} is not accessible after dropping, which is expected",
+                                                addField);
+                                    }
+                                }
+                            }
                         });
     }
 
@@ -360,6 +422,19 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
     private void addTableColumn(String database, String tableName, String addField) {
         executeSql(
                 "ALTER TABLE " + database + "." + tableName + " ADD COLUMN " + addField + " text");
+    }
+
+    private void modifyTableColumn(
+            String database, String tableName, String columnName, String newType) {
+        executeSql(
+                "ALTER TABLE "
+                        + database
+                        + "."
+                        + tableName
+                        + " MODIFY COLUMN "
+                        + columnName
+                        + " "
+                        + newType);
     }
 
     private void clearTable(String database, String tableName) {
@@ -495,5 +570,52 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                         + "         0x1B000000789C0BC9C82C5600A24485DCD494CCD25C85A49CFC2485B4CCD49C140083FF099A, 'This is a long varchar field',\n"
                         + "         12.345, '14:30:00', -128, 255, '{ \"key\": \"value\" }', 1992 , 'add column "
                         + "field')");
+    }
+
+    private void insertModifyColumnData(String database, String tableName) {
+        executeSql(
+                "INSERT INTO "
+                        + database
+                        + "."
+                        + tableName
+                        + " ( id, f_binary, f_blob, f_long_varbinary, f_longblob, f_tinyblob, f_varbinary, f_smallint,\n"
+                        + "                                         f_smallint_unsigned, f_mediumint, f_mediumint_unsigned, f_int, f_int_unsigned, f_integer,\n"
+                        + "                                         f_integer_unsigned, f_bigint, f_bigint_unsigned, f_numeric, f_decimal, f_float, f_double,\n"
+                        + "                                         f_double_precision, f_longtext, f_mediumtext, f_text, f_tinytext, f_varchar, f_date, f_datetime,\n"
+                        + "                                         f_timestamp, f_bit1, f_bit64, f_char, f_enum, f_mediumblob, f_long_varchar, f_real, f_time,\n"
+                        + "                                         f_tinyint, f_tinyint_unsigned, f_json, f_year, f_string_add)\n"
+                        + "VALUES ( 101, "
+                        + "0x61626374000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,\n"
+                        + "         0x68656C6C6F, 0x18000000789C0BC9C82C5600A244859CFCBC7485B2C4A2A4CCBCC4A24A00697308D4, NULL,\n"
+                        + "         0x74696E79626C6F62, 0x48656C6C6F20776F726C64, 12345, 54321, 123456, 654321, 1234567, 7654321, 1234567, 7654321,\n"
+                        + "         123456789, 987654321, 123, 789, 12.34, 56.78, 90.12, 'This is a long text field', 'This is a medium text field',\n"
+                        + "         'This is a text field', 'This is a tiny text field', 'This is a modified varchar field with longer text that would exceed the original varchar length', '2022-04-27', '2022-04-27 14:30:00',\n"
+                        + "         '2023-04-27 11:08:40', 1, b'0101010101010101010101010101010101010101010101010101010101010101', 'C', 'enum2',\n"
+                        + "         0x1B000000789C0BC9C82C5600A24485DCD494CCD25C85A49CFC2485B4CCD49C140083FF099A, 'This is a long varchar field',\n"
+                        + "         12.345, '14:30:00', -128, 255, '{ \"key\": \"value\" }', 1992 , 'add column "
+                        + "field')");
+    }
+
+    private void insertAfterDropColumnData(String database, String tableName) {
+        executeSql(
+                "INSERT INTO "
+                        + database
+                        + "."
+                        + tableName
+                        + " ( id, f_binary, f_blob, f_long_varbinary, f_longblob, f_tinyblob, f_varbinary, f_smallint,\n"
+                        + "                                         f_smallint_unsigned, f_mediumint, f_mediumint_unsigned, f_int, f_int_unsigned, f_integer,\n"
+                        + "                                         f_integer_unsigned, f_bigint, f_bigint_unsigned, f_numeric, f_decimal, f_float, f_double,\n"
+                        + "                                         f_double_precision, f_longtext, f_mediumtext, f_text, f_tinytext, f_varchar, f_date, f_datetime,\n"
+                        + "                                         f_timestamp, f_bit1, f_bit64, f_char, f_enum, f_mediumblob, f_long_varchar, f_real, f_time,\n"
+                        + "                                         f_tinyint, f_tinyint_unsigned, f_json, f_year)\n"
+                        + "VALUES ( 102, "
+                        + "0x61626374000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,\n"
+                        + "         0x68656C6C6F, 0x18000000789C0BC9C82C5600A244859CFCBC7485B2C4A2A4CCBCC4A24A00697308D4, NULL,\n"
+                        + "         0x74696E79626C6F62, 0x48656C6C6F20776F726C64, 12345, 54321, 123456, 654321, 1234567, 7654321, 1234567, 7654321,\n"
+                        + "         123456789, 987654321, 123, 789, 12.34, 56.78, 90.12, 'This is a long text field', 'This is a medium text field',\n"
+                        + "         'This is a text field', 'This is a tiny text field', 'This is a varchar field after drop column', '2022-04-27', '2022-04-27 14:30:00',\n"
+                        + "         '2023-04-27 11:08:40', 1, b'0101010101010101010101010101010101010101010101010101010101010101', 'C', 'enum2',\n"
+                        + "         0x1B000000789C0BC9C82C5600A24485DCD494CCD25C85A49CFC2485B4CCD49C140083FF099A, 'This is a long varchar field',\n"
+                        + "         12.345, '14:30:00', -128, 255, '{ \"key\": \"value\" }', 1992)");
     }
 }

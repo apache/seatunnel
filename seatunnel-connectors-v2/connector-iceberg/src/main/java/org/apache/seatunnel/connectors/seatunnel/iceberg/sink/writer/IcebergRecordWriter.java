@@ -38,6 +38,7 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.io.TaskWriter;
+import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 
 import lombok.extern.slf4j.Slf4j;
@@ -92,7 +93,7 @@ public class IcebergRecordWriter implements RecordWriter {
 
     @Override
     public void applySchemaChange(SeaTunnelRowType afterRowType, SchemaChangeEvent event) {
-        log.info("Apply schema change start.");
+        log.info("Apply schema change start. Event type: {}", event.getEventType());
         SchemaChangeWrapper updates = new SchemaChangeWrapper();
         // get the latest schema in case another process updated it
         table.refresh();
@@ -101,9 +102,22 @@ public class IcebergRecordWriter implements RecordWriter {
             AlterTableDropColumnEvent dropColumnEvent = (AlterTableDropColumnEvent) event;
             updates.deleteColumn(dropColumnEvent.getColumn());
         } else if (event instanceof AlterTableAddColumnEvent) {
-            // Update column , during data consumption process
+            AlterTableAddColumnEvent addColumnEvent = (AlterTableAddColumnEvent) event;
+            Column column = addColumnEvent.getColumn();
+            Type columnType = SchemaUtils.toIcebergType(column.getDataType());
+            updates.addColumn(null, column.getName(), columnType);
         } else if (event instanceof AlterTableModifyColumnEvent) {
-            // Update type , during data consumption process
+            AlterTableModifyColumnEvent modifyColumnEvent = (AlterTableModifyColumnEvent) event;
+            Column column = modifyColumnEvent.getColumn();
+            Type columnType = SchemaUtils.toIcebergType(column.getDataType());
+            if (columnType instanceof Type.PrimitiveType) {
+                updates.modifyColumn(column.getName(), (Type.PrimitiveType) columnType);
+            } else {
+                log.warn(
+                        "Cannot modify column {} to non-primitive type {}",
+                        column.getName(),
+                        columnType);
+            }
         } else if (event instanceof AlterTableChangeColumnEvent) {
             // rename
             AlterTableChangeColumnEvent changeColumnEvent = (AlterTableChangeColumnEvent) event;
