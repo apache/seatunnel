@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.source;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.google.common.base.Strings;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
@@ -178,7 +179,13 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             processPageMap(
                     this.httpParameter.getHeaders(),
                     pageField,
-                    pageValue,
+                    pageValue.toString(),
+                    usePlaceholderReplacement);
+
+            processPageMap(
+                    this.httpParameter.getHeaders(),
+                    pageInfo.getPageCursorFieldName(),
+                    pageInfo.getCursor(),
                     usePlaceholderReplacement);
         }
         // if not set keepPageParamAsHttpParam, but page field is in params, then set page index as
@@ -187,45 +194,54 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             processPageMap(
                     this.httpParameter.getParams(),
                     pageField,
-                    pageValue,
+                    pageValue.toString(),
                     usePlaceholderReplacement);
-
-            // set page cursor as params
-            if (this.httpParameter.getParams().containsKey(pageInfo.getPageCursorFieldName())
-                    && pageInfo.getCursor() != null) {
-                this.httpParameter
-                        .getParams()
-                        .put(pageInfo.getPageCursorFieldName(), pageInfo.getCursor());
-            }
+            processPageMap(
+                    this.httpParameter.getParams(),
+                    pageInfo.getPageCursorFieldName(),
+                    pageInfo.getCursor(),
+                    usePlaceholderReplacement);
         }
 
         // 2. param in body
         if (MapUtils.isNotEmpty(this.httpParameter.getBody())) {
             processBodyPageMap(
                     this.httpParameter.getBody(), pageField, pageValue, usePlaceholderReplacement);
-
-            // set page cursor as body
-            if (this.httpParameter.getBody().containsKey(pageInfo.getPageCursorFieldName())
-                    && pageInfo.getCursor() != null) {
-                this.httpParameter
-                        .getBody()
-                        .put(pageInfo.getPageCursorFieldName(), pageInfo.getCursor());
-            }
+            processBodyPageMap(
+                    this.httpParameter.getBody(),
+                    pageInfo.getPageCursorFieldName(),
+                    pageInfo.getCursor(),
+                    usePlaceholderReplacement);
         }
     }
 
     /**
-     * Process a string map for parameter replacement
+     * Replace placeholder in a string value
      *
-     * @param map The map to process (headers or params)
+     * @param value The string value that may contain a placeholder
      * @param pageField The page field name
-     * @param pageValue The page value
-     * @param usePlaceholderReplacement Whether to use placeholder replacement
+     * @param pageValue The page value to replace the placeholder with
+     * @return The string with placeholder replaced, or null if no placeholder found
      */
+    private String replacePlaceholder(String value, String pageField, Object pageValue) {
+        if (value == null || pageField == null || !value.contains("${" + pageField + "}")) {
+            return null;
+        }
+
+        String placeholder = "${" + pageField + "}";
+        int placeholderIndex = value.indexOf(placeholder);
+        if (placeholderIndex >= 0) {
+            String prefix = value.substring(0, placeholderIndex);
+            String suffix = value.substring(placeholderIndex + placeholder.length());
+            return prefix + pageValue + suffix;
+        }
+        return null;
+    }
+
     private void processPageMap(
             Map<String, String> map,
             String pageField,
-            Long pageValue,
+            String pageValue,
             boolean usePlaceholderReplacement) {
         if (usePlaceholderReplacement) {
             // Placeholder replacement
@@ -233,20 +249,21 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             for (Map.Entry<String, String> entry : map.entrySet()) {
                 String key = entry.getKey();
                 String value = entry.getValue();
-                if (value.equals("${" + pageField + "}")) {
-                    // If the value is exactly the placeholder, use pageValue directly
-                    updatedMap.put(key, pageValue.toString());
+                String replacedValue = replacePlaceholder(value, pageField, pageValue);
+                if (replacedValue != null) {
+                    updatedMap.put(key, replacedValue);
                 }
             }
             map.putAll(updatedMap);
         } else if (map.containsKey(pageField)) {
             // Key-based replacement
-            map.put(pageField, pageValue.toString());
+            map.put(pageField, pageValue);
         }
     }
 
     /**
-     * Process the body map for parameter replacement
+     * Process the body map for parameter replacement, handling nested objects by converting the
+     * entire object to JSON string, replacing placeholders, and converting back to object.
      *
      * @param bodyMap The body map to process
      * @param pageField The page field name
@@ -256,27 +273,62 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private void processBodyPageMap(
             Map<String, Object> bodyMap,
             String pageField,
-            Long pageValue,
+            Object pageValue,
             boolean usePlaceholderReplacement) {
         if (usePlaceholderReplacement) {
-            // Placeholder replacement
-            Map<String, Object> updatedBody = new HashMap<>();
-            for (Map.Entry<String, Object> entry : bodyMap.entrySet()) {
-                String key = entry.getKey();
-                Object value = entry.getValue();
-                if (value instanceof String) {
-                    String strValue = (String) value;
-                    // Check if the value is exactly the placeholder for pageField
-                    if (strValue.equals("${" + pageField + "}")) {
-                        // If the value is exactly the placeholder, use pageValue directly
-                        updatedBody.put(key, pageValue);
-                    }
+            try {
+                // Convert the entire body map to JSON string
+                String jsonBody = JsonUtils.toJsonString(bodyMap);
+
+                // Replace placeholders in the JSON string
+                String placeholder = "\"${" + pageField + "}\"";
+                String pageValueStr =
+                        pageValue instanceof String
+                                ? "\"" + pageValue + "\""
+                                : String.valueOf(pageValue);
+
+                // Handle both quoted and unquoted placeholders
+                // For quoted placeholders like "${page}" in JSON
+                if (jsonBody.contains(placeholder)) {
+                    jsonBody = jsonBody.replace(placeholder, pageValueStr);
+                }
+
+                // For unquoted placeholders like ${page} (as numbers) in JSON
+                String unquotedPlaceholder = "${" + pageField + "}";
+                if (jsonBody.contains(unquotedPlaceholder)) {
+                    jsonBody = jsonBody.replace(unquotedPlaceholder, pageValue.toString());
+                }
+
+                // Convert back to Map
+                Map<String, Object> updatedMap =
+                        JsonUtils.parseObject(
+                                jsonBody, new TypeReference<Map<String, Object>>() {});
+                bodyMap.clear();
+                bodyMap.putAll(updatedMap);
+            } catch (Exception e) {
+                // Fallback to key-based replacement if JSON processing fails
+                if (bodyMap.containsKey(pageField)) {
+                    bodyMap.put(pageField, pageValue);
                 }
             }
-            bodyMap.putAll(updatedBody);
-        } else if (bodyMap.containsKey(pageField)) {
-            // Key-based replacement - use the Long value directly
-            bodyMap.put(pageField, pageValue);
+        } else {
+            // Key-based replacement mode
+            // Check top level keys
+            if (bodyMap.containsKey(pageField)) {
+                // Direct key match at top level
+                bodyMap.put(pageField, pageValue);
+            }
+
+            // Recursively check nested maps for the key
+            for (Map.Entry<String, Object> entry : bodyMap.entrySet()) {
+                Object value = entry.getValue();
+                if (value instanceof Map) {
+                    // Recursively process nested maps
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> nestedMap = (Map<String, Object>) value;
+                    processBodyPageMap(nestedMap, pageField, pageValue, false);
+                }
+            }
         }
     }
 

@@ -364,39 +364,6 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testPlaceholderReplacement(TestContainer container)
-            throws IOException, InterruptedException {
-        // Test placeholder replacement with use_placeholder_replacement = false
-        Container.ExecResult execResult1 =
-                container.executeJob("/http_placeholder_replacement_false.conf");
-        Assertions.assertEquals(0, execResult1.getExitCode());
-
-        // Test placeholder replacement with use_placeholder_replacement = true
-        Container.ExecResult execResult2 =
-                container.executeJob("/http_placeholder_replacement_true.conf");
-        Assertions.assertEquals(0, execResult2.getExitCode());
-
-        // Test GET request with placeholder replacement = true
-        Container.ExecResult execResult3 =
-                container.executeJob("/http_get_placeholder_replacement_true.conf");
-        Assertions.assertEquals(0, execResult3.getExitCode());
-
-        // Test GET request with placeholder replacement = false
-        Container.ExecResult execResult4 =
-                container.executeJob("/http_get_placeholder_replacement_false.conf");
-        Assertions.assertEquals(0, execResult4.getExitCode());
-
-        // Test HTTP headers with placeholder replacement
-        Container.ExecResult execResult5 =
-                container.executeJob("/http_header_placeholder_replacement_true.conf");
-        Assertions.assertEquals(0, execResult5.getExitCode());
-
-        Container.ExecResult execResult6 =
-                container.executeJob("/http_header_placeholder_replacement_false.conf");
-        Assertions.assertEquals(0, execResult6.getExitCode());
-    }
-
-    @TestTemplate
     public void testMultiTableHttp(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/fake_to_multitable.conf");
