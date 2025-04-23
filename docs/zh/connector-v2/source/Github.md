@@ -4,11 +4,11 @@ import ChangeLog from '../changelog/connector-http-github.md';
 
 > Github 源连接器
 
-## Description
+## 描述
 
 用于从 Github 读取数据。
 
-## Key features
+## 关键特性
 
 - [x] [批处理](../../concept/connector-v2-features.md)
 - [ ] [流处理](../../concept/connector-v2-features.md)
@@ -17,7 +17,7 @@ import ChangeLog from '../changelog/connector-http-github.md';
 - [ ] [并行度](../../concept/connector-v2-features.md)
 - [ ] [支持用户自定义分片](../../concept/connector-v2-features.md)
 
-## Options
+## 选项
 
 | 名称                      | 类型     | 必填 | 默认值  |
 |---------------------------|----------|------|--------|
@@ -273,7 +273,7 @@ source {
 
 源插件通用参数，请参考 [常用选项](../source-common-options.md)获取详细说明。
 
-## Example
+## 示例
 
 ```hocon
 Github {
