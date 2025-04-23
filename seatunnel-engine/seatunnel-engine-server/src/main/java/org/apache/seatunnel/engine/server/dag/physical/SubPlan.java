@@ -646,7 +646,7 @@ public class SubPlan {
                                                 slotProfile.getSlotID(),
                                                 slotProfile.getResourceProfile(),
                                                 slotProfile.getSequence(),
-                                                slotProfile.getOwnerJobID() != 0);
+                                                slotProfile.getOwnerJobID());
                                     }
                                 });
                     }
