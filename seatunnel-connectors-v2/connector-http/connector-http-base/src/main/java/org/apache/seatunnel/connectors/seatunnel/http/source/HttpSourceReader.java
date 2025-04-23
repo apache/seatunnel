@@ -276,54 +276,36 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             Object pageValue,
             boolean usePlaceholderReplacement) {
         if (usePlaceholderReplacement) {
-            try {
-                // Convert the entire body map to JSON string
-                String jsonBody = JsonUtils.toJsonString(bodyMap);
+            String jsonBody = JsonUtils.toJsonString(bodyMap);
+            String placeholder = "\"${" + pageField + "}\"";
+            String pageValueStr =
+                    pageValue instanceof String
+                            ? "\"" + pageValue + "\""
+                            : String.valueOf(pageValue);
 
-                // Replace placeholders in the JSON string
-                String placeholder = "\"${" + pageField + "}\"";
-                String pageValueStr =
-                        pageValue instanceof String
-                                ? "\"" + pageValue + "\""
-                                : String.valueOf(pageValue);
-
-                // Handle both quoted and unquoted placeholders
-                // For quoted placeholders like "${page}" in JSON
-                if (jsonBody.contains(placeholder)) {
-                    jsonBody = jsonBody.replace(placeholder, pageValueStr);
-                }
-
-                // For unquoted placeholders like ${page} (as numbers) in JSON
-                String unquotedPlaceholder = "${" + pageField + "}";
-                if (jsonBody.contains(unquotedPlaceholder)) {
-                    jsonBody = jsonBody.replace(unquotedPlaceholder, pageValue.toString());
-                }
-
-                // Convert back to Map
-                Map<String, Object> updatedMap =
-                        JsonUtils.parseObject(
-                                jsonBody, new TypeReference<Map<String, Object>>() {});
-                bodyMap.clear();
-                bodyMap.putAll(updatedMap);
-            } catch (Exception e) {
-                // Fallback to key-based replacement if JSON processing fails
-                if (bodyMap.containsKey(pageField)) {
-                    bodyMap.put(pageField, pageValue);
-                }
+            if (jsonBody.contains(placeholder)) {
+                jsonBody = jsonBody.replace(placeholder, pageValueStr);
             }
+
+            String unquotedPlaceholder = "${" + pageField + "}";
+            if (jsonBody.contains(unquotedPlaceholder)) {
+                jsonBody = jsonBody.replace(unquotedPlaceholder, pageValue.toString());
+            }
+
+            Map<String, Object> updatedMap =
+                    JsonUtils.parseObject(jsonBody, new TypeReference<Map<String, Object>>() {});
+            bodyMap.clear();
+            if (updatedMap != null) {
+                bodyMap.putAll(updatedMap);
+            }
+
         } else {
-            // Key-based replacement mode
-            // Check top level keys
             if (bodyMap.containsKey(pageField)) {
-                // Direct key match at top level
                 bodyMap.put(pageField, pageValue);
             }
-
-            // Recursively check nested maps for the key
             for (Map.Entry<String, Object> entry : bodyMap.entrySet()) {
                 Object value = entry.getValue();
                 if (value instanceof Map) {
-                    // Recursively process nested maps
                     @SuppressWarnings("unchecked")
                     Map<String, Object> nestedMap = (Map<String, Object>) value;
                     processBodyPageMap(nestedMap, pageField, pageValue, false);
