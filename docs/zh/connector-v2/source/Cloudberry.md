@@ -14,11 +14,11 @@ import ChangeLog from '../changelog/connector-cloudberry.md';
 
 ### 适用于 Spark/Flink 引擎
 
-> 1. 您需要确保[jdbc驱动程序jar包](https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc)已放置在目录`${SEATUNNEL_HOME}/plugins/`中。
+> 1. 您需要确保[jdbc驱动程序jar包](https://mvnrepository.com/artifact/org.postgresql/postgresql)已放置在目录`${SEATUNNEL_HOME}/plugins/`中。
 
 ### 适用于 SeaTunnel Zeta 引擎
 
-> 1. 您需要确保[jdbc驱动程序jar包](https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc)已放置在目录`${SEATUNNEL_HOME}/lib/`中。
+> 1. 您需要确保[jdbc驱动程序jar包](https://mvnrepository.com/artifact/org.postgresql/postgresql)已放置在目录`${SEATUNNEL_HOME}/lib/`中。
 
 ## 关键特性
 
