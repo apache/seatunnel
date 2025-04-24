@@ -17,13 +17,14 @@
 
 package org.apache.seatunnel.connectors.cdc.base.relational.connection;
 
+import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariDataSource;
+
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.zaxxer.hikari.HikariDataSource;
 import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.jdbc.JdbcConnection;
 

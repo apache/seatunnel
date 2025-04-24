@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-kudu.md';
+
 # Kudu
 
 > Kudu source connector
@@ -62,7 +64,7 @@ The tested kudu version is 1.11.1.
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > The following example is for a Kudu table named "kudu_source_table", The goal is to print the data from this table on the console and write kudu table "kudu_sink_table"
 
@@ -143,11 +145,5 @@ sink {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Kudu Source Connector
-
-### Next Version
-
-- Change plugin name from `KuduSource` to `Kudu` [3432](https://github.com/apache/seatunnel/pull/3432)
+<ChangeLog />
 

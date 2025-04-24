@@ -23,6 +23,7 @@ import org.apache.rocketmq.common.message.MessageQueue;
 
 /** define rocketmq source split */
 public class RocketMqSourceSplit implements SourceSplit {
+    private static final long serialVersionUID = -8036209560700452001L;
     private MessageQueue messageQueue;
     private long startOffset = -1L;
     private long endOffset = -1L;

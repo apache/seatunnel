@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-slack.md';
+
 # Slack
 
 > Slack sink connector
@@ -34,7 +36,7 @@ All data types are mapped to string.
 
 ## Task Example
 
-### Simple:
+### Simple
 
 ```hocon
 sink {
@@ -48,7 +50,4 @@ sink {
 
 ## Changelog
 
-### new version
-
-- Add Slack Sink Connector
-
+<ChangeLog />

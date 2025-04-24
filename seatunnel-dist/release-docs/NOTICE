@@ -823,4 +823,9 @@ Ocelli project by Netflix Inc. (https://github.com/Netflix/ocelli/).
 
 =========================================================================
 
-
+ +===============================================================================
+ + Third-party dependencies for Aerospike connector:
+ +===============================================================================
+ + com.aerospike:aerospike-client (https://github.com/aerospike/aerospike-client-java)
+ + Copyright 2012-2023 Aerospike, Inc.
+ + Licensed under the Apache License, Version 2.0

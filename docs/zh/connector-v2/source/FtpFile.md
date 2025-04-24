@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-ftp.md';
+
 # FtpFile
 
 > Ftp 文件 Source 连接器
@@ -37,32 +39,33 @@
 
 ## 配置项
 
-| 名称                      | 类型    | 是否必填 | 默认值              |
-|---------------------------|---------|----------|---------------------|
-| host                      | string  | 是       | -                   |
-| port                      | int     | 是       | -                   |
-| user                      | string  | 是       | -                   |
-| password                  | string  | 是       | -                   |
-| path                      | string  | 是       | -                   |
-| file_format_type          | string  | 是       | -                   |
-| connection_mode           | string  | 否       | active_local        |
-| delimiter/field_delimiter | string  | 否       | \001                |
-| read_columns              | list    | 否       | -                   |
-| parse_partition_from_path | boolean | 否       | true                |
-| date_format               | string  | 否       | yyyy-MM-dd          |
-| datetime_format           | string  | 否       | yyyy-MM-dd HH:mm:ss |
-| time_format               | string  | 否       | HH:mm:ss            |
-| skip_header_row_number    | long    | 否       | 0                   |
-| schema                    | config  | 否       | -                   |
-| sheet_name                | string  | 否       | -                   |
-| xml_row_tag               | string  | 否       | -                   |
-| xml_use_attr_format       | boolean | 否       | -                   |
-| file_filter_pattern       | string  | 否       | -                   |
-| compress_codec            | string  | 否       | none                |
-| archive_compress_codec    | string  | 否       | none                |
-| encoding                  | string  | 否       | UTF-8               |
-| null_format               | string  | 否       | -                   |
-| common-options            |         | 否       | -                   |
+| 名称                      | 类型    | 是否必填  | 默认值              |
+|---------------------------|---------|-------|---------------------|
+| host                      | string  | 是     | -                   |
+| port                      | int     | 是     | -                   |
+| user                      | string  | 是     | -                   |
+| password                  | string  | 是     | -                   |
+| path                      | string  | 是     | -                   |
+| file_format_type          | string  | 是     | -                   |
+| connection_mode           | string  | 否     | active_local        |
+| delimiter/field_delimiter | string  | 否     | \001                |
+| read_columns              | list    | 否     | -                   |
+| parse_partition_from_path | boolean | 否     | true                |
+| date_format               | string  | 否     | yyyy-MM-dd          |
+| datetime_format           | string  | 否     | yyyy-MM-dd HH:mm:ss |
+| time_format               | string  | 否     | HH:mm:ss            |
+| skip_header_row_number    | long    | 否     | 0                   |
+| schema                    | config  | 否     | -                   |
+| sheet_name                | string  | 否     | -                   |
+| xml_row_tag               | string  | 否     | -                   |
+| xml_use_attr_format       | boolean | 否     | -                   |
+| csv_use_header_line       | boolean | 否     | false               |
+| file_filter_pattern       | string  | 否     | -                   |
+| compress_codec            | string  | 否     | none                |
+| archive_compress_codec    | string  | 否     | none                |
+| encoding                  | string  | 否     | UTF-8               |
+| null_format               | string  | 否     | -                   |
+| common-options            |         | 否     | -                   |
 
 ### host [string]
 
@@ -311,6 +314,11 @@ SeaTunnel 将从源文件中跳过前 2 行。
 
 指定是否使用标签属性格式处理数据。
 
+### csv_use_header_line [boolean]
+
+仅在文件格式为 csv 时可以选择配置。
+是否使用标题行来解析文件, 标题行 与 RFC 4180 匹配        
+
 ### compress_codec [string]
 
 文件的压缩编解码器，支持的详细信息如下：
@@ -492,14 +500,6 @@ sink {
 }
 ```
 
-## 更新日志
+## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 新增 Ftp Source 连接器
-
-### 2.3.0-beta 2022-10-20
-
-- [Bug修复] 修复 Windows 环境下路径错误的 bug ([2980](https://github.com/apache/seatunnel/pull/2980))
-- [改进] 支持从 SeaTunnelRow 字段中提取分区 ([3085](https://github.com/apache/seatunnel/pull/3085))
-- [改进] 支持从文件路径中解析字段 ([2985](https://github.com/apache/seatunnel/pull/2985))
+<ChangeLog />

@@ -29,6 +29,7 @@ import java.io.Serializable;
 @ToString
 @EqualsAndHashCode
 public class DorisCommitInfo implements Serializable {
+    private static final long serialVersionUID = -3581686409786064970L;
     private final String hostPort;
     private final String db;
     private final long txbID;

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-kafka.md';
+
 # Kafka
 
 > Kafka sink connector
@@ -97,7 +99,7 @@ This function by `MessageContentPartitioner` class implements `org.apache.kafka.
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to Kafka Sink. FakeSource generates a total of 16 rows of data (row.num=16), with each row having two fields, name (string type) and age (int type). The final target topic is test_topic will also be 16 rows of data in the topic. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../start-v2/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../start-v2/locally/quick-start-seatunnel-engine.md) to run this job.
 
@@ -196,6 +198,8 @@ sink {
 
 ### Kerberos Authentication Example
 
+Please set JVM parameters `java.security.krb5.conf` before starting the SeaTunnel or update default `krb5.conf` in `/etc/krb5.conf`.
+
 Sink Config
 
 ```
@@ -209,7 +213,6 @@ sink {
             security.protocol=SASL_PLAINTEXT
             sasl.kerberos.service.name=kafka
             sasl.mechanism=GSSAPI
-            java.security.krb5.conf="/etc/krb5.conf"
             sasl.jaas.config="com.sun.security.auth.module.Krb5LoginModule required \n        useKeyTab=true \n        storeKey=true  \n        keyTab=\"/path/to/xxx.keytab\" \n        principal=\"user@xxx.com\";"
         }
     }
@@ -300,3 +303,7 @@ The input parameter requirements are as follows:
 }
 ```
 Note：key/value is of type byte[].
+
+## Changelog
+
+<ChangeLog />

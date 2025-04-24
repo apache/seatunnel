@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # MySQL
 
 > JDBC Mysql Source Connector
@@ -157,7 +159,7 @@ How many splits do we need to split into, only support positive integer. default
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > This example queries type_bin 'table' 16 data in your test "database" in single parallel and queries all of its fields. You can also specify which fields to query for final output to the console.
 
@@ -244,7 +246,7 @@ sink {
 }
 ```
 
-### Parallel Boundary:
+### Parallel Boundary
 
 > It is more efficient to specify the data within the upper and lower bounds of the query It is more efficient to read your data source according to the upper and lower boundaries you configured
 
@@ -271,7 +273,7 @@ source {
 }
 ```
 
-### Multiple table read:
+### Multiple table read
 
 ***Configuring `table_list` will turn on auto split, you can configure `split.*` to adjust the split strategy***
 
@@ -312,3 +314,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-selectdb-cloud.md';
+
 # SelectDB Cloud
 
 > SelectDB Cloud sink connector
@@ -77,7 +79,7 @@ The supported formats include CSV and JSON
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > The following example describes writing multiple data types to SelectDBCloud, and users need to create corresponding tables downstream
 
@@ -171,3 +173,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

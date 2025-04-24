@@ -17,20 +17,20 @@
 
 package org.apache.seatunnel.connectors.seatunnel.persistiq.source.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
 import java.util.HashMap;
 
 public class PersistiqSourceParameter extends HttpParameter {
-    public void buildWithConfig(Config pluginConfig) {
+
+    public static final String X_API_KEY = "x-api-key";
+
+    public void buildWithConfig(ReadonlyConfig pluginConfig) {
         super.buildWithConfig(pluginConfig);
         // put authorization in headers
         this.headers = this.getHeaders() == null ? new HashMap<>() : this.getHeaders();
-        this.headers.put(
-                PersistiqSourceConfig.X_API_KEY,
-                pluginConfig.getString(PersistiqSourceConfig.PASSWORD.key()));
+        this.headers.put(X_API_KEY, pluginConfig.get(PersistiqSourceOptions.PASSWORD));
         this.setHeaders(this.headers);
     }
 }

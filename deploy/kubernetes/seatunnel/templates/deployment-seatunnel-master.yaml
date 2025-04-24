@@ -65,7 +65,11 @@ spec:
               name: "hazelcast-port"
             - containerPort: 8080
               name: "master-port"
+          {{- if .Values.master.command }}
+          command: {{ .Values.master.command }}
+          {{- else }}
           command: ["/bin/sh","-c","/opt/seatunnel/bin/seatunnel-cluster.sh -r master"]
+          {{- end }}
           {{- if .Values.master.resources }}
           resources:
             {{- toYaml .Values.master.resources | nindent 12 }}
@@ -74,19 +78,17 @@ spec:
           livenessProbe:
             {{- toYaml .Values.master.livenessProbe | nindent 12 }}
           {{- end }}
+          {{- if .Values.env }}
+          env:
+            {{- toYaml .Values.env | nindent 12 }}
+          {{- end }}
           volumeMounts:
-           - mountPath: "/opt/seatunnel/config/hazelcast-master.yaml"
-             name: seatunnel-configs
-             subPath: hazelcast-master.yaml
-           - mountPath: "/opt/seatunnel/config/hazelcast-client.yaml"
-             name: seatunnel-configs
-             subPath: hazelcast-client.yaml
-           - mountPath: "/opt/seatunnel/config/seatunnel.yaml"
-             name: seatunnel-configs
-             subPath: seatunnel.yaml
-           - mountPath: "/opt/seatunnel/config/log4j2.properties"
-             name: seatunnel-configs
-             subPath: log4j2.properties
+            # config mount
+            {{- range $path, $_ := .Files.Glob "conf/*" }}
+            - name: seatunnel-configs
+              mountPath: /opt/seatunnel/config/{{ base $path }}
+              subPath: {{ base $path }}
+            {{- end }}
       volumes:
         - name: seatunnel-configs
           configMap:

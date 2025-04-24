@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-doris.md';
+
 # Doris
 
 > Doris sink connector
@@ -174,7 +176,7 @@ Otherwise, if you enable the 2pc by the property `sink.enable-2pc=true`.The `sin
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > The following example describes writing multiple data types to Doris, and users need to create corresponding tables downstream
 
@@ -232,7 +234,7 @@ sink {
 }
 ```
 
-### CDC(Change Data Capture) Event:
+### CDC(Change Data Capture) Event
 
 > This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to Doris Sink,FakeSource simulates CDC data with schema, score (int type),Doris needs to create a table sink named test.e2e_table_sink and a corresponding table for it.
 
@@ -438,18 +440,4 @@ sink {
 
 ## Changelog
 
-### 2.3.0-beta 2022-10-20
-
-- Add Doris Sink Connector
-
-### Next version
-
-- [Improve] Change Doris Config Prefix [3856](https://github.com/apache/seatunnel/pull/3856)
-
-- [Improve] Refactor some Doris Sink code as well as support 2pc and cdc [4235](https://github.com/apache/seatunnel/pull/4235)
-
-:::tip
-
-PR 4235 is an incompatible modification to PR 3856. Please refer to PR 4235 to use the new Doris connector
-
-:::
+<ChangeLog />

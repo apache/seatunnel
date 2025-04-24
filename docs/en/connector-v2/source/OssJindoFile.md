@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-oss-jindo.md';
+
 # OssJindoFile
 
 > OssJindo file source connector
@@ -68,6 +70,7 @@ It only supports hadoop version **2.9.X+**.
 | sheet_name                | string  | no       | -                   |
 | xml_row_tag               | string  | no       | -                   |
 | xml_use_attr_format       | boolean | no       | -                   |
+| csv_use_header_line       | boolean | no       | false               |
 | file_filter_pattern       | string  | no       |                     |
 | compress_codec            | string  | no       | none                |
 | archive_compress_codec    | string  | no       | none                |
@@ -457,7 +460,4 @@ sink {
 
 ## Changelog
 
-### next version
-
-- Add OSS Jindo File Source Connector
-
+<ChangeLog />

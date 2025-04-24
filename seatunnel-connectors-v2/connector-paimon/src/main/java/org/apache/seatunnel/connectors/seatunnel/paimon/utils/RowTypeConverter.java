@@ -26,7 +26,7 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
-import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonBaseOptions;
 
 import org.apache.paimon.schema.TableSchema;
 import org.apache.paimon.types.ArrayType;
@@ -178,15 +178,14 @@ public class RowTypeConverter {
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                 LocalZonedTimestampType localZonedTimestampType =
                         (LocalZonedTimestampType) dataType;
-                seaTunnelDataType =
-                        paimonToSeaTunnelTypeVisitor.visit((LocalZonedTimestampType) dataType);
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit(localZonedTimestampType);
                 physicalColumnBuilder.scale(localZonedTimestampType.getPrecision());
                 break;
             case ARRAY:
                 seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((ArrayType) dataType);
                 if (seaTunnelDataType == null) {
                     throw CommonError.unsupportedArrayGenericType(
-                            PaimonConfig.CONNECTOR_IDENTITY,
+                            PaimonBaseOptions.CONNECTOR_IDENTITY,
                             dataType.getTypeRoot().toString(),
                             typeDefine.getName());
                 }
@@ -199,7 +198,7 @@ public class RowTypeConverter {
                 break;
             default:
                 throw CommonError.unsupportedDataType(
-                        PaimonConfig.CONNECTOR_IDENTITY,
+                        PaimonBaseOptions.CONNECTOR_IDENTITY,
                         dataType.asSQLString(),
                         typeDefine.getName());
         }
@@ -227,6 +226,10 @@ public class RowTypeConverter {
                     || typeRoot.equals(DataTypeRoot.TIMESTAMP_WITH_LOCAL_TIME_ZONE)) {
                 DataField dataField = SchemaUtil.getDataField(fields, fieldName);
                 dataType = new TimestampType(((TimestampType) dataField.type()).getPrecision());
+            }
+            if (typeRoot.equals(DataTypeRoot.TIME_WITHOUT_TIME_ZONE)) {
+                DataField dataField = SchemaUtil.getDataField(fields, fieldName);
+                dataType = new TimeType(((TimeType) dataField.type()).getPrecision());
             }
             DataField dataField = new DataField(i, fieldName, dataType);
             dataFields[i] = dataField;
@@ -281,7 +284,7 @@ public class RowTypeConverter {
                     int timestampScale =
                             Objects.isNull(scale) ? TimestampType.DEFAULT_PRECISION : scale;
                     TimestampType timestampType = DataTypes.TIMESTAMP(timestampScale);
-                    builder.nativeType(timestampType);
+                    builder.nativeType(timestampType.copy(column.isNullable()));
                     builder.dataType(timestampType.getTypeRoot().name());
                     builder.columnType(timestampType.toString());
                     builder.scale(timestampScale);
@@ -290,7 +293,7 @@ public class RowTypeConverter {
                 case TIME:
                     int timeScale = Objects.isNull(scale) ? TimeType.DEFAULT_PRECISION : scale;
                     TimeType timeType = DataTypes.TIME(timeScale);
-                    builder.nativeType(timeType);
+                    builder.nativeType(timeType.copy(column.isNullable()));
                     builder.columnType(timeType.toString());
                     builder.dataType(timeType.getTypeRoot().name());
                     builder.scale(timeScale);
@@ -353,7 +356,7 @@ public class RowTypeConverter {
                     }
 
                     DecimalType paimonDecimalType = DataTypes.DECIMAL(precision, scale);
-                    builder.nativeType(paimonDecimalType);
+                    builder.nativeType(paimonDecimalType.copy(column.isNullable()));
                     builder.columnType(paimonDecimalType.toString());
                     builder.dataType(paimonDecimalType.getTypeRoot().name());
                     builder.scale(scale);
@@ -361,7 +364,7 @@ public class RowTypeConverter {
                     builder.length(column.getColumnLength());
                     return builder.build();
                 default:
-                    builder.nativeType(visit(column.getName(), dataType));
+                    builder.nativeType(visit(column.getName(), dataType).copy(column.isNullable()));
                     builder.columnType(dataType.toString());
                     builder.length(column.getColumnLength());
                     builder.dataType(dataType.getSqlType().name());
@@ -428,7 +431,7 @@ public class RowTypeConverter {
                     return DataTypes.ROW(dataTypes);
                 default:
                     throw CommonError.unsupportedDataType(
-                            PaimonConfig.CONNECTOR_IDENTITY,
+                            PaimonBaseOptions.CONNECTOR_IDENTITY,
                             dataType.getSqlType().toString(),
                             fieldName);
             }
@@ -518,6 +521,11 @@ public class RowTypeConverter {
         }
 
         @Override
+        public SeaTunnelDataType<?> visit(TimeType timeType) {
+            return LocalTimeType.LOCAL_TIME_TYPE;
+        }
+
+        @Override
         public SeaTunnelDataType<?> visit(LocalZonedTimestampType localZonedTimestampType) {
             return LocalTimeType.LOCAL_DATE_TIME_TYPE;
         }
@@ -568,7 +576,9 @@ public class RowTypeConverter {
         @Override
         protected SeaTunnelDataType defaultMethod(DataType dataType) {
             throw CommonError.unsupportedDataType(
-                    PaimonConfig.CONNECTOR_IDENTITY, dataType.getTypeRoot().name(), UNKNOWN_FIELD);
+                    PaimonBaseOptions.CONNECTOR_IDENTITY,
+                    dataType.getTypeRoot().name(),
+                    UNKNOWN_FIELD);
         }
     }
 }

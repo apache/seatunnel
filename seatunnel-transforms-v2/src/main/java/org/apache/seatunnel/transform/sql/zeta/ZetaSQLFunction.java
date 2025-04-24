@@ -193,6 +193,8 @@ public class ZetaSQLFunction {
 
     public static final String UUID = "UUID";
 
+    public static final String TRY_CAST = "TRY_CAST";
+
     private final SeaTunnelRowType inputRowType;
 
     private final ZetaSQLType zetaSQLType;
@@ -267,6 +269,11 @@ public class ZetaSQLFunction {
                     && columnName.endsWith(ZetaSQLEngine.ESCAPE_IDENTIFIER)) {
                 columnName = columnName.substring(1, columnName.length() - 1);
                 index = inputRowType.indexOf(columnName, false);
+            }
+            if (index == -1
+                    && ("true".equalsIgnoreCase(columnName)
+                            || "false".equalsIgnoreCase(columnName))) {
+                return Boolean.parseBoolean(columnName);
             }
 
             if (index != -1) {
@@ -349,6 +356,9 @@ public class ZetaSQLFunction {
             CastExpression castExpression = (CastExpression) expression;
             Expression leftExpr = castExpression.getLeftExpression();
             Object leftValue = computeForValue(leftExpr, inputFields);
+            if (castExpression.keyword.equalsIgnoreCase(TRY_CAST)) {
+                return executeTryCastExpr(castExpression, leftValue);
+            }
             return executeCastExpr(castExpression, leftValue);
         }
         throw new TransformException(
@@ -602,6 +612,14 @@ public class ZetaSQLFunction {
             args.add(Integer.parseInt(ps.get(1)));
         }
         return SystemFunction.castAs(args);
+    }
+
+    private Object executeTryCastExpr(CastExpression castExpression, Object arg) {
+        try {
+            return this.executeCastExpr(castExpression, arg);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private Object executeBinaryExpr(BinaryExpression binaryExpression, Object[] inputFields) {

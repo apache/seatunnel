@@ -29,6 +29,7 @@ import java.io.Serializable;
 @ToString
 @EqualsAndHashCode
 public class DorisSinkState implements Serializable {
+    private static final long serialVersionUID = 8154853734116737277L;
     private final String labelPrefix;
     private final long checkpointId;
 

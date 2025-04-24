@@ -32,7 +32,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
@@ -77,7 +77,7 @@ public class XmlReadStrategy extends AbstractReadStrategy {
     private DateUtils.Formatter dateFormat;
     private DateTimeUtils.Formatter datetimeFormat;
     private TimeUtils.Formatter timeFormat;
-    private String encoding = BaseSourceConfigOptions.ENCODING.defaultValue();
+    private String encoding = FileBaseSourceOptions.ENCODING.defaultValue();
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -265,8 +265,8 @@ public class XmlReadStrategy extends AbstractReadStrategy {
     /** Performs pre-checks and initialization of the configuration for reading XML files. */
     private void preCheckAndInitializeConfiguration() {
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
-        this.tableRowName = readonlyConfig.get(BaseSourceConfigOptions.XML_ROW_TAG);
-        this.useAttrFormat = readonlyConfig.get(BaseSourceConfigOptions.XML_USE_ATTR_FORMAT);
+        this.tableRowName = readonlyConfig.get(FileBaseSourceOptions.XML_ROW_TAG);
+        this.useAttrFormat = readonlyConfig.get(FileBaseSourceOptions.XML_USE_ATTR_FORMAT);
 
         // Check mandatory configurations
         if (StringUtils.isEmpty(tableRowName) || useAttrFormat == null) {
@@ -274,24 +274,24 @@ public class XmlReadStrategy extends AbstractReadStrategy {
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format(
                             "Mandatory configurations '%s' and '%s' must be specified when reading XML files.",
-                            BaseSourceConfigOptions.XML_ROW_TAG.key(),
-                            BaseSourceConfigOptions.XML_USE_ATTR_FORMAT.key()));
+                            FileBaseSourceOptions.XML_ROW_TAG.key(),
+                            FileBaseSourceOptions.XML_USE_ATTR_FORMAT.key()));
         }
 
-        this.delimiter = readonlyConfig.get(BaseSourceConfigOptions.FIELD_DELIMITER);
+        this.delimiter = readonlyConfig.get(FileBaseSourceOptions.FIELD_DELIMITER);
 
         this.dateFormat =
                 getComplexDateConfigValue(
-                        BaseSourceConfigOptions.DATE_FORMAT, DateUtils.Formatter::parse);
+                        FileBaseSourceOptions.DATE_FORMAT, DateUtils.Formatter::parse);
         this.timeFormat =
                 getComplexDateConfigValue(
-                        BaseSourceConfigOptions.TIME_FORMAT, TimeUtils.Formatter::parse);
+                        FileBaseSourceOptions.TIME_FORMAT, TimeUtils.Formatter::parse);
         this.datetimeFormat =
                 getComplexDateConfigValue(
-                        BaseSourceConfigOptions.DATETIME_FORMAT, DateTimeUtils.Formatter::parse);
+                        FileBaseSourceOptions.DATETIME_FORMAT, DateTimeUtils.Formatter::parse);
         this.encoding =
                 ReadonlyConfig.fromConfig(pluginConfig)
-                        .getOptional(BaseSourceConfigOptions.ENCODING)
+                        .getOptional(FileBaseSourceOptions.ENCODING)
                         .orElse(StandardCharsets.UTF_8.name());
     }
 

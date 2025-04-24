@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # Redshift
 
 > JDBC Redshift 接收器连接器
@@ -57,7 +59,7 @@
 
 ## 任务示例
 
-### 简单示例:
+### 简单示例
 
 ```
 sink {
@@ -96,3 +98,6 @@ sink {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />

@@ -26,6 +26,7 @@ import lombok.Data;
 @AllArgsConstructor
 public class FakeSourceSplit implements SourceSplit {
 
+    private static final long serialVersionUID = -3321891887156360959L;
     private String tableId;
 
     private int splitId;

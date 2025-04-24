@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-qdrant.md';
+
 # Qdrant
 
 > Qdrant Sink Connector
@@ -68,3 +70,7 @@ Whether to use TLS(SSL) connection. Required if using Qdrant cloud(https).
 ### common options
 
 Sink plugin common parameters, please refer to [Source Common Options](../sink-common-options.md) for details.
+
+## Changelog
+
+<ChangeLog />

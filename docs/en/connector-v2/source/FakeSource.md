@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-fake.md';
+
 # FakeSource
 
 > FakeSource connector
@@ -70,7 +72,7 @@ just for some test cases such as type conversion or connector new feature testin
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > This example Randomly generates data of a specified type. If you want to learn how to declare field types, click [here](../../concept/schema-feature.md#how-to-declare-type-supported).
 
@@ -147,7 +149,7 @@ source {
 }
 ```
 
-### Customize the data content Simple:
+### Customize the data content Simple
 
 > This is a self-defining data source information, defining whether each piece of data is an add or delete modification operation, and defining what each field stores
 
@@ -197,7 +199,7 @@ source {
 
 > Due to the constraints of the [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md) specification, users cannot directly create byte sequence objects. FakeSource uses strings to assign `bytes` type values. In the example above, the `bytes` type field is assigned `"bWlJWmo="`, which is encoded from "miIZj" with **base64**. Hence, when assigning values to `bytes` type fields, please use strings encoded with **base64**.
 
-### Specified Data number Simple:
+### Specified Data number Simple
 
 > This case specifies the number of data generated and the length of the generated value
 
@@ -247,7 +249,7 @@ FakeSource {
 }
 ```
 
-### Template data Simple:
+### Template data Simple
 
 > Randomly generated according to the specified template
 
@@ -284,7 +286,7 @@ FakeSource {
 }
 ```
 
-### Range data Simple:
+### Range data Simple
 
 > The specified data generation range is randomly generated
 
@@ -525,23 +527,4 @@ source {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add FakeSource Source Connector
-
-### 2.3.0-beta 2022-10-20
-
-- [Improve] Supports direct definition of data values(row) ([2839](https://github.com/apache/seatunnel/pull/2839))
-- [Improve] Improve fake source connector: ([2944](https://github.com/apache/seatunnel/pull/2944))
-  - Support user-defined map size
-  - Support user-defined array size
-  - Support user-defined string length
-  - Support user-defined bytes length
-- [Improve] Support multiple splits for fake source connector ([2974](https://github.com/apache/seatunnel/pull/2974))
-- [Improve] Supports setting the number of splits per parallelism and the reading interval between two splits ([3098](https://github.com/apache/seatunnel/pull/3098))
-
-### next version
-
-- [Feature] Support config fake data rows [3865](https://github.com/apache/seatunnel/pull/3865)
-- [Feature] Support config template or range for fake data [3932](https://github.com/apache/seatunnel/pull/3932)
-
+<ChangeLog />

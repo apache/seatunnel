@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # PostgreSql
 
 > JDBC PostgreSql 数据接收器
@@ -104,8 +106,8 @@
 表参数可以填写一个不想的表的名称，最终将作为创建表的表名，并支持变量（`${table_name}`，`${schema_name}`）。替换规则：`${schema_name}` 将替换为传递给目标端的 SCHEMA 名称，`${table_name}` 将替换为传递给目标端的表名称。
 
 例如：
-1. `${schema_name}.${table_name} _test`
-2. `dbo.tt_${table_name} _sink`
+1. `${schema_name}.${table_name}_test`
+2. `dbo.tt_${table_name}_sink`
 3. `public.sink_table`
 
 ### schema_save_mode [枚举]
@@ -135,7 +137,7 @@
 
 ## 任务示例
 
-### 简单示例：
+### 简单示例
 
 > 此示例定义了一个 SeaTunnel 同步任务，通过 FakeSource 自动生成数据并将其发送到 JDBC Sink。FakeSource 生成总共 16 行数据（`row.num=16`），每行有两个字段，`name`（字符串类型）和 `age`（整数类型）。最终目标表 `test_table` 也将包含 16 行数据。在运行此作业之前，您需要在 PostgreSQL 中创建数据库 `test` 和表 `test_table`。如果您还未安装和部署 SeaTunnel，请按照 [安装 SeaTunnel](../../start-v2/locally/deployment.md) 中的说明进行安装和部署。然后按照 [快速开始 SeaTunnel 引擎](../../start-v2/locally/quick-start-seatunnel-engine.md) 中的说明运行此作业。
 
@@ -164,7 +166,7 @@ source {
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/category/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transform-v2
 }
 
 sink {
@@ -202,7 +204,7 @@ sink {
 }
 ```
 
-### 精确一次：
+### 精确一次
 
 > 对于精确写入场景，我们保证精确一次。
 
@@ -268,3 +270,6 @@ sink {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />

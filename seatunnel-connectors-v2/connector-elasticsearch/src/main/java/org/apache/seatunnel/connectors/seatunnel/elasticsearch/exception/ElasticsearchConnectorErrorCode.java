@@ -34,8 +34,12 @@ public enum ElasticsearchConnectorErrorCode implements SeaTunnelErrorCode {
     SOURCE_CONFIG_ERROR_01(
             "ELASTICSEARCH-11",
             "'index' or 'index_list' must be configured, with at least one being required."),
-    ADD_FIELD_FAILED("ELASTICSEARCH-12", "Field add failed"),
-    SCHEMA_CHANGE_FAILED("ELASTICSEARCH-13", "Schema change failed"),
+    SOURCE_CONFIG_ERROR_02("ELASTICSEARCH-12", "'query' must be configured."),
+    ADD_FIELD_FAILED("ELASTICSEARCH-13", "Field add failed"),
+    SCHEMA_CHANGE_FAILED("ELASTICSEARCH-14", "Schema change failed"),
+    CREATE_PIT_FAILED("ELASTICSEARCH-15", "Create Point-in-Time failed"),
+    DELETE_PIT_FAILED("ELASTICSEARCH-16", "Delete Point-in-Time failed"),
+    SEARCH_WITH_PIT_FAILED("ELASTICSEARCH-17", "Search with Point-in-Time failed"),
     ;
 
     private final String code;

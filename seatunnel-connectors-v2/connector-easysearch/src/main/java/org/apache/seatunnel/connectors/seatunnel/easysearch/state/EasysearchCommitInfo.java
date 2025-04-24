@@ -27,6 +27,7 @@ import java.util.Properties;
 @AllArgsConstructor
 public class EasysearchCommitInfo implements Serializable {
 
+    private static final long serialVersionUID = 3813827156739086365L;
     private final String transactionId;
     private final Properties kafkaProperties;
     private final long producerId;

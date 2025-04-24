@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-fake.md';
+
 # FakeSource
 
 > FakeSource 连接器
@@ -69,7 +71,7 @@ FakeSource 是一个虚拟数据源，它根据用户定义的 schema 数据结�
 
 ## 任务示例
 
-### 简单示例：
+### 简单示例
 
 > 此示例随机生成指定类型的数据。如果您想了解如何声明字段类型，请点击 [这里](../../concept/schema-feature.md#how-to-declare-type-supported)。
 
@@ -146,7 +148,7 @@ source {
 }
 ```
 
-### 自定义数据内容简单示例：
+### 自定义数据内容简单示例
 
 > 这是一个自定义数据源信息的示例，定义每条数据是添加还是删除修改操作，并定义每个字段存储的内容
 
@@ -196,7 +198,7 @@ source {
 
 > 由于 [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md) 规范的限制，用户无法直接创建字节序列对象。FakeSource 使用字符串来分配 `bytes` 类型的值。在上面的示例中，`bytes` 类型字段被分配了 `"bWlJWmo="`，这是通过 **base64** 编码的 "miIZj"。因此，在为 `bytes` 类型字段赋值时，请使用 **base64** 编码的字符串。
 
-### 指定数据数量简单示例：
+### 指定数据数量简单示例
 
 > 此案例指定生成数据的数量以及生成值的长度
 
@@ -246,7 +248,7 @@ FakeSource {
 }
 ```
 
-### 模板数据简单示例：
+### 模板数据简单示例
 
 > 根据指定模板随机生成
 
@@ -283,7 +285,7 @@ FakeSource {
 }
 ```
 
-### 范围数据简单示例：
+### 范围数据简单示例
 
 > 在指定的数据生成范围内随机生成
 
@@ -518,24 +520,6 @@ source {
 }
 ```
 
-## 更新日志
+## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 新增 FakeSource 源连接器
-
-### 2.3.0-beta 2022-10-20
-
-- [改进] 支持直接定义数据值（row）([2839](https://github.com/apache/seatunnel/pull/2839))
-- [改进] 改进 FakeSource 连接器：([2944](https://github.com/apache/seatunnel/pull/2944))
-  - 支持用户自定义 Map 大小
-  - 支持用户自定义数组大小
-  - 支持用户自定义字符串长度
-  - 支持用户自定义字节长度
-- [改进] 支持 FakeSource 连接器的多分片 ([2974](https://github.com/apache/seatunnel/pull/2974))
-- [改进] 支持设置每个并行度的分片数量以及两个分片之间的读取间隔 ([3098](https://github.com/apache/seatunnel/pull/3098))
-
-### 下一个版本
-
-- [功能] 支持配置假数据行 [3865](https://github.com/apache/seatunnel/pull/3865)
-- [功能] 支持为假数据配置模板或范围 [3932](https://github.com/apache/seatunnel/pull/3932)
+<ChangeLog />

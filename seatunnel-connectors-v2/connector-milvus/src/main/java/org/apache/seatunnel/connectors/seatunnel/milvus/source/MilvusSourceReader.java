@@ -26,7 +26,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectionErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.milvus.utils.source.MilvusSourceConverter;
@@ -59,8 +59,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceConfig.BATCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceConfig.RATE_LIMIT;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceOptions.BATCH_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceOptions.RATE_LIMIT;
 
 @Slf4j
 public class MilvusSourceReader implements SourceReader<SeaTunnelRow, MilvusSourceSplit> {
@@ -88,8 +88,8 @@ public class MilvusSourceReader implements SourceReader<SeaTunnelRow, MilvusSour
         client =
                 new MilvusServiceClient(
                         ConnectParam.newBuilder()
-                                .withUri(config.get(MilvusSourceConfig.URL))
-                                .withToken(config.get(MilvusSourceConfig.TOKEN))
+                                .withUri(config.get(MilvusSourceOptions.URL))
+                                .withToken(config.get(MilvusSourceOptions.TOKEN))
                                 .build());
         setRateLimit(config.get(RATE_LIMIT).toString());
     }
@@ -162,12 +162,16 @@ public class MilvusSourceReader implements SourceReader<SeaTunnelRow, MilvusSour
                     MilvusConnectionErrorCode.SOURCE_TABLE_SCHEMA_IS_NULL);
         }
 
-        R<GetLoadStateResponse> loadStateResponse =
-                client.getLoadState(
-                        GetLoadStateParam.newBuilder()
-                                .withDatabaseName(tablePath.getDatabaseName())
-                                .withCollectionName(tablePath.getTableName())
-                                .build());
+        GetLoadStateParam.Builder loadStateParam =
+                GetLoadStateParam.newBuilder()
+                        .withDatabaseName(tablePath.getDatabaseName())
+                        .withCollectionName(tablePath.getTableName());
+
+        if (StringUtils.isNotEmpty(partitionName)) {
+            loadStateParam.withPartitionNames(Collections.singletonList(partitionName));
+        }
+
+        R<GetLoadStateResponse> loadStateResponse = client.getLoadState(loadStateParam.build());
         if (loadStateResponse.getStatus() != R.Status.Success.getCode()) {
             throw new MilvusConnectorException(
                     MilvusConnectionErrorCode.SERVER_RESPONSE_FAILED,

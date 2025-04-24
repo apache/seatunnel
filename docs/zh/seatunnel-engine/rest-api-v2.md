@@ -1,7 +1,3 @@
----
-sidebar_position: 12
----
-
 # RESTful API V2
 
 SeaTunnel有一个用于监控的API，可用于查询运行作业的状态和统计信息，以及最近完成的作业。监控API是RESTful风格的，它接受HTTP请求并使用JSON数据格式进行响应。
@@ -34,6 +30,10 @@ seatunnel:
       port: 8080
       context-path: /seatunnel
 ```
+
+## 开启 HTTPS
+
+请参考 [security](security.md)
 
 ## API参考
 

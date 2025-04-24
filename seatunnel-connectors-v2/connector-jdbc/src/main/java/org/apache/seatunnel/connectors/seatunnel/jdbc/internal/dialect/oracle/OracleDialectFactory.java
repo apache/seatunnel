@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 
@@ -27,6 +28,11 @@ import javax.annotation.Nonnull;
 /** Factory for {@link OracleDialect}. */
 @AutoService(JdbcDialectFactory.class)
 public class OracleDialectFactory implements JdbcDialectFactory {
+    @Override
+    public String dialectFactoryName() {
+        return DatabaseIdentifier.ORACLE;
+    }
+
     @Override
     public boolean acceptsURL(String url) {
         return url.startsWith("jdbc:oracle:thin:");

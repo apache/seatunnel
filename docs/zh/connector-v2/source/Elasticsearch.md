@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-elasticsearch.md';
+
 # Elasticsearch
 
 > Elasticsearch source 连接器
@@ -17,25 +19,30 @@
 
 ## 配置参数选项
 
-| 参数名称                | 类型    | 是否必须 | 默认值或者描述                                          |
-| ----------------------- | ------- | -------- | ------------------------------------------------------- |
-| hosts                   | 数组    |          | -                                                       |
-| username                | string  | no       | -                                                       |
-| password                | string  | no       | -                                                       |
+| 参数名称                | 类型    | 是否必须 | 默认值或者描述                             |
+| ----------------------- | ------- | -------- |-------------------------------------|
+| hosts                   | 数组    |          | -                                   |
+| username                | string  | no       | -                                   |
+| password                | string  | no       | -                                   |
 | index                   | string  | No       | 单索引同步配置，如果index_list没有配置，则必须配置index |
-| index_list              | array   | no       | 用来定义多索引同步任务                                  |
-| source                  | array   | no       | -                                                       |
-| query                   | json    | no       | {"match_all": {}}                                       |
-| scroll_time             | string  | no       | 1m                                                      |
-| scroll_size             | int     | no       | 100                                                     |
-| tls_verify_certificate  | boolean | no       | true                                                    |
-| tls_verify_hostnames    | boolean | no       | true                                                    |
-| array_column            | map     | no       |                                                         |
-| tls_keystore_path       | string  | no       | -                                                       |
-| tls_keystore_password   | string  | no       | -                                                       |
-| tls_truststore_path     | string  | no       | -                                                       |
-| tls_truststore_password | string  | no       | -                                                       |
-| common-options          |         | no       | -                                                       |
+| index_list              | array   | no       | 用来定义多索引同步任务                         |
+| source                  | array   | no       | -                                   |
+| query                   | json    | no       | {"match_all": {}}                   |
+| search_type             | enum    | no       | 查询类型，SQL 或 DSL，默认 DSL              |
+| search_api_type         | enum    | no       | 分页 API 类型，SCROLL 或 PIT，默认 SCROLL    |
+| sql_query               | json    | no       | SQL 查询语句，当 search_type 为 SQL 时必须    |
+| scroll_time             | string  | no       | 1m                                  |
+| scroll_size             | int     | no       | 100                                 |
+| tls_verify_certificate  | boolean | no       | true                                |
+| tls_verify_hostnames    | boolean | no       | true                                |
+| array_column            | map     | no       |                                     |
+| tls_keystore_path       | string  | no       | -                                   |
+| tls_keystore_password   | string  | no       | -                                   |
+| tls_truststore_path     | string  | no       | -                                   |
+| tls_truststore_password | string  | no       | -                                   |
+| pit_keep_alive          | long    | no       | 60000 (1 minute)                    |
+| pit_batch_size          | int     | no       | 100                                 |
+| common-options          |         | no       | -                                   |
 
 ### hosts [array]
 
@@ -111,6 +118,22 @@ PEM 或 JKS 信任库的路径。该文件必须对运行 SeaTunnel 的操作系
 
 指定信任库的密钥密码。
 
+### search_type
+查询类型，可选值：
+- DSL: 使用 Domain Specific Language 查询（默认）
+- SQL: 使用 SQL 查询
+
+### search_api_type
+分页 API 类型，可选值：
+- SCROLL: 使用 Scroll API 进行分页（默认）
+- PIT: 使用 Point in Time (PIT) API 进行分页
+
+### pit_keep_alive [long]
+PIT 应保持活动的时间量（以毫秒为单位）
+
+### pit_batch_size  [long]
+每次 PIT 搜索请求返回的最大数量
+
 ### common options
 
 Source 插件常用参数，具体请参考 [Source 常用选项](../source-common-options.md)
@@ -176,7 +199,7 @@ source {
            c_date2,
            c_null
            ]
-           
+
        }
 
     ]
@@ -211,7 +234,7 @@ source {
         hosts = ["https://localhost:9200"]
         username = "elastic"
         password = "elasticsearch"
-        
+
         tls_verify_certificate = false
     }
 }
@@ -225,7 +248,7 @@ source {
         hosts = ["https://localhost:9200"]
         username = "elastic"
         password = "elasticsearch"
-        
+
         tls_verify_hostname = false
     }
 }
@@ -239,9 +262,50 @@ source {
         hosts = ["https://localhost:9200"]
         username = "elastic"
         password = "elasticsearch"
-        
+
         tls_keystore_path = "${your elasticsearch home}/config/certs/http.p12"
         tls_keystore_password = "${your password}"
     }
 }
 ```
+
+案例六 : sql 方式查询
+注意: sql查询不支持map和数组类型
+```hocon
+source {
+  Elasticsearch {
+    hosts = ["https://elasticsearch:9200"]
+    username = "elastic"
+    password = "elasticsearch"
+    tls_verify_certificate = false
+    tls_verify_hostname = false
+    index = "st_index_sql"
+    sql_query = "select * from st_index_sql where c_int>=10 and c_int<=20"
+    search_type = "sql"
+  }
+}
+```
+
+Demo7:  PIT方式滚动查询
+```hocon
+source {
+  Elasticsearch {
+    hosts = ["https://elasticsearch:9200"]
+    username = "elastic"
+    password = "elasticsearch"
+    tls_verify_certificate = false
+    tls_verify_hostname = false
+
+    index = "st_index"
+    query = {"range": {"c_int": {"gte": 10, "lte": 20}}}
+
+    # 使用 DSL 查询和 PIT API
+    search_type = DSL
+    search_api_type = PIT
+    pit_keep_alive = 60000  # 1 minute in milliseconds
+    pit_batch_size = 100
+```
+
+## 变更日志
+
+<ChangeLog />

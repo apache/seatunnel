@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-iceberg.md';
+
 # Apache Iceberg
 
 > Apache Iceberg sink connector
@@ -81,7 +83,7 @@ libfb303-xxx.jar
 
 ## Task Example
 
-### Simple:
+### Simple
 
 ```hocon
 env {
@@ -126,7 +128,7 @@ sink {
 }
 ```
 
-### Hive Catalog:
+### Hive Catalog
 
 ```hocon
 sink {
@@ -152,7 +154,7 @@ sink {
 }
 ```
 
-### Hadoop catalog:
+### Hadoop catalog
 
 ```hocon
 sink {
@@ -251,9 +253,4 @@ sink {
 
 ## Changelog
 
-### 2.3.4-SNAPSHOT 2024-01-18
-
-- Add Iceberg Sink Connector
-
-### next version
-
+<ChangeLog />

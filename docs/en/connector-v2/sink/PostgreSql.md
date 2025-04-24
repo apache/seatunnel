@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # PostgreSql
 
 > JDBC PostgreSql Sink Connector
@@ -108,8 +110,8 @@ This option is mutually exclusive with `query` and has a higher priority.
 The table parameter can fill in the name of an unwilling table, which will eventually be used as the table name of the creation table, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the name of the table passed to the table at the target side.
 
 for example:
-1. ${schema_name}.${table_name} _test
-2. dbo.tt_${table_name} _sink
+1. ${schema_name}.${table_name}_test
+2. dbo.tt_${table_name}_sink
 3. public.sink_table
 
 ### schema_save_mode[Enum]
@@ -140,7 +142,7 @@ When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to JDBC Sink. FakeSource generates a total of 16 rows of data (row.num=16), with each row having two fields, name (string type) and age (int type). The final target table is test_table will also be 16 rows of data in the table. Before run this job, you need create database test and table test_table in your PostgreSQL. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../start-v2/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../start-v2/locally/quick-start-seatunnel-engine.md) to run this job.
 
@@ -206,7 +208,7 @@ sink {
 }
 ```
 
-### Exactly-once :
+### Exactly-once
 
 > For accurate write scene we guarantee accurate once
 
@@ -272,3 +274,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-console.md';
+
 # Console
 
 > Console 数据接收器
@@ -32,7 +34,7 @@
 
 ## 任务示例
 
-### 简单示例:
+### 简单示例
 
 > 随机生成的数据,包含两个字段，即 `name`（字符串类型）和 `age`（整型），写入控制台，并行度为 `1`
 
@@ -61,7 +63,7 @@ sink {
 }
 ```
 
-### 多数据源示例：
+### 多数据源示例
 
 > 多数据源示例，通过配置可以指定数据源写入指定接收器
 
@@ -122,3 +124,6 @@ sink {
 2022-12-19 11:01:46,490 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0 rowIndex=10: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT: hBoib, 929089763
 ```
 
+## 变更日志
+
+<ChangeLog />

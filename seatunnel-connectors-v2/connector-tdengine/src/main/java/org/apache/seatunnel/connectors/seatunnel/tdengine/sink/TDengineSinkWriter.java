@@ -17,15 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tdengine.sink;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.google.common.base.Throwables;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorException;
 
 import org.apache.commons.lang3.ArrayUtils;
@@ -49,17 +50,19 @@ import java.util.Objects;
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.utils.TDengineUtil.checkDriverExist;
 
 @Slf4j
-public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
+        implements SupportMultiTableSinkWriter<Void> {
 
     private static final DateTimeFormatter FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
     private final Connection conn;
-    private final TDengineSourceConfig config;
+
+    private final TDengineSinkConfig config;
     private int tagsNum;
 
     @SneakyThrows
-    public TDengineSinkWriter(Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
-        config = TDengineSourceConfig.buildSourceConfig(pluginConfig);
+    public TDengineSinkWriter(TDengineSinkConfig config, SeaTunnelRowType seaTunnelRowType) {
+        this.config = config;
         String jdbcUrl =
                 StringUtils.join(
                         config.getUrl(),
@@ -129,10 +132,14 @@ public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         }
     }
 
-    private Object[] convertDataType(Object[] objects) {
+    @VisibleForTesting
+    Object[] convertDataType(Object[] objects) {
         return Arrays.stream(objects)
                 .map(
                         object -> {
+                            if (object == null) {
+                                return null;
+                            }
                             if (LocalDateTime.class.equals(object.getClass())) {
                                 // transform timezone according to the config
                                 return "'"

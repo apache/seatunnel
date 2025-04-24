@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-hadoop.md';
+
 # Hdfs文件
 
 > Hdfs文件 数据源连接器
@@ -62,6 +64,8 @@
 | sheet_name                | string  | 否    | -              | 读取工作簿的表格，仅在文件格式为 excel 时使用。                                                                                                                                                                                                                 |
 | compress_codec            | string  | 否    | none           | 文件的压缩编解码器。                                                                                                                                                                                                                                  |
 | common-options            |         | 否    | -              | 源插件通用参数，请参阅 [源通用选项](../../../en/connector-v2/source-common-options.md) 获取详细信息。                                                                                                                                                              |
+| csv_use_header_line       | boolean | 否    | false          | 是否使用标题行来解析文件，仅当 file_format 为 `csv` 且文件包含与 RFC 4180 匹配的标题行时使用                                                                                                                                                                                         |
+
 
 ### delimiter/field_delimiter [string]
 
@@ -139,7 +143,7 @@
 
 ## 任务示例
 
-### 简单示例:
+### 简单示例
 
 > 此示例定义了一个 SeaTunnel 同步任务，从 Hdfs 中读取数据并将其发送到 Hdfs。
 
@@ -168,7 +172,7 @@ source {
 
 transform {
   # 如果您想获取有关如何配置 seatunnel 和查看转换插件完整列表的更多信息，
-    # 请访问 https://seatunnel.apache.org/docs/category/transform-v2
+    # 请访问 https://seatunnel.apache.org/docs/transform-v2
 }
 
 sink {
@@ -204,3 +208,7 @@ sink {
   }
 }
 ```
+
+## 变更日志
+
+<ChangeLog />

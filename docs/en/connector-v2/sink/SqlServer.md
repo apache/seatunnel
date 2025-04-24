@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # SQL Server
 
 > JDBC SQL Server Sink Connector
@@ -94,7 +96,7 @@ semantics (using XA transaction guarantee).
 
 ## Task Example
 
-### simple:
+### simple
 
 > This is one that reads Sqlserver data and inserts it directly into another table
 
@@ -180,3 +182,6 @@ Jdbc {
 
 ```
 
+## Changelog
+
+<ChangeLog />

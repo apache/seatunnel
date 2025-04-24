@@ -22,7 +22,7 @@ When the job configuration `plugin_input` you must set the `plugin_output` param
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > This is the process of passing a data source through two transforms and returning two different pipiles to different sinks
 

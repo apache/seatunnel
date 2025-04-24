@@ -42,7 +42,8 @@ public class HighGoCatalogFactory implements CatalogFactory {
                 options.get(JdbcCatalogOptions.USERNAME),
                 options.get(JdbcCatalogOptions.PASSWORD),
                 urlInfo,
-                options.get(JdbcCatalogOptions.SCHEMA));
+                options.get(JdbcCatalogOptions.SCHEMA),
+                options.get(JdbcCatalogOptions.DRIVER));
     }
 
     public String factoryIdentifier() {

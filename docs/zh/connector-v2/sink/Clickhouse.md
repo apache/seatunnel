@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-clickhouse.md';
+
 # Clickhouse
 
 > Clickhouse 数据连接器
@@ -244,3 +246,6 @@ sink {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />

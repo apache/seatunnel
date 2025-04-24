@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-kafka.md';
+
 # Kafka
 
 > Kafka 数据接收器
@@ -97,7 +99,7 @@ assign_partitions = ["shoe", "clothing"]
 
 ## 任务示例
 
-### 简单:
+### 简单
 
 > 此示例展示了如何定义一个 SeaTunnel 同步任务，该任务能够通过 FakeSource 自动产生数据并将其发送到 Kafka Sink。在这个例子中，FakeSource 会生成总共 16 行数据（`row.num=16`），每一行都包含两个字段，即 `name`（字符串类型）和 `age`（整型）。最终，这些数据将被发送到名为 test_topic 的 topic 中，因此该 topic 也将包含 16 行数据。
 > 如果你还未安装和部署 SeaTunnel，你需要参照 [安装SeaTunnel](../../start-v2/locally/deployment.md) 的指南来进行安装和部署。完成安装和部署后，你可以按照 [快速开始使用 SeaTunnel 引擎](../../start-v2/locally/quick-start-seatunnel-engine.md) 的指南来运行任务。
@@ -196,6 +198,31 @@ sink {
 }
 ```
 
+### Kerberos 认证示例
+
+请在启动 SeaTunnel 之前设置 JVM 参数 `java.security.krb5.conf` 或更新 `/etc/krb5.conf` 中的默认 `krb5.conf`。
+
+源配置示例：
+
+```hocon
+source {
+   Kafka {
+      topic = "seatunnel"
+      bootstrap.servers = "localhost:9092"
+      format = json
+      kafka.request.timeout.ms = 60000
+      semantics = EXACTLY_ONCE
+      kafka.config = {
+         security.protocol = SASL_PLAINTEXT
+         sasl.kerberos.service.name = kafka
+         sasl.mechanism = GSSAPI
+         sasl.jaas.config = "com.sun.security.auth.module.Krb5LoginModule required \n        useKeyTab=true \n        storeKey=true  \n        keyTab=\"/path/to/xxx.keytab\" \n        principal=\"user@xxx.com\";"
+      }
+   }
+}
+```
+
+
 ### Protobuf配置
 
 `format` 设置为 `protobuf`，配置`protobuf`数据结构，`protobuf_message_name`和`protobuf_schema`参数
@@ -278,3 +305,7 @@ sink {
 }
 ```
 Note：key/value 需要 byte[]类型.
+
+## 变更日志
+
+<ChangeLog />

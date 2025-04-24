@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-s3.md';
+
 # S3File
 
 > S3 File Source Connector
@@ -97,25 +99,11 @@ connector will generate data as the following:
 
 ### Text Or CSV File Type
 
-If you assign file type to `text` `csv`, you can choose to specify the schema information or not.
+If you set the `file_format_type` to `text`,`excel`,`csv`,`xml`. Then it's required to set the `schema` field to tell connector how to parse data to the row.
 
-For example, upstream data is the following:
+If you set the `schema` field, you should also set the option `field_delimiter`, except the `file_format_type` is `csv`, `xml`, `excel`
 
-```text
-
-tyrantlucifer#26#male
-
-```
-
-If you do not assign data schema connector will treat the upstream data as the following:
-
-|        content        |
-|-----------------------|
-| tyrantlucifer#26#male |
-
-If you assign data schema, you should also assign the option `field_delimiter` too except CSV file type
-
-you should assign schema and delimiter as the following:
+you can set schema and delimiter as the following:
 
 ```hocon
 
@@ -213,10 +201,12 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | datetime_format                 | string  | no       | yyyy-MM-dd HH:mm:ss                                   | Datetime type format, used to tell connector how to convert string to datetime, supported as the following formats:`yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`                                                                                                                                                                                                      |
 | time_format                     | string  | no       | HH:mm:ss                                              | Time type format, used to tell connector how to convert string to time, supported as the following formats:`HH:mm:ss` `HH:mm:ss.SSS`                                                                                                                                                                                                                                                                       |
 | skip_header_row_number          | long    | no       | 0                                                     | Skip the first few lines, but only for the txt and csv. For example, set like following:`skip_header_row_number = 2`. Then SeaTunnel will skip the first 2 lines from source files                                                                                                                                                                                                                         |
+| csv_use_header_line             | boolean | no       | false                                                 | Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180                                                                                                                                                                                         |
 | schema                          | config  | no       | -                                                     | The schema of upstream data.                                                                                                                                                                                                                                                                                                                                                                               |
 | sheet_name                      | string  | no       | -                                                     | Reader the sheet of the workbook,Only used when file_format is excel.                                                                                                                                                                                                                                                                                                                                      |
 | xml_row_tag                     | string  | no       | -                                                     | Specifies the tag name of the data rows within the XML file, only valid for XML files.                                                                                                                                                                                                                                                                                                                     |
 | xml_use_attr_format             | boolean | no       | -                                                     | Specifies whether to process data using the tag attribute format, only valid for XML files.                                                                                                                                                                                                                                                                                                                |
+| csv_use_header_line             | boolean | no       | false                                                 | Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180                                                                                                                                                                                         |
 | compress_codec                  | string  | no       | none                                                  |                                                                                                                                                                                                                                                                                                                                                                                                            |
 | archive_compress_codec          | string  | no       | none                                                  |                                                                                                                                                                                                                                                                                                                                                                                                            |
 | encoding                        | string  | no       | UTF-8                                                 |                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -338,7 +328,7 @@ source {
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/category/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transform-v2
 }
 
 sink {
@@ -400,7 +390,7 @@ source {
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/category/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transform-v2
 }
 
 sink {
@@ -437,15 +427,4 @@ sink {
 
 ## Changelog
 
-### 2.3.0-beta 2022-10-20
-
-- Add S3File Source Connector
-
-### Next version
-
-- [Feature] Support S3A protocol ([3632](https://github.com/apache/seatunnel/pull/3632))
-    - Allow user to add additional hadoop-s3 parameters
-    - Allow the use of the s3a protocol
-    - Decouple hadoop-aws dependencies
-- [Feature]Set S3 AK to optional ([3688](https://github.com/apache/seatunnel/pull/))
-
+<ChangeLog />

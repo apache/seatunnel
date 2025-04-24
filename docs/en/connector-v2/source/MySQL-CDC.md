@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-cdc-mysql.md';
+
 # MySQL CDC
 
 > MySQL CDC source connector
@@ -318,7 +320,10 @@ sink {
 
 ```
 ### Support table-pattern for multi-table reading
+
 > `table-pattern` and `table-names` are mutually exclusive
+
+
 ```hocon
 env {
   # You can set engine configuration here
@@ -346,10 +351,7 @@ sink {
 }
 ```
 
-
 ## Changelog
 
-- Add MySQL CDC Source Connector
-
-### next version
+<ChangeLog />
 

@@ -29,12 +29,15 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.obs.config.ObsConf;
-import org.apache.seatunnel.connectors.seatunnel.file.obs.config.ObsConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.obs.config.ObsFileBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.obs.config.ObsFileSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
 
@@ -54,12 +57,12 @@ public class ObsFileSource extends BaseFileSource {
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
-                        ObsConfig.FILE_PATH.key(),
-                        ObsConfig.FILE_FORMAT_TYPE.key(),
-                        ObsConfig.ENDPOINT.key(),
-                        ObsConfig.ACCESS_KEY.key(),
-                        ObsConfig.ACCESS_SECRET.key(),
-                        ObsConfig.BUCKET.key());
+                        FileBaseOptions.FILE_PATH.key(),
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE.key(),
+                        ObsFileSourceOptions.ENDPOINT.key(),
+                        ObsFileSourceOptions.ACCESS_KEY.key(),
+                        ObsFileSourceOptions.ACCESS_SECRET.key(),
+                        ObsFileSourceOptions.BUCKET.key());
         if (!result.isSuccess()) {
             throw new FileConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -68,11 +71,12 @@ public class ObsFileSource extends BaseFileSource {
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         readStrategy =
-                ReadStrategyFactory.of(pluginConfig.getString(ObsConfig.FILE_FORMAT_TYPE.key()));
+                ReadStrategyFactory.of(
+                        pluginConfig.getString(FileBaseSourceOptions.FILE_FORMAT_TYPE.key()));
         readStrategy.setPluginConfig(pluginConfig);
         hadoopConf = ObsConf.buildWithConfig(pluginConfig);
         readStrategy.init(hadoopConf);
-        String path = pluginConfig.getString(ObsConfig.FILE_PATH.key());
+        String path = pluginConfig.getString(ObsFileBaseOptions.FILE_PATH.key());
         try {
             filePaths = readStrategy.getFileNamesByPath(path);
         } catch (IOException e) {
@@ -83,7 +87,9 @@ public class ObsFileSource extends BaseFileSource {
         // support user-defined schema
         FileFormat fileFormat =
                 FileFormat.valueOf(
-                        pluginConfig.getString(ObsConfig.FILE_FORMAT_TYPE.key()).toUpperCase());
+                        pluginConfig
+                                .getString(FileBaseSourceOptions.FILE_FORMAT_TYPE.key())
+                                .toUpperCase());
         // only json text csv type support user-defined schema now
         if (pluginConfig.hasPath(ConnectorCommonOptions.SCHEMA.key())) {
             switch (fileFormat) {
