@@ -24,7 +24,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import io.debezium.connector.oracle.OracleConnection;
+import io.debezium.jdbc.JdbcConnection;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -33,12 +33,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 public class OracleConnectionUtilsTest {
 
-    @Mock private OracleConnection oracleConnection;
+    @Mock private JdbcConnection jdbcConnection;
     @Mock private ResultSet resultSet;
 
     private static final String SHOW_CON_NAME =
@@ -47,34 +48,45 @@ public class OracleConnectionUtilsTest {
     @Test
     public void testGetCurrentContainerNameSuccess() throws SQLException {
         String expectedContainerName = "CDB$ROOT";
-        when(oracleConnection.queryAndMap(anyString(), any())).thenReturn(expectedContainerName);
+        when(jdbcConnection.queryAndMap(anyString(), any(JdbcConnection.ResultSetMapper.class)))
+                .thenAnswer(
+                        invocation -> {
+                            JdbcConnection.ResultSetMapper<String> mapper =
+                                    invocation.getArgument(1);
+                            ResultSet rs = mock(ResultSet.class);
+                            when(rs.next()).thenReturn(true);
+                            when(rs.getString(1)).thenReturn(expectedContainerName);
+                            return mapper.apply(rs);
+                        });
 
-        String actualContainerName =
-                OracleConnectionUtils.getCurrentContainerName(oracleConnection);
+        String actualContainerName = OracleConnectionUtils.getCurrentContainerName(jdbcConnection);
         assertEquals(expectedContainerName, actualContainerName);
     }
 
     @Test
     public void testGetCurrentContainerNameNoResult() throws SQLException {
-        when(oracleConnection.queryAndMap(anyString(), any()))
-                .thenThrow(
-                        new SeaTunnelException(
-                                "Cannot read the container name via '"
-                                        + SHOW_CON_NAME
-                                        + "'. Make sure your server is correctly configured"));
+        when(jdbcConnection.queryAndMap(anyString(), any(JdbcConnection.ResultSetMapper.class)))
+                .thenAnswer(
+                        invocation -> {
+                            JdbcConnection.ResultSetMapper<String> mapper =
+                                    invocation.getArgument(1);
+                            ResultSet rs = mock(ResultSet.class);
+                            when(rs.next()).thenReturn(false);
+                            return mapper.apply(rs);
+                        });
 
         assertThrows(
                 SeaTunnelException.class,
-                () -> OracleConnectionUtils.getCurrentContainerName(oracleConnection));
+                () -> OracleConnectionUtils.getCurrentContainerName(jdbcConnection));
     }
 
     @Test
     public void testGetCurrentContainerNameSQLException() throws SQLException {
-        when(oracleConnection.queryAndMap(anyString(), any()))
+        when(jdbcConnection.queryAndMap(anyString(), any()))
                 .thenThrow(new SQLException("Database connection error"));
 
         assertThrows(
                 SeaTunnelException.class,
-                () -> OracleConnectionUtils.getCurrentContainerName(oracleConnection));
+                () -> OracleConnectionUtils.getCurrentContainerName(jdbcConnection));
     }
 }
