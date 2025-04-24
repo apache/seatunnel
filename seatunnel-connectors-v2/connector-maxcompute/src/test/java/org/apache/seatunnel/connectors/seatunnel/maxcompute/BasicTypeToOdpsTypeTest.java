@@ -17,23 +17,22 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute;
 
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeMapper;
-
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-
 import com.aliyun.odps.Column;
 import com.aliyun.odps.OdpsType;
 import com.aliyun.odps.TableSchema;
 import com.aliyun.odps.data.ArrayRecord;
 import com.aliyun.odps.data.Record;
 import lombok.SneakyThrows;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeMapper;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
+import java.sql.Timestamp;
 import java.time.LocalDate;
 
 public class BasicTypeToOdpsTypeTest {
@@ -45,9 +44,9 @@ public class BasicTypeToOdpsTypeTest {
             Object object) {
         SeaTunnelRowType typeInfo =
                 new SeaTunnelRowType(
-                        new String[] {fieldName}, new SeaTunnelDataType<?>[] {seaTunnelDataType});
+                        new String[]{fieldName}, new SeaTunnelDataType<?>[]{seaTunnelDataType});
 
-        ArrayRecord record = new ArrayRecord(new Column[] {new Column(fieldName, odpsType)});
+        ArrayRecord record = new ArrayRecord(new Column[]{new Column(fieldName, odpsType)});
         record.set(fieldName, object);
 
         TableSchema tableSchema = new TableSchema();
@@ -110,5 +109,44 @@ public class BasicTypeToOdpsTypeTest {
     @Test
     void testDATE_TYPE_2_DATE() {
         testType("DATE_TYPE_2_DATE", LocalTimeType.LOCAL_DATE_TYPE, OdpsType.DATE, LocalDate.now());
+    }
+
+    @SneakyThrows
+    @Test
+    void testTIME_STAMP_2_STRING() {
+        testTypeWithDifferentInputAndOutput(
+                "event_time",
+                OdpsType.TIMESTAMP,
+                LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                OdpsType.STRING,
+                Timestamp.valueOf("2025-01-01 00:00:00"),
+                "2025-01-01 00:00");
+    }
+
+    private static void testTypeWithDifferentInputAndOutput(
+            String fieldName,
+            OdpsType inputOdpsType,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            OdpsType outputOdpsType,
+            Object inputObject,
+            Object expectedObject) {
+        Column inputColumn = new Column(fieldName, inputOdpsType);
+        ArrayRecord inputRecord = new ArrayRecord(new Column[]{inputColumn});
+        inputRecord.set(fieldName, inputObject);
+
+        SeaTunnelRowType typeInfo =
+                new SeaTunnelRowType(
+                        new String[]{fieldName}, new SeaTunnelDataType<?>[]{seaTunnelDataType});
+
+        SeaTunnelRow seaTunnelRow = MaxcomputeTypeMapper.getSeaTunnelRowData(inputRecord, typeInfo);
+
+        Column outputColumn = new Column(fieldName, outputOdpsType);
+        TableSchema outputSchema = new TableSchema();
+        outputSchema.addColumn(outputColumn);
+
+        Record finalOutputRecord =
+                MaxcomputeTypeMapper.getMaxcomputeRowData(seaTunnelRow, outputSchema, typeInfo);
+
+        Assertions.assertEquals(finalOutputRecord.get(fieldName), expectedObject);
     }
 }
