@@ -625,7 +625,8 @@ public class SubPlan {
                 break;
             case SCHEDULED:
                 try {
-                    ResourceUtils.applyResourceForPipeline(jobMaster, this);
+                    Map<TaskGroupLocation, SlotProfile> slotProfiles =
+                            ResourceUtils.applyResourceForPipeline(jobMaster, this);
                     log.debug(
                             "slotProfiles: {}, PipelineLocation: {}",
                             slotProfiles,
