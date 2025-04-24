@@ -270,6 +270,11 @@ public class ZetaSQLFunction {
                 columnName = columnName.substring(1, columnName.length() - 1);
                 index = inputRowType.indexOf(columnName, false);
             }
+            if (index == -1
+                    && ("true".equalsIgnoreCase(columnName)
+                            || "false".equalsIgnoreCase(columnName))) {
+                return Boolean.parseBoolean(columnName);
+            }
 
             if (index != -1) {
                 return inputFields[index];

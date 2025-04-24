@@ -285,7 +285,7 @@ public class SchemaUtils {
                             idIncrementer.getAndIncrement(),
                             column.isNullable(),
                             column.getName(),
-                            IcebergTypeMapper.toIcebergType(column.getDataType(), idIncrementer),
+                            IcebergTypeMapper.toIcebergType(column, idIncrementer),
                             column.getComment());
             structFields.add(icebergField);
         }
