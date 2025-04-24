@@ -137,14 +137,14 @@ public class OracleConnectionUtils {
                             throw new SeaTunnelException(
                                     "Cannot read the container name via '"
                                             + SHOW_CON_NAME
-                                            + "'. Makesure your server is correctly configured");
+                                            + "'. Make sure your server is correctly configured");
                         }
                     });
         } catch (SQLException e) {
             throw new SeaTunnelException(
                     "Cannot read the container name via '"
                             + SHOW_CON_NAME
-                            + "'. Makesure your server is correctly configured",
+                            + "'. Make sure your server is correctly configured",
                     e);
         }
     }
