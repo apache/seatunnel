@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.deltalake.source.reader;
 
 import io.delta.kernel.data.FilteredColumnarBatch;
+import io.delta.kernel.data.Row;
 import io.delta.kernel.utils.CloseableIterator;
 import lombok.AllArgsConstructor;
 import lombok.NonNull;
@@ -37,14 +38,14 @@ public class DeltaLakeFileScanTaskSplitReader implements Closeable {
   private DeltaLakeFileScanTaskReader deltalakeFileScanTaskReader;
 
   public CloseableIterator<SeaTunnelRow> open(@NonNull DeltaLakeFileScanTaskSplit split) {
-    CloseableIterator<FilteredColumnarBatch> iterator = deltalakeFileScanTaskReader.open(split);
+    CloseableIterator<Row> iterator = deltalakeFileScanTaskReader.open(split);
 
-    OffsetSeekIterator<FilteredColumnarBatch> seekIterator = new OffsetSeekIterator<>(iterator);
+    OffsetSeekIterator<Row> seekIterator = new OffsetSeekIterator<>(iterator);
     seekIterator.seek(split.getRecordOffset());
 
     String tableId = split.getTablePath().getFullName();
-    return seekIterator.map(record -> {
-      SeaTunnelRow seaTunnelRow = deserializer.deserialize(record);
+    return seekIterator.map(row -> {
+      SeaTunnelRow seaTunnelRow = deserializer.deserialize(row);
       seaTunnelRow.setTableId(tableId);
       split.setRecordOffset(split.getRecordOffset() + 1);
       return seaTunnelRow;

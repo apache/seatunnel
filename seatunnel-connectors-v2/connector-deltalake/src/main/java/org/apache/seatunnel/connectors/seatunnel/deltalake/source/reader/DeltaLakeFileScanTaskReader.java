@@ -22,6 +22,7 @@ import io.delta.kernel.ScanBuilder;
 import io.delta.kernel.Snapshot;
 import io.delta.kernel.Table;
 import io.delta.kernel.data.FilteredColumnarBatch;
+import io.delta.kernel.data.Row;
 import io.delta.kernel.engine.Engine;
 import io.delta.kernel.types.StructField;
 import io.delta.kernel.types.StructType;
@@ -47,7 +48,7 @@ public class DeltaLakeFileScanTaskReader implements Closeable {
     private final Engine engine;
     private final List<String> columnsOpt;
 
-    public CloseableIterator<FilteredColumnarBatch> open(@NonNull DeltaLakeFileScanTaskSplit split) {
+    public CloseableIterator<Row> open(@NonNull DeltaLakeFileScanTaskSplit split) {
         try {
             Table table = Table.forPath(engine, split.getTablePath().toString());
             Snapshot snapshot = table.getLatestSnapshot(engine);
@@ -64,7 +65,15 @@ public class DeltaLakeFileScanTaskReader implements Closeable {
             }
             Scan scan = scanBuilder.build();
 
-            return scan.getScanFiles(engine);
+            CloseableIterator<FilteredColumnarBatch> batch = scan.getScanFiles(engine);
+            return batch.map(
+                    filteredColumnarBatch -> {
+                        CloseableIterator<Row> scanFileRows = filteredColumnarBatch.getRows();
+                        // return all rows
+
+                    }
+            );
+
 
         } catch (Exception e) {
             throw new DeltalakeConnectorException(
@@ -94,6 +103,5 @@ public class DeltaLakeFileScanTaskReader implements Closeable {
 
     @Override
     public void close() {
-        scanFileIter.close();
     }
 }

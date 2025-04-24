@@ -58,68 +58,6 @@ public class DeltaLakeCatalogLoader implements Serializable {
         return new DeltaLakeCatalog(config.getCatalogName(), config);
     }
 
-    /** Loading Hadoop configuration through reflection */
-    public Object loadHadoopConfig(DeltaLakeCommonConfig config) {
-        Class<?> configClass =
-                DynClasses.builder()
-                        .impl("org.apache.hadoop.hdfs.HdfsConfiguration")
-                        .orNull()
-                        .build();
-        if (configClass == null) {
-            configClass =
-                    DynClasses.builder()
-                            .impl("org.apache.hadoop.conf.Configuration")
-                            .orNull()
-                            .build();
-        }
-
-        if (configClass == null) {
-            log.info("Hadoop not found on classpath, not creating Hadoop config");
-            return null;
-        }
-        try {
-            Object result = configClass.getDeclaredConstructor().newInstance();
-            DynMethods.BoundMethod addResourceMethod =
-                    DynMethods.builder("addResource").impl(configClass, URL.class).build(result);
-            DynMethods.BoundMethod setMethod =
-                    DynMethods.builder("set")
-                            .impl(configClass, String.class, String.class)
-                            .build(result);
-
-            //  load any config files in the specified config directory
-            String hadoopConfPath = config.getHadoopConfPath();
-            if (hadoopConfPath != null) {
-                HADOOP_CONF_FILES.forEach(
-                        confFile -> {
-                            Path path = Paths.get(hadoopConfPath, confFile);
-                            if (Files.exists(path)) {
-                                try {
-                                    addResourceMethod.invoke(path.toUri().toURL());
-                                } catch (IOException e) {
-                                    log.warn(
-                                            "Error adding Hadoop resource {}, resource was not added",
-                                            path,
-                                            e);
-                                }
-                            }
-                        });
-            }
-            config.getHadoopProps().forEach(setMethod::invoke);
-            // kerberos authentication
-            doKerberosLogin((Configuration) result);
-            log.info("Hadoop config initialized: {}", configClass.getName());
-            return result;
-        } catch (InstantiationException
-                | IllegalAccessException
-                | NoSuchMethodException
-                | InvocationTargetException e) {
-            log.warn(
-                    "Hadoop found on classpath but could not create config, proceeding without config",
-                    e);
-        }
-        return null;
-    }
-
     /**
      * kerberos authentication
      *

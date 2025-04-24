@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -53,7 +54,7 @@ public class DeltaLakeSourceReader implements SourceReader<SeaTunnelRow, DeltaLa
   private final Map<TablePath, CatalogTable> tables;
   private final LinkedBlockingQueue<DeltaLakeFileScanTaskSplit> pendingSplits;
   private final ConcurrentHashMap<TablePath, DeltaLakeFileScanTaskSplitReader> tableReaders;
-  private final Map<TablePath, StructType> deltaTableSchemas;
+  private final Map<TablePath, List<String>> filterColumns;
   private volatile DeltaLakeFileScanTaskSplit currentReadSplit;
   private volatile boolean noMoreSplitsAssignment;
   private Catalog catalog;
@@ -62,11 +63,11 @@ public class DeltaLakeSourceReader implements SourceReader<SeaTunnelRow, DeltaLa
           @NonNull SourceReader.Context context,
           @NonNull DeltaLakeSourceConfig sourceConfig,
           @NonNull Map<TablePath, CatalogTable> tables,
-          @NonNull Map<TablePath, StructType> deltaTableSchema) {
+          @NonNull Map<TablePath, List<String>> filterColumns) {
     this.context = context;
     this.sourceConfig = sourceConfig;
     this.tables = tables;
-    this.deltaTableSchemas = deltaTableSchema;
+    this.filterColumns = filterColumns;
     this.pendingSplits = new LinkedBlockingQueue<>();
     this.tableReaders = new ConcurrentHashMap<>();
   }
@@ -74,13 +75,16 @@ public class DeltaLakeSourceReader implements SourceReader<SeaTunnelRow, DeltaLa
   @Override
   public void open() throws Exception {
     DeltaLakeCatalogLoader catalogLoader =
-            new DeltaLakeCatalogLoader(sourceConfig.getCatalogType(), sourceConfig.getCatalogConfig());
+            new DeltaLakeCatalogLoader(sourceConfig);
     this.catalog = catalogLoader.loadCatalog();
   }
 
   @Override
   public void close() throws IOException {
-
+    if (catalog != null && catalog instanceof Closeable) {
+      ((Closeable) catalog).close();
+    }
+    tableReaders.forEach((tablePath, reader) -> reader.close());
   }
 
   @Override
@@ -126,15 +130,16 @@ public class DeltaLakeSourceReader implements SourceReader<SeaTunnelRow, DeltaLa
             key -> {
               SourceTableConfig tableConfig = sourceConfig.getTableConfig(key);
               CatalogTable catalogTable = tables.get(key);
+              StructType deltaTableSchema = deltaTableSchemas.get(key);
               Deserializer deserializer =
                       new DefaultDeserializer(
-                              catalogTable.getSeaTunnelRowType(), projectedSchema);
+                              catalogTable.getSeaTunnelRowType(), deltaTableSchema);
 
               return new DeltaLakeFileScanTaskSplitReader(
                       deserializer,
                       DeltaLakeFileScanTaskReader.builder()
                               .engine(engine)
-                              .columnsOpt(sourceConfig.getColumnsOpt())
+                              .columnsOpt(filterColumns.get(key))
                               .build());
             });
   }

@@ -5,6 +5,7 @@ import io.delta.kernel.Snapshot;
 import io.delta.kernel.engine.Engine;
 import io.delta.kernel.defaults.engine.DefaultEngine;
 import io.delta.kernel.types.StructType;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -27,6 +28,8 @@ public class DeltaLakeCatalog implements Catalog {
 
   private final String catalogName;
   private final ReadonlyConfig readonlyConfig;
+
+  @Getter
   private final Engine engine;
   private final MetastoreResolver resolver;
 
@@ -152,5 +155,9 @@ public class DeltaLakeCatalog implements Catalog {
 
   private Optional<String> resolvePath(TablePath path) {
     return resolver.resolvePath(path.getDatabaseName(), path.getSchemaName(), path.getTableName());
+  }
+
+  public Engine getEngine() {
+    return engine;
   }
 }

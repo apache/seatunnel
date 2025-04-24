@@ -33,7 +33,7 @@ public class DeltaLakeSource
   private final DeltaLakeSourceConfig sourceConfig;
 
   private final Map<TablePath, CatalogTable> catalogTables;
-  private final Map<TablePath, StructType> deltaTableSchemas;
+  private final Map<TablePath, List<String>> filterColumns;
 
   private JobContext jobContext;
 
@@ -46,23 +46,18 @@ public class DeltaLakeSource
     this.catalogTables =
             catalogTables.stream()
                     .collect(Collectors.toMap(CatalogTable::getTablePath, table -> table));
-    this.deltaTableSchemas = loadDeltaLakeTableSchema(sourceConfig, this.catalogTables);
+    this.filterColumns = getFilterColumns(this.catalogTables);
   }
 
-  private Map<TablePath, StructType> loadDeltaLakeTableSchema(
-          DeltaLakeSourceConfig sourceConfig, Map<TablePath, CatalogTable> catalogTables) {
-    DeltaLakeCatalogLoader catalogFactory = new DeltaLakeCatalogLoader(sourceConfig);
-
-    Map<TablePath, StructType> deltaTableSchemas = new HashMap<>();
+  private Map<TablePath, List<String>> getFilterColumns(Map<TablePath, CatalogTable> catalogTables) {
+    Map<TablePath, List<String>> filterCols = new HashMap<>();
 
     for (TablePath tablePath : catalogTables.keySet()) {
       CatalogTable catalogTable = catalogTables.get(tablePath);
-      Table deltaTable = catalogFactory.loadTable(tablePath);
-      Snapshot latestSnapshot = deltaTable.getLatestSnapshot(engine);
-      StructType schema = latestSnapshot.getSchema(engine);
-      deltaTableSchemas.put(tablePath, schema);
+      List<String> columnOptions = List.of(catalogTable.getTableSchema().getFieldNames());
+      filterCols.put(tablePath, columnOptions);
     }
-    return deltaTableSchemas;
+    return filterCols;
   }
 
   @Override
@@ -72,7 +67,7 @@ public class DeltaLakeSource
 
   @Override
   public String getPluginName() {
-    return "Deltalake";
+    return "DeltaLake";
   }
 
   @Override
@@ -93,7 +88,7 @@ public class DeltaLakeSource
             readerContext,
             sourceConfig,
             catalogTables,
-            deltaTableSchemas
+            filterColumns
     );
   }
 
