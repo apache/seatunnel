@@ -81,6 +81,7 @@ public class ZetaSQLType {
     public static final String DATETIME = "DATETIME";
     public static final String DATE = "DATE";
     public static final String TIME = "TIME";
+    public static final String BOOLEAN = "BOOLEAN";
 
     private final SeaTunnelRowType inputRowType;
 
@@ -121,7 +122,11 @@ public class ZetaSQLType {
                 columnName = columnName.substring(1, columnName.length() - 1);
                 index = inputRowType.indexOf(columnName, false);
             }
-
+            if (index == -1
+                    && ("true".equalsIgnoreCase(columnName)
+                            || "false".equalsIgnoreCase(columnName))) {
+                return BasicType.BOOLEAN_TYPE;
+            }
             if (index != -1) {
                 return inputRowType.getFieldType(index);
             } else {
@@ -352,6 +357,8 @@ public class ZetaSQLType {
                 return LocalTimeType.LOCAL_DATE_TYPE;
             case TIME:
                 return LocalTimeType.LOCAL_TIME_TYPE;
+            case BOOLEAN:
+                return BasicType.BOOLEAN_TYPE;
             default:
                 throw new TransformException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,

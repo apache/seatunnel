@@ -911,11 +911,17 @@ CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss','UTC+6')
 
 Converts a value to another data type.
 
-Supported data types: STRING | VARCHAR, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP, DATE, TIME, BYTES
+Supported data types: STRING | VARCHAR, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP, DATE, TIME, BYTES, BOOLEAN
 
 Example:
+* CAST(NAME AS INT)
+* CAST(FLAG AS BOOLEAN)
 
-CONVERT(NAME AS INT)
+NOTE:
+Converts a value to a BOOLEAN data type according to the following rules:
+1. If the value can be interpreted as a boolean string (`'true'` or `'false'`), it returns the corresponding boolean value.
+2. If the value can be interpreted as a numeric value (`1` or `0`), it returns `true` for `1` and `false` for `0`.
+3. If the value cannot be interpreted according to the above rules, it throws a `TransformException`.
 
 ### TRY_CAST
 
@@ -1010,7 +1016,9 @@ It is used to determine whether the condition is valid and return different valu
 
 Example:
 
-case when c_string in ('c_string') then 1 else 0 end
+case when c_string in ('c_string') then 1 else 0 end 
+
+case when c_string in ('c_string') then true else false end
 
 ### UUID
 

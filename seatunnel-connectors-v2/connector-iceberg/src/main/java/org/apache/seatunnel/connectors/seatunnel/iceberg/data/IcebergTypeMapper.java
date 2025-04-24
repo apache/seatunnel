@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.data;
 
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -113,6 +114,13 @@ public class IcebergTypeMapper {
 
     public static Type toIcebergType(SeaTunnelDataType dataType) {
         return toIcebergType(dataType, new AtomicInteger(1));
+    }
+
+    public static Type toIcebergType(Column column, AtomicInteger nextId) {
+        if (column.getSinkType() != null) {
+            return Types.fromPrimitiveString(column.getSinkType());
+        }
+        return toIcebergType(column.getDataType(), nextId);
     }
 
     public static Type toIcebergType(SeaTunnelDataType dataType, AtomicInteger nextId) {

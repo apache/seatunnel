@@ -20,17 +20,23 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceTableConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.ExpressionUtils;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.expressions.Expression;
+import org.apache.iceberg.expressions.Expressions;
 
 import lombok.Builder;
 import lombok.Getter;
 import lombok.ToString;
+import lombok.extern.slf4j.Slf4j;
+import net.sf.jsqlparser.JSQLParserException;
 
 @Getter
 @Builder(toBuilder = true)
 @ToString
+@Slf4j
 public class IcebergScanContext {
 
     private final TablePath tablePath;
@@ -73,11 +79,24 @@ public class IcebergScanContext {
                 .useSnapshotTimestamp(tableConfig.getUseSnapshotTimestamp())
                 .caseSensitive(sourceConfig.isCaseSensitive())
                 .schema(schema)
-                .filter(tableConfig.getFilter())
+                .filter(getFilter(tableConfig.getQuery()))
                 .splitSize(tableConfig.getSplitSize())
                 .splitLookback(tableConfig.getSplitLookback())
                 .splitOpenFileCost(tableConfig.getSplitOpenFileCost())
                 .build();
+    }
+
+    private static Expression getFilter(String selectStr) {
+        if (StringUtils.isNotBlank(selectStr)) {
+            try {
+                Expression expression =
+                        ExpressionUtils.parseWhereClauseToIcebergExpression(selectStr);
+                return expression;
+            } catch (JSQLParserException e) {
+                log.error("Failed to parse where clause to iceberg expression", e);
+            }
+        }
+        return Expressions.alwaysTrue();
     }
 
     public static IcebergScanContext streamScanContext(
