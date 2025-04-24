@@ -115,7 +115,7 @@ public class BasicTypeToOdpsTypeTest {
     @Test
     void testTIME_STAMP_2_STRING() {
         testTypeWithDifferentInputAndOutput(
-                "event_time",
+                "TIME_STAMP_2_STRING",
                 OdpsType.TIMESTAMP,
                 LocalTimeType.LOCAL_DATE_TIME_TYPE,
                 OdpsType.STRING,
