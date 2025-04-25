@@ -70,7 +70,7 @@ public class CheckpointCoordinatorTest
     }
 
     @Test
-    void testSchedulerThreadShouldNotBeInterruptedBeforeJobMasterCleand()
+    void testSchedulerThreadShouldNotBeInterruptedBeforeJobMasterCleaned()
             throws CheckpointStorageException, ExecutionException, InterruptedException,
                     TimeoutException {
         CheckpointConfig checkpointConfig = new CheckpointConfig();
