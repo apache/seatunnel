@@ -129,7 +129,12 @@ public class MilvusSinkConverter {
     public static FieldType convertToFieldType(
             Column column, PrimaryKey primaryKey, String partitionKeyField, Boolean autoId) {
         SeaTunnelDataType<?> seaTunnelDataType = column.getDataType();
-        DataType milvusDataType = convertSqlTypeToDataType(seaTunnelDataType.getSqlType());
+        DataType milvusDataType;
+        if (column.getSinkType() != null) {
+            milvusDataType = DataType.valueOf(column.getSinkType());
+        } else {
+            milvusDataType = convertSqlTypeToDataType(seaTunnelDataType.getSqlType());
+        }
         FieldType.Builder build =
                 FieldType.newBuilder().withName(column.getName()).withDataType(milvusDataType);
         if (StringUtils.isNotEmpty(column.getComment())) {

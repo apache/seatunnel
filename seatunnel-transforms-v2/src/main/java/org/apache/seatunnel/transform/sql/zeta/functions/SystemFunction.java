@@ -33,6 +33,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class SystemFunction {
@@ -177,6 +178,26 @@ public class SystemFunction {
                 BigDecimal bigDecimal = new BigDecimal(v1.toString());
                 Integer scale = (Integer) args.get(3);
                 return bigDecimal.setScale(scale, RoundingMode.CEILING);
+            case "BOOLEAN":
+                if (v1 instanceof Number) {
+                    if (Arrays.asList(1, 0).contains(((Number) v1).intValue())) {
+                        return ((Number) v1).intValue() == 1;
+                    } else {
+                        throw new TransformException(
+                                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                                String.format("Unsupported CAST AS Boolean: %s", v1));
+                    }
+                } else if (v1 instanceof String) {
+                    if (Arrays.asList("TRUE", "FALSE").contains(v1.toString().toUpperCase())) {
+                        return Boolean.parseBoolean(v1.toString());
+                    } else {
+                        throw new TransformException(
+                                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                                String.format("Unsupported CAST AS Boolean: %s", v1));
+                    }
+                } else if (v1 instanceof Boolean) {
+                    return v1;
+                }
         }
         throw new TransformException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,

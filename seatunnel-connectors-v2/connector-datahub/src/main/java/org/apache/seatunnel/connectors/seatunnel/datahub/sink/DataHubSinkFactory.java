@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.datahub.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -44,6 +45,7 @@ public class DataHubSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(ENDPOINT, ACCESS_ID, ACCESS_KEY, PROJECT, TOPIC, TIMEOUT, RETRY_TIMES)
+                .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
 
