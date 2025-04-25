@@ -286,12 +286,16 @@ public class ZetaSQLEngine implements SQLEngine {
                     fields[idx] = zetaSQLFunction.computeForValue(expression, inputFields);
                     idx++;
                 } catch (Exception e) {
-                    throw new SqlTransformException(
-                            SqlTransformErrorCode.COMPUTEFORVALUE_ERROR,
-                            String.format(
-                                    "Failed to execute sql expression,the error expression is %s",
-                                    expression),
-                            e);
+                    if (e instanceof TransformException) {
+                        throw e;
+                    } else {
+                        throw new SqlTransformException(
+                                SqlTransformErrorCode.COMPUTEFORVALUE_ERROR,
+                                String.format(
+                                        "Failed to execute sql expression,the error expression is %s",
+                                        expression),
+                                e);
+                    }
                 }
             }
         }
