@@ -199,7 +199,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("MongodbSinkOptions");
         whiteList.add("SlsSourceOptions");
         whiteList.add("SentrySinkOptions");
-        whiteList.add("QdrantSinkOptions");
         whiteList.add("RocketMqSinkOptions");
         whiteList.add("SocketSinkOptions");
         whiteList.add("SelectDBSinkOptions");
@@ -207,7 +206,6 @@ public class ConnectorOptionCheckTest {
         whiteList.add("TablestoreSinkOptions");
         whiteList.add("TableStoreDBSourceOptions");
         whiteList.add("Neo4jSourceOptions");
-        whiteList.add("QdrantSourceOptions");
         whiteList.add("SocketSourceOptions");
         whiteList.add("PostgresIncrementalSourceOptions");
         whiteList.add("SqlServerIncrementalSourceOptions");
