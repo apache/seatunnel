@@ -4,6 +4,39 @@
   {
     "httpRequest": {
       "method": "POST",
+      "path": "/model/amazon.titan-embed-text-v2:0/invoke"
+    },
+    "httpResponse": {
+      "body": {
+        "embedding": [-0.021580636, 0.0072282887, -0.008489859, 0.0072714686, -0.0023650646, 0.0036112367, -0.0072714686, 0.0072714686, -0.0072714686, 0.0072714686],
+        "inputTextTokenCount": 12
+      },
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "POST",
+      "path": "/model/cohere.embed-english-v3/invoke"
+    },
+    "httpResponse": {
+      "body": {
+        "embeddings": [
+          [-0.0048828125, 0.0009765625, 0.0029296875, -0.0068359375, 0.0029296875, 0.0048828125, -0.0029296875, 0.0009765625, -0.0048828125, 0.0068359375]
+        ],
+        "id": "bc57846a-3aba-4edf-a4b5-0f9b7f564463",
+        "texts": ["This is a sample text to generate embeddings from AWS Bedrock models."]
+      },
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "POST",
       "path": "/v1/qianfan/embedding/.*",
       "queryStringParameters": {
         "access_token": ["^.*$"]

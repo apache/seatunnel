@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -163,10 +164,16 @@ public class EmbeddingRequestJsonTest {
     }
 
     @Test
-    void testBedrockTitanRequestJson() throws IOException {
+    void testBedrockTitanRequestJson() throws IOException, URISyntaxException {
         BedrockModel model =
                 new BedrockModel(
-                        "apikey", "secretkey", "us-east-1", "amazon.titan-embed-text-v1", 1536, 10);
+                        "apikey",
+                        "secret_key",
+                        "us-east-1",
+                        "http://bedrock.us-east-1.amazonaws.com",
+                        "amazon.titan-embed-text-v1",
+                        1536,
+                        10);
 
         ObjectNode singleNode =
                 model.createRequestForSingleInput(
@@ -186,10 +193,16 @@ public class EmbeddingRequestJsonTest {
     }
 
     @Test
-    void testBedrockCohereRequestJson() throws IOException {
+    void testBedrockCohereRequestJson() throws IOException, URISyntaxException {
         BedrockModel defaultModel =
                 new BedrockModel(
-                        "apikey", "secretkey", "us-east-1", "cohere.embed-english-v3", 1024, 10);
+                        "api_key",
+                        "secret_key",
+                        "us-east-1",
+                        "http://bedrock.us-east-1.amazonaws.com",
+                        "cohere.embed-english-v3",
+                        1024,
+                        10);
 
         ObjectNode defaultNode =
                 defaultModel.createRequestForSingleInput(
@@ -200,10 +213,11 @@ public class EmbeddingRequestJsonTest {
         defaultModel.close();
         BedrockModel customModel =
                 new BedrockModel(
-                        "apikey",
-                        "secretkey",
+                        "api_key",
+                        "secret_key",
                         "us-east-1",
                         "cohere.embed-english-v3",
+                        "http://bedrock.us-east-1.amazonaws.com",
                         1024,
                         10,
                         "search_query");

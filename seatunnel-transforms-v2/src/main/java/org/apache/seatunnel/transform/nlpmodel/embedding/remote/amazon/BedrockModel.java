@@ -33,6 +33,8 @@ import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -58,6 +60,7 @@ public class BedrockModel extends AbstractModel {
      * @param accessKey AWS access key
      * @param secretKey AWS secret key
      * @param region AWS region
+     * @param endpoint AWS endpoint
      * @param modelId Model ID (e.g., "amazon.titan-embed-text-v1", "cohere.embed-english-v3")
      * @param dimension Embedding dimension
      * @param batchSize Batch size for processing
@@ -66,11 +69,13 @@ public class BedrockModel extends AbstractModel {
             String accessKey,
             String secretKey,
             String region,
+            String endpoint,
             String modelId,
             int dimension,
-            int batchSize) {
+            int batchSize)
+            throws URISyntaxException {
         this(
-                createBedrockClient(accessKey, secretKey, region),
+                createBedrockClient(accessKey, secretKey, region, endpoint),
                 modelId,
                 dimension,
                 batchSize,
@@ -94,11 +99,13 @@ public class BedrockModel extends AbstractModel {
             String secretKey,
             String region,
             String modelId,
+            String endpoint,
             int dimension,
             int batchSize,
-            String inputType) {
+            String inputType)
+            throws URISyntaxException {
         this(
-                createBedrockClient(accessKey, secretKey, region),
+                createBedrockClient(accessKey, secretKey, region, endpoint),
                 modelId,
                 dimension,
                 batchSize,
@@ -169,7 +176,8 @@ public class BedrockModel extends AbstractModel {
      * @return BedrockRuntimeClient instance
      */
     public static BedrockRuntimeClient createBedrockClient(
-            String accessKey, String secretKey, String region) {
+            String accessKey, String secretKey, String region, String endpoint)
+            throws URISyntaxException {
         Objects.requireNonNull(accessKey, "AWS access key cannot be null");
         Objects.requireNonNull(secretKey, "AWS secret key cannot be null");
         Objects.requireNonNull(region, "AWS region cannot be null");
@@ -178,6 +186,7 @@ public class BedrockModel extends AbstractModel {
         BedrockRuntimeClientBuilder builder =
                 BedrockRuntimeClient.builder()
                         .region(Region.of(region))
+                        .endpointOverride(new URI(endpoint))
                         .credentialsProvider(StaticCredentialsProvider.create(credentials));
 
         return builder.build();
