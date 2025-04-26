@@ -4,21 +4,6 @@
   {
     "httpRequest": {
       "method": "POST",
-      "path": "/v1/titan/embedding/.*"
-    },
-    "httpResponse": {
-      "body": {
-        "embedding": [-0.021580636, 0.0072282887, -0.008489859, 0.0072714686, -0.0023650646, 0.0036112367, -0.0072714686, 0.0072714686, -0.0072714686, 0.0072714686],
-        "inputTextTokenCount": 12
-      },
-      "headers": {
-        "Content-Type": "application/json"
-      }
-    }
-  },
-  {
-    "httpRequest": {
-      "method": "POST",
       "path": "/v1/cohere/embedding/.*"
     },
     "httpResponse": {
