@@ -4,7 +4,7 @@
   {
     "httpRequest": {
       "method": "POST",
-      "path": "/model/amazon.titan-embed-text-v2:0/invoke"
+      "path": "/v1/titan/embedding/.*"
     },
     "httpResponse": {
       "body": {
@@ -19,7 +19,7 @@
   {
     "httpRequest": {
       "method": "POST",
-      "path": "/model/cohere.embed-english-v3/invoke"
+      "path": "/v1/cohere/embedding/.*"
     },
     "httpResponse": {
       "body": {
