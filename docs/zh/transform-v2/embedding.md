@@ -32,7 +32,7 @@
 
 ### api_key
 
-用于验证 embedding 服务请求的API密钥。通常由模型提供商在你注册他们的服务时提供。
+用于验证 embedding 服务请求的API密钥。通常由模型提供商在你注册他们的服务时提供，对于使用`AMAZON` 模型则对应IAM access key。
 
 ### secret_key
 
