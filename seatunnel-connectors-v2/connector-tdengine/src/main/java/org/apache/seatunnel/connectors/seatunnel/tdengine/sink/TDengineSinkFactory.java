@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.datahub.sink;
+package org.apache.seatunnel.connectors.seatunnel.tdengine.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
@@ -23,35 +23,36 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSinkOptions;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubSinkOptions.ACCESS_ID;
-import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubSinkOptions.ACCESS_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubSinkOptions.ENDPOINT;
-import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubSinkOptions.PROJECT;
-import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubSinkOptions.RETRY_TIMES;
-import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubSinkOptions.TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubSinkOptions.TOPIC;
-
 @AutoService(Factory.class)
-public class DataHubSinkFactory implements TableSinkFactory {
+public class TDengineSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return "DataHub";
+        return "TDengine";
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(ENDPOINT, ACCESS_ID, ACCESS_KEY, PROJECT, TOPIC)
-                .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
-                .optional(TIMEOUT, RETRY_TIMES)
+                .required(
+                        TDengineSinkOptions.URL,
+                        TDengineSinkOptions.USERNAME,
+                        TDengineSinkOptions.PASSWORD,
+                        TDengineSinkOptions.DATABASE,
+                        TDengineSinkOptions.STABLE)
+                .optional(
+                        TDengineSinkOptions.TIMEZONE,
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
 
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
-        return () -> new DataHubSink(context.getOptions(), context.getCatalogTable());
+        TDengineSinkConfig tdengineSinkConfig = TDengineSinkConfig.of(context.getOptions());
+        return () -> new TDengineSink(tdengineSinkConfig, context.getCatalogTable());
     }
 }

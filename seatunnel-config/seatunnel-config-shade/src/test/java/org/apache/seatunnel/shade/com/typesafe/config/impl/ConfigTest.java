@@ -15,28 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.dag.actions;
+package org.apache.seatunnel.shade.com.typesafe.config.impl;
 
-import lombok.Builder;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
-import lombok.experimental.Tolerate;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-import java.util.concurrent.TimeUnit;
+public class ConfigTest {
 
-@Getter
-@Setter
-@ToString
-@Builder(toBuilder = true)
-public class ShuffleConfig implements Config {
-    public static final int DEFAULT_BATCH_SIZE = 1024;
-    public static final long DEFAULT_BATCH_FLUSH_INTERVAL = TimeUnit.SECONDS.toMillis(3);
+    @Test
+    public void testWithOutPath() {
+        Path path = Path.newPath("replacements->\"\"");
+        Path remainder = path.remainder();
+        Assertions.assertEquals("", remainder.first());
 
-    @Builder.Default private int batchSize = DEFAULT_BATCH_SIZE;
-    @Builder.Default private long batchFlushInterval = DEFAULT_BATCH_FLUSH_INTERVAL;
-    private ShuffleStrategy shuffleStrategy;
-
-    @Tolerate
-    public ShuffleConfig() {}
+        Path emptyPath = Path.newPath("\"\"");
+        Assertions.assertEquals("", emptyPath.first());
+    }
 }

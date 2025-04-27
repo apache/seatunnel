@@ -19,11 +19,17 @@ package org.apache.seatunnel.connectors.seatunnel.openmldb.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.openmldb.config.OpenMldbConfig;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.openmldb.config.OpenMldbParameters;
+import org.apache.seatunnel.connectors.seatunnel.openmldb.config.OpenMldbSourceOptions;
 
 import com.google.auto.service.AutoService;
+
+import java.io.Serializable;
 
 @AutoService(Factory.class)
 public class OpenMldbSourceFactory implements TableSourceFactory {
@@ -35,26 +41,34 @@ public class OpenMldbSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(OpenMldbConfig.CLUSTER_MODE)
-                .required(OpenMldbConfig.SQL)
-                .required(OpenMldbConfig.DATABASE)
-                .optional(OpenMldbConfig.SESSION_TIMEOUT)
-                .optional(OpenMldbConfig.REQUEST_TIMEOUT)
+                .required(OpenMldbSourceOptions.CLUSTER_MODE)
+                .required(OpenMldbSourceOptions.SQL)
+                .required(OpenMldbSourceOptions.DATABASE)
+                .optional(OpenMldbSourceOptions.SESSION_TIMEOUT)
+                .optional(OpenMldbSourceOptions.REQUEST_TIMEOUT)
                 .conditional(
-                        OpenMldbConfig.CLUSTER_MODE,
+                        OpenMldbSourceOptions.CLUSTER_MODE,
                         false,
-                        OpenMldbConfig.HOST,
-                        OpenMldbConfig.PORT)
+                        OpenMldbSourceOptions.HOST,
+                        OpenMldbSourceOptions.PORT)
                 .conditional(
-                        OpenMldbConfig.CLUSTER_MODE,
+                        OpenMldbSourceOptions.CLUSTER_MODE,
                         true,
-                        OpenMldbConfig.ZK_HOST,
-                        OpenMldbConfig.ZK_PATH)
+                        OpenMldbSourceOptions.ZK_HOST,
+                        OpenMldbSourceOptions.ZK_PATH)
                 .build();
     }
 
     @Override
     public Class<? extends SeaTunnelSource> getSourceClass() {
         return OpenMldbSource.class;
+    }
+
+    @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        OpenMldbParameters openMldbParameters =
+                OpenMldbParameters.buildWithConfig(context.getOptions().toConfig());
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new OpenMldbSource(openMldbParameters);
     }
 }

@@ -59,6 +59,8 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
     private Connection connection1;
     private Connection connection2;
     private int testDataCount;
+    private final int testDataCountMulti_Table1 = 5;
+    private final int testDataCountMulti_Table2 = 7;
 
     @BeforeAll
     @Override
@@ -120,6 +122,18 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
                     "CREATE STABLE power2.meters2 (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT, off BOOL, nc NCHAR(10)) "
                             + "TAGS (location BINARY(64), groupId INT)");
         }
+        // create power2.meter3 for multi write test
+        try (Statement stmt = connection2.createStatement()) {
+            stmt.execute(
+                    "CREATE STABLE power2.meters3 (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT, off BOOL, nc NCHAR(10)) "
+                            + "TAGS (location BINARY(64), groupId INT)");
+        }
+        // create power2.meter4 for multi write test
+        try (Statement stmt = connection2.createStatement()) {
+            stmt.execute(
+                    "CREATE STABLE power2.meters4 (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT, off BOOL, nc NCHAR(10)) "
+                            + "TAGS (location BINARY(64), groupId INT)");
+        }
         return rowCount;
     }
 
@@ -129,15 +143,33 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/tdengine/tdengine_source_to_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
-        long rowCountInserted = readSinkDataset();
+        long rowCountInserted = readSinkDataset("meters2");
         Assertions.assertEquals(rowCountInserted, testDataCount);
     }
 
+    @TestTemplate
+    public void testTDengineMultiWrite(TestContainer container) throws Exception {
+        Container.ExecResult execResult =
+                container.executeJob("/tdengine/tdengine_fake_to_sink_multitable.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        long rowCountInserted = readSinkDataset("meters3");
+        long rowCountInserted2 = readSinkDataset("meters4");
+        Assertions.assertEquals(rowCountInserted, testDataCountMulti_Table1);
+        Assertions.assertEquals(rowCountInserted2, testDataCountMulti_Table2);
+    }
+
     @SneakyThrows
-    private long readSinkDataset() {
+    private long readSinkDataset(String stableName) {
+        // Validate table name
+        if (stableName == null || !stableName.matches("^[a-zA-Z0-9_]+$")) {
+            throw new IllegalArgumentException("Invalid table name provided: " + stableName);
+        }
+
         long rowCount;
+        String sql = String.format("SELECT COUNT(1) FROM power2.%s;", stableName);
         try (Statement stmt = connection2.createStatement();
-                ResultSet resultSet = stmt.executeQuery("select count(1) from power2.meters2;"); ) {
+                ResultSet resultSet = stmt.executeQuery(sql); ) {
             resultSet.next();
             rowCount = resultSet.getLong(1);
         }

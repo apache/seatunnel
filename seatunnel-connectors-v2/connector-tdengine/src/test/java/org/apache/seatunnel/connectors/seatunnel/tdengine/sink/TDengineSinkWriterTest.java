@@ -18,13 +18,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tdengine.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
-
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSinkConfig;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,7 +46,8 @@ class TDengineSinkWriterTest {
     @BeforeEach
     public void setup() {
         SeaTunnelRowType rowType;
-        Config config;
+
+        TDengineSinkConfig config;
         TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
         String[] fieldNames = new String[] {"id", "name", "description", "weight"};
         SeaTunnelDataType<?>[] dataTypes =
@@ -61,14 +59,14 @@ class TDengineSinkWriterTest {
                 };
         rowType = new SeaTunnelRowType(fieldNames, dataTypes);
         config =
-                ConfigFactory.empty()
-                        .withValue(
-                                "url", ConfigValueFactory.fromAnyRef("jdbc:TAOS://localhost:6030/"))
-                        .withValue("database", ConfigValueFactory.fromAnyRef("test_db"))
-                        .withValue("stable", ConfigValueFactory.fromAnyRef("test_stable"))
-                        .withValue("username", ConfigValueFactory.fromAnyRef("root"))
-                        .withValue("password", ConfigValueFactory.fromAnyRef("taosdata"))
-                        .withValue("timezone", ConfigValueFactory.fromAnyRef("UTC"));
+                TDengineSinkConfig.builder()
+                        .url("jdbc:TAOS://localhost:6030/")
+                        .database("test_db")
+                        .stable("test_stable")
+                        .username("root")
+                        .password("taosdata")
+                        .timezone("UTC")
+                        .build();
 
         // Mock JDBC objects
         Connection mockConnection = Mockito.mock(Connection.class);

@@ -130,8 +130,8 @@ mysql sink for example:
 
 pgsql (Oracle Sqlserver ...) Sink for example:
 
-1. ${schema_name}.${table_name} _test
-2. dbo.tt_${table_name} _sink
+1. ${schema_name}.${table_name}_test
+2. dbo.tt_${table_name}_sink
 3. public.sink_table
 
 Tip: If the target database has the concept of SCHEMA, the table parameter must be written as `xxx.xxx`
