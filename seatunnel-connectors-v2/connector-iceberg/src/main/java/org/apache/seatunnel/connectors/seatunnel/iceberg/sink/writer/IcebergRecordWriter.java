@@ -24,6 +24,8 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
@@ -98,7 +100,16 @@ public class IcebergRecordWriter implements RecordWriter {
         // get the latest schema in case another process updated it
         table.refresh();
         Schema schema = table.schema();
-        if (event instanceof AlterTableDropColumnEvent) {
+        if (event instanceof AlterTableColumnsEvent) {
+            AlterTableColumnsEvent columnsEvent = (AlterTableColumnsEvent) event;
+            log.info(
+                    "Processing AlterTableColumnsEvent with {} events",
+                    columnsEvent.getEvents().size());
+            for (AlterTableColumnEvent columnEvent : columnsEvent.getEvents()) {
+                applySchemaChange(afterRowType, columnEvent);
+            }
+            return;
+        } else if (event instanceof AlterTableDropColumnEvent) {
             AlterTableDropColumnEvent dropColumnEvent = (AlterTableDropColumnEvent) event;
             updates.deleteColumn(dropColumnEvent.getColumn());
         } else if (event instanceof AlterTableAddColumnEvent) {
@@ -137,7 +148,22 @@ public class IcebergRecordWriter implements RecordWriter {
             Schema schema, Column column, String oldColumn, SchemaChangeWrapper updates) {
         Types.NestedField nestedField = schema.findField(oldColumn);
         if (nestedField != null) {
+            // Add column rename operation
             updates.changeColumn(oldColumn, column.getName());
+
+            // If the column type has also changed, add a modify operation after the rename
+            if (column.getDataType() != null) {
+                Type columnType = SchemaUtils.toIcebergType(column.getDataType());
+                if (columnType instanceof Type.PrimitiveType
+                        && !nestedField.type().typeId().equals(columnType.typeId())) {
+                    updates.modifyColumn(column.getName(), (Type.PrimitiveType) columnType);
+                }
+            }
+        } else {
+            log.warn(
+                    "Cannot rename column {} to {} because the source column does not exist",
+                    oldColumn,
+                    column.getName());
         }
     }
 
