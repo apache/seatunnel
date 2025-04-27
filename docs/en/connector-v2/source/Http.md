@@ -216,7 +216,7 @@ By default, the parameters will be added to the url path.
 If you need to keep the old version behavior, please check keep_params_as_form.
 
 ### body
-The HTTP body is used to carry the actual data in requests or responses, including JSON, form submissions. 
+The HTTP body is used to carry the actual data in requests or responses, including JSON, form submissions.
 
 The reference format is as follows：
 ```hocon
@@ -312,7 +312,7 @@ This parameter helps you configure the schema,so this parameter must be used wit
 If your data looks something like this:
 
 ```json
-{ 
+{
   "store": {
     "book": [
       {
@@ -367,15 +367,23 @@ source {
 - See this link for task configuration [http_jsonpath_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_jsonpath_to_assert.conf).
 
 ### pageing
-The current supported pagination type are `PageNumber` and `Cursor`. 
+The current supported pagination type are `PageNumber` and `Cursor`.
 if you need to use pagination, you need to configure `pageing`. the default pagination type is `PageNumber`.
 
 
 #### 1. PageNumber
-When you need to concatenate page param in the URL, then add params.
-When you need to set page param to the body, add the key of page param in body.
+When using `PageNumber` pagination, you can include page parameters in different parts of your HTTP request:
 
-You can also use page parameters in headers by using placeholders with `use_placeholder_replacement = true`.
+- **In URL parameters**: Add the page parameter to the `params` section
+- **In request body**: Include the page parameter in the `body` JSON
+- **In headers**: Add the page parameter to the `headers` section
+
+You can use placeholders like `${page}` with `use_placeholder_replacement = true` to dynamically update these values. The placeholders can be used in various formats:
+
+- As a standalone value: `"${page}"`
+- With prefix/suffix: `"10${page}"` or `"page-${page}"`
+- As a number without quotes: `${page}` (in JSON body)
+- In nested JSON structures: `{"pagination":{"page":${page}}}`
 
 #### Example 1: Using page parameters in body and params
 
@@ -462,7 +470,85 @@ source {
       }
     }
 }
-``` 
+```
+
+#### Example 4: Using prefixed page number in headers
+
+```hocon
+source {
+    Http {
+      url = "http://localhost:8080/mock/queryData"
+      method = "GET"
+      format = "json"
+      headers = {
+        Page-Number = "10${page}"  # Will become "105" when page=5
+        Authorization = "Bearer token-123"
+      }
+      pageing = {
+        page_field = page
+        start_page_number = 5
+        batch_size = 10
+        use_placeholder_replacement = true
+      }
+      schema = {
+        fields {
+          name = string
+          age = string
+        }
+      }
+    }
+}
+```
+
+#### Example 5: Using unquoted page number in body
+
+```hocon
+source {
+    Http {
+      url = "http://localhost:8080/mock/queryData"
+      method = "POST"
+      format = "json"
+      body = """{"a":${page},"limit":10}"""  # Unquoted number
+      pageing = {
+        page_field = page
+        start_page_number = 1
+        batch_size = 10
+        use_placeholder_replacement = true
+      }
+      schema = {
+        fields {
+          name = string
+          age = string
+        }
+      }
+    }
+}
+```
+
+#### Example 6: Using nested JSON structure with page parameter
+
+```hocon
+source {
+    Http {
+      url = "http://localhost:8080/mock/queryData"
+      method = "POST"
+      format = "json"
+      body = """{"pagination":{"page":${page},"size":10},"filters":{"active":true}}"""  # Nested structure
+      pageing = {
+        page_field = page
+        start_page_number = 1
+        total_page_size = 20
+        use_placeholder_replacement = true
+      }
+      schema = {
+        fields {
+          name = string
+          age = string
+        }
+      }
+    }
+}
+```
 
 #### 2. Cursor
 the `pageing.page_type` parameter must be set to `Cursor`.
