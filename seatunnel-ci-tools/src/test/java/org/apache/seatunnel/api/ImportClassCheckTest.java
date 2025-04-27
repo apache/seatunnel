@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -223,5 +224,10 @@ public class ImportClassCheckTest {
     private String getImportClassLineNum(ImportDeclaration importDeclaration) {
         Range range = importDeclaration.getRange().get();
         return String.format("%s  [%s]", importDeclaration.getName().asString(), range.end.line);
+    }
+
+    @AfterAll
+    public static void cleanup() {
+        importsMap.clear();
     }
 }
