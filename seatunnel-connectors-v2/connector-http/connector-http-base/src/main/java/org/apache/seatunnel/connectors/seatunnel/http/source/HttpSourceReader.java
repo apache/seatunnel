@@ -115,26 +115,13 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     public void pollAndCollectData(Collector<SeaTunnelRow> output) throws Exception {
-        Map<String, Object> bodyMap = new HashMap<>();
-        // If body is set but bodyMap is not, convert body to bodyMap
-        if (!Strings.isNullOrEmpty(this.httpParameter.getBody())) {
-            try {
-                bodyMap =
-                        JsonUtils.parseObject(
-                                this.httpParameter.getBody(),
-                                new TypeReference<Map<String, Object>>() {});
-            } catch (Exception e) {
-                log.warn("Failed to parse body string to map: {}", this.httpParameter.getBody(), e);
-            }
-        }
-
         HttpResponse response =
                 httpClient.execute(
                         this.httpParameter.getUrl(),
                         this.httpParameter.getMethod().getMethod(),
                         this.httpParameter.getHeaders(),
                         this.httpParameter.getParams(),
-                        bodyMap,
+                        this.httpParameter.getBody(),
                         this.httpParameter.isKeepParamsAsForm());
         if (response.getCode() >= 200 && response.getCode() <= 207) {
             String content = response.getContent();

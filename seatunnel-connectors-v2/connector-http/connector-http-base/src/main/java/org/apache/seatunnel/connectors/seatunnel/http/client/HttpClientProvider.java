@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.client;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.seatunnel.shade.com.google.common.base.Strings;
+
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
@@ -118,9 +121,19 @@ public class HttpClientProvider implements AutoCloseable {
             String method,
             Map<String, String> headers,
             Map<String, String> params,
-            Map<String, Object> body,
+            String body,
             boolean keepParamsAsForm)
             throws Exception {
+        Map<String, Object> bodyMap = new HashMap<>();
+        // If body is set but bodyMap is not, convert body to bodyMap
+        if (!Strings.isNullOrEmpty(body)) {
+            try {
+                bodyMap = JsonUtils.parseObject(body, new TypeReference<Map<String, Object>>() {});
+            } catch (Exception e) {
+                log.warn("Failed to parse body string to map: {}", body, e);
+            }
+        }
+
         // convert method option to uppercase
         method = method.toUpperCase(Locale.ROOT);
         // Keep the original post  logic
@@ -130,15 +143,15 @@ public class HttpClientProvider implements AutoCloseable {
                 headers = MapUtils.isEmpty(headers) ? new HashMap<>() : headers;
                 headers.putIfAbsent(HTTP.CONTENT_TYPE, APPLICATION_FORM);
             }
-            if (MapUtils.isEmpty(body)) {
-                body = new HashMap<>();
+            if (MapUtils.isEmpty(bodyMap)) {
+                bodyMap = new HashMap<>();
             }
-            body.putAll(params);
-            return doPost(url, headers, Collections.emptyMap(), body);
+            bodyMap.putAll(params);
+            return doPost(url, headers, Collections.emptyMap(), bodyMap);
         }
         if (HttpPost.METHOD_NAME.equals(method)) {
             // Create access address
-            return doPost(url, headers, params, body);
+            return doPost(url, headers, params, bodyMap);
         }
         if (HttpGet.METHOD_NAME.equals(method)) {
             return doGet(url, headers, params);
