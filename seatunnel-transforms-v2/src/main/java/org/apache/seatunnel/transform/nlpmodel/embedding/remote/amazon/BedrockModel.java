@@ -50,7 +50,6 @@ public class BedrockModel extends AbstractModel {
 
     private final BedrockRuntimeClient client;
     private final String modelId;
-    private final boolean closeClientOnShutdown;
     private final String inputType;
     private final int dimension;
 
@@ -78,8 +77,7 @@ public class BedrockModel extends AbstractModel {
                 createBedrockClient(accessKey, secretKey, region, endpoint),
                 modelId,
                 dimension,
-                batchSize,
-                true);
+                batchSize);
     }
 
     /**
@@ -109,7 +107,6 @@ public class BedrockModel extends AbstractModel {
                 modelId,
                 dimension,
                 batchSize,
-                true,
                 inputType);
     }
 
@@ -120,20 +117,13 @@ public class BedrockModel extends AbstractModel {
      * @param modelId Model ID (e.g., "amazon.titan-embed-text-v1", "cohere.embed-english-v3")
      * @param dimension Embedding dimension
      * @param batchSize Batch size for processing
-     * @param closeClientOnShutdown Whether to close the client when the model is closed
      */
-    public BedrockModel(
-            BedrockRuntimeClient client,
-            String modelId,
-            int dimension,
-            int batchSize,
-            boolean closeClientOnShutdown) {
+    public BedrockModel(BedrockRuntimeClient client, String modelId, int dimension, int batchSize) {
         this(
                 client,
                 modelId,
                 dimension,
                 batchSize,
-                closeClientOnShutdown,
                 modelId.startsWith("cohere.") ? "search_document" : null);
     }
 
@@ -144,7 +134,6 @@ public class BedrockModel extends AbstractModel {
      * @param modelId Model ID (e.g., "amazon.titan-embed-text-v1", "cohere.embed-english-v3")
      * @param dimension Embedding dimension
      * @param batchSize Batch size for processing
-     * @param closeClientOnShutdown Whether to close the client when the model is closed
      * @param inputType Input type for Cohere models (e.g., "search_document", "search_query")
      */
     public BedrockModel(
@@ -152,13 +141,11 @@ public class BedrockModel extends AbstractModel {
             String modelId,
             int dimension,
             int batchSize,
-            boolean closeClientOnShutdown,
             String inputType) {
         super(batchSize);
         this.client = Objects.requireNonNull(client, "BedrockRuntimeClient cannot be null");
         this.modelId = Objects.requireNonNull(modelId, "Model ID cannot be null");
         this.dimension = dimension;
-        this.closeClientOnShutdown = closeClientOnShutdown;
         this.inputType = inputType;
     }
 
@@ -329,8 +316,8 @@ public class BedrockModel extends AbstractModel {
     }
 
     @Override
-    public void close() {
-        if (closeClientOnShutdown) {
+    public void close() throws IOException {
+        if (client != null) {
             client.close();
         }
     }
