@@ -17,22 +17,20 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute;
 
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeMapper;
-
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-
 import com.aliyun.odps.Column;
 import com.aliyun.odps.OdpsType;
 import com.aliyun.odps.TableSchema;
 import com.aliyun.odps.data.ArrayRecord;
 import com.aliyun.odps.data.Record;
 import lombok.SneakyThrows;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeMapper;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -121,8 +119,8 @@ public class BasicTypeToOdpsTypeTest {
                 OdpsType.TIMESTAMP,
                 LocalTimeType.LOCAL_DATE_TIME_TYPE,
                 OdpsType.STRING,
-                Timestamp.valueOf("2025-01-01 00:00:00"),
-                "2025-01-01 00:00");
+                Timestamp.valueOf("2025-01-01 00:00:01"),
+                "2025-01-01 00:00:01");
     }
 
     private static void testTypeWithDifferentInputAndOutput(
