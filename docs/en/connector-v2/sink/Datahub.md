@@ -21,8 +21,8 @@ A sink plugin which use send message to DataHub
 | accessKey      | string | yes      | -             |
 | project        | string | yes      | -             |
 | topic          | string | yes      | -             |
-| timeout        | int    | yes      | -             |
-| retryTimes     | int    | yes      | -             |
+| timeout        | int    | no       | 3000          |
+| retryTimes     | int    | no       | 3             |
 | common-options |        | no       | -             |
 
 ### endpoint [string]
