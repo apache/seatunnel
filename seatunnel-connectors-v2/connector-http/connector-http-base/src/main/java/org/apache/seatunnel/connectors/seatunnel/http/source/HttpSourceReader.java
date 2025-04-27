@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.http.source;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.google.common.base.Strings;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
@@ -114,13 +115,26 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     public void pollAndCollectData(Collector<SeaTunnelRow> output) throws Exception {
+        Map<String, Object> bodyMap = new HashMap<>();
+        // If body is set but bodyMap is not, convert body to bodyMap
+        if (!Strings.isNullOrEmpty(this.httpParameter.getBody())) {
+            try {
+                bodyMap =
+                        JsonUtils.parseObject(
+                                this.httpParameter.getBody(),
+                                new TypeReference<Map<String, Object>>() {});
+            } catch (Exception e) {
+                log.warn("Failed to parse body string to map: {}", this.httpParameter.getBody(), e);
+            }
+        }
+
         HttpResponse response =
                 httpClient.execute(
                         this.httpParameter.getUrl(),
                         this.httpParameter.getMethod().getMethod(),
                         this.httpParameter.getHeaders(),
                         this.httpParameter.getParams(),
-                        this.httpParameter.getBody(),
+                        bodyMap,
                         this.httpParameter.isKeepParamsAsForm());
         if (response.getCode() >= 200 && response.getCode() <= 207) {
             String content = response.getContent();
@@ -150,7 +164,8 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
     }
 
-    private void updateRequestParam(PageInfo pageInfo, boolean usePlaceholderReplacement) {
+    @VisibleForTesting
+    public void updateRequestParam(PageInfo pageInfo, boolean usePlaceholderReplacement) {
         // 1. keep page param as http param
         if (this.httpParameter.isKeepPageParamAsHttpParam()) {
             if (this.httpParameter.getParams() == null) {
@@ -204,14 +219,26 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
 
         // 2. param in body
-        if (MapUtils.isNotEmpty(this.httpParameter.getBody())) {
-            processBodyPageMap(
-                    this.httpParameter.getBody(), pageField, pageValue, usePlaceholderReplacement);
-            processBodyPageMap(
-                    this.httpParameter.getBody(),
-                    pageInfo.getPageCursorFieldName(),
-                    pageInfo.getCursor(),
-                    usePlaceholderReplacement);
+        if (!Strings.isNullOrEmpty(this.httpParameter.getBody())) {
+            String processedBody =
+                    processBodyString(
+                            this.httpParameter.getBody(),
+                            pageField,
+                            pageValue,
+                            usePlaceholderReplacement);
+
+            // Process cursor if available
+            if (pageInfo.getPageCursorFieldName() != null && pageInfo.getCursor() != null) {
+                processedBody =
+                        processBodyString(
+                                processedBody,
+                                pageInfo.getPageCursorFieldName(),
+                                pageInfo.getCursor(),
+                                usePlaceholderReplacement);
+            }
+
+            // Update the body string
+            this.httpParameter.setBody(processedBody);
         }
     }
 
@@ -261,6 +288,61 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
     }
 
+    private String processBodyString(
+            String bodyString,
+            String pageField,
+            Object pageValue,
+            boolean usePlaceholderReplacement) {
+        if (pageField == null || pageValue == null || Strings.isNullOrEmpty(bodyString)) {
+            return bodyString;
+        }
+        if (usePlaceholderReplacement) {
+            String unquotedPlaceholder = "${" + pageField + "}";
+            if (bodyString.contains(unquotedPlaceholder)) {
+                bodyString = bodyString.replace(unquotedPlaceholder, pageValue.toString());
+            }
+
+            return bodyString;
+        } else {
+            // Key-based replacement
+            try {
+                Map<String, Object> bodyMap =
+                        JsonUtils.parseObject(
+                                bodyString, new TypeReference<Map<String, Object>>() {});
+                if (bodyMap != null) {
+                    processBodyMapRecursively(bodyMap, pageField, pageValue);
+                    return JsonUtils.toJsonString(bodyMap);
+                }
+            } catch (Exception e) {
+                log.warn(
+                        "Failed to parse body string for key-based replacement: {}", bodyString, e);
+            }
+            return bodyString;
+        }
+    }
+
+    /**
+     * Process the body map recursively for key-based parameter replacement.
+     *
+     * @param bodyMap The body map to process
+     * @param pageField The page field name
+     * @param pageValue The page value
+     */
+    private void processBodyMapRecursively(
+            Map<String, Object> bodyMap, String pageField, Object pageValue) {
+        if (bodyMap.containsKey(pageField)) {
+            bodyMap.put(pageField, pageValue);
+        }
+        for (Map.Entry<String, Object> entry : bodyMap.entrySet()) {
+            Object value = entry.getValue();
+            if (value instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> nestedMap = (Map<String, Object>) value;
+                processBodyMapRecursively(nestedMap, pageField, pageValue);
+            }
+        }
+    }
+
     /**
      * Process the body map for parameter replacement, handling nested objects by converting the
      * entire object to JSON string, replacing placeholders, and converting back to object.
@@ -269,7 +351,9 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
      * @param pageField The page field name
      * @param pageValue The page index (Long value for direct replacement)
      * @param usePlaceholderReplacement Whether to use placeholder replacement
+     * @deprecated Use processBodyString instead
      */
+    @Deprecated
     private void processBodyPageMap(
             Map<String, Object> bodyMap,
             String pageField,

@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
@@ -38,7 +39,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -103,24 +103,24 @@ public class HttpSourceReaderUpdateRequestParamTest {
         Map<String, String> headers = new HashMap<>();
         headers.put("Page-Number", "${page}");
         headers.put("Authorization", "Bearer token-123");
+        headers.put("Cursor", "${cursor}");
         httpParameter.setHeaders(headers);
 
         PageInfo pageInfo = new PageInfo();
         pageInfo.setPageField("page");
         pageInfo.setPageIndex(5L);
+        pageInfo.setCursor("cursor");
+        pageInfo.setPageCursorFieldName("cursor");
         pageInfo.setUsePlaceholderReplacement(true);
 
-        // Call updateRequestParam method using reflection
-        Method updateRequestParamMethod =
-                HttpSourceReader.class.getDeclaredMethod(
-                        "updateRequestParam", PageInfo.class, boolean.class);
-        updateRequestParamMethod.setAccessible(true);
-        updateRequestParamMethod.invoke(httpSourceReader, pageInfo, true);
+        // Call updateRequestParam method directly
+        httpSourceReader.updateRequestParam(pageInfo, true);
 
         // Verify the headers were updated correctly
         Map<String, String> updatedHeaders = httpParameter.getHeaders();
         Assertions.assertEquals("5", updatedHeaders.get("Page-Number"));
         Assertions.assertEquals("Bearer token-123", updatedHeaders.get("Authorization"));
+        Assertions.assertEquals("cursor", updatedHeaders.get("Cursor"));
     }
 
     @Test
@@ -129,24 +129,24 @@ public class HttpSourceReaderUpdateRequestParamTest {
         Map<String, String> headers = new HashMap<>();
         headers.put("Page-Number", "10${page}");
         headers.put("Authorization", "Bearer token-123");
+        headers.put("Cursor", "${cursor}");
         httpParameter.setHeaders(headers);
 
         PageInfo pageInfo = new PageInfo();
         pageInfo.setPageField("page");
         pageInfo.setPageIndex(5L);
+        pageInfo.setCursor("cursor");
+        pageInfo.setPageCursorFieldName("cursor");
         pageInfo.setUsePlaceholderReplacement(true);
 
-        // Call updateRequestParam method using reflection
-        Method updateRequestParamMethod =
-                HttpSourceReader.class.getDeclaredMethod(
-                        "updateRequestParam", PageInfo.class, boolean.class);
-        updateRequestParamMethod.setAccessible(true);
-        updateRequestParamMethod.invoke(httpSourceReader, pageInfo, true);
+        // Call updateRequestParam method directly
+        httpSourceReader.updateRequestParam(pageInfo, true);
 
         // Verify the headers were updated correctly
         Map<String, String> updatedHeaders = httpParameter.getHeaders();
         Assertions.assertEquals("105", updatedHeaders.get("Page-Number"));
         Assertions.assertEquals("Bearer token-123", updatedHeaders.get("Authorization"));
+        Assertions.assertEquals("cursor", updatedHeaders.get("Cursor"));
     }
 
     @Test
@@ -155,24 +155,24 @@ public class HttpSourceReaderUpdateRequestParamTest {
         Map<String, String> params = new HashMap<>();
         params.put("page", "${page}");
         params.put("limit", "10");
+        params.put("cursor", "${cursor}");
         httpParameter.setParams(params);
 
         PageInfo pageInfo = new PageInfo();
         pageInfo.setPageField("page");
         pageInfo.setPageIndex(5L);
+        pageInfo.setCursor("cursor");
+        pageInfo.setPageCursorFieldName("cursor");
         pageInfo.setUsePlaceholderReplacement(true);
 
-        // Call updateRequestParam method using reflection
-        Method updateRequestParamMethod =
-                HttpSourceReader.class.getDeclaredMethod(
-                        "updateRequestParam", PageInfo.class, boolean.class);
-        updateRequestParamMethod.setAccessible(true);
-        updateRequestParamMethod.invoke(httpSourceReader, pageInfo, true);
+        // Call updateRequestParam method directly
+        httpSourceReader.updateRequestParam(pageInfo, true);
 
         // Verify the params were updated correctly
         Map<String, String> updatedParams = httpParameter.getParams();
         Assertions.assertEquals("5", updatedParams.get("page"));
         Assertions.assertEquals("10", updatedParams.get("limit"));
+        Assertions.assertEquals("cursor", updatedParams.get("cursor"));
     }
 
     @Test
@@ -181,108 +181,106 @@ public class HttpSourceReaderUpdateRequestParamTest {
         Map<String, String> params = new HashMap<>();
         params.put("page", "10${page}");
         params.put("limit", "10");
+        params.put("cursor", "${cursor}");
         httpParameter.setParams(params);
 
         PageInfo pageInfo = new PageInfo();
         pageInfo.setPageField("page");
         pageInfo.setPageIndex(5L);
+        pageInfo.setCursor("cursor");
+        pageInfo.setPageCursorFieldName("cursor");
         pageInfo.setUsePlaceholderReplacement(true);
 
-        // Call updateRequestParam method using reflection
-        Method updateRequestParamMethod =
-                HttpSourceReader.class.getDeclaredMethod(
-                        "updateRequestParam", PageInfo.class, boolean.class);
-        updateRequestParamMethod.setAccessible(true);
-        updateRequestParamMethod.invoke(httpSourceReader, pageInfo, true);
+        // Call updateRequestParam method directly
+        httpSourceReader.updateRequestParam(pageInfo, true);
 
         // Verify the params were updated correctly
         Map<String, String> updatedParams = httpParameter.getParams();
         Assertions.assertEquals("105", updatedParams.get("page"));
         Assertions.assertEquals("10", updatedParams.get("limit"));
+        Assertions.assertEquals("cursor", updatedParams.get("cursor"));
     }
 
     @Test
     public void testUpdateRequestParamWithBodyPlaceholder() throws Exception {
         // Setup test data
-        Map<String, Object> body = new HashMap<>();
-        body.put("page", "${page}");
-        body.put("limit", 10);
-        httpParameter.setBody(body);
+        String bodyJson = "{\"page\":\"${page}\",\"limit\":10,\"cursor\":\"${cursor}\"}";
+        httpParameter.setBody(bodyJson);
 
         PageInfo pageInfo = new PageInfo();
         pageInfo.setPageField("page");
         pageInfo.setPageIndex(5L);
+        pageInfo.setCursor("cursor");
+        pageInfo.setPageCursorFieldName("cursor");
         pageInfo.setUsePlaceholderReplacement(true);
 
-        // Call updateRequestParam method using reflection
-        Method updateRequestParamMethod =
-                HttpSourceReader.class.getDeclaredMethod(
-                        "updateRequestParam", PageInfo.class, boolean.class);
-        updateRequestParamMethod.setAccessible(true);
-        updateRequestParamMethod.invoke(httpSourceReader, pageInfo, true);
+        // Call updateRequestParam method directly
+        httpSourceReader.updateRequestParam(pageInfo, true);
 
         // Verify the body was updated correctly
-        Map<String, Object> updatedBody = httpParameter.getBody();
-        Assertions.assertEquals(5, updatedBody.get("page"));
-        Assertions.assertEquals(10, updatedBody.get("limit"));
+        Assertions.assertEquals(
+                "{\"page\":\"5\",\"limit\":10,\"cursor\":\"cursor\"}", httpParameter.getBody());
+        Map<String, Object> bodyMap =
+                JsonUtils.toMap(JsonUtils.stringToJsonNode(httpParameter.getBody()));
+        Assertions.assertEquals("5", bodyMap.get("page"));
+        Assertions.assertEquals(10, bodyMap.get("limit"));
+        Assertions.assertEquals("cursor", bodyMap.get("cursor"));
     }
 
     @Test
     public void testUpdateRequestParamWithBodyPrefixedPlaceholder() throws Exception {
         // Setup test data
-        Map<String, Object> body = new HashMap<>();
-        body.put("page", "10${page}");
-        body.put("limit", 10);
-        httpParameter.setBody(body);
+        String bodyJson = "{\"page\":\"10${page}\",\"limit\":10,\"cursor\":\"${cursor}\"}";
+        httpParameter.setBody(bodyJson);
 
         PageInfo pageInfo = new PageInfo();
         pageInfo.setPageField("page");
         pageInfo.setPageIndex(5L);
+        pageInfo.setCursor("cursor");
+        pageInfo.setPageCursorFieldName("cursor");
         pageInfo.setUsePlaceholderReplacement(true);
 
-        // Call updateRequestParam method using reflection
-        Method updateRequestParamMethod =
-                HttpSourceReader.class.getDeclaredMethod(
-                        "updateRequestParam", PageInfo.class, boolean.class);
-        updateRequestParamMethod.setAccessible(true);
-        updateRequestParamMethod.invoke(httpSourceReader, pageInfo, true);
+        // Call updateRequestParam method directly
+        httpSourceReader.updateRequestParam(pageInfo, true);
 
         // Verify the body was updated correctly
-        Map<String, Object> updatedBody = httpParameter.getBody();
-        Assertions.assertEquals("105", updatedBody.get("page"));
-        Assertions.assertEquals(10, updatedBody.get("limit"));
+        Assertions.assertEquals(
+                "{\"page\":\"105\",\"limit\":10,\"cursor\":\"cursor\"}", httpParameter.getBody());
+        Map<String, Object> bodyMap =
+                JsonUtils.toMap(JsonUtils.stringToJsonNode(httpParameter.getBody()));
+        Assertions.assertEquals("105", bodyMap.get("page"));
+        Assertions.assertEquals(10, bodyMap.get("limit"));
+        Assertions.assertEquals("cursor", bodyMap.get("cursor"));
     }
 
     @Test
     public void testUpdateRequestParamWithNestedBodyPlaceholder() throws Exception {
         // Setup test data with nested structure
-        Map<String, Object> pagination = new HashMap<>();
-        pagination.put("page", "${page}");
-        pagination.put("limit", 10);
-
-        Map<String, Object> body = new HashMap<>();
-        body.put("pagination", pagination);
-        body.put("filter", "active");
-        httpParameter.setBody(body);
+        String bodyJson =
+                "{\"pagination\":{\"page\":\"${page}\",\"limit\":10,\"cursor\":\"${cursor}\"},\"filter\":\"active\"}";
+        httpParameter.setBody(bodyJson);
 
         PageInfo pageInfo = new PageInfo();
         pageInfo.setPageField("page");
         pageInfo.setPageIndex(5L);
+        pageInfo.setCursor("cursor");
+        pageInfo.setPageCursorFieldName("cursor");
         pageInfo.setUsePlaceholderReplacement(true);
 
-        // Call updateRequestParam method using reflection
-        Method updateRequestParamMethod =
-                HttpSourceReader.class.getDeclaredMethod(
-                        "updateRequestParam", PageInfo.class, boolean.class);
-        updateRequestParamMethod.setAccessible(true);
-        updateRequestParamMethod.invoke(httpSourceReader, pageInfo, true);
+        // Call updateRequestParam method directly
+        httpSourceReader.updateRequestParam(pageInfo, true);
 
         // Verify the nested body was updated correctly
-        Map<String, Object> updatedBody = httpParameter.getBody();
-        Map<String, Object> updatedPagination = (Map<String, Object>) updatedBody.get("pagination");
-        Assertions.assertEquals(5, updatedPagination.get("page"));
-        Assertions.assertEquals(10, updatedPagination.get("limit"));
-        Assertions.assertEquals("active", updatedBody.get("filter"));
+        Assertions.assertEquals(
+                "{\"pagination\":{\"page\":\"5\",\"limit\":10,\"cursor\":\"cursor\"},\"filter\":\"active\"}",
+                httpParameter.getBody());
+        Map<String, Object> bodyMap =
+                JsonUtils.toMap(JsonUtils.stringToJsonNode(httpParameter.getBody()));
+        Map<String, Object> pagination = (Map<String, Object>) bodyMap.get("pagination");
+        Assertions.assertEquals("5", pagination.get("page"));
+        Assertions.assertEquals(10, pagination.get("limit"));
+        Assertions.assertEquals("cursor", pagination.get("cursor"));
+        Assertions.assertEquals("active", bodyMap.get("filter"));
     }
 
     @Test
@@ -293,74 +291,217 @@ public class HttpSourceReaderUpdateRequestParamTest {
         PageInfo pageInfo = new PageInfo();
         pageInfo.setPageField("page");
         pageInfo.setPageIndex(5L);
+        pageInfo.setCursor("cursor");
+        pageInfo.setPageCursorFieldName("cursor");
 
-        // Call updateRequestParam method using reflection
-        Method updateRequestParamMethod =
-                HttpSourceReader.class.getDeclaredMethod(
-                        "updateRequestParam", PageInfo.class, boolean.class);
-        updateRequestParamMethod.setAccessible(true);
-        updateRequestParamMethod.invoke(httpSourceReader, pageInfo, true);
+        // Call updateRequestParam method directly
+        httpSourceReader.updateRequestParam(pageInfo, true);
 
         // Verify the params were updated correctly
         Map<String, String> updatedParams = httpParameter.getParams();
         Assertions.assertEquals("5", updatedParams.get("page"));
+        // Add cursor param to the params map
+        updatedParams.put("cursor", "cursor");
+        Assertions.assertEquals("cursor", updatedParams.get("cursor"));
     }
 
     @Test
     public void testUpdateRequestParamWithKeyBasedReplacement() throws Exception {
         // Setup test data
-        Map<String, Object> body = new HashMap<>();
-        body.put("page", 1);
-        body.put("limit", 10);
-        httpParameter.setBody(body);
+        String bodyJson = "{\"page\":1,\"limit\":10,\"cursor\":\"old_cursor\"}";
+        httpParameter.setBody(bodyJson);
 
         PageInfo pageInfo = new PageInfo();
         pageInfo.setPageField("page");
         pageInfo.setPageIndex(5L);
+        pageInfo.setCursor("cursor");
+        pageInfo.setPageCursorFieldName("cursor");
         pageInfo.setUsePlaceholderReplacement(false);
 
-        // Call updateRequestParam method using reflection
-        Method updateRequestParamMethod =
-                HttpSourceReader.class.getDeclaredMethod(
-                        "updateRequestParam", PageInfo.class, boolean.class);
-        updateRequestParamMethod.setAccessible(true);
-        updateRequestParamMethod.invoke(httpSourceReader, pageInfo, false);
+        // Call updateRequestParam method directly
+        httpSourceReader.updateRequestParam(pageInfo, false);
 
         // Verify the body was updated correctly using key-based replacement
-        Map<String, Object> updatedBody = httpParameter.getBody();
-        Assertions.assertEquals(5L, updatedBody.get("page"));
-        Assertions.assertEquals(10, updatedBody.get("limit"));
+        Map<String, Object> bodyMap =
+                JsonUtils.toMap(JsonUtils.stringToJsonNode(httpParameter.getBody()));
+        Assertions.assertEquals(5, bodyMap.get("page"));
+        Assertions.assertEquals(10, bodyMap.get("limit"));
+        // For key-based replacement with cursor, the cursor value is still updated
+        Assertions.assertEquals("cursor", bodyMap.get("cursor"));
     }
 
     @Test
     public void testUpdateRequestParamWithNestedKeyBasedReplacement() throws Exception {
         // Setup test data with nested structure
-        Map<String, Object> pagination = new HashMap<>();
-        pagination.put("page", 1);
-        pagination.put("limit", 10);
-
-        Map<String, Object> body = new HashMap<>();
-        body.put("pagination", pagination);
-        body.put("filter", "active");
-        httpParameter.setBody(body);
+        String bodyJson =
+                "{\"pagination\":{\"page\":1,\"limit\":10,\"cursor\":\"old_cursor\"},\"filter\":\"active\"}";
+        httpParameter.setBody(bodyJson);
 
         PageInfo pageInfo = new PageInfo();
         pageInfo.setPageField("page");
         pageInfo.setPageIndex(5L);
+        pageInfo.setCursor("cursor");
+        pageInfo.setPageCursorFieldName("cursor");
         pageInfo.setUsePlaceholderReplacement(false);
 
-        // Call updateRequestParam method using reflection
-        Method updateRequestParamMethod =
-                HttpSourceReader.class.getDeclaredMethod(
-                        "updateRequestParam", PageInfo.class, boolean.class);
-        updateRequestParamMethod.setAccessible(true);
-        updateRequestParamMethod.invoke(httpSourceReader, pageInfo, false);
+        // Call updateRequestParam method directly
+        httpSourceReader.updateRequestParam(pageInfo, false);
 
         // Verify the nested body was updated correctly using key-based replacement
-        Map<String, Object> updatedBody = httpParameter.getBody();
-        Map<String, Object> updatedPagination = (Map<String, Object>) updatedBody.get("pagination");
-        Assertions.assertEquals(5L, updatedPagination.get("page"));
-        Assertions.assertEquals(10, updatedPagination.get("limit"));
-        Assertions.assertEquals("active", updatedBody.get("filter"));
+        Map<String, Object> bodyMap =
+                JsonUtils.toMap(JsonUtils.stringToJsonNode(httpParameter.getBody()));
+        Map<String, Object> pagination = (Map<String, Object>) bodyMap.get("pagination");
+        Assertions.assertEquals(5, pagination.get("page"));
+        Assertions.assertEquals(10, pagination.get("limit"));
+        // For key-based replacement with cursor, the cursor value is still updated
+        Assertions.assertEquals("cursor", pagination.get("cursor"));
+        Assertions.assertEquals("active", bodyMap.get("filter"));
+    }
+
+    @Test
+    public void testUpdateRequestParamWithUnquotedPlaceholder() throws Exception {
+        // Setup test data with JSON string body containing unquoted placeholder
+        String bodyJson = "{\"a\":${page},\"limit\":10,\"cursor\":\"${cursor}\"}";
+        httpParameter.setBody(bodyJson);
+
+        PageInfo pageInfo = new PageInfo();
+        pageInfo.setPageField("page");
+        pageInfo.setPageIndex(5L);
+        pageInfo.setCursor("cursor");
+        pageInfo.setPageCursorFieldName("cursor");
+        pageInfo.setUsePlaceholderReplacement(true);
+
+        // Call updateRequestParam method directly
+        httpSourceReader.updateRequestParam(pageInfo, true);
+
+        // Verify the body was updated correctly
+        Assertions.assertEquals(
+                "{\"a\":5,\"limit\":10,\"cursor\":\"cursor\"}", httpParameter.getBody());
+        Map<String, Object> bodyMap =
+                JsonUtils.toMap(JsonUtils.stringToJsonNode(httpParameter.getBody()));
+        Assertions.assertEquals(5, bodyMap.get("a"));
+        Assertions.assertEquals(10, bodyMap.get("limit"));
+        Assertions.assertEquals("cursor", bodyMap.get("cursor"));
+    }
+
+    @Test
+    public void testUpdateRequestParamWithPrefixedUnquotedPlaceholder() throws Exception {
+        // Setup test data with JSON string body containing prefixed unquoted placeholder
+        String bodyJson = "{\"a\":10${page},\"limit\":10,\"cursor\":\"${cursor}\"}";
+        httpParameter.setBody(bodyJson);
+
+        PageInfo pageInfo = new PageInfo();
+        pageInfo.setPageField("page");
+        pageInfo.setPageIndex(5L);
+        pageInfo.setCursor("cursor");
+        pageInfo.setPageCursorFieldName("cursor");
+        pageInfo.setUsePlaceholderReplacement(true);
+
+        // Call updateRequestParam method directly
+        httpSourceReader.updateRequestParam(pageInfo, true);
+
+        // Verify the body was updated correctly
+        Assertions.assertEquals(
+                "{\"a\":105,\"limit\":10,\"cursor\":\"cursor\"}", httpParameter.getBody());
+        Map<String, Object> bodyMap =
+                JsonUtils.toMap(JsonUtils.stringToJsonNode(httpParameter.getBody()));
+        Assertions.assertEquals(105, bodyMap.get("a"));
+        Assertions.assertEquals(10, bodyMap.get("limit"));
+        Assertions.assertEquals("cursor", bodyMap.get("cursor"));
+    }
+
+    @Test
+    public void testUpdateRequestParamWithNestedUnquotedPlaceholder() throws Exception {
+        // Setup test data with nested JSON string body containing unquoted placeholder
+        String bodyJson =
+                "{\"data\":{\"a\":${page},\"limit\":10,\"cursor\":\"${cursor}\"},\"filter\":\"active\"}";
+        httpParameter.setBody(bodyJson);
+
+        PageInfo pageInfo = new PageInfo();
+        pageInfo.setPageField("page");
+        pageInfo.setPageIndex(5L);
+        pageInfo.setCursor("cursor");
+        pageInfo.setPageCursorFieldName("cursor");
+        pageInfo.setUsePlaceholderReplacement(true);
+
+        // Call updateRequestParam method directly
+        httpSourceReader.updateRequestParam(pageInfo, true);
+
+        // Verify the body was updated correctly
+        Assertions.assertEquals(
+                "{\"data\":{\"a\":5,\"limit\":10,\"cursor\":\"cursor\"},\"filter\":\"active\"}",
+                httpParameter.getBody());
+        Map<String, Object> bodyMap =
+                JsonUtils.toMap(JsonUtils.stringToJsonNode(httpParameter.getBody()));
+        Map<String, Object> data = (Map<String, Object>) bodyMap.get("data");
+        Assertions.assertEquals(5, data.get("a"));
+        Assertions.assertEquals(10, data.get("limit"));
+        Assertions.assertEquals("cursor", data.get("cursor"));
+        Assertions.assertEquals("active", bodyMap.get("filter"));
+    }
+
+    @Test
+    public void testUpdateRequestParamWithMultiplePlaceholders() throws Exception {
+        // Setup test data with JSON string body containing multiple placeholders
+        String bodyJson =
+                "{\"a\":${page},\"b\":\"${page}\",\"c\":10${page},\"limit\":10,\"cursor\":\"${cursor}\"}";
+        httpParameter.setBody(bodyJson);
+
+        PageInfo pageInfo = new PageInfo();
+        pageInfo.setPageField("page");
+        pageInfo.setPageIndex(5L);
+        pageInfo.setCursor("cursor");
+        pageInfo.setPageCursorFieldName("cursor");
+        pageInfo.setUsePlaceholderReplacement(true);
+
+        // Call updateRequestParam method directly
+        httpSourceReader.updateRequestParam(pageInfo, true);
+
+        // Verify the body was updated correctly
+        Assertions.assertEquals(
+                "{\"a\":5,\"b\":\"5\",\"c\":105,\"limit\":10,\"cursor\":\"cursor\"}",
+                httpParameter.getBody());
+        Map<String, Object> bodyMap =
+                JsonUtils.toMap(JsonUtils.stringToJsonNode(httpParameter.getBody()));
+        Assertions.assertEquals(5, bodyMap.get("a"));
+        Assertions.assertEquals("5", bodyMap.get("b"));
+        Assertions.assertEquals(105, bodyMap.get("c"));
+        Assertions.assertEquals(10, bodyMap.get("limit"));
+        Assertions.assertEquals("cursor", bodyMap.get("cursor"));
+    }
+
+    @Test
+    public void testUpdateRequestParamWithComplexNestedPlaceholders() throws Exception {
+        // Setup test data with complex nested JSON string body containing various placeholders
+        String bodyJson =
+                "{\"pagination\":{\"page\":${page},\"size\":\"${page}\",\"offset\":10${page},\"cursor\":\"${cursor}\"},\"filters\":{\"active\":true,\"code\":\"${page}\"},\"limit\":10}";
+        httpParameter.setBody(bodyJson);
+
+        PageInfo pageInfo = new PageInfo();
+        pageInfo.setPageField("page");
+        pageInfo.setPageIndex(5L);
+        pageInfo.setCursor("cursor");
+        pageInfo.setPageCursorFieldName("cursor");
+        pageInfo.setUsePlaceholderReplacement(true);
+
+        // Call updateRequestParam method directly
+        httpSourceReader.updateRequestParam(pageInfo, true);
+
+        // Verify the body was updated correctly
+        Assertions.assertEquals(
+                "{\"pagination\":{\"page\":5,\"size\":\"5\",\"offset\":105,\"cursor\":\"cursor\"},\"filters\":{\"active\":true,\"code\":\"5\"},\"limit\":10}",
+                httpParameter.getBody());
+        Map<String, Object> bodyMap =
+                JsonUtils.toMap(JsonUtils.stringToJsonNode(httpParameter.getBody()));
+        Map<String, Object> pagination = (Map<String, Object>) bodyMap.get("pagination");
+        Map<String, Object> filters = (Map<String, Object>) bodyMap.get("filters");
+
+        Assertions.assertEquals(5, pagination.get("page"));
+        Assertions.assertEquals("5", pagination.get("size"));
+        Assertions.assertEquals(105, pagination.get("offset"));
+        Assertions.assertEquals("cursor", pagination.get("cursor"));
+        Assertions.assertEquals(true, filters.get("active"));
+        Assertions.assertEquals("5", filters.get("code"));
+        Assertions.assertEquals(10, bodyMap.get("limit"));
     }
 }
