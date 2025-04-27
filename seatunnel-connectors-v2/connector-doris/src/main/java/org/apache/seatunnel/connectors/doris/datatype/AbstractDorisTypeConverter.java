@@ -105,6 +105,18 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
         return builder;
     }
 
+    // 添加处理字段名大小写的方法
+    protected PhysicalColumn.PhysicalColumnBuilder getPhysicalColumnBuilder(
+            BasicTypeDefine typeDefine, boolean caseSensitive) {
+        String columnName =
+                caseSensitive ? typeDefine.getName() : typeDefine.getName().toLowerCase();
+        return PhysicalColumn.builder()
+                .name(columnName)
+                .nullable(typeDefine.isNullable())
+                .comment(typeDefine.getComment())
+                .defaultValue(typeDefine.getDefaultValue());
+    }
+
     protected BasicTypeDefine.BasicTypeDefineBuilder getBasicTypeDefineBuilder(Column column) {
         BasicTypeDefine.BasicTypeDefineBuilder builder =
                 BasicTypeDefine.builder()

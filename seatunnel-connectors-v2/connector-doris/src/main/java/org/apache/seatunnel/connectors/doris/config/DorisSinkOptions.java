@@ -107,6 +107,14 @@ public class DorisSinkOptions extends DorisBaseOptions {
                     .withDescription(
                             "Whether to enable the unsupported type casting, such as Decimal64 to Double");
 
+    // 添加大小写敏感配置选项
+    Option<Boolean> CASE_SENSITIVE =
+            Options.key("case_sensitive")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "Whether to preserve the original case of table and column names. Default is true (case sensitive)");
+
     // create table
     public static final Option<String> SAVE_MODE_CREATE_TEMPLATE =
             Options.key("save_mode_create_template")
