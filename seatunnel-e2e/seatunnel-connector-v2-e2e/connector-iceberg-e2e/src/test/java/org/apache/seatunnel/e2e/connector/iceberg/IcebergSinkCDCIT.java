@@ -214,7 +214,7 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason =
                     "Currently SPARK do not support cdc. In addition, currently only the zeta engine supports schema evolution for pr https://github.com/apache/seatunnel/pull/5125.")
-    public void testMysqlCdcCheckSchemaChangeE2e(TestContainer container)
+    public void testMysqlCdcCheckSchemaEvolutionE2e(TestContainer container)
             throws IOException, InterruptedException {
         // Clear related content to ensure that multiple operations are not affected
         clearTable(MYSQL_DATABASE, SOURCE_TABLE);
@@ -230,25 +230,32 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                     return null;
                 });
         initSourceTableData(MYSQL_DATABASE, SOURCE_TABLE);
-        alterSchemaAndCheckIcebergSchema(container);
+
+        // Test all schema evolution cases in a single method
+        assertSchemaEvolution(container);
     }
 
-    private void alterSchemaAndCheckIcebergSchema(TestContainer container)
+    /**
+     * Test all schema evolution cases in a single method, similar to
+     * MysqlCDCWithSchemaChangeIT.assertSchemaEvolution
+     */
+    private void assertSchemaEvolution(TestContainer container)
             throws InterruptedException, IOException {
+        log.info("Starting schema evolution test cases");
+
+        // Case 1: Test adding a single column
+        log.info("Case 1: Testing adding a single column");
         String addField = "f_string_add";
-        // Init table data
         addTableColumn(MYSQL_DATABASE, SOURCE_TABLE, addField);
         insertAddColumnData(MYSQL_DATABASE, SOURCE_TABLE);
-        // Waiting 30s for source capture data
-        sleep(30000);
+        sleep(30000); // Wait for source capture data
 
-        // stream stage
+        // Verify single column addition
         given().ignoreExceptions()
                 .await()
                 .atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy iceberg to local
                             container.executeExtraCommands(containerExtendedFactory);
                             Schema schema = loadIcebergSchema();
                             Types.NestedField nestedField = schema.findField(addField);
@@ -265,18 +272,18 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                             }
                         });
 
+        // Case 2: Test modifying a column type
+        log.info("Case 2: Testing modifying a column type");
         String modifyField = "f_varchar";
         modifyTableColumn(MYSQL_DATABASE, SOURCE_TABLE, modifyField, "text");
         insertModifyColumnData(MYSQL_DATABASE, SOURCE_TABLE);
-        // Waiting 30s for source capture data
-        sleep(30000);
+        sleep(30000); // Wait for source capture data
 
         given().ignoreExceptions()
                 .await()
                 .atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy iceberg to local
                             container.executeExtraCommands(containerExtendedFactory);
                             List<Record> records = loadIcebergTable();
                             Assertions.assertEquals(5, records.size());
@@ -291,44 +298,463 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                             }
                         });
 
+        // Case 3: Test changing a single column name
+        log.info("Case 3: Testing changing a single column name");
+        String oldColumnName = "f_column_to_rename";
+        String newColumnName = "f_renamed_column";
+
+        // Add a column first
+        String addColumnSql =
+                String.format(
+                        "ALTER TABLE %s.%s ADD COLUMN %s VARCHAR(255) DEFAULT 'to-be-renamed'",
+                        MYSQL_DATABASE, SOURCE_TABLE, oldColumnName);
+        executeSql(addColumnSql);
+
+        // Insert data with the new column
+        String insertSql =
+                String.format(
+                        "INSERT INTO %s.%s (id, name, f_varchar, f_datetime, %s, %s) "
+                                + "VALUES (150, 'rename-column-test', 'test varchar', '2023-01-01 12:00:00', "
+                                + "'add column field', 'original column value')",
+                        MYSQL_DATABASE, SOURCE_TABLE, addField, oldColumnName);
+        executeSql(insertSql);
+
+        sleep(30000); // Wait for source capture data
+
+        // Now rename the column
+        String renameColumnSql =
+                String.format(
+                        "ALTER TABLE %s.%s CHANGE %s %s VARCHAR(255) DEFAULT 'renamed-column'",
+                        MYSQL_DATABASE, SOURCE_TABLE, oldColumnName, newColumnName);
+        executeSql(renameColumnSql);
+
+        // Insert data with the renamed column
+        String insertAfterRenameSql =
+                String.format(
+                        "INSERT INTO %s.%s (id, name, f_varchar, f_datetime, %s, %s) "
+                                + "VALUES (151, 'after-rename-test', 'test varchar', '2023-01-01 12:00:00', "
+                                + "'add column field', 'renamed column value')",
+                        MYSQL_DATABASE, SOURCE_TABLE, addField, newColumnName);
+        executeSql(insertAfterRenameSql);
+
+        sleep(30000); // Wait for source capture data
+
+        // Verify that column was renamed and data is correct
+        given().ignoreExceptions()
+                .await()
+                .atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            container.executeExtraCommands(containerExtendedFactory);
+                            Schema schema = loadIcebergSchema();
+
+                            // Verify old column is gone and new column exists
+                            Types.NestedField oldField = schema.findField(oldColumnName);
+                            Types.NestedField newField = schema.findField(newColumnName);
+
+                            // Old column should be gone or marked as deleted
+                            Assertions.assertTrue(
+                                    oldField == null || !oldField.isRequired(),
+                                    "Column "
+                                            + oldColumnName
+                                            + " should be deleted or marked optional");
+
+                            // New column should exist
+                            Assertions.assertNotNull(
+                                    newField, "Column " + newColumnName + " should exist");
+
+                            // Verify the data type is correct
+                            Assertions.assertEquals("string", newField.type().toString());
+
+                            // Verify the data was correctly inserted
+                            List<Record> records = loadIcebergTable();
+                            boolean foundTestRecord = false;
+
+                            for (Record record : records) {
+                                Integer id = (Integer) record.getField("id");
+                                if (id == 151) {
+                                    foundTestRecord = true;
+                                    String value = (String) record.getField(newColumnName);
+                                    Assertions.assertEquals("renamed column value", value);
+                                }
+                            }
+
+                            Assertions.assertTrue(
+                                    foundTestRecord, "Test record with id=151 should exist");
+                        });
+
+        // Case 4: Test dropping a column
+        log.info("Case 4: Testing dropping a column");
         dropTableColumn(MYSQL_DATABASE, SOURCE_TABLE, addField);
         insertAfterDropColumnData(MYSQL_DATABASE, SOURCE_TABLE);
-        // Waiting 30s for source capture data
-        sleep(30000);
+        sleep(30000); // Wait for source capture data
 
         given().ignoreExceptions()
                 .await()
                 .atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy iceberg to local
                             container.executeExtraCommands(containerExtendedFactory);
                             Schema schema = loadIcebergSchema();
                             Types.NestedField nestedField = schema.findField(addField);
-                            // The column should be marked as deleted in Iceberg
-                            Assertions.assertEquals(
-                                    true, nestedField == null || !nestedField.isRequired());
+                            // In Iceberg, columns might be marked as deleted rather than completely
+                            // removed
+                            Assertions.assertTrue(
+                                    nestedField == null || !nestedField.isRequired(),
+                                    "Column " + addField + " should be deleted or marked optional");
 
                             List<Record> records = loadIcebergTable();
-                            Assertions.assertEquals(6, records.size());
+                            Assertions.assertEquals(
+                                    7, records.size()); // Now we have 7 records with the new test
+                        });
+
+        // Case 5: Test adding multiple columns in a single ALTER TABLE statement
+        // (AlterTableColumnsEvent)
+        log.info("Case 5: Testing adding multiple columns in a single statement");
+        String addField1 = "f_string_multi1";
+        String addField2 = "f_int_multi2";
+        String addField3 = "f_float_multi3";
+
+        // Add multiple columns in a single ALTER TABLE statement
+        String alterTableSql =
+                String.format(
+                        "ALTER TABLE %s.%s ADD COLUMN %s VARCHAR(255) DEFAULT 'multi-column-1', "
+                                + "ADD COLUMN %s INT DEFAULT 42, "
+                                + "ADD COLUMN %s FLOAT DEFAULT 3.14",
+                        MYSQL_DATABASE, SOURCE_TABLE, addField1, addField2, addField3);
+        executeSql(alterTableSql);
+
+        // Insert data with the new columns
+        String addModifyColumnSql =
+                String.format(
+                        "INSERT INTO %s.%s (id, name, f_varchar, f_datetime, %s, %s, %s) "
+                                + "VALUES (200, 'multi-column-test', 'test varchar', '2023-01-01 12:00:00', "
+                                + "'custom multi value 1', 100, 9.9)",
+                        MYSQL_DATABASE, SOURCE_TABLE, addField1, addField2, addField3);
+        executeSql(addModifyColumnSql);
+
+        sleep(30000); // Wait for source capture data
+
+        // Verify multiple column addition
+        given().ignoreExceptions()
+                .await()
+                .atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            container.executeExtraCommands(containerExtendedFactory);
+                            Schema schema = loadIcebergSchema();
+
+                            // Verify all three columns exist in the schema
+                            Types.NestedField field1 = schema.findField(addField1);
+                            Types.NestedField field2 = schema.findField(addField2);
+                            Types.NestedField field3 = schema.findField(addField3);
+
+                            Assertions.assertNotNull(
+                                    field1, "Column " + addField1 + " should exist");
+                            Assertions.assertNotNull(
+                                    field2, "Column " + addField2 + " should exist");
+                            Assertions.assertNotNull(
+                                    field3, "Column " + addField3 + " should exist");
+
+                            // Verify the data types are correct
+                            Assertions.assertEquals("string", field1.type().toString());
+                            Assertions.assertEquals("int", field2.type().toString());
+                            Assertions.assertEquals("float", field3.type().toString());
+
+                            // Verify the data was correctly inserted
+                            List<Record> records = loadIcebergTable();
+                            boolean foundTestRecord = false;
+
                             for (Record record : records) {
                                 Integer id = (Integer) record.getField("id");
-                                if (id == 102) {
-                                    // The dropped column should not be accessible or should be null
-                                    try {
-                                        Object droppedField = record.getField(addField);
-                                        Assertions.assertNull(
-                                                droppedField, "Dropped field should be null");
-                                    } catch (Exception e) {
-                                        // It's also acceptable if the field is not accessible at
-                                        // all
-                                        log.info(
-                                                "Field {} is not accessible after dropping, which is expected",
-                                                addField);
-                                    }
+                                if (id == 200) {
+                                    foundTestRecord = true;
+                                    String value1 = (String) record.getField(addField1);
+                                    Integer value2 = (Integer) record.getField(addField2);
+                                    Float value3 = (Float) record.getField(addField3);
+
+                                    Assertions.assertEquals("custom multi value 1", value1);
+                                    Assertions.assertEquals(Integer.valueOf(100), value2);
+                                    Assertions.assertEquals(Float.valueOf(9.9f), value3, 0.001);
                                 }
                             }
+
+                            Assertions.assertTrue(
+                                    foundTestRecord, "Test record with id=200 should exist");
                         });
+
+        // Case 6: Test dropping multiple columns in a single ALTER TABLE statement
+        log.info("Case 6: Testing dropping multiple columns in a single statement");
+        String dropColumnsSql =
+                String.format(
+                        "ALTER TABLE %s.%s DROP COLUMN %s, DROP COLUMN %s",
+                        MYSQL_DATABASE, SOURCE_TABLE, addField1, addField3);
+        executeSql(dropColumnsSql);
+
+        // Insert data after dropping columns
+        String insertAfterDropSql =
+                String.format(
+                        "INSERT INTO %s.%s (id, name, f_varchar, f_datetime, %s) "
+                                + "VALUES (201, 'after-drop-test', 'test varchar', '2023-01-01 12:00:00', 200)",
+                        MYSQL_DATABASE, SOURCE_TABLE, addField2);
+        executeSql(insertAfterDropSql);
+
+        sleep(30000); // Wait for source capture data
+
+        // Verify columns were dropped
+        given().ignoreExceptions()
+                .await()
+                .atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            container.executeExtraCommands(containerExtendedFactory);
+                            Schema schema = loadIcebergSchema();
+
+                            // Verify dropped columns are gone and remaining column exists
+                            Types.NestedField field1 = schema.findField(addField1);
+                            Types.NestedField field2 = schema.findField(addField2);
+                            Types.NestedField field3 = schema.findField(addField3);
+
+                            // In Iceberg, columns might be marked as deleted rather than completely
+                            // removed
+                            Assertions.assertTrue(
+                                    field1 == null || !field1.isRequired(),
+                                    "Column "
+                                            + addField1
+                                            + " should be deleted or marked optional");
+                            Assertions.assertNotNull(
+                                    field2, "Column " + addField2 + " should still exist");
+                            Assertions.assertTrue(
+                                    field3 == null || !field3.isRequired(),
+                                    "Column "
+                                            + addField3
+                                            + " should be deleted or marked optional");
+
+                            // Verify the new data was correctly inserted
+                            List<Record> records = loadIcebergTable();
+                            boolean foundTestRecord = false;
+
+                            for (Record record : records) {
+                                Integer id = (Integer) record.getField("id");
+                                if (id == 201) {
+                                    foundTestRecord = true;
+                                    Integer value2 = (Integer) record.getField(addField2);
+                                    Assertions.assertEquals(Integer.valueOf(200), value2);
+                                }
+                            }
+
+                            Assertions.assertTrue(
+                                    foundTestRecord, "Test record with id=201 should exist");
+                        });
+
+        // Case 7: Test changing multiple column names in a single ALTER TABLE statement
+        log.info("Case 7: Testing changing multiple column names in a single statement");
+        String changeField1 = "f_column_to_change1";
+        String changeField2 = "f_column_to_change2";
+        String newField1 = "f_changed_column1";
+        String newField2 = "f_changed_column2";
+
+        // Add columns first
+        String addChangeColumnsSql =
+                String.format(
+                        "ALTER TABLE %s.%s ADD COLUMN %s VARCHAR(255) DEFAULT 'to-be-changed-1', "
+                                + "ADD COLUMN %s INT DEFAULT 42",
+                        MYSQL_DATABASE, SOURCE_TABLE, changeField1, changeField2);
+        executeSql(addChangeColumnsSql);
+
+        // Insert data with the new columns
+        String insertChangeColumnsSql =
+                String.format(
+                        "INSERT INTO %s.%s (id, name, f_varchar, f_datetime, %s, %s, %s) "
+                                + "VALUES (300, 'change-column-test', 'test varchar', '2023-01-01 12:00:00', "
+                                + "200, 'original value 1', 100)",
+                        MYSQL_DATABASE, SOURCE_TABLE, addField2, changeField1, changeField2);
+        executeSql(insertChangeColumnsSql);
+
+        sleep(30000); // Wait for source capture data
+
+        // Now change multiple columns in a single ALTER TABLE statement
+        String changeColumnsSql =
+                String.format(
+                        "ALTER TABLE %s.%s CHANGE %s %s VARCHAR(500) DEFAULT 'changed-column-1', "
+                                + "CHANGE %s %s BIGINT DEFAULT 1000",
+                        MYSQL_DATABASE,
+                        SOURCE_TABLE,
+                        changeField1,
+                        newField1,
+                        changeField2,
+                        newField2);
+        executeSql(changeColumnsSql);
+
+        // Insert data with the changed columns
+        String insertAfterChangeSql =
+                String.format(
+                        "INSERT INTO %s.%s (id, name, f_varchar, f_datetime, %s, %s, %s) "
+                                + "VALUES (301, 'after-change-test', 'test varchar', '2023-01-01 12:00:00', "
+                                + "200, 'changed value 1', 2000)",
+                        MYSQL_DATABASE, SOURCE_TABLE, addField2, newField1, newField2);
+        executeSql(insertAfterChangeSql);
+
+        sleep(30000); // Wait for source capture data
+
+        // Verify that columns were changed and data is correct
+        given().ignoreExceptions()
+                .await()
+                .atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            container.executeExtraCommands(containerExtendedFactory);
+                            Schema schema = loadIcebergSchema();
+
+                            // Verify old columns are gone and new columns exist
+                            Types.NestedField oldField1 = schema.findField(changeField1);
+                            Types.NestedField oldField2 = schema.findField(changeField2);
+                            Types.NestedField newFieldObj1 = schema.findField(newField1);
+                            Types.NestedField newFieldObj2 = schema.findField(newField2);
+
+                            // Old columns should be gone or marked as deleted
+                            Assertions.assertTrue(
+                                    oldField1 == null || !oldField1.isRequired(),
+                                    "Column "
+                                            + changeField1
+                                            + " should be deleted or marked optional");
+                            Assertions.assertTrue(
+                                    oldField2 == null || !oldField2.isRequired(),
+                                    "Column "
+                                            + changeField2
+                                            + " should be deleted or marked optional");
+
+                            // New columns should exist
+                            Assertions.assertNotNull(
+                                    newFieldObj1, "Column " + newField1 + " should exist");
+                            Assertions.assertNotNull(
+                                    newFieldObj2, "Column " + newField2 + " should exist");
+
+                            // Verify the data types are correct
+                            Assertions.assertEquals("string", newFieldObj1.type().toString());
+                            Assertions.assertEquals("long", newFieldObj2.type().toString());
+
+                            // Verify the data was correctly inserted
+                            List<Record> records = loadIcebergTable();
+                            boolean foundTestRecord = false;
+
+                            for (Record record : records) {
+                                Integer id = (Integer) record.getField("id");
+                                if (id == 301) {
+                                    foundTestRecord = true;
+                                    String value1 = (String) record.getField(newField1);
+                                    Long value2 = (Long) record.getField(newField2);
+
+                                    Assertions.assertEquals("changed value 1", value1);
+                                    Assertions.assertEquals(Long.valueOf(2000), value2);
+                                }
+                            }
+
+                            Assertions.assertTrue(
+                                    foundTestRecord, "Test record with id=301 should exist");
+                        });
+
+        // Case 8: Test modifying multiple column types in a single ALTER TABLE statement
+        log.info("Case 8: Testing modifying multiple column types in a single statement");
+        String modifyField1 = "f_column_to_modify1";
+        String modifyField2 = "f_column_to_modify2";
+
+        // Add columns first
+        String addModifyColumnsSql =
+                String.format(
+                        "ALTER TABLE %s.%s ADD COLUMN %s VARCHAR(50) DEFAULT 'to-be-modified-1', "
+                                + "ADD COLUMN %s INT DEFAULT 42",
+                        MYSQL_DATABASE, SOURCE_TABLE, modifyField1, modifyField2);
+        executeSql(addModifyColumnsSql);
+
+        // Insert data with the new columns
+        String insertModifyColumnsSql =
+                String.format(
+                        "INSERT INTO %s.%s (id, name, f_varchar, f_datetime, %s, %s, %s, %s, %s) "
+                                + "VALUES (400, 'modify-column-test', 'test varchar', '2023-01-01 12:00:00', "
+                                + "200, 'changed value 1', 2000, 'original value 1', 100)",
+                        MYSQL_DATABASE,
+                        SOURCE_TABLE,
+                        addField2,
+                        newField1,
+                        newField2,
+                        modifyField1,
+                        modifyField2);
+        executeSql(insertModifyColumnsSql);
+
+        sleep(30000); // Wait for source capture data
+
+        // Now modify multiple columns in a single ALTER TABLE statement
+        String modifyColumnsSql =
+                String.format(
+                        "ALTER TABLE %s.%s MODIFY %s TEXT DEFAULT 'modified-column-1', "
+                                + "MODIFY %s BIGINT DEFAULT 1000",
+                        MYSQL_DATABASE, SOURCE_TABLE, modifyField1, modifyField2);
+        executeSql(modifyColumnsSql);
+
+        // Insert data with the modified columns
+        String insertAfterModifySql =
+                String.format(
+                        "INSERT INTO %s.%s (id, name, f_varchar, f_datetime, %s, %s, %s, %s, %s) "
+                                + "VALUES (401, 'after-modify-test', 'test varchar', '2023-01-01 12:00:00', "
+                                + "200, 'changed value 1', 2000, "
+                                + "'this is a much longer value that would not fit in the original VARCHAR(50) column', 2000)",
+                        MYSQL_DATABASE,
+                        SOURCE_TABLE,
+                        addField2,
+                        newField1,
+                        newField2,
+                        modifyField1,
+                        modifyField2);
+        executeSql(insertAfterModifySql);
+
+        sleep(30000); // Wait for source capture data
+
+        // Verify that columns were modified and data is correct
+        given().ignoreExceptions()
+                .await()
+                .atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            container.executeExtraCommands(containerExtendedFactory);
+                            Schema schema = loadIcebergSchema();
+
+                            // Verify columns exist with correct types
+                            Types.NestedField fieldObj1 = schema.findField(modifyField1);
+                            Types.NestedField fieldObj2 = schema.findField(modifyField2);
+
+                            Assertions.assertNotNull(
+                                    fieldObj1, "Column " + modifyField1 + " should exist");
+                            Assertions.assertNotNull(
+                                    fieldObj2, "Column " + modifyField2 + " should exist");
+
+                            // Verify the data types are correct
+                            Assertions.assertEquals("string", fieldObj1.type().toString());
+                            Assertions.assertEquals("long", fieldObj2.type().toString());
+
+                            // Verify the data was correctly inserted
+                            List<Record> records = loadIcebergTable();
+                            boolean foundTestRecord = false;
+
+                            for (Record record : records) {
+                                Integer id = (Integer) record.getField("id");
+                                if (id == 401) {
+                                    foundTestRecord = true;
+                                    String value1 = (String) record.getField(modifyField1);
+                                    Long value2 = (Long) record.getField(modifyField2);
+
+                                    Assertions.assertEquals(
+                                            "this is a much longer value that would not fit in the original VARCHAR(50) column",
+                                            value1);
+                                    Assertions.assertEquals(Long.valueOf(2000), value2);
+                                }
+                            }
+
+                            Assertions.assertTrue(
+                                    foundTestRecord, "Test record with id=401 should exist");
+                        });
+
+        log.info("All schema evolution test cases completed successfully");
     }
 
     private void upsertAndCheckData(TestContainer container)
