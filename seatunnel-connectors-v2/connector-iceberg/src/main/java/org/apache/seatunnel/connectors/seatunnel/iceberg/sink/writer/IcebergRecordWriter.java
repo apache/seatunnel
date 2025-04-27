@@ -148,25 +148,9 @@ public class IcebergRecordWriter implements RecordWriter {
             Schema schema, Column column, String oldColumn, SchemaChangeWrapper updates) {
         Types.NestedField nestedField = schema.findField(oldColumn);
         if (nestedField != null) {
-            // Add column rename operation
             updates.changeColumn(oldColumn, column.getName());
-
-            // If the column type has also changed, add a modify operation after the rename
-            if (column.getDataType() != null) {
-                Type columnType = SchemaUtils.toIcebergType(column.getDataType());
-                if (columnType instanceof Type.PrimitiveType
-                        && !nestedField.type().typeId().equals(columnType.typeId())) {
-                    updates.modifyColumn(column.getName(), (Type.PrimitiveType) columnType);
-                }
-            }
-        } else {
-            log.warn(
-                    "Cannot rename column {} to {} because the source column does not exist",
-                    oldColumn,
-                    column.getName());
         }
     }
-
     /** apply schema update */
     private void applySchemaUpdate(SchemaChangeWrapper updates) {
         // complete the current file
