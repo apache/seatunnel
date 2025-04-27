@@ -4,7 +4,7 @@
   {
     "httpRequest": {
       "method": "POST",
-      "path": "/v1/cohere/embedding/.*"
+      "path": "/v1/cohere/embedding/model/cohere.embed-english-v3/invoke"
     },
     "httpResponse": {
       "body": {
