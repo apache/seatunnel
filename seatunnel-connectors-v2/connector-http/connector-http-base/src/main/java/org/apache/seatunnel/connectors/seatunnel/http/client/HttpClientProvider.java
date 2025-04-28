@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.client;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.google.common.base.Strings;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
@@ -67,6 +67,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class HttpClientProvider implements AutoCloseable {
@@ -128,7 +129,13 @@ public class HttpClientProvider implements AutoCloseable {
         // If body is set but bodyMap is not, convert body to bodyMap
         if (!Strings.isNullOrEmpty(body)) {
             try {
-                bodyMap = JsonUtils.parseObject(body, new TypeReference<Map<String, Object>>() {});
+                bodyMap =
+                        ConfigFactory.parseString(body).entrySet().stream()
+                                .collect(
+                                        Collectors.toMap(
+                                                Map.Entry::getKey,
+                                                entry -> entry.getValue().unwrapped(),
+                                                (v1, v2) -> v2));
             } catch (Exception e) {
                 log.warn("Failed to parse body string to map: {}", body, e);
             }
