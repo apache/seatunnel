@@ -39,8 +39,10 @@ import org.apache.thrift.TException;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -48,15 +50,36 @@ import java.util.List;
 import java.util.Objects;
 
 @Slf4j
-public class HiveMetaStoreProxy {
-    private HiveMetaStoreClient hiveMetaStoreClient;
-    private static volatile HiveMetaStoreProxy INSTANCE = null;
+public class HiveMetaStoreProxy implements Closeable, Serializable {
+    private static final long serialVersionUID = 1L;
+
     private static final List<String> HADOOP_CONF_FILES = ImmutableList.of("hive-site.xml");
 
-    private HiveMetaStoreProxy(ReadonlyConfig readonlyConfig) {
-        String metastoreUri = readonlyConfig.get(HiveOptions.METASTORE_URI);
-        String hiveHadoopConfigPath = readonlyConfig.get(HiveConfig.HADOOP_CONF_PATH);
-        String hiveSitePath = readonlyConfig.get(HiveConfig.HIVE_SITE_PATH);
+    private transient HiveMetaStoreClient hiveMetaStoreClient;
+
+    private final String metastoreUri;
+    private final String hiveHadoopConfigPath;
+    private final String hiveSitePath;
+    private final String krb5Path;
+    private final String kerberosPrincipal;
+    private final String kerberosKeytabPath;
+    private final String remoteUser;
+
+    public HiveMetaStoreProxy(ReadonlyConfig readonlyConfig) {
+        metastoreUri = readonlyConfig.get(HiveOptions.METASTORE_URI);
+        hiveHadoopConfigPath = readonlyConfig.get(HiveConfig.HADOOP_CONF_PATH);
+        hiveSitePath = readonlyConfig.get(HiveConfig.HIVE_SITE_PATH);
+        krb5Path = readonlyConfig.get(HdfsSourceConfigOptions.KRB5_PATH);
+        kerberosPrincipal = readonlyConfig.get(HdfsSourceConfigOptions.KERBEROS_PRINCIPAL);
+        kerberosKeytabPath = readonlyConfig.get(HdfsSourceConfigOptions.KERBEROS_KEYTAB_PATH);
+        remoteUser = readonlyConfig.get(HdfsSourceConfigOptions.REMOTE_USER);
+    }
+
+    private synchronized HiveMetaStoreClient getClient() {
+        if (hiveMetaStoreClient != null) {
+            return hiveMetaStoreClient;
+        }
+
         HiveConf hiveConf = new HiveConf();
         hiveConf.set("hive.metastore.uris", metastoreUri);
         try {
@@ -82,32 +105,33 @@ public class HiveMetaStoreProxy {
             }
 
             log.info("hive client conf:{}", hiveConf);
-            if (HiveMetaStoreProxyUtils.enableKerberos(readonlyConfig)) {
+            if (enableKerberos()) {
                 // login Kerberos
                 Configuration authConf = new Configuration();
                 authConf.set("hadoop.security.authentication", "kerberos");
                 this.hiveMetaStoreClient =
                         HadoopLoginFactory.loginWithKerberos(
                                 authConf,
-                                readonlyConfig.get(HdfsSourceConfigOptions.KRB5_PATH),
-                                readonlyConfig.get(HdfsSourceConfigOptions.KERBEROS_PRINCIPAL),
-                                readonlyConfig.get(HdfsSourceConfigOptions.KERBEROS_KEYTAB_PATH),
+                                krb5Path,
+                                kerberosPrincipal,
+                                kerberosKeytabPath,
                                 (conf, userGroupInformation) -> {
                                     return new HiveMetaStoreClient(hiveConf);
                                 });
-                return;
+                return hiveMetaStoreClient;
             }
-            if (HiveMetaStoreProxyUtils.enableRemoteUser(readonlyConfig)) {
+            if (enableRemoteUser()) {
                 this.hiveMetaStoreClient =
                         HadoopLoginFactory.loginWithRemoteUser(
                                 new Configuration(),
-                                readonlyConfig.get(HdfsSourceConfigOptions.REMOTE_USER),
+                                remoteUser,
                                 (conf, userGroupInformation) -> {
                                     return new HiveMetaStoreClient(hiveConf);
                                 });
-                return;
+                return hiveMetaStoreClient;
             }
             this.hiveMetaStoreClient = new HiveMetaStoreClient(hiveConf);
+            return hiveMetaStoreClient;
         } catch (MetaException e) {
             String errorMsg =
                     String.format(
@@ -121,7 +145,7 @@ public class HiveMetaStoreProxy {
                     String.format(
                             "Using this hive uris [%s], hive conf [%s] to initialize "
                                     + "hive metastore client instance failed",
-                            metastoreUri, readonlyConfig.get(HiveOptions.HIVE_SITE_PATH));
+                            metastoreUri, hiveSitePath);
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.INITIALIZE_HIVE_METASTORE_CLIENT_FAILED, errorMsg, e);
         } catch (Exception e) {
@@ -132,20 +156,9 @@ public class HiveMetaStoreProxy {
         }
     }
 
-    public static HiveMetaStoreProxy getInstance(ReadonlyConfig readonlyConfig) {
-        if (INSTANCE == null) {
-            synchronized (HiveMetaStoreProxy.class) {
-                if (INSTANCE == null) {
-                    INSTANCE = new HiveMetaStoreProxy(readonlyConfig);
-                }
-            }
-        }
-        return INSTANCE;
-    }
-
     public Table getTable(@NonNull String dbName, @NonNull String tableName) {
         try {
-            return hiveMetaStoreClient.getTable(dbName, tableName);
+            return getClient().getTable(dbName, tableName);
         } catch (TException e) {
             String errorMsg =
                     String.format("Get table [%s.%s] information failed", dbName, tableName);
@@ -159,7 +172,7 @@ public class HiveMetaStoreProxy {
             throws TException {
         for (String partition : partitions) {
             try {
-                hiveMetaStoreClient.appendPartition(dbName, tableName, partition);
+                getClient().appendPartition(dbName, tableName, partition);
             } catch (AlreadyExistsException e) {
                 log.warn("The partition {} are already exists", partition);
             }
@@ -170,14 +183,24 @@ public class HiveMetaStoreProxy {
             @NonNull String dbName, @NonNull String tableName, List<String> partitions)
             throws TException {
         for (String partition : partitions) {
-            hiveMetaStoreClient.dropPartition(dbName, tableName, partition, false);
+            getClient().dropPartition(dbName, tableName, partition, false);
         }
     }
 
+    @Override
     public synchronized void close() {
         if (Objects.nonNull(hiveMetaStoreClient)) {
             hiveMetaStoreClient.close();
-            HiveMetaStoreProxy.INSTANCE = null;
+            hiveMetaStoreClient = null;
         }
+    }
+
+    private boolean enableKerberos() {
+        return StringUtils.isNotBlank(kerberosPrincipal)
+                && StringUtils.isNotBlank(kerberosKeytabPath);
+    }
+
+    private boolean enableRemoteUser() {
+        return StringUtils.isNotBlank(remoteUser);
     }
 }
