@@ -46,7 +46,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jCommonConfig.PLUGIN_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jBaseOptions.PLUGIN_NAME;
 
 @Slf4j
 public class Neo4jSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
