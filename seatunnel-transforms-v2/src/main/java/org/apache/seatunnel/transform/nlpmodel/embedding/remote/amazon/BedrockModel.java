@@ -26,6 +26,7 @@ import org.apache.seatunnel.transform.nlpmodel.embedding.remote.AbstractModel;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClientBuilder;
@@ -36,6 +37,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -174,7 +176,11 @@ public class BedrockModel extends AbstractModel {
                 BedrockRuntimeClient.builder()
                         .region(Region.of(region))
                         .endpointOverride(new URI(endpoint))
-                        .credentialsProvider(StaticCredentialsProvider.create(credentials));
+                        .credentialsProvider(StaticCredentialsProvider.create(credentials))
+                        .httpClientBuilder(
+                                ApacheHttpClient.builder()
+                                        .connectionMaxIdleTime(Duration.ofMillis(1))
+                                        .useIdleConnectionReaper(false));
 
         return builder.build();
     }

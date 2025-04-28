@@ -53,8 +53,6 @@ public class TestEmbeddingIT extends TestSuiteBase implements TestResource {
     @BeforeAll
     @Override
     public void startUp() {
-        System.setProperty(
-                "software.amazon.awssdk.http.apache.disableIdleConnectionReaper", "true");
         Optional<URL> resource =
                 Optional.ofNullable(TestLLMIT.class.getResource("/mock-embedding.json"));
         this.mockserverContainer =
