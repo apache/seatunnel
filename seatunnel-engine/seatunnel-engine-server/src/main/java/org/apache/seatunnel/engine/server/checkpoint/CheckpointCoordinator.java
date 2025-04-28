@@ -285,12 +285,15 @@ public class CheckpointCoordinator {
         if (checkpointCoordinatorFuture.isDone()) {
             return;
         }
-        cleanPendingCheckpoint(reason);
         updateStatus(CheckpointCoordinatorStatus.FAILED);
         checkpointCoordinatorFuture.complete(
                 new CheckpointCoordinatorState(
                         CheckpointCoordinatorStatus.FAILED, errorByPhysicalVertex.get()));
         checkpointManager.handleCheckpointError(pipelineId, false);
+        // we should wait the checkpoint manager handle the error to cancel other task by use
+        // checkpoint coordinator thread pool. So we killed the thread pool at the end of this
+        // method to avoid the thread be interrupted before handle checkpoint error finished.
+        cleanPendingCheckpoint(reason);
     }
 
     private void restoreTaskState(TaskLocation taskLocation) {
