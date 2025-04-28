@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.dag.actions;
+package org.apache.seatunnel.connectors.seatunnel.tdengine.config;
 
-import lombok.NonNull;
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 
-import java.util.ArrayList;
-import java.util.HashSet;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-public class ShuffleAction extends AbstractAction {
+@Data
+@AllArgsConstructor
+public class TDengineSinkOptions extends TDengineCommonOptions {
 
-    public ShuffleAction(long id, @NonNull String name, @NonNull ShuffleConfig shuffleConfig) {
-        super(id, name, new ArrayList<>(), new HashSet<>(), new HashSet<>(), shuffleConfig);
-    }
-
-    @Override
-    public ShuffleConfig getConfig() {
-        return (ShuffleConfig) super.getConfig();
-    }
+    public static final Option<String> TIMEZONE =
+            Options.key("timezone")
+                    .stringType()
+                    .defaultValue("UTC")
+                    .withDescription("The timezone used for timestamp conversion, default is UTC");
 }
