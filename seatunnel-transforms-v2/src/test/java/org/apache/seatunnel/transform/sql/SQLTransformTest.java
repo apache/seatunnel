@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.transform.exception.SqlTransformException;
 import org.apache.seatunnel.transform.exception.TransformException;
 
 import org.junit.jupiter.api.Assertions;
@@ -440,5 +441,38 @@ public class SQLTransformTest {
         Assertions.assertEquals(1, result.get(0).getField(0));
         Assertions.assertEquals(true, result.get(0).getField(1));
         Assertions.assertEquals(false, result.get(0).getField(2));
+    }
+
+    @Test
+    public void testExpressionErrorField() {
+        String tableName = "test";
+        String[] fields = new String[] {"FIELD1", "FIELD2", "FIELD3"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {
+                                    BasicType.INT_TYPE, BasicType.DOUBLE_TYPE, BasicType.STRING_TYPE
+                                }));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select CAST(`FIELD1` AS STRING) AS FIELD1, CAST(`FIELD1`  as decimal(22,4)) AS FIELD2, CAST(`FIELD3` as decimal(22,0)) AS FIELD3 from dual"));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        Assertions.assertThrows(
+                SqlTransformException.class,
+                () -> {
+                    try {
+                        sqlTransform.transformRow(
+                                new SeaTunnelRow(new Object[] {1, 123.123, "true"}));
+                    } catch (Exception e) {
+                        Assertions.assertEquals(
+                                "ErrorCode:[SQL_TRANSFORM_ERROR_CODE-01], ErrorDescription:[Zeta sql compute for value error] - Failed to execute sql expression,the error expression is CAST(`FIELD3` AS decimal (22, 0))",
+                                e.getMessage());
+                        throw e;
+                    }
+                });
     }
 }
