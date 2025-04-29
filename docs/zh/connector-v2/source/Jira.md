@@ -78,7 +78,7 @@ http 请求体
 
 ### retry_backoff_max_ms [int]
 
-请求失败的最大退潮时间（毫秒）。
+重试退避最大时间（毫秒）。
 
 ### format [String]
 
