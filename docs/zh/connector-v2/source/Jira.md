@@ -74,7 +74,7 @@ http 请求体
 
 ### retry_backoff_multiplier_ms [int]
 
-请求失败的退潮时间（毫秒）乘数。
+重试退避时间倍数（毫秒）。
 
 ### retry_backoff_max_ms [int]
 
