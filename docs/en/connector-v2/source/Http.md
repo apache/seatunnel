@@ -385,7 +385,7 @@ You can use placeholders like `${page}` with `use_placeholder_replacement = true
 - As a number without quotes: `${page}` (in JSON body)
 - In nested JSON structures: `{"pagination":{"page":${page}}}`
 
-#### Example 1: Using page parameters in body and params
+##### Example 1: Using page parameters in body and params
 
 ```hocon
 source {
@@ -417,7 +417,7 @@ source {
 }
 ```
 
-#### Example 2: Using page parameters in headers
+##### Example 2: Using page parameters in headers
 
 ```hocon
 source {
