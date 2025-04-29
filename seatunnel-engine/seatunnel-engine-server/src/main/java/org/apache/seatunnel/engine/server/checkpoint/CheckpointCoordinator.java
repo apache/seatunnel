@@ -402,6 +402,10 @@ public class CheckpointCoordinator {
     }
 
     private void scheduleTriggerPendingCheckpoint(CheckpointType checkpointType, long delayMills) {
+        LOG.info(
+                "add schedule trigger pending checkpoint {} with delay: {}",
+                checkpointType,
+                delayMills);
         scheduler.schedule(
                 () -> tryTriggerPendingCheckpoint(checkpointType),
                 delayMills,
