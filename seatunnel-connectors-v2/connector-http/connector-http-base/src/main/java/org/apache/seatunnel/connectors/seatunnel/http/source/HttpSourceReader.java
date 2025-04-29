@@ -239,7 +239,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
      */
     private String replacePlaceholder(String value, String pageField, Object pageValue) {
         if (value == null || pageField == null || !value.contains("${" + pageField + "}")) {
-            return null;
+            return value;
         }
 
         String placeholder = "${" + pageField + "}";
@@ -292,17 +292,11 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             return bodyString;
         } else {
             // Key-based replacement
-            try {
-                Map<String, Object> bodyMap =
-                        JsonUtils.parseObject(
-                                bodyString, new TypeReference<Map<String, Object>>() {});
-                if (bodyMap != null) {
-                    processBodyMapRecursively(bodyMap, pageField, pageValue);
-                    return JsonUtils.toJsonString(bodyMap);
-                }
-            } catch (Exception e) {
-                log.warn(
-                        "Failed to parse body string for key-based replacement: {}", bodyString, e);
+            Map<String, Object> bodyMap =
+                    JsonUtils.parseObject(bodyString, new TypeReference<Map<String, Object>>() {});
+            if (bodyMap != null) {
+                processBodyMapRecursively(bodyMap, pageField, pageValue);
+                return JsonUtils.toJsonString(bodyMap);
             }
             return bodyString;
         }
@@ -326,61 +320,6 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> nestedMap = (Map<String, Object>) value;
                 processBodyMapRecursively(nestedMap, pageField, pageValue);
-            }
-        }
-    }
-
-    /**
-     * Process the body map for parameter replacement, handling nested objects by converting the
-     * entire object to JSON string, replacing placeholders, and converting back to object.
-     *
-     * @param bodyMap The body map to process
-     * @param pageField The page field name
-     * @param pageValue The page index (Long value for direct replacement)
-     * @param usePlaceholderReplacement Whether to use placeholder replacement
-     * @deprecated Use processBodyString instead
-     */
-    @Deprecated
-    private void processBodyPageMap(
-            Map<String, Object> bodyMap,
-            String pageField,
-            Object pageValue,
-            boolean usePlaceholderReplacement) {
-        if (usePlaceholderReplacement) {
-            String jsonBody = JsonUtils.toJsonString(bodyMap);
-            String placeholder = "\"${" + pageField + "}\"";
-            String pageValueStr =
-                    pageValue instanceof String
-                            ? "\"" + pageValue + "\""
-                            : String.valueOf(pageValue);
-
-            if (jsonBody.contains(placeholder)) {
-                jsonBody = jsonBody.replace(placeholder, pageValueStr);
-            }
-
-            String unquotedPlaceholder = "${" + pageField + "}";
-            if (jsonBody.contains(unquotedPlaceholder)) {
-                jsonBody = jsonBody.replace(unquotedPlaceholder, pageValue.toString());
-            }
-
-            Map<String, Object> updatedMap =
-                    JsonUtils.parseObject(jsonBody, new TypeReference<Map<String, Object>>() {});
-            bodyMap.clear();
-            if (updatedMap != null) {
-                bodyMap.putAll(updatedMap);
-            }
-
-        } else {
-            if (bodyMap.containsKey(pageField)) {
-                bodyMap.put(pageField, pageValue);
-            }
-            for (Map.Entry<String, Object> entry : bodyMap.entrySet()) {
-                Object value = entry.getValue();
-                if (value instanceof Map) {
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> nestedMap = (Map<String, Object>) value;
-                    processBodyPageMap(nestedMap, pageField, pageValue, false);
-                }
             }
         }
     }

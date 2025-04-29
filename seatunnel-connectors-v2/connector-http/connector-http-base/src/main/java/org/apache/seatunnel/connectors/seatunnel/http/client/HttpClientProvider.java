@@ -128,17 +128,13 @@ public class HttpClientProvider implements AutoCloseable {
         Map<String, Object> bodyMap = new HashMap<>();
         // If body is set but bodyMap is not, convert body to bodyMap
         if (!Strings.isNullOrEmpty(body)) {
-            try {
-                bodyMap =
-                        ConfigFactory.parseString(body).entrySet().stream()
-                                .collect(
-                                        Collectors.toMap(
-                                                Map.Entry::getKey,
-                                                entry -> entry.getValue().unwrapped(),
-                                                (v1, v2) -> v2));
-            } catch (Exception e) {
-                log.warn("Failed to parse body string to map: {}", body, e);
-            }
+            bodyMap =
+                    ConfigFactory.parseString(body).entrySet().stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            Map.Entry::getKey,
+                                            entry -> entry.getValue().unwrapped(),
+                                            (v1, v2) -> v2));
         }
 
         // convert method option to uppercase
