@@ -210,7 +210,7 @@ Http {
 }
 ```
 
-这是一个例子:
+示例：
 
 - 测试数据可参考此链接： [mockserver-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
 - 任务配置示例可参考此链接：[http_contentjson_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_contentjson_to_assert.conf).
