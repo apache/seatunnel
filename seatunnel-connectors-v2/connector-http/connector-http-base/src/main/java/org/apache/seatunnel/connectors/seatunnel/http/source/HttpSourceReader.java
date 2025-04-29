@@ -249,7 +249,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             String suffix = value.substring(placeholderIndex + placeholder.length());
             return prefix + pageValue + suffix;
         }
-        return null;
+        return value;
     }
 
     private void processPageMap(
