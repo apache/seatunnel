@@ -493,7 +493,7 @@ public class CheckpointCoordinator {
         final long currentTimestamp = Instant.now().toEpochMilli();
         if (checkpointType.notFinalCheckpoint() && checkpointType.notSchemaChangeCheckpoint()) {
             if (!isAllTaskReady) {
-                LOG.info("The all task not ready, skip trigger checkpoint");
+                LOG.info("Not all tasks are ready, skipping checkpoint trigger");
                 return;
             }
             long interval = currentTimestamp - latestTriggerTimestamp.get();
