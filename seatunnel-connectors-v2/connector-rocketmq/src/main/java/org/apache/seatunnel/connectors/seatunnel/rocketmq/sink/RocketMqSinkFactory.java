@@ -18,8 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.rocketmq.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.config.RocketMqSinkOptions;
 
 import com.google.auto.service.AutoService;
@@ -48,5 +50,10 @@ public class RocketMqSinkFactory implements TableSinkFactory {
                         RocketMqSinkOptions.ACCESS_KEY,
                         RocketMqSinkOptions.SECRET_KEY)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        return () -> new RocketMqSink(context.getOptions(), context.getCatalogTable());
     }
 }
