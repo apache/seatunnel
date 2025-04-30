@@ -193,10 +193,8 @@ public class ConnectorOptionCheckTest {
         whiteList.add("TypesenseSourceOptions");
         whiteList.add("TypesenseSinkOptions");
         whiteList.add("PulsarSinkOptions");
-        whiteList.add("SlsSinkOptions");
         whiteList.add("PulsarSourceOptions");
         whiteList.add("MongodbSinkOptions");
-        whiteList.add("SlsSourceOptions");
         whiteList.add("SentrySinkOptions");
         whiteList.add("RocketMqSinkOptions");
         whiteList.add("SocketSinkOptions");
