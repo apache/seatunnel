@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.core.starter.spark;
 
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PluginIdentifier;
@@ -151,12 +152,17 @@ public class SparkStarter implements Starter {
                 new SeaTunnelSourcePluginDiscovery();
         SeaTunnelSinkPluginDiscovery seaTunnelSinkPluginDiscovery =
                 new SeaTunnelSinkPluginDiscovery();
+        SeaTunnelTransformPluginDiscovery seaTunnelTransformPluginDiscovery =
+                new SeaTunnelTransformPluginDiscovery();
         pluginJars.addAll(
                 seaTunnelSourcePluginDiscovery.getPluginJarPaths(
                         getPluginIdentifiers(config, PluginType.SOURCE)));
         pluginJars.addAll(
                 seaTunnelSinkPluginDiscovery.getPluginJarPaths(
                         getPluginIdentifiers(config, PluginType.SINK)));
+        pluginJars.addAll(
+                seaTunnelTransformPluginDiscovery.getPluginJarPaths(
+                        getPluginIdentifiers(config, PluginType.TRANSFORM)));
         return pluginJars.stream()
                 .map(url -> new File(url.getPath()).toPath())
                 .collect(Collectors.toList());
