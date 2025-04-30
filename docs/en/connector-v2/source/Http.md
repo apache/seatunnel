@@ -445,7 +445,7 @@ source {
 }
 ```
 
-#### Example 3: Using key-based replacement (without placeholders)
+##### Example 3: Using key-based replacement (without placeholders)
 
 ```hocon
 source {
@@ -472,7 +472,7 @@ source {
 }
 ```
 
-#### Example 4: Using prefixed page number in headers
+##### Example 4: Using prefixed page number in headers
 
 ```hocon
 source {
@@ -500,7 +500,7 @@ source {
 }
 ```
 
-#### Example 5: Using unquoted page number in body
+##### Example 5: Using unquoted page number in body
 
 ```hocon
 source {
@@ -525,7 +525,7 @@ source {
 }
 ```
 
-#### Example 6: Using nested JSON structure with page parameter
+##### Example 6: Using nested JSON structure with page parameter
 
 ```hocon
 source {
