@@ -137,7 +137,7 @@ public class CheckpointCoordinator {
     /** Flag marking the coordinator as shut down (not accepting any messages anymore). */
     private volatile boolean shutdown;
 
-    private volatile boolean isAllTaskReady = false;
+    private final AtomicBoolean isAllTaskReady = new AtomicBoolean(false);
 
     private final ExecutorService executorService;
 
@@ -345,7 +345,10 @@ public class CheckpointCoordinator {
                 return;
             }
         }
-        isAllTaskReady = true;
+        if (!isAllTaskReady.compareAndSet(false, true)) {
+            LOG.info("all task already ready, skip notify task start");
+            return;
+        }
         InvocationFuture<?>[] futures = notifyTaskStart();
         CompletableFuture.allOf(futures).join();
         notifyCompleted(latestCompletedCheckpoint);
@@ -481,11 +484,11 @@ public class CheckpointCoordinator {
         cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET);
         shutdown = false;
         if (alreadyStarted) {
-            isAllTaskReady = true;
+            isAllTaskReady.set(true);
             notifyCompleted(latestCompletedCheckpoint);
             tryTriggerPendingCheckpoint(CHECKPOINT_TYPE);
         } else {
-            isAllTaskReady = false;
+            isAllTaskReady.set(false);
         }
     }
 
@@ -496,7 +499,7 @@ public class CheckpointCoordinator {
         }
         final long currentTimestamp = Instant.now().toEpochMilli();
         if (checkpointType.notFinalCheckpoint() && checkpointType.notSchemaChangeCheckpoint()) {
-            if (!isAllTaskReady) {
+            if (!isAllTaskReady.get()) {
                 LOG.info("Not all tasks are ready, skipping checkpoint trigger");
                 return;
             }
@@ -574,7 +577,7 @@ public class CheckpointCoordinator {
             return completableFutureWithError(
                     CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN);
         }
-        if (!isAllTaskReady) {
+        if (!isAllTaskReady.get()) {
             return completableFutureWithError(
                     CheckpointCloseReason.TASK_NOT_ALL_READY_WHEN_SAVEPOINT);
         }
@@ -798,7 +801,7 @@ public class CheckpointCoordinator {
 
     protected void cleanPendingCheckpoint(CheckpointCloseReason closedReason) {
         shutdown = true;
-        isAllTaskReady = false;
+        isAllTaskReady.set(false);
         synchronized (lock) {
             LOG.info("start clean pending checkpoint cause {}", closedReason.message());
             if (!pendingCheckpoints.isEmpty()) {
