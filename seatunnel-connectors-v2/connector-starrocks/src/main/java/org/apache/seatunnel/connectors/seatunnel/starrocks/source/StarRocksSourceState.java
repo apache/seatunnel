@@ -24,11 +24,12 @@ import lombok.Setter;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 @Getter
 @Setter
 @AllArgsConstructor
 public class StarRocksSourceState implements Serializable {
-    private boolean shouldEnumerate;
     private Map<Integer, List<StarRocksSourceSplit>> pendingSplit;
+    private final ConcurrentLinkedQueue<String> pendingTables;
 }

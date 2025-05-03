@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-openmldb.md';
+
 # OpenMldb
 
 > OpenMldb 源连接器
@@ -84,3 +86,6 @@ OpenMldb请求超时（ms），默认值为10000
 
 ```
 
+## 变更日志
+
+<ChangeLog />

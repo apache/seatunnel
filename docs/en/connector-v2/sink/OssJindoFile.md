@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-oss-jindo.md';
+
 # OssJindoFile
 
 > OssJindo file sink connector
@@ -299,11 +301,4 @@ For orc file format simple config
 
 ## Changelog
 
-### 2.3.0 2022-12-30
-
-- Add OSS Jindo File Sink Connector
-
-### Next version
-
-- [Improve] Support file compress ([3899](https://github.com/apache/seatunnel/pull/3899))
-
+<ChangeLog />

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # DB2
 
 > JDBC DB2 Source Connector
@@ -162,4 +164,8 @@ source {
     }
 }
 ```
+
+## Changelog
+
+<ChangeLog />
 

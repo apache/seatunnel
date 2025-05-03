@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-hadoop.md';
+
 # Hdfs文件
 
 > Hdfs文件 数据源连接器
@@ -204,3 +206,7 @@ sink {
   }
 }
 ```
+
+## 变更日志
+
+<ChangeLog />

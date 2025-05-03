@@ -22,16 +22,21 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
 public class MaxcomputeSourceTest {
 
     @Test
-    public void prepare() {
+    public void testParseSchema() {
         Config fields =
                 ConfigFactory.empty()
                         .withValue("id", ConfigValueFactory.fromAnyRef("int"))
@@ -40,10 +45,40 @@ public class MaxcomputeSourceTest {
 
         Config schema = fields.atKey("fields").atKey("schema");
 
-        MaxcomputeSource maxcomputeSource = new MaxcomputeSource(ReadonlyConfig.fromConfig(schema));
+        Config root =
+                schema.withValue("project", ConfigValueFactory.fromAnyRef("project"))
+                        .withValue("table_name", ConfigValueFactory.fromAnyRef("test_table"));
 
-        SeaTunnelRowType seaTunnelRowType =
-                maxcomputeSource.getProducedCatalogTables().get(0).getSeaTunnelRowType();
+        MaxcomputeSource maxcomputeSource = new MaxcomputeSource(ReadonlyConfig.fromConfig(root));
+
+        CatalogTable table = maxcomputeSource.getProducedCatalogTables().get(0);
+        Assertions.assertEquals("project.test_table", table.getTablePath().toString());
+        SeaTunnelRowType seaTunnelRowType = table.getSeaTunnelRowType();
         Assertions.assertEquals(SqlType.INT, seaTunnelRowType.getFieldType(0).getSqlType());
+
+        Map<String, Object> tableList = new HashMap<>();
+        Map<String, Object> schemaMap = new HashMap<>();
+        Map<String, Object> fieldsMap = new HashMap<>();
+        fieldsMap.put("id", "int");
+        fieldsMap.put("name", "string");
+        fieldsMap.put("age", "int");
+        schemaMap.put("fields", fieldsMap);
+        tableList.put("schema", schemaMap);
+        tableList.put("table_name", "test_table2");
+
+        root =
+                ConfigFactory.empty()
+                        .withValue("project", ConfigValueFactory.fromAnyRef("project"))
+                        .withValue("accessId", ConfigValueFactory.fromAnyRef("accessId"))
+                        .withValue("accesskey", ConfigValueFactory.fromAnyRef("accessKey"))
+                        .withValue(
+                                "table_list",
+                                ConfigValueFactory.fromIterable(
+                                        Collections.singletonList(tableList)));
+
+        maxcomputeSource = new MaxcomputeSource(ReadonlyConfig.fromConfig(root));
+
+        table = maxcomputeSource.getProducedCatalogTables().get(0);
+        Assertions.assertEquals("project.test_table2", table.getTablePath().toString());
     }
 }

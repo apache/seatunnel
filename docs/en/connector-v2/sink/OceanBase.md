@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # OceanBase
 
 > JDBC OceanBase Sink Connector
@@ -184,3 +186,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

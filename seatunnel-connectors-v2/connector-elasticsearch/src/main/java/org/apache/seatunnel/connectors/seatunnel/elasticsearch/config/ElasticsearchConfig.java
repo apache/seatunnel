@@ -37,6 +37,8 @@ public class ElasticsearchConfig implements Serializable {
     private Map<String, Object> query;
     private String scrollTime;
     private int scrollSize;
+    private SearchTypeEnum searchType;
+    private String sqlQuery;
 
     private CatalogTable catalogTable;
 
@@ -48,6 +50,8 @@ public class ElasticsearchConfig implements Serializable {
         elasticsearchConfig.setScrollTime(scrollTime);
         elasticsearchConfig.setScrollSize(scrollSize);
         elasticsearchConfig.setCatalogTable(catalogTable);
+        elasticsearchConfig.setSearchType(searchType);
+        elasticsearchConfig.setSqlQuery(sqlQuery);
         return elasticsearchConfig;
     }
 }

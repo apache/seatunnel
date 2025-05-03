@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http-feishu.md';
+
 # 飞书
 
 > 飞书 数据接收器
@@ -58,9 +60,6 @@ Feishu {
     }
 ```
 
-## 更新日志
+## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 添加飞书接收器
-
+<ChangeLog />

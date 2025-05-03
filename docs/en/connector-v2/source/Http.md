@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http.md';
+
 # Http
 
 > Http source connector
@@ -395,10 +397,4 @@ source {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Http Source Connector
-
-### new version
-
-- [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/seatunnel/pull/3510))
+<ChangeLog />

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-cdc-oracle.md';
+
 # Oracle CDC
 
 > Oracle CDC source connector
@@ -365,7 +367,4 @@ source {
 
 ## Changelog
 
-- Add Oracle CDC Source Connector
-
-### next version
-
+<ChangeLog />

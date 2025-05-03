@@ -33,7 +33,7 @@ import lombok.experimental.Tolerate;
 
 import java.io.Serializable;
 
-import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig.KEY_STREAM_SCAN_STRATEGY;
+import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceOptions.KEY_STREAM_SCAN_STRATEGY;
 
 @AllArgsConstructor
 @Data

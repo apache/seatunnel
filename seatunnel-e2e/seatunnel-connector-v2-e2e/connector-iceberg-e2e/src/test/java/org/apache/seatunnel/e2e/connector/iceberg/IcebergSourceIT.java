@@ -19,9 +19,9 @@ package org.apache.seatunnel.e2e.connector.iceberg;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergCatalogLoader;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonOptions;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceConfig;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -145,12 +145,12 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
         catalogProps.put("type", CATALOG_TYPE.getType());
         catalogProps.put("warehouse", WAREHOUSE);
 
-        configs.put(CommonConfig.KEY_CATALOG_NAME.key(), CATALOG_NAME);
-        configs.put(CommonConfig.CATALOG_PROPS.key(), catalogProps);
-        configs.put(CommonConfig.KEY_TABLE.key(), TABLE.toString());
+        configs.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), CATALOG_NAME);
+        configs.put(IcebergCommonOptions.CATALOG_PROPS.key(), catalogProps);
+        configs.put(IcebergCommonOptions.KEY_TABLE.key(), TABLE.toString());
 
         CATALOG =
-                new IcebergCatalogLoader(new SourceConfig(ReadonlyConfig.fromMap(configs)))
+                new IcebergCatalogLoader(new IcebergSourceConfig(ReadonlyConfig.fromMap(configs)))
                         .loadCatalog();
         if (!CATALOG.tableExists(TABLE)) {
             CATALOG.createTable(TABLE, SCHEMA);

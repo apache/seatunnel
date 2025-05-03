@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-cassandra.md';
+
 # Cassandra
 
 > Cassandra sink connector
@@ -89,7 +91,4 @@ sink {
 
 ## Changelog
 
-### next version
-
-- Add Cassandra Sink Connector
-
+<ChangeLog />

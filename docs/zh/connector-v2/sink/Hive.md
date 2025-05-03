@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-hive.md';
+
 # Hive
 
 > Hive Sink 连接器
@@ -468,3 +470,7 @@ sink {
   }
 }
 ```
+
+## 变更日志
+
+<ChangeLog />

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-maxcompute.md';
+
 # Maxcompute
 
 > Maxcompute sink connector
@@ -129,3 +131,7 @@ sink {
   }
 }
 ```
+
+## Changelog
+
+<ChangeLog />

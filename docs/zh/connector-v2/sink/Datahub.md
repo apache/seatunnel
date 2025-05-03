@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-datahub.md';
+
 # DataHub
 
 > DataHub 接收器连接器
@@ -73,7 +75,4 @@ sink {
 
 ## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 添加DataHub接收器连接器
-
+<ChangeLog />
