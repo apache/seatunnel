@@ -50,13 +50,13 @@ public class MaxcomputeSinkOptions extends MaxcomputeBaseOptions {
             Options.key("local_datetime_format")
                     .stringType()
                     .defaultValue("yyyy-MM-dd HH:mm:ss")
-                    .withDescription("datetime_format");
+                    .withDescription("local_datetime_format");
 
     public static final Option<String> OFFSET_DATETIME_FORMAT =
             Options.key("offset_datetime_format")
                     .stringType()
                     .defaultValue("yyyy-MM-dd HH:mm:ssXXXXX")
-                    .withDescription("datetime_format");
+                    .withDescription("offset_datetime_format");
 
     // create table
     public static final Option<String> SAVE_MODE_CREATE_TEMPLATE =
