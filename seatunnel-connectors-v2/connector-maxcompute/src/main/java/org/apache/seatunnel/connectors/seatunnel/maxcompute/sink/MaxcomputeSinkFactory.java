@@ -52,6 +52,8 @@ public class MaxcomputeSinkFactory implements TableSinkFactory {
                         MaxcomputeSinkOptions.DATA_SAVE_MODE,
                         MaxcomputeSinkOptions.SAVE_MODE_CREATE_TEMPLATE,
                         MaxcomputeSinkOptions.CUSTOM_SQL,
+                        MaxcomputeSinkOptions.LOCAL_DATETIME_FORMAT,
+                        MaxcomputeSinkOptions.OFFSET_DATETIME_FORMAT,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }

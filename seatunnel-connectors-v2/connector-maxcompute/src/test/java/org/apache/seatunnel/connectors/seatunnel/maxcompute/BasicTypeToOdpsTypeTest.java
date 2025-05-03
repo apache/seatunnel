@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.FormatterContext;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeMapper;
 
 import org.junit.jupiter.api.Assertions;
@@ -38,6 +39,12 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 
 public class BasicTypeToOdpsTypeTest {
+    public static FormatterContext defaultFormatterContext =
+            new FormatterContext("yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm:ssXXXXX");
+
+    public static FormatterContext customFormatterContext =
+            new FormatterContext(
+                    "yyyy-MM-dd HH:mm:ss.SSSSSSSSS", "yyyy-MM-dd HH:mm:ss.SSSSSSSSSXXXXX");
 
     private static void testType(
             String fieldName,
@@ -58,7 +65,8 @@ public class BasicTypeToOdpsTypeTest {
 
         SeaTunnelRow seaTunnelRow = MaxcomputeTypeMapper.getSeaTunnelRowData(record, typeInfo);
         Record tRecord =
-                MaxcomputeTypeMapper.getMaxcomputeRowData(seaTunnelRow, tableSchema, typeInfo);
+                MaxcomputeTypeMapper.getMaxcomputeRowData(
+                        seaTunnelRow, tableSchema, typeInfo, defaultFormatterContext);
 
         for (int i = 0; i < tRecord.getColumns().length; i++) {
             Assertions.assertEquals(record.get(i), tRecord.get(i));
@@ -115,14 +123,24 @@ public class BasicTypeToOdpsTypeTest {
 
     @SneakyThrows
     @Test
-    void testTIME_STAMP_2_STRING() {
+    void testLOCAL_DATETIME_2_STRING() {
         testTypeWithDifferentInputAndOutput(
-                "TIME_STAMP_2_STRING",
+                "LOCAL_DATETIME_2_STRING",
                 OdpsType.TIMESTAMP,
                 LocalTimeType.LOCAL_DATE_TIME_TYPE,
                 OdpsType.STRING,
-                Timestamp.valueOf("2025-01-01 00:00:01"),
-                "2025-01-01 00:00:01");
+                Timestamp.valueOf("2025-01-01 00:00:00"),
+                "2025-01-01 00:00:00",
+                defaultFormatterContext);
+
+        testTypeWithDifferentInputAndOutput(
+                "LOCAL_DATETIME_2_STRING",
+                OdpsType.TIMESTAMP,
+                LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                OdpsType.STRING,
+                Timestamp.valueOf("2025-01-01 00:00:00"),
+                "2025-01-01 00:00:00.000000000",
+                customFormatterContext);
     }
 
     private static void testTypeWithDifferentInputAndOutput(
@@ -131,7 +149,8 @@ public class BasicTypeToOdpsTypeTest {
             SeaTunnelDataType<?> seaTunnelDataType,
             OdpsType outputOdpsType,
             Object inputObject,
-            Object expectedObject) {
+            Object expectedObject,
+            FormatterContext formatterContext) {
         Column inputColumn = new Column(fieldName, inputOdpsType);
         ArrayRecord inputRecord = new ArrayRecord(new Column[] {inputColumn});
         inputRecord.set(fieldName, inputObject);
@@ -147,7 +166,8 @@ public class BasicTypeToOdpsTypeTest {
         outputSchema.addColumn(outputColumn);
 
         Record finalOutputRecord =
-                MaxcomputeTypeMapper.getMaxcomputeRowData(seaTunnelRow, outputSchema, typeInfo);
+                MaxcomputeTypeMapper.getMaxcomputeRowData(
+                        seaTunnelRow, outputSchema, typeInfo, formatterContext);
 
         Assertions.assertEquals(finalOutputRecord.get(fieldName), expectedObject);
     }
