@@ -89,7 +89,7 @@ public class LogService extends BaseLogService {
                             });
                 });
 
-        return allLogNameList;
+        return allLogNameList.stream().distinct().collect(Collectors.toList());
     }
 
     public JsonArray allNodeLogFormatJson(String jobId) {
