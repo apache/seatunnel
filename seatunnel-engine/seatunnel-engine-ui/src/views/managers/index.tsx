@@ -22,7 +22,7 @@ import { NButton } from 'naive-ui'
 import { NSpace, NLayout, NLayoutContent } from 'naive-ui'
 import { managerService } from '@/service/manager'
 import type { Monitor } from '@/service/manager/types'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 export default defineComponent({
   setup() {
@@ -40,6 +40,10 @@ export default defineComponent({
 
     function createColumns(): DataTableColumns<Monitor> {
       const view = (row: Monitor) => {}
+      const router = useRouter()
+      const logView = (row: Monitor) => {
+        router.push({name: "managers-workers-logs", params: {'hostname': `${row.host}_${row.port}`}})
+      }
       return [
         {
           title: 'Host',
@@ -72,6 +76,22 @@ export default defineComponent({
           //       { default: () => 'View' }
           //     )
           //   }
+        },
+        {
+          title: 'Action',
+          key: 'actions',
+          render(row) {
+            return h(
+                NButton,
+                {
+                  strong: true,
+                  tertiary: true,
+                  size: 'small',
+                  onClick: () => logView(row)
+                },
+                { default: () => 'ViewLog' }
+            )
+          }
         }
       ]
     }

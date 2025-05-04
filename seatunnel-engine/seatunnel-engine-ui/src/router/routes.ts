@@ -49,10 +49,22 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/managers')
       },
       {
+        path: 'managers/workers/logs/:hostname',
+        name: 'managers-workers-logs',
+        meta: { title: 'workers', showSide: true, activeSide: 'workers' },
+        component: () => import('@/views/managers/logs')
+      },
+      {
         path: 'managers/master',
         name: 'managers-master',
         meta: { title: 'master', showSide: true, activeSide: 'master' },
         component: () => import('@/views/managers')
+      },
+      {
+        path: 'managers/master/logs/:master-hostname',
+        name: 'managers-master-logs',
+        meta: { title: 'master', showSide: true, activeSide: 'master' },
+        component: () => import('@/views/managers/logs')
       }
     ]
   }
