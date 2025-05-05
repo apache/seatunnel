@@ -90,6 +90,18 @@ public class PhysicalColumn extends Column {
                 options);
     }
 
+    public PhysicalColumn(
+            String name,
+            SeaTunnelDataType<?> dataType,
+            Long columnLength,
+            Integer scale,
+            boolean nullable,
+            Object defaultValue,
+            String comment,
+            String sinkType) {
+        super(name, dataType, columnLength, scale, nullable, defaultValue, comment, sinkType);
+    }
+
     @Builder
     public PhysicalColumn(
             String name,
@@ -241,6 +253,19 @@ public class PhysicalColumn extends Column {
                 comment,
                 sourceType,
                 options);
+    }
+
+    public static PhysicalColumn of(
+            String name,
+            SeaTunnelDataType<?> dataType,
+            Long columnLength,
+            Integer scale,
+            boolean nullable,
+            Object defaultValue,
+            String comment,
+            String sinkType) {
+        return new PhysicalColumn(
+                name, dataType, columnLength, scale, nullable, defaultValue, comment, sinkType);
     }
 
     @Deprecated

@@ -138,6 +138,33 @@ public abstract class Column implements Serializable {
         this.isZeroFill = false;
     }
 
+    protected Column(
+            String name,
+            SeaTunnelDataType<?> dataType,
+            Long columnLength,
+            Integer scale,
+            boolean nullable,
+            Object defaultValue,
+            String comment,
+            String sinkType) {
+        this.name = name;
+        this.dataType = dataType;
+        this.columnLength = columnLength;
+        this.scale = scale;
+        this.nullable = nullable;
+        this.defaultValue = defaultValue;
+        this.comment = comment;
+        this.sourceType = null;
+        this.sinkType = sinkType;
+        this.options = null;
+
+        // TODO Waiting for migration to complete before remove
+        this.bitLen = columnLength != null ? columnLength * 8 : 0;
+        this.longColumnLength = columnLength;
+        this.isUnsigned = false;
+        this.isZeroFill = false;
+    }
+
     @Deprecated
     protected Column(
             String name,

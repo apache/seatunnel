@@ -67,12 +67,13 @@ public abstract class AbstractSeaTunnelTransform<T, R> implements SeaTunnelTrans
     private CatalogTable transformCatalogTable() {
         TableIdentifier tableIdentifier = transformTableIdentifier();
         TableSchema tableSchema = transformTableSchema();
+        String comment = transformComment();
         return CatalogTable.of(
                 tableIdentifier,
                 tableSchema,
                 inputCatalogTable.getOptions(),
                 inputCatalogTable.getPartitionKeys(),
-                inputCatalogTable.getComment());
+                comment);
     }
 
     public R transform(SeaTunnelRow row) {
@@ -101,6 +102,10 @@ public abstract class AbstractSeaTunnelTransform<T, R> implements SeaTunnelTrans
      * @param inputRow upstream input row data
      */
     protected abstract R transformRow(SeaTunnelRow inputRow);
+
+    protected String transformComment() {
+        return inputCatalogTable.getComment();
+    }
 
     protected abstract TableSchema transformTableSchema();
 

@@ -20,6 +20,7 @@ package org.apache.seatunnel.transform.common;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -77,14 +78,11 @@ public abstract class MultipleFieldOutputTransform extends AbstractCatalogSuppor
                         .collect(Collectors.toList())
                         .toArray(TYPE_ARRAY_STRING);
 
-        List<ConstraintKey> copiedConstraintKeys =
-                inputCatalogTable.getTableSchema().getConstraintKeys().stream()
-                        .map(ConstraintKey::copy)
-                        .collect(Collectors.toList());
+        List<ConstraintKey> copiedConstraintKeys = getOutputConstraintKey();
 
         TableSchema.Builder builder = TableSchema.builder();
         if (inputCatalogTable.getTableSchema().getPrimaryKey() != null) {
-            builder.primaryKey(inputCatalogTable.getTableSchema().getPrimaryKey().copy());
+            builder.primaryKey(getOutputPrimaryKey());
         }
         builder.constraintKey(copiedConstraintKeys);
         List<Column> columns =
@@ -155,6 +153,21 @@ public abstract class MultipleFieldOutputTransform extends AbstractCatalogSuppor
     @Override
     protected TableIdentifier transformTableIdentifier() {
         return inputCatalogTable.getTableId().copy();
+    }
+
+    @Override
+    protected String transformComment() {
+        return inputCatalogTable.getComment();
+    }
+
+    protected List<ConstraintKey> getOutputConstraintKey() {
+        return inputCatalogTable.getTableSchema().getConstraintKeys().stream()
+                .map(ConstraintKey::copy)
+                .collect(Collectors.toList());
+    }
+
+    protected PrimaryKey getOutputPrimaryKey() {
+        return inputCatalogTable.getTableSchema().getPrimaryKey().copy();
     }
 
     protected abstract Column[] getOutputColumns();
