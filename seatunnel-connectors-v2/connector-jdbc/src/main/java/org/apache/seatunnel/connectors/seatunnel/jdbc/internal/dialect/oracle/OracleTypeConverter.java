@@ -113,10 +113,6 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
 
     @Override
     public Column convert(BasicTypeDefine typeDefine) {
-        log.info(
-                "Converting type: {} for column: {}",
-                typeDefine.getDataType(),
-                typeDefine.getName());
         PhysicalColumn.PhysicalColumnBuilder builder =
                 PhysicalColumn.builder()
                         .name(typeDefine.getName())
@@ -126,7 +122,6 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                         .comment(typeDefine.getComment());
 
         String oracleType = typeDefine.getDataType().toUpperCase();
-        log.debug("Oracle type after uppercase: {}", oracleType);
 
         switch (oracleType) {
             case ORACLE_INTEGER:
@@ -218,10 +213,6 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.columnLength(BYTES_4GB - 1);
                 break;
             case ORACLE_BLOB:
-                log.info(
-                        "Converting BLOB column: {} with handleBlobAsString={}",
-                        typeDefine.getName(),
-                        handleBlobAsString);
                 if (handleBlobAsString) {
                     builder.dataType(BasicType.STRING_TYPE);
                     builder.columnLength(BYTES_4GB - 1);
@@ -264,14 +255,7 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                 throw CommonError.convertToSeaTunnelTypeError(
                         DatabaseIdentifier.ORACLE, oracleType, typeDefine.getName());
         }
-        Column result = builder.build();
-        log.info(
-                "Conversion result for column {}: dataType={}, sourceType={}, length={}",
-                result.getName(),
-                result.getDataType(),
-                result.getSourceType(),
-                result.getColumnLength());
-        return result;
+        return builder.build();
     }
 
     @Override
