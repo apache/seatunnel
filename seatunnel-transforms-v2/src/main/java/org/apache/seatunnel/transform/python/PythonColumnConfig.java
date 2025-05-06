@@ -17,7 +17,32 @@
 package org.apache.seatunnel.transform.python;
 
 
-public interface CloseRemotePython {
+import lombok.Getter;
+import lombok.ToString;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.transform.common.ErrorHandleWay;
 
-    void shutdownNow();
+@ToString
+@Getter
+public class PythonColumnConfig {
+
+    private final String destField;
+
+    @Getter
+    private final Column destColumn;
+    private final ErrorHandleWay errorHandleWay;
+
+
+    public PythonColumnConfig(String destField,
+                              Column destColumn,
+                              ErrorHandleWay errorHandleWay) {
+        this.destField = destField;
+        this.destColumn = destColumn;
+        this.errorHandleWay = errorHandleWay;
+    }
+
+    public SeaTunnelDataType<?> getDestType() {
+        return destColumn.getDataType();
+    }
 }

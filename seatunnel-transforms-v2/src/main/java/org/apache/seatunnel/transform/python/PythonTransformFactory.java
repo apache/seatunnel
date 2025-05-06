@@ -36,6 +36,7 @@ public class PythonTransformFactory implements TableTransformFactory {
         return OptionRule
                 .builder()
                 .required(PythonTransformConfig.SOURCE_CODE)
+                .required(PythonTransformConfig.COLUMNS)
                 .build();
     }
 

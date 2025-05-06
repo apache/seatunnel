@@ -5,6 +5,7 @@ import lombok.NonNull;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowAccessor;
+import org.apache.seatunnel.transform.common.ErrorHandleWay;
 import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 
 public class PythonTransform extends MultipleFieldOutputTransform {
@@ -18,11 +19,11 @@ public class PythonTransform extends MultipleFieldOutputTransform {
     public PythonTransform(@NonNull CatalogTable inputCatalogTable, PythonTransformConfig transformConfig) {
         super(inputCatalogTable, transformConfig.getErrorHandleWay());
         this.transformConfig = transformConfig;
-        this.pythonOperationProxy = initLocalSingletonJavaServer(transformConfig.getJavaServerPort());
+        this.pythonOperationProxy = initLocalSingletonJavaServer(transformConfig);
     }
 
-    private PythonOperationProxy initLocalSingletonJavaServer(Integer javaServerPort) {
-        return PythonOperationProxy.newInstance(javaServerPort);
+    private PythonOperationProxy initLocalSingletonJavaServer(PythonTransformConfig transformConfig) {
+        return PythonOperationProxy.newInstance(transformConfig);
     }
 
     @Override
@@ -33,11 +34,16 @@ public class PythonTransform extends MultipleFieldOutputTransform {
     @Override
     protected Object[] getOutputFieldValues(SeaTunnelRowAccessor inputRow) {
         long threadId = Thread.currentThread().getId();
-        return pythonOperationProxy.processData(threadId,inputRow);
+        return pythonOperationProxy.processData(
+                threadId,
+                inputRow
+        );
     }
 
     @Override
     protected Column[] getOutputColumns() {
-        return new Column[0];
+        return this.transformConfig.getColumnConfigs().stream()
+                .map(PythonColumnConfig::getDestColumn)
+                .toArray(Column[]::new);
     }
 }

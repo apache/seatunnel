@@ -22,6 +22,11 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.SeaTunnelDataTypeConvertorUtil;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.transform.common.ErrorHandleWay;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 import org.apache.seatunnel.transform.exception.TransformException;
@@ -29,8 +34,12 @@ import org.apache.seatunnel.transform.exception.TransformException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import static org.apache.seatunnel.transform.python.PythonTransformErrorCode.DEST_FIELD_MUST_NOT_EMPTY;
 import static org.apache.seatunnel.transform.python.PythonTransformErrorCode.LOAD_SOURCE_CODE_FROM_PATH_ERROR;
 import static org.apache.seatunnel.transform.python.PythonTransformErrorCode.SOURCE_CODE_MISS_ERROR;
 
@@ -61,6 +70,27 @@ public class PythonTransformConfig {
                     .defaultValue(25334)
                     .withDescription("Python Server used to receive java code");
 
+
+    public static final Option<List<Map<String, String>>> COLUMNS =
+            Options.key("columns")
+                    .type(new TypeReference<List<Map<String, String>>>() {
+                    })
+                    .noDefaultValue()
+                    .withDescription("columns");
+
+
+    public static final Option<String> DEST_FIELD =
+            Options.key("dest_field")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("output field.");
+
+    public static final Option<String> DEST_TYPE =
+            Options.key("dest_type")
+                    .stringType()
+                    .defaultValue("string")
+                    .withDescription("output field type,default string");
+
     @Getter
     private final ErrorHandleWay errorHandleWay;
 
@@ -72,14 +102,19 @@ public class PythonTransformConfig {
     @Getter
     private final String sourceCode;
 
+    @Getter
+    private final List<PythonColumnConfig> columnConfigs;
+
     public PythonTransformConfig(ErrorHandleWay errorHandleWay,
                                  Integer javaServerPort,
                                  Integer pythonServerPort,
-                                 String sourceCode) {
+                                 String sourceCode,
+                                 List<PythonColumnConfig> columnConfigs) {
         this.errorHandleWay = errorHandleWay;
         this.javaServerPort = javaServerPort;
         this.pythonServerPort = pythonServerPort;
         this.sourceCode = sourceCode;
+        this.columnConfigs = columnConfigs;
     }
 
     public static PythonTransformConfig of(ReadonlyConfig config) {
@@ -99,7 +134,46 @@ public class PythonTransformConfig {
         Integer pythonPort = config.get(PYTHON_SERVER_PORT);
         ErrorHandleWay rowErrorHandleWay =
                 config.get(TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION);
-        return new PythonTransformConfig(rowErrorHandleWay, javaPort, pythonPort, code);
+        List<PythonColumnConfig> pythonColumnConfigs = parseColumnConfigs(config);
+
+        return new PythonTransformConfig(rowErrorHandleWay,
+                javaPort,
+                pythonPort,
+                code,
+                pythonColumnConfigs);
+    }
+
+
+    private static List<PythonColumnConfig> parseColumnConfigs(ReadonlyConfig config) {
+        List<Map<String, String>> columns = config.get(COLUMNS);
+        List<PythonColumnConfig> configs = new ArrayList<>(columns.size());
+        for (Map<String, String> map : columns) {
+            checkColumnConfig(map);
+            String destField = map.get(DEST_FIELD.key());
+            String type = map.getOrDefault(DEST_TYPE.key(), DEST_TYPE.defaultValue());
+            ErrorHandleWay columnErrorHandleWay =
+                    Optional.ofNullable(
+                                    map.get(
+                                            TransformCommonOptions.COLUMN_ERROR_HANDLE_WAY_OPTION
+                                                    .key()))
+                            .map(ErrorHandleWay::valueOf)
+                            .orElse(null);
+
+            SeaTunnelDataType<?> srcFieldDataType =
+                    SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(destField, type);
+            Column destFieldColumn =
+                    PhysicalColumn.of(
+                            destField,
+                            srcFieldDataType,
+                            (Long) null,
+                            true,
+                            null,
+                            null);
+            PythonColumnConfig columnConfig =
+                    new PythonColumnConfig(destField, destFieldColumn, columnErrorHandleWay);
+            configs.add(columnConfig);
+        }
+        return configs;
     }
 
     private static String loadCodeFromPath(String filePath) {
@@ -110,6 +184,14 @@ public class PythonTransformConfig {
             // 处理可能发生的IO异常
             throw new TransformException(LOAD_SOURCE_CODE_FROM_PATH_ERROR,
                     LOAD_SOURCE_CODE_FROM_PATH_ERROR.getDescription() + e.getMessage());
+        }
+    }
+
+    private static void checkColumnConfig(Map<String, String> map) {
+        String destField = map.get(DEST_FIELD.key());
+        if (StringUtils.isBlank(destField)) {
+            throw new TransformException(
+                    DEST_FIELD_MUST_NOT_EMPTY, DEST_FIELD_MUST_NOT_EMPTY.getErrorMessage());
         }
     }
 }
