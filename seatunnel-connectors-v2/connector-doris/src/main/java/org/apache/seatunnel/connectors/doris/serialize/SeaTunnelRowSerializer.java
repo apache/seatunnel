@@ -45,7 +45,6 @@ public class SeaTunnelRowSerializer implements DorisSerializer {
     private final String fieldDelimiter;
     private final boolean enableDelete;
     private final SerializationSchema serialize;
-    // 添加大小写敏感参数
     private final boolean caseSensitive;
 
     public SeaTunnelRowSerializer(
@@ -53,11 +52,9 @@ public class SeaTunnelRowSerializer implements DorisSerializer {
             SeaTunnelRowType seaTunnelRowType,
             String fieldDelimiter,
             boolean enableDelete) {
-        // 默认大小写敏感为 true
         this(type, seaTunnelRowType, fieldDelimiter, enableDelete, true);
     }
 
-    // 添加新的构造函数，包含 caseSensitive 参数
     public SeaTunnelRowSerializer(
             String type,
             SeaTunnelRowType seaTunnelRowType,
@@ -69,7 +66,6 @@ public class SeaTunnelRowSerializer implements DorisSerializer {
         this.enableDelete = enableDelete;
         this.caseSensitive = caseSensitive;
 
-        // 处理字段名大小写
         String[] fieldNames = seaTunnelRowType.getFieldNames();
         String[] processedFieldNames = new String[fieldNames.length];
         for (int i = 0; i < fieldNames.length; i++) {

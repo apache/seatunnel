@@ -48,11 +48,9 @@ public class DorisTypeConverterV1 extends AbstractDorisTypeConverter {
 
     @Override
     public Column convert(BasicTypeDefine typeDefine) {
-        // 默认使用大小写敏感
         return convert(typeDefine, true);
     }
 
-    // 添加支持大小写敏感参数的转换方法
     public Column convert(BasicTypeDefine typeDefine, boolean caseSensitive) {
         PhysicalColumn.PhysicalColumnBuilder builder =
                 getPhysicalColumnBuilder(typeDefine, caseSensitive);
