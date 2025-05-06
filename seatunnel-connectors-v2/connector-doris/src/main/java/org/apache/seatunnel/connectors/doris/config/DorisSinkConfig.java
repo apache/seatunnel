@@ -36,6 +36,7 @@ import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.PASS
 import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.QUERY_PORT;
 import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.TABLE;
 import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.USERNAME;
+import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.CASE_SENSITIVE;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.DORIS_SINK_CONFIG_PREFIX;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.NEEDS_UNSUPPORTED_TYPE_CASTING;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SAVE_MODE_CREATE_TEMPLATE;
@@ -46,7 +47,6 @@ import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_ENABLE_DELETE;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_LABEL_PREFIX;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_MAX_RETRIES;
-import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.CASE_SENSITIVE;
 
 @Setter
 @Getter
@@ -72,6 +72,7 @@ public class DorisSinkConfig implements Serializable {
     private Integer bufferCount;
     private Properties streamLoadProps;
     private boolean needsUnsupportedTypeCasting;
+    private boolean caseSensitive;
 
     // create table option
     private String createTableTemplate;

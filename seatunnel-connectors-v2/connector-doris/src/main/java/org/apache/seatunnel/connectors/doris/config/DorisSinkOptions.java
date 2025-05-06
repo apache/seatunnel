@@ -107,8 +107,7 @@ public class DorisSinkOptions extends DorisBaseOptions {
                     .withDescription(
                             "Whether to enable the unsupported type casting, such as Decimal64 to Double");
 
-    // 添加大小写敏感配置选项
-    Option<Boolean> CASE_SENSITIVE =
+    public static final Option<Boolean> CASE_SENSITIVE =
             Options.key("case_sensitive")
                     .booleanType()
                     .defaultValue(true)

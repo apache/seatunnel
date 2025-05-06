@@ -24,11 +24,11 @@ import org.apache.seatunnel.connectors.doris.sink.writer.LoadConstants;
 public class SeaTunnelRowSerializerFactory {
 
     /**
-     * 创建 DorisSerializer 实例
+     * Create a DorisSerializer instance
      *
-     * @param dorisSinkConfig Doris 配置
-     * @param seaTunnelRowType 行类型
-     * @return DorisSerializer 实例
+     * @param dorisSinkConfig
+     * @param seaTunnelRowType
+     * @return DorisSerializer
      */
     public static DorisSerializer createSerializer(
             DorisSinkConfig dorisSinkConfig, SeaTunnelRowType seaTunnelRowType) {

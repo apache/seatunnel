@@ -105,7 +105,6 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
         return builder;
     }
 
-    // 添加处理字段名大小写的方法
     protected PhysicalColumn.PhysicalColumnBuilder getPhysicalColumnBuilder(
             BasicTypeDefine typeDefine, boolean caseSensitive) {
         String columnName =
