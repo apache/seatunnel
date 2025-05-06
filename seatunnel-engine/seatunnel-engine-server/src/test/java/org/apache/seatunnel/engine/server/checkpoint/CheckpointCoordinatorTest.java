@@ -29,7 +29,10 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -107,6 +110,40 @@ public class CheckpointCoordinatorTest
             Assertions.assertFalse(threadIsInterrupted.get(1, TimeUnit.MINUTES));
         } finally {
             executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void testCheckpointContinuesWorkAfterClockDrift() throws CheckpointStorageException {
+        CheckpointConfig checkpointConfig = new CheckpointConfig();
+        checkpointConfig.setStorage(new CheckpointStorageConfig());
+        Map<Integer, CheckpointPlan> planMap = new HashMap<>();
+        planMap.put(
+            1,
+            CheckpointPlan.builder()
+                .pipelineId(1)
+                .pipelineSubtasks(Collections.singleton(new TaskLocation()))
+                .build());
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            CheckpointManager checkpointManager =
+                new CheckpointManager(
+                    1L,
+                    false,
+                    nodeEngine,
+                    null,
+                    planMap,
+                    checkpointConfig,
+                    executorService,
+                    nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE)) {
+                };
+            checkpointManager.reportedPipelineRunning(1, true);
+        } finally {
+            executorService.shutdownNow();
+        }
+        Instant fakeTime = Instant.now().minusSeconds(5);
+        try (MockedStatic<Instant> mockedInstant = Mockito.mockStatic(Instant.class)) {
+            mockedInstant.when(Instant::now).thenReturn(fakeTime);
         }
     }
 }
