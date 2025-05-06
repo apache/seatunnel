@@ -18,6 +18,7 @@
 package org.apache.seatunnel.transform.structevolution;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -36,8 +37,6 @@ import org.apache.seatunnel.api.table.type.SqlType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-
-import com.google.common.collect.Lists;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
