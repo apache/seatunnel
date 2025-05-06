@@ -19,6 +19,8 @@ package org.apache.seatunnel.api.sink.multitablesink;
 
 import org.apache.seatunnel.api.sink.SinkCommitter;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,6 +28,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class MultiTableSinkCommitter implements SinkCommitter<MultiTableCommitInfo> {
 
     private final Map<String, SinkCommitter<?>> sinkCommitters;
@@ -54,7 +57,14 @@ public class MultiTableSinkCommitter implements SinkCommitter<MultiTableCommitIn
                                                                                         sinkIdentifier)))
                                 .map(Map.Entry::getValue)
                                 .collect(Collectors.toList());
-                sinkCommitter.commit(commitInfo);
+                try {
+                    sinkCommitter.commit(commitInfo);
+                } catch (Exception e) {
+                    String message =
+                            String.format("table %s commit throw an error", sinkIdentifier);
+                    log.error(message, e);
+                    throw new RuntimeException(message, e);
+                }
             }
         }
         return new ArrayList<>();

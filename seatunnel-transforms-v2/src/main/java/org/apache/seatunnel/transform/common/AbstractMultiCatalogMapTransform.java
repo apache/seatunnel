@@ -22,9 +22,12 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelMapTransform;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.List;
 
 /** Abstract class for multi-table map transform. */
+@Slf4j
 public abstract class AbstractMultiCatalogMapTransform extends AbstractMultiCatalogTransform
         implements SeaTunnelMapTransform<SeaTunnelRow> {
 
@@ -35,10 +38,24 @@ public abstract class AbstractMultiCatalogMapTransform extends AbstractMultiCata
 
     @Override
     public SeaTunnelRow map(SeaTunnelRow row) {
+        String tableId;
+        SeaTunnelMapTransform<SeaTunnelRow> transform;
         if (transformMap.size() == 1) {
-            return ((SeaTunnelMapTransform<SeaTunnelRow>) transformMap.values().iterator().next())
-                    .map(row);
+            tableId = transformMap.keySet().iterator().next();
+        } else {
+            tableId = row.getTableId();
         }
-        return ((SeaTunnelMapTransform<SeaTunnelRow>) transformMap.get(row.getTableId())).map(row);
+        transform = (SeaTunnelMapTransform<SeaTunnelRow>) transformMap.get(tableId);
+
+        try {
+            return transform.map(row);
+        } catch (Exception e) {
+            String message =
+                    String.format(
+                            "The transform %s map table %s data throw an error",
+                            transform.getPluginName(), tableId);
+            log.error(message, e);
+            throw new RuntimeException(message, e);
+        }
     }
 }

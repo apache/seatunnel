@@ -22,9 +22,12 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelFlatMapTransform;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.List;
 
 /** Abstract class for multi-table flat map transform. */
+@Slf4j
 public abstract class AbstractMultiCatalogFlatMapTransform extends AbstractMultiCatalogTransform
         implements SeaTunnelFlatMapTransform<SeaTunnelRow> {
 
@@ -35,12 +38,24 @@ public abstract class AbstractMultiCatalogFlatMapTransform extends AbstractMulti
 
     @Override
     public List<SeaTunnelRow> flatMap(SeaTunnelRow row) {
+        String tableId;
+        SeaTunnelFlatMapTransform<SeaTunnelRow> transform;
         if (transformMap.size() == 1) {
-            return ((SeaTunnelFlatMapTransform<SeaTunnelRow>)
-                            transformMap.values().iterator().next())
-                    .flatMap(row);
+            tableId = transformMap.keySet().iterator().next();
+        } else {
+            tableId = row.getTableId();
         }
-        return ((SeaTunnelFlatMapTransform<SeaTunnelRow>) transformMap.get(row.getTableId()))
-                .flatMap(row);
+        transform = (SeaTunnelFlatMapTransform<SeaTunnelRow>) transformMap.get(tableId);
+
+        try {
+            return transform.flatMap(row);
+        } catch (Exception e) {
+            String message =
+                    String.format(
+                            "The transform %s map table %s data throw an error",
+                            transform.getPluginName(), tableId);
+            log.error(message, e);
+            throw new RuntimeException(message, e);
+        }
     }
 }

@@ -85,7 +85,15 @@ public class MultiTableSinkAggregatedCommitter
                                                         .get(sinkIdentifier))
                                 .filter(Objects::nonNull)
                                 .collect(Collectors.toList());
-                List errCommitList = sinkCommitter.commit(commitInfo);
+                List errCommitList;
+                try {
+                    errCommitList = sinkCommitter.commit(commitInfo);
+                } catch (Exception e) {
+                    String message =
+                            String.format("table %s commit throw an error", sinkIdentifier);
+                    log.error(message, e);
+                    throw new RuntimeException(message, e);
+                }
                 if (errCommitList.size() == 0) {
                     continue;
                 }

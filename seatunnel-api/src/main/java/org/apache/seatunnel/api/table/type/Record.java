@@ -20,6 +20,7 @@ package org.apache.seatunnel.api.table.type;
 import java.io.Serializable;
 
 /** Contain {@link SeaTunnelRow} or Checkpoint Barrier */
+@ToString
 public class Record<T> implements Serializable {
 
     private final T data;

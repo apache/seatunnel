@@ -31,8 +31,6 @@ import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
-import org.apache.commons.collections4.CollectionUtils;
-
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -79,53 +77,59 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
 
     @Override
     public void received(Record<?> record) {
-        if (record.getData() instanceof Barrier) {
-            CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
-            if (barrier.prepareClose(this.runningTask.getTaskLocation())) {
-                prepareClose = true;
-            }
-            if (barrier.snapshot()) {
-                runningTask.addState(barrier, ActionStateKey.of(action), Collections.emptyList());
-            }
-            // ack after #addState
-            runningTask.ack(barrier);
-            collector.collect(record);
-        } else if (record.getData() instanceof SchemaChangeEvent) {
-            if (prepareClose) {
-                return;
-            }
-            SchemaChangeEvent event = (SchemaChangeEvent) record.getData();
-            for (SeaTunnelTransform<T> t : transform) {
-                SchemaChangeEvent eventBefore = event;
-                event = t.mapSchemaChangeEvent(eventBefore);
-                if (event == null) {
+        try {
+            if (record.getData() instanceof Barrier) {
+                CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
+                if (barrier.prepareClose(this.runningTask.getTaskLocation())) {
+                    prepareClose = true;
+                }
+                if (barrier.snapshot()) {
+                    runningTask.addState(
+                            barrier, ActionStateKey.of(action), Collections.emptyList());
+                }
+                // ack after #addState
+                runningTask.ack(barrier);
+                collector.collect(record);
+            } else if (record.getData() instanceof SchemaChangeEvent) {
+                if (prepareClose) {
+                    return;
+                }
+                SchemaChangeEvent event = (SchemaChangeEvent) record.getData();
+                for (SeaTunnelTransform<T> t : transform) {
+                    SchemaChangeEvent eventBefore = event;
+                    event = t.mapSchemaChangeEvent(eventBefore);
+                    if (event == null) {
+                        log.info(
+                                "Transform[{}] filtered schema change event {}",
+                                t.getPluginName(),
+                                eventBefore);
+                        break;
+                    }
                     log.info(
-                            "Transform[{}] filtered schema change event {}",
+                            "Transform[{}] input schema change event {} and output schema change event {}",
                             t.getPluginName(),
-                            eventBefore);
-                    break;
+                            eventBefore,
+                            event);
                 }
-                log.info(
-                        "Transform[{}] input schema change event {} and output schema change event {}",
-                        t.getPluginName(),
-                        eventBefore,
-                        event);
-            }
-            if (event != null) {
-                collector.collect(new Record<>(event));
-            }
-        } else {
-            if (prepareClose) {
-                return;
-            }
-            T inputData = (T) record.getData();
-            List<T> outputDataList = transform(inputData);
-            if (!outputDataList.isEmpty()) {
-                // todo log metrics
-                for (T outputData : outputDataList) {
-                    collector.collect(new Record<>(outputData));
+                if (event != null) {
+                    collector.collect(new Record<>(event));
+                }
+            } else {
+                if (prepareClose) {
+                    return;
+                }
+                T inputData = (T) record.getData();
+                List<T> outputDataList = transform(inputData);
+                if (!outputDataList.isEmpty()) {
+                    // todo log metrics
+                    for (T outputData : outputDataList) {
+                        collector.collect(new Record<>(outputData));
+                    }
                 }
             }
+        } catch (Exception e) {
+            log.error("Failed to receive record: {}", record, e);
+            throw e;
         }
     }
 
@@ -149,9 +153,11 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                             transformer,
                             data,
                             outputDataArray);
-                    if (CollectionUtils.isNotEmpty(outputDataArray)) {
-                        nextInputDataList.addAll(outputDataArray);
+                    if (outputDataArray == null || outputDataArray.isEmpty()) {
+                        log.trace("Transform[{}] filtered data row {}", transformer, data);
+                        continue;
                     }
+                    nextInputDataList.addAll(outputDataArray);
                 }
             } else if (transformer instanceof SeaTunnelMapTransform) {
                 for (T data : dataList) {
