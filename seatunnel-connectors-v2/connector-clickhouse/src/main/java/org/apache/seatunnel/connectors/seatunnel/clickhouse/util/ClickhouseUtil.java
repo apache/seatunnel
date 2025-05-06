@@ -41,7 +41,7 @@ public class ClickhouseUtil {
                 config.get(ClickhouseBaseOptions.SERVER_TIME_ZONE),
                 config.get(ClickhouseBaseOptions.USERNAME),
                 config.get(ClickhouseBaseOptions.PASSWORD),
-                null);
+                config.get(ClickhouseBaseOptions.CLICKHOUSE_CONFIG));
     }
 
     public static List<ClickHouseNode> createNodes(
@@ -62,12 +62,8 @@ public class ClickhouseUtil {
                                                     ClickHouseProtocol.HTTP,
                                                     Integer.parseInt(nodeAndPort[1]))
                                             .database(database)
-                                            .timeZone(serverTimeZone);
-                            if (MapUtils.isNotEmpty(options)) {
-                                for (Map.Entry<String, String> entry : options.entrySet()) {
-                                    builder = builder.addOption(entry.getKey(), entry.getValue());
-                                }
-                            }
+                                            .timeZone(serverTimeZone)
+                                            .options(options);
 
                             if (StringUtils.isNotEmpty(username)
                                     && StringUtils.isNotEmpty(password)) {
