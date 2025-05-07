@@ -83,7 +83,6 @@ public class DorisTableConfig implements Serializable {
             dorisTableConfig.setDatabase(connectorConfig.get(DATABASE));
             dorisTableConfig.setTable(connectorConfig.get(TABLE));
 
-            // 处理大小写敏感
             boolean caseSensitive = true;
             if (connectorConfig.getOptional(CASE_SENSITIVE).isPresent()) {
                 caseSensitive = connectorConfig.get(CASE_SENSITIVE);
