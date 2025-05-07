@@ -63,6 +63,13 @@ public class HttpSourceOptions extends HttpCommonOptions {
                     .withDescription(
                             "this parameter is used to specify the page field name in the request parameter");
 
+    public static final Option<Boolean> USE_PLACEHOLDER_REPLACEMENT =
+            Options.key("use_placeholder_replacement")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "If true, use placeholder replacement (${field}) for headers, parameters and body values, otherwise use key-based replacement.");
+
     public static final Option<Map<String, String>> PAGEING =
             Options.key("pageing").mapType().noDefaultValue().withDescription("pageing");
 

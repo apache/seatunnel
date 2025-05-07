@@ -18,14 +18,13 @@
 package org.apache.seatunnel.connectors.seatunnel.qdrant.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.qdrant.config.QdrantConfig;
+import org.apache.seatunnel.connectors.seatunnel.qdrant.config.QdrantSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -35,7 +34,7 @@ import java.io.Serializable;
 public class QdrantSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
-        return QdrantConfig.CONNECTOR_IDENTITY;
+        return QdrantSourceOptions.CONNECTOR_IDENTITY;
     }
 
     @Override
@@ -47,12 +46,12 @@ public class QdrantSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(QdrantConfig.COLLECTION_NAME, ConnectorCommonOptions.SCHEMA)
+                .required(QdrantSourceOptions.COLLECTION_NAME, QdrantSourceOptions.SCHEMA)
                 .optional(
-                        QdrantConfig.HOST,
-                        QdrantConfig.PORT,
-                        QdrantConfig.API_KEY,
-                        QdrantConfig.USE_TLS)
+                        QdrantSourceOptions.HOST,
+                        QdrantSourceOptions.PORT,
+                        QdrantSourceOptions.API_KEY,
+                        QdrantSourceOptions.USE_TLS)
                 .build();
     }
 

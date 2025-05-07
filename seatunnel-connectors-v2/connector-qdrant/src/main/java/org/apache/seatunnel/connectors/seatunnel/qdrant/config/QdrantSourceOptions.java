@@ -15,6 +15,6 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.neo4j.config;
+package org.apache.seatunnel.connectors.seatunnel.qdrant.config;
 
-public class Neo4jSourceConfig extends Neo4jCommonConfig {}
+public class QdrantSourceOptions extends QdrantBaseOptions {}

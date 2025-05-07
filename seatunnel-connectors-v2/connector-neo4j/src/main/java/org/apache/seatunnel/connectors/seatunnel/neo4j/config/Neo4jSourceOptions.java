@@ -14,27 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.connectors.seatunnel.http.config;
 
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+package org.apache.seatunnel.connectors.seatunnel.neo4j.config;
 
-import java.io.Serializable;
-
-@Setter
-@Getter
-@ToString
-public class PageInfo implements Serializable {
-
-    private Long totalPageSize;
-
-    private Integer batchSize;
-    private String pageField;
-    private Long pageIndex;
-    private String pageType;
-    private String cursor;
-    private String pageCursorFieldName;
-    private String pageCursorResponseField;
-    private boolean usePlaceholderReplacement = false;
-}
+public class Neo4jSourceOptions extends Neo4jBaseOptions {}

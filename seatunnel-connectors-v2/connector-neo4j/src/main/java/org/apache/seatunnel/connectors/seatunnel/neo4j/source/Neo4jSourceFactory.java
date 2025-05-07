@@ -20,45 +20,58 @@ package org.apache.seatunnel.connectors.seatunnel.neo4j.source;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceQueryInfo;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jCommonConfig.KEY_BEARER_TOKEN;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jCommonConfig.KEY_DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jCommonConfig.KEY_KERBEROS_TICKET;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jCommonConfig.KEY_MAX_CONNECTION_TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jCommonConfig.KEY_MAX_TRANSACTION_RETRY_TIME;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jCommonConfig.KEY_NEO4J_URI;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jCommonConfig.KEY_PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jCommonConfig.KEY_QUERY;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jCommonConfig.KEY_USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jCommonConfig.PLUGIN_NAME;
+import java.io.Serializable;
 
 @AutoService(Factory.class)
 public class Neo4jSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
-        return PLUGIN_NAME;
+        return Neo4jSourceOptions.PLUGIN_NAME;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(KEY_NEO4J_URI, KEY_DATABASE, KEY_QUERY, ConnectorCommonOptions.SCHEMA)
+                .required(
+                        Neo4jSourceOptions.KEY_NEO4J_URI,
+                        Neo4jSourceOptions.KEY_DATABASE,
+                        Neo4jSourceOptions.KEY_QUERY,
+                        ConnectorCommonOptions.SCHEMA)
                 .optional(
-                        KEY_USERNAME,
-                        KEY_PASSWORD,
-                        KEY_BEARER_TOKEN,
-                        KEY_KERBEROS_TICKET,
-                        KEY_MAX_CONNECTION_TIMEOUT,
-                        KEY_MAX_TRANSACTION_RETRY_TIME)
+                        Neo4jSourceOptions.KEY_USERNAME,
+                        Neo4jSourceOptions.KEY_PASSWORD,
+                        Neo4jSourceOptions.KEY_BEARER_TOKEN,
+                        Neo4jSourceOptions.KEY_KERBEROS_TICKET,
+                        Neo4jSourceOptions.KEY_MAX_CONNECTION_TIMEOUT,
+                        Neo4jSourceOptions.KEY_MAX_TRANSACTION_RETRY_TIME)
                 .build();
     }
 
     @Override
     public Class<? extends SeaTunnelSource> getSourceClass() {
         return Neo4jSource.class;
+    }
+
+    @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        Neo4jSourceQueryInfo neo4jSourceQueryInfo =
+                new Neo4jSourceQueryInfo(context.getOptions().toConfig());
+        return () ->
+                (SeaTunnelSource<T, SplitT, StateT>)
+                        new Neo4jSource(
+                                CatalogTableUtil.buildWithConfig(context.getOptions()),
+                                neo4jSourceQueryInfo);
     }
 }
