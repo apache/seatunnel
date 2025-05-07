@@ -31,7 +31,6 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceCon
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.enumerator.MySqlChunkSplitter;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.MySqlSourceFetchTaskContext;
-import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.binlog.MySqlBinlogFetchTask;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.scan.MySqlSnapshotFetchTask;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlSchema;
@@ -121,7 +120,8 @@ public class MySqlDialect implements JdbcDataSourceDialect {
         if (sourceSplitBase.isSnapshotSplit()) {
             return new MySqlSnapshotFetchTask(sourceSplitBase.asSnapshotSplit());
         } else {
-            return new MySqlBinlogFetchTask(sourceSplitBase.asIncrementalSplit());
+            return new org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch
+                    .binlog.MySqlBinlogSplitReader(sourceSplitBase.asIncrementalSplit());
         }
     }
 

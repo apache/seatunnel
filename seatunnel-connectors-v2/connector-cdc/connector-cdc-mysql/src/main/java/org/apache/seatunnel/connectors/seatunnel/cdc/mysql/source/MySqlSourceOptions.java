@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
+import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
@@ -35,11 +36,12 @@ public class MySqlSourceOptions {
                                             StartupMode.INITIAL,
                                             StartupMode.EARLIEST,
                                             StartupMode.LATEST,
-                                            StartupMode.SPECIFIC))
+                                            StartupMode.SPECIFIC,
+                                            StartupMode.TIMESTAMP))
                             .defaultValue(StartupMode.INITIAL)
                             .withDescription(
                                     "Optional startup mode for CDC source, valid enumerations are "
-                                            + "\"initial\", \"earliest\", \"latest\" or \"specific\"");
+                                            + "\"initial\", \"earliest\", \"latest\", \"timestamp\"\n or \"specific\"");
 
     public static final SingleChoiceOption<StopMode> STOP_MODE =
             (SingleChoiceOption)
@@ -52,4 +54,12 @@ public class MySqlSourceOptions {
                             .withDescription(
                                     "Optional stop mode for CDC source, valid enumerations are "
                                             + "\"never\", \"latest\" or \"specific\"");
+
+    public static final Option<String> START_TIME =
+            Options.key("start-time")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Start time of MySQL binlog, format is 'yyyy-MM-dd HH:mm:ss'. "
+                                    + "Used when startup.mode is set to 'timestamp'");
 }

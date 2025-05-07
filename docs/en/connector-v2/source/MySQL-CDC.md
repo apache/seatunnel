@@ -57,7 +57,7 @@ mysql> CREATE USER 'user'@'localhost' IDENTIFIED BY 'password';
 mysql> GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'user' IDENTIFIED BY 'password';
 ```
 
-3. Finalize the user’s permissions:
+3. Finalize the user's permissions:
 
 ```sql
 mysql> FLUSH PRIVILEGES;
@@ -157,8 +157,8 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 #### Setting up MySQL session timeouts
 
 When an initial consistent snapshot is made for large databases, your established connection could timeout while the tables are being read. You can prevent this behavior by configuring interactive_timeout and wait_timeout in your MySQL configuration file.
-- `interactive_timeout`: The number of seconds the server waits for activity on an interactive connection before closing it. See [MySQL’s documentation](https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_interactive_timeout) for more details.
-- `wait_timeout`: The number of seconds the server waits for activity on a non-interactive connection before closing it. See [MySQL’s documentation](https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_wait_timeout) for more details.
+- `interactive_timeout`: The number of seconds the server waits for activity on an interactive connection before closing it. See [MySQL's documentation](https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_interactive_timeout) for more details.
+- `wait_timeout`: The number of seconds the server waits for activity on a non-interactive connection before closing it. See [MySQL's documentation](https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_wait_timeout) for more details.
 
 *For more database settings see [Debezium MySQL Connector](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/mysql.adoc#setting-up-mysql)*
 
@@ -193,9 +193,11 @@ When an initial consistent snapshot is made for large databases, your establishe
 | table-names                                    | List     | Yes      | -       | Table name of the database to monitor. The table name needs to include the database name, for example: `database_name.table_name`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | table-pattern                                  | String   | Yes      | -       | The table names RegEx of the database to capture. The table name needs to include the database name, for example: `database.*\\.table_.*`                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | table-names-config                             | List     | No       | -       | Table config list. for example: [{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| startup.mode                                   | Enum     | No       | INITIAL | Optional startup mode for MySQL CDC consumer, valid enumerations are `initial`, `earliest`, `latest` and `specific`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `earliest`: Startup from the earliest offset possible.<br/> `latest`: Startup from the latest offset.<br/> `specific`: Startup from user-supplied specific offsets.                                                                                                                                                                                                                       |
+| startup.mode                                   | Enum     | No       | INITIAL | Optional startup mode for MySQL CDC consumer, valid enumerations are `initial`, `earliest`, `latest`, `specific` and `timestamp`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `earliest`: Startup from the earliest offset possible.<br/> `latest`: Startup from the latest offset.<br/> `specific`: Startup from user-supplied specific offsets.<br/> `timestamp`: Startup from user-supplied timestamp.                                                                                                                                            |
 | startup.specific-offset.file                   | String   | No       | -       | Start from the specified binlog file name. **Note, This option is required when the `startup.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | startup.specific-offset.pos                    | Long     | No       | -       | Start from the specified binlog file position. **Note, This option is required when the `startup.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| startup.timestamp                              | Long     | No       | -       | Start from the specified timestamp (milliseconds since January 1, 1970, 00:00:00 GMT). **Note, This option is required when the `startup.mode` option used `timestamp`.**                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| start-time                                     | String   | No       | -       | Start from the specified time (format: yyyy-MM-dd HH:mm:ss). **Note, This option is required when the `startup.mode` option used `timestamp`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | stop.mode                                      | Enum     | No       | NEVER   | Optional stop mode for MySQL CDC consumer, valid enumerations are `never`, `latest` or `specific`. <br/> `never`: Real-time job don't stop the source.<br/> `latest`: Stop from the latest offset.<br/> `specific`: Stop from user-supplied specific offset.                                                                                                                                                                                                                                                                                                                                                        |
 | stop.specific-offset.file                      | String   | No       | -       | Stop from the specified binlog file name. **Note, This option is required when the `stop.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | stop.specific-offset.pos                       | Long     | No       | -       | Stop from the specified binlog file position. **Note, This option is required when the `stop.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -342,6 +344,37 @@ source {
     database-pattern = "source.*"
     table-pattern = "source.*\\..*"
     base-url = "jdbc:mysql://mysql_cdc_e2e:3306"
+  }
+}
+
+sink {
+  Console {
+  }
+}
+```
+
+### Support startup by timestamp
+
+```
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  MySQL-CDC {
+    base-url = "jdbc:mysql://localhost:3306/testdb"
+    username = "root"
+    password = "root@123"
+    table-names = ["testdb.table1", "testdb.table2"]
+    
+    startup.mode = "timestamp"
+    # Use start-time with format "yyyy-MM-dd HH:mm:ss"
+    start-time = "2024-04-10 08:00:00"
+    
+    # Alternatively, you can use startup.timestamp (milliseconds)
+    # startup.timestamp = 1712721600000
   }
 }
 
