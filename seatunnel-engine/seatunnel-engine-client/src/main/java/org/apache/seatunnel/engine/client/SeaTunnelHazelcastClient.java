@@ -33,20 +33,29 @@ import com.hazelcast.internal.serialization.SerializationService;
 import com.hazelcast.internal.util.Preconditions;
 import com.hazelcast.logging.ILogger;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.UUID;
 import java.util.function.Function;
 
+@Slf4j
 public class SeaTunnelHazelcastClient {
     private final HazelcastClientInstanceImpl hazelcastClient;
     private final SerializationService serializationService;
 
     public SeaTunnelHazelcastClient(@NonNull ClientConfig clientConfig) {
         Preconditions.checkNotNull(clientConfig, "hazelcast client config cannot be null");
-        this.hazelcastClient =
-                ((HazelcastClientProxy) HazelcastClient.newHazelcastClient(clientConfig)).client;
-        this.serializationService = hazelcastClient.getSerializationService();
-        ExceptionUtil.registerSeaTunnelExceptions(hazelcastClient.getClientExceptionFactory());
+        try {
+            this.hazelcastClient =
+                    ((HazelcastClientProxy) HazelcastClient.newHazelcastClient(clientConfig))
+                            .client;
+            this.serializationService = hazelcastClient.getSerializationService();
+            ExceptionUtil.registerSeaTunnelExceptions(hazelcastClient.getClientExceptionFactory());
+        } catch (Error e) {
+            log.error("Fatal error occurred during Hazelcast client initialization", e);
+            System.exit(1);
+            throw e;
+        }
     }
 
     public SerializationService getSerializationService() {
