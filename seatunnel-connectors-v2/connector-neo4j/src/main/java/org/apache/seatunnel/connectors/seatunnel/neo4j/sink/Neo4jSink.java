@@ -17,52 +17,39 @@
 
 package org.apache.seatunnel.connectors.seatunnel.neo4j.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkQueryInfo;
-
-import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.PLUGIN_NAME;
-
-@AutoService(SeaTunnelSink.class)
 public class Neo4jSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> {
 
-    private SeaTunnelRowType rowType;
+    private CatalogTable catalogTable;
     private Neo4jSinkQueryInfo neo4JSinkQueryInfo;
+
+    public Neo4jSink(CatalogTable catalogTable, Neo4jSinkQueryInfo neo4JSinkQueryInfo) {
+        this.catalogTable = catalogTable;
+        this.neo4JSinkQueryInfo = neo4JSinkQueryInfo;
+    }
 
     @Override
     public String getPluginName() {
-        return PLUGIN_NAME;
-    }
-
-    @Override
-    public void prepare(Config config) throws PrepareFailException {
-        this.neo4JSinkQueryInfo = new Neo4jSinkQueryInfo(config);
-    }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.rowType = seaTunnelRowType;
+        return Neo4jSinkOptions.PLUGIN_NAME;
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, Void, Void> createWriter(SinkWriter.Context context)
             throws IOException {
-        return new Neo4jSinkWriter(neo4JSinkQueryInfo, rowType);
+        return new Neo4jSinkWriter(neo4JSinkQueryInfo, catalogTable.getSeaTunnelRowType());
     }
 
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
-        return SeaTunnelSink.super.getWriteCatalogTable();
+        return Optional.of(catalogTable);
     }
 }

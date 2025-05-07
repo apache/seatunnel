@@ -15,42 +15,41 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.qdrant.sink;
+package org.apache.seatunnel.transform.table;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.connector.TableSink;
+import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSinkFactory;
-import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.qdrant.config.QdrantSinkOptions;
+import org.apache.seatunnel.api.table.factory.TableTransformFactory;
+import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class QdrantSinkFactory implements TableSinkFactory {
+public class TableFilterTransformFactory implements TableTransformFactory {
     @Override
     public String factoryIdentifier() {
-        return QdrantSinkOptions.CONNECTOR_IDENTITY;
-    }
-
-    @Override
-    public TableSink createSink(TableSinkFactoryContext context) {
-        CatalogTable catalogTable = context.getCatalogTable();
-        return () -> new QdrantSink(context.getOptions(), catalogTable);
+        return TableFilterConfig.PLUGIN_NAME;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .optional(
-                        QdrantSinkOptions.HOST,
-                        QdrantSinkOptions.PORT,
-                        QdrantSinkOptions.API_KEY,
-                        QdrantSinkOptions.COLLECTION_NAME,
-                        QdrantSinkOptions.USE_TLS,
-                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                        TableFilterConfig.DATABASE_PATTERN,
+                        TableFilterConfig.SCHEMA_PATTERN,
+                        TableFilterConfig.TABLE_PATTERN)
+                .optional(TableFilterConfig.PATTERN_MODE)
+                .optional(TransformCommonOptions.MULTI_TABLES)
+                .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
                 .build();
+    }
+
+    @Override
+    public TableTransform createTransform(TableTransformFactoryContext context) {
+        return () ->
+                new TableFilterMultiCatalogTransform(
+                        context.getCatalogTables(), context.getOptions());
     }
 }

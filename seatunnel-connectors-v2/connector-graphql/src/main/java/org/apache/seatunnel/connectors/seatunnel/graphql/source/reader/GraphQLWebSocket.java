@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.graphql.source.reader;
 
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.graphql.config.GraphQLSourceParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
@@ -24,6 +25,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import com.google.gson.Gson;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -110,11 +112,13 @@ public class GraphQLWebSocket {
             }
         }
 
+        @SneakyThrows
         @Override
         public void onOpen(@NotNull WebSocket webSocket, @NotNull Response response) {
             retryCount = 0;
 
-            Map<String, Object> body = httpParameter.getBody();
+            Map<String, Object> body =
+                    JsonUtils.toMap(JsonUtils.stringToJsonNode(httpParameter.getBody()));
 
             String json = gson.toJson(body);
             webSocket.send(json);

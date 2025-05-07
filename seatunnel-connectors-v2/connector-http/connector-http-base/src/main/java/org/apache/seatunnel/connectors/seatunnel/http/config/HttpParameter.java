@@ -17,15 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import lombok.Data;
 
 import java.io.Serializable;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Data
 @SuppressWarnings("MagicNumber")
@@ -37,7 +34,7 @@ public class HttpParameter implements Serializable {
     protected Map<String, Object> pageParams;
     protected boolean keepParamsAsForm = false;
     protected boolean keepPageParamAsHttpParam = false;
-    protected Map<String, Object> body;
+    protected String body;
     protected int pollIntervalMillis;
     protected int retry;
     protected int retryBackoffMultiplierMillis;
@@ -68,14 +65,7 @@ public class HttpParameter implements Serializable {
         }
         // set body
         if (pluginConfig.getOptional(HttpSourceOptions.BODY).isPresent()) {
-            this.setBody(
-                    ConfigFactory.parseString(pluginConfig.get(HttpSourceOptions.BODY)).entrySet()
-                            .stream()
-                            .collect(
-                                    Collectors.toMap(
-                                            Map.Entry::getKey,
-                                            entry -> entry.getValue().unwrapped(),
-                                            (v1, v2) -> v2)));
+            this.setBody(pluginConfig.get(HttpSourceOptions.BODY));
         }
         if (pluginConfig.getOptional(HttpSourceOptions.POLL_INTERVAL_MILLS).isPresent()) {
             this.setPollIntervalMillis(pluginConfig.get(HttpSourceOptions.POLL_INTERVAL_MILLS));
