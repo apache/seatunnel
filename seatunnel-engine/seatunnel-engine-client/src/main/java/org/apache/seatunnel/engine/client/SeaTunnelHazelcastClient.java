@@ -33,12 +33,10 @@ import com.hazelcast.internal.serialization.SerializationService;
 import com.hazelcast.internal.util.Preconditions;
 import com.hazelcast.logging.ILogger;
 import lombok.NonNull;
-import lombok.extern.slf4j.Slf4j;
 
 import java.util.UUID;
 import java.util.function.Function;
 
-@Slf4j
 public class SeaTunnelHazelcastClient {
     private final HazelcastClientInstanceImpl hazelcastClient;
     private final SerializationService serializationService;
