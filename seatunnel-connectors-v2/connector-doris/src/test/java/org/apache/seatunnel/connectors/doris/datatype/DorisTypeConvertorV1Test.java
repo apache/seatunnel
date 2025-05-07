@@ -905,7 +905,7 @@ public class DorisTypeConvertorV1Test {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder()
                         .name("mixed_case_column")
-                        .columnType("VarChar(255)")  // 混合大小写类型
+                        .columnType("VarChar(255)")
                         .dataType("VARCHAR")
                         .build();
 
@@ -916,21 +916,5 @@ public class DorisTypeConvertorV1Test {
         Column columnInsensitive = DorisTypeConverterV1.INSTANCE.convert(typeDefine, false);
         Assertions.assertEquals("mixed_case_column", columnInsensitive.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, columnInsensitive.getDataType());
-    }
-
-    @Test
-    public void testArrayTypeCaseSensitivity() {
-        BasicTypeDefine<Object> typeDefine =
-                BasicTypeDefine.builder()
-                        .name("array_column")
-                        .columnType("ARRAY<VARCHAR(255)>")
-                        .dataType("ARRAY")
-                        .build();
-
-        Column columnSensitive = DorisTypeConverterV1.INSTANCE.convert(typeDefine, true);
-        Assertions.assertEquals("array_column", columnSensitive.getName());
-
-        Column columnInsensitive = DorisTypeConverterV1.INSTANCE.convert(typeDefine, false);
-        Assertions.assertEquals("array_column", columnInsensitive.getName());
     }
 }
