@@ -29,9 +29,7 @@ import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.util.ConcurrencyUtil;
 import lombok.NonNull;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
 public class SeaTunnelServerStarter {
 
     public static void main(String[] args) {
@@ -67,25 +65,19 @@ public class SeaTunnelServerStarter {
                         : HazelcastInstanceFactory.createInstanceName(
                                 seaTunnelConfig.getHazelcastConfig());
 
-        try {
-            HazelcastInstanceImpl original =
-                    ((HazelcastInstanceProxy)
-                                    HazelcastInstanceFactory.newHazelcastInstance(
-                                            seaTunnelConfig.getHazelcastConfig(),
-                                            instanceName,
-                                            new SeaTunnelNodeContext(seaTunnelConfig)))
-                            .getOriginal();
-            // init telemetry instance
-            if (condition) {
-                initTelemetryInstance(original.node);
-            }
-
-            return original;
-        } catch (Error e) {
-            log.error("Fatal error occurred during Hazelcast server initialization", e);
-            System.exit(1);
-            throw e;
+        HazelcastInstanceImpl original =
+                ((HazelcastInstanceProxy)
+                                HazelcastInstanceFactory.newHazelcastInstance(
+                                        seaTunnelConfig.getHazelcastConfig(),
+                                        instanceName,
+                                        new SeaTunnelNodeContext(seaTunnelConfig)))
+                        .getOriginal();
+        // init telemetry instance
+        if (condition) {
+            initTelemetryInstance(original.node);
         }
+
+        return original;
     }
 
     public static HazelcastInstanceImpl createMasterAndWorkerHazelcastInstance(

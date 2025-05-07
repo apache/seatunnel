@@ -281,16 +281,10 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         // set the default async executor for Hazelcast InvocationFuture
         ConcurrencyUtil.setDefaultAsyncExecutor(CompletableFuture.EXECUTOR);
 
-        try {
-            return HazelcastInstanceFactory.newHazelcastInstance(
-                    seaTunnelConfig.getHazelcastConfig(),
-                    Thread.currentThread().getName(),
-                    new SeaTunnelNodeContext(seaTunnelConfig));
-        } catch (Error e) {
-            log.error("Fatal error occurred during Hazelcast instance initialization", e);
-            System.exit(1);
-            throw e;
-        }
+        return HazelcastInstanceFactory.newHazelcastInstance(
+                seaTunnelConfig.getHazelcastConfig(),
+                Thread.currentThread().getName(),
+                new SeaTunnelNodeContext(seaTunnelConfig));
     }
 
     private String creatRandomClusterName(String namePrefix) {

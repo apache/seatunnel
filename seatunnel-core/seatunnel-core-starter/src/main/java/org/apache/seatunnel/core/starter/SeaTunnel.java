@@ -40,9 +40,15 @@ public class SeaTunnel {
             command.execute();
         } catch (ConfigRuntimeException e) {
             showConfigError(e);
+            System.exit(1);
             throw e;
         } catch (Exception e) {
             showFatalError(e);
+            System.exit(1);
+            throw e;
+        } catch (Error e) {
+            log.error("Fatal error occurred during Hazelcast server initialization", e);
+            System.exit(1);
             throw e;
         }
     }

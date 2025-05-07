@@ -45,17 +45,10 @@ public class SeaTunnelHazelcastClient {
 
     public SeaTunnelHazelcastClient(@NonNull ClientConfig clientConfig) {
         Preconditions.checkNotNull(clientConfig, "hazelcast client config cannot be null");
-        try {
-            this.hazelcastClient =
-                    ((HazelcastClientProxy) HazelcastClient.newHazelcastClient(clientConfig))
-                            .client;
-            this.serializationService = hazelcastClient.getSerializationService();
-            ExceptionUtil.registerSeaTunnelExceptions(hazelcastClient.getClientExceptionFactory());
-        } catch (Error e) {
-            log.error("Fatal error occurred during Hazelcast client initialization", e);
-            System.exit(1);
-            throw e;
-        }
+        this.hazelcastClient =
+                ((HazelcastClientProxy) HazelcastClient.newHazelcastClient(clientConfig)).client;
+        this.serializationService = hazelcastClient.getSerializationService();
+        ExceptionUtil.registerSeaTunnelExceptions(hazelcastClient.getClientExceptionFactory());
     }
 
     public SerializationService getSerializationService() {
