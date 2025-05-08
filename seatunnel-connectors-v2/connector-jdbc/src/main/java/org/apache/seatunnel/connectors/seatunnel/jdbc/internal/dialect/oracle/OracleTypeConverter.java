@@ -216,13 +216,9 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                 if (handleBlobAsString) {
                     builder.dataType(BasicType.STRING_TYPE);
                     builder.columnLength(BYTES_4GB - 1);
-                    log.info("Converted BLOB to STRING_TYPE with length: {}", BYTES_4GB - 1);
                 } else {
                     builder.dataType(PrimitiveByteArrayType.INSTANCE);
                     builder.columnLength(BYTES_4GB - 1);
-                    log.info(
-                            "Converted BLOB to PrimitiveByteArrayType with length: {}",
-                            BYTES_4GB - 1);
                 }
                 break;
             case ORACLE_RAW:
