@@ -42,7 +42,7 @@ public abstract class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Vo
     protected final HttpParameter httpParameter;
     protected final SerializationSchema serializationSchema;
 
-    // 批处理相关的字段
+    // Batch related fields
     private final boolean arrayMode;
     private final int batchSize;
     private final int requestIntervalMs;
@@ -101,7 +101,7 @@ public abstract class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Vo
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         if (!arrayMode) {
-            // 对象模式：每条记录单独发送，忽略 batch_size 设置
+            // Object mode: send each record individually, ignore batch_size setting
             writeSingleRecord(element);
         } else {
             // 数组模式：进行批处理
@@ -123,7 +123,7 @@ public abstract class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Vo
             return;
         }
 
-        // 检查请求间隔
+        // Check request interval
         long currentTime = System.currentTimeMillis();
         long timeSinceLastRequest = currentTime - lastRequestTime;
         if (requestIntervalMs > 0 && timeSinceLastRequest < requestIntervalMs) {
@@ -135,9 +135,9 @@ public abstract class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Vo
             }
         }
 
-        // 数组模式：序列化批处理数据
+        // Array mode: serialize batch data
         if ("json".equalsIgnoreCase(format)) {
-            // 构造JSON数组
+            // Constructing JSON arrays
             List<String> jsonRecords = new ArrayList<>(batchBuffer.size());
             for (SeaTunnelRow row : batchBuffer) {
                 byte[] serialize = serializationSchema.serialize(row);
@@ -158,7 +158,7 @@ public abstract class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Vo
 
     private void doHttpRequest(String body) {
         try {
-            // 发送 HTTP 请求
+            // Send HTTP request
             HttpResponse response =
                     httpClient.doPost(httpParameter.getUrl(), httpParameter.getHeaders(), body);
             if (HttpResponse.STATUS_OK == response.getCode()) {
@@ -176,7 +176,7 @@ public abstract class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Vo
     @Override
     public void close() throws IOException {
         if (arrayMode) {
-            flush(); // 确保关闭前将缓冲区中的所有数据发送出去
+            flush(); // Ensure that all data in the buffer is sent out before shutdown
         }
         if (Objects.nonNull(httpClient)) {
             httpClient.close();

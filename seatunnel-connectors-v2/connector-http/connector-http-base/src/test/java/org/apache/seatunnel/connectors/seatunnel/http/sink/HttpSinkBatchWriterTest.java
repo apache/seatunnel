@@ -49,7 +49,7 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-public class HttpSinkWriterTest {
+public class HttpSinkBatchWriterTest {
 
     private static final String TEST_URL = "http://example.com/test";
     private static final int BATCH_SIZE = 3;
@@ -66,19 +66,19 @@ public class HttpSinkWriterTest {
 
     @BeforeEach
     public void setUp() throws Exception {
-        // 设置 HTTP 参数
+        // Setting HTTP Parameters
         httpParameter = new HttpParameter();
         httpParameter.setUrl(TEST_URL);
         Map<String, String> headers = new HashMap<>();
         headers.put("Content-Type", "application/json");
         httpParameter.setHeaders(headers);
 
-        // 模拟HTTP响应
+        // Simulate HTTP response
         HttpResponse mockResponse = Mockito.mock(HttpResponse.class);
         when(mockResponse.getCode()).thenReturn(HttpResponse.STATUS_OK);
         when(httpClientProvider.doPost(anyString(), any(), anyString())).thenReturn(mockResponse);
 
-        // 创建行类型
+        // Creating Row Types
         String[] fieldNames = new String[] {"id", "name", "age"};
         SeaTunnelDataType<?>[] dataTypes =
                 new SeaTunnelDataType<?>[] {
@@ -89,22 +89,22 @@ public class HttpSinkWriterTest {
 
     @Test
     public void testObjectModeIgnoresBatchSize() throws Exception {
-        // 使用对象模式（默认），忽略批处理大小
+        // Use object mode (default) to ignore batch size
         sinkWriter =
                 new TestableHttpSinkWriter(
                         rowType, httpParameter, false, BATCH_SIZE, REQUEST_INTERVAL_MS, FORMAT);
 
-        // 写入3条记录（等于批处理大小）
+        // Write 3 records (equal to batch size)
         for (int i = 0; i < BATCH_SIZE; i++) {
             SeaTunnelRow row = createTestRow(i + 1, "user" + (i + 1), 20 + i);
             sinkWriter.write(row);
         }
 
-        // 在对象模式下，应该有3次HTTP请求，每条记录单独发送
+        // In object mode, there should be 3 HTTP requests, each record sent separately
         verify(httpClientProvider, times(3))
                 .doPost(eq(TEST_URL), any(), requestBodyCaptor.capture());
 
-        // 验证请求体格式（单个对象）
+        // Validation request format (single object)
         for (String requestBody : requestBodyCaptor.getAllValues()) {
             assertTrue(requestBody.startsWith("{"));
             assertTrue(requestBody.endsWith("}"));
@@ -113,32 +113,33 @@ public class HttpSinkWriterTest {
 
     @Test
     public void testArrayModeWithBatch() throws Exception {
-        // 使用数组模式，开启批处理
+        // Use array mode to turn on batch processing
         sinkWriter =
                 new TestableHttpSinkWriter(
                         rowType, httpParameter, true, BATCH_SIZE, REQUEST_INTERVAL_MS, FORMAT);
 
-        // 写入5条记录（超过批处理大小）
+        // Write 5 records (over batch size)
         for (int i = 0; i < 5; i++) {
             SeaTunnelRow row = createTestRow(i + 1, "user" + (i + 1), 20 + i);
             sinkWriter.write(row);
         }
 
-        // 应该只有1次HTTP请求（第一批3条），剩余2条还未满足批处理大小
+        // There should only be 1 HTTP request (the first batch of 3), the remaining 2 have not yet
+        // met the batch size
         verify(httpClientProvider, times(1))
                 .doPost(eq(TEST_URL), any(), requestBodyCaptor.capture());
 
-        // 验证请求体格式（数组）
+        // Validation request format (array)
         String requestBody = requestBodyCaptor.getValue();
         assertTrue(requestBody.startsWith("["));
         assertTrue(requestBody.endsWith("]"));
 
-        // 关闭SinkWriter，应该再发送一次请求（剩余的2条记录）
+        // Close SinkWriter, should send another request (for the remaining 2 records)
         sinkWriter.close();
         verify(httpClientProvider, times(2))
                 .doPost(eq(TEST_URL), any(), requestBodyCaptor.capture());
 
-        // 验证第二次请求的内容
+        // Validating the content of the second request
         requestBody = requestBodyCaptor.getValue();
         assertTrue(requestBody.startsWith("["));
         assertTrue(requestBody.endsWith("]"));

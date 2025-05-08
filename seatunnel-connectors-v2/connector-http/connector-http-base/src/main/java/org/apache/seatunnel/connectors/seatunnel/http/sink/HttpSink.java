@@ -72,7 +72,7 @@ public class HttpSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         return Optional.ofNullable(catalogTable);
     }
 
-    /** 默认的HttpSinkWriter实现 */
+    /** Default HttpSinkWriter Implementation */
     private static class DefaultHttpSinkWriter extends HttpSinkWriter {
         public DefaultHttpSinkWriter(
                 SeaTunnelRowType seaTunnelRowType,
