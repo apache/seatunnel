@@ -17,4 +17,4 @@
 
 package org.apache.seatunnel.connectors.seatunnel.neo4j.config;
 
-public class Neo4jSourceConfig extends Neo4jCommonConfig {}
+public class Neo4jSourceOptions extends Neo4jBaseOptions {}

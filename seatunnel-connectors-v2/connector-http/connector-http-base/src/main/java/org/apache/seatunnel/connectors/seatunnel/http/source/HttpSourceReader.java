@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.source;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.google.common.base.Strings;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
@@ -149,7 +151,8 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
     }
 
-    private void updateRequestParam(PageInfo pageInfo) {
+    @VisibleForTesting
+    public void updateRequestParam(PageInfo pageInfo, boolean usePlaceholderReplacement) {
         // 1. keep page param as http param
         if (this.httpParameter.isKeepPageParamAsHttpParam()) {
             if (this.httpParameter.getParams() == null) {
@@ -170,41 +173,153 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             }
             return;
         }
+        Long pageValue = pageInfo.getPageIndex();
+        String pageField = pageInfo.getPageField();
 
+        // Process headers
+        if (MapUtils.isNotEmpty(this.httpParameter.getHeaders())) {
+            processPageMap(
+                    this.httpParameter.getHeaders(),
+                    pageField,
+                    pageValue.toString(),
+                    usePlaceholderReplacement);
+
+            processPageMap(
+                    this.httpParameter.getHeaders(),
+                    pageInfo.getPageCursorFieldName(),
+                    pageInfo.getCursor(),
+                    usePlaceholderReplacement);
+        }
         // if not set keepPageParamAsHttpParam, but page field is in params, then set page index as
-        // params
         if (MapUtils.isNotEmpty(this.httpParameter.getParams())) {
 
-            // set page index as params
-            if (this.httpParameter.getParams().containsKey(pageInfo.getPageField())) {
-                this.httpParameter
-                        .getParams()
-                        .put(pageInfo.getPageField(), pageInfo.getPageIndex().toString());
-            }
-
-            // set page cursor as params
-            if (this.httpParameter.getParams().containsKey(pageInfo.getPageCursorFieldName())
-                    && pageInfo.getCursor() != null) {
-                this.httpParameter
-                        .getParams()
-                        .put(pageInfo.getPageCursorFieldName(), pageInfo.getCursor());
-            }
+            processPageMap(
+                    this.httpParameter.getParams(),
+                    pageField,
+                    pageValue.toString(),
+                    usePlaceholderReplacement);
+            processPageMap(
+                    this.httpParameter.getParams(),
+                    pageInfo.getPageCursorFieldName(),
+                    pageInfo.getCursor(),
+                    usePlaceholderReplacement);
         }
 
         // 2. param in body
-        if (MapUtils.isNotEmpty(this.httpParameter.getBody())) {
+        if (!Strings.isNullOrEmpty(this.httpParameter.getBody())) {
+            String processedBody =
+                    processBodyString(
+                            this.httpParameter.getBody(),
+                            pageField,
+                            pageValue,
+                            usePlaceholderReplacement);
 
-            // set page index as body
-            if (this.httpParameter.getBody().containsKey(pageInfo.getPageField())) {
-                this.httpParameter.getBody().put(pageInfo.getPageField(), pageInfo.getPageIndex());
+            // Process cursor if available
+            if (pageInfo.getPageCursorFieldName() != null && pageInfo.getCursor() != null) {
+                processedBody =
+                        processBodyString(
+                                processedBody,
+                                pageInfo.getPageCursorFieldName(),
+                                pageInfo.getCursor(),
+                                usePlaceholderReplacement);
             }
 
-            // set page cursor as body
-            if (this.httpParameter.getBody().containsKey(pageInfo.getPageCursorFieldName())
-                    && pageInfo.getCursor() != null) {
-                this.httpParameter
-                        .getBody()
-                        .put(pageInfo.getPageCursorFieldName(), pageInfo.getCursor());
+            // Update the body string
+            this.httpParameter.setBody(processedBody);
+        }
+    }
+
+    /**
+     * Replace placeholder in a string value
+     *
+     * @param value The string value that may contain a placeholder
+     * @param pageField The page field name
+     * @param pageValue The page value to replace the placeholder with
+     * @return The string with placeholder replaced, or null if no placeholder found
+     */
+    private String replacePlaceholder(String value, String pageField, Object pageValue) {
+        if (value == null || pageField == null || !value.contains("${" + pageField + "}")) {
+            return value;
+        }
+
+        String placeholder = "${" + pageField + "}";
+        int placeholderIndex = value.indexOf(placeholder);
+        if (placeholderIndex >= 0) {
+            String prefix = value.substring(0, placeholderIndex);
+            String suffix = value.substring(placeholderIndex + placeholder.length());
+            return prefix + pageValue + suffix;
+        }
+        return value;
+    }
+
+    private void processPageMap(
+            Map<String, String> map,
+            String pageField,
+            String pageValue,
+            boolean usePlaceholderReplacement) {
+        if (usePlaceholderReplacement) {
+            // Placeholder replacement
+            Map<String, String> updatedMap = new HashMap<>();
+            for (Map.Entry<String, String> entry : map.entrySet()) {
+                String key = entry.getKey();
+                String value = entry.getValue();
+                String replacedValue = replacePlaceholder(value, pageField, pageValue);
+                if (replacedValue != null) {
+                    updatedMap.put(key, replacedValue);
+                }
+            }
+            map.putAll(updatedMap);
+        } else if (map.containsKey(pageField)) {
+            // Key-based replacement
+            map.put(pageField, pageValue);
+        }
+    }
+
+    private String processBodyString(
+            String bodyString,
+            String pageField,
+            Object pageValue,
+            boolean usePlaceholderReplacement) {
+        if (pageField == null || pageValue == null || Strings.isNullOrEmpty(bodyString)) {
+            return bodyString;
+        }
+        if (usePlaceholderReplacement) {
+            String unquotedPlaceholder = "${" + pageField + "}";
+            if (bodyString.contains(unquotedPlaceholder)) {
+                bodyString = bodyString.replace(unquotedPlaceholder, pageValue.toString());
+            }
+
+            return bodyString;
+        } else {
+            // Key-based replacement
+            Map<String, Object> bodyMap =
+                    JsonUtils.parseObject(bodyString, new TypeReference<Map<String, Object>>() {});
+            if (bodyMap != null) {
+                processBodyMapRecursively(bodyMap, pageField, pageValue);
+                return JsonUtils.toJsonString(bodyMap);
+            }
+            return bodyString;
+        }
+    }
+
+    /**
+     * Process the body map recursively for key-based parameter replacement.
+     *
+     * @param bodyMap The body map to process
+     * @param pageField The page field name
+     * @param pageValue The page value
+     */
+    private void processBodyMapRecursively(
+            Map<String, Object> bodyMap, String pageField, Object pageValue) {
+        if (bodyMap.containsKey(pageField)) {
+            bodyMap.put(pageField, pageValue);
+        }
+        for (Map.Entry<String, Object> entry : bodyMap.entrySet()) {
+            Object value = entry.getValue();
+            if (value instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> nestedMap = (Map<String, Object>) value;
+                processBodyMapRecursively(nestedMap, pageField, pageValue);
             }
         }
     }
@@ -225,7 +340,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 // cursor pagination
                 if (HttpPaginationType.CURSOR.getCode().equals(info.getPageType())) {
                     while (!noMoreElementFlag) {
-                        updateRequestParam(info);
+                        updateRequestParam(info, info.isUsePlaceholderReplacement());
                         pollAndCollectData(output);
                         Thread.sleep(10);
                     }
@@ -237,7 +352,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                         // increment page
                         info.setPageIndex(pageIndex);
                         // set request param
-                        updateRequestParam(info);
+                        updateRequestParam(info, info.isUsePlaceholderReplacement());
                         pollAndCollectData(output);
                         pageIndex += 1;
                         Thread.sleep(10);

@@ -23,7 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.neo4j.constants.SinkWriteMode;
 
 import java.util.Map;
 
-public class Neo4jSinkConfig extends Neo4jCommonConfig {
+public class Neo4jSinkOptions extends Neo4jBaseOptions {
     public static final Option<Map<String, String>> QUERY_PARAM_POSITION =
             Options.key("queryParamPosition")
                     .mapType()

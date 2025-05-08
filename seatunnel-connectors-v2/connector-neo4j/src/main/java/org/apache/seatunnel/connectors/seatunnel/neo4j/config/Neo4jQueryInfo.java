@@ -32,16 +32,16 @@ import lombok.Data;
 import java.io.Serializable;
 import java.net.URI;
 
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jCommonConfig.KEY_BEARER_TOKEN;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jCommonConfig.KEY_DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jCommonConfig.KEY_KERBEROS_TICKET;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jCommonConfig.KEY_MAX_CONNECTION_TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jCommonConfig.KEY_MAX_TRANSACTION_RETRY_TIME;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jCommonConfig.KEY_NEO4J_URI;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jCommonConfig.KEY_PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jCommonConfig.KEY_QUERY;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jCommonConfig.KEY_USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jCommonConfig.PLUGIN_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jBaseOptions.KEY_BEARER_TOKEN;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jBaseOptions.KEY_DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jBaseOptions.KEY_KERBEROS_TICKET;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jBaseOptions.KEY_MAX_CONNECTION_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jBaseOptions.KEY_MAX_TRANSACTION_RETRY_TIME;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jBaseOptions.KEY_NEO4J_URI;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jBaseOptions.KEY_PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jBaseOptions.KEY_QUERY;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jBaseOptions.KEY_USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jBaseOptions.PLUGIN_NAME;
 
 /**
  * Because Neo4jQueryInfo is one of the Neo4jSink's member variable, So Neo4jQueryInfo need

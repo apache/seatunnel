@@ -4779,7 +4779,7 @@
       "method": "GET",
       "path": "/query/cursor_pages",
       "queryStringParameters": {
-       "cursor": "cursor_1"
+        "cursor": "cursor_1"
       }
     },
     "httpResponse": {

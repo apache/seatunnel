@@ -19,8 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.qdrant.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 
-public class QdrantConfig {
+public class QdrantBaseOptions extends ConnectorCommonOptions {
 
     public static final String CONNECTOR_IDENTITY = "Qdrant";
 

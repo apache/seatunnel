@@ -38,7 +38,7 @@ seatunnel:
     telemetry:
       metric:
         enabled: false
-      log:
+      logs:
         scheduled-deletion-enable: true
     http:
       enable-http: true

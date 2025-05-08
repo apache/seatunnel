@@ -15,21 +15,6 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.dag.actions;
+package org.apache.seatunnel.connectors.seatunnel.qdrant.config;
 
-import lombok.NonNull;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-
-public class ShuffleAction extends AbstractAction {
-
-    public ShuffleAction(long id, @NonNull String name, @NonNull ShuffleConfig shuffleConfig) {
-        super(id, name, new ArrayList<>(), new HashSet<>(), new HashSet<>(), shuffleConfig);
-    }
-
-    @Override
-    public ShuffleConfig getConfig() {
-        return (ShuffleConfig) super.getConfig();
-    }
-}
+public class QdrantSinkOptions extends QdrantBaseOptions {}
