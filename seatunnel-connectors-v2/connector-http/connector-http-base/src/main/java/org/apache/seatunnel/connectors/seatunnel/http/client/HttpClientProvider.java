@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.client;
 
+import org.apache.seatunnel.shade.com.google.common.base.Strings;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
@@ -64,6 +67,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class HttpClientProvider implements AutoCloseable {
@@ -118,9 +122,21 @@ public class HttpClientProvider implements AutoCloseable {
             String method,
             Map<String, String> headers,
             Map<String, String> params,
-            Map<String, Object> body,
+            String body,
             boolean keepParamsAsForm)
             throws Exception {
+        Map<String, Object> bodyMap = new HashMap<>();
+        // If body is set but bodyMap is not, convert body to bodyMap
+        if (!Strings.isNullOrEmpty(body)) {
+            bodyMap =
+                    ConfigFactory.parseString(body).entrySet().stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            Map.Entry::getKey,
+                                            entry -> entry.getValue().unwrapped(),
+                                            (v1, v2) -> v2));
+        }
+
         // convert method option to uppercase
         method = method.toUpperCase(Locale.ROOT);
         // Keep the original post  logic
@@ -130,15 +146,15 @@ public class HttpClientProvider implements AutoCloseable {
                 headers = MapUtils.isEmpty(headers) ? new HashMap<>() : headers;
                 headers.putIfAbsent(HTTP.CONTENT_TYPE, APPLICATION_FORM);
             }
-            if (MapUtils.isEmpty(body)) {
-                body = new HashMap<>();
+            if (MapUtils.isEmpty(bodyMap)) {
+                bodyMap = new HashMap<>();
             }
-            body.putAll(params);
-            return doPost(url, headers, Collections.emptyMap(), body);
+            bodyMap.putAll(params);
+            return doPost(url, headers, Collections.emptyMap(), bodyMap);
         }
         if (HttpPost.METHOD_NAME.equals(method)) {
             // Create access address
-            return doPost(url, headers, params, body);
+            return doPost(url, headers, params, bodyMap);
         }
         if (HttpGet.METHOD_NAME.equals(method)) {
             return doGet(url, headers, params);
