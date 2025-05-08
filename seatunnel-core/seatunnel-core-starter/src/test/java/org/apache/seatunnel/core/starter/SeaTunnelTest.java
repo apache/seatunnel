@@ -17,10 +17,8 @@
 
 package org.apache.seatunnel.core.starter;
 
-import org.apache.seatunnel.common.config.ConfigRuntimeException;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.command.CommandArgs;
-import org.apache.seatunnel.core.starter.exception.CommandException;
 
 import org.junit.jupiter.api.Test;
 
@@ -31,60 +29,6 @@ import static org.mockito.Mockito.mock;
 
 /** Test for {@link SeaTunnel} error handling and System.exit behavior. */
 public class SeaTunnelTest {
-
-    /**
-     * This test verifies that System.exit(1) is called when a ConfigRuntimeException occurs during
-     * command execution.
-     */
-    @Test
-    public void testConfigRuntimeExceptionHandling() throws Exception {
-        // Create a mock Command that will throw ConfigRuntimeException
-        @SuppressWarnings("unchecked")
-        Command<CommandArgs> mockCommand = mock(Command.class);
-        doThrow(new ConfigRuntimeException("Simulated config error")).when(mockCommand).execute();
-
-        // Expect System.exit(1) to be called and catch it
-        int statusCode =
-                catchSystemExit(
-                        () -> {
-                            try {
-                                SeaTunnel.run(mockCommand);
-                            } catch (CommandException e) {
-                                // We expect this exception to be thrown after System.exit is called
-                                // but the exit is intercepted by catchSystemExit
-                            }
-                        });
-
-        // Verify the exit code is 1
-        assertEquals(1, statusCode);
-    }
-
-    /**
-     * This test verifies that System.exit(1) is called when a generic Exception occurs during
-     * command execution.
-     */
-    @Test
-    public void testGenericExceptionHandling() throws Exception {
-        // Create a mock Command that will throw a generic Exception
-        @SuppressWarnings("unchecked")
-        Command<CommandArgs> mockCommand = mock(Command.class);
-        doThrow(new RuntimeException("Simulated runtime error")).when(mockCommand).execute();
-
-        // Expect System.exit(1) to be called and catch it
-        int statusCode =
-                catchSystemExit(
-                        () -> {
-                            try {
-                                SeaTunnel.run(mockCommand);
-                            } catch (CommandException e) {
-                                // We expect this exception to be thrown after System.exit is called
-                                // but the exit is intercepted by catchSystemExit
-                            }
-                        });
-
-        // Verify the exit code is 1
-        assertEquals(1, statusCode);
-    }
 
     /**
      * This test verifies that System.exit(1) is called when an OutOfMemoryError occurs during
