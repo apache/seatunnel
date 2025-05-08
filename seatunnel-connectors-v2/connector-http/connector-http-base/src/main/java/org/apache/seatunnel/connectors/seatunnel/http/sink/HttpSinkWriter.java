@@ -104,7 +104,7 @@ public abstract class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Vo
             // Object mode: send each record individually, ignore batch_size setting
             writeSingleRecord(element);
         } else {
-            // 数组模式：进行批处理
+            // Array mode: batch processing
             batchBuffer.add(element);
             if (batchBuffer.size() >= batchSize) {
                 flush();
