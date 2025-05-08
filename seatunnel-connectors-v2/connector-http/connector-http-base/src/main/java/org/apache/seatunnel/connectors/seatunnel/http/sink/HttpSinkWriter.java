@@ -30,15 +30,25 @@ import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 @Slf4j
-public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
+public abstract class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         implements SupportMultiTableSinkWriter<Void> {
     protected final HttpClientProvider httpClient;
     protected final SeaTunnelRowType seaTunnelRowType;
     protected final HttpParameter httpParameter;
     protected final SerializationSchema serializationSchema;
+
+    // 批处理相关的字段
+    private final boolean arrayMode;
+    private final int batchSize;
+    private final int requestIntervalMs;
+    private final String format;
+    private final List<SeaTunnelRow> batchBuffer;
+    private long lastRequestTime;
 
     public HttpSinkWriter(SeaTunnelRowType seaTunnelRowType, HttpParameter httpParameter) {
         this(seaTunnelRowType, httpParameter, new JsonSerializationSchema(seaTunnelRowType));
@@ -48,18 +58,107 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             SeaTunnelRowType seaTunnelRowType,
             HttpParameter httpParameter,
             SerializationSchema serializationSchema) {
+        this(seaTunnelRowType, httpParameter, serializationSchema, false, 1, 0, "json");
+    }
+
+    public HttpSinkWriter(
+            SeaTunnelRowType seaTunnelRowType,
+            HttpParameter httpParameter,
+            boolean arrayMode,
+            int batchSize,
+            int requestIntervalMs,
+            String format) {
+        this(
+                seaTunnelRowType,
+                httpParameter,
+                new JsonSerializationSchema(seaTunnelRowType),
+                arrayMode,
+                batchSize,
+                requestIntervalMs,
+                format);
+    }
+
+    public HttpSinkWriter(
+            SeaTunnelRowType seaTunnelRowType,
+            HttpParameter httpParameter,
+            SerializationSchema serializationSchema,
+            boolean arrayMode,
+            int batchSize,
+            int requestIntervalMs,
+            String format) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.httpParameter = httpParameter;
-        this.httpClient = new HttpClientProvider(httpParameter);
+        this.httpClient = createHttpClient(httpParameter);
         this.serializationSchema = serializationSchema;
+        this.arrayMode = arrayMode;
+        this.batchSize = batchSize;
+        this.requestIntervalMs = requestIntervalMs;
+        this.format = format;
+        this.batchBuffer = new ArrayList<>(batchSize);
+        this.lastRequestTime = System.currentTimeMillis();
     }
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
+        if (!arrayMode) {
+            // 对象模式：每条记录单独发送，忽略 batch_size 设置
+            writeSingleRecord(element);
+        } else {
+            // 数组模式：进行批处理
+            batchBuffer.add(element);
+            if (batchBuffer.size() >= batchSize) {
+                flush();
+            }
+        }
+    }
+
+    private void writeSingleRecord(SeaTunnelRow element) throws IOException {
         byte[] serialize = serializationSchema.serialize(element);
         String body = new String(serialize);
+        doHttpRequest(body);
+    }
+
+    private void flush() throws IOException {
+        if (batchBuffer.isEmpty()) {
+            return;
+        }
+
+        // 检查请求间隔
+        long currentTime = System.currentTimeMillis();
+        long timeSinceLastRequest = currentTime - lastRequestTime;
+        if (requestIntervalMs > 0 && timeSinceLastRequest < requestIntervalMs) {
+            try {
+                Thread.sleep(requestIntervalMs - timeSinceLastRequest);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.warn("Sleep interrupted", e);
+            }
+        }
+
+        // 数组模式：序列化批处理数据
+        if ("json".equalsIgnoreCase(format)) {
+            // 构造JSON数组
+            List<String> jsonRecords = new ArrayList<>(batchBuffer.size());
+            for (SeaTunnelRow row : batchBuffer) {
+                byte[] serialize = serializationSchema.serialize(row);
+                jsonRecords.add(new String(serialize));
+            }
+            String body = "[" + String.join(",", jsonRecords) + "]";
+            doHttpRequest(body);
+        } else {
+            log.warn("Unsupported format: {}, fallback to sending records one by one", format);
+            for (SeaTunnelRow row : batchBuffer) {
+                writeSingleRecord(row);
+            }
+        }
+
+        batchBuffer.clear();
+        lastRequestTime = System.currentTimeMillis();
+    }
+
+    private void doHttpRequest(String body) {
         try {
-            // only support post web hook
+            // 发送 HTTP 请求
             HttpResponse response =
                     httpClient.doPost(httpParameter.getUrl(), httpParameter.getHeaders(), body);
             if (HttpResponse.STATUS_OK == response.getCode()) {
@@ -76,8 +175,13 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
     @Override
     public void close() throws IOException {
+        if (arrayMode) {
+            flush(); // 确保关闭前将缓冲区中的所有数据发送出去
+        }
         if (Objects.nonNull(httpClient)) {
             httpClient.close();
         }
     }
+
+    protected abstract HttpClientProvider createHttpClient(HttpParameter httpParameter);
 }

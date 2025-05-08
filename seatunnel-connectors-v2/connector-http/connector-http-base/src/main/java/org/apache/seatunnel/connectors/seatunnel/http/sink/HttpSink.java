@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
+import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpSinkOptions;
@@ -58,11 +59,34 @@ public class HttpSink extends AbstractSimpleSink<SeaTunnelRow, Void>
 
     @Override
     public HttpSinkWriter createWriter(SinkWriter.Context context) throws IOException {
-        return new HttpSinkWriter(seaTunnelRowType, httpParameter);
+        boolean arrayMode = pluginConfig.get(HttpSinkOptions.ARRAY_MODE);
+        int batchSize = pluginConfig.get(HttpSinkOptions.BATCH_SIZE);
+        int requestIntervalMs = pluginConfig.get(HttpSinkOptions.REQUEST_INTERVAL_MS);
+        String format = pluginConfig.get(HttpSinkOptions.FORMAT);
+        return new DefaultHttpSinkWriter(
+                seaTunnelRowType, httpParameter, arrayMode, batchSize, requestIntervalMs, format);
     }
 
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
         return Optional.ofNullable(catalogTable);
+    }
+
+    /** 默认的HttpSinkWriter实现 */
+    private static class DefaultHttpSinkWriter extends HttpSinkWriter {
+        public DefaultHttpSinkWriter(
+                SeaTunnelRowType seaTunnelRowType,
+                HttpParameter httpParameter,
+                boolean arrayMode,
+                int batchSize,
+                int requestIntervalMs,
+                String format) {
+            super(seaTunnelRowType, httpParameter, arrayMode, batchSize, requestIntervalMs, format);
+        }
+
+        @Override
+        protected HttpClientProvider createHttpClient(HttpParameter httpParameter) {
+            return new HttpClientProvider(httpParameter);
+        }
     }
 }
