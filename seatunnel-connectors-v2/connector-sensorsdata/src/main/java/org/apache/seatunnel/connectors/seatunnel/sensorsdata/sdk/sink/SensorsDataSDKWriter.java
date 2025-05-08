@@ -77,7 +77,9 @@ public class SensorsDataSDKWriter
                                     sinkConfig.getServerUrl(),
                                     sinkConfig.getBulkSize(),
                                     sinkConfig.getMaxCacheRowSize(),
-                                    false));
+                                    false,
+                                    3,
+                                    sinkConfig.getInstantEvents()));
         }
         sa.setEnableTimeFree(sinkConfig.isTimeFree());
         rowAccessor = new RowAccessor(sinkConfig, seaTunnelRowType);

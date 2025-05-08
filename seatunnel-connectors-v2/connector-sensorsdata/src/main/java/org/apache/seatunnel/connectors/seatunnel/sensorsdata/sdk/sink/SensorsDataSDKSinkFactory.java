@@ -45,7 +45,8 @@ public class SensorsDataSDKSinkFactory implements TableSinkFactory {
                 .optional(
                         SensorsDataSDKOptions.BULK_SIZE,
                         SensorsDataSDKOptions.MAX_CACHE_ROW_SIZE,
-                        SensorsDataOptions.SKIP_ERROR_RECORD)
+                        SensorsDataOptions.SKIP_ERROR_RECORD,
+                        SensorsDataSDKOptions.INSTANT_EVENT_LIST)
                 .build();
     }
 

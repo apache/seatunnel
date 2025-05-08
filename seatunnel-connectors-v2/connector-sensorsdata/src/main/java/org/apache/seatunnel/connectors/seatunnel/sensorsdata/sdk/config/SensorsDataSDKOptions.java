@@ -21,6 +21,9 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.format.sensorsdata.config.SensorsDataOptions;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @SuppressWarnings("checkstyle:MagicNumber")
 public interface SensorsDataSDKOptions extends SensorsDataOptions {
 
@@ -47,4 +50,10 @@ public interface SensorsDataSDKOptions extends SensorsDataOptions {
                     .stringType()
                     .defaultValue("batch")
                     .withDescription("batch/console");
+
+    Option<List<String>> INSTANT_EVENT_LIST =
+            Options.key("instant_events")
+                    .listType()
+                    .defaultValue(new ArrayList<>())
+                    .withDescription("即时事件的事件名列表，默认为空");
 }

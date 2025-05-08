@@ -23,6 +23,10 @@ import org.apache.seatunnel.format.sensorsdata.config.SensorsDataConfigBase;
 import lombok.Getter;
 import lombok.ToString;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
 @Getter
 @ToString
 public class SensorsDataSDKSinkConfig extends SensorsDataConfigBase {
@@ -31,6 +35,7 @@ public class SensorsDataSDKSinkConfig extends SensorsDataConfigBase {
     private final int bulkSize;
     private final int maxCacheRowSize;
     private final String consumer;
+    private final List<String> instantEvents;
 
     public SensorsDataSDKSinkConfig(ReadonlyConfig config) {
         super(config);
@@ -39,5 +44,8 @@ public class SensorsDataSDKSinkConfig extends SensorsDataConfigBase {
         this.bulkSize = config.get(SensorsDataSDKOptions.BULK_SIZE);
         this.maxCacheRowSize = config.get(SensorsDataSDKOptions.MAX_CACHE_ROW_SIZE);
         this.consumer = config.get(SensorsDataSDKOptions.CONSUMER);
+        this.instantEvents =
+                Optional.ofNullable(config.get(SensorsDataSDKOptions.INSTANT_EVENT_LIST))
+                        .orElse(new ArrayList<>());
     }
 }
