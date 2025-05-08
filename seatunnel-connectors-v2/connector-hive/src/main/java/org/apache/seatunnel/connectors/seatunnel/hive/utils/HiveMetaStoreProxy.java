@@ -64,7 +64,7 @@ public class HiveMetaStoreProxy implements Closeable, Serializable {
     private final String keytabPath;
     private final String remoteUser;
 
-    private HiveMetaStoreClient hiveClient;
+    private transient HiveMetaStoreClient hiveClient;
 
     public HiveMetaStoreProxy(ReadonlyConfig config) {
         this.metastoreUri = config.get(HiveOptions.METASTORE_URI);
