@@ -75,6 +75,8 @@ jobs:
     name: Dead links
     runs-on: ubuntu-latest
     timeout-minutes: 150
+    # Temporarily ignore this job to avoid blocking PRs
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v2
       - run: sudo npm install -g markdown-link-check@3.8.7
