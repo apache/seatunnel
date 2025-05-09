@@ -74,11 +74,11 @@ public class MySqlBinlogSplitReader implements FetchTask<SourceSplitBase> {
     public MySqlBinlogSplitReader(IncrementalSplit split) {
         this.split = split;
 
-        // 检查是否有未来时间戳设置
+        // check If There Is A FutureTimeStamp Setting
         BinlogOffset offset = (BinlogOffset) split.getStartupOffset();
         Map<String, String> offsetMap = offset.getOffset();
 
-        // 解析未来时间戳配置
+        // parsing FutureTimestamp Configurations
         Long parsedTimestamp = null;
         if (offsetMap.containsKey("future_timestamp")
                 && "true".equals(offsetMap.get("is_future_timestamp"))) {
@@ -102,7 +102,7 @@ public class MySqlBinlogSplitReader implements FetchTask<SourceSplitBase> {
         MySqlSourceFetchTaskContext sourceFetchContext = (MySqlSourceFetchTaskContext) context;
         taskRunning = true;
 
-        // 创建一个自定义的事件监听器，用于过滤特定时间戳之前的事件
+        // Create a custom event listener to filter events before a specific timestamp
         TimestampFilteringMySqlStreamingChangeEventSource changeEventSource =
                 new TimestampFilteringMySqlStreamingChangeEventSource(
                         sourceFetchContext.getDbzConnectorConfig(),
@@ -117,7 +117,7 @@ public class MySqlBinlogSplitReader implements FetchTask<SourceSplitBase> {
         BinlogSplitChangeEventSourceContext changeEventSourceContext =
                 new BinlogSplitChangeEventSourceContext();
 
-        // 注册连接回调，在连接建立后关闭空闲的JDBC连接以节省资源
+        // Register a connection callback, close the idle JDBC connection after the connection is established to save resources
         sourceFetchContext
                 .getBinaryLogClient()
                 .registerLifecycleListener(
@@ -135,7 +135,7 @@ public class MySqlBinlogSplitReader implements FetchTask<SourceSplitBase> {
                             }
                         });
 
-        // 开始执行事件源读取
+        // start Performing Event Source Reading
         log.info(
                 "Starting MySQL binlog reader{}",
                 futureTimestamp != null
@@ -168,14 +168,18 @@ public class MySqlBinlogSplitReader implements FetchTask<SourceSplitBase> {
         return split;
     }
 
-    /** 格式化时间戳为人类可读的日期时间字符串 */
+    /**
+     * Format the timestamp to a human-readable date-time string.
+     */
     private String formatTimestamp(long timestamp) {
         LocalDateTime dateTime =
                 LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneId.systemDefault());
         return dateTime.format(DATE_TIME_FORMATTER);
     }
 
-    /** 内部上下文，用于传递运行状态 */
+    /**
+     * Inner context for passing running status.
+     */
     private class BinlogSplitChangeEventSourceContext
             implements ChangeEventSource.ChangeEventSourceContext {
         @Override
@@ -184,7 +188,9 @@ public class MySqlBinlogSplitReader implements FetchTask<SourceSplitBase> {
         }
     }
 
-    /** 扩展的MySQL流式事件源，支持基于时间戳过滤事件 */
+    /**
+     * Extended MySQL streaming change event source that supports filtering events based on timestamp.
+     */
     private class TimestampFilteringMySqlStreamingChangeEventSource
             extends MySqlStreamingChangeEventSource {
         private final Long targetTimestamp;
@@ -217,24 +223,24 @@ public class MySqlBinlogSplitReader implements FetchTask<SourceSplitBase> {
                 return;
             }
 
-            // 获取事件的时间戳
+            // Get the timestamp of the event
             final EventHeader eventHeader = event.getHeader();
             long eventTs = 0;
             if (!eventHeader.getEventType().equals(EventType.HEARTBEAT)) {
                 eventTs = eventHeader.getTimestamp();
             }
 
-            // 如果没有时间戳信息，直接处理事件
+            // If there is no timestamp information, process the event directly
             if (eventTs == 0 || targetTimestamp == null) {
                 super.handleEvent(partition, offsetContext, event);
                 return;
             }
 
-            // 对于未来时间戳设置，检查是否已达到目标时间点
+            // For future timestamp settings, check if the target timestamp has been reached
             boolean shouldSkip = eventTs < targetTimestamp;
 
             if (shouldSkip) {
-                // 记录第一条等待消息
+                // Log the first waiting message
                 if (!loggedWaitingMessage) {
                     long currentTimeMillis = System.currentTimeMillis();
                     log.info(
@@ -246,7 +252,7 @@ public class MySqlBinlogSplitReader implements FetchTask<SourceSplitBase> {
                     lastLogTimeMs = System.currentTimeMillis();
                 }
 
-                // 周期性打印等待状态（避免日志过多）
+                // Periodically print waiting status (to avoid excessive logging)
                 long currentTimeMs = System.currentTimeMillis();
                 if (currentTimeMs - lastLogTimeMs >= LOG_INTERVAL_MS) {
                     log.info(
@@ -257,16 +263,16 @@ public class MySqlBinlogSplitReader implements FetchTask<SourceSplitBase> {
                             filteredEventsCount.incrementAndGet());
                     lastLogTimeMs = currentTimeMs;
                 } else {
-                    // 不打印日志但要增加计数
+                    // Do not print log but increase the count
                     filteredEventsCount.incrementAndGet();
                 }
 
-                // 跳过处理这个事件，只更新偏移量来跟踪位置
+                // Skip processing this event, only update the offset to track the position
                 updateOffsetPosition(offsetContext, eventHeader);
                 return;
             }
 
-            // 当到达或超过目标时间戳时，打印通知消息
+            // When the target timestamp is reached or exceeded, print a notification message
             if (loggedWaitingMessage) {
                 long currentTimeMillis = System.currentTimeMillis();
                 log.info(
@@ -278,14 +284,16 @@ public class MySqlBinlogSplitReader implements FetchTask<SourceSplitBase> {
                 loggedWaitingMessage = false;
             }
 
-            // 记录最后处理的事件时间戳（用于调试）
+            // Record the timestamp of the last processed event (for debugging)
             lastProcessedEventTimestamp = eventTs;
 
-            // 正常处理事件
+            // Process the event normally
             super.handleEvent(partition, offsetContext, event);
         }
 
-        /** 更新偏移量位置信息，但不处理事件内容 */
+        /**
+         * Update the offset position information without processing the event content.
+         */
         private void updateOffsetPosition(
                 MySqlOffsetContext offsetContext, EventHeader eventHeader) {
             try {

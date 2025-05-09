@@ -94,7 +94,7 @@ public class BinlogOffsetFactory extends OffsetFactory {
             BinlogOffset earliestOffset = (BinlogOffset) earliest();
             BinlogOffset latestOffset = (BinlogOffset) latest();
 
-            // 检查请求的时间戳是否早于最早的可用binlog
+            // Check if the requested timestamp is earlier than the earliest available binlog
             long earliestTimestamp = getEarliestTimestampInBinlog(jdbcConnection);
             if (timestamp < earliestTimestamp) {
                 String earliestTimeStr = formatTimestamp(earliestTimestamp);
@@ -108,18 +108,18 @@ public class BinlogOffsetFactory extends OffsetFactory {
                                 earliestTimeStr));
             }
 
-            // 检查请求的时间戳是否晚于当前时间
+            // Check if the requested timestamp is later than the current time
             long currentTimestamp = System.currentTimeMillis();
             if (timestamp > currentTimestamp) {
                 log.info(
                         "Requested start time {} is in the future (current time: {}). Creating a future timestamp offset.",
                         formatTimestamp(timestamp),
                         formatTimestamp(currentTimestamp));
-                // 创建一个带有未来时间戳标记的特殊偏移量，而不是简单返回最新位置
+                // Create a special offset with a future timestamp marker instead of simply returning the latest position
                 return createFutureTimestampOffset(latestOffset, timestamp);
             }
 
-            // 查找指定时间点的binlog位置
+            // Find the binlog position for the specified timestamp
             log.info("Finding binlog position for timestamp: {}", formatTimestamp(timestamp));
             BinlogOffset result = findOffsetByTimestamp(jdbcConnection, timestamp);
             log.info(
@@ -133,22 +133,22 @@ public class BinlogOffsetFactory extends OffsetFactory {
         }
     }
 
-    /** 创建一个带有未来时间戳标记的特殊偏移量 */
+    /** Create a special offset with a future timestamp marker */
     private BinlogOffset createFutureTimestampOffset(
             BinlogOffset latestOffset, long targetTimestamp) {
-        // 创建一个新的偏移量，并添加目标时间戳信息
+        // Create a new offset and add the target timestamp information
         Map<String, String> offsetMap = new HashMap<>(latestOffset.getOffset());
-        // 添加特殊标记，表示这是一个未来时间戳偏移量
+        // Add a special marker to indicate that this is a future timestamp offset
         offsetMap.put("future_timestamp", String.valueOf(targetTimestamp));
         offsetMap.put("is_future_timestamp", "true");
         return new BinlogOffset(offsetMap);
     }
 
-    /** 获取最早的binlog时间戳 */
+    /** Get the earliest timestamp in the binlog */
     private long getEarliestTimestampInBinlog(JdbcConnection jdbcConnection) throws SQLException {
         String firstBinlogFilename = null;
 
-        // 获取第一个binlog文件名
+        // Get the name of the first binlog file
         try (Statement statement = jdbcConnection.connection().createStatement()) {
             try (ResultSet rs = statement.executeQuery("SHOW BINARY LOGS")) {
                 if (rs.next()) {
@@ -160,7 +160,7 @@ public class BinlogOffsetFactory extends OffsetFactory {
             }
         }
 
-        // 首先尝试从information_schema.files获取binlog文件的创建时间
+        // First try to get the creation time of the binlog file from information_schema.files
         try (Statement statement = jdbcConnection.connection().createStatement()) {
             try {
                 String query =
@@ -187,7 +187,7 @@ public class BinlogOffsetFactory extends OffsetFactory {
             }
         }
 
-        // 如果无法从information_schema.files获取，尝试从binlog事件获取
+        // If unable to get from information_schema.files, try to get from binlog events
         try (Statement statement = jdbcConnection.connection().createStatement()) {
             try {
                 String query =
@@ -218,7 +218,7 @@ public class BinlogOffsetFactory extends OffsetFactory {
             }
         }
 
-        // 如果所有尝试都失败，返回一个保守的估计时间（默认假设binlog保留时间为1天）
+        // If all attempts fail, return a conservative estimate time (default assumption is binlog retention time of 1 day)
         long defaultBinlogRetentionHours = 24;
         long estimatedTime =
                 System.currentTimeMillis() - (defaultBinlogRetentionHours * 3600 * 1000);
@@ -228,14 +228,14 @@ public class BinlogOffsetFactory extends OffsetFactory {
         return estimatedTime;
     }
 
-    /** 格式化时间戳为可读字符串 */
+    /** Format the timestamp to a readable string */
     private String formatTimestamp(long timestamp) {
         return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(timestamp));
     }
 
     private BinlogOffset findOffsetByTimestamp(JdbcConnection jdbcConnection, long timestamp)
             throws SQLException {
-        // 获取所有可用的binlog文件
+        // Get all available binlog files
         Statement statement = jdbcConnection.connection().createStatement();
         List<BinlogInfo> binlogInfoList = new ArrayList<>();
 
@@ -253,37 +253,37 @@ public class BinlogOffsetFactory extends OffsetFactory {
 
         log.info("Found {} binlog files to search", binlogInfoList.size());
 
-        // 检查MySQL是否支持 SHOW BINLOG EVENTS 语句的时间戳过滤
+        // Check if the MySQL server supports timestamp filtering in SHOW BINLOG EVENTS
         boolean supportsTimestampQuery =
                 checkTimestampQuerySupport(
                         jdbcConnection.connection(), binlogInfoList.get(0).filename);
 
         if (supportsTimestampQuery) {
-            // 使用 SHOW BINLOG EVENTS 直接查找对应时间戳的位置
+            // Use SHOW BINLOG EVENTS directly to find the corresponding position for the timestamp
             log.info("MySQL server supports timestamp filtering. Using direct timestamp query.");
             return findOffsetUsingBinlogEvents(
                     jdbcConnection.connection(), binlogInfoList, timestamp);
         } else {
-            // 如果不支持时间戳过滤，使用更基础的方法
+            // If timestamp filtering is not supported, use a fallback approach
             log.info(
                     "MySQL server doesn't support timestamp filtering in SHOW BINLOG EVENTS. Using a fallback approach.");
 
-            // 获取binlog文件的创建和修改时间信息
+            // Get the creation and modification time information of the binlog files
             BinlogTimestampMapper timestampMapper =
                     buildBinlogTimestampMapper(
                             jdbcConnection.connection(), binlogInfoList, timestamp);
 
             if (timestampMapper.hasFoundExactPosition()) {
-                // 已经找到了准确的位置
+                // The exact position has been found
                 log.info(
                         "Found exact position for timestamp {} in binlog",
                         formatTimestamp(timestamp));
                 return timestampMapper.getExactPosition();
             }
 
-            // 如果未找到准确位置，确定开始读取的binlog文件
+            // If the exact position is not found, determine the starting binlog file for reading
             if (timestampMapper.isTargetTimeInFuture()) {
-                // 目标时间点在当前最新binlog之后，返回最新位置等待新数据
+                // The target timestamp is after the latest binlog event, return the latest position and wait for future events
                 BinlogOffset latestOffset = (BinlogOffset) latest();
                 log.info(
                         "Target timestamp {} is after the latest binlog event. Using latest position {} and waiting for future events.",
@@ -291,7 +291,7 @@ public class BinlogOffsetFactory extends OffsetFactory {
                         latestOffset);
                 return latestOffset;
             } else {
-                // 找到第一个可能包含目标时间戳之后数据的binlog文件
+                // Find the first binlog file that may contain data after the target timestamp
                 BinlogOffset estimatedPosition = timestampMapper.getEstimatedPosition();
                 log.info(
                         "Using estimated position for timestamp {}: file={}, position={}",
@@ -303,10 +303,10 @@ public class BinlogOffsetFactory extends OffsetFactory {
         }
     }
 
-    /** 检查MySQL是否支持带时间戳过滤的SHOW BINLOG EVENTS */
+    /** Check if the MySQL server supports timestamp filtering in SHOW BINLOG EVENTS */
     private boolean checkTimestampQuerySupport(Connection connection, String sampleBinlogFile) {
         try (Statement statement = connection.createStatement()) {
-            // 执行一个测试查询来检查是否支持带时间戳过滤的SHOW BINLOG EVENTS
+            // Execute a test query to check if timestamp filtering is supported
             try {
                 String query =
                         String.format(
@@ -330,20 +330,20 @@ public class BinlogOffsetFactory extends OffsetFactory {
     private BinlogOffset findOffsetUsingBinlogEvents(
             Connection connection, List<BinlogInfo> binlogInfoList, long timestamp)
             throws SQLException {
-        // 将时间戳转换为MySQL日期时间字符串
+        // Convert the timestamp to a MySQL date-time string
         String timestampStr = formatTimestampForMysql(timestamp);
 
         log.info("Searching for binlog position with timestamp >= {}", timestampStr);
 
-        // 按照时间顺序从早到晚遍历binlog文件
+        // Traverse the binlog files in chronological order from earliest to latest
         for (int i = 0; i < binlogInfoList.size(); i++) {
             BinlogInfo binlogInfo = binlogInfoList.get(i);
 
             try (Statement statement = connection.createStatement()) {
-                // 设置语句超时，避免大文件查询超时
-                statement.setQueryTimeout(60); // 60秒超时
+                // Set the statement timeout to avoid timeout for large files
+                statement.setQueryTimeout(60); // 60-second timeout
 
-                // 查询binlog文件中第一个时间戳大于等于目标时间戳的事件
+                // Query the first event in the binlog file with a timestamp greater than or equal to the target timestamp
                 String query =
                         String.format(
                                 "SHOW BINLOG EVENTS IN '%s' WHERE UNIX_TIMESTAMP(TIMESTAMP) >= UNIX_TIMESTAMP('%s') ORDER BY Position ASC LIMIT 1",
@@ -351,7 +351,7 @@ public class BinlogOffsetFactory extends OffsetFactory {
 
                 try (ResultSet rs = statement.executeQuery(query)) {
                     if (rs.next()) {
-                        // 找到匹配的事件
+                        // Found a matching event
                         long position = rs.getLong("Position");
                         String eventTimestamp = rs.getString("Timestamp");
                         log.info(
@@ -361,20 +361,20 @@ public class BinlogOffsetFactory extends OffsetFactory {
                                 eventTimestamp);
                         return new BinlogOffset(binlogInfo.filename, position);
                     } else {
-                        // 此binlog文件没有满足条件的事件，继续检查下一个文件
+                        // No events found in this binlog file, continue checking the next file
                         log.debug(
                                 "No events found after {} in file {}",
                                 timestampStr,
                                 binlogInfo.filename);
                     }
                 } catch (SQLException e) {
-                    // MySQL 5.6及之前的版本可能不支持直接在WHERE子句中使用TIMESTAMP比较
-                    // 使用另一种方式查询
+                    // MySQL 5.6 and earlier versions may not support direct timestamp comparison in the WHERE clause
+                    // Use an alternative approach to query
                     log.warn(
                             "Failed to query binlog events with timestamp comparison. Trying manual approach: {}",
                             e.getMessage());
 
-                    // 手动遍历所有事件并比较时间戳
+                    // Manually traverse all events and compare timestamps
                     try {
                         return findPositionByManualSearch(connection, binlogInfo, timestamp);
                     } catch (SQLException fallbackException) {
@@ -387,8 +387,8 @@ public class BinlogOffsetFactory extends OffsetFactory {
             }
         }
 
-        // 如果所有文件中都没有找到匹配的事件，则使用最新的binlog位置
-        // 这意味着指定的时间戳在最新的binlog之后，需要等待新数据产生
+        // If no matching events are found in all files, use the latest binlog position
+        // This means the specified timestamp is after the latest binlog, and we need to wait for new data to be produced
         try (JdbcConnection jdbcConnection = dialect.openJdbcConnection(sourceConfig)) {
             BinlogOffset latestOffset = (BinlogOffset) latest();
             log.info(
@@ -398,7 +398,7 @@ public class BinlogOffsetFactory extends OffsetFactory {
             return latestOffset;
         } catch (Exception e) {
             log.error("Failed to get latest binlog position", e);
-            // 如果获取最新位置失败，使用最后一个binlog文件的末尾位置
+            // If getting the latest position fails, use the end of the last binlog file
             String lastBinlogFile = binlogInfoList.get(binlogInfoList.size() - 1).filename;
             long lastPosition = binlogInfoList.get(binlogInfoList.size() - 1).fileSize;
             log.info(
@@ -409,7 +409,7 @@ public class BinlogOffsetFactory extends OffsetFactory {
         }
     }
 
-    /** 手动遍历binlog事件查找匹配的时间戳位置 */
+    /** Manually search the binlog file for events matching the timestamp */
     private BinlogOffset findPositionByManualSearch(
             Connection connection, BinlogInfo binlogInfo, long searchTimestamp)
             throws SQLException {
@@ -447,9 +447,9 @@ public class BinlogOffsetFactory extends OffsetFactory {
             }
         }
 
-        // 如果在此文件中没有找到匹配的事件，返回下一个binlog文件的起始位置（如果有）
+        // If no matching events are found in this file, return the starting position of the next binlog file (if any)
         log.debug("No matching events found in {}", binlogInfo.filename);
-        return new BinlogOffset(binlogInfo.filename, 4L); // 4是binlog文件头部后的初始位置
+        return new BinlogOffset(binlogInfo.filename, 4L); // 4 is the initial position after the binlog header
     }
 
     private String formatTimestampForMysql(long timestamp) {
@@ -460,29 +460,29 @@ public class BinlogOffsetFactory extends OffsetFactory {
             Connection connection, List<BinlogInfo> binlogInfoList, long targetTimestamp) {
         BinlogTimestampMapper mapper = new BinlogTimestampMapper(targetTimestamp);
 
-        // 1. 从information_schema.files获取binlog文件的创建和修改时间
+        // 1. Get the creation and modification times of the binlog files from information_schema.files
         Map<String, BinlogTimestampInfo> binlogTimestamps =
                 getBinlogTimestamps(connection, binlogInfoList);
 
-        // 2. 通过分析每个binlog文件中的第一个和最后一个事件获取更精确的时间信息
+        // 2. Enrich the timestamp information with the first and last events in each binlog file
         enrichBinlogTimestampsWithEvents(connection, binlogInfoList, binlogTimestamps);
 
-        // 3. 如果仍有不足的时间信息，进行估算
+        // 3. If there is still incomplete timestamp information, make estimates
         if (hasIncompleteTimestamps(binlogTimestamps, binlogInfoList)) {
             estimateRemainingTimestamps(binlogTimestamps, binlogInfoList);
         }
 
-        // 4. 精确找到目标时间戳所在的位置
+        // 4. Precisely find the position of the target timestamp
         try {
             for (BinlogInfo binlogInfo : binlogInfoList) {
                 BinlogTimestampInfo timestampInfo = binlogTimestamps.get(binlogInfo.filename);
                 if (timestampInfo == null) continue;
 
-                // 检查当前binlog文件是否可能包含目标时间戳的事件
+                // Check if the current binlog file may contain events for the target timestamp
                 if (timestampInfo.hasTimestampRange()) {
                     if (targetTimestamp >= timestampInfo.firstEventTime
                             && targetTimestamp <= timestampInfo.lastEventTime) {
-                        // 目标时间戳在此binlog文件的时间范围内，找到精确位置
+                        // The target timestamp is within the time range of this binlog file, find the exact position
                         BinlogOffset position =
                                 findExactPositionInFile(
                                         connection, binlogInfo.filename, targetTimestamp);
@@ -491,22 +491,22 @@ public class BinlogOffsetFactory extends OffsetFactory {
                             return mapper;
                         }
                     } else if (targetTimestamp < timestampInfo.firstEventTime) {
-                        // 目标时间戳早于此binlog文件的第一个事件，应该从这个文件开始读取
+                        // The target timestamp is earlier than the first event in this binlog file, start reading from this file
                         mapper.setEstimatedPosition(new BinlogOffset(binlogInfo.filename, 4L));
                         return mapper;
                     }
-                    // 如果目标时间戳晚于此binlog文件的最后一个事件，继续检查下一个文件
+                    // If the target timestamp is later than the last event in this binlog file, continue checking the next file
                 }
             }
 
-            // 如果遍历完所有文件仍未找到合适的文件，说明目标时间戳在最新binlog之后
+            // If no suitable file is found after traversing all files, the target timestamp is after the latest binlog
             BinlogInfo lastBinlog = binlogInfoList.get(binlogInfoList.size() - 1);
             BinlogTimestampInfo lastTimestampInfo = binlogTimestamps.get(lastBinlog.filename);
 
             if (lastTimestampInfo != null && lastTimestampInfo.lastEventTime < targetTimestamp) {
                 mapper.setTargetTimeInFuture(true);
             } else {
-                // 回退策略：使用最后一个binlog文件
+                // Fallback strategy: use the last binlog file
                 mapper.setEstimatedPosition(new BinlogOffset(lastBinlog.filename, 4L));
             }
         } catch (Exception e) {
@@ -514,7 +514,7 @@ public class BinlogOffsetFactory extends OffsetFactory {
                     "Error while trying to find exact position for timestamp {}: {}",
                     formatTimestamp(targetTimestamp),
                     e.getMessage());
-            // 回退策略：使用第一个binlog文件
+            // Fallback strategy: use the first binlog file
             mapper.setEstimatedPosition(new BinlogOffset(binlogInfoList.get(0).filename, 4L));
         }
 
@@ -526,14 +526,14 @@ public class BinlogOffsetFactory extends OffsetFactory {
         String timestampStr = formatTimestampForMysql(targetTimestamp);
 
         try (Statement statement = connection.createStatement()) {
-            // 分析该binlog文件中的所有事件，找到第一个时间戳大于等于目标时间戳的事件
+            // Analyze all events in this binlog file to find the first event with a timestamp greater than or equal to the target timestamp
             String query = String.format("SHOW BINLOG EVENTS IN '%s'", binlogFilename);
             try (ResultSet rs = statement.executeQuery(query)) {
                 while (rs.next()) {
                     String eventTime = rs.getString("Timestamp");
                     long eventPosition = rs.getLong("Position");
 
-                    // 手动比较时间戳
+                    // Manually compare timestamps
                     try {
                         java.text.SimpleDateFormat sdf =
                                 new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -561,7 +561,7 @@ public class BinlogOffsetFactory extends OffsetFactory {
                     e.getMessage());
         }
 
-        // 没有找到精确位置
+        // No exact position found
         return null;
     }
 
@@ -578,7 +578,7 @@ public class BinlogOffsetFactory extends OffsetFactory {
 
     private void estimateRemainingTimestamps(
             Map<String, BinlogTimestampInfo> binlogTimestamps, List<BinlogInfo> binlogInfoList) {
-        // 找出所有有完整时间信息的binlog文件
+        // Find all binlog files with complete timestamp information
         List<BinlogTimestampInfo> completeInfos = new ArrayList<>();
         for (BinlogInfo binlogInfo : binlogInfoList) {
             BinlogTimestampInfo info = binlogTimestamps.get(binlogInfo.filename);
@@ -588,12 +588,12 @@ public class BinlogOffsetFactory extends OffsetFactory {
         }
 
         if (completeInfos.isEmpty()) {
-            // 如果没有完整信息的binlog文件，使用保守估计
+            // If no binlog files have complete information, use a conservative estimate
             long currentTime = System.currentTimeMillis();
             long defaultRetentionHours = 24;
             long earliestEstimatedTime = currentTime - (defaultRetentionHours * 3600 * 1000);
 
-            // 假设binlog文件均匀分布在时间线上
+            // Assume binlog files are uniformly distributed over time
             long timeRange = currentTime - earliestEstimatedTime;
             long timeStep = binlogInfoList.size() > 1 ? timeRange / (binlogInfoList.size() - 1) : 0;
 
@@ -611,19 +611,19 @@ public class BinlogOffsetFactory extends OffsetFactory {
                                 binlogInfo.filename, estimatedFirstTime, estimatedLastTime));
             }
         } else {
-            // 根据现有完整信息进行插值估计
-            // 这里使用简单的线性插值
+            // Interpolate based on existing complete information
+            // Here we use simple linear interpolation
 
-            // 先排序已有的完整信息
+            // Sort the existing complete information
             completeInfos.sort(Comparator.comparing(info -> info.binlogFilename));
 
-            // 为缺失信息的binlog文件填充估计值
+            // Fill in estimated values for binlog files with missing information
             for (int i = 0; i < binlogInfoList.size(); i++) {
                 BinlogInfo binlogInfo = binlogInfoList.get(i);
                 if (!binlogTimestamps.containsKey(binlogInfo.filename)
                         || !binlogTimestamps.get(binlogInfo.filename).hasTimestampRange()) {
 
-                    // 找到最近的前后有完整信息的binlog文件
+                    // Find the nearest binlog files with complete information before and after
                     final BinlogTimestampInfo[] beforeRef = new BinlogTimestampInfo[1];
                     final BinlogTimestampInfo[] afterRef = new BinlogTimestampInfo[1];
 
@@ -646,12 +646,12 @@ public class BinlogOffsetFactory extends OffsetFactory {
                     final BinlogTimestampInfo before = beforeRef[0];
                     final BinlogTimestampInfo after = afterRef[0];
 
-                    // 进行估计
+                    // Make estimates
                     long estimatedFirstTime;
                     long estimatedLastTime;
 
                     if (before != null && after != null) {
-                        // 有前后信息，进行线性插值
+                        // Both before and after information available, use linear interpolation
                         int positionDiff =
                                 binlogInfoList.indexOf(
                                                 binlogInfoList.stream()
@@ -694,16 +694,16 @@ public class BinlogOffsetFactory extends OffsetFactory {
                                                         * (after.firstEventTime
                                                                 - before.lastEventTime));
                     } else if (before != null) {
-                        // 只有前面的信息
+                        // Only before information available
                         estimatedFirstTime = before.lastEventTime + 1;
-                        estimatedLastTime = System.currentTimeMillis(); // 保守估计用当前时间
+                        estimatedLastTime = System.currentTimeMillis(); // Conservative estimate using current time
                     } else if (after != null) {
-                        // 只有后面的信息
+                        // Only after information available
                         estimatedLastTime = after.firstEventTime - 1;
-                        // 保守估计用24小时前
+                        // Conservative estimate using 24 hours ago
                         estimatedFirstTime = Math.max(0, estimatedLastTime - (24 * 3600 * 1000));
                     } else {
-                        // 没有任何信息，使用保守估计
+                        // No information available, use conservative estimate
                         estimatedLastTime = System.currentTimeMillis();
                         estimatedFirstTime = Math.max(0, estimatedLastTime - (24 * 3600 * 1000));
                     }
@@ -728,9 +728,9 @@ public class BinlogOffsetFactory extends OffsetFactory {
                 binlogTimestamps.put(binlogInfo.filename, timestampInfo);
             }
 
-            // 读取文件中的第一个和最后一个事件的时间戳
+            // Read the timestamp of the first and last events in the file
             try (Statement statement = connection.createStatement()) {
-                // 第一个事件
+                // First event
                 try (ResultSet rs =
                         statement.executeQuery(
                                 String.format(
@@ -757,7 +757,7 @@ public class BinlogOffsetFactory extends OffsetFactory {
                             e.getMessage());
                 }
 
-                // 最后一个事件
+                // Last event
                 try (ResultSet rs =
                         statement.executeQuery(
                                 String.format(
@@ -778,7 +778,7 @@ public class BinlogOffsetFactory extends OffsetFactory {
                         }
                     }
                 } catch (SQLException e) {
-                    // 另一种方式：从末尾读取少量事件
+                    // Alternative approach: read a few events from the end
                     try (ResultSet rs =
                             statement.executeQuery(
                                     String.format(
@@ -819,7 +819,7 @@ public class BinlogOffsetFactory extends OffsetFactory {
         Map<String, BinlogTimestampInfo> timestamps = new HashMap<>();
 
         try (Statement statement = connection.createStatement()) {
-            // 从information_schema.files获取binlog文件的创建时间
+            // Get the creation time of the binlog files from information_schema.files
             for (BinlogInfo binlogInfo : binlogInfoList) {
                 String query =
                         String.format(

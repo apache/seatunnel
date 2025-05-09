@@ -93,7 +93,7 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
             long timestamp;
             String sourceDescription;
 
-            // 优先使用SourceOptions.STARTUP_TIMESTAMP
+            // Prioritize using SourceOptions.STARTUP_TIMESTAMP
             if (config.getOptional(SourceOptions.STARTUP_TIMESTAMP).isPresent()) {
                 timestamp = config.get(SourceOptions.STARTUP_TIMESTAMP);
                 sourceDescription = "startup.timestamp";
@@ -102,7 +102,7 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
                         timestamp,
                         formatTimestamp(timestamp));
             }
-            // 如果未指定STARTUP_TIMESTAMP，则尝试解析start-time
+            // If STARTUP_TIMESTAMP is not specified, try to parse start-time
             else if (config.getOptional(MySqlSourceOptions.START_TIME).isPresent()) {
                 String startTimeStr = config.get(MySqlSourceOptions.START_TIME);
                 sourceDescription = "start-time";
@@ -127,7 +127,7 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
                         "Either startup.timestamp or start-time must be specified when startup mode is TIMESTAMP");
             }
 
-            // 检查并记录未来时间戳情况
+            // Check and log if the timestamp is in the future
             checkAndLogFutureTimestamp(timestamp, sourceDescription);
 
             return new StartupConfig(startupMode, null, null, timestamp);
@@ -136,7 +136,9 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
         return super.getStartupConfig(config);
     }
 
-    /** 检查指定的时间戳是否是未来时间戳，并记录相应的日志 */
+    /**
+     * Check if the specified timestamp is in the future and log accordingly.
+     */
     private void checkAndLogFutureTimestamp(long timestamp, String sourceParameter) {
         long currentTime = System.currentTimeMillis();
         if (timestamp > currentTime) {
@@ -166,7 +168,9 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
         }
     }
 
-    // 格式化时间戳为可读字符串
+    /**
+     * Format the timestamp to a readable string.
+     */
     private String formatTimestamp(long timestamp) {
         return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(timestamp));
     }
