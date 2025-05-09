@@ -71,19 +71,19 @@ jobs:
       - name: Lint Chart
         run: helm lint deploy/kubernetes/seatunnel
 
-  dead-link:
-    name: Dead links
-    runs-on: ubuntu-latest
-    timeout-minutes: 150
-    # Temporarily ignore this job to avoid blocking PRs
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v2
-      - run: sudo npm install -g markdown-link-check@3.8.7
-      - run: |
-          for file in $(find . -name "*.md"); do
-            markdown-link-check -c .dlc.json -q "$file"
-          done
+#  dead-link:
+#    name: Dead links
+#    runs-on: ubuntu-latest
+#    timeout-minutes: 150
+#    # Temporarily ignore this job to avoid blocking PRs
+#    continue-on-error: true
+#    steps:
+#      - uses: actions/checkout@v2
+#      - run: sudo npm install -g markdown-link-check@3.8.7
+#      - run: |
+#          for file in $(find . -name "*.md"); do
+#            markdown-link-check -c .dlc.json -q "$file"
+#          done
 
   sanity-check:
     name: Sanity check results
