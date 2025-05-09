@@ -27,6 +27,8 @@ import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -137,13 +139,13 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
         // Array mode: serialize batch data
         if ("json".equalsIgnoreCase(format)) {
-            // Constructing JSON arrays
-            List<String> jsonRecords = new ArrayList<>(batchBuffer.size());
+            ObjectMapper mapper = new ObjectMapper();
+            ArrayNode arrayNode = mapper.createArrayNode();
             for (SeaTunnelRow row : batchBuffer) {
                 byte[] serialize = serializationSchema.serialize(row);
-                jsonRecords.add(new String(serialize));
+                arrayNode.add(new String(serialize));
             }
-            String body = "[" + String.join(",", jsonRecords) + "]";
+            String body = mapper.writeValueAsString(arrayNode);
             doHttpRequest(body);
         } else {
             log.warn("Unsupported format: {}, fallback to sending records one by one", format);
