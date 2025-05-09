@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpSinkOptions;
@@ -82,11 +81,6 @@ public class HttpSink extends AbstractSimpleSink<SeaTunnelRow, Void>
                 int requestIntervalMs,
                 String format) {
             super(seaTunnelRowType, httpParameter, arrayMode, batchSize, requestIntervalMs, format);
-        }
-
-        @Override
-        protected HttpClientProvider createHttpClient(HttpParameter httpParameter) {
-            return new HttpClientProvider(httpParameter);
         }
     }
 }

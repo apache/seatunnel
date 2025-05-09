@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Objects;
 
 @Slf4j
-public abstract class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
+public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         implements SupportMultiTableSinkWriter<Void> {
     protected final HttpClientProvider httpClient;
     protected final SeaTunnelRowType seaTunnelRowType;
@@ -183,5 +183,7 @@ public abstract class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Vo
         }
     }
 
-    protected abstract HttpClientProvider createHttpClient(HttpParameter httpParameter);
+    protected HttpClientProvider createHttpClient(HttpParameter httpParameter) {
+        return new HttpClientProvider(httpParameter);
+    }
 }
