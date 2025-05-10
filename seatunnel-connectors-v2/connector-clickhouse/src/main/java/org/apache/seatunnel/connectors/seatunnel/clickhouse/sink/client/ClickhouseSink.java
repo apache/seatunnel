@@ -89,8 +89,7 @@ public class ClickhouseSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, CKCommitInfo, ClickhouseSinkState> createWriter(
-            SinkWriter.Context context) throws IOException {
+    public ClickhouseSinkWriter createWriter(SinkWriter.Context context) throws IOException {
         List<ClickHouseNode> nodes = ClickhouseUtil.createNodes(readonlyConfig);
         Properties clickhouseProperties = new Properties();
         readonlyConfig
