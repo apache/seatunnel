@@ -42,7 +42,7 @@ MySQL CDC连接器允许从MySQL数据库读取快照和增量数据. 本文档�
 
 ### 创建MySQL用户
 
-您必须定义一个MySQL用户，该用户对Debezium MySQL连接器所监控的所有数据库拥有适当的权限.
+你必须定义一个MySQL用户，该用户对Debezium MySQL连接器所监控的所有数据库拥有适当的权限.
 
 1. 创建MySQL用户:
 
@@ -155,7 +155,7 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 
 #### 配置MySQL session超时时长
 
-当为量大的数据库初始一致快照时，在读取表的过程中，您已建立的连接可能会超时。您可以通过在MySQL配置文件中配置interactive_timeout（交互超时时间）和wait_timeout（等待超时时间）来防止这种行为.
+当为大型数据库初始一致快照时，已建立的连接可能在读取表时超时。可以通过在MySQL配置文件中配置interactive_timeout（交互超时时间）和wait_timeout（等待超时时间）来防止这种行为.
 - `interactive_timeout`: 服务器在关闭交互连接之前等待活动（交互操作）的秒数. 详见 [MySQL’s documentation](https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_interactive_timeout).
 - `wait_timeout`: 服务器在关闭非交互式连接之前等待其活动的秒数. 详见 [MySQL’s documentation](https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_wait_timeout).
 
