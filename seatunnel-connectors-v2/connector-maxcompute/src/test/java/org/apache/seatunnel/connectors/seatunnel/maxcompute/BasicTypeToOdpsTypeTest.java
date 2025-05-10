@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.FormatterContext;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeMapper;
 
@@ -38,13 +40,14 @@ import lombok.SneakyThrows;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 public class BasicTypeToOdpsTypeTest {
     public static FormatterContext defaultFormatterContext =
-            new FormatterContext("yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm:ssXXXXX");
+            new FormatterContext(DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS);
 
     public static FormatterContext customFormatterContext =
-            new FormatterContext(
-                    "yyyy-MM-dd HH:mm:ss.SSSSSSSSS", "yyyy-MM-dd HH:mm:ss.SSSSSSSSSXXXXX");
+            new FormatterContext(DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS_SSSSSS);
 
     private static void testType(
             String fieldName,
@@ -139,8 +142,25 @@ public class BasicTypeToOdpsTypeTest {
                 LocalTimeType.LOCAL_DATE_TIME_TYPE,
                 OdpsType.STRING,
                 Timestamp.valueOf("2025-01-01 00:00:00"),
-                "2025-01-01 00:00:00.000000000",
+                "2025-01-01 00:00:00.000000",
                 customFormatterContext);
+    }
+
+    @SneakyThrows
+    @Test
+    void testLOCAL_DATETIME_2_STRING_THROW_EXCEPTION() {
+        assertThrows(
+                SeaTunnelRuntimeException.class,
+                () ->
+                        testTypeWithDifferentInputAndOutput(
+                                "LOCAL_DATETIME_2_STRING",
+                                OdpsType.TIMESTAMP,
+                                LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                OdpsType.STRING,
+                                Timestamp.valueOf("2025-01-01 00:00:00"),
+                                "2025-01-01 00:00:00",
+                                new FormatterContext(
+                                        DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS_SSS_ISO8601)));
     }
 
     private static void testTypeWithDifferentInputAndOutput(
@@ -169,6 +189,6 @@ public class BasicTypeToOdpsTypeTest {
                 MaxcomputeTypeMapper.getMaxcomputeRowData(
                         seaTunnelRow, outputSchema, typeInfo, formatterContext);
 
-        Assertions.assertEquals(finalOutputRecord.get(fieldName), expectedObject);
+        Assertions.assertEquals(expectedObject, finalOutputRecord.get(fieldName));
     }
 }

@@ -46,18 +46,6 @@ public class MaxcomputeSinkOptions extends MaxcomputeBaseOptions {
     public static final Option<String> CUSTOM_SQL =
             Options.key("custom_sql").stringType().noDefaultValue().withDescription("custom_sql");
 
-    public static final Option<String> LOCAL_DATETIME_FORMAT =
-            Options.key("local_datetime_format")
-                    .stringType()
-                    .defaultValue("yyyy-MM-dd HH:mm:ss")
-                    .withDescription("local_datetime_format");
-
-    public static final Option<String> OFFSET_DATETIME_FORMAT =
-            Options.key("offset_datetime_format")
-                    .stringType()
-                    .defaultValue("yyyy-MM-dd HH:mm:ssXXXXX")
-                    .withDescription("offset_datetime_format");
-
     // create table
     public static final Option<String> SAVE_MODE_CREATE_TEMPLATE =
             Options.key("save_mode_create_template")

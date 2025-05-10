@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -70,8 +71,7 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             }
             this.formatterContext =
                     new FormatterContext(
-                            readonlyConfig.get(MaxcomputeSinkOptions.LOCAL_DATETIME_FORMAT),
-                            readonlyConfig.get(MaxcomputeSinkOptions.OFFSET_DATETIME_FORMAT));
+                            readonlyConfig.get(ConnectorCommonOptions.DATETIME_FORMAT));
             this.recordWriter = session.openBufferedWriter();
             log.info("open record writer success");
         } catch (Exception e) {
