@@ -112,6 +112,23 @@ Option introduction：
 
 When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.
 
+### datetime_format [enum]
+
+Format used to convert `LocalDateTime` fields to strings.  
+Available options (from `DateTimeUtils.Formatter`) include:
+
+- `YYYY_MM_DD_HH_MM_SS`
+- `YYYY_MM_DD_HH_MM_SS_SSSSSS`
+- `yyyy.MM.dd HH:mm:ss`
+- `yyyy/MM/dd HH:mm:ss`
+- `yyyy/M/d HH:mm`
+- `yyyy-M-d HH:mm`
+- `yyyy/M/d HH:mm:ss`
+- `yyyy-M-d HH:mm:ss`
+- `yyyyMMddHHmmss`
+
+Default: `YYYY_MM_DD_HH_MM_SS`
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.
