@@ -70,7 +70,8 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Clickh
 
 public class ClickhouseSink
         implements SeaTunnelSink<SeaTunnelRow, ClickhouseSinkState, CKCommitInfo, CKAggCommitInfo>,
-                SupportSaveMode, SupportMultiTableSink {
+                SupportSaveMode,
+                SupportMultiTableSink {
 
     private ReaderOption option;
     private CatalogTable catalogTable;
