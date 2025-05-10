@@ -195,6 +195,16 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         dropTable(tableName);
     }
 
+    @TestTemplate
+    public void testClickHouseWithMultiTableSink(TestContainer container) throws Exception {
+        String tableName = "default.sink_multi_table";
+        Container.ExecResult execResult =
+                container.executeJob("/fake_to_clickhouse_with_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(11, countData(tableName));
+        dropTable(tableName);
+    }
+
     @BeforeAll
     @Override
     public void startUp() throws Exception {

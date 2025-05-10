@@ -16,6 +16,8 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 - [x] [cdc](../../concept/connector-v2-features.md)
 
 > Clickhouse sink 插件通过实现幂等写入可以达到精准一次，需要配合 aggregating merge tree 支持重复数据删除的引擎。
+- [x] [支持多表写入](../../concept/connector-v2-features.md)
+
 
 ## 描述
 
@@ -129,7 +131,9 @@ CREATE TABLE IF NOT EXISTS  `${database}`.`${table}` (
 - rowtype_unique_key：用于获取上游模式中的唯一键（可能是列表）。
 - comment：用于获取上游模式中的表注释。
 
-## 如何创建一个clickhouse 同步任务
+## 示例配置与案例
+
+### 如何创建一个clickhouse 同步任务
 
 以下示例演示如何创建将随机生成的数据写入Clickhouse数据库的数据同步作业。
 
@@ -167,13 +171,13 @@ sink {
 }
 ```
 
-### 小提示
-
+> 小提示：
+>
 > 1.[SeaTunnel 部署文档](../../start-v2/locally/deployment.md). <br/>
 > 2.需要在同步前提前创建要写入的表.<br/>
 > 3.当写入 ClickHouse 表,无需设置其结构，因为连接器会在写入前向 ClickHouse 查询当前表的结构信息.<br/>
 
-## Clickhouse 接收器配置
+### Clickhouse 接收器配置
 
 ```hocon
 sink {
@@ -191,7 +195,7 @@ sink {
 }
 ```
 
-## 切分模式
+### 切分模式
 
 ```hocon
 sink {
@@ -209,7 +213,7 @@ sink {
 }
 ```
 
-## CDC(Change data capture) Sink
+### CDC(Change data capture) Sink
 
 ```hocon
 sink {
@@ -227,7 +231,7 @@ sink {
 }
 ```
 
-## CDC(Change data capture) for *MergeTree engine
+### CDC(Change data capture) for *MergeTree engine
 
 ```hocon
 sink {
@@ -245,6 +249,104 @@ sink {
   }
 }
 ```
+
+### 多表写入案例
+
+多表写入是指从同一数据源中同时读取多张表数据并写入 ClickHouse 一张数据表的特性，现在 ClickHouse 的连接器已经支持该功能。
+
+在下面的案例中，我们将从 FakeSource 数据源中构建两张数据表，并将其写入 ClickHouse 一张数据表中。
+
+配置案例参考如下：
+
+```
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+  job.name = "fake_to_clickhouse_with_multi_table"
+}
+
+source {
+  FakeSource {
+    tables_configs = [
+      {
+        schema = {
+          table = "sink_table1"
+          fields {
+            c_string = string
+            c_boolean = boolean
+            c_tinyint = tinyint
+            c_smallint = smallint
+            c_int = int
+            c_bigint = bigint
+            c_float = float
+            c_double = double
+            c_decimal = "decimal(30, 8)"
+            c_date = date
+            c_time = time
+            c_timestamp = timestamp
+            c_map = "map<string, int>"
+            c_array = "array<int>"
+          }
+          primaryKey {
+            name = "c_string"
+            columnNames = [c_string]
+          }
+        }
+        row.num = 5
+      },
+      {
+        schema = {
+          table = "sink_table2"
+          fields {
+            c_string = string
+            c_boolean = boolean
+            c_tinyint = tinyint
+            c_smallint = smallint
+            c_int = int
+            c_bigint = bigint
+            c_float = float
+            c_double = double
+            c_decimal = "decimal(30, 8)"
+            c_date = date
+            c_time = time
+            c_timestamp = timestamp
+            c_map = "map<string, int>"
+            c_array = "array<int>"
+          }
+          primaryKey {
+            name = "c_string"
+            columnNames = [c_string]
+          }
+        }
+        row.num = 6
+      }
+    ]
+    plugin_output = "sink_multi_table"
+  }
+}
+
+sink {
+  Clickhouse {
+    plugin_input = "sink_multi_table"
+    host = "clickhouse:8123"
+    database = "default"
+    table = "sink_multi_table"
+    username = "default"
+    password = ""
+    "schema_save_mode" = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    "data_save_mode" = "DROP_DATA"
+    primary_key = "c_string"
+    support_upsert = true
+    allow_experimental_lightweight_delete = true
+  }
+}
+```
+
+从配置中可以看到，我们在 FakeSource 数据源中构建了两张数据表，分别为 `sink_table1` 和 `sink_table2`，其数据量分别为 5 和 6，之后我们在 sink 中配置了 ClickHouse 数据源，写入的目标数据表为 default 库的 `sink_multi_table`.
+
+> 需要注意的是，在这里我们使用了 ClickHouse 连接器的特性，即如果目标数据表不存在则自动创建的功能，如果用户需要指定已经存在的数据表，将该特性配置删除即可。
+
+提交作业并执行成功后，我们可以看到 ClickHouse 数据表 `sink_multi_table` 的数据量为 11，说明其写入了 `sink_table1` 和 `sink_table2` 两张数据表的数据。
 
 ## 变更日志
 

@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -69,7 +70,7 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Clickh
 
 public class ClickhouseSink
         implements SeaTunnelSink<SeaTunnelRow, ClickhouseSinkState, CKCommitInfo, CKAggCommitInfo>,
-                SupportSaveMode {
+                SupportSaveMode, SupportMultiTableSink {
 
     private ReaderOption option;
     private CatalogTable catalogTable;

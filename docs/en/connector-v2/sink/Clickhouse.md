@@ -17,6 +17,8 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 
 > The Clickhouse sink plug-in can achieve accuracy once by implementing idempotent writing, and needs to cooperate with aggregatingmergetree and other engines that support deduplication.
 
+- [x] [support multiple table sink](../../concept/connector-v2-features.md)
+
 ## Description
 
 Used to write data to Clickhouse.
@@ -128,7 +130,9 @@ The following placeholders can be used:
 - `rowtype_unique_key`: Retrieves the unique key from the upstream schema (this may be a list).
 - `comment`: Retrieves the table comment from the upstream schema.
 
-## How to Create a Clickhouse Data Synchronization Jobs
+## Example Configurations and Cases
+
+### How to Create a Clickhouse Data Synchronization Jobs
 
 The following example demonstrates how to create a data synchronization job that writes randomly generated data to a Clickhouse database:
 
@@ -166,13 +170,13 @@ sink {
 }
 ```
 
-### Tips
-
+> Tips:
+>
 > 1.[SeaTunnel Deployment Document](../../start-v2/locally/deployment.md). <br/>
 > 2.The table to be written to needs to be created in advance before synchronization.<br/>
 > 3.When sink is writing to the ClickHouse table, you don't need to set its schema because the connector will query ClickHouse for the current table's schema information before writing.<br/>
 
-## Clickhouse Sink Config
+### Clickhouse Sink Config
 
 ```hocon
 sink {
@@ -190,7 +194,7 @@ sink {
 }
 ```
 
-## Split Mode
+### Split Mode
 
 ```hocon
 sink {
@@ -208,7 +212,7 @@ sink {
 }
 ```
 
-## CDC(Change data capture) Sink
+### CDC(Change data capture) Sink
 
 ```hocon
 sink {
@@ -226,7 +230,7 @@ sink {
 }
 ```
 
-## CDC(Change data capture) for *MergeTree engine
+### CDC(Change data capture) for *MergeTree engine
 
 ```hocon
 sink {
@@ -244,6 +248,104 @@ sink {
   }
 }
 ```
+
+### Multiple table Sink Cases
+
+Multiple table sink refers to the feature of simultaneously reading data from multiple tables in the same data source and writing it into a single ClickHouse data table. Now, the ClickHouse connector already supports this feature.
+
+In the following case, we will construct two data tables from the FakeSource data source and write them into a single ClickHouse data table.
+
+The reference configuration case is as follows:
+
+```
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+  job.name = "fake_to_clickhouse_with_multi_table"
+}
+
+source {
+  FakeSource {
+    tables_configs = [
+      {
+        schema = {
+          table = "sink_table1"
+          fields {
+            c_string = string
+            c_boolean = boolean
+            c_tinyint = tinyint
+            c_smallint = smallint
+            c_int = int
+            c_bigint = bigint
+            c_float = float
+            c_double = double
+            c_decimal = "decimal(30, 8)"
+            c_date = date
+            c_time = time
+            c_timestamp = timestamp
+            c_map = "map<string, int>"
+            c_array = "array<int>"
+          }
+          primaryKey {
+            name = "c_string"
+            columnNames = [c_string]
+          }
+        }
+        row.num = 5
+      },
+      {
+        schema = {
+          table = "sink_table2"
+          fields {
+            c_string = string
+            c_boolean = boolean
+            c_tinyint = tinyint
+            c_smallint = smallint
+            c_int = int
+            c_bigint = bigint
+            c_float = float
+            c_double = double
+            c_decimal = "decimal(30, 8)"
+            c_date = date
+            c_time = time
+            c_timestamp = timestamp
+            c_map = "map<string, int>"
+            c_array = "array<int>"
+          }
+          primaryKey {
+            name = "c_string"
+            columnNames = [c_string]
+          }
+        }
+        row.num = 6
+      }
+    ]
+    plugin_output = "sink_multi_table"
+  }
+}
+
+sink {
+  Clickhouse {
+    plugin_input = "sink_multi_table"
+    host = "clickhouse:8123"
+    database = "default"
+    table = "sink_multi_table"
+    username = "default"
+    password = ""
+    "schema_save_mode" = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    "data_save_mode" = "DROP_DATA"
+    primary_key = "c_string"
+    support_upsert = true
+    allow_experimental_lightweight_delete = true
+  }
+}
+```
+
+As can be seen from the configuration, we constructed two data tables in the FakeSource data source, namely `sink_table1` and `sink_table2`, with data count of 5 and 6 respectively. After that, we configured the ClickHouse data source in the sink, and the target data table for writing is `sink_multi_table` in the default database.
+
+> It should be noted that here we have used the feature of the ClickHouse connector, which is the feature of automatically creating the target data table if it does not exist. If users need to specify an existing data table, they can simply delete the configuration of this feature.
+
+After submitting the job and successfully executing it, we can see that the data volume of the ClickHouse data table `sink_multi_table` is 11, indicating that it has written the data from two data tables, `sink_table1` and `sink_table2`.
 
 ## Changelog
 
