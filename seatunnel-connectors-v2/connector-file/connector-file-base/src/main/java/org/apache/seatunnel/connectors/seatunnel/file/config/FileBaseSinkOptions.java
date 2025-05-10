@@ -19,12 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.file.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
-import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
-import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.format.csv.constant.CsvStringQuoteMode;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
@@ -97,15 +94,6 @@ public class FileBaseSinkOptions extends FileBaseOptions {
                                     CompressFormat.ZLIB))
                     .defaultValue(CompressFormat.NONE)
                     .withDescription("Orc file supported compression");
-
-    public static final Option<DateUtils.Formatter> DATE_FORMAT =
-            ConnectorCommonOptions.DATE_FORMAT;
-
-    public static final Option<DateTimeUtils.Formatter> DATETIME_FORMAT =
-            ConnectorCommonOptions.DATETIME_FORMAT;
-
-    public static final Option<TimeUtils.Formatter> TIME_FORMAT =
-            ConnectorCommonOptions.TIME_FORMAT;
 
     public static final Option<String> FILE_PATH =
             Options.key("path")
