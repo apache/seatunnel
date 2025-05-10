@@ -176,7 +176,7 @@ Otherwise, if you enable the 2pc by the property `sink.enable-2pc=true`.The `sin
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > The following example describes writing multiple data types to Doris, and users need to create corresponding tables downstream
 
@@ -234,7 +234,7 @@ sink {
 }
 ```
 
-### CDC(Change Data Capture) Event:
+### CDC(Change Data Capture) Event
 
 > This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to Doris Sink,FakeSource simulates CDC data with schema, score (int type),Doris needs to create a table sink named test.e2e_table_sink and a corresponding table for it.
 

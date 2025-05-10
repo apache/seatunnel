@@ -49,8 +49,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.table.catalog.PrimaryKey.isPrimaryKeyField;
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig.ENABLE_AUTO_ID;
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig.ENABLE_DYNAMIC_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions.ENABLE_AUTO_ID;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions.ENABLE_DYNAMIC_FIELD;
 
 public class MilvusSinkConverter {
     private static final Gson gson = new Gson();
@@ -129,7 +129,12 @@ public class MilvusSinkConverter {
     public static FieldType convertToFieldType(
             Column column, PrimaryKey primaryKey, String partitionKeyField, Boolean autoId) {
         SeaTunnelDataType<?> seaTunnelDataType = column.getDataType();
-        DataType milvusDataType = convertSqlTypeToDataType(seaTunnelDataType.getSqlType());
+        DataType milvusDataType;
+        if (column.getSinkType() != null) {
+            milvusDataType = DataType.valueOf(column.getSinkType());
+        } else {
+            milvusDataType = convertSqlTypeToDataType(seaTunnelDataType.getSqlType());
+        }
         FieldType.Builder build =
                 FieldType.newBuilder().withName(column.getName()).withDataType(milvusDataType);
         if (StringUtils.isNotEmpty(column.getComment())) {

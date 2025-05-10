@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.qdrant.config.QdrantConfig;
+import org.apache.seatunnel.connectors.seatunnel.qdrant.config.QdrantSinkOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -32,7 +32,7 @@ import com.google.auto.service.AutoService;
 public class QdrantSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return QdrantConfig.CONNECTOR_IDENTITY;
+        return QdrantSinkOptions.CONNECTOR_IDENTITY;
     }
 
     @Override
@@ -45,10 +45,11 @@ public class QdrantSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .optional(
-                        QdrantConfig.HOST,
-                        QdrantConfig.PORT,
-                        QdrantConfig.API_KEY,
-                        QdrantConfig.USE_TLS,
+                        QdrantSinkOptions.HOST,
+                        QdrantSinkOptions.PORT,
+                        QdrantSinkOptions.API_KEY,
+                        QdrantSinkOptions.COLLECTION_NAME,
+                        QdrantSinkOptions.USE_TLS,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }

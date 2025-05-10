@@ -31,7 +31,10 @@ public enum TransformCommonErrorCode implements SeaTunnelErrorCode {
             "The metadata fields '<field>' of '<transform>' transform not found "),
     METADATA_MAPPING_FIELD_EXISTS(
             "TRANSFORM_COMMON-04",
-            "The metadata mapping field '<field>' of '<transform>' transform already exists in upstream schema");
+            "The metadata mapping field '<field>' of '<transform>' transform already exists in upstream schema"),
+    INPUT_TABLE_NOT_FOUND(
+            "TRANSFORM_COMMON-05",
+            "The input table '<table>' of '<transform>' transform not found in upstream schema");
 
     private final String code;
     private final String description;

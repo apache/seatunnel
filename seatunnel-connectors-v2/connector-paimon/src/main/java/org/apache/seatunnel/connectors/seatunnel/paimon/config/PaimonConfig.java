@@ -20,8 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.config;
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.google.common.collect.ImmutableList;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -35,7 +33,6 @@ import lombok.Getter;
 
 import java.io.Serializable;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -47,64 +44,6 @@ import static java.util.stream.Collectors.toList;
  */
 @Getter
 public class PaimonConfig implements Serializable {
-
-    public static final String CONNECTOR_IDENTITY = "Paimon";
-
-    public static final Option<String> WAREHOUSE =
-            Options.key("warehouse")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The warehouse path of paimon");
-
-    public static final Option<PaimonCatalogEnum> CATALOG_TYPE =
-            Options.key("catalog_type")
-                    .enumType(PaimonCatalogEnum.class)
-                    .defaultValue(PaimonCatalogEnum.FILESYSTEM)
-                    .withDescription("The type of paimon catalog");
-
-    public static final Option<String> CATALOG_URI =
-            Options.key("catalog_uri")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The uri of paimon with hive catalog");
-
-    public static final Option<String> CATALOG_NAME =
-            Options.key("catalog_name")
-                    .stringType()
-                    .defaultValue("paimon")
-                    .withDescription(" the paimon catalog name");
-
-    public static final Option<String> DATABASE =
-            Options.key("database")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The database you intend to access");
-
-    public static final Option<String> TABLE =
-            Options.key("table")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The table you intend to access");
-
-    @Deprecated
-    public static final Option<String> HDFS_SITE_PATH =
-            Options.key("hdfs_site_path")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The file path of hdfs-site.xml");
-
-    public static final Option<Map<String, String>> HADOOP_CONF =
-            Options.key("paimon.hadoop.conf")
-                    .mapType()
-                    .defaultValue(new HashMap<>())
-                    .withDescription("Properties in hadoop conf");
-
-    public static final Option<String> HADOOP_CONF_PATH =
-            Options.key("paimon.hadoop.conf-path")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files");
 
     protected String catalogName;
     protected PaimonCatalogEnum catalogType;
@@ -118,17 +57,29 @@ public class PaimonConfig implements Serializable {
 
     public PaimonConfig(ReadonlyConfig readonlyConfig) {
         this.catalogName =
-                checkArgumentNotBlank(readonlyConfig.get(CATALOG_NAME), CATALOG_NAME.key());
-        this.warehouse = checkArgumentNotBlank(readonlyConfig.get(WAREHOUSE), WAREHOUSE.key());
-        this.namespace = checkArgumentNotBlank(readonlyConfig.get(DATABASE), DATABASE.key());
-        this.table = checkArgumentNotBlank(readonlyConfig.get(TABLE), TABLE.key());
-        this.hdfsSitePath = readonlyConfig.get(HDFS_SITE_PATH);
-        this.hadoopConfProps = readonlyConfig.get(HADOOP_CONF);
-        this.hadoopConfPath = readonlyConfig.get(HADOOP_CONF_PATH);
-        this.catalogType = readonlyConfig.get(CATALOG_TYPE);
+                checkArgumentNotBlank(
+                        readonlyConfig.get(PaimonBaseOptions.CATALOG_NAME),
+                        PaimonBaseOptions.CATALOG_NAME.key());
+        this.warehouse =
+                checkArgumentNotBlank(
+                        readonlyConfig.get(PaimonBaseOptions.WAREHOUSE),
+                        PaimonBaseOptions.WAREHOUSE.key());
+        this.namespace =
+                checkArgumentNotBlank(
+                        readonlyConfig.get(PaimonBaseOptions.DATABASE),
+                        PaimonBaseOptions.DATABASE.key());
+        this.table =
+                checkArgumentNotBlank(
+                        readonlyConfig.get(PaimonBaseOptions.TABLE), PaimonBaseOptions.TABLE.key());
+        this.hdfsSitePath = readonlyConfig.get(PaimonBaseOptions.HDFS_SITE_PATH);
+        this.hadoopConfProps = readonlyConfig.get(PaimonBaseOptions.HADOOP_CONF);
+        this.hadoopConfPath = readonlyConfig.get(PaimonBaseOptions.HADOOP_CONF_PATH);
+        this.catalogType = readonlyConfig.get(PaimonBaseOptions.CATALOG_TYPE);
         if (PaimonCatalogEnum.HIVE.getType().equals(catalogType.getType())) {
             this.catalogUri =
-                    checkArgumentNotBlank(readonlyConfig.get(CATALOG_URI), CATALOG_URI.key());
+                    checkArgumentNotBlank(
+                            readonlyConfig.get(PaimonBaseOptions.CATALOG_URI),
+                            PaimonBaseOptions.CATALOG_URI.key());
         }
     }
 

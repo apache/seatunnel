@@ -30,5 +30,6 @@ import java.util.Map;
 @AllArgsConstructor
 public class CKFileCommitInfo implements Serializable {
 
+    private static final long serialVersionUID = 5967888460683065639L;
     private Map<Shard, List<String>> detachedFiles;
 }

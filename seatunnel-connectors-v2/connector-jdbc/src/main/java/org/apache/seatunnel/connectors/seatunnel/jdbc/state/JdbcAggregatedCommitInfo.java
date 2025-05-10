@@ -26,5 +26,6 @@ import java.util.List;
 @Data
 @AllArgsConstructor
 public class JdbcAggregatedCommitInfo implements Serializable {
+    private static final long serialVersionUID = 7289719797740270727L;
     private final List<XidInfo> xidInfoList;
 }

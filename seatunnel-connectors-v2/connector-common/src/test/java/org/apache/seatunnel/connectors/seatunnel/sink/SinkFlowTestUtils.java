@@ -20,10 +20,12 @@ package org.apache.seatunnel.connectors.seatunnel.sink;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
+import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkAggregatedCommitter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
@@ -108,16 +110,30 @@ public class SinkFlowTestUtils {
         }
 
         Optional<? extends SinkCommitter<?>> sinkCommitter = sink.createCommitter();
-        Optional<? extends SinkAggregatedCommitter<?, ?>> aggregatedCommitter =
+        Optional<? extends SinkAggregatedCommitter<?, ?>> aggregatedCommitterOptional =
                 sink.createAggregatedCommitter();
 
         if (!commitInfos.isEmpty()) {
-            if (aggregatedCommitter.isPresent()) {
+            if (aggregatedCommitterOptional.isPresent()) {
+                SinkAggregatedCommitter<?, ?> aggregatedCommitter =
+                        aggregatedCommitterOptional.get();
+                MultiTableResourceManager resourceManager = null;
+                if (aggregatedCommitter instanceof SupportMultiTableSinkAggregatedCommitter) {
+                    resourceManager =
+                            ((SupportMultiTableSinkAggregatedCommitter<?>) aggregatedCommitter)
+                                    .initMultiTableResourceManager(1, 1);
+                }
+                aggregatedCommitter.init();
+                if (resourceManager != null) {
+                    ((SupportMultiTableSinkAggregatedCommitter<?>) aggregatedCommitter)
+                            .setMultiTableResourceManager(resourceManager, 0);
+                }
+
                 Object aggregatedCommitInfoT =
-                        ((SinkAggregatedCommitter) aggregatedCommitter.get()).combine(commitInfos);
-                ((SinkAggregatedCommitter) aggregatedCommitter.get())
+                        ((SinkAggregatedCommitter) aggregatedCommitter).combine(commitInfos);
+                ((SinkAggregatedCommitter) aggregatedCommitter)
                         .commit(Collections.singletonList(aggregatedCommitInfoT));
-                aggregatedCommitter.get().close();
+                aggregatedCommitter.close();
             } else if (sinkCommitter.isPresent()) {
                 ((SinkCommitter) sinkCommitter.get()).commit(commitInfos);
             } else {

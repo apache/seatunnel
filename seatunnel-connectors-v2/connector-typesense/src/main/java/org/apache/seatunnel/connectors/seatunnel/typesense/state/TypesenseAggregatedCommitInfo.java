@@ -19,4 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.typesense.state;
 
 import java.io.Serializable;
 
-public class TypesenseAggregatedCommitInfo implements Serializable {}
+public class TypesenseAggregatedCommitInfo implements Serializable {
+    private static final long serialVersionUID = -3563751133397833772L;
+}

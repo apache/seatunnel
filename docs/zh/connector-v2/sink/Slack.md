@@ -36,7 +36,7 @@ import ChangeLog from '../changelog/connector-slack.md';
 
 ## 任务示例
 
-### 简单示例:
+### 简单示例
 
 ```hocon
 sink {

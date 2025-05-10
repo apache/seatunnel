@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.utils;
 
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.types.Types;
@@ -26,6 +28,7 @@ import lombok.SneakyThrows;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.DoubleValue;
 import net.sf.jsqlparser.expression.LongValue;
+import net.sf.jsqlparser.expression.NotExpression;
 import net.sf.jsqlparser.expression.Parenthesis;
 import net.sf.jsqlparser.expression.StringValue;
 import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
@@ -37,6 +40,7 @@ import net.sf.jsqlparser.expression.operators.relational.GreaterThanEquals;
 import net.sf.jsqlparser.expression.operators.relational.InExpression;
 import net.sf.jsqlparser.expression.operators.relational.IsBooleanExpression;
 import net.sf.jsqlparser.expression.operators.relational.IsNullExpression;
+import net.sf.jsqlparser.expression.operators.relational.LikeExpression;
 import net.sf.jsqlparser.expression.operators.relational.MinorThan;
 import net.sf.jsqlparser.expression.operators.relational.MinorThanEquals;
 import net.sf.jsqlparser.expression.operators.relational.NotEqualsTo;
@@ -44,6 +48,7 @@ import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.delete.Delete;
+import net.sf.jsqlparser.statement.select.PlainSelect;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -51,6 +56,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -65,6 +71,31 @@ public class ExpressionUtils {
                     .appendLiteral(' ')
                     .append(ISO_LOCAL_TIME)
                     .toFormatter();
+
+    public static List<String> parseSelectColumns(String selectQuery) {
+        if (StringUtils.isNotBlank(selectQuery)) {
+            try {
+                Statement statement = CCJSqlParserUtil.parse(selectQuery);
+                PlainSelect select = (PlainSelect) statement;
+                if (CollectionUtils.isNotEmpty(select.getSelectItems())) {
+                    return select.getSelectItems().stream()
+                            .map(selectItem -> selectItem.toString())
+                            .collect(Collectors.toList());
+                }
+            } catch (JSQLParserException e) {
+                throw new RuntimeException("Failed to parse select columns: " + e.getMessage());
+            }
+        }
+        return new ArrayList<>();
+    }
+
+    public static Expression parseWhereClauseToIcebergExpression(String selectQuery)
+            throws JSQLParserException {
+        // use the JsqlParser to parse the where clause
+        Statement statement = CCJSqlParserUtil.parse(selectQuery);
+        PlainSelect select = (PlainSelect) statement;
+        return convert(select.getWhere(), null);
+    }
 
     public static Expression convertDeleteSQL(String sql) throws JSQLParserException {
         Statement statement = CCJSqlParserUtil.parse(sql);
@@ -117,6 +148,10 @@ public class ExpressionUtils {
                                     notEqualsTo.getRightExpression(),
                                     schema.findField(column.getColumnName()));
             return Expressions.notEqual(column.getColumnName(), value);
+        }
+        if (condition instanceof NotExpression) {
+            NotExpression expr = (NotExpression) condition;
+            return Expressions.not(convert(expr.getExpression(), null));
         }
         if (condition instanceof GreaterThan) {
             GreaterThan greaterThan = (GreaterThan) condition;
@@ -198,6 +233,17 @@ public class ExpressionUtils {
                 return Expressions.notEqual(column.getColumnName(), booleanExpression.isTrue());
             }
             return Expressions.equal(column.getColumnName(), booleanExpression.isTrue());
+        }
+        if (condition instanceof LikeExpression) {
+            LikeExpression expr = (LikeExpression) condition;
+            String columnName = ((Column) expr.getLeftExpression()).getColumnName();
+            String value = ((StringValue) expr.getRightExpression()).getValue();
+            LikeExpression.KeyWord keyWord = expr.getLikeKeyWord();
+            if (keyWord == LikeExpression.KeyWord.LIKE) {
+                return Expressions.startsWith(columnName, value);
+            } else {
+                throw new UnsupportedOperationException("Unsupported like keyword: " + keyWord);
+            }
         }
 
         throw new UnsupportedOperationException(

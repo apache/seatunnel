@@ -41,6 +41,7 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClie
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchConfig;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SearchApiTypeEnum;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SearchTypeEnum;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
@@ -56,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions.SEARCH_API_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions.SEARCH_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions.SQL_QUERY;
 
@@ -175,9 +177,14 @@ public class ElasticsearchSource
                             "");
         }
         SearchTypeEnum searchType = readonlyConfig.get(SEARCH_TYPE);
+        SearchApiTypeEnum searchApiType = readonlyConfig.get(SEARCH_API_TYPE);
         String sqlQuery = readonlyConfig.get(ElasticsearchSourceOptions.SQL_QUERY);
         String scrollTime = readonlyConfig.get(ElasticsearchSourceOptions.SCROLL_TIME);
         int scrollSize = readonlyConfig.get(ElasticsearchSourceOptions.SCROLL_SIZE);
+
+        long pitKeepAlive = readonlyConfig.get(ElasticsearchSourceOptions.PIT_KEEP_ALIVE);
+        int pitBatchSize = readonlyConfig.get(ElasticsearchSourceOptions.PIT_BATCH_SIZE);
+
         ElasticsearchConfig elasticsearchConfig = new ElasticsearchConfig();
         elasticsearchConfig.setSource(source);
         elasticsearchConfig.setCatalogTable(catalogTable);
@@ -188,6 +195,10 @@ public class ElasticsearchSource
         elasticsearchConfig.setCatalogTable(catalogTable);
         elasticsearchConfig.setSqlQuery(sqlQuery);
         elasticsearchConfig.setSearchType(searchType);
+        elasticsearchConfig.setSearchApiType(searchApiType);
+
+        elasticsearchConfig.setPitKeepAlive(pitKeepAlive);
+        elasticsearchConfig.setPitBatchSize(pitBatchSize);
         return elasticsearchConfig;
     }
 

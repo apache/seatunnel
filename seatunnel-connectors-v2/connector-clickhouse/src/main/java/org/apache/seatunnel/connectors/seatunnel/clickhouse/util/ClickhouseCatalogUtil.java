@@ -32,10 +32,16 @@ public class ClickhouseCatalogUtil extends CatalogUtil {
 
     public String columnToConnectorType(Column column) {
         checkNotNull(column, "The column is required.");
+        String columnType;
+        if (column.getSinkType() != null) {
+            columnType = column.getSinkType();
+        } else {
+            columnType = ClickhouseTypeConverter.INSTANCE.reconvert(column).getColumnType();
+        }
         return String.format(
                 "`%s` %s %s",
                 column.getName(),
-                ClickhouseTypeConverter.INSTANCE.reconvert(column).getColumnType(),
+                columnType,
                 StringUtils.isEmpty(column.getComment())
                         ? ""
                         : "COMMENT '"

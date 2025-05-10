@@ -83,7 +83,7 @@ libfb303-xxx.jar
 
 ## Task Example
 
-### Simple:
+### Simple
 
 ```hocon
 env {
@@ -128,7 +128,7 @@ sink {
 }
 ```
 
-### Hive Catalog:
+### Hive Catalog
 
 ```hocon
 sink {
@@ -154,7 +154,7 @@ sink {
 }
 ```
 
-### Hadoop catalog:
+### Hadoop catalog
 
 ```hocon
 sink {

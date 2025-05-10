@@ -28,5 +28,6 @@ import java.util.List;
 @Data
 @AllArgsConstructor
 public class IcebergCommitInfo implements Serializable {
+    private static final long serialVersionUID = -3293882102479719936L;
     private List<WriteResult> results;
 }
