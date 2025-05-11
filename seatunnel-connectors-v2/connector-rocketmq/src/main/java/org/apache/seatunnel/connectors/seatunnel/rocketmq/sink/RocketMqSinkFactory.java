@@ -44,11 +44,6 @@ public class RocketMqSinkFactory implements TableSinkFactory {
                         RocketMqSinkOptions.SEND_SYNC,
                         RocketMqSinkOptions.MAX_MESSAGE_SIZE,
                         RocketMqSinkOptions.SEND_MESSAGE_TIMEOUT_MILLIS)
-                .conditional(
-                        RocketMqSinkOptions.ACL_ENABLED,
-                        true,
-                        RocketMqSinkOptions.ACCESS_KEY,
-                        RocketMqSinkOptions.SECRET_KEY)
                 .build();
     }
 
