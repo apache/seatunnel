@@ -22,39 +22,14 @@ import org.apache.seatunnel.api.configuration.Options;
 
 import com.aliyun.openservices.log.common.Consts;
 
-public class Config {
-    public static final String CONNECTOR_IDENTITY = "Sls";
+public class SlsSourceOptions extends SlsBaseOptions {
 
-    public static final Option<String> ENDPOINT =
-            Options.key("endpoint")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Aliyun Access endpoint");
-    public static final Option<String> PROJECT =
-            Options.key("project")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Aliyun sls project");
-    public static final Option<String> LOGSTORE =
-            Options.key("logstore")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Aliyun sls logstore");
-    public static final Option<String> ACCESS_KEY_ID =
-            Options.key("access_key_id")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Aliyun accessKey id");
-    public static final Option<String> ACCESS_KEY_SECRET =
-            Options.key("access_key_secret")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Aliyun accessKey secret");
     public static final Option<String> CONSUMER_GROUP =
             Options.key("consumer_group")
                     .stringType()
                     .defaultValue("SeaTunnel-Consumer-Group")
                     .withDescription("Aliyun sls consumer group");
+
     public static final Option<Integer> BATCH_SIZE =
             Options.key("batch_size")
                     .intType()
@@ -79,22 +54,4 @@ public class Config {
                     .defaultValue(-1L)
                     .withDescription(
                             "The interval for dynamically discovering topics and partitions.");
-
-    public static final Option<String> SOURCE =
-            Options.key("source")
-                    .stringType()
-                    .defaultValue("SeaTunnel-Source")
-                    .withDescription("Aliyun sls producer source");
-
-    public static final Option<String> TOPIC =
-            Options.key("topic")
-                    .stringType()
-                    .defaultValue("SeaTunnel-Topic")
-                    .withDescription("Aliyun sls producer topic");
-
-    public static final Option<Integer> LOG_GROUP_SIZE =
-            Options.key("log_group_size")
-                    .intType()
-                    .defaultValue(100)
-                    .withDescription("Aliyun sls log group write size");
 }
