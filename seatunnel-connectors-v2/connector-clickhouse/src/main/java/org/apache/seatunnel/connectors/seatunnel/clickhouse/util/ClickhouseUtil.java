@@ -41,7 +41,7 @@ public class ClickhouseUtil {
                 config.get(ClickhouseBaseOptions.SERVER_TIME_ZONE),
                 config.get(ClickhouseBaseOptions.USERNAME),
                 config.get(ClickhouseBaseOptions.PASSWORD),
-                null);
+                config.get(ClickhouseBaseOptions.CLICKHOUSE_CONFIG));
     }
 
     public static List<ClickHouseNode> createNodes(
