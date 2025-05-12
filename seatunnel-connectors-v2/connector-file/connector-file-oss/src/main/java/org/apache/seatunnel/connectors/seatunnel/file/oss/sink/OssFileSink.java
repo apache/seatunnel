@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.oss.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.DataSaveMode;
@@ -35,8 +37,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssFileSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssHadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseMultipleTableFileSink;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.util.Optional;
 
