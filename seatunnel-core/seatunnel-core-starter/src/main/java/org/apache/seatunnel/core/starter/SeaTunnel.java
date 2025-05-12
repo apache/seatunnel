@@ -40,12 +40,10 @@ public class SeaTunnel {
             command.execute();
         } catch (ConfigRuntimeException e) {
             showConfigError(e);
+            System.exit(1);
             throw e;
-        } catch (Exception e) {
+        } catch (Exception | Error e) {
             showFatalError(e);
-            throw e;
-        } catch (Error e) {
-            log.error("Fatal error occurred", e);
             System.exit(1);
             throw e;
         }
