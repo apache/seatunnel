@@ -197,12 +197,15 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testClickHouseWithMultiTableSink(TestContainer container) throws Exception {
-        String tableName = "default.sink_multi_table";
+        List<String> tableNames =
+                Arrays.asList("default.sink_multi_table", "default.sink_table_for_schema");
         Container.ExecResult execResult =
                 container.executeJob("/fake_to_clickhouse_with_multi_table.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertEquals(11, countData(tableName));
-        dropTable(tableName);
+        for (String tableName : tableNames) {
+            Assertions.assertEquals(0, execResult.getExitCode());
+            Assertions.assertEquals(11, countData(tableName));
+            dropTable(tableName);
+        }
     }
 
     @BeforeAll
