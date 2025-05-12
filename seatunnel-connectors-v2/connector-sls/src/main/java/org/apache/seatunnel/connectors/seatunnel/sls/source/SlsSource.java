@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.connectors.seatunnel.sls.config.SlsBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.sls.state.SlsSourceState;
 
 import java.util.List;
@@ -84,6 +85,6 @@ public class SlsSource
 
     @Override
     public String getPluginName() {
-        return org.apache.seatunnel.connectors.seatunnel.sls.config.Config.CONNECTOR_IDENTITY;
+        return SlsBaseOptions.CONNECTOR_IDENTITY;
     }
 }
