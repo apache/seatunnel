@@ -48,17 +48,10 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
     public OracleTypeMapper(boolean decimalTypeNarrowing, boolean handleBlobAsString) {
         this.decimalTypeNarrowing = decimalTypeNarrowing;
         this.handleBlobAsString = handleBlobAsString;
-        log.info(
-                "Initializing OracleTypeMapper with handleBlobAsString={}",
-                this.handleBlobAsString);
     }
 
     @Override
     public Column mappingColumn(BasicTypeDefine typeDefine) {
-        log.debug(
-                "Mapping column {} with handleBlobAsString={}",
-                typeDefine.getName(),
-                handleBlobAsString);
         return new OracleTypeConverter(decimalTypeNarrowing, handleBlobAsString)
                 .convert(typeDefine);
     }
