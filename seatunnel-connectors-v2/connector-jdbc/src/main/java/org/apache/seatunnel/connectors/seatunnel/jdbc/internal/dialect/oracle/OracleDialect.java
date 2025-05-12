@@ -67,7 +67,6 @@ public class OracleDialect implements JdbcDialect {
     public OracleDialect(String fieldIde, boolean handleBlobAsString) {
         this.fieldIde = fieldIde;
         this.handleBlobAsString = handleBlobAsString;
-        log.info("Initializing OracleDialect with handleBlobAsString={}", this.handleBlobAsString);
     }
 
     @Override
@@ -82,7 +81,6 @@ public class OracleDialect implements JdbcDialect {
 
     @Override
     public TypeConverter<BasicTypeDefine> getTypeConverter() {
-        log.info("Creating OracleTypeConverter with handleBlobAsString={}", handleBlobAsString);
         return new OracleTypeConverter(true, handleBlobAsString);
     }
 

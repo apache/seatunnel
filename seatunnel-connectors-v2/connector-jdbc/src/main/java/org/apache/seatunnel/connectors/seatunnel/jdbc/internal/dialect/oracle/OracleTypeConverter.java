@@ -101,9 +101,6 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
     public OracleTypeConverter(boolean decimalTypeNarrowing, boolean handleBlobAsString) {
         this.decimalTypeNarrowing = decimalTypeNarrowing;
         this.handleBlobAsString = handleBlobAsString;
-        log.info(
-                "Initializing OracleTypeConverter with handleBlobAsString={}",
-                this.handleBlobAsString);
     }
 
     @Override
