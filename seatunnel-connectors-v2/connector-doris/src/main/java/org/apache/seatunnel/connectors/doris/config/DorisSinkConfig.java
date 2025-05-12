@@ -46,6 +46,7 @@ import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_ENABLE_DELETE;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_LABEL_PREFIX;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_MAX_RETRIES;
+import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.CASE_SENSITIVE;
 
 @Setter
 @Getter
@@ -102,7 +103,7 @@ public class DorisSinkConfig implements Serializable {
         dorisSinkConfig.setBufferCount(config.get(SINK_BUFFER_COUNT));
         dorisSinkConfig.setEnableDelete(config.get(SINK_ENABLE_DELETE));
         dorisSinkConfig.setNeedsUnsupportedTypeCasting(config.get(NEEDS_UNSUPPORTED_TYPE_CASTING));
-
+        dorisSinkConfig.setCaseSensitive(config.get(CASE_SENSITIVE));
         // create table option
         dorisSinkConfig.setCreateTableTemplate(config.get(SAVE_MODE_CREATE_TEMPLATE));
 
