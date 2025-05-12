@@ -11,7 +11,7 @@ import ChangeLog from '../changelog/connector-cdc-mysql.md';
 
 ## 描述
 
-MySQL CDC连接器允许从MySQL数据库读取快照和增量数据. 本文档描述了如何设置MySQL CDC连接器以针对MySQL数据库运行SQL查询.
+MySQL CDC连接器允许从MySQL数据库读取快照和增量数据. 本文档描述了如何配置MySQL CDC连接器以对MySQL数据库运行SQL查询.
 
 ## 主要功能
 
@@ -38,7 +38,7 @@ MySQL CDC连接器允许从MySQL数据库读取快照和增量数据. 本文档�
 
 #### 对于SeaTunnel Zeta引擎
 
-> 1. You need to ensure that the [jdbc 驱动 jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) 已经放在目录 `${SEATUNNEL_HOME}/lib/`.
+> 1. 你需要确保 [jdbc 驱动 jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) 已经放在目录 `${SEATUNNEL_HOME}/lib/`.
 
 ### 创建MySQL用户
 
@@ -64,7 +64,7 @@ mysql> FLUSH PRIVILEGES;
 
 ### 启用MySQL Binlog
 
-一定要为MySQL复制启用二进制日志。二进制日志记录事务更新以供复制工具传播更改.
+一定要为MySQL复制启用binlog。binlog记录事务更新以供复制工具传播更改.
 
 1. 检查`log-bin`是否已经设置为on:
 
@@ -319,7 +319,9 @@ sink {
 
 ```
 ### 表名支持正则以读取多个表
+
 > `table-pattern` 和 `table-names` 只能选择一个
+
 ```hocon
 env {
   # You can set engine configuration here
