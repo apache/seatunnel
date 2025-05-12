@@ -55,6 +55,7 @@ public class SeaTunnel {
         String errorMsg = throwable.getMessage();
         log.error("Config Error:\n");
         log.error("Reason: {} \n", errorMsg);
+        log.error("Exception StackTrace:{} ", ExceptionUtils.getStackTrace(throwable));
         log.error(
                 "\n===============================================================================\n\n\n");
     }
