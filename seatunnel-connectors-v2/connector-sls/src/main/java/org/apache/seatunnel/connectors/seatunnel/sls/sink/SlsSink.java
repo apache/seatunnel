@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.sls.config.SlsBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.sls.state.SlsAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.sls.state.SlsCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.sls.state.SlsSinkState;
@@ -42,7 +43,7 @@ public class SlsSink
 
     @Override
     public String getPluginName() {
-        return org.apache.seatunnel.connectors.seatunnel.sls.config.Config.CONNECTOR_IDENTITY;
+        return SlsBaseOptions.CONNECTOR_IDENTITY;
     }
 
     @Override

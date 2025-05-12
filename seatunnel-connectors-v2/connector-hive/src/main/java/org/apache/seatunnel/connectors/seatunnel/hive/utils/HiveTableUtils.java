@@ -38,12 +38,9 @@ public class HiveTableUtils {
             throw new SeaTunnelRuntimeException(
                     HiveConnectorErrorCode.HIVE_TABLE_NAME_ERROR, "Current table name is " + table);
         }
-        HiveMetaStoreProxy hiveMetaStoreProxy = HiveMetaStoreProxy.getInstance(readonlyConfig);
-        try {
+        try (HiveMetaStoreProxy hiveMetaStoreProxy = new HiveMetaStoreProxy(readonlyConfig)) {
             return hiveMetaStoreProxy.getTable(
                     tablePath.getDatabaseName(), tablePath.getTableName());
-        } finally {
-            hiveMetaStoreProxy.close();
         }
     }
 
