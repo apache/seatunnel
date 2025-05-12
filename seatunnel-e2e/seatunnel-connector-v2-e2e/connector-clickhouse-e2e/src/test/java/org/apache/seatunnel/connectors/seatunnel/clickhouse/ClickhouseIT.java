@@ -75,21 +75,39 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class ClickhouseIT extends TestSuiteBase implements TestResource {
+
     private static final Logger LOG = LoggerFactory.getLogger(ClickhouseIT.class);
+
     private static final String CLICKHOUSE_DOCKER_IMAGE = "clickhouse/clickhouse-server:23.3.13.6";
+
     private static final String HOST = "clickhouse";
+
     private static final String DRIVER_CLASS = "com.clickhouse.jdbc.ClickHouseDriver";
+
     private static final String INIT_CLICKHOUSE_PATH = "/init/clickhouse_init.conf";
+
     private static final String CLICKHOUSE_JOB_CONFIG = "/clickhouse_to_clickhouse.conf";
+
     private static final String DATABASE = "default";
+
     private static final String SOURCE_TABLE = "source_table";
+
     private static final String SINK_TABLE = "sink_table";
+
+    private static final List<String> MULTI_SINK_TABLES =
+            Arrays.asList("multi_sink_table1", "multi_sink_table2");
+
     private static final String INSERT_SQL = "insert_sql";
+
     private static final String COMPARE_SQL = "compare_sql";
+
     private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET =
             generateTestDataSet();
+
     private static final Config CONFIG = getInitClickhouseConfig();
+
     private ClickHouseContainer container;
+
     private Connection connection;
 
     @TestTemplate
@@ -98,7 +116,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode());
         assertHasData(SINK_TABLE);
         compareResult();
-        clearSinkTable();
+        clearTable(SINK_TABLE);
     }
 
     @TestTemplate
@@ -197,14 +215,15 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testClickHouseWithMultiTableSink(TestContainer container) throws Exception {
-        List<String> tableNames =
-                Arrays.asList("default.sink_multi_table", "default.sink_table_for_schema");
+        for (String tableName : MULTI_SINK_TABLES) {
+            Assertions.assertEquals(0, countData(tableName));
+        }
         Container.ExecResult execResult =
                 container.executeJob("/fake_to_clickhouse_with_multi_table.conf");
-        for (String tableName : tableNames) {
-            Assertions.assertEquals(0, execResult.getExitCode());
-            Assertions.assertEquals(11, countData(tableName));
-            dropTable(tableName);
+        Assertions.assertEquals(0, execResult.getExitCode());
+        for (String tableName : MULTI_SINK_TABLES) {
+            Assertions.assertEquals(100, countData(tableName));
+            clearTable(tableName);
         }
     }
 
@@ -234,6 +253,10 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
             Statement statement = this.connection.createStatement();
             statement.execute(CONFIG.getString(SOURCE_TABLE));
             statement.execute(CONFIG.getString(SINK_TABLE));
+            // table for multi-table sink test
+            for (String tableName : MULTI_SINK_TABLES) {
+                statement.execute(CONFIG.getString(tableName));
+            }
         } catch (SQLException e) {
             throw new RuntimeException("Initializing Clickhouse table failed!", e);
         }
@@ -537,9 +560,9 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private void clearSinkTable() {
+    private void clearTable(String tableName) {
         try (Statement statement = connection.createStatement()) {
-            statement.execute(String.format("truncate table %s.%s", DATABASE, SINK_TABLE));
+            statement.execute(String.format("truncate table %s.%s", DATABASE, tableName));
         } catch (SQLException e) {
             throw new RuntimeException("Test clickhouse server image error", e);
         }

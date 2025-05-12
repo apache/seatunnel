@@ -251,11 +251,30 @@ sink {
 
 ### Multiple table Sink Cases
 
-Multiple table sink refers to the feature of simultaneously reading data from multiple tables in the same data source and writing it into a single ClickHouse data table. Now, the ClickHouse connector already supports this feature.
+In ClickHouse, create the following two data tables in advance:
 
-In the following case, we will construct two data tables from the FakeSource data source and write them into a single ClickHouse data table.
+```
+create table if not exists `default`.multi_sink_table1(
+     `c_string`          String,
+     `c_boolean`         Boolean,
+     `c_tinyint`         Int8,
+     `c_smallint`        Int16,
+     `c_int`             Int32,
+     `c_bigint`          Int64,
+     `c_float`           Float32,
+     `c_double`          Float64,
+     `c_decimal`         Decimal(30, 8),
+     `c_date`            Date,
+     `c_time`            DateTime64,
+     `c_map`             Map(String, Int32),
+     `c_array`           Array(Int32)
+)engine=Memory
+comment '''N''-N';
 
-The reference configuration case is as follows:
+create table if not exists `default`.multi_sink_table2 as `default`.multi_sink_table1;
+```
+
+Then, the configuration to be used is referred to as follows: 
 
 ```
 env {
@@ -269,7 +288,7 @@ source {
     tables_configs = [
       {
         schema = {
-          table = "sink_table1"
+          table = "multi_sink_table1"
           fields {
             c_string = string
             c_boolean = boolean
@@ -281,21 +300,16 @@ source {
             c_double = double
             c_decimal = "decimal(30, 8)"
             c_date = date
-            c_time = time
-            c_timestamp = timestamp
+            c_time = timestamp
             c_map = "map<string, int>"
             c_array = "array<int>"
           }
-          primaryKey {
-            name = "c_string"
-            columnNames = [c_string]
-          }
         }
-        row.num = 5
+        row.num = 100
       },
       {
         schema = {
-          table = "sink_table2"
+          table = "multi_sink_table2"
           fields {
             c_string = string
             c_boolean = boolean
@@ -307,45 +321,31 @@ source {
             c_double = double
             c_decimal = "decimal(30, 8)"
             c_date = date
-            c_time = time
-            c_timestamp = timestamp
+            c_time = timestamp
             c_map = "map<string, int>"
             c_array = "array<int>"
           }
-          primaryKey {
-            name = "c_string"
-            columnNames = [c_string]
-          }
         }
-        row.num = 6
+        row.num = 100
       }
     ]
-    plugin_output = "sink_multi_table"
+    plugin_output = "multi_sink_table"
   }
 }
 
 sink {
   Clickhouse {
-    plugin_input = "sink_multi_table"
+    plugin_input = "multi_sink_table"
     host = "clickhouse:8123"
     database = "default"
-    table = "sink_multi_table"
+    table = "${table_name}"
     username = "default"
     password = ""
-    "schema_save_mode" = "CREATE_SCHEMA_WHEN_NOT_EXIST"
-    "data_save_mode" = "DROP_DATA"
-    primary_key = "c_string"
-    support_upsert = true
-    allow_experimental_lightweight_delete = true
   }
 }
 ```
 
-As can be seen from the configuration, we constructed two data tables in the FakeSource data source, namely `sink_table1` and `sink_table2`, with data count of 5 and 6 respectively. After that, we configured the ClickHouse data source in the sink, and the target data table for writing is `sink_multi_table` in the default database.
-
-> It should be noted that here we have used the feature of the ClickHouse connector, which is the feature of automatically creating the target data table if it does not exist. If users need to specify an existing data table, they can simply delete the configuration of this feature.
-
-After submitting the job and successfully executing it, we can see that the data volume of the ClickHouse data table `sink_multi_table` is 11, indicating that it has written the data from two data tables, `sink_table1` and `sink_table2`.
+After submitting the job and successfully executing it, we can see that the data volume of the ClickHouse data tables `multi_sink_table1` and `multi_sink_table2` is 100 for each. 
 
 ## Changelog
 

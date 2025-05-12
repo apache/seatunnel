@@ -252,11 +252,30 @@ sink {
 
 ### 多表写入案例
 
-多表写入是指从同一数据源中同时读取多张表数据并写入 ClickHouse 一张数据表的特性，现在 ClickHouse 的连接器已经支持该功能。
+在ClickHouse中提前创建下面两张数据表：
 
-在下面的案例中，我们将从 FakeSource 数据源中构建两张数据表，并将其写入 ClickHouse 一张数据表中。
+```
+create table if not exists `default`.multi_sink_table1(
+     `c_string`          String,
+     `c_boolean`         Boolean,
+     `c_tinyint`         Int8,
+     `c_smallint`        Int16,
+     `c_int`             Int32,
+     `c_bigint`          Int64,
+     `c_float`           Float32,
+     `c_double`          Float64,
+     `c_decimal`         Decimal(30, 8),
+     `c_date`            Date,
+     `c_time`            DateTime64,
+     `c_map`             Map(String, Int32),
+     `c_array`           Array(Int32)
+)engine=Memory
+comment '''N''-N';
 
-配置案例参考如下：
+create table if not exists `default`.multi_sink_table2 as `default`.multi_sink_table1;
+```
+
+然后使用的配置参考如下：
 
 ```
 env {
@@ -270,7 +289,7 @@ source {
     tables_configs = [
       {
         schema = {
-          table = "sink_table1"
+          table = "multi_sink_table1"
           fields {
             c_string = string
             c_boolean = boolean
@@ -282,21 +301,16 @@ source {
             c_double = double
             c_decimal = "decimal(30, 8)"
             c_date = date
-            c_time = time
-            c_timestamp = timestamp
+            c_time = timestamp
             c_map = "map<string, int>"
             c_array = "array<int>"
           }
-          primaryKey {
-            name = "c_string"
-            columnNames = [c_string]
-          }
         }
-        row.num = 5
+        row.num = 100
       },
       {
         schema = {
-          table = "sink_table2"
+          table = "multi_sink_table2"
           fields {
             c_string = string
             c_boolean = boolean
@@ -308,45 +322,31 @@ source {
             c_double = double
             c_decimal = "decimal(30, 8)"
             c_date = date
-            c_time = time
-            c_timestamp = timestamp
+            c_time = timestamp
             c_map = "map<string, int>"
             c_array = "array<int>"
           }
-          primaryKey {
-            name = "c_string"
-            columnNames = [c_string]
-          }
         }
-        row.num = 6
+        row.num = 100
       }
     ]
-    plugin_output = "sink_multi_table"
+    plugin_output = "multi_sink_table"
   }
 }
 
 sink {
   Clickhouse {
-    plugin_input = "sink_multi_table"
+    plugin_input = "multi_sink_table"
     host = "clickhouse:8123"
     database = "default"
-    table = "sink_multi_table"
+    table = "${table_name}"
     username = "default"
     password = ""
-    "schema_save_mode" = "CREATE_SCHEMA_WHEN_NOT_EXIST"
-    "data_save_mode" = "DROP_DATA"
-    primary_key = "c_string"
-    support_upsert = true
-    allow_experimental_lightweight_delete = true
   }
 }
 ```
 
-从配置中可以看到，我们在 FakeSource 数据源中构建了两张数据表，分别为 `sink_table1` 和 `sink_table2`，其数据量分别为 5 和 6，之后我们在 sink 中配置了 ClickHouse 数据源，写入的目标数据表为 default 库的 `sink_multi_table`.
-
-> 需要注意的是，在这里我们使用了 ClickHouse 连接器的特性，即如果目标数据表不存在则自动创建的功能，如果用户需要指定已经存在的数据表，将该特性配置删除即可。
-
-提交作业并执行成功后，我们可以看到 ClickHouse 数据表 `sink_multi_table` 的数据量为 11，说明其写入了 `sink_table1` 和 `sink_table2` 两张数据表的数据。
+提交作业并执行成功后，我们可以看到 ClickHouse 数据表 `multi_sink_table1` 和 `multi_sink_table2` 的数据量都为100.
 
 ## 变更日志
 
