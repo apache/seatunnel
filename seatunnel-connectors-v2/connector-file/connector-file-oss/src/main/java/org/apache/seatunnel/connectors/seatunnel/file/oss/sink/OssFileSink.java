@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.oss.sink;
 
-import com.typesafe.config.Config;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.DataSaveMode;
@@ -37,6 +36,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssFileSinkOpti
 import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssHadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseMultipleTableFileSink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import java.util.Optional;
 
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
@@ -46,7 +47,6 @@ public class OssFileSink extends BaseMultipleTableFileSink implements SupportSav
     private final CatalogTable catalogTable;
 
     private final ReadonlyConfig readonlyConfig;
-
 
     public OssFileSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
         super(OssHadoopConf.buildWithConfig(readonlyConfig), readonlyConfig, catalogTable);

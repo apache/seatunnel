@@ -45,5 +45,4 @@ public class OssFileSinkOptions extends OssFileBaseOptions {
                     .defaultValue(APPEND_DATA)
                     .withDescription(
                             "Before the synchronization task begins, different processing of data files that already exist in the directory");
-
 }
