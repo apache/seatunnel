@@ -19,7 +19,6 @@ package org.apache.seatunnel.core.starter.spark;
 
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.SeaTunnel;
-import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
 import org.apache.seatunnel.core.starter.spark.multitable.MultiTableSinkTest;
 
@@ -30,7 +29,6 @@ import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
 
 import static com.github.stefanbirkner.systemlambda.SystemLambda.catchSystemExit;
-import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAME;
 
 public class SparkCommandArgsTest {
     @Test
@@ -51,22 +49,7 @@ public class SparkCommandArgsTest {
         sparkCommandArgs.setDeployMode(DeployMode.CLIENT);
 
         // Catch System.exit call and verify exit code
-        int statusCode =
-                catchSystemExit(
-                        () -> {
-                            try {
-                                SeaTunnel.run(sparkCommandArgs.buildCommand());
-                            } catch (CommandExecuteException e) {
-                                // Verify the exception message
-                                Assertions.assertEquals(
-                                        String.format(
-                                                "No configuration setting found for key '%s'",
-                                                PLUGIN_NAME.key()),
-                                        e.getCause().getMessage());
-                                // Re-throw to ensure the test fails if System.exit is not called
-                                throw e;
-                            }
-                        });
+        int statusCode = catchSystemExit(() -> SeaTunnel.run(sparkCommandArgs.buildCommand()));
 
         // Verify that System.exit was called with status code 1
         Assertions.assertEquals(1, statusCode);

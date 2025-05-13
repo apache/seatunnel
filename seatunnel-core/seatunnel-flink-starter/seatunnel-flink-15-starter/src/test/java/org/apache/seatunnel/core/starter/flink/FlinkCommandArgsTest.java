@@ -18,7 +18,6 @@
 package org.apache.seatunnel.core.starter.flink;
 
 import org.apache.seatunnel.core.starter.SeaTunnel;
-import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.starter.flink.multitable.MultiTableSinkTest;
 
@@ -29,7 +28,6 @@ import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
 
 import static com.github.stefanbirkner.systemlambda.SystemLambda.catchSystemExit;
-import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAME;
 
 public class FlinkCommandArgsTest {
     @Test
@@ -48,24 +46,7 @@ public class FlinkCommandArgsTest {
         FlinkCommandArgs flinkCommandArgs = buildFlinkCommandArgs(configFile);
 
         // Catch System.exit call and verify exit code
-        int statusCode =
-                catchSystemExit(
-                        () -> {
-                            try {
-                                SeaTunnel.run(flinkCommandArgs.buildCommand());
-                            } catch (CommandExecuteException e) {
-                                // Verify the exception message
-                                Assertions.assertEquals(
-                                        String.format(
-                                                "No configuration setting found for key '%s'",
-                                                PLUGIN_NAME.key()),
-                                        e.getCause().getMessage());
-                                // Re-throw to ensure the test fails if System.exit is not called
-                                throw e;
-                            }
-                        });
-
-        // Verify that System.exit was called with status code 1
+        int statusCode = catchSystemExit(() -> SeaTunnel.run(flinkCommandArgs.buildCommand()));
         Assertions.assertEquals(1, statusCode);
     }
 

@@ -19,7 +19,6 @@ package org.apache.seatunnel.core.starter.seatunnel.args;
 
 import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.enums.MasterType;
-import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.seatunnel.multitable.MultiTableSinkTest;
 
 import org.junit.jupiter.api.Assertions;
@@ -30,7 +29,6 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 
 import static com.github.stefanbirkner.systemlambda.SystemLambda.catchSystemExit;
-import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAME;
 
 public class ClientCommandArgsTest {
     @Test
@@ -58,22 +56,7 @@ public class ClientCommandArgsTest {
         ClientCommandArgs clientCommandArgs = buildClientCommandArgs(configFile);
 
         // Catch System.exit call and verify exit code
-        int statusCode =
-                catchSystemExit(
-                        () -> {
-                            try {
-                                SeaTunnel.run(clientCommandArgs.buildCommand());
-                            } catch (CommandExecuteException e) {
-                                // Verify the exception message
-                                Assertions.assertEquals(
-                                        String.format(
-                                                "The '%s' option is not configured, please configure it.",
-                                                PLUGIN_NAME.key()),
-                                        e.getCause().getMessage());
-                                // Re-throw to ensure the test fails if System.exit is not called
-                                throw e;
-                            }
-                        });
+        int statusCode = catchSystemExit(() -> SeaTunnel.run(clientCommandArgs.buildCommand()));
 
         // Verify that System.exit was called with status code 1
         Assertions.assertEquals(1, statusCode);

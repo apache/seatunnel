@@ -20,7 +20,6 @@ package org.apache.seatunnel.core.starter;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.command.CommandArgs;
-import org.apache.seatunnel.core.starter.exception.CommandException;
 
 import org.junit.jupiter.api.Test;
 
@@ -44,16 +43,7 @@ public class SeaTunnelTest {
         doThrow(new ConfigRuntimeException("Simulated config error")).when(mockCommand).execute();
 
         // Expect System.exit(1) to be called and catch it
-        int statusCode =
-                catchSystemExit(
-                        () -> {
-                            try {
-                                SeaTunnel.run(mockCommand);
-                            } catch (CommandException e) {
-                                // We expect this exception to be thrown after System.exit is called
-                                // but the exit is intercepted by catchSystemExit
-                            }
-                        });
+        int statusCode = catchSystemExit(() -> SeaTunnel.run(mockCommand));
 
         // Verify the exit code is 1
         assertEquals(1, statusCode);
@@ -71,16 +61,7 @@ public class SeaTunnelTest {
         doThrow(new RuntimeException("Simulated runtime error")).when(mockCommand).execute();
 
         // Expect System.exit(1) to be called and catch it
-        int statusCode =
-                catchSystemExit(
-                        () -> {
-                            try {
-                                SeaTunnel.run(mockCommand);
-                            } catch (CommandException e) {
-                                // We expect this exception to be thrown after System.exit is called
-                                // but the exit is intercepted by catchSystemExit
-                            }
-                        });
+        int statusCode = catchSystemExit(() -> SeaTunnel.run(mockCommand));
 
         // Verify the exit code is 1
         assertEquals(1, statusCode);
@@ -98,16 +79,7 @@ public class SeaTunnelTest {
         doThrow(new OutOfMemoryError("Simulated OOM error")).when(mockCommand).execute();
 
         // Expect System.exit(1) to be called and catch it
-        int statusCode =
-                catchSystemExit(
-                        () -> {
-                            try {
-                                SeaTunnel.run(mockCommand);
-                            } catch (Throwable e) {
-                                // We expect this error to be thrown after System.exit is called
-                                // but the exit is intercepted by catchSystemExit
-                            }
-                        });
+        int statusCode = catchSystemExit(() -> SeaTunnel.run(mockCommand));
 
         // Verify the exit code is 1
         assertEquals(1, statusCode);

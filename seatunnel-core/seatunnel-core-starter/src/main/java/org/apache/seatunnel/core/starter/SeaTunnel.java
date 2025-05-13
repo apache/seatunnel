@@ -41,11 +41,9 @@ public class SeaTunnel {
         } catch (ConfigRuntimeException e) {
             showConfigError(e);
             System.exit(1);
-            throw e;
         } catch (Exception | Error e) {
             showFatalError(e);
             System.exit(1);
-            throw e;
         }
     }
 
