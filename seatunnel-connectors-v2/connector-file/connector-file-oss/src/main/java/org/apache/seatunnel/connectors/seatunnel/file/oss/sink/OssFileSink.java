@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.file.oss.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssHadoopConf;
@@ -29,7 +28,6 @@ import java.util.Optional;
 public class OssFileSink extends BaseMultipleTableFileSink {
 
     private final CatalogTable catalogTable;
-
 
     public OssFileSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
         super(OssHadoopConf.buildWithConfig(readonlyConfig), readonlyConfig, catalogTable);
