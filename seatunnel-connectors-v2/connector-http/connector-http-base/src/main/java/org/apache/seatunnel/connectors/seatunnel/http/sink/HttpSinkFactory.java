@@ -51,7 +51,6 @@ public class HttpSinkFactory implements TableSinkFactory {
                 .optional(HttpSinkOptions.ARRAY_MODE)
                 .optional(HttpSinkOptions.BATCH_SIZE)
                 .optional(HttpSinkOptions.REQUEST_INTERVAL_MS)
-                .optional(HttpSinkOptions.FORMAT)
                 .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }

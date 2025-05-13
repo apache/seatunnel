@@ -61,9 +61,8 @@ public class HttpSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         boolean arrayMode = pluginConfig.get(HttpSinkOptions.ARRAY_MODE);
         int batchSize = pluginConfig.get(HttpSinkOptions.BATCH_SIZE);
         int requestIntervalMs = pluginConfig.get(HttpSinkOptions.REQUEST_INTERVAL_MS);
-        String format = pluginConfig.get(HttpSinkOptions.FORMAT);
         return new DefaultHttpSinkWriter(
-                seaTunnelRowType, httpParameter, arrayMode, batchSize, requestIntervalMs, format);
+                seaTunnelRowType, httpParameter, arrayMode, batchSize, requestIntervalMs);
     }
 
     @Override
@@ -78,9 +77,8 @@ public class HttpSink extends AbstractSimpleSink<SeaTunnelRow, Void>
                 HttpParameter httpParameter,
                 boolean arrayMode,
                 int batchSize,
-                int requestIntervalMs,
-                String format) {
-            super(seaTunnelRowType, httpParameter, arrayMode, batchSize, requestIntervalMs, format);
+                int requestIntervalMs) {
+            super(seaTunnelRowType, httpParameter, arrayMode, batchSize, requestIntervalMs);
         }
     }
 }

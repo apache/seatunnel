@@ -54,7 +54,6 @@ public class HttpSinkBatchWriterTest {
     private static final String TEST_URL = "http://example.com/test";
     private static final int BATCH_SIZE = 3;
     private static final int REQUEST_INTERVAL_MS = 0;
-    private static final String FORMAT = "json";
 
     @Mock private HttpClientProvider httpClientProvider;
 
@@ -92,7 +91,7 @@ public class HttpSinkBatchWriterTest {
         // Use object mode (default) to ignore batch size
         sinkWriter =
                 new TestableHttpSinkWriter(
-                        rowType, httpParameter, false, BATCH_SIZE, REQUEST_INTERVAL_MS, FORMAT);
+                        rowType, httpParameter, false, BATCH_SIZE, REQUEST_INTERVAL_MS);
 
         // Write 3 records (equal to batch size)
         for (int i = 0; i < BATCH_SIZE; i++) {
@@ -116,7 +115,7 @@ public class HttpSinkBatchWriterTest {
         // Use array mode to turn on batch processing
         sinkWriter =
                 new TestableHttpSinkWriter(
-                        rowType, httpParameter, true, BATCH_SIZE, REQUEST_INTERVAL_MS, FORMAT);
+                        rowType, httpParameter, true, BATCH_SIZE, REQUEST_INTERVAL_MS);
 
         // Write 5 records (over batch size)
         for (int i = 0; i < 5; i++) {
@@ -155,9 +154,8 @@ public class HttpSinkBatchWriterTest {
                 HttpParameter httpParameter,
                 boolean arrayMode,
                 int batchSize,
-                int requestIntervalMs,
-                String format) {
-            super(seaTunnelRowType, httpParameter, arrayMode, batchSize, requestIntervalMs, format);
+                int requestIntervalMs) {
+            super(seaTunnelRowType, httpParameter, arrayMode, batchSize, requestIntervalMs);
         }
 
         @Override

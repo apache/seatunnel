@@ -49,7 +49,6 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     private final boolean arrayMode;
     private final int batchSize;
     private final int requestIntervalMs;
-    private final String format;
     private final List<SeaTunnelRow> batchBuffer;
     private long lastRequestTime;
 
@@ -61,7 +60,7 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             SeaTunnelRowType seaTunnelRowType,
             HttpParameter httpParameter,
             SerializationSchema serializationSchema) {
-        this(seaTunnelRowType, httpParameter, serializationSchema, false, 1, 0, "json");
+        this(seaTunnelRowType, httpParameter, serializationSchema, false, 1, 0);
     }
 
     public HttpSinkWriter(
@@ -69,16 +68,14 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             HttpParameter httpParameter,
             boolean arrayMode,
             int batchSize,
-            int requestIntervalMs,
-            String format) {
+            int requestIntervalMs) {
         this(
                 seaTunnelRowType,
                 httpParameter,
                 new JsonSerializationSchema(seaTunnelRowType),
                 arrayMode,
                 batchSize,
-                requestIntervalMs,
-                format);
+                requestIntervalMs);
     }
 
     public HttpSinkWriter(
@@ -87,8 +84,7 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             SerializationSchema serializationSchema,
             boolean arrayMode,
             int batchSize,
-            int requestIntervalMs,
-            String format) {
+            int requestIntervalMs) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.httpParameter = httpParameter;
         this.httpClient = createHttpClient(httpParameter);
@@ -96,7 +92,6 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         this.arrayMode = arrayMode;
         this.batchSize = batchSize;
         this.requestIntervalMs = requestIntervalMs;
-        this.format = format;
         this.batchBuffer = new ArrayList<>(batchSize);
         this.lastRequestTime = System.currentTimeMillis();
     }
@@ -138,22 +133,15 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             }
         }
 
-        // Array mode: serialize batch data
-        if ("json".equalsIgnoreCase(format)) {
-            ObjectMapper mapper = new ObjectMapper();
-            ArrayNode arrayNode = mapper.createArrayNode();
-            for (SeaTunnelRow row : batchBuffer) {
-                byte[] serialize = serializationSchema.serialize(row);
-                arrayNode.add(new String(serialize));
-            }
-            String body = mapper.writeValueAsString(arrayNode);
-            doHttpRequest(body);
-        } else {
-            log.warn("Unsupported format: {}, fallback to sending records one by one", format);
-            for (SeaTunnelRow row : batchBuffer) {
-                writeSingleRecord(row);
-            }
+        // Array mode: serialize batch data as JSON
+        ObjectMapper mapper = new ObjectMapper();
+        ArrayNode arrayNode = mapper.createArrayNode();
+        for (SeaTunnelRow row : batchBuffer) {
+            byte[] serialize = serializationSchema.serialize(row);
+            arrayNode.add(new String(serialize));
         }
+        String body = mapper.writeValueAsString(arrayNode);
+        doHttpRequest(body);
 
         batchBuffer.clear();
         lastRequestTime = System.currentTimeMillis();

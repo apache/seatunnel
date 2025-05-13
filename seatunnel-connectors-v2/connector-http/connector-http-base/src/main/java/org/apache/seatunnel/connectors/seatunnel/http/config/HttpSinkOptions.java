@@ -40,10 +40,4 @@ public class HttpSinkOptions extends HttpCommonOptions {
                     .intType()
                     .defaultValue(0)
                     .withDescription("The interval milliseconds between two HTTP requests");
-
-    public static final Option<String> FORMAT =
-            Options.key("format")
-                    .stringType()
-                    .defaultValue("json")
-                    .withDescription("The format of the batch data, only support json now");
 }
