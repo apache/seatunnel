@@ -76,7 +76,8 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                     "/jdbc_oracle_source_to_sink.conf",
                     "/jdbc_oracle_source_to_sink_use_select1.conf",
                     "/jdbc_oracle_source_to_sink_use_select2.conf",
-                    "/jdbc_oracle_source_to_sink_use_select3.conf");
+                    "/jdbc_oracle_source_to_sink_use_select3.conf",
+                    "/jdbc_oracle_source_to_sink_with_blob_as_string.conf");
 
     private static final String CREATE_SQL =
             "create table %s\n"
@@ -172,6 +173,13 @@ public class JdbcOracleIT extends AbstractJdbcIT {
         Container.ExecResult execResult =
                 container.executeJob(
                         "/jdbc_oracle_source_to_sink_without_decimal_type_narrowing.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testOracleWithBlobAsString(TestContainer container) throws Exception {
+        Container.ExecResult execResult =
+                container.executeJob("/jdbc_oracle_source_to_sink_with_blob_as_string.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
