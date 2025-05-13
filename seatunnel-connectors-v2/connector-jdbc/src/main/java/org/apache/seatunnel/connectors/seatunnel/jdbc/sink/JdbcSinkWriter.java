@@ -58,16 +58,6 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         this.databaseTableSchema = databaseTableSchema;
         this.jdbcSinkConfig = jdbcSinkConfig;
         this.primaryKeyIndex = primaryKeyIndex;
-        this.connectionProvider =
-                dialect.getJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
-        this.outputFormat =
-                new JdbcOutputFormatBuilder(
-                                dialect,
-                                connectionProvider,
-                                jdbcSinkConfig,
-                                tableSchema,
-                                databaseTableSchema)
-                        .build();
     }
 
     @Override
@@ -97,7 +87,6 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
     public void setMultiTableResourceManager(
             MultiTableResourceManager<ConnectionPoolManager> multiTableResourceManager,
             int queueIndex) {
-        connectionProvider.closeConnection();
         this.connectionProvider =
                 new SimpleJdbcConnectionPoolProviderProxy(
                         multiTableResourceManager.getSharedResource().get(),

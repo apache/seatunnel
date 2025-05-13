@@ -198,7 +198,6 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 LOG.warn("Close JDBC writer failed.", e);
             }
         }
-        connectionProvider.closeConnection();
         checkFlushException();
     }
 

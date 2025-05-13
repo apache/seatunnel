@@ -317,7 +317,7 @@ public class MultiTableSinkWriter
         final Throwable[] firstE = {null};
         try {
             checkQueueRemain();
-        } catch (Exception e) {
+        } catch (Throwable e) {
             firstE[0] = e;
         }
         executorService.shutdownNow();

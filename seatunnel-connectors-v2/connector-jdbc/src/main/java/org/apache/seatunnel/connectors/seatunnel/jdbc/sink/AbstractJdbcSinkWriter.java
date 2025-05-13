@@ -66,6 +66,8 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
 
     protected void reOpenOutputFormat(SchemaChangeEvent event) throws IOException {
         this.prepareCommit();
+        outputFormat.close();
+
         JdbcConnectionProvider refreshTableSchemaConnectionProvider =
                 dialect.getJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
         try (Connection connection =
