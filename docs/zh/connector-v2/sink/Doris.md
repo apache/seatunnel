@@ -56,6 +56,7 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 | sink.buffer-count              | int     | No       | 3                            | 用于缓存stream load数据的缓冲区计数。                                                                                                                              |
 | doris.batch.size               | int     | No       | 1024                         | 每次http请求写入doris的批量大小，当row达到该大小或者执行checkpoint时，缓存的数据就会写入服务器。                                                                                           |
 | needs_unsupported_type_casting | boolean | No       | false                        | 是否启用不支持的类型转换，例如 Decimal64 到 Double。                                                                                                                   |
+| case_sensitive                 | boolean | No       | true                         | 是否保留表名和字段名的原始大小写。当设置为 false 时，表名和字段名将被转换为小写。                                                                                        |
 | schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | schema保存模式，请参考下面的`schema_save_mode`                                                                                                                   |
 | data_save_mode                 | Enum    | no       | APPEND_DATA                  | 数据保存模式，请参考下面的`data_save_mode`。                                                                                                                        |
 | save_mode_create_template      | string  | no       | see below                    | 见下文。                                                                                                                                                  |
@@ -121,7 +122,7 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 ```
 
 连接器会自动从上游获取对应类型完成填充，
-并从“rowtype_fields”中删除 id 字段。 该方法可用于自定义字段类型和属性的修改。
+并从"rowtype_fields"中删除 id 字段。 该方法可用于自定义字段类型和属性的修改。
 
 可以使用以下占位符：
 
@@ -341,6 +342,45 @@ sink {
         doris.config = {
           format = "csv"
           column_separator = ","
+        }
+    }
+}
+```
+
+### 大小写敏感配置
+
+```hocon
+sink {
+    Doris {
+        fenodes = "e2e_dorisdb:8030"
+        username = root
+        password = ""
+        database = "Test_DB"  # 保留原始大小写
+        table = "Test_Table"  # 保留原始大小写
+        case_sensitive = true # 默认值，保留原始大小写
+        sink.enable-2pc = "true"
+        sink.label-prefix = "test_case_sensitive"
+        doris.config = {
+          format = "json"
+          read_json_by_line = "true"
+        }
+    }
+}
+
+# 如果您想将所有表名和列名转换为小写：
+sink {
+    Doris {
+        fenodes = "e2e_dorisdb:8030"
+        username = root
+        password = ""
+        database = "Test_DB"  # 将被转换为 "test_db"
+        table = "Test_Table"  # 将被转换为 "test_table"
+        case_sensitive = false # 将所有名称转换为小写
+        sink.enable-2pc = "true"
+        sink.label-prefix = "test_case_insensitive"
+        doris.config = {
+          format = "json"
+          read_json_by_line = "true"
         }
     }
 }
