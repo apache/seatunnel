@@ -17,30 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.oss.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.sink.DataSaveMode;
-import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
-import org.apache.seatunnel.api.sink.SaveModeHandler;
-import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
-import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.factory.CatalogFactory;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssFileSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssHadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseMultipleTableFileSink;
 
 import java.util.Optional;
-
-import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 
 public class OssFileSink extends BaseMultipleTableFileSink implements SupportSaveMode {
 
@@ -52,45 +36,11 @@ public class OssFileSink extends BaseMultipleTableFileSink implements SupportSav
         super(OssHadoopConf.buildWithConfig(readonlyConfig), readonlyConfig, catalogTable);
         this.catalogTable = catalogTable;
         this.readonlyConfig = readonlyConfig;
-        Config pluginConfig = readonlyConfig.toConfig();
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        OssFileSinkOptions.FILE_PATH.key(),
-                        OssFileSinkOptions.BUCKET.key());
-        if (!result.isSuccess()) {
-            throw new FileConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, result.getMsg()));
-        }
     }
 
     @Override
     public String getPluginName() {
         return FileSystemType.OSS.getFileSystemPluginName();
-    }
-
-    @Override
-    public Optional<SaveModeHandler> getSaveModeHandler() {
-
-        CatalogFactory catalogFactory =
-                discoverFactory(
-                        Thread.currentThread().getContextClassLoader(),
-                        CatalogFactory.class,
-                        FileSystemType.OSS.getFileSystemPluginName());
-        if (catalogFactory == null) {
-            return Optional.empty();
-        }
-        final Catalog catalog =
-                catalogFactory.createCatalog(
-                        FileSystemType.OSS.getFileSystemPluginName(), readonlyConfig);
-        SchemaSaveMode schemaSaveMode = readonlyConfig.get(OssFileSinkOptions.SCHEMA_SAVE_MODE);
-        DataSaveMode dataSaveMode = readonlyConfig.get(OssFileSinkOptions.DATA_SAVE_MODE);
-        return Optional.of(
-                new DefaultSaveModeHandler(
-                        schemaSaveMode, dataSaveMode, catalog, catalogTable, null));
     }
 
     @Override
