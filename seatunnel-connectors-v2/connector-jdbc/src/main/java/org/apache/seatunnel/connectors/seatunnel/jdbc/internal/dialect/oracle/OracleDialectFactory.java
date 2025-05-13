@@ -55,7 +55,7 @@ public class OracleDialectFactory implements JdbcDialectFactory {
             String fieldIde,
             JdbcConnectionConfig jdbcConnectionConfig) {
         boolean handleBlobAsString =
-                jdbcConnectionConfig != null && jdbcConnectionConfig.handleBlobAsString;
+                jdbcConnectionConfig != null && jdbcConnectionConfig.isHandleBlobAsString();
         return new OracleDialect(fieldIde, handleBlobAsString);
     }
 }

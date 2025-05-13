@@ -64,7 +64,7 @@ public class JdbcConnectionConfig implements Serializable {
 
     private Map<String, String> properties;
 
-    public boolean handleBlobAsString = JdbcOptions.HANDLE_BLOB_AS_STRING.defaultValue();
+    private boolean handleBlobAsString = JdbcOptions.HANDLE_BLOB_AS_STRING.defaultValue();
 
     public static JdbcConnectionConfig of(ReadonlyConfig config) {
         JdbcConnectionConfig.Builder builder = JdbcConnectionConfig.builder();
@@ -267,7 +267,16 @@ public class JdbcConnectionConfig implements Serializable {
             jdbcConnectionConfig.dialect = this.dialect;
             jdbcConnectionConfig.properties =
                     this.properties == null ? new HashMap<>() : this.properties;
+            jdbcConnectionConfig.setHandleBlobAsString(this.handleBlobAsString);
             return jdbcConnectionConfig;
         }
+    }
+
+    public boolean isHandleBlobAsString() {
+        return handleBlobAsString;
+    }
+
+    public void setHandleBlobAsString(boolean handleBlobAsString) {
+        this.handleBlobAsString = handleBlobAsString;
     }
 }
