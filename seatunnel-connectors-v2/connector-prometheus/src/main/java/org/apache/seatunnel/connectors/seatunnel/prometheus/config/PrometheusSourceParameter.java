@@ -74,11 +74,11 @@ public class PrometheusSourceParameter extends HttpParameter {
             ZonedDateTime now = ZonedDateTime.now();
             return now.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
         }
-        if (!time.endsWith("Z")){
+        if (!time.endsWith("Z")) {
             try {
                 Double.parseDouble(time);
                 return time;
-            } catch (NumberFormatException e){
+            } catch (NumberFormatException e) {
                 throw new PrometheusConnectorException(
                         CommonErrorCode.UNSUPPORTED_DATA_TYPE, "unsupported time type");
             }
