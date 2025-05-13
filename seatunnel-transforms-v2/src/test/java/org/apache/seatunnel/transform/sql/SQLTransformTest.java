@@ -447,19 +447,21 @@ public class SQLTransformTest {
     public void testExpressionErrorField() {
         String tableName = "test";
         String[] fields = new String[] {"FIELD1", "FIELD2", "FIELD3"};
+        SeaTunnelDataType[] fieldTypes =
+                new SeaTunnelDataType[] {
+                    BasicType.INT_TYPE, BasicType.DOUBLE_TYPE, BasicType.STRING_TYPE
+                };
         CatalogTable table =
                 CatalogTableUtil.getCatalogTable(
-                        tableName,
-                        new SeaTunnelRowType(
-                                fields,
-                                new SeaTunnelDataType[] {
-                                    BasicType.INT_TYPE, BasicType.DOUBLE_TYPE, BasicType.STRING_TYPE
-                                }));
-        ReadonlyConfig config =
-                ReadonlyConfig.fromMap(
-                        Collections.singletonMap(
-                                "query",
-                                "select CAST(`FIELD1` AS STRING) AS FIELD1, CAST(`FIELD1`  as decimal(22,4)) AS FIELD2, CAST(`FIELD3` as decimal(22,0)) AS FIELD3 from dual"));
+                        tableName, new SeaTunnelRowType(fields, fieldTypes));
+        String sqlQuery =
+                "select "
+                        + "CAST(`FIELD1` AS STRING) AS FIELD1, "
+                        + "CAST(`FIELD1` AS decimal(22,4)) AS FIELD2, "
+                        + "CAST(`FIELD3` AS decimal(22,0)) AS FIELD3 "
+                        + "from dual";
+
+        ReadonlyConfig config = ReadonlyConfig.fromMap(Collections.singletonMap("query", sqlQuery));
         SQLTransform sqlTransform = new SQLTransform(config, table);
         Assertions.assertThrows(
                 SqlTransformException.class,
