@@ -34,7 +34,6 @@ public class OssFileSink extends BaseMultipleTableFileSink {
     public OssFileSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
         super(OssHadoopConf.buildWithConfig(readonlyConfig), readonlyConfig, catalogTable);
         this.catalogTable = catalogTable;
-        this.readonlyConfig = readonlyConfig;
     }
 
     @Override
