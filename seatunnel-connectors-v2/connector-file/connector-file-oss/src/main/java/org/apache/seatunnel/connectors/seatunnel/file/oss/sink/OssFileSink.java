@@ -26,7 +26,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseMultipleTableFile
 
 import java.util.Optional;
 
-public class OssFileSink extends BaseMultipleTableFileSink implements SupportSaveMode {
+public class OssFileSink extends BaseMultipleTableFileSink {
 
     private final CatalogTable catalogTable;
 
