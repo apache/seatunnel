@@ -90,7 +90,7 @@ public class PrometheusSourceParameter extends HttpParameter {
                 CommonErrorCode.UNSUPPORTED_DATA_TYPE, "unsupported time type");
     }
 
-    public boolean isValidISO8601(String dateTimeString) {
+    private boolean isValidISO8601(String dateTimeString) {
         try {
             Instant.parse(dateTimeString);
             return true;
