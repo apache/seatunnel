@@ -369,7 +369,7 @@ sink {
     }
 }
 
-# If you want to convert all table and column names to lowercase:
+# If you want to convert all table and column names to lowercase
 sink {
     Doris {
         fenodes = "e2e_dorisdb:8030"
