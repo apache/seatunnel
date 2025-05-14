@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.deltalake.source.reader;
 
+import io.delta.kernel.engine.Engine;
 import io.delta.kernel.types.StructType;
 import io.delta.kernel.utils.CloseableIterator;
 import lombok.NonNull;
@@ -37,7 +38,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import org.apache.seatunnel.connectors.seatunnel.deltalake.DeltaLakeCatalogLoader;
 import org.apache.seatunnel.connectors.seatunnel.deltalake.config.DeltaLakeSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.deltalake.config.SourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.deltalake.data.DefaultDeserializer;
@@ -55,6 +55,8 @@ public class DeltaLakeSourceReader implements SourceReader<SeaTunnelRow, DeltaLa
   private final LinkedBlockingQueue<DeltaLakeFileScanTaskSplit> pendingSplits;
   private final ConcurrentHashMap<TablePath, DeltaLakeFileScanTaskSplitReader> tableReaders;
   private final Map<TablePath, List<String>> filterColumns;
+  private final Map<TablePath, StructType> deltaTableSchemas;
+  private final Engine engine;
   private volatile DeltaLakeFileScanTaskSplit currentReadSplit;
   private volatile boolean noMoreSplitsAssignment;
   private Catalog catalog;
@@ -63,20 +65,21 @@ public class DeltaLakeSourceReader implements SourceReader<SeaTunnelRow, DeltaLa
           @NonNull SourceReader.Context context,
           @NonNull DeltaLakeSourceConfig sourceConfig,
           @NonNull Map<TablePath, CatalogTable> tables,
-          @NonNull Map<TablePath, List<String>> filterColumns) {
+          @NonNull Map<TablePath, List<String>> filterColumns,
+          @NonNull Map<TablePath, StructType> deltaTableSchemas, Engine engine) {
     this.context = context;
     this.sourceConfig = sourceConfig;
     this.tables = tables;
     this.filterColumns = filterColumns;
+    this.deltaTableSchemas = deltaTableSchemas;
     this.pendingSplits = new LinkedBlockingQueue<>();
     this.tableReaders = new ConcurrentHashMap<>();
+    this.engine = engine;
   }
 
   @Override
   public void open() throws Exception {
-    DeltaLakeCatalogLoader catalogLoader =
-            new DeltaLakeCatalogLoader(sourceConfig);
-    this.catalog = catalogLoader.loadCatalog();
+    // do nothing
   }
 
   @Override

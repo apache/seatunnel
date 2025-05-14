@@ -24,7 +24,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.connectors.seatunnel.deltalake.DeltaLakeCatalogLoader;
 import org.apache.seatunnel.connectors.seatunnel.deltalake.config.DeltaLakeSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.deltalake.source.split.DeltaLakeFileScanTaskSplit;
 

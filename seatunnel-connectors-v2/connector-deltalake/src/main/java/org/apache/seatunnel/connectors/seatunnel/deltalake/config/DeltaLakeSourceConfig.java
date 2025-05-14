@@ -1,10 +1,12 @@
 package org.apache.seatunnel.connectors.seatunnel.deltalake.config;
 
+import lombok.Getter;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import java.util.List;
 
+@Getter
 public class DeltaLakeSourceConfig extends DeltaLakeCommonConfig {
 
   private static final long serialVersionUID = -1965861967575264253L;

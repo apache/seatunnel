@@ -66,15 +66,8 @@ public class DeltaLakeFileScanTaskReader implements Closeable {
             Scan scan = scanBuilder.build();
 
             CloseableIterator<FilteredColumnarBatch> batch = scan.getScanFiles(engine);
-            return batch.map(
-                    filteredColumnarBatch -> {
-                        CloseableIterator<Row> scanFileRows = filteredColumnarBatch.getRows();
-                        // return all rows
 
-                    }
-            );
-
-
+            return new BatchToRowIterator(batch);
         } catch (Exception e) {
             throw new DeltalakeConnectorException(
                     DeltalakeConnectorErrorCode.FILE_SCAN_SPLIT_FAILED,

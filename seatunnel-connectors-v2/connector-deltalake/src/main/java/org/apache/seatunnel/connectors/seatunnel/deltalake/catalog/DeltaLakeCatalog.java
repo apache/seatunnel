@@ -1,26 +1,22 @@
 package org.apache.seatunnel.connectors.seatunnel.deltalake.catalog;
 
 import io.delta.kernel.Table;
-import io.delta.kernel.Snapshot;
-import io.delta.kernel.engine.Engine;
-import io.delta.kernel.defaults.engine.DefaultEngine;
 import io.delta.kernel.types.StructType;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.*;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.connectors.seatunnel.deltalake.kernel.MetastoreResolver;
-import org.apache.seatunnel.connectors.seatunnel.deltalake.kernel.StaticPathResolver;
+import org.apache.seatunnel.connectors.seatunnel.deltalake.config.DeltaLakeCommonConfig;
+import org.apache.seatunnel.connectors.seatunnel.deltalake.config.DeltaLakeSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.deltalake.kernel.DeltaLakeKernel;
 import org.apache.seatunnel.connectors.seatunnel.deltalake.utils.SchemaUtils;
 
-import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
 @Slf4j
@@ -29,18 +25,13 @@ public class DeltaLakeCatalog implements Catalog {
   private final String catalogName;
   private final ReadonlyConfig readonlyConfig;
 
-  @Getter
-  private final Engine engine;
-  private final MetastoreResolver resolver;
+  private final DeltaLakeKernel deltaKernel;
 
   public DeltaLakeCatalog(String catalogName, ReadonlyConfig readonlyConfig) {
     this.catalogName = catalogName;
     this.readonlyConfig = readonlyConfig;
-    Configuration hadoopConf = new Configuration();
-    this.engine = DefaultEngine.create(hadoopConf);
-
-    String basePath = readonlyConfig.get("base_path").toString();
-    this.resolver = new StaticPathResolver(basePath);
+    this.deltaKernel = new DeltaLakeKernel(
+            new DeltaLakeCommonConfig(readonlyConfig));
   }
 
   @Override
@@ -83,21 +74,13 @@ public class DeltaLakeCatalog implements Catalog {
 
   @Override
   public boolean tableExists(TablePath tablePath) {
-    return resolvePath(tablePath).map(path ->
-            Files.exists(Paths.get(URI.create(path + "/_delta_log")))
-    ).orElse(false);
+    return deltaKernel.tableExists(tablePath);
   }
 
   @Override
   public CatalogTable getTable(TablePath tablePath) throws CatalogException, TableNotExistException {
-    Optional<String> pathOpt = resolvePath(tablePath);
-    if (pathOpt.isEmpty()) {
-      throw new TableNotExistException("Table not exist", tablePath);
-    }
-
-    Table table = Table.forPath(engine, pathOpt.get());
-    Snapshot snapshot = table.getLatestSnapshot(engine);
-    StructType schema = snapshot.getSchema(engine);
+    Table table = deltaKernel.getTable(tablePath);
+    StructType schema = deltaKernel.getSchema(tablePath);
     return toCatalogTable(table, schema, tablePath);
   }
 
@@ -135,7 +118,9 @@ public class DeltaLakeCatalog implements Catalog {
   @Override
   public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists) {
     log.info("Creating table at path: {}", tablePath);
-    SchemaUtils.autoCreateTable(engine, tablePath, table, readonlyConfig);
+    String engineInfo =
+            String.valueOf(readonlyConfig.getOptional(DeltaLakeSinkOptions.ENGINE_INFO));
+    deltaKernel.createTable(tablePath, table, engineInfo, ignoreIfExists);
   }
 
   @Override
@@ -151,13 +136,5 @@ public class DeltaLakeCatalog implements Catalog {
   @Override
   public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists) {
     throw new UnsupportedOperationException("Write operations are not supported");
-  }
-
-  private Optional<String> resolvePath(TablePath path) {
-    return resolver.resolvePath(path.getDatabaseName(), path.getSchemaName(), path.getTableName());
-  }
-
-  public Engine getEngine() {
-    return engine;
   }
 }

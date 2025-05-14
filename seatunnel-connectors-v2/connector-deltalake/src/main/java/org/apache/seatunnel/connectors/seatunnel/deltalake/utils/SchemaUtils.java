@@ -18,6 +18,7 @@ import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.connectors.seatunnel.deltalake.config.DeltaLakeSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.deltalake.data.DeltalakeTypeMapper;
 import org.codehaus.commons.nullanalysis.NotNull;
 
@@ -30,44 +31,9 @@ public class SchemaUtils {
     return DeltalakeTypeMapper.mapping(fieldName, type);
   }
 
-  public static Table autoCreateTable(
-          Engine engine, TablePath tablePath, CatalogTable table, ReadonlyConfig readonlyConfig)
-          throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
-    Table myTable = Table.forPath(engine, tablePath.toString());
-    TableSchema tableSchema = table.getTableSchema();
-
-    TransactionBuilder txnBuilder =
-            myTable.createTransactionBuilder(
-                    engine,
-                    "Examples", /* engineInfo - connector can add its own identifier which is noted in the Delta Log */
-                    Operation.WRITE /* What is the operation we are trying to perform? This is noted in the Delta Log */
-            );
-
-    // convert the table schema to the Delta table schema
-    StructType deltaTableSchema = toDeltaLakeSchema(tableSchema, readonlyConfig);
-
-    txnBuilder = txnBuilder
-            .withSchema(engine, deltaTableSchema);
-
-    // Build the transaction
-    Transaction txn = txnBuilder.build(engine);
-
-    // Commit the transaction.
-    TransactionCommitResult commitResult =
-            txn.commit(
-                    engine,
-                    CloseableIterable.emptyIterable()
-            );
-    if (commitResult.getVersion() == -1) {
-      throw new TableAlreadyExistException(
-              table.getCatalogName(), tablePath);
-    } else {
-      return myTable;
-    }
-  }
-
-  @NotNull protected static StructType toDeltaLakeSchema(
-          @NotNull TableSchema tableSchema, @NotNull ReadonlyConfig readonlyConfig
+  @NotNull
+  public static StructType toDeltaLakeSchema(
+          @NotNull TableSchema tableSchema
   ) {
     return toDeltaLakeType(tableSchema);
   }
