@@ -15,21 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.dag.actions;
+package org.apache.seatunnel.shade.com.typesafe.config.impl;
 
-import lombok.NonNull;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.HashSet;
+public class ConfigTest {
 
-public class ShuffleAction extends AbstractAction {
+    @Test
+    public void testWithOutPath() {
+        Path path = Path.newPath("replacements->\"\"");
+        Path remainder = path.remainder();
+        Assertions.assertEquals("", remainder.first());
 
-    public ShuffleAction(long id, @NonNull String name, @NonNull ShuffleConfig shuffleConfig) {
-        super(id, name, new ArrayList<>(), new HashSet<>(), new HashSet<>(), shuffleConfig);
-    }
-
-    @Override
-    public ShuffleConfig getConfig() {
-        return (ShuffleConfig) super.getConfig();
+        Path emptyPath = Path.newPath("\"\"");
+        Assertions.assertEquals("", emptyPath.first());
     }
 }

@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.neo4j.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public abstract class Neo4jCommonConfig {
+public abstract class Neo4jBaseOptions {
 
     public static final String PLUGIN_NAME = "Neo4j";
     public static final Long DEFAULT_MAX_TRANSACTION_RETRY_TIME = 30L;

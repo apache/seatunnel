@@ -34,11 +34,11 @@ public class QdrantParameters implements Serializable {
     private boolean useTls;
 
     public QdrantParameters(ReadonlyConfig config) {
-        this.host = config.get(QdrantConfig.HOST);
-        this.port = config.get(QdrantConfig.PORT);
-        this.apiKey = config.get(QdrantConfig.API_KEY);
-        this.collectionName = config.get(QdrantConfig.COLLECTION_NAME);
-        this.useTls = config.get(QdrantConfig.USE_TLS);
+        this.host = config.get(QdrantBaseOptions.HOST);
+        this.port = config.get(QdrantBaseOptions.PORT);
+        this.apiKey = config.get(QdrantBaseOptions.API_KEY);
+        this.collectionName = config.get(QdrantBaseOptions.COLLECTION_NAME);
+        this.useTls = config.get(QdrantBaseOptions.USE_TLS);
     }
 
     public QdrantClient buildQdrantClient() {
