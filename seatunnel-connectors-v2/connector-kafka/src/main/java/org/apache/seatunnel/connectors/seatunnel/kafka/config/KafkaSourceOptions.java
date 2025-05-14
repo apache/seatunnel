@@ -110,10 +110,10 @@ public class KafkaSourceOptions extends KafkaBaseOptions {
                                     + "When fail is selected, data format error will block and an exception will be thrown. "
                                     + "When skip is selected, data format error will skip this line data.");
 
-
     public static final Option<Long> START_MODE_END_TIMESTAMP =
             Options.key("start_mode.endTimestamp")
                     .longType()
                     .noDefaultValue()
-                    .withDescription("The time required for consumption mode to be timestamp.The endTimestamp configuration specifies the end timestamp of the messages and is only applicable in batch mode");
+                    .withDescription(
+                            "The time required for consumption mode to be timestamp.The endTimestamp configuration specifies the end timestamp of the messages and is only applicable in batch mode");
 }

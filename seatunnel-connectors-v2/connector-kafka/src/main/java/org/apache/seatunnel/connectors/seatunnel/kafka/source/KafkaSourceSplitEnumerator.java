@@ -183,11 +183,12 @@ public class KafkaSourceSplitEnumerator
                             listOffsets(
                                     topicPartitions,
                                     OffsetSpec.forTimestamp(metadata.getStartOffsetsTimestamp())));
-                    if (Objects.nonNull(metadata.getEndOffsetsTimestamp())){
+                    if (Objects.nonNull(metadata.getEndOffsetsTimestamp())) {
                         topicPartitionEndOffsets.putAll(
                                 listOffsets(
                                         topicPartitions,
-                                        OffsetSpec.forTimestamp(metadata.getEndOffsetsTimestamp())));
+                                        OffsetSpec.forTimestamp(
+                                                metadata.getEndOffsetsTimestamp())));
                     }
                     break;
                 case SPECIFIC_OFFSETS:

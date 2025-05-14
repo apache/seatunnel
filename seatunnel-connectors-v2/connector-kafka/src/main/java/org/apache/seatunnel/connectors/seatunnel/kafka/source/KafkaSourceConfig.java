@@ -189,7 +189,8 @@ public class KafkaSourceConfig implements Serializable {
                                     }
                                     consumerMetadata.setStartOffsetsTimestamp(
                                             startOffsetsTimestamp);
-                                    if (Objects.nonNull(readonlyConfig.get(START_MODE_END_TIMESTAMP))) {
+                                    if (Objects.nonNull(
+                                            readonlyConfig.get(START_MODE_END_TIMESTAMP))) {
                                         consumerMetadata.setEndOffsetsTimestamp(
                                                 readonlyConfig.get(START_MODE_END_TIMESTAMP));
                                     }
