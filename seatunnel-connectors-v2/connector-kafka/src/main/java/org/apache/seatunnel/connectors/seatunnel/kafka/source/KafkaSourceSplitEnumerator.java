@@ -205,12 +205,14 @@ public class KafkaSourceSplitEnumerator
                         pendingSplit.get(key).setStartOffset(value);
                     }
                 });
-        topicPartitionEndOffsets.forEach(
-                (key, value) -> {
-                    if (pendingSplit.containsKey(key)) {
-                        pendingSplit.get(key).setEndOffset(value);
-                    }
-                });
+        if (!isStreamingMode && !topicPartitionEndOffsets.isEmpty()) {
+            topicPartitionEndOffsets.forEach(
+                    (key, value) -> {
+                        if (pendingSplit.containsKey(key)) {
+                            pendingSplit.get(key).setEndOffset(value);
+                        }
+                    });
+        }
     }
 
     @Override

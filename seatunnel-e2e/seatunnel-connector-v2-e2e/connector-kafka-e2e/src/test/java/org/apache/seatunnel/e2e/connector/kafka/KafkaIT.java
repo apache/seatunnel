@@ -410,6 +410,14 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testSourceKafkaWithEndTimestamp(TestContainer container)
+            throws IOException, InterruptedException {
+        generateNativeTestDataWithEndTimestamp(
+                "test_topic_native_source_timestamp", 0, 100, 1738395840000L);
+        testKafkaWithEndTimestampToConsole(container);
+    }
+
+    @TestTemplate
     public void testSourceKafkaStartConfig(TestContainer container)
             throws IOException, InterruptedException {
         DefaultSeaTunnelRowSerializer serializer =
@@ -1084,6 +1092,13 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
+    public void testKafkaWithEndTimestampToConsole(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/kafka/kafkasource_endTimestamp_to_console.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
     private AdminClient createKafkaAdmin() {
         Properties props = new Properties();
         String bootstrapServers = kafkaContainer.getBootstrapServers();
@@ -1168,6 +1183,30 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             for (int i = start; i < end; i++) {
                 Integer partition = 0;
                 Long timestamp = System.currentTimeMillis();
+                byte[] key = ("native-key" + i).getBytes(StandardCharsets.UTF_8);
+                byte[] value = ("native-value" + i).getBytes(StandardCharsets.UTF_8);
+
+                Header header1 =
+                        new RecordHeader("header1", "value1".getBytes(StandardCharsets.UTF_8));
+                Header header2 =
+                        new RecordHeader("header2", "value2".getBytes(StandardCharsets.UTF_8));
+                List<Header> headers = Arrays.asList(header1, header2);
+                ProducerRecord<byte[], byte[]> record =
+                        new ProducerRecord<>(topic, partition, timestamp, key, value, headers);
+                producer.send(record).get();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        producer.flush();
+    }
+
+    private void generateNativeTestDataWithEndTimestamp(
+            String topic, int start, int end, Long startTimestamp) {
+        try {
+            for (int i = start; i < end; i++) {
+                Integer partition = 0;
+                Long timestamp = startTimestamp + i * 1000;
                 byte[] key = ("native-key" + i).getBytes(StandardCharsets.UTF_8);
                 byte[] value = ("native-value" + i).getBytes(StandardCharsets.UTF_8);
 
