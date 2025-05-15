@@ -191,8 +191,15 @@ public class KafkaSourceConfig implements Serializable {
                                             startOffsetsTimestamp);
                                     if (Objects.nonNull(
                                             readonlyConfig.get(START_MODE_END_TIMESTAMP))) {
+                                        long endOffsetsTimestamp =
+                                                readonlyConfig.get(START_MODE_END_TIMESTAMP);
+                                        if (endOffsetsTimestamp < 0
+                                                || endOffsetsTimestamp > currentTimestamp) {
+                                            throw new IllegalArgumentException(
+                                                    "start_mode.endTimestamp The value is smaller than 0 or smaller than the current time");
+                                        }
                                         consumerMetadata.setEndOffsetsTimestamp(
-                                                readonlyConfig.get(START_MODE_END_TIMESTAMP));
+                                                endOffsetsTimestamp);
                                     }
                                     break;
                                 case SPECIFIC_OFFSETS:
