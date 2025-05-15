@@ -103,6 +103,7 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String PG_TIMESTAMP = "timestamp";
     // timestamp with time zone <=> timestamptz
     public static final String PG_TIMESTAMP_TZ = "timestamptz";
+    public static final String PG_HSTORE = "hstore";
 
     public static final int MAX_PRECISION = 1000;
     public static final int DEFAULT_PRECISION = 38;
@@ -225,6 +226,7 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
             case PG_GEOMETRY:
             case PG_GEOGRAPHY:
             case PG_INET:
+            case PG_HSTORE:
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.sourceType(pgDataType);
                 break;

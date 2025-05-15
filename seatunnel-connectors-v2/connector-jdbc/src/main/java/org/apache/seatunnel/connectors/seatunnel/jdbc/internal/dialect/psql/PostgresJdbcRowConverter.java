@@ -31,7 +31,11 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.Abstrac
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
 
+import org.postgresql.util.HStoreConverter;
 import org.postgresql.util.PGobject;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import javax.annotation.Nullable;
 
@@ -47,6 +51,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_INET;
@@ -55,6 +60,8 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
 
     private static final String PG_GEOMETRY = "GEOMETRY";
     private static final String PG_GEOGRAPHY = "GEOGRAPHY";
+    private static final String PG_HSTORE = "HSTORE";
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Override
     public String converterName() {
@@ -78,6 +85,26 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                                 rs.getObject(resultSetIndex) == null
                                         ? null
                                         : rs.getObject(resultSetIndex).toString();
+                    } else if (metaDataColumnType.equals(PG_HSTORE)) {
+                        try {
+                            Object value = rs.getObject(resultSetIndex);
+                            if (value == null) {
+                                fields[fieldIndex] = null;
+                            } else if (value instanceof PGobject) {
+                                PGobject pgObject = (PGobject) value;
+                                fields[fieldIndex] =
+                                        OBJECT_MAPPER.writeValueAsString(
+                                                HStoreConverter.fromString(pgObject.getValue()));
+                            } else if (value instanceof Map) {
+                                Map map = (Map<String, String>) value;
+                                fields[fieldIndex] = OBJECT_MAPPER.writeValueAsString(map);
+                            } else {
+                                throw new SQLException(
+                                        "Unexpected HSTORE type: " + value.getClass().getName());
+                            }
+                        } catch (JsonProcessingException e) {
+                            throw new SQLException("Convert HSTORE to JSON failed", e);
+                        }
                     } else {
                         fields[fieldIndex] = JdbcFieldTypeUtils.getString(rs, resultSetIndex);
                     }
