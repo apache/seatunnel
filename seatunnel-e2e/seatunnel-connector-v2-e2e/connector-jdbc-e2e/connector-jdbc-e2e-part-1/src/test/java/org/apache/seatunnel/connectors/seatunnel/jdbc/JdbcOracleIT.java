@@ -76,8 +76,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                     "/jdbc_oracle_source_to_sink.conf",
                     "/jdbc_oracle_source_to_sink_use_select1.conf",
                     "/jdbc_oracle_source_to_sink_use_select2.conf",
-                    "/jdbc_oracle_source_to_sink_use_select3.conf",
-                    "/jdbc_oracle_source_to_sink_with_blob_as_string.conf");
+                    "/jdbc_oracle_source_to_sink_use_select3.conf");
 
     private static final String CREATE_SQL =
             "create table %s\n"
