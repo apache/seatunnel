@@ -56,11 +56,6 @@ public final class JdbcFieldTypeUtils {
     }
 
     public static String getString(ResultSet resultSet, int columnIndex) throws SQLException {
-        return resultSet.getString(columnIndex);
-    }
-
-    public static String getString(ResultSet resultSet, int columnIndex, boolean handleBlobAsString)
-            throws SQLException {
         Object obj = resultSet.getObject(columnIndex);
         if (obj == null) {
             return null;
@@ -68,17 +63,12 @@ public final class JdbcFieldTypeUtils {
 
         // Add special handling for the BLOB data type.
         if (obj instanceof java.sql.Blob) {
-            if (handleBlobAsString) {
-                java.sql.Blob blob = (java.sql.Blob) obj;
-                try {
-                    byte[] bytes = blob.getBytes(1, (int) blob.length());
-                    return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
-                } finally {
-                    blob.free();
-                }
-            } else {
-                throw new SQLException(
-                        "BLOB handling as string is disabled by configuration. Please enable handle_blob_as_string to allow this conversion.");
+            java.sql.Blob blob = (java.sql.Blob) obj;
+            try {
+                byte[] bytes = blob.getBytes(1, (int) blob.length());
+                return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+            } finally {
+                blob.free();
             }
         }
         return resultSet.getString(columnIndex);

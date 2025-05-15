@@ -32,10 +32,6 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.or
 
 public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
 
-    public OracleJdbcRowConverter(boolean handleBlobAsString) {
-        super(handleBlobAsString);
-    }
-
     @Override
     public String converterName() {
         return DatabaseIdentifier.ORACLE;

@@ -64,17 +64,9 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
     protected static final LocalDate[] TYPE_ARRAY_LOCAL_DATE = new LocalDate[0];
     protected static final LocalDateTime[] TYPE_ARRAY_LOCAL_DATETIME = new LocalDateTime[0];
 
-    protected final boolean handleBlobAsString;
-
-    public AbstractJdbcRowConverter() {
-        this(false);
-    }
-
-    public AbstractJdbcRowConverter(boolean handleBlobAsString) {
-        this.handleBlobAsString = handleBlobAsString;
-    }
-
     public abstract String converterName();
+
+    public AbstractJdbcRowConverter() {}
 
     @Override
     public SeaTunnelRow toInternal(ResultSet rs, TableSchema tableSchema) throws SQLException {
@@ -86,8 +78,7 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
             int resultSetIndex = fieldIndex + 1;
             switch (seaTunnelDataType.getSqlType()) {
                 case STRING:
-                    fields[fieldIndex] =
-                            JdbcFieldTypeUtils.getString(rs, resultSetIndex, handleBlobAsString);
+                    fields[fieldIndex] = JdbcFieldTypeUtils.getString(rs, resultSetIndex);
                     break;
                 case BOOLEAN:
                     fields[fieldIndex] = JdbcFieldTypeUtils.getBoolean(rs, resultSetIndex);

@@ -267,7 +267,6 @@ public class JdbcConnectionConfig implements Serializable {
             jdbcConnectionConfig.dialect = this.dialect;
             jdbcConnectionConfig.properties =
                     this.properties == null ? new HashMap<>() : this.properties;
-            jdbcConnectionConfig.setHandleBlobAsString(this.handleBlobAsString);
             return jdbcConnectionConfig;
         }
     }
