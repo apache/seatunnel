@@ -76,7 +76,7 @@ public class OracleDialect implements JdbcDialect {
 
     @Override
     public JdbcRowConverter getRowConverter() {
-        return new OracleJdbcRowConverter();
+        return new OracleJdbcRowConverter(this.handleBlobAsString);
     }
 
     @Override
