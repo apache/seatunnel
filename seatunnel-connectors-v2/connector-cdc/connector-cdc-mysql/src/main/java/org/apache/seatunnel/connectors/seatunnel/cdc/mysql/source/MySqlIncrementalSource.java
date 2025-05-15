@@ -136,9 +136,7 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
         return super.getStartupConfig(config);
     }
 
-    /**
-     * Check if the specified timestamp is in the future and log accordingly.
-     */
+    /** Check if the specified timestamp is in the future and log accordingly. */
     private void checkAndLogFutureTimestamp(long timestamp, String sourceParameter) {
         long currentTime = System.currentTimeMillis();
         if (timestamp > currentTime) {
@@ -168,9 +166,7 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
         }
     }
 
-    /**
-     * Format the timestamp to a readable string.
-     */
+    /** Format the timestamp to a readable string. */
     private String formatTimestamp(long timestamp) {
         return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(timestamp));
     }

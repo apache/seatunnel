@@ -117,7 +117,8 @@ public class MySqlBinlogSplitReader implements FetchTask<SourceSplitBase> {
         BinlogSplitChangeEventSourceContext changeEventSourceContext =
                 new BinlogSplitChangeEventSourceContext();
 
-        // Register a connection callback, close the idle JDBC connection after the connection is established to save resources
+        // Register a connection callback, close the idle JDBC connection after the connection is
+        // established to save resources
         sourceFetchContext
                 .getBinaryLogClient()
                 .registerLifecycleListener(
@@ -168,18 +169,14 @@ public class MySqlBinlogSplitReader implements FetchTask<SourceSplitBase> {
         return split;
     }
 
-    /**
-     * Format the timestamp to a human-readable date-time string.
-     */
+    /** Format the timestamp to a human-readable date-time string. */
     private String formatTimestamp(long timestamp) {
         LocalDateTime dateTime =
                 LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneId.systemDefault());
         return dateTime.format(DATE_TIME_FORMATTER);
     }
 
-    /**
-     * Inner context for passing running status.
-     */
+    /** Inner context for passing running status. */
     private class BinlogSplitChangeEventSourceContext
             implements ChangeEventSource.ChangeEventSourceContext {
         @Override
@@ -189,7 +186,8 @@ public class MySqlBinlogSplitReader implements FetchTask<SourceSplitBase> {
     }
 
     /**
-     * Extended MySQL streaming change event source that supports filtering events based on timestamp.
+     * Extended MySQL streaming change event source that supports filtering events based on
+     * timestamp.
      */
     private class TimestampFilteringMySqlStreamingChangeEventSource
             extends MySqlStreamingChangeEventSource {
@@ -291,9 +289,7 @@ public class MySqlBinlogSplitReader implements FetchTask<SourceSplitBase> {
             super.handleEvent(partition, offsetContext, event);
         }
 
-        /**
-         * Update the offset position information without processing the event content.
-         */
+        /** Update the offset position information without processing the event content. */
         private void updateOffsetPosition(
                 MySqlOffsetContext offsetContext, EventHeader eventHeader) {
             try {

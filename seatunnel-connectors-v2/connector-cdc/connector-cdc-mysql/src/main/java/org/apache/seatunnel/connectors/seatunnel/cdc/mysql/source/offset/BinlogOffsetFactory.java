@@ -115,7 +115,8 @@ public class BinlogOffsetFactory extends OffsetFactory {
                         "Requested start time {} is in the future (current time: {}). Creating a future timestamp offset.",
                         formatTimestamp(timestamp),
                         formatTimestamp(currentTimestamp));
-                // Create a special offset with a future timestamp marker instead of simply returning the latest position
+                // Create a special offset with a future timestamp marker instead of simply
+                // returning the latest position
                 return createFutureTimestampOffset(latestOffset, timestamp);
             }
 
@@ -218,7 +219,8 @@ public class BinlogOffsetFactory extends OffsetFactory {
             }
         }
 
-        // If all attempts fail, return a conservative estimate time (default assumption is binlog retention time of 1 day)
+        // If all attempts fail, return a conservative estimate time (default assumption is binlog
+        // retention time of 1 day)
         long defaultBinlogRetentionHours = 24;
         long estimatedTime =
                 System.currentTimeMillis() - (defaultBinlogRetentionHours * 3600 * 1000);
@@ -283,7 +285,8 @@ public class BinlogOffsetFactory extends OffsetFactory {
 
             // If the exact position is not found, determine the starting binlog file for reading
             if (timestampMapper.isTargetTimeInFuture()) {
-                // The target timestamp is after the latest binlog event, return the latest position and wait for future events
+                // The target timestamp is after the latest binlog event, return the latest position
+                // and wait for future events
                 BinlogOffset latestOffset = (BinlogOffset) latest();
                 log.info(
                         "Target timestamp {} is after the latest binlog event. Using latest position {} and waiting for future events.",
@@ -343,7 +346,8 @@ public class BinlogOffsetFactory extends OffsetFactory {
                 // Set the statement timeout to avoid timeout for large files
                 statement.setQueryTimeout(60); // 60-second timeout
 
-                // Query the first event in the binlog file with a timestamp greater than or equal to the target timestamp
+                // Query the first event in the binlog file with a timestamp greater than or equal
+                // to the target timestamp
                 String query =
                         String.format(
                                 "SHOW BINLOG EVENTS IN '%s' WHERE UNIX_TIMESTAMP(TIMESTAMP) >= UNIX_TIMESTAMP('%s') ORDER BY Position ASC LIMIT 1",
@@ -368,7 +372,8 @@ public class BinlogOffsetFactory extends OffsetFactory {
                                 binlogInfo.filename);
                     }
                 } catch (SQLException e) {
-                    // MySQL 5.6 and earlier versions may not support direct timestamp comparison in the WHERE clause
+                    // MySQL 5.6 and earlier versions may not support direct timestamp comparison in
+                    // the WHERE clause
                     // Use an alternative approach to query
                     log.warn(
                             "Failed to query binlog events with timestamp comparison. Trying manual approach: {}",
@@ -388,7 +393,8 @@ public class BinlogOffsetFactory extends OffsetFactory {
         }
 
         // If no matching events are found in all files, use the latest binlog position
-        // This means the specified timestamp is after the latest binlog, and we need to wait for new data to be produced
+        // This means the specified timestamp is after the latest binlog, and we need to wait for
+        // new data to be produced
         try (JdbcConnection jdbcConnection = dialect.openJdbcConnection(sourceConfig)) {
             BinlogOffset latestOffset = (BinlogOffset) latest();
             log.info(
@@ -447,9 +453,11 @@ public class BinlogOffsetFactory extends OffsetFactory {
             }
         }
 
-        // If no matching events are found in this file, return the starting position of the next binlog file (if any)
+        // If no matching events are found in this file, return the starting position of the next
+        // binlog file (if any)
         log.debug("No matching events found in {}", binlogInfo.filename);
-        return new BinlogOffset(binlogInfo.filename, 4L); // 4 is the initial position after the binlog header
+        return new BinlogOffset(
+                binlogInfo.filename, 4L); // 4 is the initial position after the binlog header
     }
 
     private String formatTimestampForMysql(long timestamp) {
@@ -460,7 +468,8 @@ public class BinlogOffsetFactory extends OffsetFactory {
             Connection connection, List<BinlogInfo> binlogInfoList, long targetTimestamp) {
         BinlogTimestampMapper mapper = new BinlogTimestampMapper(targetTimestamp);
 
-        // 1. Get the creation and modification times of the binlog files from information_schema.files
+        // 1. Get the creation and modification times of the binlog files from
+        // information_schema.files
         Map<String, BinlogTimestampInfo> binlogTimestamps =
                 getBinlogTimestamps(connection, binlogInfoList);
 
@@ -482,7 +491,8 @@ public class BinlogOffsetFactory extends OffsetFactory {
                 if (timestampInfo.hasTimestampRange()) {
                     if (targetTimestamp >= timestampInfo.firstEventTime
                             && targetTimestamp <= timestampInfo.lastEventTime) {
-                        // The target timestamp is within the time range of this binlog file, find the exact position
+                        // The target timestamp is within the time range of this binlog file, find
+                        // the exact position
                         BinlogOffset position =
                                 findExactPositionInFile(
                                         connection, binlogInfo.filename, targetTimestamp);
@@ -491,15 +501,18 @@ public class BinlogOffsetFactory extends OffsetFactory {
                             return mapper;
                         }
                     } else if (targetTimestamp < timestampInfo.firstEventTime) {
-                        // The target timestamp is earlier than the first event in this binlog file, start reading from this file
+                        // The target timestamp is earlier than the first event in this binlog file,
+                        // start reading from this file
                         mapper.setEstimatedPosition(new BinlogOffset(binlogInfo.filename, 4L));
                         return mapper;
                     }
-                    // If the target timestamp is later than the last event in this binlog file, continue checking the next file
+                    // If the target timestamp is later than the last event in this binlog file,
+                    // continue checking the next file
                 }
             }
 
-            // If no suitable file is found after traversing all files, the target timestamp is after the latest binlog
+            // If no suitable file is found after traversing all files, the target timestamp is
+            // after the latest binlog
             BinlogInfo lastBinlog = binlogInfoList.get(binlogInfoList.size() - 1);
             BinlogTimestampInfo lastTimestampInfo = binlogTimestamps.get(lastBinlog.filename);
 
@@ -526,7 +539,8 @@ public class BinlogOffsetFactory extends OffsetFactory {
         String timestampStr = formatTimestampForMysql(targetTimestamp);
 
         try (Statement statement = connection.createStatement()) {
-            // Analyze all events in this binlog file to find the first event with a timestamp greater than or equal to the target timestamp
+            // Analyze all events in this binlog file to find the first event with a timestamp
+            // greater than or equal to the target timestamp
             String query = String.format("SHOW BINLOG EVENTS IN '%s'", binlogFilename);
             try (ResultSet rs = statement.executeQuery(query)) {
                 while (rs.next()) {
@@ -696,7 +710,9 @@ public class BinlogOffsetFactory extends OffsetFactory {
                     } else if (before != null) {
                         // Only before information available
                         estimatedFirstTime = before.lastEventTime + 1;
-                        estimatedLastTime = System.currentTimeMillis(); // Conservative estimate using current time
+                        estimatedLastTime =
+                                System.currentTimeMillis(); // Conservative estimate using current
+                        // time
                     } else if (after != null) {
                         // Only after information available
                         estimatedLastTime = after.firstEventTime - 1;
