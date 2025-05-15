@@ -29,7 +29,6 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.transform.exception.SqlTransformException;
 import org.apache.seatunnel.transform.exception.TransformException;
 
 import org.junit.jupiter.api.Assertions;
@@ -464,14 +463,14 @@ public class SQLTransformTest {
         ReadonlyConfig config = ReadonlyConfig.fromMap(Collections.singletonMap("query", sqlQuery));
         SQLTransform sqlTransform = new SQLTransform(config, table);
         Assertions.assertThrows(
-                SqlTransformException.class,
+                TransformException.class,
                 () -> {
                     try {
                         sqlTransform.transformRow(
                                 new SeaTunnelRow(new Object[] {1, 123.123, "true"}));
                     } catch (Exception e) {
                         Assertions.assertEquals(
-                                "ErrorCode:[SQL_TRANSFORM_ERROR_CODE-01], ErrorDescription:[Zeta sql compute for value error] - Failed to execute sql expression,the error expression is CAST(`FIELD3` AS decimal (22, 0))",
+                                "ErrorCode:[TRANSFORM_COMMON-06], ErrorDescription:[The expression 'CAST(`FIELD3` AS decimal (22, 0))' of 'Sql' transform execute failed]",
                                 e.getMessage());
                         throw e;
                     }

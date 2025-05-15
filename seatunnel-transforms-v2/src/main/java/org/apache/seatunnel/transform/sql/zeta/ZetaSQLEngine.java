@@ -23,10 +23,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.transform.exception.SqlTransformErrorCode;
-import org.apache.seatunnel.transform.exception.SqlTransformException;
+import org.apache.seatunnel.transform.exception.TransformCommonError;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.SQLEngine;
+import org.apache.seatunnel.transform.sql.SQLTransform;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -289,12 +289,8 @@ public class ZetaSQLEngine implements SQLEngine {
                     if (e instanceof TransformException) {
                         throw e;
                     } else {
-                        throw new SqlTransformException(
-                                SqlTransformErrorCode.COMPUTEFORVALUE_ERROR,
-                                String.format(
-                                        "Failed to execute sql expression,the error expression is %s",
-                                        expression),
-                                e);
+                        throw TransformCommonError.sqlTransformError(
+                                SQLTransform.PLUGIN_NAME, expression.toString());
                     }
                 }
             }

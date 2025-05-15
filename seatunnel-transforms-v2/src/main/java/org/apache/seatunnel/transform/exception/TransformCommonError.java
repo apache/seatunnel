@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.EXPRESSION_EXECUTE_ERROR;
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.INPUT_FIELDS_NOT_FOUND;
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.INPUT_FIELD_NOT_FOUND;
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.INPUT_TABLE_NOT_FOUND;
@@ -66,5 +67,12 @@ public class TransformCommonError {
         params.put("table", table);
         params.put("transform", transform);
         return new TransformException(INPUT_TABLE_NOT_FOUND, params);
+    }
+
+    public static TransformException sqlTransformError(String transform, String expression) {
+        Map<String, String> params = new HashMap<>();
+        params.put("expression", expression);
+        params.put("transform", transform);
+        return new TransformException(EXPRESSION_EXECUTE_ERROR, params);
     }
 }
