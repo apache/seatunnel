@@ -74,15 +74,6 @@ public class PrometheusSourceParameter extends HttpParameter {
             ZonedDateTime now = ZonedDateTime.now();
             return now.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
         }
-        if (!time.endsWith("Z")) {
-            try {
-                Double.parseDouble(time);
-                return time;
-            } catch (NumberFormatException e) {
-                throw new PrometheusConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE, "unsupported time type");
-            }
-        }
         if (isValidISO8601(time)) {
             return time;
         }
@@ -91,6 +82,15 @@ public class PrometheusSourceParameter extends HttpParameter {
     }
 
     private boolean isValidISO8601(String dateTimeString) {
+        if (!dateTimeString.endsWith("Z")) {
+            try {
+                Double.parseDouble(dateTimeString);
+                return true;
+            } catch (NumberFormatException e) {
+                throw new PrometheusConnectorException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE, "unsupported time type");
+            }
+        }
         try {
             Instant.parse(dateTimeString);
             return true;
