@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.sls.config.SlsSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.sls.serialization.SeatunnelRowSerialization;
 import org.apache.seatunnel.connectors.seatunnel.sls.state.SlsCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.sls.state.SlsSinkState;
@@ -34,15 +35,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
-import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.ACCESS_KEY_ID;
-import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.ACCESS_KEY_SECRET;
-import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.ENDPOINT;
-import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.LOGSTORE;
-import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.LOG_GROUP_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.PROJECT;
-import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.SOURCE;
-import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.TOPIC;
 
 @Slf4j
 public class SlsSinkWriter implements SinkWriter<SeaTunnelRow, SlsCommitInfo, SlsSinkState> {
@@ -65,14 +57,14 @@ public class SlsSinkWriter implements SinkWriter<SeaTunnelRow, SlsCommitInfo, Sl
 
         this.client =
                 new Client(
-                        pluginConfig.get(ENDPOINT),
-                        pluginConfig.get(ACCESS_KEY_ID),
-                        pluginConfig.get(ACCESS_KEY_SECRET));
-        this.project = pluginConfig.get(PROJECT);
-        this.logStore = pluginConfig.get(LOGSTORE);
-        this.topic = pluginConfig.get(TOPIC);
-        this.source = pluginConfig.get(SOURCE);
-        this.logGroupSize = pluginConfig.get(LOG_GROUP_SIZE);
+                        pluginConfig.get(SlsSinkOptions.ENDPOINT),
+                        pluginConfig.get(SlsSinkOptions.ACCESS_KEY_ID),
+                        pluginConfig.get(SlsSinkOptions.ACCESS_KEY_SECRET));
+        this.project = pluginConfig.get(SlsSinkOptions.PROJECT);
+        this.logStore = pluginConfig.get(SlsSinkOptions.LOGSTORE);
+        this.topic = pluginConfig.get(SlsSinkOptions.TOPIC);
+        this.source = pluginConfig.get(SlsSinkOptions.SOURCE);
+        this.logGroupSize = pluginConfig.get(SlsSinkOptions.LOG_GROUP_SIZE);
         this.context = context;
         this.slsStates = slsStates;
         this.seatunnelRowSerialization = new SeatunnelRowSerialization(seaTunnelRowType);

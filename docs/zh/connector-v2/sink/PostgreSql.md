@@ -106,8 +106,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 表参数可以填写一个不想的表的名称，最终将作为创建表的表名，并支持变量（`${table_name}`，`${schema_name}`）。替换规则：`${schema_name}` 将替换为传递给目标端的 SCHEMA 名称，`${table_name}` 将替换为传递给目标端的表名称。
 
 例如：
-1. `${schema_name}.${table_name} _test`
-2. `dbo.tt_${table_name} _sink`
+1. `${schema_name}.${table_name}_test`
+2. `dbo.tt_${table_name}_sink`
 3. `public.sink_table`
 
 ### schema_save_mode [枚举]

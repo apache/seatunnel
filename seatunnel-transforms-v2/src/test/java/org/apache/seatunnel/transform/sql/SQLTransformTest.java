@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.transform.exception.TransformException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -314,5 +315,130 @@ public class SQLTransformTest {
         Assertions.assertEquals(1, result.get(0).getField(0));
         Assertions.assertEquals(false, result.get(0).getField(1));
         Assertions.assertEquals(2, result.get(0).getField(2));
+    }
+
+    @Test
+    public void tesCaseWhenBooleanClausesWithField() {
+        String tableName = "test";
+        String[] fields = new String[] {"id", "int", "string"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {
+                                    BasicType.INT_TYPE, BasicType.INT_TYPE, BasicType.STRING_TYPE
+                                }));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select `id`, `int`, (case when `int` = 1 then true else false end) as bool_1 , `string`, (case when `string` = 'true' then true else false end) as bool_2 from dual"));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        List<SeaTunnelRow> result =
+                sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, 1, "true"}));
+
+        Assertions.assertEquals(1, result.get(0).getField(0));
+        Assertions.assertEquals(1, result.get(0).getField(1));
+        Assertions.assertEquals(true, result.get(0).getField(2));
+        Assertions.assertEquals("true", result.get(0).getField(3));
+        Assertions.assertEquals(true, result.get(0).getField(4));
+
+        result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, 0, "false"}));
+        Assertions.assertEquals(1, result.get(0).getField(0));
+        Assertions.assertEquals(0, result.get(0).getField(1));
+        Assertions.assertEquals(false, result.get(0).getField(2));
+        Assertions.assertEquals("false", result.get(0).getField(3));
+        Assertions.assertEquals(false, result.get(0).getField(4));
+    }
+
+    @Test
+    public void tesCastBooleanClausesWithField() {
+        String tableName = "test";
+        String[] fields = new String[] {"id", "int", "string"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {
+                                    BasicType.INT_TYPE, BasicType.INT_TYPE, BasicType.STRING_TYPE
+                                }));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select `id`, `int`, cast(`int` as boolean) as bool_1 , `string`, cast(`string` as boolean) as bool_2 from dual"));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        List<SeaTunnelRow> result =
+                sqlTransform.transformRow(
+                        new SeaTunnelRow(new Object[] {Integer.valueOf(1), 1, "true"}));
+
+        Assertions.assertEquals(1, result.get(0).getField(0));
+        Assertions.assertEquals(1, result.get(0).getField(1));
+        Assertions.assertEquals(true, result.get(0).getField(2));
+        Assertions.assertEquals("true", result.get(0).getField(3));
+        Assertions.assertEquals(true, result.get(0).getField(4));
+
+        result =
+                sqlTransform.transformRow(
+                        new SeaTunnelRow(new Object[] {Integer.valueOf(1), 0, "false"}));
+        Assertions.assertEquals(1, result.get(0).getField(0));
+        Assertions.assertEquals(0, result.get(0).getField(1));
+        Assertions.assertEquals(false, result.get(0).getField(2));
+        Assertions.assertEquals("false", result.get(0).getField(3));
+        Assertions.assertEquals(false, result.get(0).getField(4));
+
+        Assertions.assertThrows(
+                TransformException.class,
+                () -> {
+                    try {
+                        sqlTransform.transformRow(
+                                new SeaTunnelRow(new Object[] {Integer.valueOf(1), 3, "false"}));
+                    } catch (Exception e) {
+                        Assertions.assertEquals(
+                                "ErrorCode:[COMMON-05], ErrorDescription:[Unsupported operation] - Unsupported CAST AS Boolean: 3",
+                                e.getMessage());
+                        throw e;
+                    }
+                });
+
+        Assertions.assertThrows(
+                TransformException.class,
+                () -> {
+                    try {
+                        sqlTransform.transformRow(
+                                new SeaTunnelRow(new Object[] {Integer.valueOf(1), 0, "false333"}));
+                    } catch (Exception e) {
+                        Assertions.assertEquals(
+                                "ErrorCode:[COMMON-05], ErrorDescription:[Unsupported operation] - Unsupported CAST AS Boolean: false333",
+                                e.getMessage());
+                        throw e;
+                    }
+                });
+    }
+
+    @Test
+    public void tesBooleanField() {
+        String tableName = "test";
+        String[] fields = new String[] {"id", "int", "string"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {
+                                    BasicType.INT_TYPE, BasicType.INT_TYPE, BasicType.STRING_TYPE
+                                }));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query", "select `id`, true as bool_1, false as bool_2 from dual"));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        List<SeaTunnelRow> result =
+                sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, 1, "true"}));
+        Assertions.assertEquals(1, result.get(0).getField(0));
+        Assertions.assertEquals(true, result.get(0).getField(1));
+        Assertions.assertEquals(false, result.get(0).getField(2));
     }
 }

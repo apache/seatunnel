@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
+import org.apache.seatunnel.api.options.table.TableIdentifierOptions;
+import org.apache.seatunnel.api.options.table.TableSchemaOptions;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -150,7 +152,9 @@ public class KafkaSourceConfig implements Serializable {
         return consumerMetadataList.stream()
                 .collect(
                         Collectors.toMap(
-                                consumerMetadata -> TablePath.of(null, consumerMetadata.getTopic()),
+                                consumerMetadata ->
+                                        getTablePathFromSchema(
+                                                readonlyConfig, consumerMetadata.getTopic()),
                                 consumerMetadata -> consumerMetadata));
     }
 
@@ -221,7 +225,7 @@ public class KafkaSourceConfig implements Serializable {
     private CatalogTable createCatalogTable(ReadonlyConfig readonlyConfig) {
         Optional<Map<String, Object>> schemaOptions =
                 readonlyConfig.getOptional(KafkaSourceOptions.SCHEMA);
-        TablePath tablePath = TablePath.of(null, readonlyConfig.get(TOPIC));
+
         TableSchema tableSchema;
         MessageFormat format = readonlyConfig.get(FORMAT);
 
@@ -237,6 +241,8 @@ public class KafkaSourceConfig implements Serializable {
                                             "content", BasicType.STRING_TYPE, 0, false, null, null))
                             .build();
         }
+        TablePath tablePath = getTablePathFromSchema(readonlyConfig, readonlyConfig.get(TOPIC));
+
         return CatalogTable.of(
                 TableIdentifier.of("", tablePath),
                 tableSchema,
@@ -251,6 +257,18 @@ public class KafkaSourceConfig implements Serializable {
                 },
                 Collections.emptyList(),
                 null);
+    }
+
+    private TablePath getTablePathFromSchema(ReadonlyConfig readonlyConfig, String topicName) {
+        ReadonlyConfig schema =
+                readonlyConfig
+                        .getOptional(TableSchemaOptions.SCHEMA)
+                        .map(ReadonlyConfig::fromMap)
+                        .orElse(ReadonlyConfig.fromMap(Collections.emptyMap()));
+
+        return schema.getOptional(TableIdentifierOptions.TABLE)
+                .map(TablePath::of)
+                .orElseGet(() -> TablePath.of(null, topicName));
     }
 
     private DeserializationSchema<SeaTunnelRow> createDeserializationSchema(

@@ -57,6 +57,8 @@ public class OssFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .required(OssFileSinkOptions.ACCESS_KEY)
                 .required(OssFileSinkOptions.ACCESS_SECRET)
                 .required(OssFileSinkOptions.ENDPOINT)
+                .optional(FileBaseSinkOptions.SCHEMA_SAVE_MODE)
+                .optional(FileBaseSinkOptions.DATA_SAVE_MODE)
                 .optional(FileBaseSinkOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         FileBaseSinkOptions.FILE_FORMAT_TYPE,

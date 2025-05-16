@@ -18,6 +18,7 @@
 
 package org.apache.seatunnel.format.json;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonGenerator;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -64,6 +65,10 @@ public class JsonSerializationSchema implements SerializationSchema {
         this.runtimeConverter =
                 new RowToJsonConverters().createConverter(checkNotNull(rowType), nullValue);
         this.charset = StandardCharsets.UTF_8;
+    }
+
+    {
+        mapper.configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
     }
 
     @Override

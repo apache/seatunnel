@@ -191,15 +191,21 @@ public class SqlServerCreateTableSqlBuilder {
         return String.join(", \n", columnSqls);
     }
 
-    private String buildColumnIdentifySql(
+    String buildColumnIdentifySql(
             Column column, String catalogName, Map<String, String> columnComments) {
         final List<String> columnSqls = new ArrayList<>();
         columnSqls.add("[" + column.getName() + "]");
-        if (StringUtils.equals(catalogName, DatabaseIdentifier.SQLSERVER)) {
-            columnSqls.add(column.getSourceType());
+
+        String columnType;
+        if (column.getSinkType() != null) {
+            columnType = column.getSinkType();
+        } else if (StringUtils.equals(catalogName, DatabaseIdentifier.SQLSERVER)
+                && StringUtils.isNotBlank(column.getSourceType())) {
+            columnType = column.getSourceType();
         } else {
-            columnSqls.add(SqlServerTypeConverter.INSTANCE.reconvert(column).getColumnType());
+            columnType = SqlServerTypeConverter.INSTANCE.reconvert(column).getColumnType();
         }
+        columnSqls.add(columnType);
 
         // nullable
         boolean isPrimaryKeyColumn =

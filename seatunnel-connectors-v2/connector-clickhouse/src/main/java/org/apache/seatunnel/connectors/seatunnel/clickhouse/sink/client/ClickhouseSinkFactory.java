@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -75,7 +76,8 @@ public class ClickhouseSinkFactory implements TableSinkFactory {
                         SCHEMA_SAVE_MODE,
                         DATA_SAVE_MODE,
                         CUSTOM_SQL,
-                        SAVE_MODE_CREATE_TEMPLATE)
+                        SAVE_MODE_CREATE_TEMPLATE,
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
 }

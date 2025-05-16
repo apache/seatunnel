@@ -25,6 +25,7 @@ import java.util.Map;
 
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.INPUT_FIELDS_NOT_FOUND;
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.INPUT_FIELD_NOT_FOUND;
+import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.INPUT_TABLE_NOT_FOUND;
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.METADATA_FIELDS_NOT_FOUND;
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.METADATA_MAPPING_FIELD_EXISTS;
 
@@ -58,5 +59,12 @@ public class TransformCommonError {
         params.put("field", field);
         params.put("transform", transform);
         return new TransformException(METADATA_MAPPING_FIELD_EXISTS, params);
+    }
+
+    public static TransformException cannotFindInputTableError(String transform, String table) {
+        Map<String, String> params = new HashMap<>();
+        params.put("table", table);
+        params.put("transform", transform);
+        return new TransformException(INPUT_TABLE_NOT_FOUND, params);
     }
 }

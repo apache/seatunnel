@@ -87,14 +87,20 @@ public class XuguCreateTableSqlBuilder {
         return createTableSql.toString();
     }
 
-    private String buildColumnSql(Column column) {
+    String buildColumnSql(Column column) {
         StringBuilder columnSql = new StringBuilder();
         columnSql.append("\"").append(column.getName()).append("\" ");
 
-        String columnType =
-                StringUtils.equalsIgnoreCase(DatabaseIdentifier.XUGU, sourceCatalogName)
-                        ? column.getSourceType()
-                        : XuguTypeConverter.INSTANCE.reconvert(column).getColumnType();
+        String columnType;
+        if (column.getSinkType() != null) {
+            columnType = column.getSinkType();
+        } else if (StringUtils.equalsIgnoreCase(DatabaseIdentifier.XUGU, sourceCatalogName)
+                && StringUtils.isNotBlank(column.getSourceType())) {
+            columnType = column.getSourceType();
+        } else {
+            columnType = XuguTypeConverter.INSTANCE.reconvert(column).getColumnType();
+        }
+
         columnSql.append(columnType);
 
         if (!column.isNullable()) {

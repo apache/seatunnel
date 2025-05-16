@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -317,5 +318,11 @@ public class SerialVersionUIDCheckerTest {
         public void testFailed(ExtensionContext context, Throwable cause) {
             LOG.error("Test failed: {}", context.getDisplayName(), cause);
         }
+    }
+
+    @AfterAll
+    public static void cleanup() {
+        checkedClasses.clear();
+        classDeclarationMap.clear();
     }
 }
