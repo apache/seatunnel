@@ -368,24 +368,6 @@ sink {
         }
     }
 }
-
-# If you want to convert all table and column names to lowercase
-sink {
-    Doris {
-        fenodes = "e2e_dorisdb:8030"
-        username = root
-        password = ""
-        database = "Test_DB"  # Will be converted to "test_db"
-        table = "Test_Table"  # Will be converted to "test_table"
-        case_sensitive = false # Convert all names to lowercase
-        sink.enable-2pc = "true"
-        sink.label-prefix = "test_case_insensitive"
-        doris.config = {
-          format = "json"
-          read_json_by_line = "true"
-        }
-    }
-}
 ```
 
 ### Multiple table

@@ -366,24 +366,6 @@ sink {
         }
     }
 }
-
-# 如果您想将所有表名和列名转换为小写
-sink {
-    Doris {
-        fenodes = "e2e_dorisdb:8030"
-        username = root
-        password = ""
-        database = "Test_DB"  # 将被转换为 "test_db"
-        table = "Test_Table"  # 将被转换为 "test_table"
-        case_sensitive = false # 将所有名称转换为小写
-        sink.enable-2pc = "true"
-        sink.label-prefix = "test_case_insensitive"
-        doris.config = {
-          format = "json"
-          read_json_by_line = "true"
-        }
-    }
-}
 ```
 
 ## 变更日志
