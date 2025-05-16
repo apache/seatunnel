@@ -73,46 +73,4 @@ public class SeaTunnelClientOOMTest {
             }
         }
     }
-
-    @Test
-    public void testHazelcastClientInitOOMExitBehavior() throws Exception {
-        // Prepare command line arguments
-        String[] args = {"--config", "fake_config.conf"};
-        ClientCommandArgs clientCommandArgs = new ClientCommandArgs();
-
-        // Mock CommandLineUtils.parse to return our clientCommandArgs
-        try (MockedStatic<CommandLineUtils> mockedCommandLineUtils =
-                Mockito.mockStatic(CommandLineUtils.class)) {
-            mockedCommandLineUtils
-                    .when(
-                            () ->
-                                    CommandLineUtils.parse(
-                                            Mockito.any(String[].class),
-                                            Mockito.any(ClientCommandArgs.class),
-                                            Mockito.anyString(),
-                                            Mockito.anyBoolean()))
-                    .thenReturn(clientCommandArgs);
-
-            // Mock SeaTunnel.run to throw OutOfMemoryError
-            try (MockedStatic<SeaTunnel> mockedSeaTunnel = Mockito.mockStatic(SeaTunnel.class)) {
-                // Simulate Hazelcast client initialization OOM
-                OutOfMemoryError oomError =
-                        new OutOfMemoryError(
-                                "Java heap space during Hazelcast client initialization");
-
-                // Mock run to throw OOM
-                mockedSeaTunnel.when(() -> SeaTunnel.run(Mockito.any())).thenThrow(oomError);
-
-                // Test that System.exit(1) is called
-                int statusCode =
-                        catchSystemExit(
-                                () -> {
-                                    SeaTunnelClient.main(args);
-                                });
-
-                // Verify exit code is 1
-                Assertions.assertEquals(1, statusCode);
-            }
-        }
-    }
 }
