@@ -35,9 +35,7 @@ import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.source.IndexDocs
 import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.source.ScrollResult;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
@@ -147,10 +145,6 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
         easysearchClient.bulk(requestBody.toString());
     }
 
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "Test only one engine for first change")
     @TestTemplate
     public void testEasysearch(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult =
@@ -161,10 +155,6 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
         Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
     }
 
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "Test only one engine for first change")
     @TestTemplate
     public void testEasysearchWithSaveMode(TestContainer container)
             throws IOException, InterruptedException {

@@ -79,36 +79,28 @@ public class EasysearchSink
 
     @Override
     public Optional<SaveModeHandler> getSaveModeHandler() {
-        try {
-            CatalogFactory catalogFactory =
-                    discoverFactory(
-                            Thread.currentThread().getContextClassLoader(),
-                            CatalogFactory.class,
-                            getPluginName());
+        CatalogFactory catalogFactory =
+                discoverFactory(
+                        Thread.currentThread().getContextClassLoader(),
+                        CatalogFactory.class,
+                        getPluginName());
 
-            Catalog catalog;
-            if (catalogFactory == null) {
-                // If no CatalogFactory is found, use our EasysearchCatalogFactory directly
-                catalogFactory = new EasysearchCatalogFactory();
-            }
-
-            catalog =
-                    catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), pluginConfig);
-            SchemaSaveMode schemaSaveMode =
-                    pluginConfig.get(EasysearchSinkOptions.SCHEMA_SAVE_MODE);
-            DataSaveMode dataSaveMode = pluginConfig.get(EasysearchSinkOptions.DATA_SAVE_MODE);
-
-            // Use the index name directly as both database and table name for Easysearch
-            String indexName = catalogTable.getTableId().getTableName();
-            TablePath tablePath = TablePath.of(indexName, indexName);
-            return Optional.of(
-                    new DefaultSaveModeHandler(
-                            schemaSaveMode, dataSaveMode, catalog, tablePath, null, null));
-        } catch (Exception e) {
-            // If any exception occurs, we return empty to indicate that save mode is not supported
-            // This allows the connector to continue working without save mode functionality
-            return Optional.empty();
+        Catalog catalog;
+        if (catalogFactory == null) {
+            // If no CatalogFactory is found, use our EasysearchCatalogFactory directly
+            catalogFactory = new EasysearchCatalogFactory();
         }
+
+        catalog = catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), pluginConfig);
+        SchemaSaveMode schemaSaveMode = pluginConfig.get(EasysearchSinkOptions.SCHEMA_SAVE_MODE);
+        DataSaveMode dataSaveMode = pluginConfig.get(EasysearchSinkOptions.DATA_SAVE_MODE);
+
+        // Use the index name directly as both database and table name for Easysearch
+        String indexName = catalogTable.getTableId().getTableName();
+        TablePath tablePath = TablePath.of(indexName, indexName);
+        return Optional.of(
+                new DefaultSaveModeHandler(
+                        schemaSaveMode, dataSaveMode, catalog, tablePath, null, null));
     }
 
     @Override

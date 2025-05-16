@@ -211,7 +211,7 @@ sink {
 }
 ```
 
-配置表生成策略 (schema_save_mode)
+配置表生成策略
 
 ```hocon
 sink {
