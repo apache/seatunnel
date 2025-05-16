@@ -221,10 +221,8 @@ Writer the sheet of the workbook
 When File Format is CSV,The string quote mode of CSV.
 
 - ALL: All String fields will be quoted.
-- MINIMAL: Quotes fields which contain special characters such as a the field delimiter, quote character or any of the
-  characters in the line separator string.
-- NONE: Never quotes fields. When the delimiter occurs in data, the printer prefixes it with the escape character. If
-  the escape character is not set, format validation throws an exception.
+- MINIMAL: Quotes fields which contain special characters such as a the field delimiter, quote character or any of the characters in the line separator string.
+- NONE: Never quotes fields. When the delimiter occurs in data, the printer prefixes it with the escape character. If the escape character is not set, format validation throws an exception.
 
 ### xml_root_tag [string]
 
@@ -318,8 +316,7 @@ FtpFile {
 
 ```
 
-When our source end is multiple tables, and wants different expressions to different directory, we can configure this
-way
+When our source end is multiple tables, and wants different expressions to different directory, we can configure this way
 
 ```hocon
 
