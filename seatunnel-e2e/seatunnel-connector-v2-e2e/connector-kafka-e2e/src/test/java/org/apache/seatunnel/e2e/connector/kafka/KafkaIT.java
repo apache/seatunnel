@@ -412,8 +412,16 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testSourceKafkaWithEndTimestamp(TestContainer container)
             throws IOException, InterruptedException {
-        generateNativeTestDataWithEndTimestamp(
-                "test_topic_native_source_timestamp", 0, 100, 1738395840000L);
+        DefaultSeaTunnelRowSerializer serializer =
+                DefaultSeaTunnelRowSerializer.create(
+                        "test_topic_source",
+                        DEFAULT_FORMAT,
+                        new SeaTunnelRowType(
+                                new String[] {"id", "timestamp"},
+                                new SeaTunnelDataType[] {
+                                    BasicType.LONG_TYPE, BasicType.LONG_TYPE
+                                }));
+        generateWithTimestampTestData(serializer::serializeRow, 0, 100, 1738395840000L);
         testKafkaWithEndTimestampToConsole(container);
     }
 
@@ -1169,6 +1177,21 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                                     LocalDate.of(2024, 1, 1),
                                     LocalDateTime.of(2024, 1, 1, 12, 59, 23)
                                 });
+                ProducerRecord<byte[], byte[]> producerRecord = converter.convert(row);
+                producer.send(producerRecord).get();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        producer.flush();
+    }
+
+    private void generateWithTimestampTestData(
+            ProducerRecordConverter converter, int start, int end, long startTimestamp) {
+        try {
+            for (int i = start; i < end; i++) {
+                SeaTunnelRow row =
+                        new SeaTunnelRow(new Object[] {Long.valueOf(i), startTimestamp + i * 1000});
                 ProducerRecord<byte[], byte[]> producerRecord = converter.convert(row);
                 producer.send(producerRecord).get();
             }
