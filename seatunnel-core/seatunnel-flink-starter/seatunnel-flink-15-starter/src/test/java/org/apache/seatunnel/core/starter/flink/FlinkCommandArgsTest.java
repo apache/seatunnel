@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.flink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
+
 import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.starter.flink.multitable.MultiTableSinkTest;
@@ -27,7 +29,7 @@ import org.junit.jupiter.api.Test;
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
 
-import static com.github.stefanbirkner.systemlambda.SystemLambda.catchSystemExit;
+import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAME;
 
 public class FlinkCommandArgsTest {
     @Test
@@ -40,14 +42,18 @@ public class FlinkCommandArgsTest {
     }
 
     @Test
-    public void testExecuteClientCommandArgsWithoutPluginName() throws Exception {
+    public void testExecuteClientCommandArgsWithoutPluginName()
+            throws FileNotFoundException, URISyntaxException {
         String configurePath = "/config/fake_to_inmemory_without_pluginname.json";
         String configFile = MultiTableSinkTest.getTestConfigFile(configurePath);
         FlinkCommandArgs flinkCommandArgs = buildFlinkCommandArgs(configFile);
-
-        // Catch System.exit call and verify exit code
-        int statusCode = catchSystemExit(() -> SeaTunnel.run(flinkCommandArgs.buildCommand()));
-        Assertions.assertEquals(1, statusCode);
+        ConfigException configException =
+                Assertions.assertThrows(
+                        ConfigException.class,
+                        () -> SeaTunnel.run(flinkCommandArgs.buildCommand()));
+        Assertions.assertEquals(
+                String.format("No configuration setting found for key '%s'", PLUGIN_NAME.key()),
+                configException.getMessage());
     }
 
     private static FlinkCommandArgs buildFlinkCommandArgs(String configFile) {

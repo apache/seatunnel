@@ -19,6 +19,7 @@ package org.apache.seatunnel.core.starter.spark;
 
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.SeaTunnel;
+import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
 import org.apache.seatunnel.core.starter.spark.multitable.MultiTableSinkTest;
 
@@ -28,7 +29,7 @@ import org.junit.jupiter.api.Test;
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
 
-import static com.github.stefanbirkner.systemlambda.SystemLambda.catchSystemExit;
+import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAME;
 
 public class SparkCommandArgsTest {
     @Test
@@ -42,17 +43,19 @@ public class SparkCommandArgsTest {
     }
 
     @Test
-    public void testExecuteClientCommandArgsWithoutPluginName() throws Exception {
+    public void testExecuteClientCommandArgsWithoutPluginName()
+            throws FileNotFoundException, URISyntaxException {
         String configurePath = "/config/fake_to_inmemory_without_pluginname.json";
         String configFile = MultiTableSinkTest.getTestConfigFile(configurePath);
         SparkCommandArgs sparkCommandArgs = buildSparkCommands(configFile);
         sparkCommandArgs.setDeployMode(DeployMode.CLIENT);
-
-        // Catch System.exit call and verify exit code
-        int statusCode = catchSystemExit(() -> SeaTunnel.run(sparkCommandArgs.buildCommand()));
-
-        // Verify that System.exit was called with status code 1
-        Assertions.assertEquals(1, statusCode);
+        CommandExecuteException commandExecuteException =
+                Assertions.assertThrows(
+                        CommandExecuteException.class,
+                        () -> SeaTunnel.run(sparkCommandArgs.buildCommand()));
+        Assertions.assertEquals(
+                String.format("No configuration setting found for key '%s'", PLUGIN_NAME.key()),
+                commandExecuteException.getCause().getMessage());
     }
 
     private static SparkCommandArgs buildSparkCommands(String configFile) {

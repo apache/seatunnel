@@ -19,6 +19,7 @@ package org.apache.seatunnel.core.starter.seatunnel.args;
 
 import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.enums.MasterType;
+import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.seatunnel.multitable.MultiTableSinkTest;
 
 import org.junit.jupiter.api.Assertions;
@@ -28,7 +29,7 @@ import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 
-import static com.github.stefanbirkner.systemlambda.SystemLambda.catchSystemExit;
+import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAME;
 
 public class ClientCommandArgsTest {
     @Test
@@ -50,16 +51,20 @@ public class ClientCommandArgsTest {
     }
 
     @Test
-    public void testExecuteClientCommandArgsWithoutPluginName() throws Exception {
+    public void testExecuteClientCommandArgsWithoutPluginName()
+            throws FileNotFoundException, URISyntaxException {
         String configurePath = "/config/fake_to_inmemory_without_pluginname.json";
         String configFile = MultiTableSinkTest.getTestConfigFile(configurePath);
         ClientCommandArgs clientCommandArgs = buildClientCommandArgs(configFile);
-
-        // Catch System.exit call and verify exit code
-        int statusCode = catchSystemExit(() -> SeaTunnel.run(clientCommandArgs.buildCommand()));
-
-        // Verify that System.exit was called with status code 1
-        Assertions.assertEquals(1, statusCode);
+        CommandExecuteException commandExecuteException =
+                Assertions.assertThrows(
+                        CommandExecuteException.class,
+                        () -> SeaTunnel.run(clientCommandArgs.buildCommand()));
+        Assertions.assertEquals(
+                String.format(
+                        "The '%s' option is not configured, please configure it.",
+                        PLUGIN_NAME.key()),
+                commandExecuteException.getCause().getMessage());
     }
 
     private static ClientCommandArgs buildClientCommandArgs(String configFile, Long jobId) {
