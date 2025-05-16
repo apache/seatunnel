@@ -289,17 +289,7 @@ public class KafkaPartitionSplitReader
             LOG.trace(
                     "Seeking starting offsets to specified offsets: {}",
                     partitionsStartingFromSpecifiedOffsets);
-            partitionsStartingFromSpecifiedOffsets.forEach(
-                    (topicPartition, offset) -> {
-                        if (offset == -1) {
-                            // when offset is -1,skip partition
-                            LOG.trace(
-                                    "Skipping partition {} due to offset being -1", topicPartition);
-                            return;
-                        }
-                        consumer.seek(topicPartition, offset);
-                        LOG.trace("Seeking {} to offset {}", topicPartition, offset);
-                    });
+            partitionsStartingFromSpecifiedOffsets.forEach(consumer::seek);
         }
     }
 
