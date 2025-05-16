@@ -1224,30 +1224,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         producer.flush();
     }
 
-    private void generateNativeTestDataWithEndTimestamp(
-            String topic, int start, int end, Long startTimestamp) {
-        try {
-            for (int i = start; i < end; i++) {
-                Integer partition = 0;
-                Long timestamp = startTimestamp + i * 1000;
-                byte[] key = ("native-key" + i).getBytes(StandardCharsets.UTF_8);
-                byte[] value = ("native-value" + i).getBytes(StandardCharsets.UTF_8);
-
-                Header header1 =
-                        new RecordHeader("header1", "value1".getBytes(StandardCharsets.UTF_8));
-                Header header2 =
-                        new RecordHeader("header2", "value2".getBytes(StandardCharsets.UTF_8));
-                List<Header> headers = Arrays.asList(header1, header2);
-                ProducerRecord<byte[], byte[]> record =
-                        new ProducerRecord<>(topic, partition, timestamp, key, value, headers);
-                producer.send(record).get();
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        producer.flush();
-    }
-
     private static final SeaTunnelRowType SEATUNNEL_ROW_TYPE =
             new SeaTunnelRowType(
                     new String[] {
