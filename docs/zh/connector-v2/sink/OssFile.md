@@ -44,86 +44,88 @@ import ChangeLog from '../changelog/connector-file-oss.md';
 
 ### Orc 文件类型
 
-| SeaTunnel 数据类型  | Orc 数据类型         |
-|----------------------|-----------------------|
-| STRING               | STRING                |
-| BOOLEAN              | BOOLEAN               |
-| TINYINT              | BYTE                  |
-| SMALLINT             | SHORT                 |
-| INT                  | INT                   |
-| BIGINT               | LONG                  |
-| FLOAT                | FLOAT                 |
-| FLOAT                | FLOAT                 |
-| DOUBLE               | DOUBLE                |
-| DECIMAL              | DECIMAL               |
-| BYTES                | BINARY                |
-| DATE                 | DATE                  |
-| TIME <br/> TIMESTAMP | TIMESTAMP             |
-| ROW                  | STRUCT                |
-| NULL                 | 不支持的数据类型 |
-| ARRAY                | LIST                  |
-| Map                  | Map                   |
+| SeaTunnel 数据类型       | Orc 数据类型  |
+|----------------------|-----------|
+| STRING               | STRING    |
+| BOOLEAN              | BOOLEAN   |
+| TINYINT              | BYTE      |
+| SMALLINT             | SHORT     |
+| INT                  | INT       |
+| BIGINT               | LONG      |
+| FLOAT                | FLOAT     |
+| FLOAT                | FLOAT     |
+| DOUBLE               | DOUBLE    |
+| DECIMAL              | DECIMAL   |
+| BYTES                | BINARY    |
+| DATE                 | DATE      |
+| TIME <br/> TIMESTAMP | TIMESTAMP |
+| ROW                  | STRUCT    |
+| NULL                 | 不支持的数据类型  |
+| ARRAY                | LIST      |
+| Map                  | Map       |
 
 ### Parquet 文件类型
 
 
-| SeaTunnel 数据类型  | Parquet 数据类型     |
-|----------------------|-----------------------|
-| STRING               | STRING                |
-| BOOLEAN              | BOOLEAN               |
-| TINYINT              | INT_8                 |
-| SMALLINT             | INT_16                |
-| INT                  | INT32                 |
-| BIGINT               | INT64                 |
-| FLOAT                | FLOAT                 |
-| FLOAT                | FLOAT                 |
-| DOUBLE               | DOUBLE                |
-| DECIMAL              | DECIMAL               |
-| BYTES                | BINARY                |
-| DATE                 | DATE                  |
-| TIME <br/> TIMESTAMP | TIMESTAMP_MILLIS      |
-| ROW                  | GroupType             |
-| NULL                 | 不支持的数据类型      |
-| ARRAY                | LIST                  |
-| Map                  | Map                   |
+| SeaTunnel 数据类型       | Parquet 数据类型     |
+|----------------------|------------------|
+| STRING               | STRING           |
+| BOOLEAN              | BOOLEAN          |
+| TINYINT              | INT_8            |
+| SMALLINT             | INT_16           |
+| INT                  | INT32            |
+| BIGINT               | INT64            |
+| FLOAT                | FLOAT            |
+| FLOAT                | FLOAT            |
+| DOUBLE               | DOUBLE           |
+| DECIMAL              | DECIMAL          |
+| BYTES                | BINARY           |
+| DATE                 | DATE             |
+| TIME <br/> TIMESTAMP | TIMESTAMP_MILLIS |
+| ROW                  | GroupType        |
+| NULL                 | 不支持的数据类型         |
+| ARRAY                | LIST             |
+| Map                  | Map              |
 
 ## 选项
 
-| 名称                                  | 类型    | 必需 | 默认值                                    | 描述                                                    |
-|---------------------------------------|---------|----------|--------------------------------------------|-------------------------------------------------------|
-| path                                  | string  | 是      | 写入文件的oss路径。             |                                                       |
-| tmp_path                              | string  | 否       | /tmp/seatunnel                             | 结果文件将首先写入tmp路径，然后使用`mv`将tmp-dir提交到目标dir。因此需要一个OSS目录。  |
-| bucket                                | string  | 是      | -                                          |                                                       |
-| access_key                            | string  | 是      | -                                          |                                                       |
-| access_secret                         | string  | 是      | -                                          |                                                       |
-| endpoint                              | string  | 是      | -                                          |                                                       |
-| custom_filename                       | boolean | 否       | false                                      | 是否需要自定义文件名                                            |
-| file_name_expression                  | string  | 否       | "${transactionId}"                         | 仅在custom_filename为true时使用                             |
-| filename_time_format                  | string  | 否       | "yyyy.MM.dd"                               | 仅在custom_filename为true时使用                             |
-| file_format_type                      | string  | 否       | "csv"                                      |                                                       |
-| field_delimiter                       | string  | 否       | '\001'                                     | 仅当file_format_type为文本时使用                              |
-| row_delimiter                         | string  | 否       | "\n"                                       | 仅当file_format_type为 `text`、`csv`、`json` 时使用           |
-| have_partition                        | boolean | 否       | false                                      | 是否需要处理分区。                                             |
-| partition_by                          | array   | 否       | -                                          | 只有在have_partition为true时才使用                            |
-| partition_dir_expression              | string  | 否       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | 只有在have_partition为true时才使用                            |
-| is_partition_field_write_in_file      | boolean | 否       | false                                      | 只有在have_partition为true时才使用                            |
-| sink_columns                          | array   | 否       |                                            | 当此参数为空时，所有字段都是接收列                                     |
-| is_enable_transaction                 | boolean | 否       | true                                       |                                                       |
-| batch_size                            | int     | 否       | 1000000                                    |                                                       |
-| compress_codec                        | string  | 否       | none                                       |                                                       |
-| common-options                        | object  | 否       | -                                          |                                                       |
-| max_rows_in_memory                    | int     | 否       | -                                          | 仅当file_format_type为excel时使用。                          |
-| sheet_name                            | string  | 否       | Sheet${Random number}                      | 仅当file_format_type为excel时使用。                          |
-| csv_string_quote_mode                 | enum    | 否       | MINIMAL                                    | 仅在file_format为csv时使用。                                 |
-| xml_root_tag                          | string  | 否       | RECORDS                                    | 仅在file_format为xml时使用。                                 |
-| xml_row_tag                           | string  | 否       | RECORD                                     | 仅在file_format为xml时使用。                                 |
-| xml_use_attr_format                   | boolean | 否       | -                                          | 仅在file_format为xml时使用。                                 |
-| single_file_mode                      | boolean | 否       | false                                      | 每个并行处理只会输出一个文件。启用此参数后，batch_size将不会生效。输出文件名没有文件块后缀。   |
-| create_empty_file_when_no_data        | boolean | 否       | false                                      | 当上游没有数据同步时，仍然会生成相应的数据文件。                              |
-| parquet_avro_write_timestamp_as_int96 | boolean | 否       | false                                      | 仅在file_format为parquet时使用。                             |
-| parquet_avro_write_fixed_as_int96     | array   | 否       | -                                          | 仅在file_format为parquet时使用。                             |
-| enable_header_write                   | boolean | 否       | false                                      | 仅当file_format_type为文本、csv时使用<br/>false：不写标头，true：写标头。 |
-| encoding                              | string  | 否       | "UTF-8"                                    | 仅当file_format_type为json、text、csv、xml时使用。              |
+| 名称                                    | 类型      | 必需 | 默认值                                        | 描述                                                    |
+|---------------------------------------|---------|----|--------------------------------------------|-------------------------------------------------------|
+| path                                  | string  | 是  | 写入文件的oss路径。                                |                                                       |
+| tmp_path                              | string  | 否  | /tmp/seatunnel                             | 结果文件将首先写入tmp路径，然后使用`mv`将tmp-dir提交到目标dir。因此需要一个OSS目录。  |
+| bucket                                | string  | 是  | -                                          |                                                       |
+| access_key                            | string  | 是  | -                                          |                                                       |
+| access_secret                         | string  | 是  | -                                          |                                                       |
+| endpoint                              | string  | 是  | -                                          |                                                       |
+| custom_filename                       | boolean | 否  | false                                      | 是否需要自定义文件名                                            |
+| file_name_expression                  | string  | 否  | "${transactionId}"                         | 仅在custom_filename为true时使用                             |
+| filename_time_format                  | string  | 否  | "yyyy.MM.dd"                               | 仅在custom_filename为true时使用                             |
+| file_format_type                      | string  | 否  | "csv"                                      |                                                       |
+| field_delimiter                       | string  | 否  | '\001'                                     | 仅当file_format_type为文本时使用                              |
+| row_delimiter                         | string  | 否  | "\n"                                       | 仅当file_format_type为 `text`、`csv`、`json` 时使用           |
+| have_partition                        | boolean | 否  | false                                      | 是否需要处理分区。                                             |
+| partition_by                          | array   | 否  | -                                          | 只有在have_partition为true时才使用                            |
+| partition_dir_expression              | string  | 否  | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | 只有在have_partition为true时才使用                            |
+| is_partition_field_write_in_file      | boolean | 否  | false                                      | 只有在have_partition为true时才使用                            |
+| sink_columns                          | array   | 否  |                                            | 当此参数为空时，所有字段都是接收列                                     |
+| is_enable_transaction                 | boolean | 否  | true                                       |                                                       |
+| batch_size                            | int     | 否  | 1000000                                    |                                                       |
+| compress_codec                        | string  | 否  | none                                       |                                                       |
+| common-options                        | object  | 否  | -                                          |                                                       |
+| max_rows_in_memory                    | int     | 否  | -                                          | 仅当file_format_type为excel时使用。                          |
+| sheet_name                            | string  | 否  | Sheet${Random number}                      | 仅当file_format_type为excel时使用。                          |
+| csv_string_quote_mode                 | enum    | 否  | MINIMAL                                    | 仅在file_format为csv时使用。                                 |
+| xml_root_tag                          | string  | 否  | RECORDS                                    | 仅在file_format为xml时使用。                                 |
+| xml_row_tag                           | string  | 否  | RECORD                                     | 仅在file_format为xml时使用。                                 |
+| xml_use_attr_format                   | boolean | 否  | -                                          | 仅在file_format为xml时使用。                                 |
+| single_file_mode                      | boolean | 否  | false                                      | 每个并行处理只会输出一个文件。启用此参数后，batch_size将不会生效。输出文件名没有文件块后缀。   |
+| create_empty_file_when_no_data        | boolean | 否  | false                                      | 当上游没有数据同步时，仍然会生成相应的数据文件。                              |
+| parquet_avro_write_timestamp_as_int96 | boolean | 否  | false                                      | 仅在file_format为parquet时使用。                             |
+| parquet_avro_write_fixed_as_int96     | array   | 否  | -                                          | 仅在file_format为parquet时使用。                             |
+| enable_header_write                   | boolean | 否  | false                                      | 仅当file_format_type为文本、csv时使用<br/>false：不写标头，true：写标头。 |
+| encoding                              | string  | 否  | "UTF-8"                                    | 仅当file_format_type为json、text、csv、xml时使用。              |
+| schema_save_mode                      | Enum    | 否  | CREATE_SCHEMA_WHEN_NOT_EXIST               | 在开启同步任务之前，对目标路径进行不同的处理                                |
+| data_save_mode                        | Enum    | 否  | APPEND_DATA                                | 在开启同步任务之前，对目标路径中的数据文件进行不同的处理                          |
 
 ### path [string]
 
@@ -288,6 +290,23 @@ Sink插件常用参数，请参考[Sink common Options]（../Sink common Options
 仅当file_format_type为json、text、csv、xml时使用。
 要写入的文件的编码。此参数将由`Charset.forName（encoding）`解析。
 
+### schema_save_mode[Enum]
+
+在开启同步任务之前，对目标路径进行不同的处理。  
+选项介绍：  
+`RECREATE_SCHEMA` ：当路径不存在时创建。如果路径已存在，则删除路径并重新创建。         
+`CREATE_SCHEMA_WHEN_NOT_EXIST` ：当路径不存在时创建，路径存在时使用路径。        
+`ERROR_WHEN_SCHEMA_NOT_EXIST` ：当路径不存在时报错  
+`IGNORE` ：忽略表的处理
+
+### data_save_mode[Enum]
+
+在开启同步任务之前，对目标路径中的数据文件进行不同的处理。
+选项介绍：  
+`DROP_DATA`：使用路径但删除路径中的数据文件。
+`APPEND_DATA`：使用路径，并在路径中添加新文件以写入数据。   
+`ERROR_WHEN_DATA_EXISTS`：当路径中存在数据文件时，将报错。
+
 ## 如何创建Oss数据同步作业
 
 
@@ -335,6 +354,8 @@ sink {
     filename_time_format = "yyyy.MM.dd"
     sink_columns = ["name","age"]
     is_enable_transaction = true
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    data_save_mode="APPEND_DATA"
   }
 }
 ```
@@ -374,6 +395,8 @@ sink {
     is_partition_field_write_in_file = true
     file_format_type = "parquet"
     sink_columns = ["name","age"]
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    data_save_mode="APPEND_DATA"
   }
 }
 ```
@@ -408,6 +431,8 @@ sink {
     access_secret = "xxxxxxxxxxx"
     endpoint = "oss-cn-beijing.aliyuncs.com"
     file_format_type = "orc"
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    data_save_mode="APPEND_DATA"
   }
 }
 ```
@@ -528,6 +553,8 @@ sink {
     filename_time_format = "yyyy.MM.dd"
     is_enable_transaction = true
     compress_codec = "lzo"
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    data_save_mode="APPEND_DATA"
   }
 }
 ```
