@@ -17,66 +17,41 @@
 
 package org.apache.seatunnel.connectors.seatunnel.sentry.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.sentry.config.SentryConfig;
-import org.apache.seatunnel.connectors.seatunnel.sentry.exception.SentryConnectorException;
-
-import com.google.auto.service.AutoService;
+import org.apache.seatunnel.connectors.seatunnel.sentry.config.SentrySinkOptions;
 
 import java.io.IOException;
 import java.util.Optional;
 
 /** @description: SentrySink class */
-@AutoService(SeaTunnelSink.class)
 public class SentrySink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
-    private SeaTunnelRowType seaTunnelRowType;
-    private Config pluginConfig;
+    private final ReadonlyConfig pluginConfig;
+    private final CatalogTable catalogTable;
+
+    public SentrySink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
+        this.pluginConfig = pluginConfig;
+        this.catalogTable = catalogTable;
+    }
 
     @Override
     public String getPluginName() {
-        return SentryConfig.SENTRY;
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        if (!pluginConfig.hasPath(SentryConfig.DSN.key())) {
-            throw new SentryConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(),
-                            PluginType.SINK,
-                            String.format("Config must include column : %s", SentryConfig.DSN)));
-        }
-
-        this.pluginConfig = pluginConfig;
-    }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
+        return SentrySinkOptions.SENTRY;
     }
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
             throws IOException {
-        return new SentrySinkWriter(seaTunnelRowType, pluginConfig);
+        return new SentrySinkWriter(pluginConfig);
     }
 
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
-        return super.getWriteCatalogTable();
+        return Optional.of(catalogTable);
     }
 }

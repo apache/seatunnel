@@ -77,29 +77,33 @@ jobs:
                       }
 
                       // Keep syncing the status of the checks
-                      if (run.data.status == 'completed') {
-                        console.log('    Run ' + cr.id + ': set status (' + run.data.status + ') and conclusion (' + run.data.conclusion + ')')
-                        const response = await github.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', {
-                          owner: context.repo.owner,
-                          repo: context.repo.repo,
-                          check_run_id: cr.id,
-                          output: cr.output,
-                          status: run.data.status,
-                          conclusion: run.data.conclusion,
-                          details_url: run.data.details_url
-                        })
-                      } else {
-                        console.log('    Run ' + cr.id + ': set status (' + run.data.status + ')')
-                        const response = await github.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', {
-                          owner: context.repo.owner,
-                          repo: context.repo.repo,
-                          check_run_id: cr.id,
-                          output: cr.output,
-                          status: run.data.status,
-                          details_url: run.data.details_url
-                        })
+                      try {
+                        if (run.data.status == 'completed') {
+                          console.log('    Run ' + cr.id + ': set status (' + run.data.status + ') and conclusion (' + run.data.conclusion + ')')
+                          const response = await github.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', {
+                            owner: context.repo.owner,
+                            repo: context.repo.repo,
+                            check_run_id: cr.id,
+                            output: cr.output,
+                            status: run.data.status,
+                            conclusion: run.data.conclusion,
+                            details_url: run.data.details_url
+                          })
+                        } else {
+                          console.log('    Run ' + cr.id + ': set status (' + run.data.status + ')')
+                          const response = await github.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', {
+                            owner: context.repo.owner,
+                            repo: context.repo.repo,
+                            check_run_id: cr.id,
+                            output: cr.output,
+                            status: run.data.status,
+                            details_url: run.data.details_url
+                          })
+                        }
+                      } catch (error) {
+                        console.error(error)
+                        continue
                       }
-
                       break
                     }
                   }
