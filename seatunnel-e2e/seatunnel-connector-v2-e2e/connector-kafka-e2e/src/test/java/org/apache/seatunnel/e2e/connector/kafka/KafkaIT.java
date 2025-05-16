@@ -418,9 +418,9 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         DEFAULT_FORMAT,
                         new SeaTunnelRowType(
                                 new String[] {"id", "timestamp"},
-                                new SeaTunnelDataType[] {
-                                    BasicType.LONG_TYPE, BasicType.LONG_TYPE
-                                }));
+                                new SeaTunnelDataType[] {BasicType.LONG_TYPE, BasicType.LONG_TYPE}),
+                        "",
+                        null);
         generateWithTimestampTestData(serializer::serializeRow, 0, 100, 1738395840000L);
         testKafkaWithEndTimestampToConsole(container);
     }
