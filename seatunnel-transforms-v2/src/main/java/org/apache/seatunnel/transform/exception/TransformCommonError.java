@@ -29,6 +29,7 @@ import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.INPUT_TABLE_NOT_FOUND;
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.METADATA_FIELDS_NOT_FOUND;
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.METADATA_MAPPING_FIELD_EXISTS;
+import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.WHERE_STATEMENT_ERROR;
 
 /** The common error of SeaTunnel transform. Please refer {@link CommonError} */
 public class TransformCommonError {
@@ -69,10 +70,15 @@ public class TransformCommonError {
         return new TransformException(INPUT_TABLE_NOT_FOUND, params);
     }
 
-    public static TransformException sqlTransformError(String transform, String expression) {
+    public static TransformException sqlExpressionError(String expression) {
         Map<String, String> params = new HashMap<>();
         params.put("expression", expression);
-        params.put("transform", transform);
         return new TransformException(EXPRESSION_EXECUTE_ERROR, params);
+    }
+
+    public static TransformException sqlWhereStatementError(String wherebody) {
+        Map<String, String> params = new HashMap<>();
+        params.put("wherebody", wherebody);
+        return new TransformException(WHERE_STATEMENT_ERROR, params);
     }
 }

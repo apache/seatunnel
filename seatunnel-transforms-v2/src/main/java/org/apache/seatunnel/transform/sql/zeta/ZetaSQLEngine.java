@@ -26,7 +26,6 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.SQLEngine;
-import org.apache.seatunnel.transform.sql.SQLTransform;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -242,9 +241,13 @@ public class ZetaSQLEngine implements SQLEngine {
         Object[] inputFields = scanTable(inputRow);
 
         // Filter
-        boolean retain = zetaSQLFilter.executeFilter(selectBody.getWhere(), inputFields);
-        if (!retain) {
-            return null;
+        try {
+            boolean retain = zetaSQLFilter.executeFilter(selectBody.getWhere(), inputFields);
+            if (!retain) {
+                return null;
+            }
+        } catch (Exception e) {
+            throw TransformCommonError.sqlWhereStatementError(selectBody.getWhere().toString());
         }
 
         // Project
@@ -286,12 +289,7 @@ public class ZetaSQLEngine implements SQLEngine {
                     fields[idx] = zetaSQLFunction.computeForValue(expression, inputFields);
                     idx++;
                 } catch (Exception e) {
-                    if (e instanceof TransformException) {
-                        throw e;
-                    } else {
-                        throw TransformCommonError.sqlTransformError(
-                                SQLTransform.PLUGIN_NAME, expression.toString());
-                    }
+                    throw TransformCommonError.sqlExpressionError(expression.toString());
                 }
             }
         }

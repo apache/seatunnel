@@ -470,7 +470,23 @@ public class SQLTransformTest {
                                 new SeaTunnelRow(new Object[] {1, 123.123, "true"}));
                     } catch (Exception e) {
                         Assertions.assertEquals(
-                                "ErrorCode:[TRANSFORM_COMMON-06], ErrorDescription:[The expression 'CAST(`FIELD3` AS decimal (22, 0))' of 'Sql' transform execute failed]",
+                                "ErrorCode:[TRANSFORM_COMMON-06], ErrorDescription:[The expression 'CAST(`FIELD3` AS decimal (22, 0))' of SQL transform execute failed]",
+                                e.getMessage());
+                        throw e;
+                    }
+                });
+        sqlQuery = "select * from dual where FIELD1/0 > 10";
+        config = ReadonlyConfig.fromMap(Collections.singletonMap("query", sqlQuery));
+        SQLTransform sqlTransform2 = new SQLTransform(config, table);
+        Assertions.assertThrows(
+                TransformException.class,
+                () -> {
+                    try {
+                        sqlTransform2.transformRow(
+                                new SeaTunnelRow(new Object[] {1, 123.123, "true"}));
+                    } catch (Exception e) {
+                        Assertions.assertEquals(
+                                "ErrorCode:[TRANSFORM_COMMON-07], ErrorDescription:[The where statement 'FIELD1 / 0 > 10' of SQL transform execute failed]",
                                 e.getMessage());
                         throw e;
                     }
