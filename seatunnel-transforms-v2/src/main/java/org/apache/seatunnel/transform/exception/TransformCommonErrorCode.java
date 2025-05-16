@@ -36,8 +36,10 @@ public enum TransformCommonErrorCode implements SeaTunnelErrorCode {
             "TRANSFORM_COMMON-05",
             "The input table '<table>' of '<transform>' transform not found in upstream schema"),
     EXPRESSION_EXECUTE_ERROR(
-            "TRANSFORM_COMMON-06",
-            "The expression '<expression>' of '<transform>' transform execute failed");
+            "TRANSFORM_COMMON-06", "The expression '<expression>' of SQL transform execute failed"),
+    WHERE_STATEMENT_ERROR(
+            "TRANSFORM_COMMON-07",
+            "The where statement '<wherebody>' of SQL transform execute failed");
 
     private final String code;
     private final String description;
