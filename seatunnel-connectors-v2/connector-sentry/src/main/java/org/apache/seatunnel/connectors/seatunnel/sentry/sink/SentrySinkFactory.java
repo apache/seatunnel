@@ -18,9 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.sentry.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.sentry.config.SentryConfig;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.sentry.config.SentrySinkOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -28,21 +30,26 @@ import com.google.auto.service.AutoService;
 public class SentrySinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return SentryConfig.SENTRY;
+        return SentrySinkOptions.SENTRY;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(SentryConfig.DSN)
+                .required(SentrySinkOptions.DSN)
                 .optional(
-                        SentryConfig.ENV,
-                        SentryConfig.CACHE_DIRPATH,
-                        SentryConfig.ENABLE_EXTERNAL_CONFIGURATION,
-                        SentryConfig.FLUSH_TIMEOUTMILLIS,
-                        SentryConfig.MAX_CACHEITEMS,
-                        SentryConfig.MAX_QUEUESIZE,
-                        SentryConfig.RELEASE)
+                        SentrySinkOptions.ENV,
+                        SentrySinkOptions.CACHE_DIRPATH,
+                        SentrySinkOptions.ENABLE_EXTERNAL_CONFIGURATION,
+                        SentrySinkOptions.FLUSH_TIMEOUTMILLIS,
+                        SentrySinkOptions.MAX_CACHEITEMS,
+                        SentrySinkOptions.MAX_QUEUESIZE,
+                        SentrySinkOptions.RELEASE)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        return () -> new SentrySink(context.getOptions(), context.getCatalogTable());
     }
 }

@@ -94,10 +94,12 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
     public static final long MAX_STRING_LENGTH = 2147483643;
 
     protected PhysicalColumn.PhysicalColumnBuilder getPhysicalColumnBuilder(
-            BasicTypeDefine typeDefine) {
+            BasicTypeDefine typeDefine, boolean caseSensitive) {
+        String columnName =
+                caseSensitive ? typeDefine.getName() : typeDefine.getName().toLowerCase();
         PhysicalColumn.PhysicalColumnBuilder builder =
                 PhysicalColumn.builder()
-                        .name(typeDefine.getName())
+                        .name(columnName)
                         .sourceType(typeDefine.getColumnType())
                         .nullable(typeDefine.isNullable())
                         .defaultValue(typeDefine.getDefaultValue())

@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.DATABASE;
 import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.DORIS_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.TABLE;
+import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.CASE_SENSITIVE;
 import static org.apache.seatunnel.connectors.doris.config.DorisSourceOptions.DORIS_EXEC_MEM_LIMIT;
 import static org.apache.seatunnel.connectors.doris.config.DorisSourceOptions.DORIS_FILTER_QUERY;
 import static org.apache.seatunnel.connectors.doris.config.DorisSourceOptions.DORIS_READ_FIELD;
@@ -78,6 +79,20 @@ public class DorisTableConfig implements Serializable {
         if (connectorConfig.getOptional(TABLE_LIST).isPresent()) {
             tableList = connectorConfig.get(TABLE_LIST);
         } else {
+            DorisTableConfig dorisTableConfig = new DorisTableConfig();
+            dorisTableConfig.setDatabase(connectorConfig.get(DATABASE));
+            dorisTableConfig.setTable(connectorConfig.get(TABLE));
+
+            boolean caseSensitive = true;
+            if (connectorConfig.getOptional(CASE_SENSITIVE).isPresent()) {
+                caseSensitive = connectorConfig.get(CASE_SENSITIVE);
+            }
+
+            if (!caseSensitive) {
+                dorisTableConfig.setDatabase(dorisTableConfig.getDatabase().toLowerCase());
+                dorisTableConfig.setTable(dorisTableConfig.getTable().toLowerCase());
+            }
+
             DorisTableConfig tableProperty =
                     DorisTableConfig.builder()
                             .table(connectorConfig.get(TABLE))

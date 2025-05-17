@@ -40,11 +40,13 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
     private final boolean abortDropPartitionMetadata;
 
     private final ReadonlyConfig readonlyConfig;
+    private final HiveMetaStoreProxy hiveMetaStore;
 
     public HiveSinkAggregatedCommitter(
             ReadonlyConfig readonlyConfig, String dbName, String tableName, HadoopConf hadoopConf) {
         super(hadoopConf);
         this.readonlyConfig = readonlyConfig;
+        this.hiveMetaStore = new HiveMetaStoreProxy(readonlyConfig);
         this.dbName = dbName;
         this.tableName = tableName;
         this.abortDropPartitionMetadata =
@@ -57,25 +59,20 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
 
         List<FileAggregatedCommitInfo> errorCommitInfos = super.commit(aggregatedCommitInfos);
         if (errorCommitInfos.isEmpty()) {
-            HiveMetaStoreProxy hiveMetaStore = HiveMetaStoreProxy.getInstance(readonlyConfig);
-            try {
-                for (FileAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
-                    Map<String, List<String>> partitionDirAndValuesMap =
-                            aggregatedCommitInfo.getPartitionDirAndValuesMap();
-                    List<String> partitions =
-                            partitionDirAndValuesMap.keySet().stream()
-                                    .map(partition -> partition.replaceAll("\\\\", "/"))
-                                    .collect(Collectors.toList());
-                    try {
-                        hiveMetaStore.addPartitions(dbName, tableName, partitions);
-                        log.info("Add these partitions {}", partitions);
-                    } catch (TException e) {
-                        log.error("Failed to add these partitions {}", partitions, e);
-                        errorCommitInfos.add(aggregatedCommitInfo);
-                    }
+            for (FileAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
+                Map<String, List<String>> partitionDirAndValuesMap =
+                        aggregatedCommitInfo.getPartitionDirAndValuesMap();
+                List<String> partitions =
+                        partitionDirAndValuesMap.keySet().stream()
+                                .map(partition -> partition.replaceAll("\\\\", "/"))
+                                .collect(Collectors.toList());
+                try {
+                    hiveMetaStore.addPartitions(dbName, tableName, partitions);
+                    log.info("Add these partitions {}", partitions);
+                } catch (TException e) {
+                    log.error("Failed to add these partitions {}", partitions, e);
+                    errorCommitInfos.add(aggregatedCommitInfo);
                 }
-            } finally {
-                hiveMetaStore.close();
             }
         }
         return errorCommitInfos;
@@ -85,7 +82,6 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
     public void abort(List<FileAggregatedCommitInfo> aggregatedCommitInfos) throws Exception {
         super.abort(aggregatedCommitInfos);
         if (abortDropPartitionMetadata) {
-            HiveMetaStoreProxy hiveMetaStore = HiveMetaStoreProxy.getInstance(readonlyConfig);
             for (FileAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
                 Map<String, List<String>> partitionDirAndValuesMap =
                         aggregatedCommitInfo.getPartitionDirAndValuesMap();
@@ -100,7 +96,15 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
                     log.error("Failed to remove these partitions {}", partitions, e);
                 }
             }
+        }
+    }
+
+    @Override
+    public void close() throws IOException {
+        try {
             hiveMetaStore.close();
+        } finally {
+            super.close();
         }
     }
 }
