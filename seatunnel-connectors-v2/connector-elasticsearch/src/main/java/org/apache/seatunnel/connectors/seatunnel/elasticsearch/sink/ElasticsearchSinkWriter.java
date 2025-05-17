@@ -40,6 +40,7 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog.ElasticSearchTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.IndexInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorErrorCode;
@@ -53,6 +54,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -77,6 +79,7 @@ public class ElasticsearchSinkWriter
     private final IndexInfo indexInfo;
     private TableSchema tableSchema;
     private final TableSchemaChangeEventHandler tableSchemaChangeEventHandler;
+    private final ReadonlyConfig config;
 
     public ElasticsearchSinkWriter(
             Context context,
@@ -86,15 +89,25 @@ public class ElasticsearchSinkWriter
             int maxRetryCount) {
         this.context = context;
         this.maxBatchSize = maxBatchSize;
+        this.config = config;
 
         this.indexInfo =
                 new IndexInfo(catalogTable.getTableId().getTableName().toLowerCase(), config);
         esRestClient = EsRestClient.createInstance(config);
+
+        // Get vectorization fields and dimension from config
+        List<String> vectorizationFields =
+                config.getOptional(ElasticsearchSinkOptions.VECTORIZATION_FIELDS)
+                        .orElse(Collections.emptyList());
+        int vectorDimension = config.get(ElasticsearchSinkOptions.VECTOR_DIMENSIONS);
+
         this.seaTunnelRowSerializer =
                 new ElasticsearchRowSerializer(
                         esRestClient.getClusterInfo(),
                         indexInfo,
-                        catalogTable.getSeaTunnelRowType());
+                        catalogTable.getSeaTunnelRowType(),
+                        vectorizationFields,
+                        vectorDimension);
 
         this.requestEsList = new ArrayList<>(maxBatchSize);
         this.retryMaterial =
@@ -129,11 +142,20 @@ public class ElasticsearchSinkWriter
         }
 
         this.tableSchema = tableSchemaChangeEventHandler.reset(tableSchema).apply(event);
+
+        // Get vectorization fields and dimension from config
+        List<String> vectorizationFields =
+                config.getOptional(ElasticsearchSinkOptions.VECTORIZATION_FIELDS)
+                        .orElse(Collections.emptyList());
+        int vectorDimension = config.get(ElasticsearchSinkOptions.VECTOR_DIMENSIONS);
+
         this.seaTunnelRowSerializer =
                 new ElasticsearchRowSerializer(
                         esRestClient.getClusterInfo(),
                         indexInfo,
-                        tableSchema.toPhysicalRowDataType());
+                        tableSchema.toPhysicalRowDataType(),
+                        vectorizationFields,
+                        vectorDimension);
     }
 
     private void applySingleSchemaChangeEvent(SchemaChangeEvent event) {

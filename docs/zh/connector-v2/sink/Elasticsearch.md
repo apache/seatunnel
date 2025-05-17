@@ -41,6 +41,8 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 | tls_truststore_path     | string  | 否    | -                            |
 | tls_truststore_password | string  | 否    | -                            |
 | common-options          |         | 否    | -                            |
+| vectorization_fields    |  array  | 否    | -                            |
+| vector_dimensions       |  string | 否    | -                            |
 
 ### hosts [array]
 
@@ -73,6 +75,12 @@ x-pack 密码
 ### max_retry_count [int]
 
 批次批量请求最大尝试大小
+
+### vectorization_fields [array]
+需要向量转换的字段名
+
+### vector_dimensions [int]
+向量维度
 
 ### max_batch_size [int]
 
@@ -145,6 +153,19 @@ sink {
         hosts = ["localhost:9200"]
         index = "${table_name}"
         schema_save_mode="IGNORE"
+    }
+}
+```
+向量转换
+
+```conf
+sink {
+    Elasticsearch {
+        hosts = ["localhost:9200"]
+        index = "${table_name}"
+        schema_save_mode="IGNORE"
+        vectorization_fields = ["review_embedding"]  
+        vector_dimensions = 1024 
     }
 }
 ```
