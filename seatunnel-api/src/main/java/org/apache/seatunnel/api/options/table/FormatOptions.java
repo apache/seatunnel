@@ -41,4 +41,30 @@ public interface FormatOptions {
                     .enumType(TimeUtils.Formatter.class)
                     .defaultValue(TimeUtils.Formatter.HH_MM_SS)
                     .withDescription("Time format");
+
+    // Not used yet. Reserved for future use to support custom date/time format strings.
+    Option<String> DATE_FORMAT_VALUE =
+            Options.key("date_format_value")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Date format string (e.g. 'yyyy-MM-dd'). "
+                                    + "Must match one of the predefined values in the Formatter enum.");
+
+    Option<String> DATETIME_FORMAT_VALUE =
+            Options.key("datetime_format_value")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Datetime format string (e.g. 'yyyy-MM-dd HH:mm:ss'). "
+                                    + "Must match one of the predefined values in the Formatter enum.");
+
+    // Not used yet. Reserved for future use to support custom date/time format strings.
+    Option<String> TIME_FORMAT_VALUE =
+            Options.key("time_format_value")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Time format string (e.g. 'HH:mm:ss'). "
+                                    + "Must match one of the predefined values in the Formatter enum.");
 }

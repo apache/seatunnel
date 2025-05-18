@@ -41,6 +41,7 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class BasicTypeToOdpsTypeTest {
     public static FormatterContext defaultFormatterContext =
@@ -149,18 +150,23 @@ public class BasicTypeToOdpsTypeTest {
     @SneakyThrows
     @Test
     void testLOCAL_DATETIME_2_STRING_THROW_EXCEPTION() {
-        assertThrows(
-                SeaTunnelRuntimeException.class,
-                () ->
-                        testTypeWithDifferentInputAndOutput(
-                                "LOCAL_DATETIME_2_STRING",
-                                OdpsType.TIMESTAMP,
-                                LocalTimeType.LOCAL_DATE_TIME_TYPE,
-                                OdpsType.STRING,
-                                Timestamp.valueOf("2025-01-01 00:00:00"),
-                                "2025-01-01 00:00:00",
-                                new FormatterContext(
-                                        DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS_SSS_ISO8601)));
+        SeaTunnelRuntimeException exception =
+                assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () ->
+                                testTypeWithDifferentInputAndOutput(
+                                        "LOCAL_DATETIME_2_STRING",
+                                        OdpsType.TIMESTAMP,
+                                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                        OdpsType.STRING,
+                                        Timestamp.valueOf("2025-01-01 00:00:00"),
+                                        "2025-01-01 00:00:00",
+                                        new FormatterContext("yyyy-MM-dd'T'HH:mm:ss.SSS")));
+
+        assertTrue(
+                exception
+                        .getMessage()
+                        .contains("MaxCompute does not support datetime format containing 'T'."));
     }
 
     private static void testTypeWithDifferentInputAndOutput(

@@ -112,13 +112,36 @@ Option introduction：
 
 When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.
 
-### datetime_format [enum]
+### datetime_format[Enum]
 
 Format used to convert `LocalDateTime` fields to strings.  
 Available options (from `DateTimeUtils.Formatter`) include:
 
 - `YYYY_MM_DD_HH_MM_SS`
 - `YYYY_MM_DD_HH_MM_SS_SSSSSS`
+- `YYYY_MM_DD_HH_MM_SS_SPOT`
+- `YYYY_MM_DD_HH_MM_SS_SLASH`
+- `YYYY_M_D_HH_MM_SLASH`
+- `YYYY_M_D_HH_MM_ISO8601`
+- `YYYY_M_D_HH_MM_SS_SLASH`
+- `YYYY_M_D_HH_MM_SS_ISO8601`
+- `YYYY_MM_DD_HH_MM_SS_NO_SPLIT`
+
+Default: `YYYY_MM_DD_HH_MM_SS`
+
+### datetime_format_value[String]
+
+User-defined format string used to convert LocalDateTime fields to strings.
+
+Use this option when you want to specify a custom datetime format that matches one of the predefined values in DateTimeUtils.Formatter (e.g. yyyy-MM-dd HH:mm:ss, yyyyMMddHHmmss, etc.).
+
+Note:
+If both datetime_format_value and datetime_format are set, datetime_format_value takes precedence.
+
+Example values:
+
+- `yyyy-MM-dd HH:mm:ss`
+- `yyyy-MM-dd HH:mm:ss.SSSSSS`
 - `yyyy.MM.dd HH:mm:ss`
 - `yyyy/MM/dd HH:mm:ss`
 - `yyyy/M/d HH:mm`
@@ -127,7 +150,7 @@ Available options (from `DateTimeUtils.Formatter`) include:
 - `yyyy-M-d HH:mm:ss`
 - `yyyyMMddHHmmss`
 
-Default: `YYYY_MM_DD_HH_MM_SS`
+Default: None (falls back to datetime_format if not specified)
 
 ### common options
 

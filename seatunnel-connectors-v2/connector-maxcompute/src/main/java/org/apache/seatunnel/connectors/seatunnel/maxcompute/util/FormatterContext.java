@@ -27,11 +27,13 @@ public class FormatterContext {
 
     public FormatterContext(DateTimeUtils.Formatter localDateTimeFormat) {
         String format = localDateTimeFormat.getValue();
-        if (format.contains("T")) {
-            throw CommonError.illegalArgument(
-                    format, "MaxCompute does not support datetime format containing 'T'.");
-        }
+        validateFormat(format);
         this.localDateTimeFormat = localDateTimeFormat;
+    }
+
+    public FormatterContext(String localDateTimeFormat) {
+        validateFormat(localDateTimeFormat);
+        this.localDateTimeFormat = DateTimeUtils.Formatter.parse(localDateTimeFormat);
     }
 
     public boolean isDateTimeType(Object field) {
@@ -42,7 +44,17 @@ public class FormatterContext {
         if (field instanceof LocalDateTime) {
             return this.format(((LocalDateTime) field));
         }
-        return String.valueOf(field);
+        throw CommonError.illegalArgument(
+                field.getClass().getName(),
+                "Cannot format the given value: not a LocalDateTime instance.");
+    }
+
+    private void validateFormat(String localDateTimeFormat) {
+        if (localDateTimeFormat.contains("T")) {
+            throw CommonError.illegalArgument(
+                    localDateTimeFormat,
+                    "MaxCompute does not support datetime format containing 'T'.");
+        }
     }
 
     private String format(LocalDateTime localDateTime) {

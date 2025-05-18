@@ -17,8 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 
+import com.aliyun.odps.PartitionSpec;
+import com.aliyun.odps.Table;
+import com.aliyun.odps.TableSchema;
+import com.aliyun.odps.data.Record;
+import com.aliyun.odps.data.RecordWriter;
+import com.aliyun.odps.tunnel.TableTunnel;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.options.ConnectorCommonOptions;
+import org.apache.seatunnel.api.options.table.FormatOptions;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -29,14 +36,6 @@ import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.Maxcompute
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.FormatterContext;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeUtil;
-
-import com.aliyun.odps.PartitionSpec;
-import com.aliyun.odps.Table;
-import com.aliyun.odps.TableSchema;
-import com.aliyun.odps.data.Record;
-import com.aliyun.odps.data.RecordWriter;
-import com.aliyun.odps.tunnel.TableTunnel;
-import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 
@@ -69,9 +68,18 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                                 readonlyConfig.get(MaxcomputeSinkOptions.PROJECT),
                                 readonlyConfig.get(MaxcomputeSinkOptions.TABLE_NAME));
             }
-            this.formatterContext =
-                    new FormatterContext(
-                            readonlyConfig.get(ConnectorCommonOptions.DATETIME_FORMAT));
+            if (readonlyConfig
+                    .getOptional(FormatOptions.DATETIME_FORMAT_VALUE)
+                    .isPresent()) {
+                this.formatterContext =
+                        new FormatterContext(
+                                readonlyConfig.get(FormatOptions.DATETIME_FORMAT_VALUE));
+            } else {
+                this.formatterContext =
+                        new FormatterContext(
+                                readonlyConfig.get(FormatOptions.DATETIME_FORMAT));
+            }
+
             this.recordWriter = session.openBufferedWriter();
             log.info("open record writer success");
         } catch (Exception e) {
