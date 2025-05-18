@@ -30,12 +30,20 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.transform.exception.TransformException;
+import org.apache.seatunnel.transform.sql.zeta.functions.StringFunction;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Month;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
@@ -440,5 +448,26 @@ public class SQLTransformTest {
         Assertions.assertEquals(1, result.get(0).getField(0));
         Assertions.assertEquals(true, result.get(0).getField(1));
         Assertions.assertEquals(false, result.get(0).getField(2));
+    }
+    @Test
+    public void testSubStringForDate() {
+        Date date = new Date(1747579031000L);
+        Assertions.assertEquals(StringFunction.substring(Arrays.asList(date, 0, 4)), "2025");
+
+        Timestamp timestamp = new Timestamp(1747579031000L);
+        Assertions.assertEquals(StringFunction.substring(Arrays.asList(timestamp, 0, 4)), "2025");
+
+        LocalDateTime localDateTime = LocalDateTime.of(2025, Month.MAY, 1, 0, 0, 0);
+        Assertions.assertEquals(
+                StringFunction.substring(Arrays.asList(localDateTime, 0, 4)), "2025");
+
+        LocalDate localDate = LocalDate.of(2025, Month.MAY, 1);
+        Assertions.assertEquals(StringFunction.substring(Arrays.asList(localDate, 0, 4)), "2025");
+
+        LocalTime localTime = LocalTime.of(1, 10, 0);
+        Assertions.assertEquals(StringFunction.substring(Arrays.asList(localTime, 0, 2)), "01");
+
+        String s = "TESTING_SUB_STRING_FUNCTION";
+        Assertions.assertEquals(StringFunction.substring(Arrays.asList(s, 0, 7)),"TESTING");
     }
 }
