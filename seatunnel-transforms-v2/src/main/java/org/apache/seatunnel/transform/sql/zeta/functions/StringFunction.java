@@ -25,9 +25,15 @@ import org.apache.groovy.parser.antlr4.util.StringUtils;
 
 import java.lang.reflect.Array;
 import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.Temporal;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -38,7 +44,9 @@ public class StringFunction {
     private static final byte[] SOUNDEX_INDEX =
             "71237128722455712623718272\000\000\000\000\000\00071237128722455712623718272"
                     .getBytes(StandardCharsets.ISO_8859_1);
-
+    private static final String DATE_TIME_FORMAT_PATTERN = "yyyy-MM-dd HH:mm:ss";
+    private static final String DATE_FORMAT_PATTERN = "yyyy-MM-dd";
+    private static final String TIME_FORMAT_PATTERN = "HH:mm:ss";
     public static Integer ascii(List<Object> args) {
         String arg = (String) args.get(0);
         if (arg == null) {
@@ -624,7 +632,13 @@ public class StringFunction {
     }
 
     public static String substring(List<Object> args) {
-        String s = (String) args.get(0);
+        Object obj = args.get(0);
+        String s;
+        if (obj instanceof Date || obj instanceof Temporal) {
+            s = formatDate(obj);
+        } else {
+            s = (String) args.get(0);
+        }
         if (s == null) {
             return null;
         }
@@ -696,5 +710,29 @@ public class StringFunction {
             }
         }
         return builder == null ? original : builder.toString();
+    }
+
+    private static String formatDate(Object obj) {
+        String s = null;
+        // Handle Date and Timestamp data types.
+        if (obj instanceof Date) {
+            Date d = (Date) obj;
+            SimpleDateFormat dateFormat = new SimpleDateFormat(DATE_TIME_FORMAT_PATTERN);
+            s = dateFormat.format(d);
+        } else if (obj instanceof LocalDateTime) {
+            LocalDateTime d = (LocalDateTime) obj;
+            DateTimeFormatter dateTimeFormatter =
+                    DateTimeFormatter.ofPattern(DATE_TIME_FORMAT_PATTERN);
+            s = dateTimeFormatter.format(d);
+        } else if (obj instanceof LocalDate) {
+            LocalDate d = (LocalDate) obj;
+            DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(DATE_FORMAT_PATTERN);
+            s = dateTimeFormatter.format(d);
+        } else if (obj instanceof LocalTime) {
+            LocalTime d = (LocalTime) obj;
+            DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(TIME_FORMAT_PATTERN);
+            s = dateTimeFormatter.format(d);
+        }
+        return s;
     }
 }
