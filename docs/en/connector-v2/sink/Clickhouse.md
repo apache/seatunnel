@@ -17,6 +17,8 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 
 > The Clickhouse sink plug-in can achieve accuracy once by implementing idempotent writing, and needs to cooperate with aggregatingmergetree and other engines that support deduplication.
 
+- [x] [support multiple table sink](../../concept/connector-v2-features.md)
+
 ## Description
 
 Used to write data to Clickhouse.
@@ -128,7 +130,9 @@ The following placeholders can be used:
 - `rowtype_unique_key`: Retrieves the unique key from the upstream schema (this may be a list).
 - `comment`: Retrieves the table comment from the upstream schema.
 
-## How to Create a Clickhouse Data Synchronization Jobs
+## Example Configurations and Cases
+
+### How to Create a Clickhouse Data Synchronization Jobs
 
 The following example demonstrates how to create a data synchronization job that writes randomly generated data to a Clickhouse database:
 
@@ -166,13 +170,13 @@ sink {
 }
 ```
 
-### Tips
-
+> Tips:
+>
 > 1.[SeaTunnel Deployment Document](../../start-v2/locally/deployment.md). <br/>
 > 2.The table to be written to needs to be created in advance before synchronization.<br/>
 > 3.When sink is writing to the ClickHouse table, you don't need to set its schema because the connector will query ClickHouse for the current table's schema information before writing.<br/>
 
-## Clickhouse Sink Config
+### Clickhouse Sink Config
 
 ```hocon
 sink {
@@ -190,7 +194,7 @@ sink {
 }
 ```
 
-## Split Mode
+### Split Mode
 
 ```hocon
 sink {
@@ -208,7 +212,7 @@ sink {
 }
 ```
 
-## CDC(Change data capture) Sink
+### CDC(Change data capture) Sink
 
 ```hocon
 sink {
@@ -226,7 +230,7 @@ sink {
 }
 ```
 
-## CDC(Change data capture) for *MergeTree engine
+### CDC(Change data capture) for *MergeTree engine
 
 ```hocon
 sink {
@@ -244,6 +248,104 @@ sink {
   }
 }
 ```
+
+### Multiple table Sink Cases
+
+In ClickHouse, create the following two data tables in advance:
+
+```
+create table if not exists `default`.multi_sink_table1(
+     `c_string`          String,
+     `c_boolean`         Boolean,
+     `c_tinyint`         Int8,
+     `c_smallint`        Int16,
+     `c_int`             Int32,
+     `c_bigint`          Int64,
+     `c_float`           Float32,
+     `c_double`          Float64,
+     `c_decimal`         Decimal(30, 8),
+     `c_date`            Date,
+     `c_time`            DateTime64,
+     `c_map`             Map(String, Int32),
+     `c_array`           Array(Int32)
+)engine=Memory
+comment '''N''-N';
+
+create table if not exists `default`.multi_sink_table2 as `default`.multi_sink_table1;
+```
+
+Then, the configuration to be used is referred to as follows: 
+
+```
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+  job.name = "fake_to_clickhouse_with_multi_table"
+}
+
+source {
+  FakeSource {
+    tables_configs = [
+      {
+        schema = {
+          table = "multi_sink_table1"
+          fields {
+            c_string = string
+            c_boolean = boolean
+            c_tinyint = tinyint
+            c_smallint = smallint
+            c_int = int
+            c_bigint = bigint
+            c_float = float
+            c_double = double
+            c_decimal = "decimal(30, 8)"
+            c_date = date
+            c_time = timestamp
+            c_map = "map<string, int>"
+            c_array = "array<int>"
+          }
+        }
+        row.num = 100
+      },
+      {
+        schema = {
+          table = "multi_sink_table2"
+          fields {
+            c_string = string
+            c_boolean = boolean
+            c_tinyint = tinyint
+            c_smallint = smallint
+            c_int = int
+            c_bigint = bigint
+            c_float = float
+            c_double = double
+            c_decimal = "decimal(30, 8)"
+            c_date = date
+            c_time = timestamp
+            c_map = "map<string, int>"
+            c_array = "array<int>"
+          }
+        }
+        row.num = 100
+      }
+    ]
+    plugin_output = "multi_sink_table"
+  }
+}
+
+sink {
+  Clickhouse {
+    plugin_input = "multi_sink_table"
+    host = "clickhouse:8123"
+    database = "default"
+    table = "${table_name}"
+    username = "default"
+    password = ""
+  }
+}
+```
+
+After submitting the job and successfully executing it, we can see that the data volume of the ClickHouse data tables `multi_sink_table1` and `multi_sink_table2` is 100 for each. 
 
 ## Changelog
 

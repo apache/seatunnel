@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][connector-doris] Added case-sensitive feature for table and column names|https://github.com/apache/seatunnel/commit/|2.3.11|
 |[Improve] doris options (#8745)|https://github.com/apache/seatunnel/commit/268d76cbf3|2.3.10|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[Fix][Connector-V2] fix starRocks automatically creates tables with comment (#8568)|https://github.com/apache/seatunnel/commit/c4cb1fc4a3|2.3.10|

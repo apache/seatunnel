@@ -48,7 +48,12 @@ public class DorisTypeConverterV1 extends AbstractDorisTypeConverter {
 
     @Override
     public Column convert(BasicTypeDefine typeDefine) {
-        PhysicalColumn.PhysicalColumnBuilder builder = getPhysicalColumnBuilder(typeDefine);
+        return convert(typeDefine, true);
+    }
+
+    public Column convert(BasicTypeDefine typeDefine, boolean caseSensitive) {
+        PhysicalColumn.PhysicalColumnBuilder builder =
+                getPhysicalColumnBuilder(typeDefine, caseSensitive);
         String dorisColumnType = getDorisColumnName(typeDefine);
 
         switch (dorisColumnType) {

@@ -52,7 +52,6 @@ public class IcebergSinkFactory implements TableSinkFactory {
                         IcebergSinkOptions.KEY_TABLE,
                         IcebergSinkOptions.CATALOG_PROPS)
                 .optional(
-                        IcebergSinkOptions.TABLE_PROPS,
                         IcebergSinkOptions.HADOOP_PROPS,
                         IcebergSinkOptions.HADOOP_CONF_PATH_PROP,
                         IcebergSinkOptions.KEY_CASE_SENSITIVE,

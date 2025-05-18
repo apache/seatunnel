@@ -29,12 +29,6 @@ import java.util.Map;
 
 public class IcebergSinkOptions extends IcebergCommonOptions {
 
-    public static final Option<Map<String, String>> TABLE_PROPS =
-            Options.key("iceberg.table.config")
-                    .mapType()
-                    .defaultValue(new HashMap<>())
-                    .withDescription("Iceberg table configs");
-
     public static final Option<Map<String, String>> WRITE_PROPS =
             Options.key("iceberg.table.write-props")
                     .mapType()
