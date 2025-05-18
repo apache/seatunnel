@@ -111,7 +111,7 @@ public class KafkaSourceOptions extends KafkaBaseOptions {
                                     + "When skip is selected, data format error will skip this line data.");
 
     public static final Option<Long> START_MODE_END_TIMESTAMP =
-            Options.key("start_mode.endTimestamp")
+            Options.key("start_mode.end_timestamp")
                     .longType()
                     .noDefaultValue()
                     .withDescription(
