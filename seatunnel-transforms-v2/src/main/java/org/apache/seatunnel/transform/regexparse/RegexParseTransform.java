@@ -52,7 +52,7 @@
         List<Column> oldColumns = inputCatalogTable.getTableSchema().getColumns();
         List<Column> newColumns = new ArrayList<>();
         for (String key : groupMap.keySet()) {
-            newColumns.add(PhysicalColumn.of(key, BasicType.STRING_TYPE, 200, true, null, ""));
+            newColumns.add(PhysicalColumn.of(key, BasicType.STRING_TYPE, DEFAULT_COLUMN_LENGTH, true, null, ""));
         }
         newColumns.addAll(0, oldColumns);
         return TableSchema.builder().columns(newColumns).build();
