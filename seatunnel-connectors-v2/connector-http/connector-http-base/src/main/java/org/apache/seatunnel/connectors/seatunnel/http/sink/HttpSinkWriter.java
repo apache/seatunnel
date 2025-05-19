@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.http.sink;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
@@ -31,7 +32,6 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import java.io.IOException;
 import java.util.ArrayList;
