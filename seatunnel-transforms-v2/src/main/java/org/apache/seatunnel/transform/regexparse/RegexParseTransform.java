@@ -80,7 +80,7 @@
             System.arraycopy(extracted, 0, merged, oldFields.length, groupSize);
             return new SeaTunnelRow(merged);
         } catch (Exception e) {
-            throw new RuntimeException("RegexParse->" + e.getMessage());
+            throw new RuntimeException("RegexParse->" + e.getMessage(), e);
         }
     }
 
