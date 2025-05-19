@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
-import io.airlift.compress.lzo.LzopCodec;
-import lombok.NonNull;
-import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -29,6 +26,11 @@ import org.apache.seatunnel.common.utils.EncodingUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.format.json.debezium.DebeziumJsonSerializationSchema;
+
+import org.apache.hadoop.fs.FSDataOutputStream;
+
+import io.airlift.compress.lzo.LzopCodec;
+import lombok.NonNull;
 
 import java.io.IOException;
 import java.io.OutputStream;
