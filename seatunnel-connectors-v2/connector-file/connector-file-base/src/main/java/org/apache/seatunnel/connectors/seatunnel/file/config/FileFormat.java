@@ -141,8 +141,7 @@ public enum FileFormat implements Serializable {
 
         @Override
         public ReadStrategy getReadStrategy() {
-            throw new UnsupportedOperationException(
-                    "file format canal json type not support read");
+            throw new UnsupportedOperationException("file format canal json type not support read");
         }
     },
     DEBEZIUM_JSON("debezium_json") {
