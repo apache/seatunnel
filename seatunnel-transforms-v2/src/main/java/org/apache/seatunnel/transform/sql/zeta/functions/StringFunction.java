@@ -635,7 +635,10 @@ public class StringFunction {
     public static String substring(List<Object> args) {
         Object obj = args.get(0);
         String s;
-        if (obj instanceof Date || obj instanceof Temporal) {
+        if (obj instanceof Date
+                || obj instanceof LocalDateTime
+                || obj instanceof LocalDate
+                || obj instanceof LocalTime) {
             s = formatDate(obj);
         } else {
             s = (String) args.get(0);
