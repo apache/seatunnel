@@ -222,7 +222,7 @@ sink {
 }
 ```
 
-配置表生成策略 (schema_save_mode)
+配置表生成策略
 
 通过设置 `schema_save_mode` 配置为 `CREATE_SCHEMA_WHEN_NOT_EXIST` 来支持不存在表时创建表
 
