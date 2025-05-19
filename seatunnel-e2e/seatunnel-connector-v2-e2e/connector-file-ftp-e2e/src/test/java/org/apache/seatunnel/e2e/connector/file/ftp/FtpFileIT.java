@@ -226,6 +226,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         helper.execute("/excel/ftp_filter_excel_to_assert.conf");
         // test write ftp text file
         helper.execute("/text/fake_to_ftp_file_text.conf");
+        helper.execute("/text/fake_to_ftp_file_text_no_verify.conf");
         // test read skip header
         helper.execute("/text/ftp_file_text_skip_headers.conf");
         // test read ftp text file

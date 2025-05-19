@@ -61,6 +61,8 @@ Engine Supported
 | tls_keystore_password   | string  | no       | -             |
 | tls_truststore_path     | string  | no       | -             |
 | tls_truststore_password | string  | no       | -             |
+| schema_save_mode        | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST |
+| data_save_mode          | enum    | no       | APPEND_DATA   |
 | common-options          |         | no       | -             |
 
 ### hosts [array]
@@ -120,6 +122,21 @@ The path to PEM or JKS trust store. This file must be readable by the operating 
 
 The key password for the trust store specified
 
+### schema_save_mode [enum]
+
+Choose how to handle the target-side schema before starting the synchronization task:
+- `RECREATE_SCHEMA`: Creates the table if it doesn't exist, and deletes and recreates it if it does.
+- `CREATE_SCHEMA_WHEN_NOT_EXIST`: Creates the table if it doesn't exist, skips creation if it does.
+- `ERROR_WHEN_SCHEMA_NOT_EXIST`: Throws an error if the table doesn't exist.
+- `IGNORE`: Ignores schema handling.
+
+### data_save_mode [enum]
+
+Choose how to handle the target-side data before starting the synchronization task:
+- `DROP_DATA`: Preserves the database structure and deletes the data.
+- `APPEND_DATA`: Preserves the database structure and the data.
+- `ERROR_WHEN_DATA_EXISTS`: Reports an error when data exists.
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
@@ -144,7 +161,7 @@ sink {
     Easysearch {
         hosts = ["localhost:9200"]
         index = "seatunnel-${age}"
-        
+
         # cdc required options
         primary_keys = ["key1", "key2", ...]
     }
@@ -159,7 +176,7 @@ sink {
         hosts = ["https://localhost:9200"]
         username = "admin"
         password = "admin"
-        
+
         tls_verify_certificate = false
     }
 }
@@ -173,7 +190,7 @@ sink {
         hosts = ["https://localhost:9200"]
         username = "admin"
         password = "admin"
-        
+
         tls_verify_hostname = false
     }
 }
@@ -187,9 +204,24 @@ sink {
         hosts = ["https://localhost:9200"]
         username = "admin"
         password = "admin"
-        
+
         tls_keystore_path = "${your Easysearch home}/config/certs/http.p12"
         tls_keystore_password = "${your password}"
+    }
+}
+```
+
+SAVE_MODE
+
+```hocon
+sink {
+    Easysearch {
+        hosts = ["https://localhost:9200"]
+        username = "admin"
+        password = "admin"
+
+        schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+        data_save_mode = "APPEND_DATA"
     }
 }
 ```
