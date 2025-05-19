@@ -70,15 +70,15 @@ public class TransformCommonError {
         return new TransformException(INPUT_TABLE_NOT_FOUND, params);
     }
 
-    public static TransformException sqlExpressionError(String expression) {
+    public static TransformException sqlExpressionError(String expression, Throwable cause) {
         Map<String, String> params = new HashMap<>();
         params.put("expression", expression);
-        return new TransformException(EXPRESSION_EXECUTE_ERROR, params);
+        return new TransformException(EXPRESSION_EXECUTE_ERROR, params, cause);
     }
 
-    public static TransformException sqlWhereStatementError(String wherebody) {
+    public static TransformException sqlWhereStatementError(String wherebody, Throwable cause) {
         Map<String, String> params = new HashMap<>();
         params.put("wherebody", wherebody);
-        return new TransformException(WHERE_STATEMENT_ERROR, params);
+        return new TransformException(WHERE_STATEMENT_ERROR, params, cause);
     }
 }
