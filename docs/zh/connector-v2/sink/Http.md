@@ -73,7 +73,6 @@ Http {
     array_mode = true
     batch_size = 50
     request_interval_ms = 500
-    format = "json"
 }
 ```
 
