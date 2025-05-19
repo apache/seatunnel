@@ -175,6 +175,13 @@ public class JdbcOracleIT extends AbstractJdbcIT {
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
+    @TestTemplate
+    public void testOracleWithBlobAsString(TestContainer container) throws Exception {
+        Container.ExecResult execResult =
+                container.executeJob("/jdbc_oracle_source_to_sink_with_blob_as_string.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
     @Override
     JdbcCase getJdbcCase() {
         Map<String, String> containerEnv = new HashMap<>();

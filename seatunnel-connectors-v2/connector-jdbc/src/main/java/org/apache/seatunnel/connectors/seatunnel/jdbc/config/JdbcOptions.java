@@ -108,6 +108,13 @@ public interface JdbcOptions {
                     .withDescription(
                             "decimal type narrowing, if true, the decimal type will be narrowed to the int or long type if without loss of precision. Only support for Oracle at now.");
 
+    Option<Boolean> HANDLE_BLOB_AS_STRING =
+            Options.key("handle_blob_as_string")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "If true, BLOB type will be converted to STRING type. Only support for Oracle at now.");
+
     Option<String> XA_DATA_SOURCE_CLASS_NAME =
             Options.key("xa_data_source_class_name")
                     .stringType()
