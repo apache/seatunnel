@@ -31,11 +31,13 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 @Slf4j
 public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
@@ -90,10 +92,8 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         if (!arrayMode) {
-            // Object mode: send each record individually, ignore batch_size setting
             writeSingleRecord(element);
         } else {
-            // Array mode: batch processing
             batchBuffer.add(element);
             if (batchBuffer.size() >= batchSize) {
                 flush();
@@ -111,16 +111,13 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         if (batchBuffer.isEmpty()) {
             return;
         }
-
-        // Check request interval
         long currentTime = System.currentTimeMillis();
         long timeSinceLastRequest = currentTime - lastRequestTime;
         if (requestIntervalMs > 0 && timeSinceLastRequest < requestIntervalMs) {
             try {
                 Thread.sleep(requestIntervalMs - timeSinceLastRequest);
             } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                log.warn("Sleep interrupted", e);
+                throw new RuntimeException(e);
             }
         }
 
@@ -140,7 +137,6 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
     private void doHttpRequest(String body) {
         try {
-            // Send HTTP request
             HttpResponse response =
                     httpClient.doPost(httpParameter.getUrl(), httpParameter.getHeaders(), body);
             if (HttpResponse.STATUS_OK == response.getCode()) {
@@ -158,13 +154,26 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     @Override
     public void close() throws IOException {
         if (arrayMode) {
-            flush(); // Ensure that all data in the buffer is sent out before shutdown
+            flush();
         }
         if (Objects.nonNull(httpClient)) {
             httpClient.close();
         }
     }
 
+    @Override
+    public Optional<Void> prepareCommit() {
+        if (arrayMode) {
+            try {
+                flush();
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to flush data in prepareCommit", e);
+            }
+        }
+        return Optional.empty();
+    }
+
+    @VisibleForTesting
     protected HttpClientProvider createHttpClient(HttpParameter httpParameter) {
         return new HttpClientProvider(httpParameter);
     }
