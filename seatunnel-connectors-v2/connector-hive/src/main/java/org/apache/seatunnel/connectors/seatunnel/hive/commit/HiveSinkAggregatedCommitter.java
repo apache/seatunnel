@@ -164,7 +164,8 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
                     log.info("Deleted table directory: {}", tableDir);
                 } else {
                     // For partitioned table, extract and delete partition directories
-                    // Example: hdfs://hadoop-master1:8020/warehouse/test_overwrite_partition/age=26/
+                    // Example:
+                    // hdfs://hadoop-master1:8020/warehouse/test_overwrite_partition/age=26/
                     Set<String> partitionDirs =
                             transactionMap.values().stream()
                                     .flatMap(m -> m.values().stream())
