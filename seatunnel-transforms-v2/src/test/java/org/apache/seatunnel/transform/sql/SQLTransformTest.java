@@ -455,6 +455,7 @@ public class SQLTransformTest {
         Assertions.assertEquals(true, result.get(0).getField(1));
         Assertions.assertEquals(false, result.get(0).getField(2));
     }
+
     @Test
     public void testSubStringForDate() {
         Date date = new Date(1747579031000L);
@@ -474,7 +475,7 @@ public class SQLTransformTest {
         Assertions.assertEquals(StringFunction.substring(Arrays.asList(localTime, 0, 2)), "01");
 
         String s = "TESTING_SUB_STRING_FUNCTION";
-        Assertions.assertEquals(StringFunction.substring(Arrays.asList(s, 0, 7)),"TESTING");
+        Assertions.assertEquals(StringFunction.substring(Arrays.asList(s, 0, 7)), "TESTING");
     }
 
     @Test
