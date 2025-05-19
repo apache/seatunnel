@@ -42,6 +42,9 @@ public class HttpParameter implements Serializable {
     protected boolean enableMultilines;
     protected int connectTimeoutMs;
     protected int socketTimeoutMs;
+    protected boolean arrayMode = false;
+    protected int batchSize = 1;
+    protected int requestIntervalMs = 0;
 
     public void buildWithConfig(ReadonlyConfig pluginConfig) {
         // set url

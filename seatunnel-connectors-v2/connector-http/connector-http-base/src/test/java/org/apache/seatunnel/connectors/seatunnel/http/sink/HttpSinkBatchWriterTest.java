@@ -39,6 +39,8 @@ import org.mockito.quality.Strictness;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -87,11 +89,46 @@ public class HttpSinkBatchWriterTest {
     }
 
     @Test
+    public void testDefaultParameterValues() throws Exception {
+        // 不设置参数，使用默认值
+        // 默认值：arrayMode = false, batchSize = 1, requestIntervalMs = 0
+        HttpParameter defaultHttpParameter = new HttpParameter();
+        defaultHttpParameter.setUrl(TEST_URL);
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Content-Type", "application/json");
+        defaultHttpParameter.setHeaders(headers);
+
+        // 验证默认参数值
+        assertFalse(defaultHttpParameter.isArrayMode());
+        assertEquals(1, defaultHttpParameter.getBatchSize());
+        assertEquals(0, defaultHttpParameter.getRequestIntervalMs());
+
+        sinkWriter = new TestableHttpSinkWriter(rowType, defaultHttpParameter);
+
+        // 写入3条记录
+        for (int i = 0; i < 3; i++) {
+            SeaTunnelRow row = createTestRow(i + 1, "user" + (i + 1), 20 + i);
+            sinkWriter.write(row);
+        }
+
+        // 在默认的对象模式下，应该有3个HTTP请求，每条记录单独发送
+        verify(httpClientProvider, times(3))
+                .doPost(eq(TEST_URL), any(), requestBodyCaptor.capture());
+
+        // 验证请求格式（单个对象）
+        for (String requestBody : requestBodyCaptor.getAllValues()) {
+            assertTrue(requestBody.startsWith("{"));
+            assertTrue(requestBody.endsWith("}"));
+        }
+    }
+
+    @Test
     public void testObjectModeIgnoresBatchSize() throws Exception {
         // Use object mode (default) to ignore batch size
-        sinkWriter =
-                new TestableHttpSinkWriter(
-                        rowType, httpParameter, false, BATCH_SIZE, REQUEST_INTERVAL_MS);
+        httpParameter.setArrayMode(false);
+        httpParameter.setBatchSize(BATCH_SIZE);
+        httpParameter.setRequestIntervalMs(REQUEST_INTERVAL_MS);
+        sinkWriter = new TestableHttpSinkWriter(rowType, httpParameter);
 
         // Write 3 records (equal to batch size)
         for (int i = 0; i < BATCH_SIZE; i++) {
@@ -113,9 +150,10 @@ public class HttpSinkBatchWriterTest {
     @Test
     public void testArrayModeWithBatch() throws Exception {
         // Use array mode to turn on batch processing
-        sinkWriter =
-                new TestableHttpSinkWriter(
-                        rowType, httpParameter, true, BATCH_SIZE, REQUEST_INTERVAL_MS);
+        httpParameter.setArrayMode(true);
+        httpParameter.setBatchSize(BATCH_SIZE);
+        httpParameter.setRequestIntervalMs(REQUEST_INTERVAL_MS);
+        sinkWriter = new TestableHttpSinkWriter(rowType, httpParameter);
 
         // Write 5 records (over batch size)
         for (int i = 0; i < 5; i++) {
@@ -150,12 +188,8 @@ public class HttpSinkBatchWriterTest {
 
     private class TestableHttpSinkWriter extends HttpSinkWriter {
         public TestableHttpSinkWriter(
-                SeaTunnelRowType seaTunnelRowType,
-                HttpParameter httpParameter,
-                boolean arrayMode,
-                int batchSize,
-                int requestIntervalMs) {
-            super(seaTunnelRowType, httpParameter, arrayMode, batchSize, requestIntervalMs);
+                SeaTunnelRowType seaTunnelRowType, HttpParameter httpParameter) {
+            super(seaTunnelRowType, httpParameter);
         }
 
         @Override

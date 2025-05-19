@@ -60,22 +60,13 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             SeaTunnelRowType seaTunnelRowType,
             HttpParameter httpParameter,
             SerializationSchema serializationSchema) {
-        this(seaTunnelRowType, httpParameter, serializationSchema, false, 1, 0);
-    }
-
-    public HttpSinkWriter(
-            SeaTunnelRowType seaTunnelRowType,
-            HttpParameter httpParameter,
-            boolean arrayMode,
-            int batchSize,
-            int requestIntervalMs) {
         this(
                 seaTunnelRowType,
                 httpParameter,
-                new JsonSerializationSchema(seaTunnelRowType),
-                arrayMode,
-                batchSize,
-                requestIntervalMs);
+                serializationSchema,
+                httpParameter.isArrayMode(),
+                httpParameter.getBatchSize(),
+                httpParameter.getRequestIntervalMs());
     }
 
     public HttpSinkWriter(
