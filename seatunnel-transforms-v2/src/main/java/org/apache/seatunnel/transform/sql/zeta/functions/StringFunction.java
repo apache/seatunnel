@@ -47,6 +47,7 @@ public class StringFunction {
     private static final String DATE_TIME_FORMAT_PATTERN = "yyyy-MM-dd HH:mm:ss";
     private static final String DATE_FORMAT_PATTERN = "yyyy-MM-dd";
     private static final String TIME_FORMAT_PATTERN = "HH:mm:ss";
+
     public static Integer ascii(List<Object> args) {
         String arg = (String) args.get(0);
         if (arg == null) {
