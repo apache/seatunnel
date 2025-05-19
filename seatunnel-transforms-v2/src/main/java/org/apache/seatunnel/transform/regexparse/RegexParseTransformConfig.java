@@ -14,7 +14,7 @@
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "Upstream fields that require parsing");
+                            "Upstream field that requires parsing");
     public static final Option<String> REGEX =
             Options.key("regex")
                     .stringType()
