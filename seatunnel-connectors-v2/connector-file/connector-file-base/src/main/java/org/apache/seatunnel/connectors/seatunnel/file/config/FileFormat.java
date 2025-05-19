@@ -18,7 +18,18 @@
 package org.apache.seatunnel.connectors.seatunnel.file.config;
 
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.*;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.BinaryWriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.CanalJsonWriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.CsvWriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.DebeziumJsonWriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.ExcelWriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.JsonWriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.MaxWellJsonWriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.OrcWriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.ParquetWriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.TextWriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.XmlWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.BinaryReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.CsvReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ExcelReadStrategy;
