@@ -247,7 +247,7 @@ public class ZetaSQLEngine implements SQLEngine {
                 return null;
             }
         } catch (Exception e) {
-            throw TransformCommonError.sqlWhereStatementError(selectBody.getWhere().toString());
+            throw TransformCommonError.sqlWhereStatementError(selectBody.getWhere().toString(), e);
         }
 
         // Project
@@ -289,7 +289,7 @@ public class ZetaSQLEngine implements SQLEngine {
                     fields[idx] = zetaSQLFunction.computeForValue(expression, inputFields);
                     idx++;
                 } catch (Exception e) {
-                    throw TransformCommonError.sqlExpressionError(expression.toString());
+                    throw TransformCommonError.sqlExpressionError(expression.toString(), e);
                 }
             }
         }
