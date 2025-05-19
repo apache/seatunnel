@@ -222,8 +222,8 @@ public class HiveOverwriteIT extends TestSuiteBase implements TestResource {
      *
      * <p>1. First insertion: Inserts 3 records into the target Hive table (table contains 3
      * records) 2. Second insertion: Appends 2 more records (table contains 5 records) 3. Third
-     * insertion: Uses overwrite mode to insert 1 record (table now contains only 1 record,
-     * previous data is overwritten)
+     * insertion: Uses overwrite mode to insert 1 record (table now contains only 1 record, previous
+     * data is overwritten)
      *
      * <p>Each operation is followed by an assertion job to verify the expected data state.
      *
