@@ -90,32 +90,33 @@ public class HttpSinkBatchWriterTest {
 
     @Test
     public void testDefaultParameterValues() throws Exception {
-        // 不设置参数，使用默认值
-        // 默认值：arrayMode = false, batchSize = 1, requestIntervalMs = 0
+        // No parameters are set, use default values
+        // default：arrayMode = false, batchSize = 1, requestIntervalMs = 0
         HttpParameter defaultHttpParameter = new HttpParameter();
         defaultHttpParameter.setUrl(TEST_URL);
         Map<String, String> headers = new HashMap<>();
         headers.put("Content-Type", "application/json");
         defaultHttpParameter.setHeaders(headers);
 
-        // 验证默认参数值
+        // Verify the default parameter value
         assertFalse(defaultHttpParameter.isArrayMode());
         assertEquals(1, defaultHttpParameter.getBatchSize());
         assertEquals(0, defaultHttpParameter.getRequestIntervalMs());
 
         sinkWriter = new TestableHttpSinkWriter(rowType, defaultHttpParameter);
 
-        // 写入3条记录
+        // Write 3 records
         for (int i = 0; i < 3; i++) {
             SeaTunnelRow row = createTestRow(i + 1, "user" + (i + 1), 20 + i);
             sinkWriter.write(row);
         }
 
-        // 在默认的对象模式下，应该有3个HTTP请求，每条记录单独发送
+        // In the default object mode, there should be 3 HTTP requests, each record is sent
+        // separately
         verify(httpClientProvider, times(3))
                 .doPost(eq(TEST_URL), any(), requestBodyCaptor.capture());
 
-        // 验证请求格式（单个对象）
+        // Verify request format (single object)
         for (String requestBody : requestBodyCaptor.getAllValues()) {
             assertTrue(requestBody.startsWith("{"));
             assertTrue(requestBody.endsWith("}"));
