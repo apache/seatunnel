@@ -237,32 +237,26 @@ public class HiveOverwriteIT extends TestSuiteBase implements TestResource {
         //  Inserts 3 rows of data into the target table, resulting in the table having 3 rows.
         Container.ExecResult execResult1 =
                 container.executeJob("/overwrite/fake_to_hive_overwrite_1.conf");
-        log.info("execResult1: {}", execResult1.toString());
         Assertions.assertEquals(0, execResult1.getExitCode());
 
         Container.ExecResult readResult1 =
                 container.executeJob("/overwrite/hive_to_assert_overwrite_1.conf");
-        log.info("readResult1: {}", readResult1.toString());
         Assertions.assertEquals(0, readResult1.getExitCode());
 
         Container.ExecResult execResult2 =
                 container.executeJob("/overwrite/fake_to_hive_overwrite_2.conf");
-        log.info("execResult2: {}", execResult2.toString());
-        Assertions.assertEquals(0, execResult1.getExitCode());
+        Assertions.assertEquals(0, execResult2.getExitCode());
 
         Container.ExecResult readResult2 =
                 container.executeJob("/overwrite/hive_to_assert_overwrite_2.conf");
-        log.info("readResult2: {}", readResult2.toString());
         Assertions.assertEquals(0, readResult2.getExitCode());
 
         Container.ExecResult execResult3 =
                 container.executeJob("/overwrite/fake_to_hive_overwrite_3.conf");
-        log.info("execResult3: {}", execResult3.toString());
         Assertions.assertEquals(0, execResult3.getExitCode());
 
         Container.ExecResult readResult3 =
                 container.executeJob("/overwrite/hive_to_assert_overwrite_3.conf");
-        log.info("readResult3: {}", readResult3.toString());
         Assertions.assertEquals(0, readResult3.getExitCode());
     }
 }
