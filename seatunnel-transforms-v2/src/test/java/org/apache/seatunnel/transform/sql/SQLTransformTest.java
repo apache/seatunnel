@@ -399,6 +399,9 @@ public class SQLTransformTest {
                         Assertions.assertEquals(
                                 "ErrorCode:[TRANSFORM_COMMON-06], ErrorDescription:[The expression 'cast(`int` AS boolean)' of SQL transform execute failed]",
                                 e.getMessage());
+                        Assertions.assertEquals(
+                                "ErrorCode:[COMMON-05], ErrorDescription:[Unsupported operation] - Unsupported CAST AS Boolean: 3",
+                                e.getCause().getMessage());
                         throw e;
                     }
                 });
@@ -413,6 +416,9 @@ public class SQLTransformTest {
                         Assertions.assertEquals(
                                 "ErrorCode:[TRANSFORM_COMMON-06], ErrorDescription:[The expression 'cast(`string` AS boolean)' of SQL transform execute failed]",
                                 e.getMessage());
+                        Assertions.assertEquals(
+                                "ErrorCode:[COMMON-05], ErrorDescription:[Unsupported operation] - Unsupported CAST AS Boolean: false333",
+                                e.getCause().getMessage());
                         throw e;
                     }
                 });
