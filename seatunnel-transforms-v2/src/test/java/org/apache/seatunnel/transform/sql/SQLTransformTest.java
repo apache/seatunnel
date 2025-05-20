@@ -397,7 +397,7 @@ public class SQLTransformTest {
                                 new SeaTunnelRow(new Object[] {Integer.valueOf(1), 3, "false"}));
                     } catch (Exception e) {
                         Assertions.assertEquals(
-                                "ErrorCode:[COMMON-05], ErrorDescription:[Unsupported operation] - Unsupported CAST AS Boolean: 3",
+                                "ErrorCode:[TRANSFORM_COMMON-06], ErrorDescription:[The expression 'cast(`int` AS boolean)' of SQL transform execute failed]",
                                 e.getMessage());
                         throw e;
                     }
@@ -411,7 +411,7 @@ public class SQLTransformTest {
                                 new SeaTunnelRow(new Object[] {Integer.valueOf(1), 0, "false333"}));
                     } catch (Exception e) {
                         Assertions.assertEquals(
-                                "ErrorCode:[COMMON-05], ErrorDescription:[Unsupported operation] - Unsupported CAST AS Boolean: false333",
+                                "ErrorCode:[TRANSFORM_COMMON-06], ErrorDescription:[The expression 'cast(`string` AS boolean)' of SQL transform execute failed]",
                                 e.getMessage());
                         throw e;
                     }
