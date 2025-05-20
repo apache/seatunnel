@@ -141,7 +141,8 @@ public enum FileFormat implements Serializable {
 
         @Override
         public ReadStrategy getReadStrategy() {
-            throw new UnsupportedOperationException("file format canal json type not support read");
+            throw new UnsupportedOperationException(
+                    "File format 'canal_json' does not support reading.");
         }
     },
     DEBEZIUM_JSON("debezium_json") {
@@ -153,7 +154,7 @@ public enum FileFormat implements Serializable {
         @Override
         public ReadStrategy getReadStrategy() {
             throw new UnsupportedOperationException(
-                    "file format debezium json type not support read");
+                    "File format 'debezium_json' does not support reading.");
         }
     },
     MAXWELL_JSON("maxwell_json") {
@@ -165,7 +166,7 @@ public enum FileFormat implements Serializable {
         @Override
         public ReadStrategy getReadStrategy() {
             throw new UnsupportedOperationException(
-                    "file format maxwell json type not support read");
+                    "File format 'maxwell_json' does not support reading.");
         }
     };
 
