@@ -21,7 +21,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 ## 选项
 
-|           名称            |   类型    | 是否必须 |             默认值              |
+|           名称            | 类型      | 是否必须 |             默认值              |
 |-------------------------|---------|------|------------------------------|
 | hosts                   | array   | 是    | -                            |
 | index                   | string  | 是    | -                            |
@@ -41,8 +41,8 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 | tls_truststore_path     | string  | 否    | -                            |
 | tls_truststore_password | string  | 否    | -                            |
 | common-options          |         | 否    | -                            |
-| vectorization_fields    |  array  | 否    | -                            |
-| vector_dimensions       |  string | 否    | -                            |
+| vectorization_fields    | array   | 否    | -                            |
+| vector_dimensions       | int     | 否    | -                            |
 
 ### hosts [array]
 
