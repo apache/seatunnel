@@ -62,7 +62,8 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
             List<FileAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
         log.info("Aggregated commit infos: {}", aggregatedCommitInfos);
         if (overwrite) {
-            log.info("start delete directories in aggregatedCommitInfos because overwrite is enabled.");
+            log.info(
+                    "start delete directories in aggregatedCommitInfos because overwrite is enabled.");
             deleteDirectories(aggregatedCommitInfos);
         }
 
