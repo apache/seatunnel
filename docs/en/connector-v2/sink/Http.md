@@ -44,6 +44,9 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | retry_backoff_max_ms        | Int    | No       | 10000   | The maximum retry-backoff times(millis) if request http failed                                              |
 | connect_timeout_ms          | Int    | No       | 12000   | Connection timeout setting, default 12s.                                                                    |
 | socket_timeout_ms           | Int    | No       | 60000   | Socket timeout setting, default 60s.                                                                        |
+| array_mode                  | Boolean| No       | false   | Send data as a JSON array when true, or as a single JSON object when false (default)                        |
+| batch_size                  | Int    | No       | 1       | The batch size of records to send in one HTTP request. Only works when array_mode is true.                  |
+| request_interval_ms         | Int    | No       | 0       | The interval milliseconds between two HTTP requests, to avoid sending requests too frequently.              |
 | common-options              |        | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details |
 
 ## Example
@@ -56,6 +59,21 @@ Http {
     headers {
         token = "9e32e859ef044462a257e1fc76730066"
     }
+}
+```
+
+### With Batch Processing
+
+```hocon
+Http {
+    url = "http://localhost/test/webhook"
+    headers {
+        token = "9e32e859ef044462a257e1fc76730066"
+        Content-Type = "application/json"
+    }
+    array_mode = true
+    batch_size = 50
+    request_interval_ms = 500
 }
 ```
 
