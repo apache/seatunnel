@@ -305,4 +305,125 @@ public class ExtractFunctionTest {
         outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
         Assertions.assertEquals(7, outRow.getField(0));
     }
+
+    @Test
+    public void testDateTimeLiteralExpression() {
+        // Test using EXTRACT function with timestamp literals
+        SQLEngine sqlEngine = SQLEngineFactory.getSQLEngine(SQLEngineFactory.EngineType.ZETA);
+
+        // Create test data (we need a dummy row for the SQL engine)
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"dummy"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+
+        SeaTunnelRow dummyRow = new SeaTunnelRow(new Object[] {LocalDateTime.now()});
+
+        // Test multiple extractions from the same timestamp literal
+        sqlEngine.init(
+                "test",
+                null,
+                rowType,
+                "select EXTRACT(HOUR FROM TIMESTAMP '2025-05-21T17:57:40') as hour, "
+                        + "EXTRACT(MINUTE FROM TIMESTAMP '2025-05-21T17:57:40') as minute, "
+                        + "EXTRACT(SECOND FROM TIMESTAMP '2025-05-21T17:57:40') as second from dual");
+        SeaTunnelRow outRow = sqlEngine.transformBySQL(dummyRow, rowType).get(0);
+        Assertions.assertEquals(17, outRow.getField(0));
+        Assertions.assertEquals(57, outRow.getField(1));
+        Assertions.assertEquals(40, outRow.getField(2));
+
+        // Test with standard ISO format
+        sqlEngine.init(
+                "test",
+                null,
+                rowType,
+                "select EXTRACT(YEAR FROM TIMESTAMP '2025-05-21T17:57:40') as year from dual");
+        outRow = sqlEngine.transformBySQL(dummyRow, rowType).get(0);
+        Assertions.assertEquals(2025, outRow.getField(0));
+
+        // Test with space-separated format
+        sqlEngine.init(
+                "test",
+                null,
+                rowType,
+                "select EXTRACT(MONTH FROM TIMESTAMP '2025-05-21T17:57:40') as month from dual");
+        outRow = sqlEngine.transformBySQL(dummyRow, rowType).get(0);
+        Assertions.assertEquals(5, outRow.getField(0));
+
+        // Test with DATE literal
+        sqlEngine.init(
+                "test",
+                null,
+                rowType,
+                "select EXTRACT(DAY FROM DATE '2025-05-21T17:57:40') as day from dual");
+        outRow = sqlEngine.transformBySQL(dummyRow, rowType).get(0);
+        Assertions.assertEquals(21, outRow.getField(0));
+
+        // Test all date parts from a specific timestamp
+        sqlEngine.init(
+                "test",
+                null,
+                rowType,
+                "select EXTRACT(YEAR FROM TIMESTAMP '2025-05-21T17:57:40') as year from dual");
+        outRow = sqlEngine.transformBySQL(dummyRow, rowType).get(0);
+        Assertions.assertEquals(2025, outRow.getField(0));
+
+        sqlEngine.init(
+                "test",
+                null,
+                rowType,
+                "select EXTRACT(MONTH FROM TIMESTAMP '2025-05-21T17:57:40') as month from dual");
+        outRow = sqlEngine.transformBySQL(dummyRow, rowType).get(0);
+        Assertions.assertEquals(5, outRow.getField(0));
+
+        sqlEngine.init(
+                "test",
+                null,
+                rowType,
+                "select EXTRACT(DAY FROM TIMESTAMP '2025-05-21T17:57:40') as day from dual");
+        outRow = sqlEngine.transformBySQL(dummyRow, rowType).get(0);
+        Assertions.assertEquals(21, outRow.getField(0));
+
+        sqlEngine.init(
+                "test",
+                null,
+                rowType,
+                "select EXTRACT(HOUR FROM TIMESTAMP '2025-05-21T17:57:40') as hour from dual");
+        outRow = sqlEngine.transformBySQL(dummyRow, rowType).get(0);
+        Assertions.assertEquals(17, outRow.getField(0));
+
+        sqlEngine.init(
+                "test",
+                null,
+                rowType,
+                "select EXTRACT(MINUTE FROM TIMESTAMP '2025-05-21T17:57:40') as minute from dual");
+        outRow = sqlEngine.transformBySQL(dummyRow, rowType).get(0);
+        Assertions.assertEquals(57, outRow.getField(0));
+
+        sqlEngine.init(
+                "test",
+                null,
+                rowType,
+                "select EXTRACT(SECOND FROM TIMESTAMP '2025-05-21T17:57:40') as second from dual");
+        outRow = sqlEngine.transformBySQL(dummyRow, rowType).get(0);
+        Assertions.assertEquals(40, outRow.getField(0));
+
+        // Test quarter extraction
+        sqlEngine.init(
+                "test",
+                null,
+                rowType,
+                "select EXTRACT(QUARTER FROM TIMESTAMP '2025-05-21T17:57:40') as quarter from dual");
+        outRow = sqlEngine.transformBySQL(dummyRow, rowType).get(0);
+        Assertions.assertEquals(2, outRow.getField(0));
+
+        // Test DOW (day of week) extraction
+        sqlEngine.init(
+                "test",
+                null,
+                rowType,
+                "select EXTRACT(DOW FROM TIMESTAMP '2025-05-21T17:57:40') as dow from dual");
+        outRow = sqlEngine.transformBySQL(dummyRow, rowType).get(0);
+        Assertions.assertEquals(3, outRow.getField(0)); // 2025-05-21 is a Wednesday (3)
+    }
 }

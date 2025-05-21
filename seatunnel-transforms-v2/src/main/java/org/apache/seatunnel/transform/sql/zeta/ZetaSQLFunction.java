@@ -40,6 +40,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import net.sf.jsqlparser.expression.BinaryExpression;
 import net.sf.jsqlparser.expression.CaseExpression;
 import net.sf.jsqlparser.expression.CastExpression;
+import net.sf.jsqlparser.expression.DateTimeLiteralExpression;
 import net.sf.jsqlparser.expression.DoubleValue;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.ExtractExpression;
@@ -64,6 +65,7 @@ import net.sf.jsqlparser.statement.select.LateralView;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -334,7 +336,18 @@ public class ZetaSQLFunction {
         if (expression instanceof ExtractExpression) {
             ExtractExpression extract = (ExtractExpression) expression;
             List<Object> functionArgs = new ArrayList<>();
-            functionArgs.add(computeForValue(extract.getExpression(), inputFields));
+            if (extract.getExpression() instanceof DateTimeLiteralExpression) {
+                DateTimeLiteralExpression dateTimeLiteralExpression =
+                        (DateTimeLiteralExpression) extract.getExpression();
+                String value = dateTimeLiteralExpression.getValue();
+                if (value.startsWith("'") && value.endsWith("'")) {
+                    value = value.substring(1, value.length() - 1);
+                }
+                functionArgs.add(LocalDateTime.parse(value));
+            } else {
+                functionArgs.add(computeForValue(extract.getExpression(), inputFields));
+            }
+
             functionArgs.add(extract.getName());
             return executeFunctionExpr(ZetaSQLFunction.EXTRACT, functionArgs);
         }
