@@ -29,6 +29,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.Temporal;
 import java.time.temporal.TemporalAccessor;
@@ -401,10 +402,108 @@ public class DateTimeFunction {
                     return ((LocalDateTime) datetime).getNano() / 1000_000;
                 }
                 break;
+            case "MICROSECONDS":
+                if (datetime instanceof LocalTime) {
+                    return ((LocalTime) datetime).getNano() / 1000;
+                }
+                if (datetime instanceof LocalDateTime) {
+                    return ((LocalDateTime) datetime).getNano() / 1000;
+                }
+                break;
+            case "EPOCH":
+                if (datetime instanceof LocalDateTime) {
+                    ZoneOffset offset = ZoneOffset.UTC;
+                    return (int) ((LocalDateTime) datetime).toEpochSecond(offset);
+                }
+                if (datetime instanceof LocalDate) {
+                    LocalDateTime ldt = LocalDateTime.of((LocalDate) datetime, LocalTime.MIDNIGHT);
+                    ZoneOffset offset = ZoneOffset.UTC;
+                    return (int) ldt.toEpochSecond(offset);
+                }
+                break;
+            case "QUARTER":
+                if (datetime instanceof LocalDate) {
+                    int month = ((LocalDate) datetime).getMonthValue();
+                    return (month - 1) / 3 + 1;
+                }
+                if (datetime instanceof LocalDateTime) {
+                    int month = ((LocalDateTime) datetime).getMonthValue();
+                    return (month - 1) / 3 + 1;
+                }
+                break;
+            case "WEEK":
+                if (datetime instanceof LocalDate) {
+                    return datetime.get(WeekFields.ISO.weekOfYear());
+                }
+                if (datetime instanceof LocalDateTime) {
+                    return datetime.get(WeekFields.ISO.weekOfYear());
+                }
+                break;
+            case "CENTURY":
+                if (datetime instanceof LocalDate) {
+                    int year = ((LocalDate) datetime).getYear();
+                    return (year > 0) ? (year - 1) / 100 + 1 : year / 100;
+                }
+                if (datetime instanceof LocalDateTime) {
+                    int year = ((LocalDateTime) datetime).getYear();
+                    return (year > 0) ? (year - 1) / 100 + 1 : year / 100;
+                }
+                break;
+            case "DECADE":
+                if (datetime instanceof LocalDate) {
+                    return ((LocalDate) datetime).getYear() / 10;
+                }
+                if (datetime instanceof LocalDateTime) {
+                    return ((LocalDateTime) datetime).getYear() / 10;
+                }
+                break;
+            case "DOW":
+                if (datetime instanceof LocalDate) {
+                    return ((LocalDate) datetime).getDayOfWeek().getValue() % 7;
+                }
+                if (datetime instanceof LocalDateTime) {
+                    return ((LocalDateTime) datetime).getDayOfWeek().getValue() % 7;
+                }
+                break;
+            case "ISODOW":
+                if (datetime instanceof LocalDate) {
+                    return ((LocalDate) datetime).getDayOfWeek().getValue();
+                }
+                if (datetime instanceof LocalDateTime) {
+                    return ((LocalDateTime) datetime).getDayOfWeek().getValue();
+                }
+                break;
+            case "DOY":
+            case "DAYOFYEAR":
+                if (datetime instanceof LocalDate) {
+                    return ((LocalDate) datetime).getDayOfYear();
+                }
+                if (datetime instanceof LocalDateTime) {
+                    return ((LocalDateTime) datetime).getDayOfYear();
+                }
+                break;
+            case "ISOYEAR":
+                if (datetime instanceof LocalDate) {
+                    LocalDate date = (LocalDate) datetime;
+                    return date.get(WeekFields.ISO.weekBasedYear());
+                }
+                if (datetime instanceof LocalDateTime) {
+                    LocalDate date = ((LocalDateTime) datetime).toLocalDate();
+                    return date.get(WeekFields.ISO.weekBasedYear());
+                }
+                break;
+            case "MILLENNIUM":
+                if (datetime instanceof LocalDate) {
+                    int year = ((LocalDate) datetime).getYear();
+                    return (year > 0) ? (year - 1) / 1000 + 1 : year / 1000;
+                }
+                if (datetime instanceof LocalDateTime) {
+                    int year = ((LocalDateTime) datetime).getYear();
+                    return (year > 0) ? (year - 1) / 1000 + 1 : year / 1000;
+                }
+                break;
             case "DAYOFWEEK":
                 return dayOfWeek(args);
-            case "DAYOFYEAR":
-                return dayOfYear(args);
             default:
                 throw new TransformException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
