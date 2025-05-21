@@ -62,6 +62,10 @@ public class MaxWellJsonWriteStrategy extends AbstractWriteStrategy<FSDataOutput
                         buildSchemaWithRowType(
                                 catalogTable.getSeaTunnelRowType(), sinkColumnsIndexInRow),
                         charset);
+
+
+
+        
     }
 
     @Override
