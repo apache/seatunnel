@@ -77,20 +77,16 @@ public class PrometheusSourceParameter extends HttpParameter {
         if (isValidISO8601(time)) {
             return time;
         }
-        throw new PrometheusConnectorException(
-                CommonErrorCode.UNSUPPORTED_DATA_TYPE, "unsupported time type");
+        try {
+            Double.parseDouble(time);
+            return time;
+        } catch (NumberFormatException e) {
+            throw new PrometheusConnectorException(
+                    CommonErrorCode.UNSUPPORTED_DATA_TYPE, "unsupported time type");
+        }
     }
 
     private boolean isValidISO8601(String dateTimeString) {
-        if (!dateTimeString.endsWith("Z")) {
-            try {
-                Double.parseDouble(dateTimeString);
-                return true;
-            } catch (NumberFormatException e) {
-                throw new PrometheusConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE, "unsupported time type");
-            }
-        }
         try {
             Instant.parse(dateTimeString);
             return true;
