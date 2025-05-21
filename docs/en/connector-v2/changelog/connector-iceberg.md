@@ -2,6 +2,13 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Connector-V2] Iceberg add glue catalog support (#9247)|https://github.com/apache/seatunnel/commit/ecff2e8618|2.3.11|
+|[Improve] Remove useless iceberg sink config `iceberg.table.config` (#9307)|https://github.com/apache/seatunnel/commit/fbdf39ebf2|2.3.11|
+|[Improve][connector-iceberg] fix schema change event (#9217)|https://github.com/apache/seatunnel/commit/56669095b7|2.3.11|
+|[Feature][Transform] Support define sink column type (#9114)|https://github.com/apache/seatunnel/commit/ab7119e507|2.3.11|
+|[Feat][Connector-v2][Iceberg]support filter conditions in iceberg source (#9095)|https://github.com/apache/seatunnel/commit/0eb72780ee|2.3.11|
+|[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
+|[Fix][API] Fixed not invoke the `SinkAggregatedCommitter`&#x27;s init method (#9070)|https://github.com/apache/seatunnel/commit/df0d11d632|2.3.11|
 |[Improve] iceberg options (#8967)|https://github.com/apache/seatunnel/commit/82a374ec87|2.3.10|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[Feature][Iceberg] Support read multi-table (#8524)|https://github.com/apache/seatunnel/commit/2bfb97e502|2.3.10|

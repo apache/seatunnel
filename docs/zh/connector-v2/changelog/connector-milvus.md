@@ -2,6 +2,9 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Transform] Support define sink column type (#9114)|https://github.com/apache/seatunnel/commit/ab7119e507|2.3.11|
+|[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
+|[improve] milvus options (#9165)|https://github.com/apache/seatunnel/commit/5247e17640|2.3.11|
 |[Fix][Connector-V2] Fix load state check in MilvusSourceReader to consider partition-level status (#8937)|https://github.com/apache/seatunnel/commit/bde235090b|2.3.10|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|2.3.9|
 |[Improve][Core] Refactor common options of column/row (#7911)|https://github.com/apache/seatunnel/commit/d1582afee6|2.3.9|

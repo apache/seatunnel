@@ -2,6 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Oracle-CDC] Fix oracle rename ddl event missing column type (#9314)|https://github.com/apache/seatunnel/commit/11a23af64c|2.3.11|
+|[Fix][JDBC] fix jdbc default connection parameter invalid (#8185)|https://github.com/apache/seatunnel/commit/f85eb78b37|2.3.11|
 |[Improve][CDC] Extract duplicate code (#8906)|https://github.com/apache/seatunnel/commit/b922bb90e6|2.3.10|
 |[Improve][CDC] Filter heartbeat event (#8569)|https://github.com/apache/seatunnel/commit/1870653393|2.3.10|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
