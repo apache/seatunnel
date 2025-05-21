@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.transform.sql.SQLEngine;
 import org.apache.seatunnel.transform.sql.SQLEngineFactory;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -40,47 +41,35 @@ public class ExtractFunctionTest {
         // Create test data
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        new String[]{"event_time"},
-                        new SeaTunnelDataType[]{LocalTimeType.LOCAL_DATE_TIME_TYPE});
+                        new String[] {"event_time"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
 
         // Use 2025-05-20 14:30:45 as test time
         LocalDateTime testDateTime = LocalDateTime.of(2025, 5, 20, 14, 30, 45, 123456789);
-        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[]{testDateTime});
+        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {testDateTime});
 
         // Test basic fields
         // Test YEAR field
         sqlEngine.init(
-                "test",
-                null,
-                rowType,
-                "select EXTRACT(YEAR FROM event_time) as year from dual");
+                "test", null, rowType, "select EXTRACT(YEAR FROM event_time) as year from dual");
         SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
         Assertions.assertEquals(2025, outRow.getField(0));
 
         // Test MONTH field
         sqlEngine.init(
-                "test",
-                null,
-                rowType,
-                "select EXTRACT(MONTH FROM event_time) as month from dual");
+                "test", null, rowType, "select EXTRACT(MONTH FROM event_time) as month from dual");
         outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
         Assertions.assertEquals(5, outRow.getField(0));
 
         // Test DAY field
         sqlEngine.init(
-                "test",
-                null,
-                rowType,
-                "select EXTRACT(DAY FROM event_time) as day from dual");
+                "test", null, rowType, "select EXTRACT(DAY FROM event_time) as day from dual");
         outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
         Assertions.assertEquals(20, outRow.getField(0));
 
         // Test HOUR field
         sqlEngine.init(
-                "test",
-                null,
-                rowType,
-                "select EXTRACT(HOUR FROM event_time) as hour from dual");
+                "test", null, rowType, "select EXTRACT(HOUR FROM event_time) as hour from dual");
         outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
         Assertions.assertEquals(14, outRow.getField(0));
 
@@ -123,12 +112,10 @@ public class ExtractFunctionTest {
 
         // Test EPOCH field
         sqlEngine.init(
-                "test",
-                null,
-                rowType,
-                "select EXTRACT(EPOCH FROM event_time) as epoch from dual");
+                "test", null, rowType, "select EXTRACT(EPOCH FROM event_time) as epoch from dual");
         outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
-        Assertions.assertEquals((int) testDateTime.toEpochSecond(ZoneOffset.UTC), outRow.getField(0));
+        Assertions.assertEquals(
+                (int) testDateTime.toEpochSecond(ZoneOffset.UTC), outRow.getField(0));
 
         // Test QUARTER field
         sqlEngine.init(
@@ -159,10 +146,7 @@ public class ExtractFunctionTest {
 
         // Test DOW field
         sqlEngine.init(
-                "test",
-                null,
-                rowType,
-                "select EXTRACT(DOW FROM event_time) as dow from dual");
+                "test", null, rowType, "select EXTRACT(DOW FROM event_time) as dow from dual");
         outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
         Assertions.assertEquals(2, outRow.getField(0)); // 2025-05-20 is Tuesday, should return 1
 
@@ -173,14 +157,12 @@ public class ExtractFunctionTest {
                 rowType,
                 "select EXTRACT(ISODOW FROM event_time) as isodow from dual");
         outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
-        Assertions.assertEquals(2, outRow.getField(0)); // 2025-05-20 is Tuesday, in ISO standard it's 2
+        Assertions.assertEquals(
+                2, outRow.getField(0)); // 2025-05-20 is Tuesday, in ISO standard it's 2
 
         // Test DOY field
         sqlEngine.init(
-                "test",
-                null,
-                rowType,
-                "select EXTRACT(DOY FROM event_time) as doy from dual");
+                "test", null, rowType, "select EXTRACT(DOY FROM event_time) as doy from dual");
         outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
         Assertions.assertEquals(140, outRow.getField(0)); // May 20 is the 140th day of the year
 
@@ -202,37 +184,28 @@ public class ExtractFunctionTest {
         // Create test data
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        new String[]{"event_date"},
-                        new SeaTunnelDataType[]{LocalTimeType.LOCAL_DATE_TYPE});
+                        new String[] {"event_date"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TYPE});
 
         // Use 2025-05-20 as test date
         LocalDate testDate = LocalDate.of(2025, 5, 20);
-        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[]{testDate});
+        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {testDate});
 
         // Test YEAR field
         sqlEngine.init(
-                "test",
-                null,
-                rowType,
-                "select EXTRACT(YEAR FROM event_date) as year from dual");
+                "test", null, rowType, "select EXTRACT(YEAR FROM event_date) as year from dual");
         SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
         Assertions.assertEquals(2025, outRow.getField(0));
 
         // Test MONTH field
         sqlEngine.init(
-                "test",
-                null,
-                rowType,
-                "select EXTRACT(MONTH FROM event_date) as month from dual");
+                "test", null, rowType, "select EXTRACT(MONTH FROM event_date) as month from dual");
         outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
         Assertions.assertEquals(5, outRow.getField(0));
 
         // Test DAY field
         sqlEngine.init(
-                "test",
-                null,
-                rowType,
-                "select EXTRACT(DAY FROM event_date) as day from dual");
+                "test", null, rowType, "select EXTRACT(DAY FROM event_date) as day from dual");
         outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
         Assertions.assertEquals(20, outRow.getField(0));
 
@@ -266,10 +239,7 @@ public class ExtractFunctionTest {
 
         // Test DOW field
         sqlEngine.init(
-                "test",
-                null,
-                rowType,
-                "select EXTRACT(DOW FROM event_date) as dow from dual");
+                "test", null, rowType, "select EXTRACT(DOW FROM event_date) as dow from dual");
         outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
         Assertions.assertEquals(2, outRow.getField(0)); // 2025-05-20 is Tuesday, should return 1
 
@@ -280,14 +250,12 @@ public class ExtractFunctionTest {
                 rowType,
                 "select EXTRACT(ISODOW FROM event_date) as isodow from dual");
         outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
-        Assertions.assertEquals(2, outRow.getField(0)); // 2025-05-20 is Tuesday, in ISO standard it's 2
+        Assertions.assertEquals(
+                2, outRow.getField(0)); // 2025-05-20 is Tuesday, in ISO standard it's 2
 
         // Test DOY field
         sqlEngine.init(
-                "test",
-                null,
-                rowType,
-                "select EXTRACT(DOY FROM event_date) as doy from dual");
+                "test", null, rowType, "select EXTRACT(DOY FROM event_date) as doy from dual");
         outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
         Assertions.assertEquals(140, outRow.getField(0)); // May 20 is the 140th day of the year
 
@@ -302,12 +270,10 @@ public class ExtractFunctionTest {
 
         // Test EPOCH field
         sqlEngine.init(
-                "test",
-                null,
-                rowType,
-                "select EXTRACT(EPOCH FROM event_date) as epoch from dual");
+                "test", null, rowType, "select EXTRACT(EPOCH FROM event_date) as epoch from dual");
         outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
-        Assertions.assertEquals((int) testDate.atStartOfDay().toEpochSecond(ZoneOffset.UTC), outRow.getField(0));
+        Assertions.assertEquals(
+                (int) testDate.atStartOfDay().toEpochSecond(ZoneOffset.UTC), outRow.getField(0));
     }
 
     @Test
@@ -318,18 +284,15 @@ public class ExtractFunctionTest {
         // Create test data
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        new String[]{"event_time"},
-                        new SeaTunnelDataType[]{LocalTimeType.LOCAL_DATE_TIME_TYPE});
+                        new String[] {"event_time"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
 
         LocalDateTime testDateTime = LocalDateTime.of(2025, 5, 25, 14, 30, 45, 123456789);
-        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[]{testDateTime});
+        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {testDateTime});
 
         // Test DOW field
         sqlEngine.init(
-                "test",
-                null,
-                rowType,
-                "select EXTRACT(DOW FROM event_time) as dow from dual");
+                "test", null, rowType, "select EXTRACT(DOW FROM event_time) as dow from dual");
         SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
         Assertions.assertEquals(0, outRow.getField(0));
 
@@ -341,6 +304,5 @@ public class ExtractFunctionTest {
                 "select EXTRACT(ISODOW FROM event_time) as isodow from dual");
         outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
         Assertions.assertEquals(7, outRow.getField(0));
-
     }
 }
