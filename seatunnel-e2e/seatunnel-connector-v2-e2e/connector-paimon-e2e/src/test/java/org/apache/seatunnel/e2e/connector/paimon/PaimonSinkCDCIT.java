@@ -148,7 +148,7 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                 errResult
                         .getStderr()
                         .contains(
-                                "[Paimon: The source filed with schema 'name INT', except filed schema of sink is '`name` INT'; but the filed in sink table which actual schema is '`name` STRING'. Please check schema of sink table.]"));
+                                "['Paimon': The source field with schema 'name INT', expected field schema of sink is '`name` INT'; whose actual schema in the sink table is '`name` STRING'. Please check schema of sink table.]"));
     }
 
     @TestTemplate

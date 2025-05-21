@@ -361,7 +361,7 @@ public class RowConverter {
         List<DataField> sinkTotalFields = sinkTableSchema.fields();
         int sourceTotalFields = seaTunnelRowType.getTotalFields();
         if (sourceTotalFields != sinkTotalFields.size()) {
-            throw CommonError.writeRowErrorWithFiledsCountNotMatch(
+            throw CommonError.writeRowErrorWithFieldsCountNotMatch(
                     "Paimon", sourceTotalFields, sinkTotalFields.size());
         }
         BinaryRow binaryRow = new BinaryRow(sourceTotalFields);
