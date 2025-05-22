@@ -396,7 +396,6 @@ public class SQLTransformTest {
                         sqlTransform.transformRow(
                                 new SeaTunnelRow(new Object[] {Integer.valueOf(1), 3, "false"}));
                     } catch (Exception e) {
-
                         Assertions.assertEquals(
                                 "ErrorCode:[TRANSFORM_COMMON-06], ErrorDescription:[The expression 'cast(`int` AS boolean)' of SQL transform execute failed]",
                                 e.getMessage());
