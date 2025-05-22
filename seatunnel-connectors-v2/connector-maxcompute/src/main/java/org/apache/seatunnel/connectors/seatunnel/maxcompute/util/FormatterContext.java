@@ -25,14 +25,7 @@ import java.time.LocalDateTime;
 public class FormatterContext {
     private final DateTimeUtils.Formatter localDateTimeFormat;
 
-    public FormatterContext(DateTimeUtils.Formatter localDateTimeFormat) {
-        String format = localDateTimeFormat.getValue();
-        validateFormat(format);
-        this.localDateTimeFormat = localDateTimeFormat;
-    }
-
     public FormatterContext(String localDateTimeFormat) {
-        validateFormat(localDateTimeFormat);
         this.localDateTimeFormat = DateTimeUtils.Formatter.parse(localDateTimeFormat);
     }
 
@@ -47,14 +40,6 @@ public class FormatterContext {
         throw CommonError.illegalArgument(
                 field.getClass().getName(),
                 "Cannot format the given value: not a LocalDateTime instance.");
-    }
-
-    private void validateFormat(String localDateTimeFormat) {
-        if (localDateTimeFormat.contains("T")) {
-            throw CommonError.illegalArgument(
-                    localDateTimeFormat,
-                    "MaxCompute does not support datetime format containing 'T'.");
-        }
     }
 
     private String format(LocalDateTime localDateTime) {

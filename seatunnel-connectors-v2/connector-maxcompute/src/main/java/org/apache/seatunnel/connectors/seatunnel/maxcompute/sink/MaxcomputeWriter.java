@@ -69,14 +69,9 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                                 readonlyConfig.get(MaxcomputeSinkOptions.PROJECT),
                                 readonlyConfig.get(MaxcomputeSinkOptions.TABLE_NAME));
             }
-            if (readonlyConfig.getOptional(FormatOptions.DATETIME_FORMAT_VALUE).isPresent()) {
-                this.formatterContext =
-                        new FormatterContext(
-                                readonlyConfig.get(FormatOptions.DATETIME_FORMAT_VALUE));
-            } else {
-                this.formatterContext =
-                        new FormatterContext(readonlyConfig.get(FormatOptions.DATETIME_FORMAT));
-            }
+
+            this.formatterContext =
+                    new FormatterContext(readonlyConfig.get(FormatOptions.DATETIME_FORMAT));
 
             this.recordWriter = session.openBufferedWriter();
             log.info("open record writer success");

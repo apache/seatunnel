@@ -24,46 +24,46 @@ import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 
 public interface FormatOptions {
-    Option<DateUtils.Formatter> DATE_FORMAT =
+    Option<DateUtils.Formatter> DATE_FORMAT_LEGACY =
             Options.key("date_format")
                     .enumType(DateUtils.Formatter.class)
                     .defaultValue(DateUtils.Formatter.YYYY_MM_DD)
                     .withDescription("Date format");
 
-    Option<DateTimeUtils.Formatter> DATETIME_FORMAT =
+    Option<DateTimeUtils.Formatter> DATETIME_FORMAT_LEGACY =
             Options.key("datetime_format")
                     .enumType(DateTimeUtils.Formatter.class)
                     .defaultValue(DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS)
                     .withDescription("Datetime format");
 
-    Option<TimeUtils.Formatter> TIME_FORMAT =
+    Option<TimeUtils.Formatter> TIME_FORMAT_LEGACY =
             Options.key("time_format")
                     .enumType(TimeUtils.Formatter.class)
                     .defaultValue(TimeUtils.Formatter.HH_MM_SS)
                     .withDescription("Time format");
 
     // Not used yet. Reserved for future use to support custom date/time format strings.
-    Option<String> DATE_FORMAT_VALUE =
-            Options.key("date_format_value")
+    Option<String> DATE_FORMAT =
+            Options.key("date_format")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue("yyyy-MM-dd")
                     .withDescription(
                             "Date format string (e.g. 'yyyy-MM-dd'). "
                                     + "Must match one of the predefined values in the Formatter enum.");
 
-    Option<String> DATETIME_FORMAT_VALUE =
-            Options.key("datetime_format_value")
+    Option<String> DATETIME_FORMAT =
+            Options.key("datetime_format")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue("yyyy-MM-dd HH:mm:ss")
                     .withDescription(
                             "Datetime format string (e.g. 'yyyy-MM-dd HH:mm:ss'). "
                                     + "Must match one of the predefined values in the Formatter enum.");
 
     // Not used yet. Reserved for future use to support custom date/time format strings.
-    Option<String> TIME_FORMAT_VALUE =
-            Options.key("time_format_value")
+    Option<String> TIME_FORMAT =
+            Options.key("time_format")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue("HH:mm:ss")
                     .withDescription(
                             "Time format string (e.g. 'HH:mm:ss'). "
                                     + "Must match one of the predefined values in the Formatter enum.");
