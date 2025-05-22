@@ -57,6 +57,7 @@ The internal implementation of Doris sink connector is cached and imported by st
 | sink.buffer-count              | int     | No       | 3                            | the buffer count to cache data for stream load.                                                                                                                                                                                                                      |
 | doris.batch.size               | int     | No       | 1024                         | the batch size of the write to doris each http request, when the row reaches the size or checkpoint is executed, the data of cached will write to server.                                                                                                            |
 | needs_unsupported_type_casting | boolean | No       | false                        | Whether to enable the unsupported type casting, such as Decimal64 to Double                                                                                                                                                                                          |
+| case_sensitive                 | boolean | No       | true                         | Whether to preserve the original case of table and column names. When set to false, table and column names will be converted to lowercase.                                                                                                                            |
 | schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | the schema save mode, please refer to `schema_save_mode` below                                                                                                                                                                                                       |
 | data_save_mode                 | Enum    | no       | APPEND_DATA                  | the data save mode, please refer to `data_save_mode` below                                                                                                                                                                                                           |
 | save_mode_create_template      | string  | no       | see below                    | see below                                                                                                                                                                                                                                                            |
@@ -344,6 +345,26 @@ sink {
         doris.config = {
           format = "csv"
           column_separator = ","
+        }
+    }
+}
+
+### Case-Sensitive Configuration
+
+```hocon
+sink {
+    Doris {
+        fenodes = "e2e_dorisdb:8030"
+        username = root
+        password = ""
+        database = "Test_DB"  # Original case will be preserved
+        table = "Test_Table"  # Original case will be preserved
+        case_sensitive = true # Default value, preserves original case
+        sink.enable-2pc = "true"
+        sink.label-prefix = "test_case_sensitive"
+        doris.config = {
+          format = "json"
+          read_json_by_line = "true"
         }
     }
 }

@@ -94,7 +94,10 @@ public class DorisStreamLoad implements Serializable {
             CloseableHttpClient httpClient) {
         this.hostPort = hostPort;
         this.db = tablePath.getDatabaseName();
-        this.table = tablePath.getTableName();
+        this.table =
+                dorisSinkConfig.isCaseSensitive()
+                        ? tablePath.getTableName()
+                        : tablePath.getTableName().toLowerCase();
         this.user = dorisSinkConfig.getUsername();
         this.passwd = dorisSinkConfig.getPassword();
         this.labelGenerator = labelGenerator;

@@ -17,16 +17,17 @@
 
 package org.apache.seatunnel.connectors.cdc.base.schema;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import org.apache.kafka.connect.source.SourceRecord;
 
 import java.io.Serializable;
+import java.util.List;
 
 public interface SchemaChangeResolver extends Serializable {
 
     boolean support(SourceRecord record);
 
-    SchemaChangeEvent resolve(SourceRecord record, SeaTunnelDataType dataType);
+    SchemaChangeEvent resolve(SourceRecord record, List<CatalogTable> catalogTables);
 }

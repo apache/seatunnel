@@ -220,7 +220,7 @@ sink {
 }
 ```
 
-SAVE_MODE (Add saveMode function)
+SAVE_MODE
 
 ```hocon
 sink {
