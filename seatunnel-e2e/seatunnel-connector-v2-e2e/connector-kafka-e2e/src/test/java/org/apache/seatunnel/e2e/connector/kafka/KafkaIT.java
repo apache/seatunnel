@@ -410,6 +410,22 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testSourceKafkaWithEndTimestamp(TestContainer container)
+            throws IOException, InterruptedException {
+        DefaultSeaTunnelRowSerializer serializer =
+                DefaultSeaTunnelRowSerializer.create(
+                        "test_topic_source",
+                        DEFAULT_FORMAT,
+                        new SeaTunnelRowType(
+                                new String[] {"id", "timestamp"},
+                                new SeaTunnelDataType[] {BasicType.LONG_TYPE, BasicType.LONG_TYPE}),
+                        "",
+                        null);
+        generateWithTimestampTestData(serializer::serializeRow, 0, 100, 1738395840000L);
+        testKafkaWithEndTimestampToConsole(container);
+    }
+
+    @TestTemplate
     public void testSourceKafkaStartConfig(TestContainer container)
             throws IOException, InterruptedException {
         DefaultSeaTunnelRowSerializer serializer =
@@ -1084,6 +1100,13 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
+    public void testKafkaWithEndTimestampToConsole(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/kafka/kafkasource_endTimestamp_to_console.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
     private AdminClient createKafkaAdmin() {
         Properties props = new Properties();
         String bootstrapServers = kafkaContainer.getBootstrapServers();
@@ -1154,6 +1177,21 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                                     LocalDate.of(2024, 1, 1),
                                     LocalDateTime.of(2024, 1, 1, 12, 59, 23)
                                 });
+                ProducerRecord<byte[], byte[]> producerRecord = converter.convert(row);
+                producer.send(producerRecord).get();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        producer.flush();
+    }
+
+    private void generateWithTimestampTestData(
+            ProducerRecordConverter converter, int start, int end, long startTimestamp) {
+        try {
+            for (int i = start; i < end; i++) {
+                SeaTunnelRow row =
+                        new SeaTunnelRow(new Object[] {Long.valueOf(i), startTimestamp + i * 1000});
                 ProducerRecord<byte[], byte[]> producerRecord = converter.convert(row);
                 producer.send(producerRecord).get();
             }

@@ -155,6 +155,7 @@ public class KafkaSourceSplitEnumerator
     private void setPartitionStartOffset() throws ExecutionException, InterruptedException {
         Set<TopicPartition> pendingTopicPartitions = pendingSplit.keySet();
         Map<TopicPartition, Long> topicPartitionOffsets = new HashMap<>();
+        Map<TopicPartition, Long> topicPartitionEndOffsets = new HashMap<>();
         // Set kafka TopicPartition based on the topicPath granularity
         Map<TablePath, Set<TopicPartition>> tablePathPartitionMap =
                 pendingTopicPartitions.stream()
@@ -182,6 +183,13 @@ public class KafkaSourceSplitEnumerator
                             listOffsets(
                                     topicPartitions,
                                     OffsetSpec.forTimestamp(metadata.getStartOffsetsTimestamp())));
+                    if (Objects.nonNull(metadata.getEndOffsetsTimestamp())) {
+                        topicPartitionEndOffsets.putAll(
+                                listOffsets(
+                                        topicPartitions,
+                                        OffsetSpec.forTimestamp(
+                                                metadata.getEndOffsetsTimestamp())));
+                    }
                     break;
                 case SPECIFIC_OFFSETS:
                     topicPartitionOffsets.putAll(metadata.getSpecificStartOffsets());
@@ -197,6 +205,14 @@ public class KafkaSourceSplitEnumerator
                         pendingSplit.get(key).setStartOffset(value);
                     }
                 });
+        if (!isStreamingMode && !topicPartitionEndOffsets.isEmpty()) {
+            topicPartitionEndOffsets.forEach(
+                    (key, value) -> {
+                        if (pendingSplit.containsKey(key)) {
+                            pendingSplit.get(key).setEndOffset(value);
+                        }
+                    });
+        }
     }
 
     @Override
