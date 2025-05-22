@@ -104,7 +104,7 @@ enforce_gtid_consistency = on
 重启MySQL 服务
 
 ```shell
-/etc/inint.d/mysqld restart
+/etc/init.d/mysqld restart
 ```
 
 4. 通过再次检查二进制日志状态来确认您的更改生效:
@@ -163,22 +163,22 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 
 ## 数据类型映射
 
-| Mysql 数据类型                                                                                     | SeaTunnel 数据类型 |
-|------------------------------------------------------------------------------------------------|----------------|
-| BIT(1)<br/>TINYINT(1)                                                                          | BOOLEAN        |
-| TINYINT                                                                                        | TINYINT        |
-| TINYINT UNSIGNED<br/>SMALLINT                                                                  | SMALLINT       |
-| SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR            | INT            |
-| INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT                                                   | BIGINT         |
-| BIGINT UNSIGNED                                                                                | DECIMAL(20,0)  |
-| DECIMAL(p, s) <br/>DECIMAL(p, s) UNSIGNED <br/>NUMERIC(p, s) <br/>NUMERIC(p, s) UNSIGNED       | DECIMAL(p,s)   |
-| FLOAT<br/>FLOAT UNSIGNED                                                                       | FLOAT          |
-| DOUBLE<br/>DOUBLE UNSIGNED<br/>REAL<br/>REAL UNSIGNED                                          | DOUBLE         |
-| CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>ENUM<br/>JSON<br/>ENUM  | STRING         |
-| DATE                                                                                           | DATE           |
-| TIME(s)                                                                                        | TIME(s)        |
-| DATETIME<br/>TIMESTAMP(s)                                                                      | TIMESTAMP(s)   |
-| BINARY<br/>VARBINAR<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB <br/>GEOMETRY | BYTES          |
+| Mysql 数据类型                                                                                      | SeaTunnel 数据类型 |
+|-------------------------------------------------------------------------------------------------|----------------|
+| BIT(1)<br/>TINYINT(1)                                                                           | BOOLEAN        |
+| TINYINT                                                                                         | TINYINT        |
+| TINYINT UNSIGNED<br/>SMALLINT                                                                   | SMALLINT       |
+| SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR             | INT            |
+| INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT                                                    | BIGINT         |
+| BIGINT UNSIGNED                                                                                 | DECIMAL(20,0)  |
+| DECIMAL(p, s) <br/>DECIMAL(p, s) UNSIGNED <br/>NUMERIC(p, s) <br/>NUMERIC(p, s) UNSIGNED        | DECIMAL(p,s)   |
+| FLOAT<br/>FLOAT UNSIGNED                                                                        | FLOAT          |
+| DOUBLE<br/>DOUBLE UNSIGNED<br/>REAL<br/>REAL UNSIGNED                                           | DOUBLE         |
+| CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>ENUM<br/>JSON            | STRING         |
+| DATE                                                                                            | DATE           |
+| TIME(s)                                                                                         | TIME(s)        |
+| DATETIME<br/>TIMESTAMP(s)                                                                       | TIMESTAMP(s)   |
+| BINARY<br/>VARBINARY<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB <br/>GEOMETRY | BYTES          |
 
 ## 源选项
 
