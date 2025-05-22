@@ -147,4 +147,10 @@ public class HttpSourceOptions extends HttpCommonOptions {
                     .intType()
                     .defaultValue(DEFAULT_SOCKET_TIMEOUT_MS)
                     .withDescription("Socket timeout setting, default 60s.");
+
+    public static final Option<Boolean> JSON_FILED_MISSED_RETURN_NULL =
+            Options.key("json_filed_missed_return_null")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("When the json field is missing, return null");
 }

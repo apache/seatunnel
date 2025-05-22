@@ -36,6 +36,9 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.JsonField;
 import org.apache.seatunnel.connectors.seatunnel.http.config.PageInfo;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.http.util.JsonPathProcessor;
+import org.apache.seatunnel.connectors.seatunnel.http.util.JsonPathProcessorFactory;
+import org.apache.seatunnel.connectors.seatunnel.http.util.JsonPathUtils;
 
 import org.apache.commons.collections4.MapUtils;
 
@@ -418,47 +421,24 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         deserializationCollector.collect(contentData.getBytes(), output);
     }
 
-    private List<Map<String, String>> parseToMap(List<List<String>> datas, JsonField jsonField) {
-        List<Map<String, String>> decodeDatas = new ArrayList<>(datas.size());
-        String[] keys = jsonField.getFields().keySet().toArray(new String[] {});
-
-        for (List<String> data : datas) {
-            Map<String, String> decodeData = new HashMap<>(jsonField.getFields().size());
-            final int[] index = {0};
-            data.forEach(
-                    field -> {
-                        decodeData.put(keys[index[0]], field);
-                        index[0]++;
-                    });
-            decodeDatas.add(decodeData);
-        }
-
-        return decodeDatas;
-    }
-
     private List<List<String>> decodeJSON(String data) {
         ReadContext jsonReadContext = JsonPath.using(jsonConfiguration).parse(data);
-        List<List<String>> results = new ArrayList<>(jsonPaths.length);
-        for (JsonPath path : jsonPaths) {
-            List<String> result = jsonReadContext.read(path);
-            results.add(result);
+        boolean jsonFiledMissedReturnNull = httpParameter.isJsonFiledMissedReturnNull();
+        if (jsonFiledMissedReturnNull) {
+            // Get the appropriate processor for the JsonPaths, passing the
+            // jsonFiledMissedReturnNull flag
+            JsonPathProcessor processor =
+                    JsonPathProcessorFactory.getProcessor(this.jsonPaths, true);
+            return processor.processJsonData(jsonReadContext, this.jsonPaths);
+        } else {
+            // Standard processing for strict fields
+            return JsonPathProcessorFactory.getProcessor(this.jsonPaths)
+                    .processJsonData(jsonReadContext, this.jsonPaths);
         }
-        for (int i = 1; i < results.size(); i++) {
-            List<?> result0 = results.get(0);
-            List<?> result = results.get(i);
-            if (result0.size() != result.size()) {
-                throw new HttpConnectorException(
-                        HttpConnectorErrorCode.FIELD_DATA_IS_INCONSISTENT,
-                        String.format(
-                                "[%s](%d) and [%s](%d) the number of parsing records is inconsistent.",
-                                jsonPaths[0].getPath(),
-                                result0.size(),
-                                jsonPaths[i].getPath(),
-                                result.size()));
-            }
-        }
+    }
 
-        return dataFlip(results);
+    private List<Map<String, String>> parseToMap(List<List<String>> datas, JsonField jsonField) {
+        return JsonPathUtils.parseToMap(datas, jsonField);
     }
 
     private String getPartOfJson(String data) {
@@ -467,8 +447,8 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     private List<List<String>> dataFlip(List<List<String>> results) {
-
         List<List<String>> datas = new ArrayList<>();
+
         for (int i = 0; i < results.size(); i++) {
             List<String> result = results.get(i);
             if (i == 0) {
@@ -487,15 +467,11 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 }
             }
         }
+
         return datas;
     }
 
     private void initJsonPath(JsonField jsonField) {
-        jsonPaths = new JsonPath[jsonField.getFields().size()];
-        for (int index = 0; index < jsonField.getFields().keySet().size(); index++) {
-            jsonPaths[index] =
-                    JsonPath.compile(
-                            jsonField.getFields().values().toArray(new String[] {})[index]);
-        }
+        jsonPaths = JsonPathUtils.createJsonPaths(jsonField);
     }
 }
