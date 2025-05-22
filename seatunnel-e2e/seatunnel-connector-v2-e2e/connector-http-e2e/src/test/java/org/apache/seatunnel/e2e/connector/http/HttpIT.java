@@ -119,11 +119,11 @@ public class HttpIT extends TestSuiteBase implements TestResource {
                         .withCopyFileToContainer(
                                 MountableFile.forHostPath(
                                         new File(
-                                                resource.orElseThrow(
-                                                                () ->
-                                                                        new IllegalArgumentException(
-                                                                                "Can not get config file of mockServer"))
-                                                        .getPath())
+                                                        resource.orElseThrow(
+                                                                        () ->
+                                                                                new IllegalArgumentException(
+                                                                                        "Can not get config file of mockServer"))
+                                                                .getPath())
                                                 .getAbsolutePath()),
                                 TMP_DIR + getMockServerConfig())
                         .withEnv(
@@ -256,7 +256,7 @@ public class HttpIT extends TestSuiteBase implements TestResource {
 
     private void executeSql(String sql) {
         try (Connection connection = getJdbcConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute("SET search_path TO inventory;");
             statement.execute(sql);
         } catch (SQLException e) {
@@ -391,10 +391,10 @@ public class HttpIT extends TestSuiteBase implements TestResource {
 
     private void initializeJdbcTable() {
         try (Connection connection =
-                     DriverManager.getConnection(
-                             postgreSQLContainer.getJdbcUrl(),
-                             postgreSQLContainer.getUsername(),
-                             postgreSQLContainer.getPassword())) {
+                DriverManager.getConnection(
+                        postgreSQLContainer.getJdbcUrl(),
+                        postgreSQLContainer.getUsername(),
+                        postgreSQLContainer.getPassword())) {
             Statement statement = connection.createStatement();
             String sink =
                     "create table sink(\n"
