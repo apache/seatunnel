@@ -5,6 +5,7 @@
 [![Build Workflow](https://github.com/apache/seatunnel/actions/workflows/build_main.yml/badge.svg?branch=dev)](https://github.com/apache/seatunnel/actions/workflows/build_main.yml)
 [![Join Slack](https://img.shields.io/badge/slack-%23seatunnel-4f8eba?logo=slack)](https://s.apache.org/seatunnel-slack)
 [![Twitter Follow](https://img.shields.io/twitter/follow/ASFSeaTunnel.svg?label=Follow&logo=twitter)](https://twitter.com/ASFSeaTunnel)
+[![Ask DeepWiki](https://img.shields.io/badge/deepwiki)](https://deepwiki.com/apache/seatunnel)
 
 ## Table of Contents
 - [Overview](#overview)
