@@ -317,6 +317,26 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testElasticsearchWithVector(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/elasticsearch/fake-to-elasticsearch-vector.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        // Wait for index refresh
+        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
+
+        // Verify that 10 documents were inserted as specified in the config
+        Assertions.assertEquals(
+                10, esRestClient.getIndexDocsCount("vector_test").get(0).getDocsCount());
+
+        // Verify vector field exists in the mapping
+        Map<String, BasicTypeDefine<EsType>> fieldTypes =
+                esRestClient.getFieldTypeMapping("vector_test", Collections.emptyList());
+        Assertions.assertTrue(fieldTypes.containsKey("review_embedding"));
+    }
+
+    @TestTemplate
     public void testElasticsearchWithPIT(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
