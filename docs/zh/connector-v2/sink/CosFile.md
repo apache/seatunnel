@@ -33,6 +33,9 @@ import ChangeLog from '../changelog/connector-file-cos.md';
   - [x] excel
   - [x] xml
   - [x] binary
+  - [x] canal_json
+  - [x] debezium_json
+  - [x] maxwell_json
 
 ## 选项
 
@@ -124,7 +127,7 @@ cos文件系统的分区.
 
 我们支持以下文件类型:
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `canal_json` `debezium_json` `maxwell_json`
 
 请注意，最终文件名将以 file_format 的后缀结尾, 文本文件的后缀为 `txt`.
 

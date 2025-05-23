@@ -27,6 +27,9 @@ import ChangeLog from '../changelog/connector-file-s3.md';
   - [x] excel
   - [x] xml
   - [x] binary
+  - [x] canal_json
+  - [x] debezium_json
+  - [x] maxwell_json
 
 ## 描述
 
@@ -182,7 +185,7 @@ hadoop_s3_properties {
 
 我们支持以下文件类型：
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `canal_json` `debezium_json` `maxwell_json`
 
 请注意，最终文件名将以文件格式类型的后缀结尾，文本文件的后缀为 `txt`。
 
