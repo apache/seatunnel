@@ -112,7 +112,7 @@ Option introduction：
 
 When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.
 
-### datetime_format_value[String]
+### datetime_format[String]
 
 User-defined format string used to convert LocalDateTime fields to strings.
 
