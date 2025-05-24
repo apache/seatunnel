@@ -47,6 +47,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | kerberos_keytab_path                  | string  | no       | -              |
 | abort_drop_partition_metadata         | boolean | no       | true           |
 | parquet_avro_write_timestamp_as_int96 | boolean | no       | false          |
+| overwrite                             | boolean | no       | false          |
 | common-options                        |         | no       | -              |
 
 ### table_name [string]
@@ -94,6 +95,10 @@ Flag to decide whether to drop partition metadata from Hive Metastore during an 
 ### parquet_avro_write_timestamp_as_int96 [boolean]
 
 Support writing Parquet INT96 from a timestamp, only valid for parquet files.
+
+### overwrite [boolean]
+
+Flag to decide whether to use overwrite mode when inserting data into Hive. If set to true, for non-partitioned tables, the existing data in the table will be deleted before inserting new data. For partitioned tables, the data in the relevant partition will be deleted before inserting new data.
 
 ### common options
 
