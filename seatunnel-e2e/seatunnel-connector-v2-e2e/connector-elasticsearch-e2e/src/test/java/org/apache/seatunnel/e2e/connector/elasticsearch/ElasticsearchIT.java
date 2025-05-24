@@ -319,6 +319,25 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testElasticsearchWithVector(TestContainer container)
             throws IOException, InterruptedException {
+        String mapping =
+                "{\n"
+                        + "  \"mappings\": {\n"
+                        + "    \"properties\": {\n"
+                        + "      \"review_id\": {\"type\": \"long\"},\n"
+                        + "      \"review_embedding\": {\n"
+                        + "        \"type\": \"dense_vector\",\n"
+                        + "        \"dims\": 1024\n"
+                        + "      },\n"
+                        + "      \"review_text\": {\"type\": \"text\"},\n"
+                        + "      \"review_score\": {\"type\": \"float\"}\n"
+                        + "    }\n"
+                        + "  }\n"
+                        + "}";
+
+        // create index
+        esRestClient.createIndex("vector_test", mapping);
+        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
+
         Container.ExecResult execResult =
                 container.executeJob("/elasticsearch/fake-to-elasticsearch-vector.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
