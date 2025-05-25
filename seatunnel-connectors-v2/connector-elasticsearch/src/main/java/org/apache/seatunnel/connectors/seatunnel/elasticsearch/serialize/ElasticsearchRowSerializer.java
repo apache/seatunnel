@@ -217,7 +217,7 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
             // Check if this field is configured as a vectorization field
             if (vectorizationFields != null && vectorizationFields.contains(fieldName)) {
                 ByteBuffer buffer = (ByteBuffer) value;
-                buffer.rewind();
+                buffer.position(0);
 
                 // Use the configured dimension or calculate it from the buffer size
                 int dimension = vectorDimension > 0 ? vectorDimension : buffer.remaining() / 4;
@@ -234,7 +234,7 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
             } else {
                 // Default behavior for ByteBuffer fields not specified as vectorization fields
                 ByteBuffer buffer = (ByteBuffer) value;
-                buffer.rewind();
+                buffer.position(0);
                 int floatCount = buffer.remaining() / 4;
                 float[] floats = new float[floatCount];
 
