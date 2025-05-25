@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.BufferUtils;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.ElasticsearchClusterInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.IndexInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
@@ -217,13 +218,10 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
             // Check if this field is configured as a vectorization field
             if (vectorizationFields != null && vectorizationFields.contains(fieldName)) {
                 ByteBuffer buffer = (ByteBuffer) value;
-                buffer.position(0);
+                Float[] floats = BufferUtils.toFloatArray(buffer);
 
                 // Use the configured dimension or calculate it from the buffer size
                 int dimension = vectorDimension > 0 ? vectorDimension : buffer.remaining() / 4;
-
-                // Create an array with the specified dimension
-                float[] floats = new float[dimension];
 
                 // Read the floats from the buffer
                 for (int i = 0; i < dimension && buffer.remaining() >= 4; i++) {
@@ -234,9 +232,8 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
             } else {
                 // Default behavior for ByteBuffer fields not specified as vectorization fields
                 ByteBuffer buffer = (ByteBuffer) value;
-                buffer.position(0);
+                Float[] floats = BufferUtils.toFloatArray(buffer);
                 int floatCount = buffer.remaining() / 4;
-                float[] floats = new float[floatCount];
 
                 for (int i = 0; i < floatCount; i++) {
                     floats[i] = buffer.getFloat();
