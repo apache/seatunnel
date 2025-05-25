@@ -321,8 +321,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     @DisabledOnContainer(
             value = {},
-            type = {EngineType.SPARK},
-            disabledReason = "Spark engine does not support vector type")
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK and FLINK not support adapt")
     public void testElasticsearchWithVector(TestContainer container)
             throws IOException, InterruptedException {
         String mapping =
