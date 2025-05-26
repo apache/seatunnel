@@ -160,9 +160,10 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     new NewTopic("test_topic_source_timestamp", 1, (short) 1);
             testTopicSourceWithTimestamp.configs(Collections.singletonMap("retention.ms", "-1"));
 
-            adminClient.createTopics(Collections.singletonList(testTopicSource));
-            adminClient.createTopics(Collections.singletonList(testTopicNativeSource));
-            adminClient.createTopics(Collections.singletonList(testTopicSourceWithTimestamp));
+            List<NewTopic> topics =
+                    Arrays.asList(
+                            testTopicSource, testTopicNativeSource, testTopicSourceWithTimestamp);
+            adminClient.createTopics(topics);
         }
 
         log.info("Write 100 records to topic test_topic_source");
