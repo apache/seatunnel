@@ -30,6 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.factory.BaseMultipleTableFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpFileSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpFileSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
@@ -112,14 +113,15 @@ public class FtpFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                         FileBaseSinkOptions.ENCODING)
                 .optional(FileBaseSinkOptions.SINK_COLUMNS)
                 .optional(FileBaseSinkOptions.IS_ENABLE_TRANSACTION)
-                .optional(FileBaseSinkOptions.DATE_FORMAT)
-                .optional(FileBaseSinkOptions.DATETIME_FORMAT)
-                .optional(FileBaseSinkOptions.TIME_FORMAT)
+                .optional(FileBaseSinkOptions.DATE_FORMAT_LEGACY)
+                .optional(FileBaseSinkOptions.DATETIME_FORMAT_LEGACY)
+                .optional(FileBaseSinkOptions.TIME_FORMAT_LEGACY)
                 .optional(FtpFileSinkOptions.FTP_CONNECTION_MODE)
                 .optional(FileBaseSinkOptions.SINGLE_FILE_MODE)
                 .optional(FileBaseSinkOptions.BATCH_SIZE)
                 .optional(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA)
                 .optional(FileBaseSinkOptions.FILENAME_EXTENSION)
+                .optional(FtpFileSourceOptions.FTP_REMOTE_VERIFICATION_ENABLED)
                 .build();
     }
 

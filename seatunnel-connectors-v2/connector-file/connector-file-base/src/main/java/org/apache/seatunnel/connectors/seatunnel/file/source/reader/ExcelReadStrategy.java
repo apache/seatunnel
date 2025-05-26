@@ -96,15 +96,17 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                     "Skip the number of rows exceeds the maximum or minimum limit of Sheet");
         }
 
-        if (pluginConfig.hasPath(FileBaseSourceOptions.DATE_FORMAT.key())) {
-            dateFormatterPattern = pluginConfig.getString(FileBaseSourceOptions.DATE_FORMAT.key());
+        if (pluginConfig.hasPath(FileBaseSourceOptions.DATE_FORMAT_LEGACY.key())) {
+            dateFormatterPattern =
+                    pluginConfig.getString(FileBaseSourceOptions.DATE_FORMAT_LEGACY.key());
         }
-        if (pluginConfig.hasPath(FileBaseSourceOptions.DATETIME_FORMAT.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.DATETIME_FORMAT_LEGACY.key())) {
             dateTimeFormatterPattern =
-                    pluginConfig.getString(FileBaseSourceOptions.DATETIME_FORMAT.key());
+                    pluginConfig.getString(FileBaseSourceOptions.DATETIME_FORMAT_LEGACY.key());
         }
-        if (pluginConfig.hasPath(FileBaseSourceOptions.TIME_FORMAT.key())) {
-            timeFormatterPattern = pluginConfig.getString(FileBaseSourceOptions.TIME_FORMAT.key());
+        if (pluginConfig.hasPath(FileBaseSourceOptions.TIME_FORMAT_LEGACY.key())) {
+            timeFormatterPattern =
+                    pluginConfig.getString(FileBaseSourceOptions.TIME_FORMAT_LEGACY.key());
         }
 
         ExcelCellUtils excelCellUtils =

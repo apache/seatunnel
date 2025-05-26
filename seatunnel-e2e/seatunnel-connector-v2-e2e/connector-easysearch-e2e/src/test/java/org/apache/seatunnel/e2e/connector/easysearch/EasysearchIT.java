@@ -31,12 +31,11 @@ import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistExceptio
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.catalog.EasysearchCatalog;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.client.EasysearchClient;
+import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.source.IndexDocsCount;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.source.ScrollResult;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
@@ -146,10 +145,6 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
         easysearchClient.bulk(requestBody.toString());
     }
 
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "Test only one engine for first change")
     @TestTemplate
     public void testEasysearch(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult =
@@ -158,6 +153,85 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
         List<String> sinkData = readSinkData();
         // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
         Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
+    }
+
+    @TestTemplate
+    public void testEasysearchWithSaveMode(TestContainer container)
+            throws IOException, InterruptedException {
+        // Test CREATE_SCHEMA_WHEN_NOT_EXIST mode
+        Container.ExecResult execResult =
+                container.executeJob("/easysearch/easysearch_source_and_sink_with_save_mode.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        // Wait for index refresh
+        Thread.sleep(2000);
+
+        // Verify the index was created with the correct schema
+        String indexName = "st_index_save_mode";
+        try {
+            List<IndexDocsCount> indexDocsCounts = easysearchClient.getIndexDocsCount(indexName);
+            Assertions.assertFalse(indexDocsCounts.isEmpty(), "Index should exist");
+        } catch (Exception e) {
+            Assertions.fail("Index should exist but got exception: " + e.getMessage());
+        }
+
+        // Verify the data was written correctly
+        List<String> sinkData = readSinkDataFromIndex(indexName);
+        // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
+        Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
+    }
+
+    private List<String> readSinkDataFromIndex(String indexName) throws InterruptedException {
+        // wait for index refresh
+        Thread.sleep(2000);
+        List<String> source =
+                Lists.newArrayList(
+                        "c_map",
+                        "c_array",
+                        "c_string",
+                        "c_boolean",
+                        "c_tinyint",
+                        "c_smallint",
+                        "c_int",
+                        "c_bigint",
+                        "c_float",
+                        "c_double",
+                        "c_decimal",
+                        "c_bytes",
+                        "c_date",
+                        "c_timestamp");
+        HashMap<String, Object> rangeParam = new HashMap<>();
+        rangeParam.put("gte", 10);
+        rangeParam.put("lte", 20);
+        HashMap<String, Object> range = new HashMap<>();
+        range.put("c_int", rangeParam);
+        Map<String, Object> query = new HashMap<>();
+        query.put("range", range);
+        ScrollResult scrollResult =
+                easysearchClient.searchByScroll(indexName, source, query, "1m", 1000);
+        scrollResult
+                .getDocs()
+                .forEach(
+                        x -> {
+                            x.remove("_index");
+                            x.remove("_type");
+                            x.remove("_id");
+                            // I don't know if converting the test cases in this way complies with
+                            // the CI specification
+                            x.replace(
+                                    "c_timestamp",
+                                    LocalDateTime.parse(x.get("c_timestamp").toString())
+                                            .toInstant(ZoneOffset.UTC)
+                                            .toEpochMilli());
+                        });
+        List<String> docs =
+                scrollResult.getDocs().stream()
+                        .sorted(
+                                Comparator.comparingInt(
+                                        o -> Integer.valueOf(o.get("c_int").toString())))
+                        .map(JsonUtils::toJsonString)
+                        .collect(Collectors.toList());
+        return docs;
     }
 
     @TestTemplate

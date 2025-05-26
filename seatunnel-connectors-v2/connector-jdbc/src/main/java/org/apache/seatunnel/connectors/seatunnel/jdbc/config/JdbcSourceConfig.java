@@ -44,6 +44,7 @@ public class JdbcSourceConfig implements Serializable {
     private int splitSampleShardingThreshold;
     private int splitInverseSamplingRate;
     private boolean decimalTypeNarrowing;
+    private boolean handleBlobAsString;
 
     private StringSplitMode stringSplitMode;
 
@@ -72,6 +73,7 @@ public class JdbcSourceConfig implements Serializable {
         builder.splitInverseSamplingRate(config.get(JdbcSourceOptions.SPLIT_INVERSE_SAMPLING_RATE));
 
         builder.decimalTypeNarrowing(config.get(JdbcOptions.DECIMAL_TYPE_NARROWING));
+        builder.handleBlobAsString(config.get(JdbcOptions.HANDLE_BLOB_AS_STRING));
 
         config.getOptional(JdbcSourceOptions.WHERE_CONDITION)
                 .ifPresent(

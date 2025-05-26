@@ -37,7 +37,9 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.apache.commons.io.IOUtils;
@@ -314,6 +316,49 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         List<String> sinkData = readSinkDataWithSchema("st_index2");
         // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
         Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK and FLINK not support adapt")
+    public void testElasticsearchWithVector(TestContainer container)
+            throws IOException, InterruptedException {
+        String mapping =
+                "{\n"
+                        + "  \"mappings\": {\n"
+                        + "    \"properties\": {\n"
+                        + "      \"review_id\": {\"type\": \"long\"},\n"
+                        + "      \"review_embedding\": {\n"
+                        + "        \"type\": \"dense_vector\",\n"
+                        + "        \"dims\": 1024\n"
+                        + "      },\n"
+                        + "      \"review_text\": {\"type\": \"text\"},\n"
+                        + "      \"review_score\": {\"type\": \"float\"}\n"
+                        + "    }\n"
+                        + "  }\n"
+                        + "}";
+
+        // create index
+        esRestClient.createIndex("vector_test", mapping);
+        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
+
+        Container.ExecResult execResult =
+                container.executeJob("/elasticsearch/fake-to-elasticsearch-vector.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        // Wait for index refresh
+        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
+
+        // Verify that 10 documents were inserted as specified in the config
+        Assertions.assertEquals(
+                10, esRestClient.getIndexDocsCount("vector_test").get(0).getDocsCount());
+
+        // Verify vector field exists in the mapping
+        Map<String, BasicTypeDefine<EsType>> fieldTypes =
+                esRestClient.getFieldTypeMapping("vector_test", Collections.emptyList());
+        Assertions.assertTrue(fieldTypes.containsKey("review_embedding"));
     }
 
     @TestTemplate
