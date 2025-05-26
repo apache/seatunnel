@@ -778,6 +778,28 @@ The following are valid field names for EXTRACT:
 - `WEEK`: The number of the ISO 8601 week-numbering week of the year (1-53)
 - `YEAR`: The year field
 
+The EXTRACT function supports all four DateTime literal types:
+
+- `DATE`: For extracting date components from a date literal
+  ```sql
+  EXTRACT(YEAR FROM DATE '2025-05-21')
+  ```
+
+- `TIME`: For extracting time components from a time literal
+  ```sql
+  EXTRACT(HOUR FROM TIME '17:57:40')
+  ```
+
+- `TIMESTAMP`: For extracting date and time components from a timestamp literal
+  ```sql
+  EXTRACT(YEAR FROM TIMESTAMP '2025-05-21T17:57:40')
+  ```
+
+- `TIMESTAMP WITH TIMEZONE`: For extracting components from a timestamp with timezone literal
+  ```sql
+  EXTRACT(HOUR FROM TIMESTAMPTZ '2025-05-21T17:57:40+08:00')
+  ```
+
 Examples:
 
 ```sql

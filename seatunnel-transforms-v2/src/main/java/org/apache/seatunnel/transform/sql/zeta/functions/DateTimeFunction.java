@@ -27,6 +27,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.time.Period;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -353,6 +354,9 @@ public class DateTimeFunction {
                 if (datetime instanceof LocalDateTime) {
                     return ((LocalDateTime) datetime).getYear();
                 }
+                if (datetime instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) datetime).getYear();
+                }
                 break;
             case "MONTH":
                 if (datetime instanceof LocalDate) {
@@ -360,6 +364,9 @@ public class DateTimeFunction {
                 }
                 if (datetime instanceof LocalDateTime) {
                     return ((LocalDateTime) datetime).getMonthValue();
+                }
+                if (datetime instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) datetime).getMonthValue();
                 }
                 break;
             case "DAY":
@@ -369,6 +376,9 @@ public class DateTimeFunction {
                 if (datetime instanceof LocalDateTime) {
                     return ((LocalDateTime) datetime).getDayOfMonth();
                 }
+                if (datetime instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) datetime).getDayOfMonth();
+                }
                 break;
             case "HOUR":
                 if (datetime instanceof LocalTime) {
@@ -376,6 +386,9 @@ public class DateTimeFunction {
                 }
                 if (datetime instanceof LocalDateTime) {
                     return ((LocalDateTime) datetime).getHour();
+                }
+                if (datetime instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) datetime).getHour();
                 }
                 break;
             case "MINUTE":
@@ -385,6 +398,9 @@ public class DateTimeFunction {
                 if (datetime instanceof LocalDateTime) {
                     return ((LocalDateTime) datetime).getMinute();
                 }
+                if (datetime instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) datetime).getMinute();
+                }
                 break;
             case "SECOND":
                 if (datetime instanceof LocalTime) {
@@ -392,6 +408,9 @@ public class DateTimeFunction {
                 }
                 if (datetime instanceof LocalDateTime) {
                     return ((LocalDateTime) datetime).getSecond();
+                }
+                if (datetime instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) datetime).getSecond();
                 }
                 break;
             case "MILLISECOND":
@@ -401,6 +420,9 @@ public class DateTimeFunction {
                 if (datetime instanceof LocalDateTime) {
                     return ((LocalDateTime) datetime).getNano() / 1000_000;
                 }
+                if (datetime instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) datetime).getNano() / 1000_000;
+                }
                 break;
             case "MICROSECONDS":
                 if (datetime instanceof LocalTime) {
@@ -408,6 +430,9 @@ public class DateTimeFunction {
                 }
                 if (datetime instanceof LocalDateTime) {
                     return ((LocalDateTime) datetime).getNano() / 1000;
+                }
+                if (datetime instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) datetime).getNano() / 1000;
                 }
                 break;
             case "EPOCH":
@@ -420,6 +445,9 @@ public class DateTimeFunction {
                     ZoneOffset offset = ZoneOffset.UTC;
                     return (int) ldt.toEpochSecond(offset);
                 }
+                if (datetime instanceof OffsetDateTime) {
+                    return (int) ((OffsetDateTime) datetime).toEpochSecond();
+                }
                 break;
             case "QUARTER":
                 if (datetime instanceof LocalDate) {
@@ -430,12 +458,19 @@ public class DateTimeFunction {
                     int month = ((LocalDateTime) datetime).getMonthValue();
                     return (month - 1) / 3 + 1;
                 }
+                if (datetime instanceof OffsetDateTime) {
+                    int month = ((OffsetDateTime) datetime).getMonthValue();
+                    return (month - 1) / 3 + 1;
+                }
                 break;
             case "WEEK":
                 if (datetime instanceof LocalDate) {
                     return datetime.get(WeekFields.ISO.weekOfYear());
                 }
                 if (datetime instanceof LocalDateTime) {
+                    return datetime.get(WeekFields.ISO.weekOfYear());
+                }
+                if (datetime instanceof OffsetDateTime) {
                     return datetime.get(WeekFields.ISO.weekOfYear());
                 }
                 break;
@@ -448,6 +483,10 @@ public class DateTimeFunction {
                     int year = ((LocalDateTime) datetime).getYear();
                     return (year > 0) ? (year - 1) / 100 + 1 : year / 100;
                 }
+                if (datetime instanceof OffsetDateTime) {
+                    int year = ((OffsetDateTime) datetime).getYear();
+                    return (year > 0) ? (year - 1) / 100 + 1 : year / 100;
+                }
                 break;
             case "DECADE":
                 if (datetime instanceof LocalDate) {
@@ -456,6 +495,9 @@ public class DateTimeFunction {
                 if (datetime instanceof LocalDateTime) {
                     return ((LocalDateTime) datetime).getYear() / 10;
                 }
+                if (datetime instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) datetime).getYear() / 10;
+                }
                 break;
             case "DOW":
                 if (datetime instanceof LocalDate) {
@@ -463,6 +505,9 @@ public class DateTimeFunction {
                 }
                 if (datetime instanceof LocalDateTime) {
                     return ((LocalDateTime) datetime).getDayOfWeek().getValue() % 7;
+                }
+                if (datetime instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) datetime).getDayOfWeek().getValue() % 7;
                 }
                 break;
             case "ISODOW":
@@ -480,6 +525,9 @@ public class DateTimeFunction {
                 }
                 if (datetime instanceof LocalDateTime) {
                     return ((LocalDateTime) datetime).getDayOfYear();
+                }
+                if (datetime instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) datetime).getDayOfYear();
                 }
                 break;
             case "ISOYEAR":

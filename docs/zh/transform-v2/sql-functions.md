@@ -780,6 +780,28 @@ EXTRACT函数支持以下字段名：
 - `WEEK`：ISO 8601周编号年份中的周数（1-53）
 - `YEAR`：年份字段
 
+EXTRACT函数支持以下四种DateTime字面量类型：
+
+- `DATE`：用于从日期字面量中提取日期组件
+  ```sql
+  EXTRACT(YEAR FROM DATE '2025-05-21')
+  ```
+
+- `TIME`：用于从时间字面量中提取时间组件
+  ```sql
+  EXTRACT(HOUR FROM TIME '17:57:40')
+  ```
+
+- `TIMESTAMP`：用于从时间戳字面量中提取日期和时间组件
+  ```sql
+  EXTRACT(YEAR FROM TIMESTAMP '2025-05-21T17:57:40')
+  ```
+
+- `TIMESTAMP WITH TIMEZONE`：用于从带时区的时间戳字面量中提取组件
+  ```sql
+  EXTRACT(HOUR FROM TIMESTAMPTZ '2025-05-21T17:57:40+08:00')
+  ```
+
 示例：
 
 ```sql
