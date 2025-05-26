@@ -29,16 +29,13 @@ import java.util.Map;
 
 /** Processor for handling JsonPath with array notation (using [*]). */
 public class ArrayJsonPathProcessor extends AbstractJsonPathProcessor {
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean canProcess(String pathString) {
-        return pathString.contains("[*]");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String extractCommonParentPath(JsonPath[] paths) {
+    /**
+     * Extract the common parent path from an array of JsonPaths.
+     *
+     * @param paths Array of JsonPath objects
+     * @return The common parent path as a string
+     */
+    private String extractCommonParentPath(JsonPath[] paths) {
         if (paths == null || paths.length == 0) {
             return null;
         }
@@ -72,9 +69,14 @@ public class ArrayJsonPathProcessor extends AbstractJsonPathProcessor {
         return parentPath;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public String getRelativePath(String parentPath, String fullPath) {
+    /**
+     * Get a relative path based on a parent path and a full path.
+     *
+     * @param parentPath The parent path
+     * @param fullPath The complete path
+     * @return The relative path from parent to full path
+     */
+    private String getRelativePath(String parentPath, String fullPath) {
         if (!parentPath.contains("[*]")) {
             throw new IllegalArgumentException(
                     "Parent path must contain [*] for ArrayJsonPathProcessor");
@@ -104,9 +106,15 @@ public class ArrayJsonPathProcessor extends AbstractJsonPathProcessor {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public List<Map<String, Object>> readObjectsFromPath(ReadContext jsonReadContext, String path) {
+    /**
+     * Read objects from a specific path in JSON.
+     *
+     * @param jsonReadContext The JSON read context
+     * @param path The path to read from
+     * @return List of objects read from the path
+     */
+    private List<Map<String, Object>> readObjectsFromPath(
+            ReadContext jsonReadContext, String path) {
         try {
             return jsonReadContext.read(path);
         } catch (Exception e) {

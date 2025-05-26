@@ -54,18 +54,6 @@ public abstract class AbstractJsonPathProcessor implements JsonPathProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public abstract String extractCommonParentPath(JsonPath[] paths);
-
-    /** {@inheritDoc} */
-    @Override
-    public abstract String getRelativePath(String parentPath, String fullPath);
-
-    /** {@inheritDoc} */
-    @Override
-    public abstract boolean canProcess(String pathString);
-
-    /** {@inheritDoc} */
-    @Override
     public List<List<String>> processJsonData(ReadContext jsonReadContext, JsonPath[] paths) {
         // Default implementation - can be overridden by subclasses
         List<List<String>> results = new ArrayList<>(paths.length);
@@ -142,9 +130,14 @@ public abstract class AbstractJsonPathProcessor implements JsonPathProcessor {
         return datas;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public String extractValue(ReadContext objContext, String relativePath) {
+    /**
+     * Extract value from a JSON context using a relative path.
+     *
+     * @param objContext The JSON read context
+     * @param relativePath The relative path to extract from
+     * @return The extracted value as a string
+     */
+    protected String extractValue(ReadContext objContext, String relativePath) {
         try {
             Object value = objContext.read(relativePath);
             if (value == null) {
@@ -152,7 +145,7 @@ public abstract class AbstractJsonPathProcessor implements JsonPathProcessor {
             }
             if (value instanceof String) {
                 // For string types, return the original value directly without JSON serialization,
-                // otherwise “value” will become "\"value"\"
+                // otherwise "value" will become "\"value"\"
                 return (String) value;
             }
             if (value instanceof List) {
