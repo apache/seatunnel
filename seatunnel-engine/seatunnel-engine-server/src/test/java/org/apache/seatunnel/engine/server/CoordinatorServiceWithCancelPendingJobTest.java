@@ -136,7 +136,8 @@ public class CoordinatorServiceWithCancelPendingJobTest extends AbstractSeaTunne
                 server.getCoordinatorService().pendingJobMasterMap.containsKey(jobId));
 
         // Verify if the final status of the task is cancelled
-        await().atMost(120, TimeUnit.SECONDS)
+        await().pollDelay(3, TimeUnit.SECONDS)
+                .atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
