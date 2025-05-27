@@ -139,8 +139,11 @@ public class ConnectorOptionCheckTest {
                                                                                         "HttpSource")
                                                                         || extendedType
                                                                                 .getNameAsString()
+                                                                                .equals("HttpSink")
+                                                                        || extendedType
+                                                                                .getNameAsString()
                                                                                 .equals(
-                                                                                        "HttpSink")) {
+                                                                                        "BaseHdfsFileSink")) {
                                                                     connectorOptionFileNames.add(
                                                                             path.getFileName()
                                                                                     .toString()

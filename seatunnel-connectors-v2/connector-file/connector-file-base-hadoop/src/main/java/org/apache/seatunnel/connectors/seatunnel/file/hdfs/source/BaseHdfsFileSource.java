@@ -32,7 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsBaseConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
 
@@ -46,9 +46,9 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
-                        HdfsSourceConfigOptions.FILE_PATH.key(),
-                        HdfsSourceConfigOptions.FILE_FORMAT_TYPE.key(),
-                        HdfsSourceConfigOptions.DEFAULT_FS.key());
+                        HdfsBaseConfigOptions.FILE_PATH.key(),
+                        HdfsBaseConfigOptions.FILE_FORMAT_TYPE.key(),
+                        HdfsBaseConfigOptions.DEFAULT_FS.key());
         if (!result.isSuccess()) {
             throw new FileConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -56,39 +56,38 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-        String path = pluginConfig.getString(HdfsSourceConfigOptions.FILE_PATH.key());
+        String path = pluginConfig.getString(HdfsBaseConfigOptions.FILE_PATH.key());
         // Avoid overwriting hadoopConf for subclass initialization. If a subclass is initialized,
         // it is not initialized here.
         if (Objects.isNull(hadoopConf)) {
             hadoopConf =
-                    new HadoopConf(
-                            pluginConfig.getString(HdfsSourceConfigOptions.DEFAULT_FS.key()));
+                    new HadoopConf(pluginConfig.getString(HdfsBaseConfigOptions.DEFAULT_FS.key()));
         }
-        if (pluginConfig.hasPath(HdfsSourceConfigOptions.HDFS_SITE_PATH.key())) {
+        if (pluginConfig.hasPath(HdfsBaseConfigOptions.HDFS_SITE_PATH.key())) {
             hadoopConf.setHdfsSitePath(
-                    pluginConfig.getString(HdfsSourceConfigOptions.HDFS_SITE_PATH.key()));
+                    pluginConfig.getString(HdfsBaseConfigOptions.HDFS_SITE_PATH.key()));
         }
 
-        if (pluginConfig.hasPath(HdfsSourceConfigOptions.REMOTE_USER.key())) {
+        if (pluginConfig.hasPath(HdfsBaseConfigOptions.REMOTE_USER.key())) {
             hadoopConf.setRemoteUser(
-                    pluginConfig.getString(HdfsSourceConfigOptions.REMOTE_USER.key()));
+                    pluginConfig.getString(HdfsBaseConfigOptions.REMOTE_USER.key()));
         }
 
-        if (pluginConfig.hasPath(HdfsSourceConfigOptions.KRB5_PATH.key())) {
-            hadoopConf.setKrb5Path(pluginConfig.getString(HdfsSourceConfigOptions.KRB5_PATH.key()));
+        if (pluginConfig.hasPath(HdfsBaseConfigOptions.KRB5_PATH.key())) {
+            hadoopConf.setKrb5Path(pluginConfig.getString(HdfsBaseConfigOptions.KRB5_PATH.key()));
         }
 
-        if (pluginConfig.hasPath(HdfsSourceConfigOptions.KERBEROS_PRINCIPAL.key())) {
+        if (pluginConfig.hasPath(HdfsBaseConfigOptions.KERBEROS_PRINCIPAL.key())) {
             hadoopConf.setKerberosPrincipal(
-                    pluginConfig.getString(HdfsSourceConfigOptions.KERBEROS_PRINCIPAL.key()));
+                    pluginConfig.getString(HdfsBaseConfigOptions.KERBEROS_PRINCIPAL.key()));
         }
-        if (pluginConfig.hasPath(HdfsSourceConfigOptions.KERBEROS_KEYTAB_PATH.key())) {
+        if (pluginConfig.hasPath(HdfsBaseConfigOptions.KERBEROS_KEYTAB_PATH.key())) {
             hadoopConf.setKerberosKeytabPath(
-                    pluginConfig.getString(HdfsSourceConfigOptions.KERBEROS_KEYTAB_PATH.key()));
+                    pluginConfig.getString(HdfsBaseConfigOptions.KERBEROS_KEYTAB_PATH.key()));
         }
         readStrategy =
                 ReadStrategyFactory.of(
-                        pluginConfig.getString(HdfsSourceConfigOptions.FILE_FORMAT_TYPE.key()));
+                        pluginConfig.getString(HdfsBaseConfigOptions.FILE_FORMAT_TYPE.key()));
         readStrategy.setPluginConfig(pluginConfig);
         readStrategy.init(hadoopConf);
         try {
@@ -103,7 +102,7 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
         FileFormat fileFormat =
                 FileFormat.valueOf(
                         pluginConfig
-                                .getString(HdfsSourceConfigOptions.FILE_FORMAT_TYPE.key())
+                                .getString(HdfsBaseConfigOptions.FILE_FORMAT_TYPE.key())
                                 .toUpperCase());
         // only json text csv type support user-defined schema now
         if (pluginConfig.hasPath(ConnectorCommonOptions.SCHEMA.key())) {

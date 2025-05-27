@@ -25,7 +25,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsBaseConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
@@ -89,7 +89,7 @@ public abstract class AbstractStorage implements Storage {
                         });
             }
             String hiveSitePath = readonlyConfig.get(HiveConfig.HIVE_SITE_PATH);
-            String hdfsSitePath = readonlyConfig.get(HdfsSourceConfigOptions.HDFS_SITE_PATH);
+            String hdfsSitePath = readonlyConfig.get(HdfsBaseConfigOptions.HDFS_SITE_PATH);
             if (StringUtils.isNotBlank(hdfsSitePath)) {
                 configuration.addResource(new File(hdfsSitePath).toURI().toURL());
             }

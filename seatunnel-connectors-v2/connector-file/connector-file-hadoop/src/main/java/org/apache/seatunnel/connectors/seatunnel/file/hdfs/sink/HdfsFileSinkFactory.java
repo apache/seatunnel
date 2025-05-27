@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.hdfs.config.HdfsFileSinkOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -39,7 +39,7 @@ public class HdfsFileSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(HdfsSourceConfigOptions.DEFAULT_FS)
+                .required(HdfsFileSinkOptions.DEFAULT_FS)
                 .required(FileBaseSinkOptions.FILE_PATH)
                 .optional(FileBaseSinkOptions.FILE_FORMAT_TYPE)
                 .conditional(

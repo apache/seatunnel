@@ -23,7 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptio
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
 
-public class HdfsSourceConfigOptions extends FileBaseSourceOptions {
+public class HdfsBaseConfigOptions extends FileBaseSourceOptions {
     public static final Option<String> DEFAULT_FS =
             Options.key(FS_DEFAULT_NAME_KEY)
                     .stringType()

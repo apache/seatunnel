@@ -35,7 +35,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsBaseConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
@@ -80,7 +80,7 @@ public class HiveSourceConfig implements Serializable {
     @SneakyThrows
     public HiveSourceConfig(ReadonlyConfig readonlyConfig) {
         readonlyConfig
-                .getOptional(HdfsSourceConfigOptions.READ_PARTITIONS)
+                .getOptional(HdfsBaseConfigOptions.READ_PARTITIONS)
                 .ifPresent(this::validatePartitions);
         Table table = HiveTableUtils.getTableInfo(readonlyConfig);
         this.hadoopConf = parseHiveHadoopConfig(readonlyConfig, table);
@@ -180,19 +180,19 @@ public class HiveSourceConfig implements Serializable {
                 StorageFactory.getStorageType(hiveSdLocation)
                         .buildHadoopConfWithReadOnlyConfig(readonlyConfig);
         readonlyConfig
-                .getOptional(HdfsSourceConfigOptions.HDFS_SITE_PATH)
+                .getOptional(HdfsBaseConfigOptions.HDFS_SITE_PATH)
                 .ifPresent(hadoopConf::setHdfsSitePath);
         readonlyConfig
-                .getOptional(HdfsSourceConfigOptions.KRB5_PATH)
+                .getOptional(HdfsBaseConfigOptions.KRB5_PATH)
                 .ifPresent(hadoopConf::setKrb5Path);
         readonlyConfig
-                .getOptional(HdfsSourceConfigOptions.KERBEROS_PRINCIPAL)
+                .getOptional(HdfsBaseConfigOptions.KERBEROS_PRINCIPAL)
                 .ifPresent(hadoopConf::setKerberosPrincipal);
         readonlyConfig
-                .getOptional(HdfsSourceConfigOptions.KERBEROS_KEYTAB_PATH)
+                .getOptional(HdfsBaseConfigOptions.KERBEROS_KEYTAB_PATH)
                 .ifPresent(hadoopConf::setKerberosKeytabPath);
         readonlyConfig
-                .getOptional(HdfsSourceConfigOptions.REMOTE_USER)
+                .getOptional(HdfsBaseConfigOptions.REMOTE_USER)
                 .ifPresent(hadoopConf::setRemoteUser);
         return hadoopConf;
     }

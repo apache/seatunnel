@@ -25,7 +25,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsBaseConfigOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -41,8 +41,8 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(HdfsSourceConfigOptions.FILE_PATH)
-                .required(HdfsSourceConfigOptions.DEFAULT_FS)
+                .required(HdfsBaseConfigOptions.FILE_PATH)
+                .required(HdfsBaseConfigOptions.DEFAULT_FS)
                 .required(FileBaseSourceOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
