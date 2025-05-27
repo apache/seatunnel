@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.RocketMqBaseConfiguration;
-import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.SchemaFormat;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.config.RocketMqSinkOptions;
 
 import java.io.IOException;
@@ -59,8 +58,7 @@ public class RocketMqSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
         baseConfigurationBuilder.sendMsgTimeout(
                 pluginConfig.get(RocketMqSinkOptions.SEND_MESSAGE_TIMEOUT_MILLIS));
         this.producerMetadata.setConfiguration(baseConfigurationBuilder.build());
-        producerMetadata.setFormat(
-                SchemaFormat.valueOf(pluginConfig.get(RocketMqSinkOptions.FORMAT)));
+        producerMetadata.setFormat(pluginConfig.get(RocketMqSinkOptions.FORMAT));
         producerMetadata.setFieldDelimiter(pluginConfig.get(RocketMqSinkOptions.FIELD_DELIMITER));
         if (pluginConfig.getOptional(RocketMqSinkOptions.PARTITION_KEY_FIELDS).isPresent()) {
             producerMetadata.setPartitionKeyFields(

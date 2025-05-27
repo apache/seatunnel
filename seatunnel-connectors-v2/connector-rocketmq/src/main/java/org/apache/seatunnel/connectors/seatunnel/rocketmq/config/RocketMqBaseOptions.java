@@ -34,10 +34,10 @@ public class RocketMqBaseOptions extends ConnectorCommonOptions {
                     .noDefaultValue()
                     .withDescription("RocketMq name server configuration center address.");
 
-    public static final Option<String> FORMAT =
+    public static final Option<SchemaFormat> FORMAT =
             Options.key("format")
-                    .stringType()
-                    .defaultValue(SchemaFormat.JSON.getName())
+                    .enumType(SchemaFormat.class)
+                    .defaultValue(SchemaFormat.JSON)
                     .withDescription(
                             "Data format. The default format is json. Optional text format. The default field separator is \", \". "
                                     + "If you customize the delimiter, add the \"field.delimiter\" option.");

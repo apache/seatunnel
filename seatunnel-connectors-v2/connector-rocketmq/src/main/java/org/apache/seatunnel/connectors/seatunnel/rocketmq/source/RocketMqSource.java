@@ -189,7 +189,7 @@ public class RocketMqSource
 
     private void setDeserialization(ReadonlyConfig config) {
         if (config.getOptional(RocketMqSourceOptions.SCHEMA).isPresent()) {
-            SchemaFormat format = SchemaFormat.valueOf(config.get(RocketMqSourceOptions.FORMAT));
+            SchemaFormat format = config.get(RocketMqSourceOptions.FORMAT);
             boolean ignoreParseErrors = config.get(RocketMqSourceOptions.IGNORE_PARSE_ERRORS);
             switch (format) {
                 case JSON:
