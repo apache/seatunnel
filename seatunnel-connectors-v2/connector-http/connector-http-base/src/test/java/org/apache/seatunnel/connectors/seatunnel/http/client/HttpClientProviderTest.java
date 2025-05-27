@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.http.client;
 import org.apache.http.Header;
 import org.apache.http.client.methods.HttpPost;
 
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
@@ -32,10 +32,10 @@ class HttpClientProviderTest {
         HttpPost post = new HttpPost("http://localhost:8080");
         Map<String, Object> body = new HashMap<>();
         body.put("key1", "value1");
-        Header[] orignalheaders = post.getAllHeaders();
+        Header[] originalHeaders = post.getAllHeaders();
 
         HttpClientProvider.addBody(post, body);
-        Assert.assertEquals(post.getAllHeaders(), orignalheaders);
-        Assert.assertNull(post.getEntity().getContentEncoding());
+        Assertions.assertEquals(post.getAllHeaders(), originalHeaders);
+        Assertions.assertNull(post.getEntity().getContentEncoding());
     }
 }
