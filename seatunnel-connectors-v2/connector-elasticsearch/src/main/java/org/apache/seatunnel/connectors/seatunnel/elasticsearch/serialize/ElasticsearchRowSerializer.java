@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.BufferUtils;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.ElasticsearchClusterInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.IndexInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
@@ -34,7 +35,9 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.type.In
 
 import lombok.NonNull;
 
+import java.nio.ByteBuffer;
 import java.time.temporal.Temporal;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,10 +53,23 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
     private final IndexTypeSerializer indexTypeSerializer;
     private final Function<SeaTunnelRow, String> keyExtractor;
 
+    // Configuration for vectorization fields
+    private final List<String> vectorizationFields;
+    private final int vectorDimension;
+
     public ElasticsearchRowSerializer(
             ElasticsearchClusterInfo elasticsearchClusterInfo,
             IndexInfo indexInfo,
             SeaTunnelRowType seaTunnelRowType) {
+        this(elasticsearchClusterInfo, indexInfo, seaTunnelRowType, Collections.emptyList(), 0);
+    }
+
+    public ElasticsearchRowSerializer(
+            ElasticsearchClusterInfo elasticsearchClusterInfo,
+            IndexInfo indexInfo,
+            SeaTunnelRowType seaTunnelRowType,
+            List<String> vectorizationFields,
+            int vectorDimension) {
         this.indexTypeSerializer =
                 IndexTypeSerializerFactory.getIndexTypeSerializer(
                         elasticsearchClusterInfo, indexInfo.getType());
@@ -63,6 +79,8 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
         this.keyExtractor =
                 KeyExtractor.createKeyExtractor(
                         seaTunnelRowType, indexInfo.getPrimaryKeys(), indexInfo.getKeyDelimiter());
+        this.vectorizationFields = vectorizationFields;
+        this.vectorDimension = vectorDimension;
     }
 
     @Override
@@ -176,26 +194,53 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
                         toDocumentMap(
                                 (SeaTunnelRow) value, (SeaTunnelRowType) rowType.getFieldType(i)));
             } else {
-                doc.put(fieldNames[i], convertValue(value));
+                doc.put(fieldNames[i], convertValue(fieldNames[i], value));
             }
         }
         return doc;
     }
 
-    private Object convertValue(Object value) {
+    private Object convertValue(String fieldName, Object value) {
         if (value instanceof Temporal) {
             // jackson not support jdk8 new time api
             return value.toString();
         } else if (value instanceof Map) {
             for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
-                ((Map) value).put(entry.getKey(), convertValue(entry.getValue()));
+                ((Map) value).put(entry.getKey(), convertValue(fieldName, entry.getValue()));
             }
             return value;
         } else if (value instanceof List) {
             for (int i = 0; i < ((List) value).size(); i++) {
-                ((List) value).set(i, convertValue(((List) value).get(i)));
+                ((List) value).set(i, convertValue(fieldName, ((List) value).get(i)));
             }
             return value;
+        } else if (value instanceof ByteBuffer) {
+            // Check if this field is configured as a vectorization field
+            if (vectorizationFields != null && vectorizationFields.contains(fieldName)) {
+                ByteBuffer buffer = (ByteBuffer) value;
+                Float[] floats = BufferUtils.toFloatArray(buffer);
+
+                // Use the configured dimension or calculate it from the buffer size
+                int dimension = vectorDimension > 0 ? vectorDimension : buffer.remaining() / 4;
+
+                // Read the floats from the buffer
+                for (int i = 0; i < dimension && buffer.remaining() >= 4; i++) {
+                    floats[i] = buffer.getFloat();
+                }
+
+                return floats;
+            } else {
+                // Default behavior for ByteBuffer fields not specified as vectorization fields
+                ByteBuffer buffer = (ByteBuffer) value;
+                Float[] floats = BufferUtils.toFloatArray(buffer);
+                int floatCount = buffer.remaining() / 4;
+
+                for (int i = 0; i < floatCount; i++) {
+                    floats[i] = buffer.getFloat();
+                }
+
+                return floats;
+            }
         } else {
             return value;
         }
