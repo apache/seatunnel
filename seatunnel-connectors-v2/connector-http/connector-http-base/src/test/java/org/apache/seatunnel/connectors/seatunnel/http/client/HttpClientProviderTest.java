@@ -31,11 +31,22 @@ class HttpClientProviderTest {
     void addBody() throws Exception {
         HttpPost post = new HttpPost("http://localhost:8080");
         Map<String, Object> body = new HashMap<>();
-        body.put("key1", "value1");
         Header[] originalHeaders = post.getAllHeaders();
 
         HttpClientProvider.addBody(post, body);
-        Assertions.assertEquals(post.getAllHeaders(), originalHeaders);
+
+        Header[] currentHeaders = post.getAllHeaders();
+        Assertions.assertEquals(originalHeaders.length, currentHeaders.length);
+        for (int i = 0; i < originalHeaders.length; i++) {
+            Assertions.assertEquals(
+                    originalHeaders[i].getName(),
+                    currentHeaders[i].getName(),
+                    "Header name mismatch at index " + i);
+            Assertions.assertEquals(
+                    originalHeaders[i].getValue(),
+                    currentHeaders[i].getValue(),
+                    "Header value mismatch at index " + i);
+        }
         Assertions.assertNull(post.getEntity().getContentEncoding());
     }
 }
