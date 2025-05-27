@@ -65,6 +65,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Collectors;
@@ -92,6 +93,7 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSource
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.PROTOBUF_SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.READER_CACHE_QUEUE_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.START_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.START_MODE_END_TIMESTAMP;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.START_MODE_OFFSETS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.START_MODE_TIMESTAMP;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.TOPIC;
@@ -187,6 +189,18 @@ public class KafkaSourceConfig implements Serializable {
                                     }
                                     consumerMetadata.setStartOffsetsTimestamp(
                                             startOffsetsTimestamp);
+                                    if (Objects.nonNull(
+                                            readonlyConfig.get(START_MODE_END_TIMESTAMP))) {
+                                        long endOffsetsTimestamp =
+                                                readonlyConfig.get(START_MODE_END_TIMESTAMP);
+                                        if (endOffsetsTimestamp < 0
+                                                || endOffsetsTimestamp > currentTimestamp) {
+                                            throw new IllegalArgumentException(
+                                                    "start_mode.endTimestamp The value is smaller than 0 or smaller than the current time");
+                                        }
+                                        consumerMetadata.setEndOffsetsTimestamp(
+                                                endOffsetsTimestamp);
+                                    }
                                     break;
                                 case SPECIFIC_OFFSETS:
                                     // Key is topic-partition, value is offset
