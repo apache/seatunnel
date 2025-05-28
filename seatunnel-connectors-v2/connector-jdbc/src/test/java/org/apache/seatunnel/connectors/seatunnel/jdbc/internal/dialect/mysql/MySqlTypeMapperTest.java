@@ -69,7 +69,8 @@ public class MySqlTypeMapperTest {
         when(metadata.getPrecision(1)).thenReturn(1);
         when(metadata.getScale(1)).thenReturn(0);
 
-        MySqlTypeMapper typeMapper = new MySqlTypeMapper(new MySqlTypeConverter(MySqlVersion.V_8, false));
+        MySqlTypeMapper typeMapper =
+                new MySqlTypeMapper(new MySqlTypeConverter(MySqlVersion.V_8, false));
         Column column = typeMapper.mappingColumn(metadata, 1);
 
         assertEquals(BasicType.BYTE_TYPE, column.getDataType());
