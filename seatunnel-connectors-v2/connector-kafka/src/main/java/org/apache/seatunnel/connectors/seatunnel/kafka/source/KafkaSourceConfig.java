@@ -317,19 +317,22 @@ public class KafkaSourceConfig implements Serializable {
                         .build();
             case CANAL_JSON:
                 return CanalJsonDeserializationSchema.builder(catalogTable)
-                        .setIgnoreParseErrors(readonlyConfig.get(CanalJsonFormatOptions.IGNORE_PARSE_ERRORS))
+                        .setIgnoreParseErrors(
+                                readonlyConfig.get(CanalJsonFormatOptions.IGNORE_PARSE_ERRORS))
                         .setDatabase(readonlyConfig.get(CanalJsonFormatOptions.DATABASE_INCLUDE))
                         .setTable(readonlyConfig.get(CanalJsonFormatOptions.TABLE_INCLUDE))
                         .build();
             case OGG_JSON:
                 return OggJsonDeserializationSchema.builder(catalogTable)
-                        .setIgnoreParseErrors(readonlyConfig.get(OggJsonFormatOptions.IGNORE_PARSE_ERRORS))
+                        .setIgnoreParseErrors(
+                                readonlyConfig.get(OggJsonFormatOptions.IGNORE_PARSE_ERRORS))
                         .setDatabase(readonlyConfig.get(OggJsonFormatOptions.DATABASE_INCLUDE))
                         .setTable(readonlyConfig.get(OggJsonFormatOptions.TABLE_INCLUDE))
                         .build();
             case MAXWELL_JSON:
                 return MaxWellJsonDeserializationSchema.builder(catalogTable)
-                        .setIgnoreParseErrors(readonlyConfig.get(MaxWellJsonFormatOptions.IGNORE_PARSE_ERRORS))
+                        .setIgnoreParseErrors(
+                                readonlyConfig.get(MaxWellJsonFormatOptions.IGNORE_PARSE_ERRORS))
                         .setDatabase(readonlyConfig.get(MaxWellJsonFormatOptions.DATABASE_INCLUDE))
                         .setTable(readonlyConfig.get(MaxWellJsonFormatOptions.TABLE_INCLUDE))
                         .build();
