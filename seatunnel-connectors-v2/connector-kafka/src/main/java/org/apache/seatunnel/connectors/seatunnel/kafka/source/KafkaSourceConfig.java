@@ -45,11 +45,14 @@ import org.apache.seatunnel.format.compatible.kafka.connect.json.KafkaConnectJso
 import org.apache.seatunnel.format.compatible.kafka.connect.json.NativeKafkaConnectDeserializationSchema;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
+import org.apache.seatunnel.format.json.canal.CanalJsonFormatOptions;
 import org.apache.seatunnel.format.json.debezium.DebeziumJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.debezium.DebeziumJsonDeserializationSchemaDispatcher;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.json.maxwell.MaxWellJsonDeserializationSchema;
+import org.apache.seatunnel.format.json.maxwell.MaxWellJsonFormatOptions;
 import org.apache.seatunnel.format.json.ogg.OggJsonDeserializationSchema;
+import org.apache.seatunnel.format.json.ogg.OggJsonFormatOptions;
 import org.apache.seatunnel.format.protobuf.ProtobufDeserializationSchema;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
@@ -314,15 +317,21 @@ public class KafkaSourceConfig implements Serializable {
                         .build();
             case CANAL_JSON:
                 return CanalJsonDeserializationSchema.builder(catalogTable)
-                        .setIgnoreParseErrors(true)
+                        .setIgnoreParseErrors(readonlyConfig.get(CanalJsonFormatOptions.IGNORE_PARSE_ERRORS))
+                        .setDatabase(readonlyConfig.get(CanalJsonFormatOptions.DATABASE_INCLUDE))
+                        .setTable(readonlyConfig.get(CanalJsonFormatOptions.TABLE_INCLUDE))
                         .build();
             case OGG_JSON:
                 return OggJsonDeserializationSchema.builder(catalogTable)
-                        .setIgnoreParseErrors(true)
+                        .setIgnoreParseErrors(readonlyConfig.get(OggJsonFormatOptions.IGNORE_PARSE_ERRORS))
+                        .setDatabase(readonlyConfig.get(OggJsonFormatOptions.DATABASE_INCLUDE))
+                        .setTable(readonlyConfig.get(OggJsonFormatOptions.TABLE_INCLUDE))
                         .build();
             case MAXWELL_JSON:
                 return MaxWellJsonDeserializationSchema.builder(catalogTable)
-                        .setIgnoreParseErrors(true)
+                        .setIgnoreParseErrors(readonlyConfig.get(MaxWellJsonFormatOptions.IGNORE_PARSE_ERRORS))
+                        .setDatabase(readonlyConfig.get(MaxWellJsonFormatOptions.DATABASE_INCLUDE))
+                        .setTable(readonlyConfig.get(MaxWellJsonFormatOptions.TABLE_INCLUDE))
                         .build();
 
             case COMPATIBLE_KAFKA_CONNECT_JSON:
