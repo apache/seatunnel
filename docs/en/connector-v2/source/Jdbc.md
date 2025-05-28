@@ -56,6 +56,7 @@ supports query SQL and can achieve projection effect.
 | partition_lower_bound                      | Long    | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | partition_num                              | Int     | No       | job parallelism | Not recommended for use, The correct approach is to control the number of split through `split.size`<br/> **Note:** This parameter takes effect only when using the `query` parameter. It does not take effect when using the `table_path` parameter.                                                                                                                                                                                                                                                                                                                                                                                              |
 | decimal_type_narrowing                     | Boolean | No       | true            | Decimal type narrowing, if true, the decimal type will be narrowed to the int or long type if without loss of precision. Only support for Oracle at now. Please refer to `decimal_type_narrowing` below                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| int_type_narrowing                         | Boolean | No       | true            | Int type narrowing, if true, the tinyint(1) type will be narrowed to the boolean type if without loss of precision. Support for MySQL at now. Please refer to `int_type_narrowing` below                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | handle_blob_as_string                      | Boolean | No       | false           | If true, BLOB type will be converted to STRING type. **Only supported for Oracle database**. This is useful for handling large BLOB fields in Oracle that exceed the default size limit. When transmitting Oracle's BLOB fields to systems like Doris, setting this to true can make the data transfer more efficient.                                                                                                                                                                                                                                                                                                                             |
 | use_select_count                           | Boolean | No       | false           | Use select count for table count rather then other methods in dynamic chunk split stage. This is currently only available for jdbc-oracle.In this scenario, select count directly is used when it is faster to update statistics using sql from analysis table                                                                                                                                                                                                                                                                                                                                                                                     |
 | skip_analyze                               | Boolean | No       | false           | Skip the analysis of table count in dynamic chunk split stage. This is currently only available for jdbc-oracle.In this scenario, you schedule analysis table sql to update related table statistics periodically or your table data does not change frequently                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -94,6 +95,24 @@ decimal_type_narrowing = false
 | NUMBER(1, 0)  | Decimal(1, 0)  |
 | NUMBER(6, 0)  | Decimal(6, 0)  |
 | NUMBER(10, 0) | Decimal(10, 0) |
+
+### int_type_narrowing
+
+Int type narrowing, if true, the tinyint(1) type will be narrowed to the boolean type if without loss of precision. Support for MySQL at now.
+
+eg:
+
+int_type_narrowing = true
+
+| MySQL      | SeaTunnel |
+|------------|-----------|
+| TINYINT(1) | Boolean   |
+
+int_type_narrowing = false
+
+| MySQL      | SeaTunnel |
+|------------|-----------|
+| TINYINT(1) | TINYINT   |
 
 ### dialect [string]
 

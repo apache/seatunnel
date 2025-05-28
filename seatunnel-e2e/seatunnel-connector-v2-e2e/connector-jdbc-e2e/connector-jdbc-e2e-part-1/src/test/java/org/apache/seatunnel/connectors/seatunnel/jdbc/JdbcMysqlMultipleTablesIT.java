@@ -87,7 +87,7 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
                     + "    `c_bit_16`               bit(16)               DEFAULT NULL,\n"
                     + "    `c_bit_32`               bit(32)               DEFAULT NULL,\n"
                     + "    `c_bit_64`               bit(64)               DEFAULT NULL,\n"
-                    + "    `c_boolean`              tinyint(1)            DEFAULT NULL,\n"
+                    + "    `c_tinyint_1`              tinyint(1)            DEFAULT NULL,\n"
                     + "    `c_tinyint`              tinyint(4)            DEFAULT NULL,\n"
                     + "    `c_tinyint_unsigned`     tinyint(3) unsigned   DEFAULT NULL,\n"
                     + "    `c_smallint`             smallint(6)           DEFAULT NULL,\n"
@@ -305,7 +305,7 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
                     "c_bit_16",
                     "c_bit_32",
                     "c_bit_64",
-                    "c_boolean",
+                    "c_tinyint_1",
                     "c_tinyint",
                     "c_tinyint_unsigned",
                     "c_smallint",
