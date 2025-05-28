@@ -31,7 +31,10 @@ import ChangeLog from '../changelog/connector-file-local.md';
   - [x] excel
   - [x] xml
   - [x] 二进制
-
+  - [x] canal_json
+  - [x] debezium_json
+  - [x] maxwell_json
+  
 ## 选项
 
 | 名称                                    | 类型      | 是否必需 | 默认值                                        | 描述                                                              |
@@ -102,7 +105,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
 我们支持以下文件类型：
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `canal_json` `debezium_json` `maxwell_json`
 
 请注意，最终的文件名将以 file_format_type 的后缀结尾，文本文件的后缀是 `txt`。
 

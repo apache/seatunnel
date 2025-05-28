@@ -29,6 +29,8 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
+import java.nio.charset.Charset;
+
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 
 public class CanalJsonSerializationSchema implements SerializationSchema {
@@ -46,6 +48,11 @@ public class CanalJsonSerializationSchema implements SerializationSchema {
 
     public CanalJsonSerializationSchema(SeaTunnelRowType rowType) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType));
+        this.reuse = new SeaTunnelRow(2);
+    }
+
+    public CanalJsonSerializationSchema(SeaTunnelRowType rowType, Charset charset) {
+        this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType), charset);
         this.reuse = new SeaTunnelRow(2);
     }
 

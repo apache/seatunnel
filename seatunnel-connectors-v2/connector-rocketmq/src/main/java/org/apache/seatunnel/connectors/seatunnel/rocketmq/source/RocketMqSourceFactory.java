@@ -19,50 +19,60 @@ package org.apache.seatunnel.connectors.seatunnel.rocketmq.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.StartMode;
-import org.apache.seatunnel.connectors.seatunnel.rocketmq.config.Config;
-import org.apache.seatunnel.connectors.seatunnel.rocketmq.config.ConsumerConfig;
+import org.apache.seatunnel.connectors.seatunnel.rocketmq.config.RocketMqSourceOptions;
 
 import com.google.auto.service.AutoService;
+
+import java.io.Serializable;
 
 @AutoService(Factory.class)
 public class RocketMqSourceFactory implements TableSourceFactory {
 
     @Override
     public String factoryIdentifier() {
-        return Config.CONNECTOR_IDENTITY;
+        return RocketMqSourceOptions.CONNECTOR_IDENTITY;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(ConsumerConfig.TOPICS, Config.NAME_SRV_ADDR)
+                .required(RocketMqSourceOptions.TOPICS, RocketMqSourceOptions.NAME_SRV_ADDR)
                 .optional(
-                        Config.FORMAT,
-                        ConsumerConfig.TAGS,
-                        ConsumerConfig.START_MODE,
-                        ConsumerConfig.CONSUMER_GROUP,
-                        ConsumerConfig.COMMIT_ON_CHECKPOINT,
-                        ConsumerConfig.SCHEMA,
-                        ConsumerConfig.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS,
-                        ConsumerConfig.POLL_TIMEOUT_MILLIS,
-                        ConsumerConfig.BATCH_SIZE)
+                        RocketMqSourceOptions.FORMAT,
+                        RocketMqSourceOptions.TAGS,
+                        RocketMqSourceOptions.START_MODE,
+                        RocketMqSourceOptions.CONSUMER_GROUP,
+                        RocketMqSourceOptions.COMMIT_ON_CHECKPOINT,
+                        RocketMqSourceOptions.SCHEMA,
+                        RocketMqSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS,
+                        RocketMqSourceOptions.POLL_TIMEOUT_MILLIS,
+                        RocketMqSourceOptions.BATCH_SIZE)
                 .conditional(
-                        ConsumerConfig.START_MODE,
+                        RocketMqSourceOptions.START_MODE,
                         StartMode.CONSUME_FROM_TIMESTAMP,
-                        ConsumerConfig.START_MODE_TIMESTAMP)
+                        RocketMqSourceOptions.START_MODE_TIMESTAMP)
                 .conditional(
-                        ConsumerConfig.START_MODE,
+                        RocketMqSourceOptions.START_MODE,
                         StartMode.CONSUME_FROM_SPECIFIC_OFFSETS,
-                        ConsumerConfig.START_MODE_OFFSETS,
-                        ConsumerConfig.IGNORE_PARSE_ERRORS)
+                        RocketMqSourceOptions.START_MODE_OFFSETS,
+                        RocketMqSourceOptions.IGNORE_PARSE_ERRORS)
                 .build();
     }
 
     @Override
     public Class<? extends SeaTunnelSource> getSourceClass() {
         return RocketMqSource.class;
+    }
+
+    @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new RocketMqSource(context.getOptions());
     }
 }
