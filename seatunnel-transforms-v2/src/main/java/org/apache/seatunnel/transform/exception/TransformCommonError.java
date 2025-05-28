@@ -23,11 +23,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.EXPRESSION_EXECUTE_ERROR;
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.INPUT_FIELDS_NOT_FOUND;
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.INPUT_FIELD_NOT_FOUND;
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.INPUT_TABLE_NOT_FOUND;
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.METADATA_FIELDS_NOT_FOUND;
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.METADATA_MAPPING_FIELD_EXISTS;
+import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.WHERE_STATEMENT_ERROR;
 
 /** The common error of SeaTunnel transform. Please refer {@link CommonError} */
 public class TransformCommonError {
@@ -66,5 +68,17 @@ public class TransformCommonError {
         params.put("table", table);
         params.put("transform", transform);
         return new TransformException(INPUT_TABLE_NOT_FOUND, params);
+    }
+
+    public static TransformException sqlExpressionError(String expression, Throwable cause) {
+        Map<String, String> params = new HashMap<>();
+        params.put("expression", expression);
+        return new TransformException(EXPRESSION_EXECUTE_ERROR, params, cause);
+    }
+
+    public static TransformException sqlWhereStatementError(String wherebody, Throwable cause) {
+        Map<String, String> params = new HashMap<>();
+        params.put("wherebody", wherebody);
+        return new TransformException(WHERE_STATEMENT_ERROR, params, cause);
     }
 }

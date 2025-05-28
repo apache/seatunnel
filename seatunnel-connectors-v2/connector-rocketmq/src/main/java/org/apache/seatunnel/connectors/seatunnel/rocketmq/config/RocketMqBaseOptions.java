@@ -19,20 +19,28 @@ package org.apache.seatunnel.connectors.seatunnel.rocketmq.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.SchemaFormat;
 
-public class Config {
-
-    /** The default field delimiter is “,” */
-    public static final String DEFAULT_FIELD_DELIMITER = ",";
+public class RocketMqBaseOptions extends ConnectorCommonOptions {
 
     public static final String CONNECTOR_IDENTITY = "Rocketmq";
+
+    public static final String DEFAULT_FIELD_DELIMITER = ",";
 
     public static final Option<String> NAME_SRV_ADDR =
             Options.key("name.srv.addr")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("RocketMq name server configuration center address.");
+
+    public static final Option<SchemaFormat> FORMAT =
+            Options.key("format")
+                    .enumType(SchemaFormat.class)
+                    .defaultValue(SchemaFormat.JSON)
+                    .withDescription(
+                            "Data format. The default format is json. Optional text format. The default field separator is \", \". "
+                                    + "If you customize the delimiter, add the \"field.delimiter\" option.");
 
     public static final Option<Boolean> ACL_ENABLED =
             Options.key("acl.enabled")
@@ -54,17 +62,9 @@ public class Config {
                     .noDefaultValue()
                     .withDescription("When ACL_ENABLED is true, secret key cannot be empty.");
 
-    public static final Option<String> FORMAT =
-            Options.key("format")
-                    .stringType()
-                    .defaultValue(SchemaFormat.JSON.getName())
-                    .withDescription(
-                            "Data format. The default format is json. Optional text format. The default field separator is \", \". "
-                                    + "If you customize the delimiter, add the \"field.delimiter\" option.");
-
     public static final Option<String> FIELD_DELIMITER =
             Options.key("field.delimiter")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue(DEFAULT_FIELD_DELIMITER)
                     .withDescription("Customize the field delimiter for data format.");
 }
