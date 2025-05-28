@@ -40,6 +40,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import net.sf.jsqlparser.expression.BinaryExpression;
 import net.sf.jsqlparser.expression.CaseExpression;
 import net.sf.jsqlparser.expression.CastExpression;
+import net.sf.jsqlparser.expression.DateTimeLiteralExpression;
 import net.sf.jsqlparser.expression.DoubleValue;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.ExtractExpression;
@@ -64,6 +65,10 @@ import net.sf.jsqlparser.statement.select.LateralView;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -214,6 +219,10 @@ public class ZetaSQLFunction {
         if (expression instanceof NullValue) {
             return null;
         }
+        if (expression instanceof DateTimeLiteralExpression) {
+            return computeDateTimeLiteralExpression((DateTimeLiteralExpression) expression);
+        }
+
         if (expression instanceof TrimFunction) {
             TrimFunction function = (TrimFunction) expression;
             Column column = (Column) function.getExpression();
@@ -901,5 +910,28 @@ public class ZetaSQLFunction {
             }
         }
         return new SeaTunnelRowType(fieldNames, seaTunnelDataTypes);
+    }
+
+    private Object computeDateTimeLiteralExpression(DateTimeLiteralExpression expression) {
+        String value = expression.getValue();
+        if (value.startsWith("'") && value.endsWith("'")) {
+            value = value.substring(1, value.length() - 1);
+        }
+
+        DateTimeLiteralExpression.DateTime type = expression.getType();
+        switch (type) {
+            case DATE:
+                return LocalDate.parse(value);
+            case TIME:
+                return LocalTime.parse(value);
+            case TIMESTAMP:
+                return LocalDateTime.parse(value);
+            case TIMESTAMPTZ:
+                return OffsetDateTime.parse(value);
+            default:
+                throw new TransformException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                        String.format("Unsupported DateTime type: %s", type));
+        }
     }
 }

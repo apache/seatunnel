@@ -757,9 +757,59 @@ DAY_OF_YEAR(CREATED)
 
 Returns a value of the specific time unit from a date/time value. This method returns a numeric value with EPOCH field and an int for all other fields.
 
-Example:
+The following are valid field names for EXTRACT:
 
-EXTRACT(SECOND FROM CURRENT_TIMESTAMP)
+- `CENTURY`: The century; for interval values, the year field divided by 100
+- `DAY`: The day of the month (1-31); for interval values, the number of days
+- `DECADE`: The year field divided by 10
+- `DOW` or `DAYOFWEEK`: The day of the week as Sunday (0) to Saturday (6)
+- `DOY`: The day of the year (1-365/366)
+- `EPOCH`: For timestamp values, the number of seconds since 1970-01-01 00:00:00; for interval values, the total number of seconds
+- `HOUR`: The hour field (0-23)
+- `ISODOW`: The day of the week as Monday (1) to Sunday (7), matching ISO 8601
+- `ISOYEAR`: The ISO 8601 week-numbering year
+- `MICROSECONDS`: The seconds field, including fractional parts, multiplied by 1,000,000
+- `MILLENNIUM`: The millennium; for interval values, the year field divided by 1000
+- `MILLISECONDS`: The seconds field, including fractional parts, multiplied by 1,000
+- `MINUTE`: The minutes field (0-59)
+- `MONTH`: The number of the month within the year (1-12); for interval values, the number of months modulo 12 (0-11)
+- `QUARTER`: The quarter of the year (1-4) that the date is in
+- `SECOND`: The seconds field, including any fractional seconds
+- `WEEK`: The number of the ISO 8601 week-numbering week of the year (1-53)
+- `YEAR`: The year field
+
+The EXTRACT function supports all four DateTime literal types:
+
+- `DATE`: For extracting date components from a date literal
+  ```sql
+  EXTRACT(YEAR FROM DATE '2025-05-21')
+  ```
+
+- `TIME`: For extracting time components from a time literal
+  ```sql
+  EXTRACT(HOUR FROM TIME '17:57:40')
+  ```
+
+- `TIMESTAMP`: For extracting date and time components from a timestamp literal
+  ```sql
+  EXTRACT(YEAR FROM TIMESTAMP '2025-05-21T17:57:40')
+  ```
+
+- `TIMESTAMP WITH TIMEZONE`: For extracting components from a timestamp with timezone literal
+  ```sql
+  EXTRACT(HOUR FROM TIMESTAMPTZ '2025-05-21T17:57:40+08:00')
+  ```
+
+Examples:
+
+```sql
+EXTRACT(YEAR FROM TIMESTAMP '2001-02-16 20:38:40')
+EXTRACT(HOUR FROM TIMESTAMP '2001-02-16 20:38:40')
+EXTRACT(DOW FROM TIMESTAMP '2001-02-16 20:38:40')
+EXTRACT(YEAR FROM eventTime)
+EXTRACT(HOUR FROM eventTime)
+EXTRACT(DOW FROM eventTime)
+```
 
 ### FORMATDATETIME
 
@@ -1016,7 +1066,7 @@ It is used to determine whether the condition is valid and return different valu
 
 Example:
 
-case when c_string in ('c_string') then 1 else 0 end 
+case when c_string in ('c_string') then 1 else 0 end
 
 case when c_string in ('c_string') then true else false end
 
