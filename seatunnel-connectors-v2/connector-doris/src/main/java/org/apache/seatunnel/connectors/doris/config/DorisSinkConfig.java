@@ -36,6 +36,7 @@ import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.PASS
 import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.QUERY_PORT;
 import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.TABLE;
 import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.USERNAME;
+import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.CASE_SENSITIVE;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.DORIS_SINK_CONFIG_PREFIX;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.NEEDS_UNSUPPORTED_TYPE_CASTING;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SAVE_MODE_CREATE_TEMPLATE;
@@ -71,6 +72,7 @@ public class DorisSinkConfig implements Serializable {
     private Integer bufferCount;
     private Properties streamLoadProps;
     private boolean needsUnsupportedTypeCasting;
+    private boolean caseSensitive;
 
     // create table option
     private String createTableTemplate;
@@ -102,7 +104,7 @@ public class DorisSinkConfig implements Serializable {
         dorisSinkConfig.setBufferCount(config.get(SINK_BUFFER_COUNT));
         dorisSinkConfig.setEnableDelete(config.get(SINK_ENABLE_DELETE));
         dorisSinkConfig.setNeedsUnsupportedTypeCasting(config.get(NEEDS_UNSUPPORTED_TYPE_CASTING));
-
+        dorisSinkConfig.setCaseSensitive(config.get(CASE_SENSITIVE));
         // create table option
         dorisSinkConfig.setCreateTableTemplate(config.get(SAVE_MODE_CREATE_TEMPLATE));
 

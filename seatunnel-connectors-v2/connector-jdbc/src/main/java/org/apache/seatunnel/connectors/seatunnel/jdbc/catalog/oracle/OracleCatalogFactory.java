@@ -55,7 +55,8 @@ public class OracleCatalogFactory implements CatalogFactory {
                 urlInfo,
                 options.get(JdbcCatalogOptions.SCHEMA),
                 options.get(JdbcOptions.DECIMAL_TYPE_NARROWING),
-                options.get(JdbcOptions.DRIVER));
+                options.get(JdbcOptions.DRIVER),
+                options.getOptional(JdbcOptions.HANDLE_BLOB_AS_STRING).orElse(false));
     }
 
     @Override

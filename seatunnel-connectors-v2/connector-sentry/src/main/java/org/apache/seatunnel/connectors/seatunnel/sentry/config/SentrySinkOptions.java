@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.sentry.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class SentryConfig {
+public class SentrySinkOptions {
 
     public static final String SENTRY = "Sentry";
 
@@ -35,24 +35,24 @@ public class SentryConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("sentry cache dir path");
-    public static final Option<String> ENABLE_EXTERNAL_CONFIGURATION =
+    public static final Option<Boolean> ENABLE_EXTERNAL_CONFIGURATION =
             Options.key("enableExternalConfiguration")
-                    .stringType()
+                    .booleanType()
                     .noDefaultValue()
                     .withDescription("enable external configuration");
-    public static final Option<String> MAX_CACHEITEMS =
+    public static final Option<Integer> MAX_CACHEITEMS =
             Options.key("maxCacheItems")
-                    .stringType()
+                    .intType()
                     .noDefaultValue()
                     .withDescription("max cache items");
-    public static final Option<String> FLUSH_TIMEOUTMILLIS =
+    public static final Option<Long> FLUSH_TIMEOUTMILLIS =
             Options.key("flushTimeoutMillis")
-                    .stringType()
+                    .longType()
                     .noDefaultValue()
                     .withDescription("flush timeout millis");
-    public static final Option<String> MAX_QUEUESIZE =
+    public static final Option<Integer> MAX_QUEUESIZE =
             Options.key("maxQueueSize")
-                    .stringType()
+                    .intType()
                     .noDefaultValue()
                     .withDescription("flush queue size");
 }

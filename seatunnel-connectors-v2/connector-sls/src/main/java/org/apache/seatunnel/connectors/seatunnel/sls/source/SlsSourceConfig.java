@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.catalog.schema.ReadonlyConfigParser;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.sls.config.SlsSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.sls.serialization.FastLogDeserialization;
 import org.apache.seatunnel.connectors.seatunnel.sls.serialization.FastLogDeserializationContent;
 import org.apache.seatunnel.connectors.seatunnel.sls.serialization.FastLogDeserializationSchema;
@@ -42,17 +43,6 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.ACCESS_KEY_ID;
-import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.ACCESS_KEY_SECRET;
-import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.AUTO_CURSOR_RESET;
-import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.BATCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.CONSUMER_GROUP;
-import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.ENDPOINT;
-import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS;
-import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.LOGSTORE;
-import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.PROJECT;
-import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.START_MODE;
-
 public class SlsSourceConfig implements Serializable {
     private static final long serialVersionUID = 1L;
 
@@ -64,10 +54,11 @@ public class SlsSourceConfig implements Serializable {
     @Getter private final ConsumerMetaData consumerMetaData;
 
     public SlsSourceConfig(ReadonlyConfig readonlyConfig) {
-        this.endpoint = readonlyConfig.get(ENDPOINT);
-        this.accessKeyId = readonlyConfig.get(ACCESS_KEY_ID);
-        this.accessKeySecret = readonlyConfig.get(ACCESS_KEY_SECRET);
-        this.discoveryIntervalMillis = readonlyConfig.get(KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS);
+        this.endpoint = readonlyConfig.get(SlsSourceOptions.ENDPOINT);
+        this.accessKeyId = readonlyConfig.get(SlsSourceOptions.ACCESS_KEY_ID);
+        this.accessKeySecret = readonlyConfig.get(SlsSourceOptions.ACCESS_KEY_SECRET);
+        this.discoveryIntervalMillis =
+                readonlyConfig.get(SlsSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS);
         this.catalogTable = createCatalogTable(readonlyConfig);
         this.consumerMetaData = createMetaData(readonlyConfig);
     }
@@ -75,12 +66,12 @@ public class SlsSourceConfig implements Serializable {
     /** only single endpoint logstore */
     public ConsumerMetaData createMetaData(ReadonlyConfig readonlyConfig) {
         ConsumerMetaData consumerMetaData = new ConsumerMetaData();
-        consumerMetaData.setProject(readonlyConfig.get(PROJECT));
-        consumerMetaData.setLogstore(readonlyConfig.get(LOGSTORE));
-        consumerMetaData.setConsumerGroup(readonlyConfig.get(CONSUMER_GROUP));
-        consumerMetaData.setStartMode(readonlyConfig.get(START_MODE));
-        consumerMetaData.setFetchSize(readonlyConfig.get(BATCH_SIZE));
-        consumerMetaData.setAutoCursorReset(readonlyConfig.get(AUTO_CURSOR_RESET));
+        consumerMetaData.setProject(readonlyConfig.get(SlsSourceOptions.PROJECT));
+        consumerMetaData.setLogstore(readonlyConfig.get(SlsSourceOptions.LOGSTORE));
+        consumerMetaData.setConsumerGroup(readonlyConfig.get(SlsSourceOptions.CONSUMER_GROUP));
+        consumerMetaData.setStartMode(readonlyConfig.get(SlsSourceOptions.START_MODE));
+        consumerMetaData.setFetchSize(readonlyConfig.get(SlsSourceOptions.BATCH_SIZE));
+        consumerMetaData.setAutoCursorReset(readonlyConfig.get(SlsSourceOptions.AUTO_CURSOR_RESET));
         consumerMetaData.setDeserializationSchema(createDeserializationSchema(readonlyConfig));
         consumerMetaData.setCatalogTable(catalogTable);
         return consumerMetaData;
@@ -89,7 +80,7 @@ public class SlsSourceConfig implements Serializable {
     private CatalogTable createCatalogTable(ReadonlyConfig readonlyConfig) {
         Optional<Map<String, Object>> schemaOptions =
                 readonlyConfig.getOptional(ConnectorCommonOptions.SCHEMA);
-        TablePath tablePath = TablePath.of(readonlyConfig.get(LOGSTORE));
+        TablePath tablePath = TablePath.of(readonlyConfig.get(SlsSourceOptions.LOGSTORE));
         TableSchema tableSchema;
         if (schemaOptions.isPresent()) {
             tableSchema = new ReadonlyConfigParser().parse(readonlyConfig);

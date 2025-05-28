@@ -84,6 +84,8 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private static final String DATABASE = "default";
     private static final String SOURCE_TABLE = "source_table";
     private static final String SINK_TABLE = "sink_table";
+    private static final List<String> MULTI_SINK_TABLES =
+            Arrays.asList("multi_sink_table1", "multi_sink_table2");
     private static final String INSERT_SQL = "insert_sql";
     private static final String COMPARE_SQL = "compare_sql";
     private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET =
@@ -98,7 +100,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode());
         assertHasData(SINK_TABLE);
         compareResult();
-        clearSinkTable();
+        clearTable(SINK_TABLE);
     }
 
     @TestTemplate
@@ -195,6 +197,20 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         dropTable(tableName);
     }
 
+    @TestTemplate
+    public void testClickHouseWithMultiTableSink(TestContainer container) throws Exception {
+        for (String tableName : MULTI_SINK_TABLES) {
+            Assertions.assertEquals(0, countData(tableName));
+        }
+        Container.ExecResult execResult =
+                container.executeJob("/fake_to_clickhouse_with_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        for (String tableName : MULTI_SINK_TABLES) {
+            Assertions.assertEquals(100, countData(tableName));
+            clearTable(tableName);
+        }
+    }
+
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -221,6 +237,10 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
             Statement statement = this.connection.createStatement();
             statement.execute(CONFIG.getString(SOURCE_TABLE));
             statement.execute(CONFIG.getString(SINK_TABLE));
+            // table for multi-table sink test
+            for (String tableName : MULTI_SINK_TABLES) {
+                statement.execute(CONFIG.getString(tableName));
+            }
         } catch (SQLException e) {
             throw new RuntimeException("Initializing Clickhouse table failed!", e);
         }
@@ -524,9 +544,9 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private void clearSinkTable() {
+    private void clearTable(String tableName) {
         try (Statement statement = connection.createStatement()) {
-            statement.execute(String.format("truncate table %s.%s", DATABASE, SINK_TABLE));
+            statement.execute(String.format("truncate table %s.%s", DATABASE, tableName));
         } catch (SQLException e) {
             throw new RuntimeException("Test clickhouse server image error", e);
         }

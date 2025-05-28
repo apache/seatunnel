@@ -126,7 +126,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         SchemaChangeEvent schemaChangeEvent = null;
         try {
             if (schemaChangeResolver != null) {
-                schemaChangeEvent = schemaChangeResolver.resolve(record, null);
+                schemaChangeEvent = schemaChangeResolver.resolve(record, tables);
             }
         } catch (Exception e) {
             log.warn("Failed to resolve schemaChangeEvent, just skip.", e);

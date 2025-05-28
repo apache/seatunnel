@@ -541,6 +541,43 @@ public class OracleTypeConverterTest {
     }
 
     @Test
+    public void testConvertBlobAsByte() {
+        BasicTypeDefine typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test_blob")
+                        .columnType("BLOB")
+                        .dataType("BLOB")
+                        .build();
+
+        Column column = INSTANCE.convert(typeDefine);
+
+        Assertions.assertEquals("test_blob", column.getName());
+        Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
+        Assertions.assertEquals("BLOB", column.getSourceType());
+        Assertions.assertEquals(
+                Long.valueOf((1L << 32) - 1), ((PhysicalColumn) column).getColumnLength());
+    }
+
+    @Test
+    public void testConvertBlobAsString() {
+        BasicTypeDefine typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test_blob")
+                        .columnType("BLOB")
+                        .dataType("BLOB")
+                        .build();
+
+        OracleTypeConverter converterWithBlobAsString = new OracleTypeConverter(true, true);
+        Column column = converterWithBlobAsString.convert(typeDefine);
+
+        Assertions.assertEquals("test_blob", column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals("BLOB", column.getSourceType());
+        Assertions.assertEquals(
+                Long.valueOf((1L << 32) - 1), ((PhysicalColumn) column).getColumnLength());
+    }
+
+    @Test
     public void testConvertDatetime() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("date").dataType("date").build();

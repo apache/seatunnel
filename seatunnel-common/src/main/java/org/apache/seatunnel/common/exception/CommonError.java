@@ -48,7 +48,7 @@ import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_ROW_KIND;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.VERSION_NOT_SUPPORTED;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.WRITE_SEATUNNEL_ROW_ERROR;
-import static org.apache.seatunnel.common.exception.CommonErrorCode.WRITE_SEATUNNEL_ROW_ERROR_WITH_FILEDS_NOT_MATCH;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.WRITE_SEATUNNEL_ROW_ERROR_WITH_FIELDS_NOT_MATCH;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.WRITE_SEATUNNEL_ROW_ERROR_WITH_SCHEMA_INCOMPATIBLE_SCHEMA;
 
 /**
@@ -254,25 +254,25 @@ public class CommonError {
     public static SeaTunnelRuntimeException writeRowErrorWithSchemaIncompatibleSchema(
             String connector,
             String sourceFieldSqlSchema,
-            String exceptFieldSqlSchema,
+            String expectedFieldSqlSchema,
             String sinkFieldSqlSchema) {
         Map<String, String> params = new HashMap<>();
         params.put("connector", connector);
         params.put("sourceFieldSqlSchema", sourceFieldSqlSchema);
-        params.put("exceptFieldSqlSchema", exceptFieldSqlSchema);
+        params.put("expectedFieldSqlSchema", expectedFieldSqlSchema);
         params.put("sinkFieldSqlSchema", sinkFieldSqlSchema);
         return new SeaTunnelRuntimeException(
                 WRITE_SEATUNNEL_ROW_ERROR_WITH_SCHEMA_INCOMPATIBLE_SCHEMA, params);
     }
 
-    public static SeaTunnelRuntimeException writeRowErrorWithFiledsCountNotMatch(
+    public static SeaTunnelRuntimeException writeRowErrorWithFieldsCountNotMatch(
             String connector, int sourceFieldsNum, int sinkFieldsNum) {
         Map<String, String> params = new HashMap<>();
         params.put("connector", connector);
         params.put("sourceFieldsNum", String.valueOf(sourceFieldsNum));
         params.put("sinkFieldsNum", String.valueOf(sinkFieldsNum));
         return new SeaTunnelRuntimeException(
-                WRITE_SEATUNNEL_ROW_ERROR_WITH_FILEDS_NOT_MATCH, params);
+                WRITE_SEATUNNEL_ROW_ERROR_WITH_FIELDS_NOT_MATCH, params);
     }
 
     public static SeaTunnelRuntimeException formatDateTimeError(String datetime, String field) {

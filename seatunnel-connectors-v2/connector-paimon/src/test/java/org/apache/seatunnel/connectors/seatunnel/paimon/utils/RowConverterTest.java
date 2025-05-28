@@ -293,7 +293,7 @@ public class RowConverterTest {
                                 RowConverter.reconvert(
                                         seaTunnelRow, seaTunnelRowType, sinkTableSchema));
         SeaTunnelRuntimeException filedNumsExceptException =
-                CommonError.writeRowErrorWithFiledsCountNotMatch(
+                CommonError.writeRowErrorWithFieldsCountNotMatch(
                         "Paimon",
                         seaTunnelRowType.getTotalFields(),
                         sinkTableSchema.fields().size());

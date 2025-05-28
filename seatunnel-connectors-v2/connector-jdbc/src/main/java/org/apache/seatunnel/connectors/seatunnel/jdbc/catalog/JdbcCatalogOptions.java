@@ -59,11 +59,13 @@ public interface JdbcCatalogOptions {
                             "The compatible mode of database, required when the database supports multiple compatible modes. "
                                     + "For example, when using OceanBase database, you need to set it to 'mysql' or 'oracle'.");
 
+    Option<Boolean> HANDLE_BLOB_AS_STRING = JdbcOptions.HANDLE_BLOB_AS_STRING;
+
     OptionRule.Builder BASE_RULE =
             OptionRule.builder()
                     .required(BASE_URL)
                     .required(USERNAME, PASSWORD)
-                    .optional(SCHEMA, JdbcOptions.DECIMAL_TYPE_NARROWING);
+                    .optional(SCHEMA, JdbcOptions.DECIMAL_TYPE_NARROWING, HANDLE_BLOB_AS_STRING);
 
     Option<String> TABLE_PREFIX =
             Options.key("tablePrefix")
