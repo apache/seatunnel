@@ -41,6 +41,10 @@ public class SensorsDataConfigBase implements Serializable {
     protected final boolean skipErrorRecord;
     protected final String itemIdColumn;
     protected final String itemTypeColumn;
+    // 配置 distinctIdColumn 值的获取逻辑
+    // 默认情况下 false, 表示 distinctId 只能从 distinctIdColumn 字段获取
+    // 如果为 true, 则表示 distinctId 可以从 identityFields 字段获取
+    protected final boolean distinctIdByIdentities;
 
     public SensorsDataConfigBase(ReadonlyConfig config) {
         this.entityName = config.get(SensorsDataOptions.ENTITY_NAME);
@@ -56,5 +60,6 @@ public class SensorsDataConfigBase implements Serializable {
         this.skipErrorRecord = config.get(SensorsDataOptions.SKIP_ERROR_RECORD);
         this.itemIdColumn = config.get(SensorsDataOptions.ITEM_ID_COLUMN);
         this.itemTypeColumn = config.get(SensorsDataOptions.ITEM_TYPE_COLUMN);
+        this.distinctIdByIdentities = config.get(SensorsDataOptions.DISTINCT_ID_BY_IDENTITIES);
     }
 }

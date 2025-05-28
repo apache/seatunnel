@@ -114,4 +114,11 @@ public interface SensorsDataOptions {
                     .defaultValue("json_content")
                     .withDescription(
                             "Specify the target column name for the output of the SensorsDataJson Transform. ");
+
+    Option<Boolean> DISTINCT_ID_BY_IDENTITIES =
+            Options.key("distinct_id_by_identities")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "when distinct_id_column value is null, enable get distinctId value by identityFields");
 }

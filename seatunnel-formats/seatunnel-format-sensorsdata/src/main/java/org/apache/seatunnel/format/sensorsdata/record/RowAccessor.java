@@ -15,6 +15,7 @@ import com.sensorsdata.analytics.javasdk.SensorsConst;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +36,7 @@ public class RowAccessor implements Serializable {
 
     private final Integer distinctIdColumnIndex;
     private Integer timeColumnIndex;
+    private boolean eventTimeUseCurrentTime;
 
     private String eventName;
     private Integer eventColumnIndex;
@@ -44,7 +46,12 @@ public class RowAccessor implements Serializable {
     private final Integer itemIdColumnIndex;
     private final Integer itemTypeColumnIndex;
 
-    private final String FIELD_KEY_IDENTITY_LOGIN_ID = "$identity_login_id";
+    private final String CURRENT_TIME_KEY = "current_time()";
+
+    private static final String OLD_DISTINCT_ID = "distinct_id";
+    private static final String LOGIN_ID = "$identity_login_id";
+    private static final String ANONYMOUS_ID = "$identity_anonymous_id";
+    private static final String DISTINCT_ID = "$identity_distinct_id";
 
     public RowAccessor(SensorsDataConfigBase config, SeaTunnelRowType rowType) {
         this.config = config;
@@ -55,7 +62,15 @@ public class RowAccessor implements Serializable {
         }
 
         this.distinctIdColumnIndex = checkAndGetColumnIndex(config.getDistinctIdColumn());
-        this.timeColumnIndex = checkAndGetColumnIndex(config.getTimeColumn());
+
+        if (StringUtils.isNotBlank(config.getTimeColumn())) {
+            if (config.getTimeColumn().equals(CURRENT_TIME_KEY)) {
+                this.eventTimeUseCurrentTime = true;
+            } else {
+                this.eventTimeUseCurrentTime = false;
+                this.timeColumnIndex = checkAndGetColumnIndex(config.getTimeColumn());
+            }
+        }
 
         initEventNameConfig(config);
 
@@ -134,10 +149,58 @@ public class RowAccessor implements Serializable {
     }
 
     public String getDistinctId(SeaTunnelRow row) {
-        return (String)
+        Object distinctValue =
                 TypeUtil.toTargetType(
                         row.getField(this.distinctIdColumnIndex),
                         SensorsDataTypes.DataTypes.STRING);
+        if ((!config.isDistinctIdByIdentities())
+                || (distinctValue != null && StringUtils.isNotBlank((String) distinctValue))) {
+            return (String) distinctValue;
+        }
+        // 当配置的 distinctId 字段没有获取到数据时, 需要使用 identities 里面的信息补充一个数据
+        return getDistinctId(getUserIdentities(row));
+    }
+
+    /**
+     * 按照 distinct_id, $identity_login_id, $identity_anonymous_id, $identity_distinct_id , 其他
+     * identity 的顺序获取第一个有值的字段作为 distinct_id
+     */
+    private String getDistinctId(Map<String, Object> userIdentities) {
+        if (userIdentities.containsKey(OLD_DISTINCT_ID)) {
+            return getIdentityValue(OLD_DISTINCT_ID, userIdentities.get(OLD_DISTINCT_ID));
+        }
+
+        if (userIdentities.containsKey(LOGIN_ID)) {
+            return getIdentityValue(LOGIN_ID, userIdentities.get(LOGIN_ID));
+        }
+
+        if (userIdentities.containsKey(ANONYMOUS_ID)) {
+            return getIdentityValue(ANONYMOUS_ID, userIdentities.get(ANONYMOUS_ID));
+        }
+
+        if (userIdentities.containsKey(DISTINCT_ID)) {
+            return getIdentityValue(DISTINCT_ID, userIdentities.get(DISTINCT_ID));
+        }
+
+        return userIdentities.entrySet().stream()
+                .findFirst()
+                .map(
+                        it ->
+                                String.format(
+                                        "%s+%s",
+                                        it.getKey(), getIdentityValue(it.getKey(), it.getValue())))
+                .orElse(null);
+    }
+
+    private String getIdentityValue(String field, Object value) {
+        if (value instanceof List) {
+            return ((List) value).get(0).toString();
+        } else if (value instanceof String) {
+            return (String) value;
+        }
+        throw new SensorsDataException(
+                SensorsDataErrorCode.ILLEGAL_ARGUMENT,
+                String.format("Identity value must be String or List. [field=%s]", field));
     }
 
     public Map<String, Object> getUserIdentities(SeaTunnelRow row) {
@@ -149,6 +212,11 @@ public class RowAccessor implements Serializable {
 
             Object strValue =
                     TypeUtil.toTargetType(row.getField(index), SensorsDataTypes.DataTypes.STRING);
+
+            // 如果 value 没有数据则不传递该信息
+            if (strValue == null || StringUtils.isBlank((String) strValue)) {
+                continue;
+            }
 
             Object value;
             if (isLoginId(key)) {
@@ -174,7 +242,7 @@ public class RowAccessor implements Serializable {
      * @return
      */
     private boolean isLoginId(String field) {
-        return FIELD_KEY_IDENTITY_LOGIN_ID.equals(field);
+        return LOGIN_ID.equals(field);
     }
 
     public Map<String, String> getIdentities(SeaTunnelRow row) {
@@ -208,13 +276,18 @@ public class RowAccessor implements Serializable {
         }
 
         // 设置 $time
-        if (this.timeColumnIndex != null) {
-            properties.put(
-                    SensorsConst.TIME_SYSTEM_ATTR,
-                    TypeUtil.toTargetType(
-                            row.getField(this.timeColumnIndex), SensorsDataTypes.DataTypes.DATE));
+        if (this.eventTimeUseCurrentTime) {
+            // 如果设置的是使用当前当前时间, 则获取当前时间处理
+            properties.put(SensorsConst.TIME_SYSTEM_ATTR, new Date());
+        } else {
+            if (this.timeColumnIndex != null) {
+                properties.put(
+                        SensorsConst.TIME_SYSTEM_ATTR,
+                        TypeUtil.toTargetType(
+                                row.getField(this.timeColumnIndex),
+                                SensorsDataTypes.DataTypes.DATE));
+            }
         }
-
         return properties;
     }
 
