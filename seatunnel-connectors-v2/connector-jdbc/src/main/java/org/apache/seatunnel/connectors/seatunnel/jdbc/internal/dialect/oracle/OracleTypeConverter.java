@@ -66,11 +66,15 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
             ORACLE_TIMESTAMP + " WITH TIME ZONE";
     public static final String ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE =
             ORACLE_TIMESTAMP + " WITH LOCAL TIME ZONE";
+    public static final String ORACLE_INTERVAL = "INTERVAL";
+    public static final String ORACLE_INTERVAL_YEAR = ORACLE_INTERVAL + " YEAR TO MONTH";
+    public static final String ORACLE_INTERVAL_DAY = ORACLE_INTERVAL + " DAY TO SECOND";
 
     // ------------------------------blob-------------------------
     public static final String ORACLE_BLOB = "BLOB";
     public static final String ORACLE_RAW = "RAW";
     public static final String ORACLE_LONG_RAW = "LONG RAW";
+    public static final String ORACLE_BFILE = "BFILE";
 
     public static final int MAX_PRECISION = 38;
     public static final int DEFAULT_PRECISION = MAX_PRECISION;
@@ -218,6 +222,10 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                     builder.columnLength(BYTES_4GB - 1);
                 }
                 break;
+            case ORACLE_BFILE:
+                builder.dataType(PrimitiveByteArrayType.INSTANCE);
+                builder.columnLength(BYTES_4GB - 1);
+                break;
             case ORACLE_RAW:
                 builder.dataType(PrimitiveByteArrayType.INSTANCE);
                 if (typeDefine.getLength() == null || typeDefine.getLength() == 0) {
@@ -243,6 +251,11 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                 } else {
                     builder.scale(typeDefine.getScale());
                 }
+                break;
+            case ORACLE_INTERVAL:
+            case ORACLE_INTERVAL_YEAR:
+            case ORACLE_INTERVAL_DAY:
+                builder.dataType(BasicType.STRING_TYPE);
                 break;
             default:
                 throw CommonError.convertToSeaTunnelTypeError(
