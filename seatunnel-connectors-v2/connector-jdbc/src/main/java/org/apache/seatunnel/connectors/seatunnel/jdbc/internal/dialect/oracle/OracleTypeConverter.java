@@ -71,6 +71,7 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String ORACLE_BLOB = "BLOB";
     public static final String ORACLE_RAW = "RAW";
     public static final String ORACLE_LONG_RAW = "LONG RAW";
+    public static final String ORACLE_BFILE = "BFILE";
 
     public static final int MAX_PRECISION = 38;
     public static final int DEFAULT_PRECISION = MAX_PRECISION;
@@ -217,6 +218,10 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                     builder.dataType(PrimitiveByteArrayType.INSTANCE);
                     builder.columnLength(BYTES_4GB - 1);
                 }
+                break;
+            case ORACLE_BFILE:
+                builder.dataType(PrimitiveByteArrayType.INSTANCE);
+                builder.columnLength(BYTES_4GB - 1);
                 break;
             case ORACLE_RAW:
                 builder.dataType(PrimitiveByteArrayType.INSTANCE);

@@ -36,7 +36,8 @@ public class OracleCreateTableSqlBuilder {
 
     private List<Column> columns;
     private PrimaryKey primaryKey;
-    private String sourceCatalogName;
+    private String comment;
+    protected String sourceCatalogName;
     private String fieldIde;
     private boolean createIndex;
 
@@ -84,7 +85,7 @@ public class OracleCreateTableSqlBuilder {
         return sqls;
     }
 
-    String buildColumnSql(Column column) {
+    protected String buildColumnSql(Column column) {
         StringBuilder columnSql = new StringBuilder();
         columnSql.append("\"").append(column.getName()).append("\" ");
 
