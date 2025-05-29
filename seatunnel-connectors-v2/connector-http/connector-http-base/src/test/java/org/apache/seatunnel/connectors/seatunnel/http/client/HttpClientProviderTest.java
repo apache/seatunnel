@@ -35,6 +35,7 @@ class HttpClientProviderTest {
 
         HttpClientProvider.addBody(post, body);
 
+        // ensure the original headers are preserved
         Header[] currentHeaders = post.getAllHeaders();
         Assertions.assertEquals(originalHeaders.length, currentHeaders.length);
         for (int i = 0; i < originalHeaders.length; i++) {
@@ -47,6 +48,7 @@ class HttpClientProviderTest {
                     currentHeaders[i].getValue(),
                     "Header value mismatch at index " + i);
         }
+        // ensure no manually set content type or encoding
         Assertions.assertNull(post.getEntity().getContentEncoding());
     }
 }
