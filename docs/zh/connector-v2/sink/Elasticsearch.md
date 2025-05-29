@@ -156,7 +156,7 @@ sink {
     }
 }
 ```
-向量转换
+向量转换(vector data)
 
 ```conf
 sink {
