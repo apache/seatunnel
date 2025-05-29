@@ -32,6 +32,7 @@
         <module>connector-redis-e2e</module>
         <module>connector-cdc-sqlserver-e2e</module>
         <module>connector-clickhouse-e2e</module>
+        <module>connector-databend-e2e</module>
         <module>connector-starrocks-e2e</module>
         <module>connector-influxdb-e2e</module>
         <module>connector-amazondynamodb-e2e</module>
