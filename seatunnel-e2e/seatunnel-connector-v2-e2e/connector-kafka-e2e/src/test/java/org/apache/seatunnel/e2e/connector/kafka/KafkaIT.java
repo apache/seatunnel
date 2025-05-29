@@ -163,7 +163,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
             NewTopic testTopicSourceSkipPartition =
                     new NewTopic("test_topic_source_skip_partition", 2, (short) 1);
-            testTopicSourceWithTimestamp.configs(Collections.singletonMap("retention.ms", "-1"));
+            testTopicSourceSkipPartition.configs(Collections.singletonMap("retention.ms", "-1"));
 
             List<NewTopic> topics =
                     Arrays.asList(
@@ -189,8 +189,10 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         "test_topic_source_timestamp",
                         DEFAULT_FORMAT,
                         new SeaTunnelRowType(
-                                new String[] {"id", "timestamp"},
-                                new SeaTunnelDataType[] {BasicType.LONG_TYPE, BasicType.LONG_TYPE}),
+                                new String[] {"id", "timestamp", KafkaBaseConstants.PARTITION},
+                                new SeaTunnelDataType[] {
+                                    BasicType.LONG_TYPE, BasicType.LONG_TYPE, BasicType.INT_TYPE
+                                }),
                         "",
                         null);
 
@@ -201,17 +203,17 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         new SeaTunnelRowType(
                                 new String[] {"id", "timestamp", KafkaBaseConstants.PARTITION},
                                 new SeaTunnelDataType[] {
-                                    BasicType.LONG_TYPE, BasicType.LONG_TYPE, BasicType.LONG_TYPE
+                                    BasicType.LONG_TYPE, BasicType.LONG_TYPE, BasicType.INT_TYPE
                                 }),
                         "",
                         null);
 
-        generateWithTimestampTestData(rowSerializer::serializeRow, 0, 100, 1738395840000L, 1);
+        generateWithTimestampTestData(rowSerializer::serializeRow, 0, 100, 1738395840000L, 0);
 
         generateWithTimestampTestData(
-                topicSourceSkipPartition::serializeRow, 0, 100, 1738395840000L, 1);
+                topicSourceSkipPartition::serializeRow, 0, 100, 1738395840000L, 0);
         generateWithTimestampTestData(
-                topicSourceSkipPartition::serializeRow, 100, 200, 1738396200000L, 2);
+                topicSourceSkipPartition::serializeRow, 100, 200, 1738396200000L, 1);
 
         String topicName = "test_topic_native_source";
         generateNativeTestData("test_topic_native_source", 0, 100);
@@ -1281,9 +1283,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 SeaTunnelRow row =
                         new SeaTunnelRow(
                                 new Object[] {
-                                    Long.valueOf(i),
-                                    startTimestamp + i * 1000,
-                                    Long.valueOf(partition)
+                                    Long.valueOf(i), startTimestamp + i * 1000, partition
                                 });
                 ProducerRecord<byte[], byte[]> producerRecord = converter.convert(row);
                 producer.send(producerRecord).get();
