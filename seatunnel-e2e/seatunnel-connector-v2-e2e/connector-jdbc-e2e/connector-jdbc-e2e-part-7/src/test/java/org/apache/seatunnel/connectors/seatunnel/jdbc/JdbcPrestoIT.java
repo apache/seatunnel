@@ -53,7 +53,7 @@ import java.util.Properties;
 
 @Slf4j
 public class JdbcPrestoIT extends AbstractJdbcIT {
-    protected static final String PRESTO_IMAGE = "localhost:5000/prestodb/presto:latest";
+    protected static final String PRESTO_IMAGE = "prestodb/presto";
 
     private static final String PRESTO_ALIASES = "e2e_presto";
     private static final String DRIVER_CLASS = "com.facebook.presto.jdbc.PrestoDriver";
