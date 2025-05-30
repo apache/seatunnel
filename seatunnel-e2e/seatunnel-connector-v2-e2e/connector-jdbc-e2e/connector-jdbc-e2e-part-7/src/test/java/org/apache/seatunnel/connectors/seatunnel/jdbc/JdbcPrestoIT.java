@@ -37,7 +37,13 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.sql.*;
+import java.sql.Date;
+import java.sql.Driver;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -114,7 +120,7 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
 
     @Override
     protected void initializeJdbcConnection(String jdbcUrl)
-            throws SQLException, InstantiationException, IllegalAccessException{
+            throws SQLException, InstantiationException, IllegalAccessException {
         Driver driver = (Driver) loadDriverClass().newInstance();
         Properties props = new Properties();
 
