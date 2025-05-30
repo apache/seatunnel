@@ -163,7 +163,7 @@ public class JdbcInputFormat implements Serializable {
             throw new JdbcConnectorException(
                     CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
                     String.format(
-                            "Failed to access resultSet for table '%s': NullPointer encountered",
+                            "Failed to access resultSet for table '%s': NullPointerException occurred",
                             splitTableId),
                     npe);
         }
