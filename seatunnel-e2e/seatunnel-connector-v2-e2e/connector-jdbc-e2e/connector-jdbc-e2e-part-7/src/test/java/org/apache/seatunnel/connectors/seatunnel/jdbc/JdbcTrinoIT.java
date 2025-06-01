@@ -224,8 +224,7 @@ public class JdbcTrinoIT extends AbstractJdbcIT {
                         .withNetworkAliases(TRINO_ALIASES)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(TRINO_IMAGE)));
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", TRINO_PORT, "8080")));
+        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", TRINO_PORT, "8080")));
 
         return container;
     }

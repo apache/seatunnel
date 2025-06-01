@@ -206,8 +206,7 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
                         .withNetworkAliases(PRESTO_ALIASES)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PRESTO_IMAGE)));
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", PRESTO_PORT, "8080")));
+        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", PRESTO_PORT, "8080")));
 
         return container;
     }
