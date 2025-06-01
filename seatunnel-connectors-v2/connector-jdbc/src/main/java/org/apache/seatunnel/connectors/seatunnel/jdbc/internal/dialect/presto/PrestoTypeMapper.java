@@ -92,6 +92,7 @@ public class PrestoTypeMapper implements JdbcDialectTypeMapper {
                 return BasicType.DOUBLE_TYPE;
             case PRESTO_CHAR:
             case PRESTO_VARCHAR:
+            case PRESTO_JSON:
                 return BasicType.STRING_TYPE;
             case PRESTO_DATE:
                 return LocalTimeType.LOCAL_DATE_TYPE;
@@ -103,7 +104,6 @@ public class PrestoTypeMapper implements JdbcDialectTypeMapper {
             case PRESTO_BINARY:
                 return PrimitiveByteArrayType.INSTANCE;
                 // Doesn't support yet
-            case PRESTO_JSON:
             case PRESTO_MAP:
             case PRESTO_ARRAY:
             case PRESTO_ROW:

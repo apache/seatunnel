@@ -35,19 +35,9 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.sql.Date;
 import java.sql.Driver;
-import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
@@ -55,18 +45,15 @@ import java.util.Properties;
 public class JdbcPrestoIT extends AbstractJdbcIT {
     protected static final String PRESTO_IMAGE = "prestodb/presto";
 
-    private static final String PRESTO_ALIASES = "e2e_presto";
+    private static final String PRESTO_ALIASES = "e2e-presto";
     private static final String DRIVER_CLASS = "com.facebook.presto.jdbc.PrestoDriver";
     private static final int PRESTO_PORT = 8080;
-    private static final String PRESTO_URL = "jdbc:presto://" + HOST + ":%s/";
+    private static final String PRESTO_URL = "jdbc:presto://" + HOST + ":%s/memory?timeZoneId=UTC";
     private static final String USERNAME = "presto";
     private static final String DATABASE = "memory.default";
     private static final String SOURCE_TABLE = "presto_e2e_source_table";
-    private static final String SINK_TABLE = "presto_e2e_sink_table";
-    private static final String CATALOG_TABLE = "e2e_table_catalog";
-    private static final Integer GEN_ROWS = 100;
     private static final List<String> CONFIG_FILE =
-            Lists.newArrayList("/jdbc_presto_source_and_sink_with_full_type.conf");
+            Lists.newArrayList("/jdbc_presto_source_and_assert.conf");
 
     private static final String CREATE_SQL =
             "CREATE TABLE IF NOT EXISTS %s (\n"
@@ -84,27 +71,9 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
                     + "date_col                 DATE,\n"
                     + "time_col                 TIME,\n"
                     + "timestamp_col            TIMESTAMP,\n"
-                    + "varbinary_col            VARBINARY"
+                    + "varbinary_col            VARBINARY,\n"
+                    + "json_col                 json\n"
                     + ")";
-
-    private static final String[] fieldNames =
-            new String[] {
-                "id",
-                "boolean_col",
-                "tinyint_col",
-                "smallint_col",
-                "integer_col",
-                "bigint_col",
-                "decimal_col",
-                "real_col",
-                "double_col",
-                "char_col",
-                "varchar_col",
-                "date_col",
-                "time_col",
-                "timestamp_col",
-                "varbinary_col"
-            };
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
@@ -159,11 +128,6 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
     @Override
     JdbcCase getJdbcCase() {
         String jdbcUrl = String.format(PRESTO_URL, PRESTO_PORT, DATABASE);
-        Pair<String[], List<SeaTunnelRow>> testDataSet = initTestData();
-        String[] fieldNames = testDataSet.getKey();
-
-        String insertSql = insertTable(DATABASE, SOURCE_TABLE, fieldNames);
-
         return JdbcCase.builder()
                 .dockerImage(PRESTO_IMAGE)
                 .networkAliases(PRESTO_ALIASES)
@@ -176,30 +140,38 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
                 .userName(USERNAME)
                 .database(DATABASE)
                 .sourceTable(SOURCE_TABLE)
-                .sinkTable(SINK_TABLE)
                 .catalogDatabase(DATABASE)
-                .catalogTable(CATALOG_TABLE)
                 .createSql(CREATE_SQL)
                 .configFile(CONFIG_FILE)
-                .insertSql(insertSql)
-                .testData(testDataSet)
+                .useSaveModeCreateTable(true)
                 .build();
     }
 
     @Override
     protected void insertTestData() {
-        try (PreparedStatement preparedStatement =
-                connection.prepareStatement(jdbcCase.getInsertSql())) {
-
-            List<SeaTunnelRow> rows = jdbcCase.getTestData().getValue();
-
-            for (SeaTunnelRow row : rows) {
-                for (int index = 0; index < row.getArity(); index++) {
-                    preparedStatement.setObject(index + 1, row.getField(index));
-                }
-                preparedStatement.executeUpdate();
+        try (Statement statement = connection.createStatement()) {
+            for (int i = 1; i <= 3; i++) {
+                statement.execute(
+                        "insert into memory.default.presto_e2e_source_table\n"
+                                + "values(\n"
+                                + "1,\n"
+                                + "true,\n"
+                                + "cast(127 as tinyint),\n"
+                                + "cast(32767 as smallint),\n"
+                                + "3,\n"
+                                + "1234567890,\n"
+                                + "55.0005,\n"
+                                + "67.89,\n"
+                                + "123.45,\n"
+                                + "'8',\n"
+                                + "'VarcharCol',\n"
+                                + "date '2024-01-01',\n"
+                                + "time '12:01:01',\n"
+                                + "timestamp '2024-01-01 12:01:01',\n"
+                                + "VARBINARY 'str',\n"
+                                + "json '{\"key\":\"val\"}'\n"
+                                + ")");
             }
-            connection.commit();
         } catch (Exception exception) {
             log.error(ExceptionUtils.getMessage(exception));
             throw new SeaTunnelRuntimeException(JdbcITErrorCode.INSERT_DATA_FAILED, exception);
@@ -212,42 +184,19 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
     }
 
     @Override
+    Pair<String[], List<SeaTunnelRow>> initTestData() {
+        return null;
+    }
+
+    @Override
     public String quoteIdentifier(String field) {
         return field;
     }
 
     @Override
-    Pair<String[], List<SeaTunnelRow>> initTestData() {
-        List<SeaTunnelRow> rows = new ArrayList<>();
-        for (Integer i = 0; i < GEN_ROWS; i++) {
-
-            SeaTunnelRow row =
-                    new SeaTunnelRow(
-                            new Object[] {
-                                i,
-                                i % 2 == 0,
-                                i.byteValue(),
-                                i.shortValue(),
-                                i,
-                                Long.valueOf(i),
-                                BigDecimal.valueOf(i * 1.0001).setScale(4, RoundingMode.DOWN),
-                                Float.parseFloat("1.1"),
-                                Double.parseDouble("1.111"),
-                                String.valueOf(i).substring(0, 1),
-                                String.valueOf(i),
-                                Date.valueOf(LocalDate.now()),
-                                Time.valueOf(LocalTime.of(12, 10, 0)),
-                                Timestamp.valueOf(LocalDateTime.of(2024, 12, 12, 10, 0)),
-                                "test".getBytes()
-                            });
-            rows.add(row);
-        }
-
-        return Pair.of(fieldNames, rows);
+    protected void clearTable(String database, String schema, String table) {
+        // do nothing.
     }
-
-    @Override
-    protected void clearTable(String database, String schema, String table) {}
 
     @Override
     GenericContainer<?> initContainer() {

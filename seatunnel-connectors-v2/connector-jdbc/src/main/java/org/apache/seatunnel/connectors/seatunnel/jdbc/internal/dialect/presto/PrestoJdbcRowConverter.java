@@ -17,12 +17,31 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.presto;
 
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+
+import javax.annotation.Nullable;
+
+import java.sql.PreparedStatement;
 
 public class PrestoJdbcRowConverter extends AbstractJdbcRowConverter {
     @Override
     public String converterName() {
         return DatabaseIdentifier.PRESTO;
+    }
+
+    @Override
+    public PreparedStatement toExternal(
+            TableSchema tableSchema,
+            @Nullable TableSchema databaseTableSchema,
+            SeaTunnelRow row,
+            PreparedStatement statement) {
+        throw new JdbcConnectorException(
+                JdbcConnectorErrorCode.DONT_SUPPORT_SINK,
+                "The Presto jdbc connector don't support sink");
     }
 }
