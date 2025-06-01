@@ -47,7 +47,7 @@ public class JdbcTrinoIT extends AbstractJdbcIT {
 
     private static final String TRINO_ALIASES = "e2e-trino";
     private static final String DRIVER_CLASS = "io.trino.jdbc.TrinoDriver";
-    private static final int TRINO_PORT = 8080;
+    private static final int TRINO_PORT = 28080;
     private static final String TRINO_URL = "jdbc:trino://" + HOST + ":%s/memory?timezone=UTC";
     private static final String USERNAME = "trino";
     private static final String DATABASE = "memory.default";
@@ -225,7 +225,7 @@ public class JdbcTrinoIT extends AbstractJdbcIT {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(TRINO_IMAGE)));
         container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", TRINO_PORT, TRINO_PORT)));
+                Lists.newArrayList(String.format("%s:%s", TRINO_PORT, "8080")));
 
         return container;
     }

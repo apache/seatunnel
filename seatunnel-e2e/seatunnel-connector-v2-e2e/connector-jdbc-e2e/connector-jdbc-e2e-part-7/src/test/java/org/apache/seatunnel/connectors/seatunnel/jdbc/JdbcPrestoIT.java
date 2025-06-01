@@ -47,7 +47,7 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
 
     private static final String PRESTO_ALIASES = "e2e-presto";
     private static final String DRIVER_CLASS = "com.facebook.presto.jdbc.PrestoDriver";
-    private static final int PRESTO_PORT = 8080;
+    private static final int PRESTO_PORT = 18080;
     private static final String PRESTO_URL = "jdbc:presto://" + HOST + ":%s/memory?timeZoneId=UTC";
     private static final String USERNAME = "presto";
     private static final String DATABASE = "memory.default";
@@ -207,7 +207,7 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PRESTO_IMAGE)));
         container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", PRESTO_PORT, PRESTO_PORT)));
+                Lists.newArrayList(String.format("%s:%s", PRESTO_PORT, "8080")));
 
         return container;
     }
