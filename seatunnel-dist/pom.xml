@@ -112,7 +112,7 @@
                 <jdom.version>1.1</jdom.version>
                 <tidb.version>3.3.5</tidb.version>
                 <presto.version>0.279</presto.version>
-                <trino.version>397</trino.version>
+                <trino.version>460</trino.version>
             </properties>
             <dependencies>
                 <!-- starters -->

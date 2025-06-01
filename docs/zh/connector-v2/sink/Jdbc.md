@@ -261,8 +261,6 @@ Sink插件常用参数，请参考 [Sink常用选项](../sink-common-options.md)
 | OceanBase  | com.oceanbase.jdbc.Driver                    | jdbc:oceanbase://localhost:2881                                    | /                                                  | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.12/oceanbase-client-2.4.12.jar   |
 | opengauss  | org.opengauss.Driver                         | jdbc:opengauss://localhost:5432/postgres                           | /                                                  | https://repo1.maven.org/maven2/org/opengauss/opengauss-jdbc/5.1.0-og/opengauss-jdbc-5.1.0-og.jar   |
 | Highgo     | com.highgo.jdbc.Driver                       | jdbc:highgo://localhost:5866/highgo                                | /                                                  | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                        |
-| Presto     | com.facebook.presto.jdbc.PrestoDriver        | jdbc:presto://localhost:8080/presto                                | /                                                  | https://repo1.maven.org/maven2/com/facebook/presto/presto-jdbc/0.279/presto-jdbc-0.279.jar         |
-| Trino      | io.trino.jdbc.TrinoDriver                    | jdbc:trino://localhost:8080/trino                                  | /                                                  | https://repo1.maven.org/maven2/io/trino/trino-jdbc/397/trino-jdbc-397.jar                          |
 
 ## 示例
 
@@ -319,7 +317,7 @@ sink {
 }
 ```
 
-配置表生成策略
+配置表生成策略 (schema_save_mode)
 
 通过设置 `schema_save_mode` 配置为 `CREATE_SCHEMA_WHEN_NOT_EXIST` 来支持不存在表时创建表
 

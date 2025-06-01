@@ -57,7 +57,7 @@
         <mariadb.jdbc.version>3.5.1</mariadb.jdbc.version>
         <highgo.version>6.2.3</highgo.version>
         <presto.version>0.279</presto.version>
-        <trino.version>397</trino.version>
+        <trino.version>460</trino.version>
     </properties>
 
     <dependencyManagement>
