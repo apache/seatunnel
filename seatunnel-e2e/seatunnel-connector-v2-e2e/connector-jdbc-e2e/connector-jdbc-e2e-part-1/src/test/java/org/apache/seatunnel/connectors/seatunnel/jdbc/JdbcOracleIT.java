@@ -269,7 +269,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                                 Timestamp.valueOf(LocalDateTime.now()),
                                 Timestamp.valueOf(LocalDateTime.now()),
                                 "<?xml version=\"1.0\" encoding=\"UTF-8\"?><project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"><name>SeaTunnel : E2E : Connector V2 : Oracle XMLType</name></project>",
-                                null,
+                                "/container-entrypoint-startdb.d/init.sql",
                                 Duration.ofHours(25)
                             });
             rows.add(row);
