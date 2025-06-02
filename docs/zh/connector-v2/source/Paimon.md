@@ -59,7 +59,7 @@ Paimon 的 catalog uri，仅当 catalog_type 为 hive 时需要
 
 读取表格的筛选条件，例如：`select * from st_test where id > 100`。如果未指定，则将读取所有记录。 
 
-目前，`where` 支持`<, <=, >, >=, =, !=, or, and,is null, is not null, between...and`，其他暂不支持。 
+目前，`where` 支持`<, <=, >, >=, =, !=, or, and,is null, is not null, between...and, in , not in`，其他暂不支持。 
 
 由于 Paimon 限制，目前不支持 `Having`, `Group By` 和 `Order By`，未来版本将会支持 `projection` 和 `limit`。
 
