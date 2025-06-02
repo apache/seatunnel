@@ -22,6 +22,8 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLParser;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -46,8 +48,10 @@ import org.testcontainers.utility.MountableFile;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
+import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -327,6 +331,32 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                         SCHEMA,
                         null);
         catalog.open();
+    }
+
+    protected void insertTestData() {
+        try (PreparedStatement preparedStatement =
+                connection.prepareStatement(jdbcCase.getInsertSql())) {
+
+            List<SeaTunnelRow> rows = jdbcCase.getTestData().getValue();
+
+            for (SeaTunnelRow row : rows) {
+                for (int index = 0; index < row.getArity(); index++) {
+                    if (row.getField(index) == null) {
+                        preparedStatement.setNull(index + 1, Types.NULL);
+                    } else {
+                        preparedStatement.setObject(index + 1, row.getField(index));
+                    }
+                }
+                preparedStatement.addBatch();
+            }
+
+            preparedStatement.executeBatch();
+
+            connection.commit();
+        } catch (Exception exception) {
+            log.error(ExceptionUtils.getMessage(exception));
+            throw new SeaTunnelRuntimeException(JdbcITErrorCode.INSERT_DATA_FAILED, exception);
+        }
     }
 
     @BeforeAll
