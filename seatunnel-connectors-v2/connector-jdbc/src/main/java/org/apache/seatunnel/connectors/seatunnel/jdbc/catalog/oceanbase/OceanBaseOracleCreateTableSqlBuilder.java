@@ -40,7 +40,7 @@ public class OceanBaseOracleCreateTableSqlBuilder extends OracleCreateTableSqlBu
         if (column.getSinkType() != null) {
             columnType = column.getSinkType();
         } else if (StringUtils.isNotBlank(column.getSourceType())) {
-            if (StringUtils.equalsIgnoreCase(DatabaseIdentifier.OCENABASE, sourceCatalogName)) {
+            if (StringUtils.equalsIgnoreCase(DatabaseIdentifier.OCEANBASE, sourceCatalogName)) {
                 columnType = column.getSourceType();
             } else if (StringUtils.equalsIgnoreCase(DatabaseIdentifier.ORACLE, sourceCatalogName)) {
                 // handle OceanBase Oracle compatible mode unsupported types, please refer

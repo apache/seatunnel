@@ -65,7 +65,7 @@ public class OceanBaseMysqlDialect implements JdbcDialect {
 
     @Override
     public String dialectName() {
-        return DatabaseIdentifier.OCENABASE;
+        return DatabaseIdentifier.OCEANBASE;
     }
 
     @Override

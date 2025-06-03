@@ -45,7 +45,7 @@ public class OceanBaseCatalogFactory implements CatalogFactory {
 
     @Override
     public String factoryIdentifier() {
-        return DatabaseIdentifier.OCENABASE;
+        return DatabaseIdentifier.OCEANBASE;
     }
 
     @Override
