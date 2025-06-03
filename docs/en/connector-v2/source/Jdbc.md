@@ -73,6 +73,49 @@ supports query SQL and can achieve projection effect.
 | split.string_split_mode                    | String  | No       | sample          | Supports different string splitting algorithms. By default, `sample` is used to determine the split by sampling the string value. You can switch to `charset_based` to enable charset-based string splitting algorithm. When set to `charset_based`, the algorithm assumes characters of partition_column are within ASCII range 32-126, which covers most character-based splitting scenarios.                                                                                                                                                                                                                                                    |
 | split.string_split_mode_collate            | String  | No       | -               | Specifies the collation to use when string_split_mode is set to `charset_based` and the table has a special collation. If not specified, the database's default collation will be used.                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
+### Table Matching
+
+The JDBC Source connector supports two ways to specify tables:
+
+1. **Exact Table Path**: Use `table_path` to specify a single table with its full path.
+   ```hocon
+   table_path = "testdb.table1"
+   ```
+
+2. **Regular Expression**: Use `table_path` with a regex pattern to match multiple tables.
+   ```hocon
+   table_path = "testdb.table\\d+"  # Matches table1, table2, table3, etc.
+   ```
+
+#### Regular Expression Support
+
+The JDBC Source connector supports regular expressions for table matching. This is useful when you want to read multiple tables that follow a specific naming pattern.
+
+Examples:
+- `testdb.table+` - Matches all tables starting with "table" followed by numbers
+- `testdb.*` - Matches all tables in the `testdb` database
+
+#### Multi-table Synchronization
+
+When using either regular expressions, the connector will read data from all matching tables. Each table will be processed independently, and the data will be combined in the output.
+
+Example configuration for multi-table synchronization:
+```hocon
+Jdbc {
+    url = "jdbc:mysql://localhost/test"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "root"
+    password = "123456"
+    
+    # Using regular expression
+    "table_list" = [
+      {
+      "table_path" = "testdb.table+"
+      }
+    ]
+}
+```
+
 ### decimal_type_narrowing
 
 Decimal type narrowing, if true, the decimal type will be narrowed to the int or long type if without loss of precision. Only support for Oracle at now.
