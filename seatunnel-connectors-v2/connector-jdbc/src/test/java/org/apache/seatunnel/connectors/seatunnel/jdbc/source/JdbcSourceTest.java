@@ -20,32 +20,22 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
-import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceTableConfig;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class JdbcSourceTest {
 
-//    private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
-//    private static final String URL = "jdbc:mysql://localhost:3306/test";
-//    private static final String USERNAME = "root";
-//    private static final String PASSWORD = "password";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String URL = "jdbc:mysql://localhost:3306/test";
     private static final String USERNAME = "root";
-    private static final String PASSWORD = "m1*Y#y759620914Zy@";
+    private static final String PASSWORD = "password";
 
     @Test
     public void testExactTableMatch() {
@@ -58,8 +48,9 @@ public class JdbcSourceTest {
         configMap.put("table_path", "test.table1");
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
-        TableSourceFactoryContext context = new TableSourceFactoryContext(
-                config, Thread.currentThread().getContextClassLoader());
+        TableSourceFactoryContext context =
+                new TableSourceFactoryContext(
+                        config, Thread.currentThread().getContextClassLoader());
 
         // Create source
         JdbcSource jdbcSource = new JdbcSource(JdbcSourceConfig.of(config));
@@ -81,8 +72,9 @@ public class JdbcSourceTest {
         configMap.put("table_path", "test.table+");
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
-        TableSourceFactoryContext context = new TableSourceFactoryContext(
-                config, Thread.currentThread().getContextClassLoader());
+        TableSourceFactoryContext context =
+                new TableSourceFactoryContext(
+                        config, Thread.currentThread().getContextClassLoader());
 
         // Create source
         JdbcSource jdbcSource = new JdbcSource(JdbcSourceConfig.of(config));
