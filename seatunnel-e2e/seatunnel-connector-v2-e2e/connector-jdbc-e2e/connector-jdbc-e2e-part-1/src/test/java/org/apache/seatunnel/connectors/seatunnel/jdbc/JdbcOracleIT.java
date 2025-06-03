@@ -336,6 +336,8 @@ public class JdbcOracleIT extends AbstractJdbcIT {
     protected void insertTestData() {
         try (PreparedStatement preparedStatement =
                 connection.prepareStatement(jdbcCase.getInsertSql())) {
+            System.out.println("+++++++++++create table sql: " + jdbcCase.getCreateSql());
+            System.out.println("___________insertTestData: " + jdbcCase.getInsertSql());
 
             List<SeaTunnelRow> rows = jdbcCase.getTestData().getValue();
 
