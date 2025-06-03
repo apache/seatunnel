@@ -344,6 +344,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                     Object value = row.getField(index);
                     String columnName = fieldNames[index];
                     if ("BFILE_COL".equalsIgnoreCase(columnName)) {
+                        System.out.println("___________test BFILE_COL" + value);
                         preparedStatement.setNull(index + 1, Types.NULL);
                         continue;
                     }
