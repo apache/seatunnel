@@ -185,7 +185,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         generateTestData(serializer::serializeRow, 0, 100);
 
         DefaultSeaTunnelRowSerializer rowSerializer =
-                DefaultSeaTunnelRowSerializer.create(
+                DefaultSeaTunnelRowSerializer.createWithPartitionAndTimestampFields(
                         "test_topic_source_timestamp",
                         DEFAULT_FORMAT,
                         new SeaTunnelRowType(
@@ -197,7 +197,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         null);
 
         DefaultSeaTunnelRowSerializer topicSourceSkipPartition =
-                DefaultSeaTunnelRowSerializer.create(
+                DefaultSeaTunnelRowSerializer.createWithPartitionAndTimestampFields(
                         "test_topic_source_skip_partition",
                         DEFAULT_FORMAT,
                         new SeaTunnelRowType(
