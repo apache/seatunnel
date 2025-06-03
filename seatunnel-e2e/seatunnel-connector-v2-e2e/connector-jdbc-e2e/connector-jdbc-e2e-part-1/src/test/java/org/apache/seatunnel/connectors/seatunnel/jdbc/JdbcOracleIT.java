@@ -341,11 +341,30 @@ public class JdbcOracleIT extends AbstractJdbcIT {
 
             for (SeaTunnelRow row : rows) {
                 for (int index = 0; index < row.getArity(); index++) {
-                    if (row.getField(index) == null) {
+                    Object value = row.getField(index);
+                    String columnName = fieldNames[index];
+                    if ("BFILE_COL".equalsIgnoreCase(columnName)) {
                         preparedStatement.setNull(index + 1, Types.NULL);
-                    } else {
-                        preparedStatement.setObject(index + 1, row.getField(index));
+                        continue;
                     }
+
+                    if ("INTERVAL_COL".equalsIgnoreCase(columnName)) {
+                        Duration dur = (Duration) value;
+                        long totalSeconds = dur.getSeconds();
+                        long days = totalSeconds / (24 * 3600);
+                        long remain = totalSeconds % (24 * 3600);
+                        long hours = remain / 3600;
+                        long minutes = (remain % 3600) / 60;
+                        long seconds = remain % 60;
+                        String intervalStr =
+                                String.format(
+                                        "+%02d %02d:%02d:%02d.000000",
+                                        days, hours, minutes, seconds);
+                        preparedStatement.setString(index + 1, intervalStr);
+                        continue;
+                    }
+
+                    preparedStatement.setObject(index + 1, value);
                 }
                 preparedStatement.addBatch();
             }
