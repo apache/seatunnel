@@ -92,7 +92,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                 headersExtractor(rowType));
     }
 
-    public static DefaultSeaTunnelRowSerializer create(
+    public static DefaultSeaTunnelRowSerializer createWithPartitionAndTimestampFields(
             String topic,
             MessageFormat format,
             SeaTunnelRowType rowType,
