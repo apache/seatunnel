@@ -75,37 +75,31 @@ public class DatabendSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
     public void open() throws Exception {
         log.info("Starting to open DatabendSourceReader");
         try {
-            // 尝试加载驱动
             log.info("Loading Databend JDBC driver");
             Class.forName("com.databend.jdbc.DatabendDriver");
 
-            // 准备连接
             log.info("Connecting to Databend with URL: {}", sourceConfig.getUrl());
             Properties properties = sourceConfig.getProperties();
             connection = DriverManager.getConnection(sourceConfig.getUrl(), properties);
             log.info("Connection to Databend established successfully");
 
-            // 准备语句
             log.info("Preparing SQL statement: {}", sql);
             statement = connection.prepareStatement(sql);
 
-            // 设置 fetch size
             Integer fetchSize = sourceConfig.getFetchSize();
             if (fetchSize != null && fetchSize > 0) {
                 log.info("Setting fetch size to: {}", fetchSize);
                 statement.setFetchSize(fetchSize);
-                // 设置 fetch direction 为 FORWARD_ONLY
                 statement.setFetchDirection(java.sql.ResultSet.FETCH_FORWARD);
             } else {
                 log.info("Using default fetch size");
             }
 
-            // 执行查询
             log.info("Executing query");
             resultSet = statement.executeQuery();
             log.info("Query executed successfully");
 
-            // 如果 rowType 为空或字段数为0，则推断 schema
+            // if rowType is null or empty, infer it from ResultSet metadata
             if (rowType == null || rowType.getFieldNames().length == 0) {
                 log.info("Row type is null or empty, inferring from ResultSet metadata");
                 rowType = inferRowTypeFromResultSet(resultSet.getMetaData());
@@ -114,7 +108,6 @@ public class DatabendSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
                 log.info("Using provided row type: {}", rowType);
             }
 
-            // 检查是否有数据
             hasNext = resultSet.next();
             log.info("Initial resultSet.next() returned: {}", hasNext);
             if (!hasNext) {
@@ -132,7 +125,6 @@ public class DatabendSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
         log.info("DatabendSourceReader opened successfully");
     }
 
-    // 添加 getter 方法返回推断的 rowType
     public SeaTunnelRowType getRowType() {
         return this.rowType;
     }

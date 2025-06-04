@@ -572,7 +572,6 @@ public class DatabendSinkWriter
 
         if (!missingColumns.isEmpty()) {
             log.info("Found missing columns in target table: {}", missingColumns);
-            // 为每个缺失的列添加 ALTER TABLE 语句
             for (String columnName : missingColumns) {
                 int columnIndex = Arrays.asList(expectedFieldNames).indexOf(columnName);
                 SeaTunnelDataType<?> columnType = expectedRowType.getFieldTypes()[columnIndex];
