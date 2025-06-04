@@ -36,10 +36,6 @@ public class JsonPathProcessorFactory {
                         path -> path.contains("[*]"), () -> new ArrayJsonPathProcessor()));
         PROCESSOR_MATCHERS.add(
                 new ProcessorMatcher(
-                        path -> path.contains("['") || path.contains("[\""),
-                        () -> new BracketJsonPathProcessor()));
-        PROCESSOR_MATCHERS.add(
-                new ProcessorMatcher(
                         path -> true, // Default matcher
                         () -> new ObjectJsonPathProcessor()));
     }
