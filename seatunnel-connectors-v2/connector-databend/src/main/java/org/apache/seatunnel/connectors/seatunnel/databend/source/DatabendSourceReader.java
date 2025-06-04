@@ -180,10 +180,7 @@ public class DatabendSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
         return new SeaTunnelRowType(fieldNames, fieldTypes);
     }
 
-    /**
-     * ref: Databend doc:
-     * https://docs.databend.com/sql/sql-reference/data-types/
-     */
+    /** ref: Databend doc: https://docs.databend.com/sql/sql-reference/data-types/ */
     private SeaTunnelDataType<?> convertDatabendTypeToSeaTunnelType(
             int sqlType, String typeName, int precision, int scale) {
         if (typeName != null) {
