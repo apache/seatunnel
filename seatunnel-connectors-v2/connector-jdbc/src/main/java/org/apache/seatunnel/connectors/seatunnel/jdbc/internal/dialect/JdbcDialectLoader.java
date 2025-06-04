@@ -107,9 +107,10 @@ public final class JdbcDialectLoader {
 
         // If no matching factory is found, use the GenericDialectFactory.
         if (matchingFactories.isEmpty()) {
-            matchingFactories = foundFactories.stream()
-                    .filter(f -> f instanceof GenericDialectFactory)
-                    .collect(Collectors.toList());
+            matchingFactories =
+                    foundFactories.stream()
+                            .filter(f -> f instanceof GenericDialectFactory)
+                            .collect(Collectors.toList());
 
             if (matchingFactories.isEmpty()) {
                 throw new JdbcConnectorException(
