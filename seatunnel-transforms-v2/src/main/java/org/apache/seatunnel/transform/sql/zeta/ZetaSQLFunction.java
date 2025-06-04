@@ -233,7 +233,7 @@ public class ZetaSQLFunction {
                     functionArgs.add(((StringValue) function.getFromExpression()).getValue());
                 }
             }
-            return executeFunctionExpr(TRIM, functionArgs);
+            return executeFunctionExpr(TRIM, functionArgs, expression);
         }
         if (expression instanceof SignedExpression) {
             SignedExpression signedExpression = (SignedExpression) expression;
@@ -335,7 +335,7 @@ public class ZetaSQLFunction {
                     functionArgs.add(computeForValue(funcArgExpression, inputFields));
                 }
             }
-            return executeFunctionExpr(function.getName(), functionArgs);
+            return executeFunctionExpr(function.getName(), functionArgs, expression);
         }
         if (expression instanceof TimeKeyExpression) {
             return executeTimeKeyExpr(((TimeKeyExpression) expression).getStringValue());
@@ -345,7 +345,7 @@ public class ZetaSQLFunction {
             List<Object> functionArgs = new ArrayList<>();
             functionArgs.add(computeForValue(extract.getExpression(), inputFields));
             functionArgs.add(extract.getName());
-            return executeFunctionExpr(ZetaSQLFunction.EXTRACT, functionArgs);
+            return executeFunctionExpr(ZetaSQLFunction.EXTRACT, functionArgs, expression);
         }
         if (expression instanceof Parenthesis) {
             Parenthesis parenthesis = (Parenthesis) expression;
@@ -395,7 +395,9 @@ public class ZetaSQLFunction {
         return elseExpression == null ? null : computeForValue(elseExpression, inputFields);
     }
 
-    public Object executeFunctionExpr(String functionName, List<Object> args) {
+    public Object executeFunctionExpr(
+            String functionName, List<Object> args, Expression expression) {
+        SeaTunnelDataType<?> targetType = zetaSQLType.getExpressionType(expression);
         switch (functionName.toUpperCase()) {
             case ASCII:
                 return StringFunction.ascii(args);
@@ -568,9 +570,9 @@ public class ZetaSQLFunction {
             case YEAR:
                 return DateTimeFunction.year(args);
             case COALESCE:
-                return SystemFunction.coalesce(args);
+                return SystemFunction.coalesce(args, targetType);
             case IFNULL:
-                return SystemFunction.ifnull(args);
+                return SystemFunction.ifnull(args, targetType);
             case NULLIF:
                 return SystemFunction.nullif(args);
             case ARRAY:
