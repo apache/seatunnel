@@ -105,6 +105,21 @@ public final class JdbcDialectLoader {
                             .collect(Collectors.toList());
         }
 
+        // If no matching factory is found, use the GenericDialectFactory.
+        if (matchingFactories.isEmpty()) {
+            matchingFactories = foundFactories.stream()
+                    .filter(f -> f instanceof GenericDialectFactory)
+                    .collect(Collectors.toList());
+
+            if (matchingFactories.isEmpty()) {
+                throw new JdbcConnectorException(
+                        JdbcConnectorErrorCode.NO_SUITABLE_DIALECT_FACTORY,
+                        String.format(
+                                "No suitable dialect factory found for URL '%s' and no GenericDialectFactory available.",
+                                url));
+            }
+        }
+
         // filter out generic dialect factory
         if (matchingFactories.size() > 1) {
             matchingFactories =
