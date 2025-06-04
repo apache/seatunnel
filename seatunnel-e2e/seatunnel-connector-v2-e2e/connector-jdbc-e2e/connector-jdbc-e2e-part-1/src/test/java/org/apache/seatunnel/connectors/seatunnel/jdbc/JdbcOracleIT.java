@@ -45,13 +45,14 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
+import oracle.jdbc.OracleTypes;
+
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.Timestamp;
-import java.sql.Types;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -336,8 +337,6 @@ public class JdbcOracleIT extends AbstractJdbcIT {
     protected void insertTestData() {
         try (PreparedStatement preparedStatement =
                 connection.prepareStatement(jdbcCase.getInsertSql())) {
-            System.out.println("+++++++++++create table sql: " + jdbcCase.getCreateSql());
-            System.out.println("___________insertTestData: " + jdbcCase.getInsertSql());
 
             List<SeaTunnelRow> rows = jdbcCase.getTestData().getValue();
 
@@ -346,24 +345,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                     Object value = row.getField(index);
                     String columnName = fieldNames[index];
                     if ("BFILE_COL".equalsIgnoreCase(columnName)) {
-                        System.out.println("___________test BFILE_COL" + value);
-                        preparedStatement.setNull(index + 1, Types.NULL);
-                        continue;
-                    }
-
-                    if ("INTERVAL_COL".equalsIgnoreCase(columnName)) {
-                        Duration dur = (Duration) value;
-                        long totalSeconds = dur.getSeconds();
-                        long days = totalSeconds / (24 * 3600);
-                        long remain = totalSeconds % (24 * 3600);
-                        long hours = remain / 3600;
-                        long minutes = (remain % 3600) / 60;
-                        long seconds = remain % 60;
-                        String intervalStr =
-                                String.format(
-                                        "+%02d %02d:%02d:%02d.000000",
-                                        days, hours, minutes, seconds);
-                        preparedStatement.setString(index + 1, intervalStr);
+                        preparedStatement.setNull(index + 1, OracleTypes.BFILE);
                         continue;
                     }
 
