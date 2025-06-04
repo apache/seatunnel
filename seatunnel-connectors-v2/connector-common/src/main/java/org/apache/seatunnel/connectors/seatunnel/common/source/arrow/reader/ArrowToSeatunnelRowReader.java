@@ -205,7 +205,8 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
             case TIMESTAMP:
                 if (fieldValue instanceof Long) {
                     // this TIMESTAMP value may be  SECOND not  milliseconds
-                    if (((Long) fieldValue).toString().length() == 10) {
+                    if (Types.MinorType.TIMESTAMPSEC == minorType
+                            || Types.MinorType.TIMESTAMPSECTZ == minorType) {
                         return Instant.ofEpochSecond((Long) fieldValue)
                                 .atZone(ZoneId.systemDefault())
                                 .toLocalDateTime();
@@ -214,7 +215,7 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
                                 .atZone(ZoneId.systemDefault())
                                 .toLocalDateTime();
                     }
-                } else if (fieldValue instanceof String) {
+                }  else if (fieldValue instanceof String) {
                     return LocalDateTime.parse((String) fieldValue, DATETIME_FORMATTER);
                 } else if (fieldValue instanceof Text) {
                     return LocalDateTime.parse(((Text) fieldValue).toString(), DATETIME_FORMATTER);
