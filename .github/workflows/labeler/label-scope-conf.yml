@@ -93,6 +93,11 @@ clickhouse:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-clickhouse/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(clickhouse)/**'
+databend:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-databend/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(databend)/**'
 datahub:
   - all:
       - changed-files:

@@ -338,7 +338,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
             //            classLoaderObjectCheck(1);
             return result;
         } else {
-            // Waiting 10s for release thread
+            // Waiting 60s for release thread
             Awaitility.await()
                     .atMost(60, TimeUnit.SECONDS)
                     .untilAsserted(
