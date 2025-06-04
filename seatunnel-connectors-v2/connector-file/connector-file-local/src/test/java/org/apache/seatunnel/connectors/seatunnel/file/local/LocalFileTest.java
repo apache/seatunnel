@@ -21,8 +21,10 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
@@ -38,6 +40,7 @@ import org.junit.jupiter.api.condition.OS;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
@@ -307,5 +310,255 @@ public class LocalFileTest {
                 SourceFlowTestUtils.runParallelSubtasksBatchWithCheckpointDisabled(
                         ReadonlyConfig.fromMap(readOptions), new LocalFileSourceFactory(), 2);
         Assertions.assertEquals(3, rows.size());
+    }
+
+    @Test
+    void testCanalJsonSink() throws IOException {
+        Map<String, Object> options =
+                new HashMap<String, Object>() {
+                    {
+                        put("path", "/tmp/seatunnel/LocalFileTest");
+                        put("row_delimiter", "\n");
+                        put("file_name_expression", "canal_json_file");
+                        put("file_format_type", "canal_json");
+                        put("is_enable_transaction", false);
+                        put("batch_size", 1);
+                    }
+                };
+        options.put("single_file_mode", true);
+        FileUtils.deleteFile("/tmp/seatunnel/LocalFileTest");
+
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("catalog", "database", TablePath.DEFAULT.getFullName()),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "a", BasicType.LONG_TYPE, 1L, true, null, ""))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "b", BasicType.STRING_TYPE, 1L, true, null, ""))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "c", BasicType.INT_TYPE, 1L, true, null, ""))
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "comment");
+
+        SeaTunnelRow row1 = new SeaTunnelRow(new Object[] {1L, "A", 100});
+        row1.setRowKind(RowKind.INSERT);
+        row1.setTableId(TablePath.DEFAULT.getFullName());
+        SeaTunnelRow row2 = new SeaTunnelRow(new Object[] {2L, "B", 100});
+        row2.setRowKind(RowKind.INSERT);
+        row2.setTableId(TablePath.DEFAULT.getFullName());
+        SeaTunnelRow row3 = new SeaTunnelRow(new Object[] {3L, "C", 100});
+        row3.setRowKind(RowKind.INSERT);
+        row3.setTableId(TablePath.DEFAULT.getFullName());
+        SeaTunnelRow row1UpdateBefore = new SeaTunnelRow(new Object[] {1L, "A", 100});
+        row1UpdateBefore.setTableId(TablePath.DEFAULT.getFullName());
+        row1UpdateBefore.setRowKind(RowKind.UPDATE_BEFORE);
+        SeaTunnelRow row1UpdateAfter = new SeaTunnelRow(new Object[] {1L, "A_1", 100});
+        row1UpdateAfter.setTableId(TablePath.DEFAULT.getFullName());
+        row1UpdateAfter.setRowKind(RowKind.UPDATE_AFTER);
+        SeaTunnelRow row2Delete = new SeaTunnelRow(new Object[] {2L, "B", 100});
+        row2Delete.setTableId(TablePath.DEFAULT.getFullName());
+        row2Delete.setRowKind(RowKind.DELETE);
+
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                catalogTable,
+                ReadonlyConfig.fromMap(options),
+                new LocalFileSinkFactory(),
+                Arrays.asList(row1, row2, row3, row1UpdateBefore, row1UpdateAfter, row2Delete));
+        Assertions.assertEquals(
+                6,
+                (long)
+                        FileUtils.getFileLineNumber(
+                                "/tmp/seatunnel/LocalFileTest/canal_json_file.canal_json"));
+        Path path = Paths.get("/tmp/seatunnel/LocalFileTest/canal_json_file.canal_json");
+        String dataStr = FileUtils.readFileToStr(path);
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"data\":[{\"a\":1,\"b\":\"A\",\"c\":100}],\"type\":\"INSERT\"}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"data\":[{\"a\":2,\"b\":\"B\",\"c\":100}],\"type\":\"INSERT\"}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"data\":[{\"a\":3,\"b\":\"C\",\"c\":100}],\"type\":\"INSERT\"}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"data\":[{\"a\":1,\"b\":\"A\",\"c\":100}],\"type\":\"DELETE\"}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"data\":[{\"a\":1,\"b\":\"A_1\",\"c\":100}],\"type\":\"INSERT\"}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"data\":[{\"a\":2,\"b\":\"B\",\"c\":100}],\"type\":\"DELETE\"}"));
+    }
+
+    @Test
+    void testDebeziumJsonSink() throws IOException {
+        Map<String, Object> options =
+                new HashMap<String, Object>() {
+                    {
+                        put("path", "/tmp/seatunnel/LocalFileTest");
+                        put("row_delimiter", "\n");
+                        put("file_name_expression", "debezium_json_file");
+                        put("file_format_type", "debezium_json");
+                        put("is_enable_transaction", false);
+                        put("batch_size", 1);
+                    }
+                };
+        options.put("single_file_mode", true);
+        FileUtils.deleteFile("/tmp/seatunnel/LocalFileTest");
+
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("catalog", "database", TablePath.DEFAULT.getFullName()),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "a", BasicType.LONG_TYPE, 1L, true, null, ""))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "b", BasicType.STRING_TYPE, 1L, true, null, ""))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "c", BasicType.INT_TYPE, 1L, true, null, ""))
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "comment");
+
+        SeaTunnelRow row1 = new SeaTunnelRow(new Object[] {1L, "A", 100});
+        row1.setRowKind(RowKind.INSERT);
+        row1.setTableId(TablePath.DEFAULT.getFullName());
+        SeaTunnelRow row2 = new SeaTunnelRow(new Object[] {2L, "B", 100});
+        row2.setRowKind(RowKind.INSERT);
+        row2.setTableId(TablePath.DEFAULT.getFullName());
+        SeaTunnelRow row3 = new SeaTunnelRow(new Object[] {3L, "C", 100});
+        row3.setRowKind(RowKind.INSERT);
+        row3.setTableId(TablePath.DEFAULT.getFullName());
+        SeaTunnelRow row1UpdateBefore = new SeaTunnelRow(new Object[] {1L, "A", 100});
+        row1UpdateBefore.setTableId(TablePath.DEFAULT.getFullName());
+        row1UpdateBefore.setRowKind(RowKind.UPDATE_BEFORE);
+        SeaTunnelRow row1UpdateAfter = new SeaTunnelRow(new Object[] {1L, "A_1", 100});
+        row1UpdateAfter.setTableId(TablePath.DEFAULT.getFullName());
+        row1UpdateAfter.setRowKind(RowKind.UPDATE_AFTER);
+        SeaTunnelRow row2Delete = new SeaTunnelRow(new Object[] {2L, "B", 100});
+        row2Delete.setTableId(TablePath.DEFAULT.getFullName());
+        row2Delete.setRowKind(RowKind.DELETE);
+
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                catalogTable,
+                ReadonlyConfig.fromMap(options),
+                new LocalFileSinkFactory(),
+                Arrays.asList(row1, row2, row3, row1UpdateBefore, row1UpdateAfter, row2Delete));
+        Assertions.assertEquals(
+                6,
+                (long)
+                        FileUtils.getFileLineNumber(
+                                "/tmp/seatunnel/LocalFileTest/debezium_json_file.debezium_json"));
+        Path path = Paths.get("/tmp/seatunnel/LocalFileTest/debezium_json_file.debezium_json");
+        String dataStr = FileUtils.readFileToStr(path);
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"before\":null,\"after\":{\"a\":1,\"b\":\"A\",\"c\":100},\"op\":\"c\"}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"before\":null,\"after\":{\"a\":2,\"b\":\"B\",\"c\":100},\"op\":\"c\"}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"before\":null,\"after\":{\"a\":3,\"b\":\"C\",\"c\":100},\"op\":\"c\"}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"before\":{\"a\":1,\"b\":\"A\",\"c\":100},\"after\":null,\"op\":\"d\"}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"before\":null,\"after\":{\"a\":1,\"b\":\"A_1\",\"c\":100},\"op\":\"c\"}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"before\":{\"a\":2,\"b\":\"B\",\"c\":100},\"after\":null,\"op\":\"d\"}"));
+    }
+
+    @Test
+    void testMaxWellJsonSink() throws IOException {
+        Map<String, Object> options =
+                new HashMap<String, Object>() {
+                    {
+                        put("path", "/tmp/seatunnel/LocalFileTest");
+                        put("row_delimiter", "\n");
+                        put("file_name_expression", "maxwell_json_file");
+                        put("file_format_type", "maxwell_json");
+                        put("is_enable_transaction", false);
+                        put("batch_size", 1);
+                    }
+                };
+        options.put("single_file_mode", true);
+        FileUtils.deleteFile("/tmp/seatunnel/LocalFileTest");
+
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("catalog", "database", TablePath.DEFAULT.getFullName()),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "a", BasicType.LONG_TYPE, 1L, true, null, ""))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "b", BasicType.STRING_TYPE, 1L, true, null, ""))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "c", BasicType.INT_TYPE, 1L, true, null, ""))
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "comment");
+
+        SeaTunnelRow row1 = new SeaTunnelRow(new Object[] {1L, "A", 100});
+        row1.setRowKind(RowKind.INSERT);
+        row1.setTableId(TablePath.DEFAULT.getFullName());
+        SeaTunnelRow row2 = new SeaTunnelRow(new Object[] {2L, "B", 100});
+        row2.setRowKind(RowKind.INSERT);
+        row2.setTableId(TablePath.DEFAULT.getFullName());
+        SeaTunnelRow row3 = new SeaTunnelRow(new Object[] {3L, "C", 100});
+        row3.setRowKind(RowKind.INSERT);
+        row3.setTableId(TablePath.DEFAULT.getFullName());
+        SeaTunnelRow row1UpdateBefore = new SeaTunnelRow(new Object[] {1L, "A", 100});
+        row1UpdateBefore.setTableId(TablePath.DEFAULT.getFullName());
+        row1UpdateBefore.setRowKind(RowKind.UPDATE_BEFORE);
+        SeaTunnelRow row1UpdateAfter = new SeaTunnelRow(new Object[] {1L, "A_1", 100});
+        row1UpdateAfter.setTableId(TablePath.DEFAULT.getFullName());
+        row1UpdateAfter.setRowKind(RowKind.UPDATE_AFTER);
+        SeaTunnelRow row2Delete = new SeaTunnelRow(new Object[] {2L, "B", 100});
+        row2Delete.setTableId(TablePath.DEFAULT.getFullName());
+        row2Delete.setRowKind(RowKind.DELETE);
+
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                catalogTable,
+                ReadonlyConfig.fromMap(options),
+                new LocalFileSinkFactory(),
+                Arrays.asList(row1, row2, row3, row1UpdateBefore, row1UpdateAfter, row2Delete));
+        Assertions.assertEquals(
+                6,
+                (long)
+                        FileUtils.getFileLineNumber(
+                                "/tmp/seatunnel/LocalFileTest/maxwell_json_file.maxwell_json"));
+        Path path = Paths.get("/tmp/seatunnel/LocalFileTest/maxwell_json_file.maxwell_json");
+        String dataStr = FileUtils.readFileToStr(path);
+        Assertions.assertTrue(
+                dataStr.contains("{\"data\":{\"a\":1,\"b\":\"A\",\"c\":100},\"type\":\"INSERT\"}"));
+        Assertions.assertTrue(
+                dataStr.contains("{\"data\":{\"a\":2,\"b\":\"B\",\"c\":100},\"type\":\"INSERT\"}"));
+        Assertions.assertTrue(
+                dataStr.contains("{\"data\":{\"a\":3,\"b\":\"C\",\"c\":100},\"type\":\"INSERT\"}"));
+        Assertions.assertTrue(
+                dataStr.contains("{\"data\":{\"a\":1,\"b\":\"A\",\"c\":100},\"type\":\"DELETE\"}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"data\":{\"a\":1,\"b\":\"A_1\",\"c\":100},\"type\":\"INSERT\"}"));
+        Assertions.assertTrue(
+                dataStr.contains("{\"data\":{\"a\":2,\"b\":\"B\",\"c\":100},\"type\":\"DELETE\"}"));
     }
 }

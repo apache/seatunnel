@@ -759,9 +759,59 @@ DAY_OF_YEAR(CREATED)
 
 从日期/时间值中返回特定时间单位的值。该方法对于 EPOCH 字段返回一个数值，对于其他字段返回一个整数。
 
-示例:
+EXTRACT函数支持以下字段名：
 
-EXTRACT(SECOND FROM CURRENT_TIMESTAMP)
+- `CENTURY`：世纪；对于interval值，年份字段除以100
+- `DAY`：月份中的日期（1-31）；对于interval值，表示天数
+- `DECADE`：年份字段除以10
+- `DOW` 或 `DAYOFWEEK`：星期几，从周日（0）到周六（6）
+- `DOY`：一年中的第几天（1-365/366）
+- `EPOCH`：对于timestamp值，表示自1970-01-01 00:00:00以来的秒数；对于interval值，表示总秒数
+- `HOUR`：小时字段（0-23）
+- `ISODOW`：星期几，从周一（1）到周日（7），符合ISO 8601标准
+- `ISOYEAR`：ISO 8601周编号年份
+- `MICROSECONDS`：秒字段（包括小数部分）乘以1,000,000
+- `MILLENNIUM`：千年；对于interval值，年份字段除以1000
+- `MILLISECONDS`：秒字段（包括小数部分）乘以1,000
+- `MINUTE`：分钟字段（0-59）
+- `MONTH`：年份中的月份（1-12）；对于interval值，月份对12取模（0-11）
+- `QUARTER`：日期所在的季度（1-4）
+- `SECOND`：秒字段，包括任何小数秒
+- `WEEK`：ISO 8601周编号年份中的周数（1-53）
+- `YEAR`：年份字段
+
+EXTRACT函数支持以下四种DateTime字面量类型：
+
+- `DATE`：用于从日期字面量中提取日期组件
+  ```sql
+  EXTRACT(YEAR FROM DATE '2025-05-21')
+  ```
+
+- `TIME`：用于从时间字面量中提取时间组件
+  ```sql
+  EXTRACT(HOUR FROM TIME '17:57:40')
+  ```
+
+- `TIMESTAMP`：用于从时间戳字面量中提取日期和时间组件
+  ```sql
+  EXTRACT(YEAR FROM TIMESTAMP '2025-05-21T17:57:40')
+  ```
+
+- `TIMESTAMP WITH TIMEZONE`：用于从带时区的时间戳字面量中提取组件
+  ```sql
+  EXTRACT(HOUR FROM TIMESTAMPTZ '2025-05-21T17:57:40+08:00')
+  ```
+
+示例：
+
+```sql
+EXTRACT(YEAR FROM TIMESTAMP '2001-02-16 20:38:40')
+EXTRACT(HOUR FROM TIMESTAMP '2001-02-16 20:38:40')
+EXTRACT(DOW FROM TIMESTAMP '2001-02-16 20:38:40')
+EXTRACT(YEAR FROM eventTime)
+EXTRACT(HOUR FROM eventTime)
+EXTRACT(DOW FROM eventTime)
+```
 
 ### FORMATDATETIME
 

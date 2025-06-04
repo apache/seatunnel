@@ -204,6 +204,10 @@ public class KafkaSourceSplitEnumerator
                     if (pendingSplit.containsKey(key)) {
                         pendingSplit.get(key).setStartOffset(value);
                     }
+                    if (!isStreamingMode && value < 0) {
+                        log.info("Skipping partition {} due to offset being -1", key);
+                        pendingSplit.remove(key);
+                    }
                 });
         if (!isStreamingMode && !topicPartitionEndOffsets.isEmpty()) {
             topicPartitionEndOffsets.forEach(

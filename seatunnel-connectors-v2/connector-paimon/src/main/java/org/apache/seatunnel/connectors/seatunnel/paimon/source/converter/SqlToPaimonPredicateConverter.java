@@ -48,10 +48,12 @@ import net.sf.jsqlparser.expression.operators.relational.Between;
 import net.sf.jsqlparser.expression.operators.relational.EqualsTo;
 import net.sf.jsqlparser.expression.operators.relational.GreaterThan;
 import net.sf.jsqlparser.expression.operators.relational.GreaterThanEquals;
+import net.sf.jsqlparser.expression.operators.relational.InExpression;
 import net.sf.jsqlparser.expression.operators.relational.IsNullExpression;
 import net.sf.jsqlparser.expression.operators.relational.MinorThan;
 import net.sf.jsqlparser.expression.operators.relational.MinorThanEquals;
 import net.sf.jsqlparser.expression.operators.relational.NotEqualsTo;
+import net.sf.jsqlparser.expression.operators.relational.ParenthesedExpressionList;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.statement.Statement;
@@ -242,9 +244,55 @@ public class SqlToPaimonPredicateConverter {
         } else if (expression instanceof Parenthesis) {
             Parenthesis parenthesis = (Parenthesis) expression;
             return parseExpressionToPredicate(builder, rowType, parenthesis.getExpression());
+        } else if (expression instanceof InExpression) {
+            return handleInExpression(builder, rowType, (InExpression) expression);
         }
         throw new IllegalArgumentException(
                 "Unsupported expression type: " + expression.getClass().getSimpleName());
+    }
+
+    private static Predicate handleInExpression(
+            PredicateBuilder builder, RowType rowType, InExpression expr) {
+        Expression left = expr.getLeftExpression();
+        Column column = safeGetColumn(left);
+        int index = getColumnIndex(builder, column);
+
+        Expression right = expr.getRightExpression();
+        if (!(right instanceof ParenthesedExpressionList)) {
+            throw new IllegalArgumentException(
+                    "Unsupported right expression in IN: expected a parenthesized expression list");
+        }
+
+        ParenthesedExpressionList list = (ParenthesedExpressionList) right;
+        List<Expression> expressions = list.getExpressions();
+        if (expressions.isEmpty()) {
+            throw new IllegalArgumentException("Empty value list in IN clause is not allowed");
+        }
+
+        List<Object> values = new ArrayList<>(expressions.size());
+        for (Expression expression : expressions) {
+            Object rawVal = getJSQLParserDataTypeValue(expression);
+            if (rawVal == null) {
+                throw new IllegalArgumentException("Null value found in IN clause values");
+            }
+            Object convertedVal =
+                    convertValueByPaimonDataType(rowType, column.getColumnName(), rawVal);
+            if (convertedVal == null) {
+                throw new IllegalArgumentException(
+                        "Failed to convert value in IN clause: " + rawVal);
+            }
+            values.add(convertedVal);
+        }
+
+        return expr.isNot() ? builder.notIn(index, values) : builder.in(index, values);
+    }
+
+    private static Column safeGetColumn(Expression expr) {
+        if (!(expr instanceof Column)) {
+            throw new IllegalArgumentException(
+                    "Expected Column expression, but got: " + expr.getClass().getSimpleName());
+        }
+        return (Column) expr;
     }
 
     private static Object convertValueByPaimonDataType(
