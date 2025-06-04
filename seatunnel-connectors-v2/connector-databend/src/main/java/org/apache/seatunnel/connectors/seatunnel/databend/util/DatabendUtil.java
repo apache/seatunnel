@@ -217,7 +217,6 @@ public class DatabendUtil {
             } else if (fieldType instanceof DecimalType) {
                 return resultSet.getBigDecimal(columnIndex);
             } else {
-                // 默认情况下获取对象
                 return resultSet.getObject(columnIndex);
             }
         } catch (SQLException e) {

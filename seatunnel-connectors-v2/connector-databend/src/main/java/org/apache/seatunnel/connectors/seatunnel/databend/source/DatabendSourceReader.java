@@ -66,11 +66,10 @@ public class DatabendSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
         this.readerContext = context;
         this.sourceConfig = sourceConfig;
         this.sql = sql;
-        this.rowType = rowType; // 确保 rowType 正确传递
+        this.rowType = rowType;
         log.info("DatabendSourceReader constructor - rowType: {}", rowType);
     }
 
-    // 在DatabendSourceReader.open()中添加更多调试日志
     @Override
     public void open() throws Exception {
         log.info("Starting to open DatabendSourceReader");
@@ -182,7 +181,7 @@ public class DatabendSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
     }
 
     /**
-     * 将Databend的SQL类型转换为SeaTunnel的数据类型 参考Databend文档:
+     * ref: Databend doc:
      * https://docs.databend.com/sql/sql-reference/data-types/
      */
     private SeaTunnelDataType<?> convertDatabendTypeToSeaTunnelType(

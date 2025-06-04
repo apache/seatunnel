@@ -382,7 +382,7 @@ public class DatabendSinkWriter
             Object field = fields[i];
 
             if (field == null) {
-                fieldTypes[i] = BasicType.STRING_TYPE; // 默认为 STRING
+                fieldTypes[i] = BasicType.STRING_TYPE;
             } else if (field instanceof String) {
                 fieldTypes[i] = BasicType.STRING_TYPE;
             } else if (field instanceof Integer) {
@@ -396,7 +396,7 @@ public class DatabendSinkWriter
             } else if (field instanceof Boolean) {
                 fieldTypes[i] = BasicType.BOOLEAN_TYPE;
             } else {
-                fieldTypes[i] = BasicType.STRING_TYPE; // 默认为 STRING
+                fieldTypes[i] = BasicType.STRING_TYPE;
             }
         }
 

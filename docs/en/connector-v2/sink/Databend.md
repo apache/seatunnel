@@ -1,4 +1,3 @@
-```markdown
 # Databend
 
 > Databend sink connector

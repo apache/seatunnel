@@ -1,4 +1,3 @@
-```markdown
 # Databend
 
 > Databend source connector

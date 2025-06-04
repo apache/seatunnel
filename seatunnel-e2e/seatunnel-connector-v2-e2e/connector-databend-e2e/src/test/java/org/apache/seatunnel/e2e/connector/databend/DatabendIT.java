@@ -335,7 +335,6 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("Drop table failed!", e);
         }
     }
-    /** 修改查询表数据的方法 */
     private void assertHasData(String table) {
         String sql = String.format("SELECT * FROM %s.%s LIMIT 1", DATABASE, table);
         try (Connection conn = getConnection();
