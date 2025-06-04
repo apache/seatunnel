@@ -557,7 +557,7 @@ public class SQLTransformTest {
         Assertions.assertEquals("result", tableSchema.getFieldNames()[1]);
         Assertions.assertEquals(BasicType.INT_TYPE, tableSchema.getColumns().get(1).getDataType());
 
-        // 第The first field is not null, and the value of the first field should be directly
+        // The first field is not null, and the value of the first field should be directly
         // returned
         result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, "test", 123, 123.45}));
         Assertions.assertEquals(123, result.get(0).getField(1));
