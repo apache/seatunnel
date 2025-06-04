@@ -68,6 +68,8 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | archive_compress_codec      | string  | no       | none                |
 | encoding                    | string  | no       | UTF-8               |
 | null_format                 | string  | no       | -                   |
+| binary_chunk_size           | int     | no       | 1024                |
+| binary_complete_file_mode   | boolean | no       | false               |
 | common-options              |         | no       | -                   |
 
 ### host [string]
@@ -482,6 +484,8 @@ source {
     password = tianchao
     path = "/seatunnel/read/binary/"
     file_format_type = "binary"
+    binary_chunk_size = 2048
+    binary_complete_file_mode = false
   }
 }
 sink {

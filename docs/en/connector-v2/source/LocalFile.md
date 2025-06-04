@@ -67,7 +67,9 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | compress_codec            | string  | no       | none                                 |
 | archive_compress_codec    | string  | no       | none                                 |
 | encoding                  | string  | no       | UTF-8                                |
-| null_format               | string  | no       | -                                    | 
+| null_format               | string  | no       | -                                    |
+| binary_chunk_size         | int     | no       | 1024                                 |
+| binary_complete_file_mode | boolean | no       | false                                |
 | common-options            |         | no       | -                                    |
 | tables_configs            | list    | no       | used to define a multiple table task |
 
@@ -477,6 +479,8 @@ source {
   LocalFile {
     path = "/seatunnel/read/binary/"
     file_format_type = "binary"
+    binary_chunk_size = 2048
+    binary_complete_file_mode = false
   }
 }
 sink {

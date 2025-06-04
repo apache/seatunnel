@@ -72,6 +72,8 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | compress_codec            | string  | no       | none                |
 | archive_compress_codec    | string  | no       | none                |
 | encoding                  | string  | no       | UTF-8               |
+| binary_chunk_size         | int     | no       | 1024                |
+| binary_complete_file_mode | boolean | no       | false               |
 | common-options            |         | no       | -                   |
 
 ### path [string]
@@ -420,6 +422,8 @@ source {
     region = "ap-chengdu"
     path = "/seatunnel/read/binary/"
     file_format_type = "binary"
+    binary_chunk_size = 2048
+    binary_complete_file_mode = false
   }
 }
 sink {
