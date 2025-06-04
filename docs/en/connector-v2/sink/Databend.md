@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-databend.md';
+
 # Databend
 
 > Databend sink connector
