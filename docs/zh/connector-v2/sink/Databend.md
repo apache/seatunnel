@@ -156,3 +156,7 @@ sink {
 
 - [Databend 官方网站](https://databend.rs/)
 - [Databend JDBC 驱动](https://github.com/databendlabs/databend-jdbc/)
+
+## Changelog
+
+<ChangeLog />

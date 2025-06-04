@@ -127,4 +127,7 @@ source {
 
 - [Databend Official Website](https://databend.rs/)
 - [Databend JDBC Driver](https://github.com/databendlabs/databend-jdbc/)
-```
+
+## Changelog
+
+<ChangeLog />
