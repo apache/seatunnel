@@ -70,6 +70,13 @@ public class JdbcSource
         JdbcDialect jdbcDialect =
                 JdbcDialectLoader.load(
                         jdbcConnectionConfig.getUrl(), jdbcConnectionConfig.getCompatibleMode());
+        if (!isSupportedDatabase(jdbcDialect.dialectName())) {
+            this.jdbcSourceTables =
+                    JdbcCatalogUtils.getTables(
+                            jdbcSourceConfig.getJdbcConnectionConfig(),
+                            jdbcSourceConfig.getTableConfigList());
+            return;
+        }
         JdbcConnectionProvider connectionProvider =
                 jdbcDialect.getJdbcConnectionProvider(jdbcSourceConfig.getJdbcConnectionConfig());
         Connection connection = connectionProvider.getOrEstablishConnection();
@@ -194,6 +201,13 @@ public class JdbcSource
         this.jdbcSourceTables =
                 JdbcCatalogUtils.getTables(
                         jdbcSourceConfig.getJdbcConnectionConfig(), jdbcSourceTableConfigs);
+    }
+
+    private boolean isSupportedDatabase(String dialectName) {
+        return dialectName.startsWith(DatabaseTypeEnum.ORACLE.getValue())
+                || dialectName.equals(DatabaseTypeEnum.MYSQL.getValue())
+                || dialectName.equals(DatabaseTypeEnum.SQLSERVER.getValue())
+                || dialectName.equals(DatabaseTypeEnum.POSTGRESQL.getValue());
     }
 
     private void filterCapturedTablesByRegrex(
