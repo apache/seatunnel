@@ -23,3 +23,4 @@ org.apache.seatunnel.connectors.seatunnel.common.source.arrow.converter.TimeStam
 org.apache.seatunnel.connectors.seatunnel.common.source.arrow.converter.TimeStampMilliConverter
 org.apache.seatunnel.connectors.seatunnel.common.source.arrow.converter.TimeStampNanoConverter
 org.apache.seatunnel.connectors.seatunnel.common.source.arrow.converter.DateMilliConvertor
+org.apache.seatunnel.connectors.seatunnel.common.source.arrow.converter.TimeStampSecConverter

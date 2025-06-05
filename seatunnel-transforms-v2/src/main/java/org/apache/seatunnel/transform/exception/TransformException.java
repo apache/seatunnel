@@ -30,4 +30,9 @@ public class TransformException extends SeaTunnelRuntimeException {
     TransformException(SeaTunnelErrorCode seaTunnelErrorCode, Map<String, String> params) {
         super(seaTunnelErrorCode, params);
     }
+
+    TransformException(
+            SeaTunnelErrorCode seaTunnelErrorCode, Map<String, String> params, Throwable cause) {
+        super(seaTunnelErrorCode, params, cause);
+    }
 }

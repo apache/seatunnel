@@ -36,6 +36,8 @@ import org.apache.seatunnel.shade.org.apache.arrow.vector.SmallIntVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.TimeMicroVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.TimeStampMicroVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.TimeStampMilliTZVector;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.TimeStampSecTZVector;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.TimeStampSecVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.TinyIntVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.VarBinaryVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.VarCharVector;
@@ -122,6 +124,8 @@ public class ArrowToSeatunnelRowReaderTest {
         seaTunnelDataTypeHolder.add(new SeaTunnelDataTypeHolder("date2", 0));
         seaTunnelDataTypeHolder.add(new SeaTunnelDataTypeHolder("array1", 0));
         seaTunnelDataTypeHolder.add(new SeaTunnelDataTypeHolder("array2", 0));
+        seaTunnelDataTypeHolder.add(new SeaTunnelDataTypeHolder("timestampSec", 0));
+        seaTunnelDataTypeHolder.add(new SeaTunnelDataTypeHolder("timestampSecTz", 0));
         seaTunnelDataTypeHolder.add(new SeaTunnelDataTypeHolder("map", 0));
     }
 
@@ -165,10 +169,22 @@ public class ArrowToSeatunnelRowReaderTest {
             // array int
             vectors.add(ListVector.empty("array2", rootAllocator));
             // map
+
+            // SECOND timestamp without timezone
+            vectors.add(new TimeStampSecVector("timestampSec", rootAllocator));
+            // SECOND timestamp with timezone
+            vectors.add(
+                    new TimeStampSecTZVector(
+                            Field.nullable(
+                                    "timestampSecTz",
+                                    new ArrowType.Timestamp(
+                                            TimeUnit.SECOND, ZoneId.systemDefault().getId())),
+                            rootAllocator));
         }
         // allocate storage
         vectors.forEach(FieldVector::allocateNew);
         long epochMilli = localDateTime.atZone(zoneId).toInstant().toEpochMilli();
+        long epochSecond = localDateTime.atZone(zoneId).toInstant().getEpochSecond();
 
         byte byteStart = 'a';
 
@@ -219,6 +235,10 @@ public class ArrowToSeatunnelRowReaderTest {
                         } else if (vector instanceof DateDayVector) {
                             ((DateDayVector) vector)
                                     .setSafe(i, (int) localDateTime.toLocalDate().toEpochDay());
+                        } else if (vector instanceof TimeStampSecVector) {
+                            ((TimeStampSecVector) vector).setSafe(i, epochSecond);
+                        } else if (vector instanceof TimeStampSecTZVector) {
+                            ((TimeStampSecTZVector) vector).setSafe(i, epochSecond);
                         }
                     }
                 });
@@ -352,12 +372,10 @@ public class ArrowToSeatunnelRowReaderTest {
             List<Object> actualString3Data =
                     rows.stream().map(s -> s.getField(11)).collect(Collectors.toList());
             Assertions.assertEquals(stringData, actualString3Data);
-
             // check timestamp with tz
             List<Object> actualTimestamp2Data =
                     rows.stream().map(s -> s.getField(12)).distinct().collect(Collectors.toList());
             Assertions.assertEquals(Collections.singletonList(localDateTime), actualTimestamp2Data);
-
             // check time
             List<Object> actualTimeDate =
                     rows.stream().map(s -> s.getField(13)).distinct().collect(Collectors.toList());
@@ -381,6 +399,18 @@ public class ArrowToSeatunnelRowReaderTest {
             List<Object> actualArrayTimestampData =
                     rows.stream().map(s -> s.getField(17)).collect(Collectors.toList());
             Assertions.assertIterableEquals(arrayData2, actualArrayTimestampData);
+            // check SECOND timestamp without timezone
+            List<Object> actualTimestampSecData =
+                    rows.stream().map(s -> s.getField(18)).distinct().collect(Collectors.toList());
+            Assertions.assertEquals(
+                    Collections.singletonList(localDateTime), actualTimestampSecData);
+
+            // check SECOND timestamp with timezone
+            List<Object> actualTimestampSecTzData =
+                    rows.stream().map(s -> s.getField(19)).distinct().collect(Collectors.toList());
+            Assertions.assertEquals(
+                    Collections.singletonList(localDateTime), actualTimestampSecTzData);
+
             // todo check map
             // The java api has problems building MapVectors,and there are no examples on the
             // official website
