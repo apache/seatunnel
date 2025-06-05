@@ -190,8 +190,6 @@ public class ConnectorOptionCheckTest {
     private Set<String> buildWhiteList() {
         Set<String> whiteList = new HashSet<>();
         whiteList.add("JdbcSinkOptions");
-        whiteList.add("TypesenseSourceOptions");
-        whiteList.add("TypesenseSinkOptions");
         whiteList.add("PulsarSinkOptions");
         whiteList.add("PulsarSourceOptions");
         whiteList.add("MongodbSinkOptions");
