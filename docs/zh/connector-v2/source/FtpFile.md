@@ -66,6 +66,8 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | archive_compress_codec      | string  | 否    | none                |
 | encoding                    | string  | 否    | UTF-8               |
 | null_format                 | string  | 否    | -                   |
+| binary_chunk_size           | int     | 否    | 1024                |
+| binary_complete_file_mode   | boolean | 否    | false               |
 | common-options              |         | 否    | -                   |
 
 ### host [string]
@@ -360,6 +362,18 @@ SeaTunnel 将从源文件中跳过前 2 行。
 
 例如：`\N`
 
+### binary_chunk_size [int]
+
+仅在 file_format_type 为 binary 时使用。
+
+读取二进制文件的块大小（以字节为单位）。默认为 1024 字节。较大的值可能会提高大文件的性能，但会使用更多内存。
+
+### binary_complete_file_mode [boolean]
+
+仅在 file_format_type 为 binary 时使用。
+
+是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为 false。
+
 ### 通用选项
 
 源插件的通用参数，详情请参考 [源通用选项](../source-common-options.md)。
@@ -462,6 +476,8 @@ source {
     password = tianchao
     path = "/seatunnel/read/binary/"
     file_format_type = "binary"
+    binary_chunk_size = 2048
+    binary_complete_file_mode = false
   }
 }
 sink {
