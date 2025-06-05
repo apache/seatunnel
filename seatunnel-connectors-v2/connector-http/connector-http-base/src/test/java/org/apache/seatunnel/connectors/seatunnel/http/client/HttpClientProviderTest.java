@@ -32,7 +32,6 @@ class HttpClientProviderTest {
         HttpPost post = new HttpPost("http://localhost:8080");
         Map<String, Object> body = new HashMap<>();
         Header[] originalHeaders = post.getAllHeaders();
-
         HttpClientProvider.addBody(post, body);
 
         // ensure the original headers are preserved
