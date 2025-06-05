@@ -20,13 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.typesense.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class SourceConfig {
-
-    public static final Option<String> COLLECTION =
-            Options.key("collection")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Typesense collection name");
+public class TypesenseSourceOptions extends TypesenseBaseOptions {
 
     public static final Option<String> QUERY =
             Options.key("query")

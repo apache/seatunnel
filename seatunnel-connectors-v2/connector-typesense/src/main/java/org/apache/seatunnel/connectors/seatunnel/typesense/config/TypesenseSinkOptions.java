@@ -29,13 +29,7 @@ import static org.apache.seatunnel.api.sink.DataSaveMode.APPEND_DATA;
 import static org.apache.seatunnel.api.sink.DataSaveMode.DROP_DATA;
 import static org.apache.seatunnel.api.sink.DataSaveMode.ERROR_WHEN_DATA_EXISTS;
 
-public class SinkConfig {
-
-    public static final Option<String> COLLECTION =
-            Options.key("collection")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Typesense collection name");
+public class TypesenseSinkOptions extends TypesenseBaseOptions {
 
     public static final Option<List<String>> PRIMARY_KEYS =
             Options.key("primary_keys")
