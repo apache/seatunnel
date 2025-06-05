@@ -40,8 +40,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategyFactory;
 import org.apache.seatunnel.connectors.seatunnel.hive.commit.HiveSinkAggregatedCommitter;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hive.sink.writter.HiveSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.hive.storage.StorageFactory;
@@ -216,15 +216,17 @@ public class HiveSink
                 StorageFactory.getStorageType(hdfsLocation)
                         .buildHadoopConfWithReadOnlyConfig(readonlyConfig);
         readonlyConfig
-                .getOptional(HiveOptions.HDFS_SITE_PATH)
+                .getOptional(HiveBaseOptions.HDFS_SITE_PATH)
                 .ifPresent(hadoopConf::setHdfsSitePath);
-        readonlyConfig.getOptional(HiveOptions.REMOTE_USER).ifPresent(hadoopConf::setRemoteUser);
-        readonlyConfig.getOptional(HiveOptions.KRB5_PATH).ifPresent(hadoopConf::setKrb5Path);
         readonlyConfig
-                .getOptional(HiveOptions.KERBEROS_PRINCIPAL)
+                .getOptional(HiveBaseOptions.REMOTE_USER)
+                .ifPresent(hadoopConf::setRemoteUser);
+        readonlyConfig.getOptional(HiveBaseOptions.KRB5_PATH).ifPresent(hadoopConf::setKrb5Path);
+        readonlyConfig
+                .getOptional(HiveBaseOptions.KERBEROS_PRINCIPAL)
                 .ifPresent(hadoopConf::setKerberosPrincipal);
         readonlyConfig
-                .getOptional(HiveOptions.KERBEROS_KEYTAB_PATH)
+                .getOptional(HiveBaseOptions.KERBEROS_KEYTAB_PATH)
                 .ifPresent(hadoopConf::setKerberosKeytabPath);
         return hadoopConf;
     }

@@ -21,9 +21,7 @@ import org.apache.seatunnel.shade.com.google.common.collect.ImmutableList;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopLoginFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfigOptions;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 
@@ -67,15 +65,15 @@ public class HiveMetaStoreProxy implements Closeable, Serializable {
     private transient HiveMetaStoreClient hiveClient;
 
     public HiveMetaStoreProxy(ReadonlyConfig config) {
-        this.metastoreUri = config.get(HiveOptions.METASTORE_URI);
-        this.hadoopConfDir = config.get(HiveConfig.HADOOP_CONF_PATH);
-        this.hiveSitePath = config.get(HiveConfig.HIVE_SITE_PATH);
+        this.metastoreUri = config.get(HiveBaseOptions.METASTORE_URI);
+        this.hadoopConfDir = config.get(HiveBaseOptions.HADOOP_CONF_PATH);
+        this.hiveSitePath = config.get(HiveBaseOptions.HIVE_SITE_PATH);
         this.kerberosEnabled = HiveMetaStoreProxyUtils.enableKerberos(config);
         this.remoteUserEnabled = HiveMetaStoreProxyUtils.enableRemoteUser(config);
-        this.krb5Path = config.get(HdfsSourceConfigOptions.KRB5_PATH);
-        this.principal = config.get(HdfsSourceConfigOptions.KERBEROS_PRINCIPAL);
-        this.keytabPath = config.get(HdfsSourceConfigOptions.KERBEROS_KEYTAB_PATH);
-        this.remoteUser = config.get(HdfsSourceConfigOptions.REMOTE_USER);
+        this.krb5Path = config.get(HiveBaseOptions.KRB5_PATH);
+        this.principal = config.get(HiveBaseOptions.KERBEROS_PRINCIPAL);
+        this.keytabPath = config.get(HiveBaseOptions.KERBEROS_KEYTAB_PATH);
+        this.remoteUser = config.get(HiveBaseOptions.REMOTE_USER);
     }
 
     private synchronized HiveMetaStoreClient getClient() {
