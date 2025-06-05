@@ -37,12 +37,12 @@ public final class JdbcDialectLoader {
 
     private JdbcDialectLoader() {}
 
-    public static JdbcDialect load(String url, String dialect, String compatibleMode) {
-        return load(url, compatibleMode, dialect, "", null);
+    public static JdbcDialect load(String url, String compatibleMode) {
+        return load(url, compatibleMode, null, "", null);
     }
 
-    public static JdbcDialect load(String url, String compatibleMode) {
-        return load(url, compatibleMode, "");
+    public static JdbcDialect load(String url, String dialect, String compatibleMode) {
+        return load(url, compatibleMode, dialect, "", null);
     }
 
     public static JdbcDialect load(
@@ -103,22 +103,6 @@ public final class JdbcDialectLoader {
                     foundFactories.stream()
                             .filter(f -> f.acceptsURL(url))
                             .collect(Collectors.toList());
-        }
-
-        // If no matching factory is found, use the GenericDialectFactory.
-        if (matchingFactories.isEmpty()) {
-            matchingFactories =
-                    foundFactories.stream()
-                            .filter(f -> f instanceof GenericDialectFactory)
-                            .collect(Collectors.toList());
-
-            if (matchingFactories.isEmpty()) {
-                throw new JdbcConnectorException(
-                        JdbcConnectorErrorCode.NO_SUITABLE_DIALECT_FACTORY,
-                        String.format(
-                                "No suitable dialect factory found for URL '%s' and no GenericDialectFactory available.",
-                                url));
-            }
         }
 
         // filter out generic dialect factory
