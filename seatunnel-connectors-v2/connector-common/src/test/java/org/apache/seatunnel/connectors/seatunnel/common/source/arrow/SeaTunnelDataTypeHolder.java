@@ -65,6 +65,8 @@ public class SeaTunnelDataTypeHolder {
                 return new DecimalType(10, 2);
             case "timestamp1":
             case "timestamp2":
+            case "timestampSec":
+            case "timestampSecTz":
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case "time":
                 return LocalTimeType.LOCAL_TIME_TYPE;
