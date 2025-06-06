@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql;
 
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.type.BasicType;
 
 import org.junit.jupiter.api.Test;
 
@@ -57,5 +58,26 @@ public class MySqlTypeMapperTest {
         Column column = typeMapper.mappingColumn(metadata, 1);
 
         assertEquals("tinyint", column.getSourceType());
+    }
+
+    @Test
+    void testTinyint1ReturnShortType() throws SQLException {
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        when(metadata.getColumnLabel(1)).thenReturn("test_column");
+        when(metadata.getColumnTypeName(1)).thenReturn("tinyint");
+        when(metadata.isNullable(1)).thenReturn(ResultSetMetaData.columnNullable);
+        when(metadata.getPrecision(1)).thenReturn(1);
+        when(metadata.getScale(1)).thenReturn(0);
+
+        MySqlTypeMapper typeMapper =
+                new MySqlTypeMapper(new MySqlTypeConverter(MySqlVersion.V_8, false));
+        Column column = typeMapper.mappingColumn(metadata, 1);
+
+        assertEquals(BasicType.BYTE_TYPE, column.getDataType());
+
+        typeMapper = new MySqlTypeMapper(new MySqlTypeConverter(MySqlVersion.V_8, true));
+        column = typeMapper.mappingColumn(metadata, 1);
+
+        assertEquals(BasicType.BOOLEAN_TYPE, column.getDataType());
     }
 }

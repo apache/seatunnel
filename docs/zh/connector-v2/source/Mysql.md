@@ -69,29 +69,49 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 数据源参数
 
-|                    名称                    | 类型       | 是否必填 | 默认值         | 描述                                                                                                                                                                                                                     |
-|--------------------------------------------|------------|------|-----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                        | String     | 是    | -               | JDBC 连接的 URL。参见示例: <br/>`jdbc:mysql://localhost:3306:3306/test`。                                                                                                                                                       |
-| driver                                     | String     | 是    | -               | 用于连接远程数据源的 JDBC 类名，<br/>如果使用 MySQL，值为 `com.mysql.cj.jdbc.Driver`。                                                                                                                                                      |
-| user                                       | String     | 否    | -               | 连接实例用户名。                                                                                                                                                                                                               |
-| password                                   | String     | 否    | -               | 连接实例密码。                                                                                                                                                                                                                |
-| query                                      | String     | 是    | -               | 查询语句。                                                                                                                                                                                                                  |
-| connection_check_timeout_sec               | Int        | 否    | 30              | 验证数据库连接所使用的操作完成的等待时间（秒）。                                                                                                                                                                                               |
-| partition_column                           | String     | 否    | -               | 用于并行度分区的列名，仅支持数字类型，仅支持数字类型的主键，并且只能配置一列。                                                                                                                                                                                |
-| partition_lower_bound                      | BigDecimal | 否    | -               | 扫描时 `partition_column` 的最小值，如果未设置，`SeaTunnel` 将查询数据库以获取最小值。                                                                                                                                                            |
-| partition_upper_bound                      | BigDecimal | 否    | -               | 扫描时 `partition_column` 的最大值，如果未设置，`SeaTunnel` 将查询数据库以获取最大值。                                                                                                                                                            |
+| 名称                                         | 类型         | 是否必填 | 默认值   | 描述                                                                                                                                                                                                                     |
+|--------------------------------------------|------------|------|-------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                                        | String     | 是    | -     | JDBC 连接的 URL。参见示例: <br/>`jdbc:mysql://localhost:3306:3306/test`。                                                                                                                                                       |
+| driver                                     | String     | 是    | -     | 用于连接远程数据源的 JDBC 类名，<br/>如果使用 MySQL，值为 `com.mysql.cj.jdbc.Driver`。                                                                                                                                                      |
+| user                                       | String     | 否    | -     | 连接实例用户名。                                                                                                                                                                                                               |
+| password                                   | String     | 否    | -     | 连接实例密码。                                                                                                                                                                                                                |
+| query                                      | String     | 是    | -     | 查询语句。                                                                                                                                                                                                                  |
+| connection_check_timeout_sec               | Int        | 否    | 30    | 验证数据库连接所使用的操作完成的等待时间（秒）。                                                                                                                                                                                               |
+| partition_column                           | String     | 否    | -     | 用于并行度分区的列名，仅支持数字类型，仅支持数字类型的主键，并且只能配置一列。                                                                                                                                                                                |
+| partition_lower_bound                      | BigDecimal | 否    | -     | 扫描时 `partition_column` 的最小值，如果未设置，`SeaTunnel` 将查询数据库以获取最小值。                                                                                                                                                            |
+| partition_upper_bound                      | BigDecimal | 否    | -     | 扫描时 `partition_column` 的最大值，如果未设置，`SeaTunnel` 将查询数据库以获取最大值。                                                                                                                                                            |
 | partition_num                              | Int        | 否    | 作业并行度 | 分区数量，仅支持正整数。<br/>默认值为作业并行度。                                                                                                                                                                                            |
-| fetch_size                                 | Int        | 否    | 0               | 对于返回大量对象的查询，可以配置查询的行提取大小，以通过减少满足选择条件所需的数据库访问次数来提高性能。<br/>设置为零表示使用 `JDBC` 的默认值。                                                                                                                                         |
-| properties                                 | Map        | 否    | -               | 额外的连接配置参数，当属性和 URL 中有相同的参数时，优先级由驱动程序的具体实现决定。<br/>例如，在 MySQL 中，属性优先于 URL。                                                                                                                                               |
-| table_path                                 | String     | 否    | -               | 表的完整路径，您可以使用此配置代替 `query`。<br/>示例：<br/>mysql: "testdb.table1"<br/>oracle: "test_schema.table1"<br/>sqlserver: "testdb.test_schema.table1"<br/>postgresql: "testdb.test_schema.table1"                                  |
-| table_list                                 | Array      | 否    | -               | 要读取的表的列表，您可以使用此配置代替 `table_path`，示例如下： ```[{ table_path = "testdb.table1"}, {table_path = "testdb.table2", query = "select * id, name from testdb.table2"}]```                                                         |
-| where_condition                            | String     | 否    | -               | 所有表/查询的通用行过滤条件，必须以 `where` 开头。例如 `where id > 100`。                                                                                                                                                                     |
-| split.size                                 | Int        | 否    | 8096            | 表的分割大小（行数），当读取表时，捕获的表会被分割成多个分片。                                                                                                                                                                                        |
-| split.even-distribution.factor.lower-bound | Double     | 否    | 0.05            | 分片键分布因子的下限。该因子用于判断表数据的分布是否均匀。如果计算得到的分布因子大于或等于该下限（即，(MAX(id) - MIN(id) + 1) / 行数），则会对表的分片进行优化，以确保数据的均匀分布。反之，如果分布因子较低，则表数据将被视为分布不均匀。如果估算的分片数量超过 `sample-sharding.threshold` 所指定的值，则会采用基于采样的分片策略。默认值为 0.05。               |
-| split.even-distribution.factor.upper-bound | Double     | 否    | 100             | 分片键分布因子的上限。该因子用于判断表数据的分布是否均匀。如果计算得到的分布因子小于或等于该上限（即，(MAX(id) - MIN(id) + 1) / 行数），则会对表的分片进行优化，以确保数据的均匀分布。反之，如果分布因子较大，则表数据将被视为分布不均匀，并且如果估算的分片数量超过 `sample-sharding.threshold` 所指定的值，则会采用基于采样的分片策略。默认值为 100.0。            |
-| split.sample-sharding.threshold            | Int        | 否    | 10000           | 此配置指定了触发样本分片策略的估算分片数阈值。当分布因子超出由 `chunk-key.even-distribution.factor.upper-bound` 和 `chunk-key.even-distribution.factor.lower-bound` 指定的范围，并且估算的分片数量（计算方法为大致行数 / 分片大小）超过此阈值时，将使用样本分片策略。此配置有助于更高效地处理大型数据集。默认值为 1000 个分片。 |
-| split.inverse-sampling.rate                | Int        | 否    | 1000            | 样本分片策略中使用的采样率的倒数。例如，如果该值设置为 1000，则表示在采样过程中应用 1/1000 的采样率。此选项提供了灵活性，可以控制采样的粒度，从而影响最终的分片数量。特别适用于处理非常大的数据集，在这种情况下通常会选择较低的采样率。默认值为 1000。                                                                                   |
-| common-options                             |            | 否    | -               | 源插件的常见参数，请参阅 [源常见参数](../source-common-options.md) 了解详细信息。                                                                                                                                                              |
+| fetch_size                                 | Int        | 否    | 0     | 对于返回大量对象的查询，可以配置查询的行提取大小，以通过减少满足选择条件所需的数据库访问次数来提高性能。<br/>设置为零表示使用 `JDBC` 的默认值。                                                                                                                                         |
+| properties                                 | Map        | 否    | -     | 额外的连接配置参数，当属性和 URL 中有相同的参数时，优先级由驱动程序的具体实现决定。<br/>例如，在 MySQL 中，属性优先于 URL。                                                                                                                                               |
+| table_path                                 | String     | 否    | -     | 表的完整路径，您可以使用此配置代替 `query`。<br/>示例：<br/>mysql: "testdb.table1"<br/>oracle: "test_schema.table1"<br/>sqlserver: "testdb.test_schema.table1"<br/>postgresql: "testdb.test_schema.table1"                                  |
+| table_list                                 | Array      | 否    | -     | 要读取的表的列表，您可以使用此配置代替 `table_path`，示例如下： ```[{ table_path = "testdb.table1"}, {table_path = "testdb.table2", query = "select * id, name from testdb.table2"}]```                                                         |
+| where_condition                            | String     | 否    | -     | 所有表/查询的通用行过滤条件，必须以 `where` 开头。例如 `where id > 100`。                                                                                                                                                                     |
+| split.size                                 | Int        | 否    | 8096  | 表的分割大小（行数），当读取表时，捕获的表会被分割成多个分片。                                                                                                                                                                                        |
+| split.even-distribution.factor.lower-bound | Double     | 否    | 0.05  | 分片键分布因子的下限。该因子用于判断表数据的分布是否均匀。如果计算得到的分布因子大于或等于该下限（即，(MAX(id) - MIN(id) + 1) / 行数），则会对表的分片进行优化，以确保数据的均匀分布。反之，如果分布因子较低，则表数据将被视为分布不均匀。如果估算的分片数量超过 `sample-sharding.threshold` 所指定的值，则会采用基于采样的分片策略。默认值为 0.05。               |
+| split.even-distribution.factor.upper-bound | Double     | 否    | 100   | 分片键分布因子的上限。该因子用于判断表数据的分布是否均匀。如果计算得到的分布因子小于或等于该上限（即，(MAX(id) - MIN(id) + 1) / 行数），则会对表的分片进行优化，以确保数据的均匀分布。反之，如果分布因子较大，则表数据将被视为分布不均匀，并且如果估算的分片数量超过 `sample-sharding.threshold` 所指定的值，则会采用基于采样的分片策略。默认值为 100.0。            |
+| split.sample-sharding.threshold            | Int        | 否    | 10000 | 此配置指定了触发样本分片策略的估算分片数阈值。当分布因子超出由 `chunk-key.even-distribution.factor.upper-bound` 和 `chunk-key.even-distribution.factor.lower-bound` 指定的范围，并且估算的分片数量（计算方法为大致行数 / 分片大小）超过此阈值时，将使用样本分片策略。此配置有助于更高效地处理大型数据集。默认值为 1000 个分片。 |
+| split.inverse-sampling.rate                | Int        | 否    | 1000  | 样本分片策略中使用的采样率的倒数。例如，如果该值设置为 1000，则表示在采样过程中应用 1/1000 的采样率。此选项提供了灵活性，可以控制采样的粒度，从而影响最终的分片数量。特别适用于处理非常大的数据集，在这种情况下通常会选择较低的采样率。默认值为 1000。                                                                                   |
+| int_type_narrowing                         | Boolean    | 否    | true  | Int类型收窄，如果为 true，则 tinyint(1) 类型将被收窄为 boolean 类型（如果没有精度损失）。目前仅支持 MySQL。                                                                                                                                                |
+| common-options                             |            | 否    | -     | 源插件的常见参数，请参阅 [源常见参数](../source-common-options.md) 了解详细信息。                                                                                                                                                              |
+
+### int_type_narrowing
+
+Int类型收窄，如果为 true，则 tinyint(1) 类型将被收窄为 boolean 类型（如果没有精度损失）。目前仅支持 MySQL。
+
+例：
+
+int_type_narrowing = true
+
+| MySQL      | SeaTunnel |
+|------------|-----------|
+| TINYINT(1) | Boolean   |
+
+int_type_narrowing = false
+
+| MySQL      | SeaTunnel |
+|------------|-----------|
+| TINYINT(1) | TINYINT   |
+
 
 ## 并行读取器
 

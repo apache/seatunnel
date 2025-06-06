@@ -108,6 +108,13 @@ public interface JdbcOptions {
                     .withDescription(
                             "decimal type narrowing, if true, the decimal type will be narrowed to the int or long type if without loss of precision. Only support for Oracle at now.");
 
+    Option<Boolean> INT_TYPE_NARROWING =
+            Options.key("int_type_narrowing")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "int type narrowing, if true, the tinyint(1) type will be narrowed to the boolean type if without loss of precision. Support for MySQL at now.");
+
     Option<Boolean> HANDLE_BLOB_AS_STRING =
             Options.key("handle_blob_as_string")
                     .booleanType()
