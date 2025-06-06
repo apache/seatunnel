@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
@@ -111,7 +112,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     + "    `c_bit_16`               bit(16)               DEFAULT NULL,\n"
                     + "    `c_bit_32`               bit(32)               DEFAULT NULL,\n"
                     + "    `c_bit_64`               bit(64)               DEFAULT NULL,\n"
-                    + "    `c_boolean`              tinyint(1)            DEFAULT NULL,\n"
+                    + "    `c_tinyint_1`              tinyint(1)            DEFAULT NULL,\n"
                     + "    `c_tinyint`              tinyint(4)            DEFAULT NULL,\n"
                     + "    `c_tinyint_unsigned`     tinyint(3) unsigned   DEFAULT NULL,\n"
                     + "    `c_smallint`             smallint(6)           DEFAULT NULL,\n"
@@ -198,7 +199,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     "c_bit_16",
                     "c_bit_32",
                     "c_bit_64",
-                    "c_boolean",
+                    "c_tinyint_1",
                     "c_tinyint",
                     "c_tinyint_unsigned",
                     "c_smallint",
@@ -256,7 +257,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     "c_bit_16",
                     "c_bit_32",
                     "c_bit_64",
-                    "c_boolean",
+                    "c_tinyint_1",
                     "c_tinyint",
                     "c_tinyint_unsigned",
                     "c_smallint",
@@ -462,6 +463,39 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         defaultSinkParametersTest();
         defaultSourceParametersTest();
         defaultMultiSinkParametersTest();
+    }
+
+    @Test
+    public void testTinyInt1AsBooleanOrTINYINT() throws SQLException {
+        testTinyInt1AsBooleanOrTINYINT(true, BasicType.BOOLEAN_TYPE);
+        testTinyInt1AsBooleanOrTINYINT(false, BasicType.BYTE_TYPE);
+    }
+
+    private void testTinyInt1AsBooleanOrTINYINT(boolean intTypeNarrowing, BasicType<?> exceptType)
+            throws SQLException {
+        try (MySqlCatalog catalogWithIntTypeNarrowing =
+                new MySqlCatalog(
+                        "mysql",
+                        jdbcCase.getUserName(),
+                        jdbcCase.getPassword(),
+                        JdbcUrlUtil.getUrlInfo(
+                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())),
+                        null,
+                        intTypeNarrowing)) {
+            catalogWithIntTypeNarrowing.open();
+            CatalogTable tableFromPath =
+                    catalogWithIntTypeNarrowing.getTable(
+                            TablePath.of(MYSQL_DATABASE, MYSQL_SOURCE));
+            Assertions.assertEquals(
+                    exceptType,
+                    tableFromPath.getTableSchema().getColumn("c_tinyint_1").getDataType());
+            CatalogTable tableFromSQL =
+                    catalogWithIntTypeNarrowing.getTable(
+                            "select c_tinyint_1 from " + MYSQL_DATABASE + "." + MYSQL_SOURCE);
+            Assertions.assertEquals(
+                    exceptType,
+                    tableFromSQL.getTableSchema().getColumn("c_tinyint_1").getDataType());
+        }
     }
 
     void defaultSinkParametersTest() throws IOException, SQLException, ClassNotFoundException {

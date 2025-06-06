@@ -37,6 +37,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.BaseChangeStreamTableSour
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
@@ -73,7 +74,8 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                         JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD,
                         JdbcSourceOptions.INVERSE_SAMPLING_RATE,
                         JdbcSourceOptions.TABLE_NAMES_CONFIG,
-                        JdbcSourceOptions.SCHEMA_CHANGES_ENABLED)
+                        JdbcSourceOptions.SCHEMA_CHANGES_ENABLED,
+                        JdbcOptions.INT_TYPE_NARROWING)
                 .optional(MySqlSourceOptions.STARTUP_MODE, MySqlSourceOptions.STOP_MODE)
                 .conditional(
                         MySqlSourceOptions.STARTUP_MODE,

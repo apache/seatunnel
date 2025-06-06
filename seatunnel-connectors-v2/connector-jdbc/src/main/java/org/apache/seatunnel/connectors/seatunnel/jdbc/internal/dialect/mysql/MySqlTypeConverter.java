@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import com.google.auto.service.AutoService;
@@ -107,13 +108,19 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
             new MySqlTypeConverter(MySqlVersion.V_5_7);
 
     private final MySqlVersion version;
-
-    public MySqlTypeConverter(MySqlVersion version) {
-        this.version = version;
-    }
+    private final boolean intTypeNarrowing;
 
     public MySqlTypeConverter() {
-        this(MySqlVersion.V_5_7);
+        this(MySqlVersion.V_5_7, JdbcOptions.INT_TYPE_NARROWING.defaultValue());
+    }
+
+    public MySqlTypeConverter(MySqlVersion version) {
+        this(version, JdbcOptions.INT_TYPE_NARROWING.defaultValue());
+    }
+
+    public MySqlTypeConverter(MySqlVersion version, boolean intTypeNarrowing) {
+        this.version = version;
+        this.intTypeNarrowing = intTypeNarrowing;
     }
 
     @Override
@@ -158,7 +165,7 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                 }
                 break;
             case MYSQL_TINYINT:
-                if (typeDefine.getColumnType().equalsIgnoreCase("tinyint(1)")) {
+                if (typeDefine.getColumnType().equalsIgnoreCase("tinyint(1)") && intTypeNarrowing) {
                     builder.dataType(BasicType.BOOLEAN_TYPE);
                 } else {
                     builder.dataType(BasicType.BYTE_TYPE);
