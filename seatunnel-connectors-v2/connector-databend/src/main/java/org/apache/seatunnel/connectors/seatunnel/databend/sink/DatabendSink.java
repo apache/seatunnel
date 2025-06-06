@@ -143,6 +143,11 @@ public class DatabendSink
     }
 
     @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.of(catalogTable);
+    }
+
+    @Override
     public Optional<SaveModeHandler> getSaveModeHandler() {
         try {
             // create table path
