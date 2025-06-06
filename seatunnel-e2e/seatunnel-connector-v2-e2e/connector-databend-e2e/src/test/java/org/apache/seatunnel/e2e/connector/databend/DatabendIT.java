@@ -205,7 +205,7 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
         LOG.info("Databend container started");
         Awaitility.given()
                 .ignoreExceptions()
-                .atMost(120, java.util.concurrent.TimeUnit.SECONDS)
+                .atMost(300, java.util.concurrent.TimeUnit.SECONDS)
                 .untilAsserted(this::initConnection);
 
         this.forTest();
