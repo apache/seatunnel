@@ -54,6 +54,15 @@ public class PythonOperationProxy implements RowOperation {
         this.remotePython = remotePython;
     }
 
+
+    /**
+     * The python process calls this method to run the code
+     * @return pythonCode
+     */
+    public String getPythonCode(){
+        return this.transformConfig.getSourceCode();
+    }
+
     private PythonOperationProxy(PythonTransformConfig transformConfig) {
         if (INSTANCE != null) {
             throw new RuntimeException("Please use newInstance() method for getting the single instance of this class.");
