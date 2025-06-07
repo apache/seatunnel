@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.StringSplitMode;
 
 import lombok.Builder;
 import lombok.Data;
@@ -43,6 +44,11 @@ public class JdbcSourceConfig implements Serializable {
     private int splitSampleShardingThreshold;
     private int splitInverseSamplingRate;
     private boolean decimalTypeNarrowing;
+    private boolean handleBlobAsString;
+
+    private StringSplitMode stringSplitMode;
+
+    private String stringSplitModeCollate;
 
     public static JdbcSourceConfig of(ReadonlyConfig config) {
         JdbcSourceConfig.Builder builder = JdbcSourceConfig.builder();
@@ -55,7 +61,8 @@ public class JdbcSourceConfig implements Serializable {
                 config.getOptional(JdbcOptions.QUERY).isPresent()
                         && config.getOptional(JdbcOptions.PARTITION_COLUMN).isPresent();
         builder.useDynamicSplitter(!isOldVersion);
-
+        builder.stringSplitMode(config.get(JdbcOptions.STRING_SPLIT_MODE));
+        builder.stringSplitModeCollate(config.get(JdbcOptions.STRING_SPLIT_MODE_COLLATE));
         builder.splitSize(config.get(JdbcSourceOptions.SPLIT_SIZE));
         builder.splitEvenDistributionFactorUpperBound(
                 config.get(JdbcSourceOptions.SPLIT_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND));
@@ -66,6 +73,7 @@ public class JdbcSourceConfig implements Serializable {
         builder.splitInverseSamplingRate(config.get(JdbcSourceOptions.SPLIT_INVERSE_SAMPLING_RATE));
 
         builder.decimalTypeNarrowing(config.get(JdbcOptions.DECIMAL_TYPE_NARROWING));
+        builder.handleBlobAsString(config.get(JdbcOptions.HANDLE_BLOB_AS_STRING));
 
         config.getOptional(JdbcSourceOptions.WHERE_CONDITION)
                 .ifPresent(

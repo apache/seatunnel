@@ -24,4 +24,6 @@ import java.io.Serializable;
 
 @Data
 @AllArgsConstructor
-public class MilvusCommitInfo implements Serializable {}
+public class MilvusCommitInfo implements Serializable {
+    private static final long serialVersionUID = 3466351676745438435L;
+}

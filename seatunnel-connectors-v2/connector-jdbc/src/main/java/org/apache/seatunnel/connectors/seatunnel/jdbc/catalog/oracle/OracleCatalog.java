@@ -75,20 +75,24 @@ public class OracleCatalog extends AbstractJdbcCatalog {
                     + "    cols.column_id \n";
 
     private boolean decimalTypeNarrowing;
+    private boolean handleBlobAsString;
 
     public OracleCatalog(
             String catalogName,
             String username,
             String pwd,
             JdbcUrlUtil.UrlInfo urlInfo,
-            String defaultSchema) {
+            String defaultSchema,
+            String driverClass) {
         this(
                 catalogName,
                 username,
                 pwd,
                 urlInfo,
                 defaultSchema,
-                JdbcOptions.DECIMAL_TYPE_NARROWING.defaultValue());
+                JdbcOptions.DECIMAL_TYPE_NARROWING.defaultValue(),
+                driverClass,
+                false);
     }
 
     public OracleCatalog(
@@ -97,9 +101,12 @@ public class OracleCatalog extends AbstractJdbcCatalog {
             String pwd,
             JdbcUrlUtil.UrlInfo urlInfo,
             String defaultSchema,
-            boolean decimalTypeNarrowing) {
-        super(catalogName, username, pwd, urlInfo, defaultSchema);
+            boolean decimalTypeNarrowing,
+            String driverClass,
+            boolean handleBlobAsString) {
+        super(catalogName, username, pwd, urlInfo, defaultSchema, driverClass);
         this.decimalTypeNarrowing = decimalTypeNarrowing;
+        this.handleBlobAsString = handleBlobAsString;
     }
 
     @Override
@@ -184,7 +191,8 @@ public class OracleCatalog extends AbstractJdbcCatalog {
                         .defaultValue(defaultValue)
                         .comment(columnComment)
                         .build();
-        return new OracleTypeConverter(decimalTypeNarrowing).convert(typeDefine);
+        return new OracleTypeConverter(decimalTypeNarrowing, handleBlobAsString)
+                .convert(typeDefine);
     }
 
     @Override
@@ -201,7 +209,9 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     public CatalogTable getTable(String sqlQuery) throws SQLException {
         Connection defaultConnection = getConnection(defaultUrl);
         return CatalogUtils.getCatalogTable(
-                defaultConnection, sqlQuery, new OracleTypeMapper(decimalTypeNarrowing));
+                defaultConnection,
+                sqlQuery,
+                new OracleTypeMapper(decimalTypeNarrowing, handleBlobAsString));
     }
 
     @Override

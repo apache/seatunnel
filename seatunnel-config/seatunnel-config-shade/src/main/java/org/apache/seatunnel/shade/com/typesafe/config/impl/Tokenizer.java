@@ -539,11 +539,6 @@ final class Tokenizer {
                 if (c == '\\') {
                     pullEscapeSequence(sb, sbOrig);
                 } else if (c == '"') {
-                    if (acceptSpecialText) {
-                        // we should append '"' twice because we want to keep the original value
-                        sb.appendCodePoint(c);
-                        sb.appendCodePoint(c);
-                    }
                     sbOrig.appendCodePoint(c);
                     break;
                 } else if (ConfigImplUtil.isC0Control(c)) {

@@ -27,10 +27,6 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
-import org.apache.seatunnel.engine.core.dag.actions.ShuffleAction;
-import org.apache.seatunnel.engine.core.dag.actions.ShuffleConfig;
-import org.apache.seatunnel.engine.core.dag.actions.ShuffleMultipleRowStrategy;
-import org.apache.seatunnel.engine.core.dag.actions.ShuffleStrategy;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.internal.IntermediateQueue;
@@ -191,9 +187,6 @@ public class PhysicalPlanGenerator {
                                             getSourceTask(
                                                     edges, sources, pipelineId, totalPipelineNum);
 
-                                    physicalVertexList.addAll(
-                                            getShuffleTask(edges, pipelineId, totalPipelineNum));
-
                                     CompletableFuture<PipelineStatus> pipelineFuture =
                                             new CompletableFuture<>();
                                     waitForCompleteBySubPlanList.add(
@@ -320,149 +313,6 @@ public class PhysicalPlanGenerator {
                             }
                         })
                 .filter(Objects::nonNull)
-                .collect(Collectors.toList());
-    }
-
-    private List<PhysicalVertex> getShuffleTask(
-            List<ExecutionEdge> edges, int pipelineIndex, int totalPipelineNum) {
-        return edges.stream()
-                .filter(s -> s.getLeftVertex().getAction() instanceof ShuffleAction)
-                .map(q -> (ShuffleAction) q.getLeftVertex().getAction())
-                .collect(Collectors.toSet())
-                .stream()
-                .map(q -> new PhysicalExecutionFlow(q, getNextWrapper(edges, q)))
-                .flatMap(
-                        flow -> {
-                            List<PhysicalVertex> physicalVertices = new ArrayList<>();
-
-                            ShuffleAction shuffleAction = (ShuffleAction) flow.getAction();
-                            ShuffleConfig shuffleConfig = shuffleAction.getConfig();
-                            ShuffleStrategy shuffleStrategy = shuffleConfig.getShuffleStrategy();
-                            if (shuffleStrategy instanceof ShuffleMultipleRowStrategy) {
-                                ShuffleMultipleRowStrategy shuffleMultipleRowStrategy =
-                                        (ShuffleMultipleRowStrategy) shuffleStrategy;
-                                AtomicInteger atomicInteger = new AtomicInteger(0);
-                                for (Flow nextFlow : flow.getNext()) {
-                                    PhysicalExecutionFlow sinkFlow =
-                                            (PhysicalExecutionFlow) nextFlow;
-                                    SinkAction sinkAction = (SinkAction) sinkFlow.getAction();
-                                    String sinkTableId =
-                                            sinkAction.getConfig().getTablePath().toString();
-
-                                    int parallelismIndex = atomicInteger.getAndIncrement();
-                                    ShuffleStrategy shuffleStrategyOfSinkFlow =
-                                            shuffleMultipleRowStrategy
-                                                    .toBuilder()
-                                                    .targetTableId(sinkTableId)
-                                                    .build();
-                                    ShuffleConfig shuffleConfigOfSinkFlow =
-                                            shuffleConfig
-                                                    .toBuilder()
-                                                    .shuffleStrategy(shuffleStrategyOfSinkFlow)
-                                                    .build();
-                                    String shuffleActionName =
-                                            String.format(
-                                                    "%s -> %s -> %s",
-                                                    shuffleAction.getName(),
-                                                    sinkTableId,
-                                                    sinkAction.getName());
-                                    ShuffleAction shuffleActionOfSinkFlow =
-                                            new ShuffleAction(
-                                                    parallelismIndex,
-                                                    shuffleActionName,
-                                                    shuffleConfigOfSinkFlow);
-                                    shuffleActionOfSinkFlow.setParallelism(1);
-                                    PhysicalExecutionFlow shuffleFlow =
-                                            new PhysicalExecutionFlow(
-                                                    shuffleActionOfSinkFlow,
-                                                    Collections.singletonList(sinkFlow));
-                                    setFlowConfig(shuffleFlow);
-
-                                    long taskGroupID = taskGroupIdGenerator.getNextId();
-                                    TaskGroupLocation taskGroupLocation =
-                                            new TaskGroupLocation(
-                                                    jobImmutableInformation.getJobId(),
-                                                    pipelineIndex,
-                                                    taskGroupID);
-                                    TaskLocation taskLocation =
-                                            new TaskLocation(
-                                                    taskGroupLocation, 0, parallelismIndex);
-                                    SeaTunnelTask seaTunnelTask =
-                                            new TransformSeaTunnelTask(
-                                                    jobImmutableInformation.getJobId(),
-                                                    taskLocation,
-                                                    parallelismIndex,
-                                                    shuffleFlow);
-
-                                    // checkpoint
-                                    fillCheckpointPlan(seaTunnelTask);
-                                    physicalVertices.add(
-                                            new PhysicalVertex(
-                                                    parallelismIndex,
-                                                    shuffleFlow.getAction().getParallelism(),
-                                                    new TaskGroupDefaultImpl(
-                                                            taskGroupLocation,
-                                                            shuffleFlow.getAction().getName()
-                                                                    + "-ShuffleTask",
-                                                            Collections.singletonList(
-                                                                    seaTunnelTask)),
-                                                    flakeIdGenerator,
-                                                    pipelineIndex,
-                                                    totalPipelineNum,
-                                                    Collections.singletonList(
-                                                            seaTunnelTask.getJarsUrl()),
-                                                    Collections.singletonList(
-                                                            seaTunnelTask.getConnectorPluginJars()),
-                                                    jobImmutableInformation,
-                                                    initializationTimestamp,
-                                                    nodeEngine,
-                                                    runningJobStateIMap,
-                                                    runningJobStateTimestampsIMap));
-                                }
-                            } else {
-                                for (int i = 0; i < flow.getAction().getParallelism(); i++) {
-                                    long taskGroupID = taskGroupIdGenerator.getNextId();
-                                    TaskGroupLocation taskGroupLocation =
-                                            new TaskGroupLocation(
-                                                    jobImmutableInformation.getJobId(),
-                                                    pipelineIndex,
-                                                    taskGroupID);
-                                    TaskLocation taskLocation =
-                                            new TaskLocation(taskGroupLocation, 0, i);
-                                    setFlowConfig(flow);
-                                    SeaTunnelTask seaTunnelTask =
-                                            new TransformSeaTunnelTask(
-                                                    jobImmutableInformation.getJobId(),
-                                                    taskLocation,
-                                                    i,
-                                                    flow);
-                                    // checkpoint
-                                    fillCheckpointPlan(seaTunnelTask);
-                                    physicalVertices.add(
-                                            new PhysicalVertex(
-                                                    i,
-                                                    flow.getAction().getParallelism(),
-                                                    new TaskGroupDefaultImpl(
-                                                            taskGroupLocation,
-                                                            flow.getAction().getName()
-                                                                    + "-ShuffleTask",
-                                                            Lists.newArrayList(seaTunnelTask)),
-                                                    flakeIdGenerator,
-                                                    pipelineIndex,
-                                                    totalPipelineNum,
-                                                    Collections.singletonList(
-                                                            seaTunnelTask.getJarsUrl()),
-                                                    Collections.singletonList(
-                                                            seaTunnelTask.getConnectorPluginJars()),
-                                                    jobImmutableInformation,
-                                                    initializationTimestamp,
-                                                    nodeEngine,
-                                                    runningJobStateIMap,
-                                                    runningJobStateTimestampsIMap));
-                                }
-                            }
-                            return physicalVertices.stream();
-                        })
                 .collect(Collectors.toList());
     }
 
@@ -757,12 +607,12 @@ public class PhysicalPlanGenerator {
                         .collect(Collectors.toList());
         List<Flow> wrappers =
                 actions.stream()
-                        .filter(a -> a instanceof ShuffleAction || a instanceof SinkAction)
+                        .filter(a -> a instanceof SinkAction)
                         .map(PhysicalExecutionFlow::new)
                         .collect(Collectors.toList());
         wrappers.addAll(
                 actions.stream()
-                        .filter(a -> !(a instanceof ShuffleAction || a instanceof SinkAction))
+                        .filter(a -> !(a instanceof SinkAction))
                         .map(a -> new PhysicalExecutionFlow<>(a, getNextWrapper(edges, a)))
                         .collect(Collectors.toList()));
         return wrappers;

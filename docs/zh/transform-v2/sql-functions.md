@@ -186,8 +186,6 @@ RPAD(TEXT, 10, '-')
 
 移除字符串中所有前导空格或其他指定的字符。
 
-此函数已被弃用，请使用 TRIM 替代。
-
 示例:
 
 LTRIM(NAME)
@@ -198,8 +196,6 @@ LTRIM(NAME)
 
 移除字符串中所有尾随空格或其他指定的字符。
 
-此函数已被弃用，请使用 TRIM 替代。
-
 示例:
 
 RTRIM(NAME)
@@ -208,13 +204,11 @@ RTRIM(NAME)
 
 ```TRIM(string[, characterToTrimString])```
 
-移除字符串中所有前导空格或其他指定的字符。
-
-此函数已被弃用，请使用 TRIM 替代。
+移除字符串中所有前导空格和尾随空格或其他指定的字符。
 
 示例:
 
-LTRIM(NAME)
+TRIM(NAME)
 
 ### REGEXP_REPLACE
 
@@ -765,9 +759,59 @@ DAY_OF_YEAR(CREATED)
 
 从日期/时间值中返回特定时间单位的值。该方法对于 EPOCH 字段返回一个数值，对于其他字段返回一个整数。
 
-示例:
+EXTRACT函数支持以下字段名：
 
-EXTRACT(SECOND FROM CURRENT_TIMESTAMP)
+- `CENTURY`：世纪；对于interval值，年份字段除以100
+- `DAY`：月份中的日期（1-31）；对于interval值，表示天数
+- `DECADE`：年份字段除以10
+- `DOW` 或 `DAYOFWEEK`：星期几，从周日（0）到周六（6）
+- `DOY`：一年中的第几天（1-365/366）
+- `EPOCH`：对于timestamp值，表示自1970-01-01 00:00:00以来的秒数；对于interval值，表示总秒数
+- `HOUR`：小时字段（0-23）
+- `ISODOW`：星期几，从周一（1）到周日（7），符合ISO 8601标准
+- `ISOYEAR`：ISO 8601周编号年份
+- `MICROSECONDS`：秒字段（包括小数部分）乘以1,000,000
+- `MILLENNIUM`：千年；对于interval值，年份字段除以1000
+- `MILLISECONDS`：秒字段（包括小数部分）乘以1,000
+- `MINUTE`：分钟字段（0-59）
+- `MONTH`：年份中的月份（1-12）；对于interval值，月份对12取模（0-11）
+- `QUARTER`：日期所在的季度（1-4）
+- `SECOND`：秒字段，包括任何小数秒
+- `WEEK`：ISO 8601周编号年份中的周数（1-53）
+- `YEAR`：年份字段
+
+EXTRACT函数支持以下四种DateTime字面量类型：
+
+- `DATE`：用于从日期字面量中提取日期组件
+  ```sql
+  EXTRACT(YEAR FROM DATE '2025-05-21')
+  ```
+
+- `TIME`：用于从时间字面量中提取时间组件
+  ```sql
+  EXTRACT(HOUR FROM TIME '17:57:40')
+  ```
+
+- `TIMESTAMP`：用于从时间戳字面量中提取日期和时间组件
+  ```sql
+  EXTRACT(YEAR FROM TIMESTAMP '2025-05-21T17:57:40')
+  ```
+
+- `TIMESTAMP WITH TIMEZONE`：用于从带时区的时间戳字面量中提取组件
+  ```sql
+  EXTRACT(HOUR FROM TIMESTAMPTZ '2025-05-21T17:57:40+08:00')
+  ```
+
+示例：
+
+```sql
+EXTRACT(YEAR FROM TIMESTAMP '2001-02-16 20:38:40')
+EXTRACT(HOUR FROM TIMESTAMP '2001-02-16 20:38:40')
+EXTRACT(DOW FROM TIMESTAMP '2001-02-16 20:38:40')
+EXTRACT(YEAR FROM eventTime)
+EXTRACT(HOUR FROM eventTime)
+EXTRACT(DOW FROM eventTime)
+```
 
 ### FORMATDATETIME
 
@@ -910,11 +954,31 @@ CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss','UTC+6')
 
 将一个值转换为另一个数据类型。
 
-支持的数据类型有：STRING | VARCHAR，INT | INTEGER，LONG | BIGINT，BYTE，FLOAT，DOUBLE，DECIMAL(p,s)，TIMESTAMP，DATE，TIME，BYTES
+支持的数据类型有：STRING | VARCHAR，TINYINT，SMALLINT，INT | INTEGER，LONG | BIGINT，BYTE，FLOAT，DOUBLE，DECIMAL(p,s)，TIMESTAMP，DATE，TIME，BYTES
 
 示例:
 
-CONVERT(NAME AS INT)
+CAST(NAME AS INT)
+
+CAST(FLAG AS BOOLEAN)
+
+注意：将值转换为布尔数据类型时，遵循以下规则：
+
+1.  如果值可以被解释为布尔字符串（'true' 或 'false'），则返回相应的布尔值。
+2.  如果值可以被解释为数值（1 或 0），则对于 1 返回 true，对于 0 返回 false。
+3.  如果值无法根据以上规则进行解释，则抛出 TransformException 异常。
+
+### TRY_CAST
+
+```TRY_CAST(value as dataType)```
+
+该函数类似于 CAST，但当转换失败时，它返回 NULL 而不是抛出异常。
+
+支持的数据类型有：STRING | VARCHAR，TINYINT，SMALLINT，INT | INTEGER，LONG | BIGINT，BYTE，FLOAT，DOUBLE，DECIMAL(p,s)，TIMESTAMP，DATE，TIME，BYTES
+
+示例:
+
+TRY_CAST(NAME AS INT)
 
 ### COALESCE
 
@@ -995,6 +1059,8 @@ from
 
 case when c_string in ('c_string') then 1 else 0 end
 
+case when c_string in ('c_string') then true else false end
+
 ### UUID
 
 ```UUID()```
@@ -1022,14 +1088,21 @@ select ARRAY(column1,column2,column3) as arrays
 ### LATERAL VIEW
 #### EXPLODE
 
-将 array 列展开成多行。
-OUTER EXPLODE 当 array 为NULL或者为空时，返回NULL
-EXPLODE(SPLIT(FIELD_NAME,separator))用来切分字符串类型，SPLIT 第一个参数是字段名，第二个参数是分隔符
-EXPLODE(ARRAY(value1,value2)) 用于自定义数组切分，在原有基础上生成一个新的字段。
+用于将数组列展开成多行。它通过对数组应用 EXPLODE 函数，为数组中的每个元素生成一个新行。
+
+EXPLODE：将数组列转换为多行。如果数组为 NULL 或为空，则不生成行。
+
+OUTER EXPLODE：当数组为 NULL 或为空时返回 NULL，确保至少生成一行。
+
+EXPLODE(SPLIT(字段名, 分隔符))：使用指定的分隔符将字符串拆分为数组，然后将其展开为多行。
+
+EXPLODE(ARRAY(值1, 值2, ...))：将自定义数组展开为多行。
+
+示例:
 ```
-SELECT * FROM fake 
-	LATERAL VIEW EXPLODE ( SPLIT ( NAME, ',' ) ) AS NAME 
-	LATERAL VIEW EXPLODE ( SPLIT ( pk_id, ';' ) ) AS pk_id 
+SELECT * FROM dual
+	LATERAL VIEW EXPLODE ( SPLIT ( NAME, ',' ) ) AS NAME
+	LATERAL VIEW EXPLODE ( SPLIT ( pk_id, ';' ) ) AS pk_id
 	LATERAL VIEW OUTER EXPLODE ( age ) AS age
 	LATERAL VIEW OUTER EXPLODE ( ARRAY(1,1) ) AS num
 ```

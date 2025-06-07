@@ -31,7 +31,10 @@ import ChangeLog from '../changelog/connector-file-local.md';
   - [x] excel
   - [x] xml
   - [x] 二进制
-
+  - [x] canal_json
+  - [x] debezium_json
+  - [x] maxwell_json
+  
 ## 选项
 
 | 名称                                    | 类型      | 是否必需 | 默认值                                        | 描述                                                              |
@@ -44,7 +47,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | file_format_type                      | string  | 否    | "csv"                                      | 文件格式类型                                                          |
 | filename_extension                    | string  | 否    | -                                          | 使用自定义的文件扩展名覆盖默认的文件扩展名。 例如：`.xml`, `.json`, `dat`, `.customtype` |
 | field_delimiter                       | string  | 否    | '\001'                                     | 仅在 file_format_type 为 text 时使用                                  |
-| row_delimiter                         | string  | 否    | "\n"                                       | 仅在 file_format_type 为 text 时使用                                  |
+| row_delimiter                         | string  | 否    | "\n"                                       | 仅在 file_format_type 为 `text`、`csv`、`json` 时使用                                  |
 | have_partition                        | boolean | 否    | false                                      | 是否需要处理分区                                                        |
 | partition_by                          | array   | 否    | -                                          | 仅在 have_partition 为 true 时使用                                    |
 | partition_dir_expression              | string  | 否    | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | 仅在 have_partition 为 true 时使用                                    |
@@ -102,7 +105,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
 我们支持以下文件类型：
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `canal_json` `debezium_json` `maxwell_json`
 
 请注意，最终的文件名将以 file_format_type 的后缀结尾，文本文件的后缀是 `txt`。
 
@@ -112,7 +115,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
 ### row_delimiter [string]
 
-文件中行之间的分隔符。仅在 `text` 文件格式下需要。
+文件中行之间的分隔符。仅在 `text`、`csv`、`json` 文件格式下需要。
 
 ### have_partition [boolean]
 

@@ -71,7 +71,9 @@ public class JdbcCatalogUtils {
 
         JdbcDialect jdbcDialect =
                 JdbcDialectLoader.load(
-                        jdbcConnectionConfig.getUrl(), jdbcConnectionConfig.getCompatibleMode());
+                        jdbcConnectionConfig.getUrl(),
+                        jdbcConnectionConfig.getDialect(),
+                        jdbcConnectionConfig.getCompatibleMode());
         Optional<Catalog> catalog = findCatalog(jdbcConnectionConfig, jdbcDialect);
         if (catalog.isPresent()) {
             try (AbstractJdbcCatalog jdbcCatalog = (AbstractJdbcCatalog) catalog.get()) {
@@ -403,6 +405,8 @@ public class JdbcCatalogUtils {
                 .ifPresent(val -> catalogConfig.put(JdbcCatalogOptions.COMPATIBLE_MODE.key(), val));
         catalogConfig.put(
                 JdbcOptions.DECIMAL_TYPE_NARROWING.key(), config.isDecimalTypeNarrowing());
+        catalogConfig.put(JdbcOptions.INT_TYPE_NARROWING.key(), config.isIntTypeNarrowing());
+        catalogConfig.put(JdbcOptions.HANDLE_BLOB_AS_STRING.key(), config.isHandleBlobAsString());
         return ReadonlyConfig.fromMap(catalogConfig);
     }
 }

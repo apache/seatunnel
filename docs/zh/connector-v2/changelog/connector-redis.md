@@ -2,9 +2,10 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve][Redis] Optimized Redis connection params (#8841)|https://github.com/apache/seatunnel/commit/e56f06cdf0| dev |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
-|[improve] update Redis connector config option (#8631)|https://github.com/apache/seatunnel/commit/f1c313eea6| dev |
+|[hotfix][redis] fix npe cause by null host parameter (#8881)|https://github.com/apache/seatunnel/commit/7bd5865165|2.3.10|
+|[Improve][Redis] Optimized Redis connection params (#8841)|https://github.com/apache/seatunnel/commit/e56f06cdf0|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
+|[improve] update Redis connector config option (#8631)|https://github.com/apache/seatunnel/commit/f1c313eea6|2.3.10|
 |[Feature][Redis] Flush data when the time reaches checkpoint.interval and update test case (#8308)|https://github.com/apache/seatunnel/commit/e15757bcd7|2.3.9|
 |Revert &quot;[Feature][Redis] Flush data when the time reaches checkpoint interval&quot; and &quot;[Feature][CDC] Add &#x27;schema-changes.enabled&#x27; options&quot; (#8278)|https://github.com/apache/seatunnel/commit/fcb2938286|2.3.9|
 |[Feature][Redis] Flush data when the time reaches checkpoint.interval (#8198)|https://github.com/apache/seatunnel/commit/2e24941e6a|2.3.9|

@@ -36,7 +36,7 @@ All data types are mapped to string.
 
 ## Task Example
 
-### Simple:
+### Simple
 
 ```hocon
 sink {

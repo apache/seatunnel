@@ -18,12 +18,16 @@
 package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.shade.org.eclipse.jetty.server.Server;
+import org.apache.seatunnel.shade.org.eclipse.jetty.server.ServerConnector;
 import org.apache.seatunnel.shade.org.eclipse.jetty.servlet.DefaultServlet;
 import org.apache.seatunnel.shade.org.eclipse.jetty.servlet.FilterHolder;
 import org.apache.seatunnel.shade.org.eclipse.jetty.servlet.ServletContextHandler;
 import org.apache.seatunnel.shade.org.eclipse.jetty.servlet.ServletHolder;
+import org.apache.seatunnel.shade.org.eclipse.jetty.util.ssl.SslContextFactory;
 
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.HttpConfig;
+import org.apache.seatunnel.engine.server.rest.filter.BasicAuthFilter;
 import org.apache.seatunnel.engine.server.rest.filter.ExceptionHandlingFilter;
 import org.apache.seatunnel.engine.server.rest.servlet.AllLogNameServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.AllNodeLogServlet;
@@ -46,6 +50,7 @@ import org.apache.seatunnel.engine.server.rest.servlet.UpdateTagsServlet;
 
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
+import shade.org.apache.commons.lang3.StringUtils;
 
 import javax.servlet.DispatcherType;
 import javax.servlet.MultipartConfigElement;
@@ -95,7 +100,49 @@ public class JettyService {
                             port, seaTunnelConfig.getEngineConfig().getHttpConfig().getPortRange());
         }
         log.info("SeaTunnel REST service will start on port {}", port);
-        this.server = new Server(port);
+        this.server = new Server();
+
+        if (seaTunnelConfig.getEngineConfig().getHttpConfig().isEnabled()) {
+            // Enable http
+            ServerConnector httpConnector = new ServerConnector(server);
+            httpConnector.setPort(port);
+            server.addConnector(httpConnector);
+        }
+
+        if (seaTunnelConfig.getEngineConfig().getHttpConfig().isEnableHttps()) {
+            // Enable https
+            log.info("SeaTunnel REST service will start on https port {}", port);
+            enableHttps(server, seaTunnelConfig);
+        }
+    }
+
+    public void enableHttps(Server server, SeaTunnelConfig seaTunnelConfig) {
+
+        HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
+        int httpsPort = httpConfig.getHttpsPort();
+        String keyStorePath = httpConfig.getKeyStorePath();
+        String keyStorePassword = httpConfig.getKeyStorePassword();
+        String keyManagerPassword = httpConfig.getKeyManagerPassword();
+        String trustStorePath = httpConfig.getTrustStorePath();
+        String trustStorePassword = httpConfig.getTrustStorePassword();
+
+        SslContextFactory.Server sslContextFactory = new SslContextFactory.Server();
+
+        sslContextFactory.setKeyStorePath(keyStorePath);
+        sslContextFactory.setKeyStorePassword(keyStorePassword);
+        sslContextFactory.setKeyManagerPassword(keyManagerPassword);
+
+        if (StringUtils.isNotBlank(trustStorePath) && StringUtils.isNotBlank(trustStorePassword)) {
+            sslContextFactory.setTrustStorePath(trustStorePath);
+            sslContextFactory.setTrustStorePassword(trustStorePassword);
+            sslContextFactory.setNeedClientAuth(true);
+            log.info("SeaTunnel REST service will start with mutual auth");
+        }
+
+        ServerConnector sslConnector = new ServerConnector(server, sslContextFactory);
+        sslConnector.setPort(httpsPort);
+        server.addConnector(sslConnector);
+        log.info("SeaTunnel REST service will start on https port {}", httpsPort);
     }
 
     public void createJettyServer() {
@@ -103,8 +150,17 @@ public class JettyService {
         ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
         context.setContextPath(seaTunnelConfig.getEngineConfig().getHttpConfig().getContextPath());
 
-        FilterHolder filterHolder = new FilterHolder(new ExceptionHandlingFilter());
-        context.addFilter(filterHolder, "/*", EnumSet.of(DispatcherType.REQUEST));
+        // Add exception handling filter
+        FilterHolder exceptionFilterHolder = new FilterHolder(new ExceptionHandlingFilter());
+        context.addFilter(exceptionFilterHolder, "/*", EnumSet.of(DispatcherType.REQUEST));
+
+        // Add basic authentication filter if enabled
+        HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
+        if (httpConfig.isEnableBasicAuth()) {
+            log.info("Basic authentication is enabled for web UI");
+            FilterHolder basicAuthFilterHolder = new FilterHolder(new BasicAuthFilter(httpConfig));
+            context.addFilter(basicAuthFilterHolder, "/*", EnumSet.of(DispatcherType.REQUEST));
+        }
 
         ServletHolder defaultServlet = new ServletHolder("default", DefaultServlet.class);
         URL uiResource = JettyService.class.getClassLoader().getResource("ui");

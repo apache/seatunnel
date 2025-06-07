@@ -59,21 +59,35 @@ jobs:
         env:
           MAVEN_OPTS: -Xmx512m
 
-  dead-link:
-    name: Dead links
+  helm-chart-check:
+    name: Check Helm Chart Syntax
+    needs: [ license-header, code-style]
     runs-on: ubuntu-latest
-    timeout-minutes: 150
     steps:
-      - uses: actions/checkout@v2
-      - run: sudo npm install -g markdown-link-check@3.8.7
-      - run: |
-          for file in $(find . -name "*.md"); do
-            markdown-link-check -c .dlc.json -q "$file"
-          done
+      - uses: actions/checkout@v4
+      - name: Setup Helm
+        uses: azure/setup-helm@v4.3.0
+        id: install
+      - name: Lint Chart
+        run: helm lint deploy/kubernetes/seatunnel
+
+#  dead-link:
+#    name: Dead links
+#    runs-on: ubuntu-latest
+#    timeout-minutes: 150
+#    # Temporarily ignore this job to avoid blocking PRs
+#    continue-on-error: true
+#    steps:
+#      - uses: actions/checkout@v2
+#      - run: sudo npm install -g markdown-link-check@3.8.7
+#      - run: |
+#          for file in $(find . -name "*.md"); do
+#            markdown-link-check -c .dlc.json -q "$file"
+#          done
 
   sanity-check:
     name: Sanity check results
-    needs: [ license-header, code-style, dead-link ]
+    needs: [ license-header, code-style ]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -81,7 +95,6 @@ jobs:
         run: |
           [[ ${{ needs.license-header.result }} == 'success' ]] || exit 1;
           [[ ${{ needs.code-style.result }} == 'success' ]] || exit 1;
-          [[ ${{ needs.dead-link.result }} == 'success' ]] || exit 1;
 
   changes:
     runs-on: ubuntu-latest

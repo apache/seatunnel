@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -110,6 +111,14 @@ public class ImportClassCheckTest {
                 checkImportClassPrefixWithAll(Collections.singletonList("org.eclipse.jetty"));
         Assertions.assertEquals(0, errorMap.size(), shadeErrorMsg("jetty", errorMap));
         log.info("check jetty shade successfully");
+    }
+
+    @Test
+    public void hikariShadeCheck() {
+        Map<String, List<String>> errorMap =
+                checkImportClassPrefixWithAll(Collections.singletonList("com.zaxxer.hikari"));
+        Assertions.assertEquals(0, errorMap.size(), shadeErrorMsg("hikari", errorMap));
+        log.info("check hikari shade successfully");
     }
 
     @Test
@@ -215,5 +224,10 @@ public class ImportClassCheckTest {
     private String getImportClassLineNum(ImportDeclaration importDeclaration) {
         Range range = importDeclaration.getRange().get();
         return String.format("%s  [%s]", importDeclaration.getName().asString(), range.end.line);
+    }
+
+    @AfterAll
+    public static void cleanup() {
+        importsMap.clear();
     }
 }

@@ -19,4 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.hbase.state;
 
 import java.io.Serializable;
 
-public class HbaseCommitInfo implements Serializable {}
+public class HbaseCommitInfo implements Serializable {
+    private static final long serialVersionUID = -5890085491808138401L;
+}

@@ -2,11 +2,11 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Feature][Kafka] Support native format read/write kafka record (#8724)|https://github.com/apache/seatunnel/commit/86e2d6fcfa| dev |
-|[improve] update kafka source default schema from content&lt;ROW&lt;content STRING&gt;&gt; to content&lt;STRING&gt; (#8642)|https://github.com/apache/seatunnel/commit/db6e2994d4| dev |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
-|[improve] kafka connector options (#8616)|https://github.com/apache/seatunnel/commit/aadfe99f88| dev |
-|[Fix] [Kafka Source] kafka source use topic as table name instead of fullName (#8401)|https://github.com/apache/seatunnel/commit/3d4f4bb33a| dev |
+|[Feature][Kafka] Support native format read/write kafka record (#8724)|https://github.com/apache/seatunnel/commit/86e2d6fcfa|2.3.10|
+|[improve] update kafka source default schema from content&lt;ROW&lt;content STRING&gt;&gt; to content&lt;STRING&gt; (#8642)|https://github.com/apache/seatunnel/commit/db6e2994d4|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
+|[improve] kafka connector options (#8616)|https://github.com/apache/seatunnel/commit/aadfe99f88|2.3.10|
+|[Fix] [Kafka Source] kafka source use topic as table name instead of fullName (#8401)|https://github.com/apache/seatunnel/commit/3d4f4bb33a|2.3.10|
 |[Feature][Kafka] Add `debezium_record_table_filter` and fix error (#8391)|https://github.com/apache/seatunnel/commit/b27a30a5aa|2.3.9|
 |[Bug][Kafka] kafka reads repeatedly (#8465)|https://github.com/apache/seatunnel/commit/f67f27279a|2.3.9|
 |[Hotfix][Connector-V2][kafka] fix kafka sink config exactly-once  exception (#7857)|https://github.com/apache/seatunnel/commit/92b3253a5b|2.3.9|

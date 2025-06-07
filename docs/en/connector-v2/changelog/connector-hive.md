@@ -2,9 +2,12 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve][connector-hive] Improved hive file allocation algorithm for subtasks (#8876)|https://github.com/apache/seatunnel/commit/89d1878ade| dev |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
-|[Fix][Hive] Writing parquet files supports the optional timestamp int96 (#8509)|https://github.com/apache/seatunnel/commit/856aea1952| dev |
+|[Improve] Refactor file enumerator to prevent duplicate put split (#8989)|https://github.com/apache/seatunnel/commit/fdf1beae9c| dev |
+|Revert &quot; [improve] update localfile connector config&quot; (#9018)|https://github.com/apache/seatunnel/commit/cdc79e13ad|2.3.10|
+| [improve] update localfile connector config (#8765)|https://github.com/apache/seatunnel/commit/def369a85f|2.3.10|
+|[Improve][connector-hive] Improved hive file allocation algorithm for subtasks (#8876)|https://github.com/apache/seatunnel/commit/89d1878ade|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
+|[Fix][Hive] Writing parquet files supports the optional timestamp int96 (#8509)|https://github.com/apache/seatunnel/commit/856aea1952|2.3.10|
 |[Fix] Set all snappy dependency use one version (#8423)|https://github.com/apache/seatunnel/commit/3ac977c8d3|2.3.9|
 |[Fix][Connector-V2] Fix hive krb5 path not work (#8228)|https://github.com/apache/seatunnel/commit/e18a4d07b4|2.3.9|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|2.3.9|

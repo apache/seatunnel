@@ -31,6 +31,33 @@ public class HttpConfig implements Serializable {
 
     private int port = ServerConfigOptions.MasterServerConfigOptions.PORT.defaultValue();
 
+    /** Whether to enable https. */
+    private boolean enableHttps =
+            ServerConfigOptions.MasterServerConfigOptions.ENABLE_HTTPS.defaultValue();
+
+    /** The port of https. */
+    private int httpsPort = ServerConfigOptions.MasterServerConfigOptions.HTTPS_PORT.defaultValue();
+
+    /** The path of keystore file. */
+    private String keyStorePath =
+            ServerConfigOptions.MasterServerConfigOptions.KEY_STORE_PATH.defaultValue();
+
+    /** The password of keystore file. */
+    private String keyStorePassword =
+            ServerConfigOptions.MasterServerConfigOptions.KEY_STORE_PASSWORD.defaultValue();
+
+    /** The password of key manager. */
+    private String keyManagerPassword =
+            ServerConfigOptions.MasterServerConfigOptions.KEY_MANAGER_PASSWORD.defaultValue();
+
+    /** The path of truststore file. */
+    private String trustStorePath =
+            ServerConfigOptions.MasterServerConfigOptions.TRUST_STORE_PATH.defaultValue();
+
+    /** The password of truststore file. */
+    private String trustStorePassword =
+            ServerConfigOptions.MasterServerConfigOptions.TRUST_STORE_PASSWORD.defaultValue();
+
     private String contextPath =
             ServerConfigOptions.MasterServerConfigOptions.CONTEXT_PATH.defaultValue();
 
@@ -38,6 +65,18 @@ public class HttpConfig implements Serializable {
             ServerConfigOptions.MasterServerConfigOptions.ENABLE_DYNAMIC_PORT.defaultValue();
 
     private int portRange = ServerConfigOptions.MasterServerConfigOptions.PORT_RANGE.defaultValue();
+
+    /** Whether to enable basic authentication. */
+    private boolean enableBasicAuth =
+            ServerConfigOptions.MasterServerConfigOptions.ENABLE_BASIC_AUTH.defaultValue();
+
+    /** The username for basic authentication. */
+    private String basicAuthUsername =
+            ServerConfigOptions.MasterServerConfigOptions.BASIC_AUTH_USERNAME.defaultValue();
+
+    /** The password for basic authentication. */
+    private String basicAuthPassword =
+            ServerConfigOptions.MasterServerConfigOptions.BASIC_AUTH_PASSWORD.defaultValue();
 
     public void setPort(int port) {
         checkPositive(port, ServerConfigOptions.MasterServerConfigOptions.HTTP + " must be > 0");

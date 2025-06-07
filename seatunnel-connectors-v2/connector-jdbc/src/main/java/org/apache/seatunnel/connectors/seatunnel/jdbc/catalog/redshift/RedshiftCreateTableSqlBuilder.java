@@ -95,16 +95,19 @@ public class RedshiftCreateTableSqlBuilder {
         return createTableSql.toString();
     }
 
-    private String buildColumnSql(Column column) {
+    String buildColumnSql(Column column) {
         StringBuilder columnSql = new StringBuilder();
         columnSql.append("\"").append(column.getName()).append("\" ");
-        String columnType =
-                (StringUtils.equals(sourceCatalogName, DatabaseIdentifier.REDSHIFT)
-                                        || StringUtils.equals(
-                                                sourceCatalogName, DatabaseIdentifier.POSTGRESQL))
-                                && StringUtils.isNotBlank(column.getSourceType())
-                        ? column.getSourceType()
-                        : RedshiftTypeConverter.INSTANCE.reconvert(column).getColumnType();
+        String columnType;
+        if (column.getSinkType() != null) {
+            columnType = column.getSinkType();
+        } else if ((StringUtils.equals(sourceCatalogName, DatabaseIdentifier.REDSHIFT)
+                        || StringUtils.equals(sourceCatalogName, DatabaseIdentifier.POSTGRESQL))
+                && StringUtils.isNotBlank(column.getSourceType())) {
+            columnType = column.getSourceType();
+        } else {
+            columnType = RedshiftTypeConverter.INSTANCE.reconvert(column).getColumnType();
+        }
         columnSql.append(columnType);
 
         if (!column.isNullable()) {

@@ -18,12 +18,15 @@
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.table.FormatOptions;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.FormatterContext;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeUtil;
 
@@ -37,18 +40,14 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PARTITION_SPEC;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PROJECT;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.TABLE_NAME;
-
 @Slf4j
 public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         implements SupportMultiTableSinkWriter<Void> {
     private RecordWriter recordWriter;
     private final TableTunnel.UploadSession session;
     private final TableSchema tableSchema;
-    private static final Long BLOCK_0 = 0L;
     private final SeaTunnelRowType rowType;
+    private final FormatterContext formatterContext;
 
     public MaxcomputeWriter(ReadonlyConfig readonlyConfig, SeaTunnelRowType rowType) {
         try {
@@ -56,19 +55,25 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             Table table = MaxcomputeUtil.getTable(readonlyConfig);
             this.tableSchema = table.getSchema();
             TableTunnel tunnel = MaxcomputeUtil.getTableTunnel(readonlyConfig);
-            if (readonlyConfig.getOptional(PARTITION_SPEC).isPresent()) {
-                PartitionSpec partitionSpec = new PartitionSpec(readonlyConfig.get(PARTITION_SPEC));
+            if (readonlyConfig.getOptional(MaxcomputeSinkOptions.PARTITION_SPEC).isPresent()) {
+                PartitionSpec partitionSpec =
+                        new PartitionSpec(readonlyConfig.get(MaxcomputeSinkOptions.PARTITION_SPEC));
                 session =
                         tunnel.createUploadSession(
-                                readonlyConfig.get(PROJECT),
-                                readonlyConfig.get(TABLE_NAME),
+                                readonlyConfig.get(MaxcomputeSinkOptions.PROJECT),
+                                readonlyConfig.get(MaxcomputeSinkOptions.TABLE_NAME),
                                 partitionSpec);
             } else {
                 session =
                         tunnel.createUploadSession(
-                                readonlyConfig.get(PROJECT), readonlyConfig.get(TABLE_NAME));
+                                readonlyConfig.get(MaxcomputeSinkOptions.PROJECT),
+                                readonlyConfig.get(MaxcomputeSinkOptions.TABLE_NAME));
             }
-            this.recordWriter = session.openRecordWriter(BLOCK_0);
+
+            this.formatterContext =
+                    new FormatterContext(readonlyConfig.get(FormatOptions.DATETIME_FORMAT));
+
+            this.recordWriter = session.openBufferedWriter();
             log.info("open record writer success");
         } catch (Exception e) {
             throw new MaxcomputeConnectorException(
@@ -80,7 +85,7 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     public void write(SeaTunnelRow seaTunnelRow) throws IOException {
         Record record =
                 MaxcomputeTypeMapper.getMaxcomputeRowData(
-                        seaTunnelRow, this.tableSchema, this.rowType);
+                        seaTunnelRow, this.tableSchema, this.rowType, formatterContext);
         recordWriter.write(record);
     }
 
@@ -89,7 +94,7 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         if (recordWriter != null) {
             recordWriter.close();
             try {
-                session.commit(new Long[] {BLOCK_0});
+                session.commit();
             } catch (Exception e) {
                 throw new MaxcomputeConnectorException(
                         CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, e);

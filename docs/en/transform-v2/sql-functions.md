@@ -186,8 +186,6 @@ RPAD(TEXT, 10, '-')
 
 Removes all leading spaces or other specified characters from a string.
 
-This function is deprecated, use TRIM instead of it.
-
 Example:
 
 LTRIM(NAME)
@@ -198,8 +196,6 @@ LTRIM(NAME)
 
 Removes all trailing spaces or other specified characters from a string.
 
-This function is deprecated, use TRIM instead of it.
-
 Example:
 
 RTRIM(NAME)
@@ -208,13 +204,11 @@ RTRIM(NAME)
 
 ```TRIM(string[, characterToTrimString])```
 
-Removes all leading spaces or other specified characters from a string.
-
-This function is deprecated, use TRIM instead of it.
+Removes all leading spaces and trailing spaces or other specified characters from a string.
 
 Example:
 
-LTRIM(NAME)
+TRIM(NAME)
 
 ### REGEXP_REPLACE
 
@@ -763,9 +757,59 @@ DAY_OF_YEAR(CREATED)
 
 Returns a value of the specific time unit from a date/time value. This method returns a numeric value with EPOCH field and an int for all other fields.
 
-Example:
+The following are valid field names for EXTRACT:
 
-EXTRACT(SECOND FROM CURRENT_TIMESTAMP)
+- `CENTURY`: The century; for interval values, the year field divided by 100
+- `DAY`: The day of the month (1-31); for interval values, the number of days
+- `DECADE`: The year field divided by 10
+- `DOW` or `DAYOFWEEK`: The day of the week as Sunday (0) to Saturday (6)
+- `DOY`: The day of the year (1-365/366)
+- `EPOCH`: For timestamp values, the number of seconds since 1970-01-01 00:00:00; for interval values, the total number of seconds
+- `HOUR`: The hour field (0-23)
+- `ISODOW`: The day of the week as Monday (1) to Sunday (7), matching ISO 8601
+- `ISOYEAR`: The ISO 8601 week-numbering year
+- `MICROSECONDS`: The seconds field, including fractional parts, multiplied by 1,000,000
+- `MILLENNIUM`: The millennium; for interval values, the year field divided by 1000
+- `MILLISECONDS`: The seconds field, including fractional parts, multiplied by 1,000
+- `MINUTE`: The minutes field (0-59)
+- `MONTH`: The number of the month within the year (1-12); for interval values, the number of months modulo 12 (0-11)
+- `QUARTER`: The quarter of the year (1-4) that the date is in
+- `SECOND`: The seconds field, including any fractional seconds
+- `WEEK`: The number of the ISO 8601 week-numbering week of the year (1-53)
+- `YEAR`: The year field
+
+The EXTRACT function supports all four DateTime literal types:
+
+- `DATE`: For extracting date components from a date literal
+  ```sql
+  EXTRACT(YEAR FROM DATE '2025-05-21')
+  ```
+
+- `TIME`: For extracting time components from a time literal
+  ```sql
+  EXTRACT(HOUR FROM TIME '17:57:40')
+  ```
+
+- `TIMESTAMP`: For extracting date and time components from a timestamp literal
+  ```sql
+  EXTRACT(YEAR FROM TIMESTAMP '2025-05-21T17:57:40')
+  ```
+
+- `TIMESTAMP WITH TIMEZONE`: For extracting components from a timestamp with timezone literal
+  ```sql
+  EXTRACT(HOUR FROM TIMESTAMPTZ '2025-05-21T17:57:40+08:00')
+  ```
+
+Examples:
+
+```sql
+EXTRACT(YEAR FROM TIMESTAMP '2001-02-16 20:38:40')
+EXTRACT(HOUR FROM TIMESTAMP '2001-02-16 20:38:40')
+EXTRACT(DOW FROM TIMESTAMP '2001-02-16 20:38:40')
+EXTRACT(YEAR FROM eventTime)
+EXTRACT(HOUR FROM eventTime)
+EXTRACT(DOW FROM eventTime)
+```
 
 ### FORMATDATETIME
 
@@ -917,11 +961,29 @@ CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss','UTC+6')
 
 Converts a value to another data type.
 
-Supported data types: STRING | VARCHAR, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP, DATE, TIME, BYTES
+Supported data types: STRING | VARCHAR, TINYINT, SMALLINT, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP, DATE, TIME, BYTES, BOOLEAN
+
+Example:
+* CAST(NAME AS INT)
+* CAST(FLAG AS BOOLEAN)
+
+NOTE:
+Converts a value to a BOOLEAN data type according to the following rules:
+1. If the value can be interpreted as a boolean string (`'true'` or `'false'`), it returns the corresponding boolean value.
+2. If the value can be interpreted as a numeric value (`1` or `0`), it returns `true` for `1` and `false` for `0`.
+3. If the value cannot be interpreted according to the above rules, it throws a `TransformException`.
+
+### TRY_CAST
+
+```TRY_CAST(value as dataType)```
+
+This function is similar to CAST, but when the conversion fails, it returns NULL instead of throwing an exception.
+
+Supported data types: STRING | VARCHAR, TINYINT, SMALLINT, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP, DATE, TIME, BYTES
 
 Example:
 
-CONVERT(NAME AS INT)
+TRY_CAST(NAME AS INT)
 
 ### COALESCE
 
@@ -991,7 +1053,11 @@ select
   case
     when c_tinyint <> 117 then 1
     else 0
-  end as c_number_0
+  end as c_number_0,
+  case
+    when c_boolean then 1
+    else 0
+  end as c_boolean_0
 from
   dual
 ```
@@ -1001,6 +1067,8 @@ It is used to determine whether the condition is valid and return different valu
 Example:
 
 case when c_string in ('c_string') then 1 else 0 end
+
+case when c_string in ('c_string') then true else false end
 
 ### UUID
 
@@ -1025,17 +1093,24 @@ select ARRAY(column1,column2,column3) as arrays
 
 notes: Currently only string, double, long, int types are supported
 
-### LATERAL VIEW 
+### LATERAL VIEW
 #### EXPLODE
 
-explode array column to rows.
-OUTER EXPLODE will return NULL, while array is NULL or empty
-EXPLODE(SPLIT(FIELD_NAME,separator))Used to split string type. The first parameter of SPLIT function  is the field name, the second parameter is the separator
-EXPLODE(ARRAY(value1,value2)) Used to custom array type.
+Used to flatten array columns into multiple rows. It applies the EXPLODE function to an array and generates a new row for each element.
+
+EXPLODE: Converts an array column into multiple rows. No rows generated if array is NULL or empty.
+
+OUTER EXPLODE: Returns NULL when array is NULL or empty, ensuring at least one row is generated.
+
+EXPLODE(SPLIT(field_name, separator)): Splits a string into an array using the specified separator, then explodes it into rows.
+
+EXPLODE(ARRAY(value1, value2, ...)): Explodes a custom-defined array into multiple rows.
+
+Example:
 ```
-SELECT * FROM dual 
-	LATERAL VIEW EXPLODE ( SPLIT ( NAME, ',' ) ) AS NAME 
-	LATERAL VIEW EXPLODE ( SPLIT ( pk_id, ';' ) ) AS pk_id 
+SELECT * FROM dual
+	LATERAL VIEW EXPLODE ( SPLIT ( NAME, ',' ) ) AS NAME
+	LATERAL VIEW EXPLODE ( SPLIT ( pk_id, ';' ) ) AS pk_id
 	LATERAL VIEW OUTER EXPLODE ( age ) AS age
 	LATERAL VIEW OUTER EXPLODE ( ARRAY(1,1) ) AS num
 ```

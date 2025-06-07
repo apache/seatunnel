@@ -35,6 +35,7 @@
         <mockwebserver.version>3.6.0</mockwebserver.version>
         <zhipu.version>release-V4-2.3.0</zhipu.version>
         <py4j.version>0.10.9.9</py4j.version>
+        <aws.sdk.version>2.27.21</aws.sdk.version>
     </properties>
 
     <dependencyManagement>
@@ -49,6 +50,16 @@
     </dependencyManagement>
 
     <dependencies>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>bedrockruntime</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>apache-client</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
         <dependency>
             <groupId>net.sf.py4j</groupId>
             <artifactId>py4j</artifactId>

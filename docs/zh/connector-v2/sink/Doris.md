@@ -56,6 +56,7 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 | sink.buffer-count              | int     | No       | 3                            | 用于缓存stream load数据的缓冲区计数。                                                                                                                              |
 | doris.batch.size               | int     | No       | 1024                         | 每次http请求写入doris的批量大小，当row达到该大小或者执行checkpoint时，缓存的数据就会写入服务器。                                                                                           |
 | needs_unsupported_type_casting | boolean | No       | false                        | 是否启用不支持的类型转换，例如 Decimal64 到 Double。                                                                                                                   |
+| case_sensitive                 | boolean | No       | true                         | 是否保留表名和字段名的原始大小写。当设置为 false 时，表名和字段名将被转换为小写。                                                                                        |
 | schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | schema保存模式，请参考下面的`schema_save_mode`                                                                                                                   |
 | data_save_mode                 | Enum    | no       | APPEND_DATA                  | 数据保存模式，请参考下面的`data_save_mode`。                                                                                                                        |
 | save_mode_create_template      | string  | no       | see below                    | 见下文。                                                                                                                                                  |
@@ -121,7 +122,7 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 ```
 
 连接器会自动从上游获取对应类型完成填充，
-并从“rowtype_fields”中删除 id 字段。 该方法可用于自定义字段类型和属性的修改。
+并从"rowtype_fields"中删除 id 字段。 该方法可用于自定义字段类型和属性的修改。
 
 可以使用以下占位符：
 
@@ -173,7 +174,7 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 
 ## 任务示例
 
-### 简单示例:
+### 简单示例
 
 > 下面的例子描述了向Doris写入多种数据类型，用户需要在下游创建对应的表。
 
@@ -231,7 +232,7 @@ sink {
 }
 ```
 
-### CDC（监听数据变更捕获）事件：
+### CDC（监听数据变更捕获）事件
 
 > 本示例定义了一个SeaTunnel同步任务，通过FakeSource自动生成数据并发送给Doris Sink，FakeSource使用schema、score（int类型）模拟CDC数据，Doris需要创建一个名为test.e2e_table_sink的sink任务及其对应的表 。
 
@@ -346,23 +347,26 @@ sink {
 }
 ```
 
-## 变更日志
+### 大小写敏感配置
 
-### 2.3.0-beta 2022-10-20
-
-- 添加 Doris sink连接器
-
-### Next version
-
-- [Improve] Change Doris Config Prefix [3856](https://github.com/apache/seatunnel/pull/3856)
-
-- [Improve] Refactor some Doris Sink code as well as support 2pc and cdc [4235](https://github.com/apache/seatunnel/pull/4235)
-
-:::tip
-
-PR 4235 is an incompatible modification to PR 3856. Please refer to PR 4235 to use the new Doris connector
-
-:::
+```hocon
+sink {
+    Doris {
+        fenodes = "e2e_dorisdb:8030"
+        username = root
+        password = ""
+        database = "Test_DB"  # 保留原始大小写
+        table = "Test_Table"  # 保留原始大小写
+        case_sensitive = true # 默认值，保留原始大小写
+        sink.enable-2pc = "true"
+        sink.label-prefix = "test_case_sensitive"
+        doris.config = {
+          format = "json"
+          read_json_by_line = "true"
+        }
+    }
+}
+```
 
 ## 变更日志
 

@@ -20,7 +20,8 @@ import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum RedisErrorCode implements SeaTunnelErrorCode {
     GET_REDIS_VERSION_INFO_FAILED("RedisErrorCode-01", "Failed to get the redis version"),
-    INVALID_CONFIG("RedisErrorCode-02", "Invalid redis Config");
+    INVALID_CONFIG("RedisErrorCode-02", "Invalid redis Config"),
+    GET_RESPONSE_FAILED("RedisErrorCode-03", "Failed to get the write response");
 
     private final String code;
     private final String description;

@@ -22,8 +22,8 @@ import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.StringSplitMode;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -108,6 +108,20 @@ public interface JdbcOptions {
                     .withDescription(
                             "decimal type narrowing, if true, the decimal type will be narrowed to the int or long type if without loss of precision. Only support for Oracle at now.");
 
+    Option<Boolean> INT_TYPE_NARROWING =
+            Options.key("int_type_narrowing")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "int type narrowing, if true, the tinyint(1) type will be narrowed to the boolean type if without loss of precision. Support for MySQL at now.");
+
+    Option<Boolean> HANDLE_BLOB_AS_STRING =
+            Options.key("handle_blob_as_string")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "If true, BLOB type will be converted to STRING type. Only support for Oracle at now.");
+
     Option<String> XA_DATA_SOURCE_CLASS_NAME =
             Options.key("xa_data_source_class_name")
                     .stringType()
@@ -164,6 +178,13 @@ public interface JdbcOptions {
                     .defaultValue(false)
                     .withDescription("support copy in statement (postgresql)");
 
+    Option<String> DIALECT =
+            Options.key("dialect")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The appointed dialect, if it does not exist, is still obtained according to the url");
+
     /** source config */
     Option<String> PARTITION_COLUMN =
             Options.key("partition_column")
@@ -171,14 +192,14 @@ public interface JdbcOptions {
                     .noDefaultValue()
                     .withDescription("partition column");
 
-    Option<BigDecimal> PARTITION_UPPER_BOUND =
+    Option<String> PARTITION_UPPER_BOUND =
             Options.key("partition_upper_bound")
-                    .bigDecimalType()
+                    .stringType()
                     .noDefaultValue()
                     .withDescription("partition upper bound");
-    Option<BigDecimal> PARTITION_LOWER_BOUND =
+    Option<String> PARTITION_LOWER_BOUND =
             Options.key("partition_lower_bound")
-                    .bigDecimalType()
+                    .stringType()
                     .noDefaultValue()
                     .withDescription("partition lower bound");
     Option<Integer> PARTITION_NUM =
@@ -225,4 +246,18 @@ public interface JdbcOptions {
                     .mapType()
                     .noDefaultValue()
                     .withDescription("additional connection configuration parameters");
+
+    Option<StringSplitMode> STRING_SPLIT_MODE =
+            Options.key("split.string_split_mode")
+                    .enumType(StringSplitMode.class)
+                    .defaultValue(StringSplitMode.SAMPLE)
+                    .withDescription(
+                            "Supports different string splitting algorithms. By default, `sample` is used to determine the split by sampling the string value. You can switch to `charset_based` to enable charset-based string splitting algorithm. When set to `charset_based`, the algorithm assumes characters of partition_column are within ASCII range 32-126, which covers most character-based splitting scenarios.");
+
+    Option<String> STRING_SPLIT_MODE_COLLATE =
+            Options.key("split.string_split_mode_collate")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Specifies the collation to use when string_split_mode is set to `charset_based` and the table has a special collation. If not specified, the database's default collation will be used.");
 }

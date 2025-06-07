@@ -27,6 +27,7 @@ import lombok.Data;
 @Builder
 public class MilvusSourceSplit implements SourceSplit {
 
+    private static final long serialVersionUID = 128331660165765343L;
     private TablePath tablePath;
     private String splitId;
     private String partitionName;

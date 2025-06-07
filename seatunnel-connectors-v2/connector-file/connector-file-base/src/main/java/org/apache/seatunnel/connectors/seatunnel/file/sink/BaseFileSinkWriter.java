@@ -44,8 +44,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.DEFAULT_FILE_NAME_EXPRESSION;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_NAME_EXPRESSION;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.DEFAULT_FILE_NAME_EXPRESSION;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.FILE_NAME_EXPRESSION;
 
 public class BaseFileSinkWriter
         implements SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState>,

@@ -47,30 +47,33 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 
 ## 选项
 
-|名称                        |  类型    | 必需    | 默认值                |
-|---------------------------|---------|---------|---------------------|
-| path                      | string  | 是      | -                   |
-| file_format_type          | string  | 是      | -                   |
-| bucket                    | string  | 是      | -                   |
-| secret_id                 | string  | 是      | -                   |
-| secret_key                | string  | 是      | -                   |
-| region                    | string  | 是      | -                   |
-| read_columns              | list    | 是      | -                   |
-| delimiter/field_delimiter | string  | 否       | \001                |
-| parse_partition_from_path | boolean | 否       | true                |
-| skip_header_row_number    | long    | 否       | 0                   |
-| date_format               | string  | 否       | yyyy-MM-dd          |
-| datetime_format           | string  | 否       | yyyy-MM-dd HH:mm:ss |
-| time_format               | string  | 否       | HH:mm:ss            |
-| schema                    | config  | 否       | -                   |
-| sheet_name                | string  | 否       | -                   |
-| xml_row_tag               | string  | 否       | -                   |
-| xml_use_attr_format       | boolean | 否       | -                   |
-| file_filter_pattern       | string  | 否       |                     |
-| compress_codec            | string  | 否       | none                |
-| archive_compress_codec    | string  | 否       | none                |
-| encoding                  | string  | 否       | UTF-8               |
-| common-options            |         | 否       | -                   |
+| 名称                                    |  类型    | 必需  | 默认值                 |
+|---------------------------------------|---------|-----|---------------------|
+| path                                  | string  | 是   | -                   |
+| file_format_type                      | string  | 是   | -                   |
+| bucket                                | string  | 是   | -                   |
+| secret_id                             | string  | 是   | -                   |
+| secret_key                            | string  | 是   | -                   |
+| region                                | string  | 是   | -                   |
+| read_columns                          | list    | 是   | -                   |
+| delimiter/field_delimiter             | string  | 否   | \001                |
+| parse_partition_from_path             | boolean | 否   | true                |
+| skip_header_row_number                | long    | 否   | 0                   |
+| date_format                           | string  | 否   | yyyy-MM-dd          |
+| datetime_format                       | string  | 否   | yyyy-MM-dd HH:mm:ss |
+| time_format                           | string  | 否   | HH:mm:ss            |
+| schema                                | config  | 否   | -                   |
+| sheet_name                            | string  | 否   | -                   |
+| xml_row_tag                           | string  | 否   | -                   |
+| xml_use_attr_format                   | boolean | 否   | -                   |
+| csv_use_header_line                   | boolean | 否   | false               |
+| file_filter_pattern                   | string  | 否   |                     |
+| compress_codec                        | string  | 否   | none                |
+| archive_compress_codec                | string  | 否   | none                |
+| encoding                              | string  | 否   | UTF-8               |
+| binary_chunk_size                     | int     | 否   | 1024                |
+| binary_complete_file_mode             | boolean | 否   | false               |
+| common-options                        |         | 否   | -                   |
 
 ### path [string]
 
@@ -271,6 +274,11 @@ default `HH:mm:ss`
 仅当file_format为xml时才需要配置。
 指定是否使用标记属性格式处理数据。
 
+### csv_use_header_line [boolean]
+
+仅在文件格式为 csv 时可以选择配置。
+是否使用标题行来解析文件, 标题行 与 RFC 4180 匹配
+
 ### file_filter_pattern [string]
 
 过滤模式，用于过滤文件。
@@ -353,6 +361,18 @@ default `HH:mm:ss`
 仅当file_format_type为json、text、csv、xml时使用。
 要读取的文件的编码。此参数将由`Charset.forName（encoding）`解析。
 
+### binary_chunk_size [int]
+
+仅在 file_format_type 为 binary 时使用。
+
+读取二进制文件的块大小（以字节为单位）。默认为 1024 字节。较大的值可能会提高大文件的性能，但会使用更多内存。
+
+### binary_complete_file_mode [boolean]
+
+仅在 file_format_type 为 binary 时使用。
+
+是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为 false。
+
 ### common options
 
 源插件常用参数，详见[源端通用选项]（../Source-common-Options.md）。
@@ -408,6 +428,8 @@ source {
     region = "ap-chengdu"
     path = "/seatunnel/read/binary/"
     file_format_type = "binary"
+    binary_chunk_size = 2048
+    binary_complete_file_mode = false
   }
 }
 sink {

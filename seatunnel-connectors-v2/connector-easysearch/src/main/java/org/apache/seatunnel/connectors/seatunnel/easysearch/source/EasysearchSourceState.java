@@ -27,6 +27,7 @@ import java.util.Map;
 @AllArgsConstructor
 @Getter
 public class EasysearchSourceState implements Serializable {
+    private static final long serialVersionUID = 5807217062829745160L;
     private boolean shouldEnumerate;
     private Map<Integer, List<EasysearchSourceSplit>> pendingSplit;
 }

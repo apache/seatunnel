@@ -24,6 +24,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
+import java.nio.charset.Charset;
+
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 import static org.apache.seatunnel.format.json.debezium.DebeziumJsonFormatOptions.GENERATE_ROW_SIZE;
 
@@ -40,6 +42,11 @@ public class DebeziumJsonSerializationSchema implements SerializationSchema {
 
     public DebeziumJsonSerializationSchema(SeaTunnelRowType rowType) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType));
+        this.genericRow = new SeaTunnelRow(GENERATE_ROW_SIZE);
+    }
+
+    public DebeziumJsonSerializationSchema(SeaTunnelRowType rowType, Charset charset) {
+        this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType), charset);
         this.genericRow = new SeaTunnelRow(GENERATE_ROW_SIZE);
     }
 

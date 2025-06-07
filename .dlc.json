@@ -23,6 +23,9 @@
     },
     {
       "pattern": "^https://twitter.com/ASFSeaTunnel"
+    },
+    {
+      "pattern": "^https://github.com/apache/seatunnel/commit/"
     }
   ],
   "timeout": "10s",
