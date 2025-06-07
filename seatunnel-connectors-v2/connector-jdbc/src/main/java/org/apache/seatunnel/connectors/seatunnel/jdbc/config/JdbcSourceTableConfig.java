@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonAlias;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -62,6 +63,17 @@ public class JdbcSourceTableConfig implements Serializable {
 
     @JsonProperty("skip_analyze")
     private Boolean skipAnalyze;
+
+    @JsonAlias("use_regex")
+    private Boolean useRegex;
+
+    public Boolean getUseRegex() {
+        return useRegex != null ? useRegex : false;
+    }
+
+    public void setUseRegex(Boolean useRegex) {
+        this.useRegex = useRegex;
+    }
 
     @Tolerate
     public JdbcSourceTableConfig() {}

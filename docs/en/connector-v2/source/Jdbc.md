@@ -87,13 +87,44 @@ The JDBC Source connector supports two ways to specify tables:
    table_path = "testdb.table\\d+"  # Matches table1, table2, table3, etc.
    ```
 
-#### Regular Expression Support
+#### Regular Expression Support for Table Names
 
-The JDBC Source connector supports regular expressions for table matching. This is useful when you want to read multiple tables that follow a specific naming pattern.
+Starting from version X.Y.Z, the JDBC connector supports using regular expressions to match multiple tables. This feature allows you to process multiple tables with a single source configuration.
 
-Examples:
-- `testdb.table+` - Matches all tables starting with "table" followed by numbers
-- `testdb.*` - Matches all tables in the `testdb` database
+### Configuration
+
+To use regular expressions for table matching, you can:
+
+1. Set `use_regex = true` in your table configuration
+2. Use regular expression patterns in your `table_path`
+
+### Example
+
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:mysql://localhost:3306/test"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "root"
+    password = "password"
+    
+    table_list = [
+      {
+        # Match all tables starting with "order_" in the "test" database
+        table_path = "test.order_.*"
+        use_regex = true
+      }
+    ]
+  }
+}
+```
+
+### Notes
+
+- The regular expression is applied to the table name part of the `table_path`.
+- For database paths with multiple parts (e.g., `db.schema.table`), the first part is treated as the database pattern and the last part as the table pattern.
+- For performance reasons, a maximum of 1000 tables can be matched by a single regular expression pattern.
+- If `use_regex` is not specified, the connector will try to detect if the table path contains regular expression patterns.
 
 #### Multi-table Synchronization
 

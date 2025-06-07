@@ -37,10 +37,6 @@ public final class JdbcDialectLoader {
 
     private JdbcDialectLoader() {}
 
-    public static JdbcDialect load(String url, String compatibleMode) {
-        return load(url, compatibleMode, null, "", null);
-    }
-
     public static JdbcDialect load(String url, String dialect, String compatibleMode) {
         return load(url, compatibleMode, dialect, "", null);
     }

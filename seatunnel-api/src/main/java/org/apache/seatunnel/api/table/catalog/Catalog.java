@@ -164,15 +164,51 @@ public interface Catalog extends AutoCloseable {
         Pattern databasePattern =
                 Pattern.compile(config.get(ConnectorCommonOptions.DATABASE_PATTERN));
         Pattern tablePattern = Pattern.compile(config.get(ConnectorCommonOptions.TABLE_PATTERN));
+        Pattern schemaPattern = Pattern.compile(config.get(ConnectorCommonOptions.SCHEMA_PATTERN));
+
+        // Check if schema matching is needed
+        boolean needSchemaMatch = !".*".equals(config.get(ConnectorCommonOptions.SCHEMA_PATTERN));
+
         List<String> allDatabase = this.listDatabases();
         allDatabase.removeIf(s -> !databasePattern.matcher(s).matches());
         List<TablePath> tablePaths = new ArrayList<>();
+
         for (String databaseName : allDatabase) {
             tableNames = this.listTables(databaseName);
             tableNames.forEach(
                     tableName -> {
-                        if (tablePattern.matcher(databaseName + "." + tableName).matches()) {
-                            tablePaths.add(TablePath.of(databaseName, tableName));
+                        // Parse table name to get schema (if any)
+                        String schemaName = null;
+                        String actualTableName = tableName;
+
+                        if (tableName.contains(".")) {
+                            String[] parts = tableName.split("\\.");
+                            if (parts.length == 2) {
+                                schemaName = parts[0];
+                                actualTableName = parts[1];
+                            }
+                        }
+
+                        // Only check schema match when needed
+                        boolean schemaMatches = true;
+                        if (needSchemaMatch && schemaName != null) {
+                            schemaMatches = schemaPattern.matcher(schemaName).matches();
+                        }
+
+                        // Build full table name for matching
+                        String fullTableName = databaseName;
+                        if (schemaName != null) {
+                            fullTableName += "." + schemaName;
+                        }
+                        fullTableName += "." + actualTableName;
+
+                        // Use the processed table pattern for matching
+                        if (schemaMatches && tablePattern.matcher(fullTableName).matches()) {
+                            if (schemaName != null) {
+                                tablePaths.add(TablePath.of(databaseName, schemaName, actualTableName));
+                            } else {
+                                tablePaths.add(TablePath.of(databaseName, actualTableName));
+                            }
                         }
                     });
         }
