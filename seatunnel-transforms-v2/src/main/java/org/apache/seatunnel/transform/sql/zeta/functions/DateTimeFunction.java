@@ -634,8 +634,8 @@ public class DateTimeFunction {
             return null;
         }
         String format = (String) args.get(1);
-        if (format.contains("T") && !format.contains("'T'")) {
-            format = format.replace("T", "'T'");
+        if (format.contains("''T''")) {
+            format = format.replace("''T''", "'T'");
         }
         if (format.contains("yy") && format.contains("mm")) {
             DateTimeFormatter df = DateTimeFormatter.ofPattern(format);
