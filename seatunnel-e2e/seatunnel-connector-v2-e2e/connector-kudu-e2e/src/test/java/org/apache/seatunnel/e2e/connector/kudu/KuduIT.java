@@ -351,6 +351,7 @@ public class KuduIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResultEqual = container.executeJob("/kudu_to_assert_equal.conf");
         Assertions.assertEquals(0, execResultEqual.getExitCode());
         kuduClient.deleteTable(KUDU_SOURCE_TABLE);
+        kuduClient.deleteTable(KUDU_SINK_TABLE);
     }
 
     @DisabledOnContainer(
