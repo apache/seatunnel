@@ -340,6 +340,20 @@ public class KuduIT extends TestSuiteBase implements TestResource {
         kuduClient.deleteTable(KUDU_SINK_TABLE);
     }
 
+    @TestTemplate
+    public void testKuduFilter(TestContainer container) throws IOException, InterruptedException {
+        initializeKuduTable();
+        batchInsertData();
+        Container.ExecResult execResult = container.executeJob("/kudu_to_assert.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Container.ExecResult execResultRange = container.executeJob("/kudu_to_assert_range.conf");
+        Assertions.assertEquals(0, execResultRange.getExitCode());
+        Container.ExecResult execResultEqual = container.executeJob("/kudu_to_assert_equal.conf");
+        Assertions.assertEquals(0, execResultEqual.getExitCode());
+        kuduClient.deleteTable(KUDU_SOURCE_TABLE);
+        kuduClient.deleteTable(KUDU_SINK_TABLE);
+    }
+
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK},
