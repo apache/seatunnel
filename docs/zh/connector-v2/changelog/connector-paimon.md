@@ -2,7 +2,11 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Fix][Paimon] nullable and comment attribute was lost during automatic table creation (#9020)|https://github.com/apache/seatunnel/commit/eb54fdd52c| dev |
+|[feature][connectors-v2] Support in predicate pushdown in paimon (#9379)|https://github.com/apache/seatunnel/commit/1ec43755d5| dev |
+|[Improve][Connector-V2] Fix the word misspellings for paimon connector (#9332)|https://github.com/apache/seatunnel/commit/ba7f5c9e30|2.3.11|
+|[Feature][Transform] Support define sink column type (#9114)|https://github.com/apache/seatunnel/commit/ab7119e507|2.3.11|
+|[improve] paimon options (#9167)|https://github.com/apache/seatunnel/commit/b0889305c2|2.3.11|
+|[Fix][Paimon] nullable and comment attribute was lost during automatic table creation (#9020)|https://github.com/apache/seatunnel/commit/eb54fdd52c|2.3.11|
 |[Feature][Connector-V2] Support between predicate pushdown in paimon (#8962)|https://github.com/apache/seatunnel/commit/3b141cf621|2.3.10|
 |[Feature][Connector-V2] Suppor Time type in paimon connector (#8880)|https://github.com/apache/seatunnel/commit/9f1e590091|2.3.10|
 |[Feature][Paimon] Customize the hadoop user  (#8888)|https://github.com/apache/seatunnel/commit/2657626f93|2.3.10|

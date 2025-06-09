@@ -2,6 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Oracle-CDC] Remove duplicate load table names (#9357)|https://github.com/apache/seatunnel/commit/90e88cafc5| dev |
+|[Feature][Connector-JDBC] Supprot read Oracle BLOB data as string instead of bytes (#9305)|https://github.com/apache/seatunnel/commit/454a88f81a|2.3.11|
 |[Improve][CDC] Filter ddl for snapshot phase (#8911)|https://github.com/apache/seatunnel/commit/641cc72f2f|2.3.10|
 |[Improve][Oracle-CDC] Support ReadOnlyLogWriterFlushStrategy (#8912)|https://github.com/apache/seatunnel/commit/6aebdc0384|2.3.10|
 |[Improve][CDC] Extract duplicate code (#8906)|https://github.com/apache/seatunnel/commit/b922bb90e6|2.3.10|

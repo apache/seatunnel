@@ -2,11 +2,24 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Hotfix][Jdbc] Fix mysql tinyint(1) type mapping for TypeMapper (#9012)|https://github.com/apache/seatunnel/commit/5f85d7668a| dev |
-|[Feature][Jdbc] Add String type column split Support by charset-based splitting algorithm (#9002)|https://github.com/apache/seatunnel/commit/dbe41e74cd| dev |
-|[Fix][Paimon] nullable and comment attribute was lost during automatic table creation (#9020)|https://github.com/apache/seatunnel/commit/eb54fdd52c| dev |
-|[Fix][Connector-JDBC] Fix JDBC driver selection for data source connections (#8986)|https://github.com/apache/seatunnel/commit/a5aafa7301| dev |
-|[Improve][Jdbc] Upgrade sap-hana driver from 2.14.7 to 2.23.10 (#9013)|https://github.com/apache/seatunnel/commit/9ba9f169be| dev |
+|[Feature][Connector-V2] Jdbc mysql support read tinyint(1) to byte(tinyint) (#9373)|https://github.com/apache/seatunnel/commit/7b87aa6f12| dev |
+|[Improve] JdbcInputFormat nextRecord Exception throw TableId (#9374)|https://github.com/apache/seatunnel/commit/484aef593d| dev |
+|[Feature][Connector-V2][JDBC] Add presto/trino dialect  (#9388)|https://github.com/apache/seatunnel/commit/3cac2bd126| dev |
+|[Feature][Connector-JDBC] Supprot read Oracle BLOB data as string instead of bytes (#9305)|https://github.com/apache/seatunnel/commit/454a88f81a|2.3.11|
+|[Fix][Connector-jdbc] Fix postgresql sink trying to update unique key (#9293) (#9298)|https://github.com/apache/seatunnel/commit/d0c1de8357|2.3.11|
+|[Fix][Connector-V2] Fix oceanbase mysql jdbc sink create statement error (#9267)|https://github.com/apache/seatunnel/commit/79f8125ea6|2.3.11|
+|[Feature][Transform] Support define sink column type (#9114)|https://github.com/apache/seatunnel/commit/ab7119e507|2.3.11|
+|[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
+|[Fix][API] Fixed not invoke the `SinkAggregatedCommitter`&#x27;s init method (#9070)|https://github.com/apache/seatunnel/commit/df0d11d632|2.3.11|
+|[Fix][Connector-V2] Fix SqlServer create table when database with dot (#9007)|https://github.com/apache/seatunnel/commit/e09445c789|2.3.11|
+|[Fix][Connector-V2][OceanBase] oceanbase vector support simple vector index (#9072)|https://github.com/apache/seatunnel/commit/4140cd1d8f|2.3.11|
+|[Improve][Connector-V2] Optimize dialect selection in jdbc (#8820)|https://github.com/apache/seatunnel/commit/92c62c5e63|2.3.11|
+|[Fix][JDBC] fix jdbc default connection parameter invalid (#8185)|https://github.com/apache/seatunnel/commit/f85eb78b37|2.3.11|
+|[Hotfix][Jdbc] Fix mysql tinyint(1) type mapping for TypeMapper (#9012)|https://github.com/apache/seatunnel/commit/5f85d7668a|2.3.11|
+|[Feature][Jdbc] Add String type column split Support by charset-based splitting algorithm (#9002)|https://github.com/apache/seatunnel/commit/dbe41e74cd|2.3.11|
+|[Fix][Paimon] nullable and comment attribute was lost during automatic table creation (#9020)|https://github.com/apache/seatunnel/commit/eb54fdd52c|2.3.11|
+|[Fix][Connector-JDBC] Fix JDBC driver selection for data source connections (#8986)|https://github.com/apache/seatunnel/commit/a5aafa7301|2.3.11|
+|[Improve][Jdbc] Upgrade sap-hana driver from 2.14.7 to 2.23.10 (#9013)|https://github.com/apache/seatunnel/commit/9ba9f169be|2.3.11|
 |[Feature][Jdbc] Support sink ddl for sqlserver #8114 (#8936)|https://github.com/apache/seatunnel/commit/30aa485b38|2.3.10|
 |[Fix][Connector-V2] Fix parse SqlServer JDBC Url error (#8784)|https://github.com/apache/seatunnel/commit/373d2162d3|2.3.10|
 |[Improve][Jdbc] Support upsert for opengauss (#8627)|https://github.com/apache/seatunnel/commit/56110bf392|2.3.10|

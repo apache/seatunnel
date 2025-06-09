@@ -2,7 +2,10 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Feature][connector-doris] 添加表名和字段名大小写敏感功能|https://github.com/apache/seatunnel/commit/|2.3.11|
+|[Feature][Connector-doris] Adds case insensitivity feature (#9306)|https://github.com/apache/seatunnel/commit/9d1cffa5e1|2.3.11|
+|[Feature][Transform] Support define sink column type (#9114)|https://github.com/apache/seatunnel/commit/ab7119e507|2.3.11|
+|[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
+|[Improve][connector-doris] Improved doris source enumerator splits allocation algorithm for subtasks (#9108)|https://github.com/apache/seatunnel/commit/5f55e31c29|2.3.11|
 |[Improve] doris options (#8745)|https://github.com/apache/seatunnel/commit/268d76cbf3|2.3.10|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[Fix][Connector-V2] fix starRocks automatically creates tables with comment (#8568)|https://github.com/apache/seatunnel/commit/c4cb1fc4a3|2.3.10|
