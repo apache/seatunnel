@@ -41,7 +41,6 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | database                                  | String  | 否    | -                            |
 | table                                     | String  | 否    | -                            |
 | primary_keys                              | Array   | 否    | -                            |
-| support_upsert_by_query_primary_key_exist | Boolean | 否    | false                        |
 | connection_check_timeout_sec              | Int     | 否    | 30                           |
 | max_retries                               | Int     | 否    | 0                            |
 | batch_size                                | Int     | 否    | 1000                         |
@@ -138,12 +137,6 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 ### primary_keys [array]
 
 该选项用于辅助生成 insert、delete、update 等 sql 语句。设置了该选项，将会根据该选项生成对应的 sql 语句
-
-### support_upsert_by_query_primary_key_exist [boolean]
-
-根据查询主键是否存在来选择使用 INSERT sql、UPDATE sql 来处理变更事件(INSERT、UPDATE_AFTER)。仅当数据库不支持 upsert
-语法时才使用此配置
-**注意**：该方法性能较低
 
 ### connection_check_timeout_sec [int]
 
@@ -352,7 +345,6 @@ sink {
         compatible_mode="postgresLow"
         database = "sink_database"
         table = "sink_table"
-        support_upsert_by_query_primary_key_exist = true
         generate_sink_sql = true
         primary_keys = ["key1", "key2", ...]
     }
