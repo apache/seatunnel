@@ -59,12 +59,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Slf4j
 public class JdbcCatalogUtils {
     private static final String DEFAULT_CATALOG_NAME = "jdbc_catalog";
+    private static final String DOT_PLACEHOLDER = "$DOT$";
 
     public static Map<TablePath, JdbcSourceTable> getTables(
             JdbcConnectionConfig jdbcConnectionConfig, List<JdbcSourceTableConfig> tablesConfig)
@@ -88,7 +88,7 @@ public class JdbcCatalogUtils {
                         // Check if table path should be treated as regex
                         boolean isRegexPath =
                                 (tableConfig.getUseRegex() != null && tableConfig.getUseRegex())
-                                        || (StringUtils.isNotEmpty(tableConfig.getTablePath())
+                                        && (StringUtils.isNotEmpty(tableConfig.getTablePath())
                                                 && shouldTreatAsRegex(tableConfig.getTablePath()));
 
                         // Process table path with regex if needed
@@ -464,21 +464,44 @@ public class JdbcCatalogUtils {
 
         // Parse table path to extract database, schema and table patterns
         String databasePattern = ".*";
-        String schemaPattern = ".*" ;
-        String tablePattern = tablePath;
+        String schemaPattern = ".*";
+        String tableNamePattern = ".*"; // This is just the table name part
 
-        // Original logic for simple patterns without escaped dots
-        String[] parts = tablePath.split("\\.");
+        // Convert the table path to a format suitable for regex matching
 
-        if (parts.length == 3) {
-            // database.schema.table format
-            databasePattern = parts[0];
-            schemaPattern = parts[1];
+        // Step 1: Replace escaped dots (\.) with a placeholder
+        String processedTablePath = tablePath.replace("\\.", DOT_PLACEHOLDER);
+        log.info("After replacing escaped dots with placeholder: {}", processedTablePath);
+
+        // Step 2: Split by unescaped dots
+        String[] parts = processedTablePath.split("\\.");
+
+        if (parts.length == 1) {
+            // Only table pattern
+            tableNamePattern = parts[0];
         } else if (parts.length == 2) {
             // database.table format
             databasePattern = parts[0];
-
+            tableNamePattern = parts[1];
+        } else if (parts.length >= 3) {
+            // database.schema.table format
+            databasePattern = parts[0];
+            schemaPattern = parts[1];
+            tableNamePattern = parts[2];
         }
+
+        // Step 3: Restore placeholders to normal regex dots
+        databasePattern = databasePattern.replace(DOT_PLACEHOLDER, ".");
+        schemaPattern = schemaPattern.replace(DOT_PLACEHOLDER, ".");
+        tableNamePattern = tableNamePattern.replace(DOT_PLACEHOLDER, ".");
+
+        log.info(
+                "Parsed patterns - database: {}, schema: {}, table name: {}",
+                databasePattern,
+                schemaPattern,
+                tableNamePattern);
+        String tablePattern =
+                String.format("%s.%s.%s", databasePattern, schemaPattern, tableNamePattern);
 
         // Build config for Catalog.getTables
         Map<String, Object> configMap = new HashMap<>();

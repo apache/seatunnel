@@ -20,8 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 
@@ -29,28 +27,46 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Disabled("Please Test it in your local environment")
 public class JdbcSourceTest {
-    private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
-    private static final String URL = "jdbc:mysql://localhost:3306/test";
-    private static final String USERNAME = "root";
-    private static final String PASSWORD = "password";
+    private static final String MYSQL_DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
+    private static final String MYSQL_URL = "jdbc:mysql://localhost:3306/test";
+    private static final String MYSQL_USERNAME = "root";
+    private static final String MYSQL_PASSWORD = "password";
+
+    // Oracle connection details
+    private static final String ORACLE_DRIVER_CLASS = "oracle.jdbc.driver.OracleDriver";
+    private static final String ORACLE_URL = "jdbc:oracle:thin:@localhost:1521:XE";
+    private static final String ORACLE_USERNAME = "system";
+    private static final String ORACLE_PASSWORD = "password";
+
+    // PostgreSQL connection details
+//    private static final String PGSQL_DRIVER_CLASS = "org.postgresql.Driver";
+//    private static final String PGSQL_URL = "jdbc:postgresql://localhost:5432/postgres";
+//    private static final String PGSQL_USERNAME = "postgres";
+//    private static final String PGSQL_PASSWORD = "password";
+    private static final String PGSQL_DRIVER_CLASS = "org.postgresql.Driver";
+    private static final String PGSQL_URL = "jdbc:postgresql://182.42.242.109:52013/postgres";
+    private static final String PGSQL_USERNAME = "postgres";
+    private static final String PGSQL_PASSWORD = "sinnr_en14Admin";
+
 
     @Test
     public void testExactTableMatch() {
         // Create source config with exact table path
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put("driver", DRIVER_CLASS);
-        configMap.put("url", URL);
-        configMap.put("user", USERNAME);
-        configMap.put("password", PASSWORD);
+        configMap.put("driver", MYSQL_DRIVER_CLASS);
+        configMap.put("url", MYSQL_URL);
+        configMap.put("user", MYSQL_USERNAME);
+        configMap.put("password", MYSQL_PASSWORD);
         configMap.put("table_path", "test.table1");
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
@@ -68,77 +84,208 @@ public class JdbcSourceTest {
     }
 
     @Test
-    public void testRegexTableMatch() {
-        // Create source config with regex pattern
+    public void testMysqlRegexTableMatch() {
+        // Test case 1: Match tables with names containing "table" followed by one or more digits
+        testMysqlRegexPattern(
+                "test.table\\d+", Arrays.asList("table1", "table2", "table3", "table123"));
+
+        // Test case 2: Match tables with names containing "table" followed by one or more
+        // characters
+        testMysqlRegexPattern("test.table+", Arrays.asList("tableee"));
+
+        // Test case 3: Match all tables in the "test" database
+        testMysqlRegexPattern(
+                "test.*",
+                Arrays.asList("table1", "table2", "table3", "table123", "tableee", "test1"));
+
+        // Test case 4: Match tables with names matching "table" followed by a digit between 1 and 3
+        testMysqlRegexPattern("test.table[1-3]", Arrays.asList("table1", "table2", "table3"));
+
+        // Test case 5: Test pattern that doesn't match any existing tables
+        testMysqlRegexPattern("test.nonexistent*", Collections.emptyList());
+    }
+
+    /**
+     * Helper method to test regex patterns
+     *
+     * @param pattern The regex pattern to test
+     * @param expectedTables List of expected table names
+     */
+    private void testMysqlRegexPattern(String pattern, List<String> expectedTables) {
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put("driver", DRIVER_CLASS);
-        configMap.put("url", URL);
-        configMap.put("user", USERNAME);
-        configMap.put("password", PASSWORD);
-
-        // 使用正则表达式匹配test库中的table1和table2
-        // 格式：database.table_pattern，其中database可以是具体名称或正则表达式
-        configMap.put("table_path", "test.table+");  // 匹配test数据库中table后跟单个数字的表
+        configMap.put("driver", MYSQL_DRIVER_CLASS);
+        configMap.put("url", MYSQL_URL);
+        configMap.put("user", MYSQL_USERNAME);
+        configMap.put("password", MYSQL_PASSWORD);
+        configMap.put("table_path", pattern);
         configMap.put("use_regex", true);
-
-        // 明确指定MySQL方言
         configMap.put("dialect", "mysql");
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
-
-        // 创建源
         JdbcSource jdbcSource = new JdbcSource(JdbcSourceConfig.of(config));
-
-        // 验证表配置
         List<CatalogTable> catalogTables = jdbcSource.getProducedCatalogTables();
 
-        // 验证找到了两个表
-        Assertions.assertEquals(2, catalogTables.size(),
-            "Should find exactly 2 tables (table1 and table2)");
+        // Verify number of tables
+        Assertions.assertEquals(
+                expectedTables.size(),
+                catalogTables.size(),
+                "Expected " + expectedTables.size() + " tables for pattern: " + pattern);
 
-        // 验证表名是table1和table2
-        Set<String> tableNames = catalogTables.stream()
-            .map(table -> table.getTableId().getTableName())
-            .collect(Collectors.toSet());
+        if (!expectedTables.isEmpty()) {
+            // Verify table names
+            Set<String> actualTableNames =
+                    catalogTables.stream()
+                            .map(table -> table.getTableId().getTableName())
+                            .collect(Collectors.toSet());
 
-        Assertions.assertTrue(tableNames.contains("table1"),
-            "Should find table1");
-        Assertions.assertTrue(tableNames.contains("table2"),
-            "Should find table2");
-
-        // 测试另一个不匹配任何表的正则表达式
-        Map<String, Object> noMatchConfigMap = new HashMap<>(configMap);
-        noMatchConfigMap.put("table_path", "test.nonexistent.*");
-
-        ReadonlyConfig noMatchConfig = ReadonlyConfig.fromMap(noMatchConfigMap);
-        JdbcSource noMatchJdbcSource = new JdbcSource(JdbcSourceConfig.of(noMatchConfig));
-
-        List<CatalogTable> noMatchCatalogTables = noMatchJdbcSource.getProducedCatalogTables();
-        Assertions.assertEquals(0, noMatchCatalogTables.size(),
-            "Should not find any tables with non-existent pattern");
+            for (String expectedTable : expectedTables) {
+                Assertions.assertTrue(
+                        actualTableNames.contains(expectedTable),
+                        "Expected table " + expectedTable + " not found for pattern: " + pattern);
+            }
+        }
     }
 
     @Test
-    public void testRegexTableMatchWithEscapedDots() {
-        // Test regex patterns with escaped dots to ensure proper handling
-        Map<String, Object> configMap = new HashMap<>();
-        configMap.put("driver", DRIVER_CLASS);
-        configMap.put("url", URL);
-        configMap.put("user", USERNAME);
-        configMap.put("password", PASSWORD);
+    public void testOracleRegexTableMatch() {
+        // Test case 1: Match all tables in the TEST1 schema of XE database
+        testOracleRegexPattern(
+                "XE.TEST1.*",
+                Arrays.asList("TEST1", "TEST2", "TEST_DB", "TEST_DB_1", "TEST_DB_2", "TEST_DB_12"));
 
-        // 使用包含转义点的正则表达式
-        configMap.put("table_path", "test\\.table\\d");  // 匹配test.table后跟单个数字的表
+        // Test case 2: Match tables with names starting with "TEST" followed by a single word
+        // character
+        testOracleRegexPattern("XE.TEST1.TEST\\w", Arrays.asList("TEST1", "TEST2"));
+
+        // Test case 3: Match tables with names starting with "TEST_" followed by one or more word
+        // characters
+        testOracleRegexPattern(
+                "XE.TEST1.TEST_\\w+",
+                Arrays.asList("TEST_DB", "TEST_DB_1", "TEST_DB_2", "TEST_DB_12"));
+
+        // Test case 4: Match table with exact name "TEST_DB_2"
+        testOracleRegexPattern("XE.TEST1.TEST_DB_2$", Arrays.asList("TEST_DB_2"));
+
+        // Test case 5: Match tables with names starting with "TEST_DB_" followed by 1 or 2 digits
+        testOracleRegexPattern(
+                "XE.TEST1.TEST_DB_\\d{1,2}", Arrays.asList("TEST_DB_1", "TEST_DB_2", "TEST_DB_12"));
+
+        // Test case 6: Test pattern that doesn't match any existing tables
+        testOracleRegexPattern("XE.TEST1.NONEXISTENT*", Collections.emptyList());
+    }
+
+    /**
+     * Helper method to test Oracle regex patterns
+     *
+     * @param pattern The regex pattern to test
+     * @param expectedTables List of expected table names
+     */
+    private void testOracleRegexPattern(String pattern, List<String> expectedTables) {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("driver", ORACLE_DRIVER_CLASS);
+        configMap.put("url", ORACLE_URL);
+        configMap.put("user", ORACLE_USERNAME);
+        configMap.put("password", ORACLE_PASSWORD);
+        configMap.put("table_path", pattern);
         configMap.put("use_regex", true);
-        configMap.put("dialect", "mysql");
+        configMap.put("dialect", "oracle");
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
-
-        // 这应该不会抛出异常，并且能正确处理转义的点
         JdbcSource jdbcSource = new JdbcSource(JdbcSourceConfig.of(config));
         List<CatalogTable> catalogTables = jdbcSource.getProducedCatalogTables();
 
-        // 验证能够正确处理包含转义点的正则表达式
-        Assertions.assertNotNull(catalogTables, "Should handle escaped dots in regex patterns");
+        // Verify number of tables
+        Assertions.assertEquals(
+                expectedTables.size(),
+                catalogTables.size(),
+                "Expected " + expectedTables.size() + " Oracle tables for pattern: " + pattern);
+
+        if (!expectedTables.isEmpty()) {
+            // Verify table names
+            Set<String> actualTableNames =
+                    catalogTables.stream()
+                            .map(table -> table.getTableId().getTableName())
+                            .collect(Collectors.toSet());
+
+            for (String expectedTable : expectedTables) {
+                Assertions.assertTrue(
+                        actualTableNames.contains(expectedTable),
+                        "Expected Oracle table "
+                                + expectedTable
+                                + " not found for pattern: "
+                                + pattern);
+            }
+        }
+    }
+
+    @Test
+    public void testPostgreSQLRegexTableMatch() {
+        // Test case 1: Match tables in public schema with names starting with "test_" followed by
+        // word characters
+        testPostgreSQLRegexPattern(
+                "postgres.public.test_\\w+",
+                Arrays.asList(
+                        "test_db_10",
+                        "test_db_20",
+                        "test_db_30",
+                        "test_db_10_no_primary",
+                        "test_0609"));
+
+        // Test case 2: Match all tables in the public1 schema
+        testPostgreSQLRegexPattern(
+                "postgres.public1.*", Arrays.asList("test_db_10", "test_db_20", "test_db_30"));
+
+        // Test case 3: Match tables in public schema with names starting with "test_db_" followed
+        // by any characters
+        testPostgreSQLRegexPattern(
+                "postgres.public.test_db_\\.*",
+                Arrays.asList("test_db_10", "test_db_20", "test_db_30", "test_db_10_no_primary"));
+
+        // Test case 4: Test pattern that doesn't match any existing tables
+        testPostgreSQLRegexPattern("postgres.public.nonexistent*", Collections.emptyList());
+    }
+
+    /**
+     * Helper method to test PostgreSQL regex patterns
+     *
+     * @param pattern The regex pattern to test
+     * @param expectedTables List of expected table names
+     */
+    private void testPostgreSQLRegexPattern(String pattern, List<String> expectedTables) {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("driver", PGSQL_DRIVER_CLASS);
+        configMap.put("url", PGSQL_URL);
+        configMap.put("user", PGSQL_USERNAME);
+        configMap.put("password", PGSQL_PASSWORD);
+        configMap.put("table_path", pattern);
+        configMap.put("use_regex", false);
+        configMap.put("dialect", "postgres");
+
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+        JdbcSource jdbcSource = new JdbcSource(JdbcSourceConfig.of(config));
+        List<CatalogTable> catalogTables = jdbcSource.getProducedCatalogTables();
+
+        // Verify number of tables
+        Assertions.assertEquals(
+                expectedTables.size(),
+                catalogTables.size(),
+                "Expected " + expectedTables.size() + " PostgreSQL tables for pattern: " + pattern);
+
+        if (!expectedTables.isEmpty()) {
+            // Verify table names
+            Set<String> actualTableNames =
+                    catalogTables.stream()
+                            .map(table -> table.getTableId().getTableName())
+                            .collect(Collectors.toSet());
+
+            for (String expectedTable : expectedTables) {
+                Assertions.assertTrue(
+                        actualTableNames.contains(expectedTable),
+                        "Expected PostgreSQL table "
+                                + expectedTable
+                                + " not found for pattern: "
+                                + pattern);
+            }
+        }
     }
 }

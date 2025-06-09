@@ -205,7 +205,8 @@ public interface Catalog extends AutoCloseable {
                         // Use the processed table pattern for matching
                         if (schemaMatches && tablePattern.matcher(fullTableName).matches()) {
                             if (schemaName != null) {
-                                tablePaths.add(TablePath.of(databaseName, schemaName, actualTableName));
+                                tablePaths.add(
+                                        TablePath.of(databaseName, schemaName, actualTableName));
                             } else {
                                 tablePaths.add(TablePath.of(databaseName, actualTableName));
                             }

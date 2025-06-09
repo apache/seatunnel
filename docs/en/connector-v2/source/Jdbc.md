@@ -89,14 +89,31 @@ The JDBC Source connector supports two ways to specify tables:
 
 #### Regular Expression Support for Table Names
 
-Starting from version X.Y.Z, the JDBC connector supports using regular expressions to match multiple tables. This feature allows you to process multiple tables with a single source configuration.
+The JDBC connector supports using regular expressions to match multiple tables. This feature allows you to process multiple tables with a single source configuration.
 
 ### Configuration
 
-To use regular expressions for table matching, you can:
+To control regular expression matching for table paths, you have three options:
 
-1. Set `use_regex = true` in your table configuration
-2. Use regular expression patterns in your `table_path`
+1. **Explicit Enable**: Set `use_regex = true` to force regex matching
+2. **Explicit Disable**: Set `use_regex = false` to force exact path matching (no regex)
+3. **Automatic Detection**: Don't specify `use_regex` and the connector will auto-detect regex patterns
+
+### Parameters
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| use_regex | Boolean | No | null (auto-detect) | Control regular expression matching for table_path. When set to `true`, the table_path will be treated as a regular expression pattern. When set to `false`, the table_path will be treated as an exact path (no regex matching). If not specified (null), the connector will automatically detect if the table_path contains regex patterns like `*`, `+`, `\\d`, `[...]`, etc. |
+
+### Regular Expression Syntax Notes
+
+- **Path Separator**: The dot (`.`) is treated as a separator between database, schema, and table names.
+- **Escaped Dots**: If you need to use a dot (`.`) as a wildcard character in your regular expression to match any character, you must escape it with a backslash (`\.`).
+- **Path Format**: For paths like `database.table` or `database.schema.table`, the last unescaped dot separates the table pattern from the database/schema pattern.
+- **Pattern Examples**:
+  - `test.table\\d+` - Matches tables like `table1`, `table2`, etc. in the `test` database
+  - `test\\.table\\d+` - Matches tables with literal dots in names like `test.table1`, `test.table2`
+  - `.*\\.user_.*` - Matches any database with tables starting with `user_`
 
 ### Example
 
@@ -110,8 +127,33 @@ source {
     
     table_list = [
       {
-        # Match all tables starting with "order_" in the "test" database
-        table_path = "test.order_.*"
+        # Explicit regex matching - force regex even for simple patterns
+        table_path = "test.*"
+        use_regex = true
+      },
+      {
+        # Explicit regex matching - match tables with "user" followed by digits
+        table_path = "test.user\\d+"
+        use_regex = true
+      },
+      {
+        # Explicit exact matching - treat as literal path even though it looks like regex
+        table_path = "test.table*"  # This will match a table literally named "table*"
+        use_regex = false
+      },
+      {
+        # Automatic detection - will be detected as regex pattern
+        table_path = "test.order\\d+"
+        # use_regex not specified, auto-detection will recognize \\d+ as regex
+      },
+      {
+        # Automatic detection - will be treated as exact path
+        table_path = "test.config"
+        # use_regex not specified, no regex patterns detected
+      },
+      {
+        # Explicit regex with escaped dots in database names
+        table_path = "test\\.db.table\\d+"
         use_regex = true
       }
     ]
@@ -121,10 +163,12 @@ source {
 
 ### Notes
 
-- The regular expression is applied to the table name part of the `table_path`.
-- For database paths with multiple parts (e.g., `db.schema.table`), the first part is treated as the database pattern and the last part as the table pattern.
-- For performance reasons, a maximum of 1000 tables can be matched by a single regular expression pattern.
-- If `use_regex` is not specified, the connector will try to detect if the table path contains regular expression patterns.
+- **Path Parsing**: For database paths with multiple parts (e.g., `db.schema.table`), the last unescaped dot separates the table pattern from the database/schema pattern.
+- **Performance**: For performance reasons, a maximum of 1000 tables can be matched by a single regular expression pattern.
+- **Explicit Control**: When `use_regex` is explicitly set to `true` or `false`, it overrides auto-detection. When `use_regex = false`, the table_path is treated as an exact path even if it contains regex-like characters.
+- **Auto-detection**: If `use_regex` is not specified (null), the connector will automatically detect regex patterns by looking for common regex metacharacters like `*`, `+`, `\\d`, `[...]`, `^`, `$`, `()`, `{}`.
+- **Error Handling**: Invalid regex patterns will cause the connector to throw an `IllegalArgumentException` with details about the error.
+- **Case Sensitivity**: Regular expression matching is case-sensitive by default.
 
 #### Multi-table Synchronization
 
@@ -137,11 +181,21 @@ Jdbc {
     driver = "com.mysql.cj.jdbc.Driver"
     user = "root"
     password = "123456"
-    
-    # Using regular expression
-    "table_list" = [
+
+    # Using regular expression with explicit configuration
+    table_list = [
       {
-      "table_path" = "testdb.table+"
+        table_path = "testdb.table\\d+"
+        use_regex = true
+      },
+      {
+        # Auto-detection (no need to specify use_regex)
+        table_path = "testdb.user_.*"
+      },
+      {
+        # Exact table path (no regex)
+        table_path = "testdb.config"
+        use_regex = false
       }
     ]
 }
@@ -402,13 +456,23 @@ Jdbc {
 
     table_list = [
         {
+          # Exact table path
           # e.g. table_path = "testdb.table1"、table_path = "test_schema.table1"、table_path = "testdb.test_schema.table1"
           table_path = "testdb.table1"
         },
         {
           table_path = "testdb.table2"
-          # Use query filetr rows & columns
+          # Use query filter rows & columns
           query = "select id, name from testdb.table2 where id > 100"
+        },
+        {
+          # Using regex to match multiple tables
+          table_path = "testdb.user_table\\d+"
+          use_regex = true
+        },
+        {
+          # Auto-detection of regex pattern
+          table_path = "testdb.log_.*"
         }
     ]
     #where_condition= "where id > 100"
