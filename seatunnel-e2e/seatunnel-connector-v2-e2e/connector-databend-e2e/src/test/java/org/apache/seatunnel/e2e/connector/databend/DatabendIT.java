@@ -47,12 +47,16 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Properties;
 import java.util.stream.Stream;
 
@@ -73,6 +77,82 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
     private DatabendContainer container;
     private GenericContainer<?> minioContainer;
     private Connection connection;
+
+    @TestTemplate
+    public void testDatabendSink(TestContainer container)
+            throws IOException, InterruptedException, SQLException {
+        // Run the test job
+        Container.ExecResult execResult = container.executeJob("/databend/databend_sink.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        // Verify the sink results
+        try (Connection connection = getConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery("SELECT * FROM sink_table ORDER BY name")) {
+
+            List<List<Object>> expectedRecords =
+                    Arrays.asList(
+                            Arrays.asList("Alice", 30, 95.5),
+                            Arrays.asList("Bob", 25, 85.0),
+                            Arrays.asList("Charlie", 35, 92.5));
+
+            List<List<Object>> actualRecords = new ArrayList<>();
+
+            while (resultSet.next()) {
+                List<Object> row = new ArrayList<>();
+                row.add(resultSet.getString("name"));
+                row.add(resultSet.getInt("age"));
+                row.add(resultSet.getDouble("score"));
+                actualRecords.add(row);
+            }
+
+            Assertions.assertEquals(expectedRecords.size(), actualRecords.size());
+            for (int i = 0; i < expectedRecords.size(); i++) {
+                Assertions.assertEquals(expectedRecords.get(i), actualRecords.get(i));
+            }
+        }
+        clearSinkTable();
+    }
+
+    private void clearSinkTable() throws SQLException {
+        try (Connection connection = getConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute("TRUNCATE TABLE sink_table");
+        }
+    }
+
+    @TestTemplate
+    public void testDatabendSource(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/databend/databend_source.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testSchemaEvolution(TestContainer container)
+            throws IOException, InterruptedException, SQLException {
+        // Run the schema evolution test job
+        Container.ExecResult execResult =
+                container.executeJob("/databend/databend_schema_evolution.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        // Verify the schema was evolved correctly
+        try (Connection connection = getConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery("DESC schema_evolution_table")) {
+
+            List<String> columnNames = new ArrayList<>();
+            while (resultSet.next()) {
+                columnNames.add(resultSet.getString("field"));
+            }
+
+            // Verify the new column exists
+            Assertions.assertTrue(
+                    columnNames.contains("email"),
+                    "Table should have 'email' column after schema evolution");
+        }
+    }
 
     @TestTemplate
     public void testDatabend(TestContainer container) throws Exception {

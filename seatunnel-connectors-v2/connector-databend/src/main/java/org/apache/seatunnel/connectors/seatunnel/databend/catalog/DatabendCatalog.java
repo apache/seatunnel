@@ -129,7 +129,7 @@ public class DatabendCatalog implements Catalog {
         try (Connection connection = getConnection()) {
             try (ResultSet resultSet = connection.getMetaData().getSchemas()) {
                 while (resultSet.next()) {
-                    String foundDb = resultSet.getString("TABLE_SCHEM");
+                    String foundDb = resultSet.getString("table_schema");
                     if (databaseName.equalsIgnoreCase(foundDb)) {
                         return true;
                     }
