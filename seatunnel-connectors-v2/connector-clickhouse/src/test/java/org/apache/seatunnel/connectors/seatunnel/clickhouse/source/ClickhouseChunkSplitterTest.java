@@ -32,14 +32,13 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import com.google.common.collect.ImmutableList;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -85,7 +84,7 @@ public class ClickhouseChunkSplitterTest {
         Assertions.assertEquals(3, splits.size());
 
         List<Pair<Integer, Integer>> boundValues =
-                ImmutableList.of(Pair.of(1, 10), Pair.of(11, 20), Pair.of(21, 30));
+                Arrays.asList(Pair.of(1, 10), Pair.of(11, 20), Pair.of(21, 30));
         for (int i = 0; i < splits.size(); i++) {
             Pair<Integer, Integer> boundValue = boundValues.get(i);
             expectedQuery =
@@ -123,7 +122,7 @@ public class ClickhouseChunkSplitterTest {
         Assertions.assertEquals(3, splits.size());
 
         List<Pair<LocalDate, LocalDate>> boundValues =
-                ImmutableList.of(
+                Arrays.asList(
                         Pair.of(LocalDate.of(2025, 5, 1), LocalDate.of(2025, 5, 13)),
                         Pair.of(LocalDate.of(2025, 5, 14), LocalDate.of(2025, 5, 26)),
                         Pair.of(LocalDate.of(2025, 5, 27), LocalDate.of(2025, 6, 6)));
@@ -166,7 +165,7 @@ public class ClickhouseChunkSplitterTest {
         Assertions.assertEquals(3, splits.size());
 
         List<Pair<LocalDateTime, LocalDateTime>> boundValues =
-                ImmutableList.of(
+                Arrays.asList(
                         Pair.of(
                                 LocalDateTime.of(2025, 5, 1, 12, 30, 0),
                                 LocalDateTime.of(2025, 5, 13, 13, 30, 0)),
@@ -209,7 +208,7 @@ public class ClickhouseChunkSplitterTest {
         splits = splitter.generateSplits(sourceConfig, catalogTable);
         Assertions.assertEquals(3, splits.size());
 
-        List<Integer> boundValues = ImmutableList.of(0, 1, 2);
+        List<Integer> boundValues = Arrays.asList(0, 1, 2);
         for (int i = 0; i < splits.size(); i++) {
             expectedQuery =
                     String.format(
@@ -237,7 +236,7 @@ public class ClickhouseChunkSplitterTest {
         Assertions.assertEquals(3, splits.size());
 
         List<Pair<Integer, Integer>> boundValues =
-                ImmutableList.of(Pair.of(-3, 8), Pair.of(9, 20), Pair.of(21, 31));
+                Arrays.asList(Pair.of(-3, 8), Pair.of(9, 20), Pair.of(21, 31));
         for (int i = 0; i < splits.size(); i++) {
             Pair<Integer, Integer> boundValue = boundValues.get(i);
             String expectedQuery =

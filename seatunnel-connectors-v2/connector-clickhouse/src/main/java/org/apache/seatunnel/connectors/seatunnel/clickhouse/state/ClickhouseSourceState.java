@@ -19,4 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.state;
 
 import java.io.Serializable;
 
-public class ClickhouseSourceState implements Serializable {}
+public class ClickhouseSourceState implements Serializable {
+    private static final long serialVersionUID = 3721458963214587L;
+}
