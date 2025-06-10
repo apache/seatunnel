@@ -20,11 +20,35 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class ClickhouseSourceOptions {
+public interface ClickhouseSourceOptions {
 
-    public static final Option<String> SQL =
+    Option<String> SQL =
             Options.key("sql")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Clickhouse sql used to query data");
+
+    Option<String> PARTITION_COLUMN =
+            Options.key("partition_column")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("partition column");
+
+    Option<Integer> PARTITION_NUM =
+            Options.key("partition_num")
+                    .intType()
+                    .defaultValue(10)
+                    .withDescription("partition num");
+
+    Option<String> PARTITION_LOWER_BOUND =
+            Options.key("partition_lower_bound")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("partition lower bound");
+
+    Option<String> PARTITION_UPPER_BOUND =
+            Options.key("partition_upper_bound")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("partition upper bound");
 }

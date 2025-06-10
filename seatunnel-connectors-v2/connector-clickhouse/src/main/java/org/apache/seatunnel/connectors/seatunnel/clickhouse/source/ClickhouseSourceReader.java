@@ -18,11 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.TypeConvertUtil;
-import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
-import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
 import com.clickhouse.client.ClickHouseClient;
 import com.clickhouse.client.ClickHouseFormat;
@@ -32,27 +31,27 @@ import com.clickhouse.client.ClickHouseResponse;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 @Slf4j
-public class ClickhouseSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
+public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, ClickHouseSourceSplit> {
 
     private final List<ClickHouseNode> servers;
     private ClickHouseClient client;
     private final SeaTunnelRowType rowTypeInfo;
-    private final SingleSplitReaderContext readerContext;
+    private final Context context;
     private ClickHouseRequest<?> request;
-    private final String sql;
+    private final Deque<ClickHouseSourceSplit> splits = new ConcurrentLinkedDeque<>();
+    private volatile boolean noMoreSplit;
 
     ClickhouseSourceReader(
-            List<ClickHouseNode> servers,
-            SingleSplitReaderContext readerContext,
-            String sql,
-            SeaTunnelRowType rowTypeInfo) {
+            List<ClickHouseNode> servers, Context context, SeaTunnelRowType rowTypeInfo) {
         this.servers = servers;
-        this.readerContext = readerContext;
-        this.sql = sql;
+        this.context = context;
         this.rowTypeInfo = rowTypeInfo;
     }
 
@@ -74,31 +73,54 @@ public class ClickhouseSourceReader extends AbstractSingleSplitReader<SeaTunnelR
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         synchronized (output.getCheckpointLock()) {
-            try (ClickHouseResponse response = this.request.query(sql).executeAndWait()) {
-                response.stream()
-                        .forEach(
-                                record -> {
-                                    Object[] values =
-                                            new Object[this.rowTypeInfo.getFieldNames().length];
-                                    for (int i = 0; i < record.size(); i++) {
-                                        if (record.getValue(i).isNullOrEmpty()) {
-                                            values[i] = null;
-                                        } else {
-                                            values[i] =
-                                                    TypeConvertUtil.valueUnwrap(
-                                                            this.rowTypeInfo.getFieldType(i),
-                                                            record.getValue(i));
+            ClickHouseSourceSplit split = splits.poll();
+            if (null != split) {
+                String query = split.getSplitQuery();
+                try (ClickHouseResponse response = this.request.query(query).executeAndWait()) {
+                    response.stream()
+                            .forEach(
+                                    record -> {
+                                        Object[] values =
+                                                new Object[this.rowTypeInfo.getFieldNames().length];
+                                        for (int i = 0; i < record.size(); i++) {
+                                            if (record.getValue(i).isNullOrEmpty()) {
+                                                values[i] = null;
+                                            } else {
+                                                values[i] =
+                                                        TypeConvertUtil.valueUnwrap(
+                                                                this.rowTypeInfo.getFieldType(i),
+                                                                record.getValue(i));
+                                            }
                                         }
-                                    }
-                                    output.collect(new SeaTunnelRow(values));
-                                });
+                                        output.collect(new SeaTunnelRow(values));
+                                    });
+                }
+            } else if (noMoreSplit && splits.isEmpty()) {
+                // signal to the source that we have reached the end of the data.
+                log.info("Closed the bounded jdbc source");
+                context.signalNoMoreElement();
+            } else {
+                // just wait for split or NoMoreSplits signal
+                Thread.sleep(1000L);
             }
-            signalNoMoreElement();
         }
     }
 
-    private void signalNoMoreElement() {
-        log.info("Closed the bounded ClickHouse source");
-        this.readerContext.signalNoMoreElement();
+    @Override
+    public List<ClickHouseSourceSplit> snapshotState(long checkpointId) throws Exception {
+        return new ArrayList<>(splits);
     }
+
+    @Override
+    public void addSplits(List<ClickHouseSourceSplit> splits) {
+        this.splits.addAll(splits);
+    }
+
+    @Override
+    public void handleNoMoreSplits() {
+        noMoreSplit = true;
+    }
+
+    @Override
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
 }

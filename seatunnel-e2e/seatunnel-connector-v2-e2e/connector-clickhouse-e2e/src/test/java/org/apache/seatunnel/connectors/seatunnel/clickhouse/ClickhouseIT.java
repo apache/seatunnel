@@ -86,6 +86,8 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private static final String SINK_TABLE = "sink_table";
     private static final List<String> MULTI_SINK_TABLES =
             Arrays.asList("multi_sink_table1", "multi_sink_table2");
+    private static final List<String> PARALLEL_TABLES =
+            Arrays.asList("parallel_source_table", "parallel_sink_table");
     private static final String INSERT_SQL = "insert_sql";
     private static final String COMPARE_SQL = "compare_sql";
     private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET =
@@ -211,6 +213,54 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    @TestTemplate
+    public void testClickHouseWithParallelRead(TestContainer container) throws Exception {
+        // testClickHouseWithParallelReadNumberCol
+        assertParallelTableSetupStatus();
+        Container.ExecResult execResult =
+                container.executeJob("/parallel_read/clickhouse_to_clickhouse_with_parallel_read_number.conf");
+        assertParallelTableSinkStatus(execResult);
+        clearTable("parallel_sink_table");
+
+        // testClickHouseWithParallelReadDateCol(Intentionally remove bound value in config file)
+        assertParallelTableSetupStatus();
+        execResult =
+                container.executeJob("/parallel_read/clickhouse_to_clickhouse_with_parallel_read_date.conf");
+        assertParallelTableSinkStatus(execResult);
+        clearTable("parallel_sink_table");
+
+        // testClickHouseWithParallelReadDateTimeCol
+        assertParallelTableSetupStatus();
+        execResult =
+                container.executeJob("/parallel_read/clickhouse_to_clickhouse_with_parallel_read_date.conf");
+        assertParallelTableSinkStatus(execResult);
+        clearTable("parallel_sink_table");
+
+        // testClickHouseWithParallelReadStringCol
+        assertParallelTableSetupStatus();
+        execResult =
+                container.executeJob("/parallel_read/clickhouse_to_clickhouse_with_parallel_read_string.conf");
+        assertParallelTableSinkStatus(execResult);
+        clearTable("parallel_sink_table");
+
+        // other necessary test
+        assertParallelTableSetupStatus();
+        execResult =
+                container.executeJob("/parallel_read/clickhouse_to_clickhouse_with_parallel_read_single.conf");
+        assertParallelTableSinkStatus(execResult);
+        clearTable("parallel_sink_table");
+    }
+
+    private void assertParallelTableSetupStatus() {
+        Assertions.assertEquals(10, countData("parallel_source_table"));
+        Assertions.assertEquals(0, countData("parallel_sink_table"));
+    }
+
+    private void assertParallelTableSinkStatus(Container.ExecResult execResult) {
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(10, countData("parallel_sink_table"));
+    }
+
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -237,8 +287,11 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
             Statement statement = this.connection.createStatement();
             statement.execute(CONFIG.getString(SOURCE_TABLE));
             statement.execute(CONFIG.getString(SINK_TABLE));
-            // table for multi-table sink test
-            for (String tableName : MULTI_SINK_TABLES) {
+            // for other usage tables
+            List<String> tables = Stream
+                    .concat(MULTI_SINK_TABLES.stream(), PARALLEL_TABLES.stream())
+                    .collect(Collectors.toList());
+            for (String tableName : tables) {
                 statement.execute(CONFIG.getString(tableName));
             }
         } catch (SQLException e) {
@@ -324,8 +377,21 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("Drop table failed!", e);
         }
     }
-
     private void batchInsertData() {
+        this.batchInsertCommonUsageData();
+        this.batchInsertParallelReadUsageData();
+    }
+
+    private void batchInsertParallelReadUsageData() {
+        String sql = CONFIG.getString("insert_sql_for_parallel_table");
+        try(Statement statement = connection.createStatement();) {
+            statement.execute(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException("Batch insert data failed!", e);
+        }
+    }
+
+    private void batchInsertCommonUsageData() {
         String sql = CONFIG.getString(INSERT_SQL);
         PreparedStatement preparedStatement = null;
         try {

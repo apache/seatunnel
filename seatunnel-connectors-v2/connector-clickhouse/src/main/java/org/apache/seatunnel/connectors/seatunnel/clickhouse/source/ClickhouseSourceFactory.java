@@ -31,6 +31,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseUtil;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.TypeConvertUtil;
@@ -101,9 +102,11 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
                             Collections.emptyList(),
                             "",
                             catalogName);
+            ClickhouseSourceConfig sourceConfig = ClickhouseSourceConfig.of(readonlyConfig);
+            sourceConfig.setNodes(nodes);
             return () ->
                     (SeaTunnelSource<T, SplitT, StateT>)
-                            new ClickhouseSource(nodes, catalogTable, sql);
+                            new ClickhouseSource(sourceConfig, nodes, catalogTable, sql);
         } catch (ClickHouseException e) {
             throw new ClickhouseConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
