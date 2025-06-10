@@ -71,6 +71,8 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | compress_codec                        | string  | 否   | none                |
 | archive_compress_codec                | string  | 否   | none                |
 | encoding                              | string  | 否   | UTF-8               |
+| binary_chunk_size                     | int     | 否   | 1024                |
+| binary_complete_file_mode             | boolean | 否   | false               |
 | common-options                        |         | 否   | -                   |
 
 ### path [string]
@@ -359,6 +361,18 @@ default `HH:mm:ss`
 仅当file_format_type为json、text、csv、xml时使用。
 要读取的文件的编码。此参数将由`Charset.forName（encoding）`解析。
 
+### binary_chunk_size [int]
+
+仅在 file_format_type 为 binary 时使用。
+
+读取二进制文件的块大小（以字节为单位）。默认为 1024 字节。较大的值可能会提高大文件的性能，但会使用更多内存。
+
+### binary_complete_file_mode [boolean]
+
+仅在 file_format_type 为 binary 时使用。
+
+是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为 false。
+
 ### common options
 
 源插件常用参数，详见[源端通用选项]（../Source-common-Options.md）。
@@ -414,6 +428,8 @@ source {
     region = "ap-chengdu"
     path = "/seatunnel/read/binary/"
     file_format_type = "binary"
+    binary_chunk_size = 2048
+    binary_complete_file_mode = false
   }
 }
 sink {

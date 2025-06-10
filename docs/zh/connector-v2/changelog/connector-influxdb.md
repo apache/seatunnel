@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[Improve] influxdb options (#8966)|https://github.com/apache/seatunnel/commit/9f498b8133|2.3.10|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|2.3.9|

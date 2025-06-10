@@ -2,6 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[improve] rocketmq options (#9251)|https://github.com/apache/seatunnel/commit/4cbe3b9172| dev |
+|[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[Improve][Connector-V2] RocketMQ Source add message tag config (#8825)|https://github.com/apache/seatunnel/commit/5913e8c35f|2.3.10|
 |[Improve][Connector-V2] Add optional flag for rocketmq connector to skip parse errors instead of failing (#8737)|https://github.com/apache/seatunnel/commit/701f17b5d4|2.3.10|
 |[Improve][Connector-V2] RocketMQ Sink add message tag config (#7996)|https://github.com/apache/seatunnel/commit/97a1b00e48|2.3.9|

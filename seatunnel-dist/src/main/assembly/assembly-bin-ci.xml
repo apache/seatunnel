@@ -195,6 +195,8 @@
                 <include>org.apache.hive:hive-exec:jar</include>
                 <include>org.apache.hive:hive-service:jar</include>
                 <include>org.apache.thrift:libfb303:jar</include>
+                <include>com.facebook.presto:presto-jdbc:jar</include>
+                <include>io.trino:trino-jdbc:jar</include>
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
             <outputDirectory>/lib</outputDirectory>

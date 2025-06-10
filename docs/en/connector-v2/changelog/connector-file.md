@@ -2,8 +2,20 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve] Refactor file enumerator to prevent duplicate put split (#8989)|https://github.com/apache/seatunnel/commit/fdf1beae9c| dev |
-|[Improve][File] Add row_delimiter options into text file sink (#9017)|https://github.com/apache/seatunnel/commit/92aa855a34| dev |
+|[Improve][Connector-file]  Add configurable binary chunk size support to BinaryReadStrategy (#9391)|https://github.com/apache/seatunnel/commit/38e87e75a3| dev |
+|[Feature][Sink] File support new format: maxwell_json,canal_json,debezium_json  (#9278) (#9336)|https://github.com/apache/seatunnel/commit/a1bfbb20dd| dev |
+|[Improve][Connector-V2] Support maxcompute sink writer with timestamp field type (#9234)|https://github.com/apache/seatunnel/commit/a513c495e3| dev |
+|[Feature][connector-hive] hive sink connector support overwrite mode #7843 (#7891)|https://github.com/apache/seatunnel/commit/6fafe6f4d3| dev |
+|[Improve][Connector-V2] Add remote host verification option for FTP data channels (#9324)|https://github.com/apache/seatunnel/commit/019d69d10a|2.3.11|
+|[Doc][Connector-V2] Update save mode config for OssFileSink (#9303)|https://github.com/apache/seatunnel/commit/40097d7f3e|2.3.11|
+|[Fix][connector-file-base] fix parquet int32 convert error (#9142)|https://github.com/apache/seatunnel/commit/e6413c388e|2.3.11|
+|[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
+|[Fix][API] Fixed not invoke the `SinkAggregatedCommitter`&#x27;s init method (#9070)|https://github.com/apache/seatunnel/commit/df0d11d632|2.3.11|
+|[Bugfix][Csv] Fix csv format delimiter (#9066)|https://github.com/apache/seatunnel/commit/ff5fc129b8|2.3.11|
+|[improve] update file connectors config (#9034)|https://github.com/apache/seatunnel/commit/8041d59dc2|2.3.11|
+|[Feature][File] Support extract CSV files with different columns in different order (#9064)|https://github.com/apache/seatunnel/commit/74db1cbaac|2.3.11|
+|[Improve] Refactor file enumerator to prevent duplicate put split (#8989)|https://github.com/apache/seatunnel/commit/fdf1beae9c|2.3.11|
+|[Improve][File] Add row_delimiter options into text file sink (#9017)|https://github.com/apache/seatunnel/commit/92aa855a34|2.3.11|
 |Revert &quot; [improve] update localfile connector config&quot; (#9018)|https://github.com/apache/seatunnel/commit/cdc79e13ad|2.3.10|
 | [improve] update localfile connector config (#8765)|https://github.com/apache/seatunnel/commit/def369a85f|2.3.10|
 |[Fix][File]use common-csv to read csv file (#8919)|https://github.com/apache/seatunnel/commit/3e64a42838|2.3.10|

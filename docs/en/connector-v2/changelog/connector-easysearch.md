@@ -2,6 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[improve] EasySearch support schema_save_mode/data_save_mode (#9310)|https://github.com/apache/seatunnel/commit/3ceb57f279|2.3.11|
+|[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[Improve] easysearch options (#8951)|https://github.com/apache/seatunnel/commit/349f142962|2.3.10|
 |[Fix] Fix error log name for SourceSplitEnumerator implements class (#8817)|https://github.com/apache/seatunnel/commit/55ed90ecaf|2.3.10|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|

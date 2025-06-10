@@ -47,6 +47,12 @@ public class ModelTransformConfig implements Serializable {
                     .withDescription(
                             "The model of LLM/Embedding, eg: if the model provider is OpenAI LLM, the model should be gpt-3.5-turbo/gpt-4o-mini, etc.");
 
+    public static final Option<String> AWS_REGION =
+            Options.key("aws_region")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The AWS region for Amazon Bedrock service.");
+
     public static final Option<String> API_KEY =
             Options.key("api_key")
                     .stringType()

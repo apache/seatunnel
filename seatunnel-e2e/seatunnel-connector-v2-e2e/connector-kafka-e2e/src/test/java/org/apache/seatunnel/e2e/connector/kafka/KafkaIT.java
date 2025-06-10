@@ -38,6 +38,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -160,9 +161,16 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     new NewTopic("test_topic_source_timestamp", 1, (short) 1);
             testTopicSourceWithTimestamp.configs(Collections.singletonMap("retention.ms", "-1"));
 
+            NewTopic testTopicSourceSkipPartition =
+                    new NewTopic("test_topic_source_skip_partition", 2, (short) 1);
+            testTopicSourceSkipPartition.configs(Collections.singletonMap("retention.ms", "-1"));
+
             List<NewTopic> topics =
                     Arrays.asList(
-                            testTopicSource, testTopicNativeSource, testTopicSourceWithTimestamp);
+                            testTopicSource,
+                            testTopicNativeSource,
+                            testTopicSourceWithTimestamp,
+                            testTopicSourceSkipPartition);
             adminClient.createTopics(topics);
         }
 
@@ -177,15 +185,35 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         generateTestData(serializer::serializeRow, 0, 100);
 
         DefaultSeaTunnelRowSerializer rowSerializer =
-                DefaultSeaTunnelRowSerializer.create(
+                DefaultSeaTunnelRowSerializer.createWithPartitionAndTimestampFields(
                         "test_topic_source_timestamp",
                         DEFAULT_FORMAT,
                         new SeaTunnelRowType(
-                                new String[] {"id", "timestamp"},
-                                new SeaTunnelDataType[] {BasicType.LONG_TYPE, BasicType.LONG_TYPE}),
+                                new String[] {"id", "timestamp", KafkaBaseConstants.PARTITION},
+                                new SeaTunnelDataType[] {
+                                    BasicType.LONG_TYPE, BasicType.LONG_TYPE, BasicType.INT_TYPE
+                                }),
                         "",
                         null);
-        generateWithTimestampTestData(rowSerializer::serializeRow, 0, 100, 1738395840000L);
+
+        DefaultSeaTunnelRowSerializer topicSourceSkipPartition =
+                DefaultSeaTunnelRowSerializer.createWithPartitionAndTimestampFields(
+                        "test_topic_source_skip_partition",
+                        DEFAULT_FORMAT,
+                        new SeaTunnelRowType(
+                                new String[] {"id", "timestamp", KafkaBaseConstants.PARTITION},
+                                new SeaTunnelDataType[] {
+                                    BasicType.LONG_TYPE, BasicType.LONG_TYPE, BasicType.INT_TYPE
+                                }),
+                        "",
+                        null);
+
+        generateWithTimestampTestData(rowSerializer::serializeRow, 0, 100, 1738395840000L, 0);
+
+        generateWithTimestampTestData(
+                topicSourceSkipPartition::serializeRow, 0, 100, 1738395840000L, 0);
+        generateWithTimestampTestData(
+                topicSourceSkipPartition::serializeRow, 100, 200, 1738396200000L, 1);
 
         String topicName = "test_topic_native_source";
         generateNativeTestData("test_topic_native_source", 0, 100);
@@ -449,6 +477,14 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
 
         testKafkaWithEndTimestampToConsole(container);
+    }
+
+    @TestTemplate
+    public void testSourceKafkaSkipPartition(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/kafka/kafkasource_timestamp_to_console_skip_partition.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
     @TestTemplate
@@ -1237,11 +1273,18 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     private void generateWithTimestampTestData(
-            ProducerRecordConverter converter, int start, int end, long startTimestamp) {
+            ProducerRecordConverter converter,
+            int start,
+            int end,
+            long startTimestamp,
+            int partition) {
         try {
             for (int i = start; i < end; i++) {
                 SeaTunnelRow row =
-                        new SeaTunnelRow(new Object[] {Long.valueOf(i), startTimestamp + i * 1000});
+                        new SeaTunnelRow(
+                                new Object[] {
+                                    Long.valueOf(i), startTimestamp + i * 1000, partition
+                                });
                 ProducerRecord<byte[], byte[]> producerRecord = converter.convert(row);
                 producer.send(producerRecord).get();
             }

@@ -2,6 +2,9 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[fix][connector-mango] fix split with avgSize zero error (#9255)|https://github.com/apache/seatunnel/commit/564863b933|2.3.11|
+|[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
+|[Fix][MongoDB] The Long type cannot handle string values in scientific notation (#8783)|https://github.com/apache/seatunnel/commit/00f550e3d0|2.3.11|
 |[Improve] sink mongodb schema is not required (#8887)|https://github.com/apache/seatunnel/commit/3cfe8c12b9|2.3.10|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[Fix][Connector-Mongodb] close MongodbClient when close MongodbReader (#8592)|https://github.com/apache/seatunnel/commit/06b2fc0e06|2.3.10|

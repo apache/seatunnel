@@ -92,7 +92,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                 headersExtractor(rowType));
     }
 
-    public static DefaultSeaTunnelRowSerializer create(
+    public static DefaultSeaTunnelRowSerializer createWithPartitionAndTimestampFields(
             String topic,
             MessageFormat format,
             SeaTunnelRowType rowType,
@@ -100,7 +100,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             ReadonlyConfig pluginConfig) {
         return new DefaultSeaTunnelRowSerializer(
                 topicExtractor(topic, rowType, format),
-                partitionExtractor(null),
+                partitionNativeExtractor(rowType),
                 timestampExtractor(rowType),
                 keyExtractor(null, rowType, format, null, null),
                 valueExtractor(rowType, format, delimiter, pluginConfig),

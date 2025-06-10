@@ -45,6 +45,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
@@ -62,6 +63,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_METHOD;
@@ -122,15 +124,9 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         if (connectionMap.containsKey(url)) {
             return connectionMap.get(url);
         }
+        Properties info = getConnectionProperties();
         if (driverClass != null) {
             log.info("try to find driver {}", driverClass);
-            java.util.Properties info = new java.util.Properties();
-            if (username != null) {
-                info.put("user", username);
-            }
-            if (pwd != null) {
-                info.put("password", pwd);
-            }
             Enumeration<Driver> drivers = DriverManager.getDrivers();
             try {
                 // Driver Manager may load the wrong driver, prioritize finding the driver by class
@@ -152,12 +148,23 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             }
         }
         try {
-            Connection connection = DriverManager.getConnection(url, username, pwd);
+            Connection connection = DriverManager.getConnection(url, info);
             connectionMap.put(url, connection);
             return connection;
         } catch (SQLException e) {
             throw new CatalogException(String.format("Failed connecting to %s via JDBC.", url), e);
         }
+    }
+
+    protected @NonNull Properties getConnectionProperties() {
+        Properties info = new Properties();
+        if (username != null) {
+            info.put("user", username);
+        }
+        if (pwd != null) {
+            info.put("password", pwd);
+        }
+        return info;
     }
 
     @Override

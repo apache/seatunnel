@@ -29,6 +29,7 @@ import org.apache.seatunnel.transform.exception.TransformCommonError;
 import org.apache.seatunnel.transform.nlpmodel.ModelProvider;
 import org.apache.seatunnel.transform.nlpmodel.ModelTransformConfig;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.Model;
+import org.apache.seatunnel.transform.nlpmodel.embedding.remote.amazon.BedrockModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.custom.CustomModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.doubao.DoubaoModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.openai.OpenAIModel;
@@ -40,6 +41,7 @@ import lombok.NonNull;
 import lombok.SneakyThrows;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -136,6 +138,7 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                                     config.get(
                                             EmbeddingTransformConfig
                                                     .SINGLE_VECTORIZED_INPUT_NUMBER));
+
                     break;
                 case ZHIPU:
                     model =
@@ -149,6 +152,19 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                                             EmbeddingTransformConfig
                                                     .SINGLE_VECTORIZED_INPUT_NUMBER));
                     break;
+                case AMAZON:
+                    model =
+                            new BedrockModel(
+                                    config.get(ModelTransformConfig.API_KEY),
+                                    config.get(ModelTransformConfig.SECRET_KEY),
+                                    config.get(ModelTransformConfig.AWS_REGION),
+                                    config.get(ModelTransformConfig.API_PATH),
+                                    config.get(ModelTransformConfig.MODEL),
+                                    config.get(ModelTransformConfig.DIMENSION),
+                                    config.get(
+                                            EmbeddingTransformConfig
+                                                    .SINGLE_VECTORIZED_INPUT_NUMBER));
+                    break;
                 case LOCAL:
                 default:
                     throw new IllegalArgumentException("Unsupported model provider: " + provider);
@@ -157,6 +173,8 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
             dimension = model.dimension();
         } catch (IOException e) {
             throw new RuntimeException("Failed to initialize model", e);
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
         }
     }
 
