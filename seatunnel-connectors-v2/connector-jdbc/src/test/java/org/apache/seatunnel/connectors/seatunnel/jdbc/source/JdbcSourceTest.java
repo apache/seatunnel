@@ -49,15 +49,10 @@ public class JdbcSourceTest {
     private static final String ORACLE_PASSWORD = "password";
 
     // PostgreSQL connection details
-//    private static final String PGSQL_DRIVER_CLASS = "org.postgresql.Driver";
-//    private static final String PGSQL_URL = "jdbc:postgresql://localhost:5432/postgres";
-//    private static final String PGSQL_USERNAME = "postgres";
-//    private static final String PGSQL_PASSWORD = "password";
     private static final String PGSQL_DRIVER_CLASS = "org.postgresql.Driver";
-    private static final String PGSQL_URL = "jdbc:postgresql://182.42.242.109:52013/postgres";
+    private static final String PGSQL_URL = "jdbc:postgresql://localhost:5432/postgres";
     private static final String PGSQL_USERNAME = "postgres";
-    private static final String PGSQL_PASSWORD = "sinnr_en14Admin";
-
+    private static final String PGSQL_PASSWORD = "password";
 
     @Test
     public void testExactTableMatch() {

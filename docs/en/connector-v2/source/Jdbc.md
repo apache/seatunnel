@@ -85,6 +85,7 @@ The JDBC Source connector supports two ways to specify tables:
 2. **Regular Expression**: Use `table_path` with a regex pattern to match multiple tables.
    ```hocon
    table_path = "testdb.table\\d+"  # Matches table1, table2, table3, etc.
+   use_regex = true
    ```
 
 #### Regular Expression Support for Table Names
@@ -93,17 +94,16 @@ The JDBC connector supports using regular expressions to match multiple tables. 
 
 ### Configuration
 
-To control regular expression matching for table paths, you have three options:
+To use regular expression matching for table paths:
 
-1. **Explicit Enable**: Set `use_regex = true` to force regex matching
-2. **Explicit Disable**: Set `use_regex = false` to force exact path matching (no regex)
-3. **Automatic Detection**: Don't specify `use_regex` and the connector will auto-detect regex patterns
+1. Set `use_regex = true` to enable regex matching
+2. If `use_regex` is not set or set to `false`, the connector will treat the table_path as an exact path (no regex matching)
 
 ### Parameters
 
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
-| use_regex | Boolean | No | null (auto-detect) | Control regular expression matching for table_path. When set to `true`, the table_path will be treated as a regular expression pattern. When set to `false`, the table_path will be treated as an exact path (no regex matching). If not specified (null), the connector will automatically detect if the table_path contains regex patterns like `*`, `+`, `\\d`, `[...]`, etc. |
+| use_regex | Boolean | No | false | Control regular expression matching for table_path. When set to `true`, the table_path will be treated as a regular expression pattern. When set to `false` or not specified, the table_path will be treated as an exact path (no regex matching). |
 
 ### Regular Expression Syntax Notes
 
@@ -127,35 +127,20 @@ source {
     
     table_list = [
       {
-        # Explicit regex matching - force regex even for simple patterns
+        # Regex matching - match any table in test database
         table_path = "test.*"
         use_regex = true
       },
       {
-        # Explicit regex matching - match tables with "user" followed by digits
+        # Regex matching - match tables with "user" followed by digits
         table_path = "test.user\\d+"
         use_regex = true
       },
       {
-        # Explicit exact matching - treat as literal path even though it looks like regex
-        table_path = "test.table*"  # This will match a table literally named "table*"
-        use_regex = false
-      },
-      {
-        # Automatic detection - will be detected as regex pattern
-        table_path = "test.order\\d+"
-        # use_regex not specified, auto-detection will recognize \\d+ as regex
-      },
-      {
-        # Automatic detection - will be treated as exact path
+        # Exact matching - simple table name
         table_path = "test.config"
-        # use_regex not specified, no regex patterns detected
+        # use_regex not specified, defaults to false
       },
-      {
-        # Explicit regex with escaped dots in database names
-        table_path = "test\\.db.table\\d+"
-        use_regex = true
-      }
     ]
   }
 }
