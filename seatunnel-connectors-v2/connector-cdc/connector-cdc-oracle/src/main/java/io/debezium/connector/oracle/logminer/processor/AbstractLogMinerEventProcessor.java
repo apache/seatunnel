@@ -1,7 +1,18 @@
 /*
- * Copyright Debezium Authors.
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * Licensed under the Apache Software License version 2.0, available at http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package io.debezium.connector.oracle.logminer.processor;
 
@@ -401,7 +412,6 @@ public abstract class AbstractLogMinerEventProcessor<T extends AbstractTransacti
         final boolean skipExcludedUserName = isTransactionUserExcluded(transaction);
         TransactionCommitConsumer.Handler<LogMinerEvent> delegate =
                 new TransactionCommitConsumer.Handler<LogMinerEvent>() {
-                    private int numEvents = getTransactionEventCount(transaction);
 
                     @Override
                     public void accept(LogMinerEvent event, long eventsProcessed)
@@ -420,10 +430,6 @@ public abstract class AbstractLogMinerEventProcessor<T extends AbstractTransacti
                                         .minusSeconds(databaseOffset.getTotalSeconds()));
                         offsetContext.setTableId(event.getTableId());
                         offsetContext.setRedoThread(row.getThread());
-                        if (eventsProcessed == numEvents) {
-                            // reached the last event update the commit scn in the offsets
-                            offsetContext.getCommitScn().recordCommit(row);
-                        }
 
                         final DmlEvent dmlEvent = (DmlEvent) event;
                         if (!skipExcludedUserName) {
@@ -460,6 +466,12 @@ public abstract class AbstractLogMinerEventProcessor<T extends AbstractTransacti
                         }
                     }
                 };
+
+        // When a COMMIT is received, regardless of the number of events it has, it still
+        // must be recorded in the commit scn for the node to guarantee updates to the
+        // offsets. This must be done prior to dispatching the transaction-commit or the
+        // heartbeat event that follows commit dispatch.
+        offsetContext.getCommitScn().recordCommit(row);
 
         Instant start = Instant.now();
         int dispatchedEventCount = 0;
