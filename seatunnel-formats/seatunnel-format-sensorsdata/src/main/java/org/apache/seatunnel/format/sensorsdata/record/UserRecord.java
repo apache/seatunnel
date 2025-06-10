@@ -13,12 +13,16 @@ public class UserRecord extends UserRecordBase {
     @Getter private final UserSchema userSchema;
 
     public UserRecord(UserSchema userSchema) {
+        this(userSchema, PROFILE_SET_ACTION_TYPE);
+    }
+
+    public UserRecord(UserSchema userSchema, String actionType) {
         super(
                 userSchema.getTrackId(),
                 userSchema.getDistinctId(),
                 userSchema.getIdentityMap(),
                 userSchema.getPropertyMap(),
-                PROFILE_SET_ACTION_TYPE,
+                actionType,
                 SensorsConst.USER_SCHEMA);
         this.userSchema = userSchema;
     }

@@ -121,4 +121,11 @@ public interface SensorsDataOptions {
                     .defaultValue(false)
                     .withDescription(
                             "when distinct_id_column value is null, enable get distinctId value by identityFields");
+
+    Option<Boolean> NULL_AS_PROFILE_UNSET =
+            Options.key("null_as_profile_unset")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "when properties value is null, enable send profile_unset action");
 }

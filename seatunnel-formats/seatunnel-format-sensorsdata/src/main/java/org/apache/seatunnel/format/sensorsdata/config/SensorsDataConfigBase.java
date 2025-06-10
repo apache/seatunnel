@@ -45,6 +45,11 @@ public class SensorsDataConfigBase implements Serializable {
     // 默认情况下 false, 表示 distinctId 只能从 distinctIdColumn 字段获取
     // 如果为 true, 则表示 distinctId 可以从 identityFields 字段获取
     protected final boolean distinctIdByIdentities;
+    // 配置 profile unset 的逻辑
+    // nullAsProfileUnset, 默认情况下为 false, 如当前逻辑, 不处理 properties 中为 null 的情况
+    // nullAsProfileUnset  为 true 时, 在 seatunnel 原本 profile_set 发送的逻辑上, 增加对 properties 为 null的处理,
+    // 多发送一条 profile_unset 的数据
+    protected final boolean nullAsProfileUnset;
 
     public SensorsDataConfigBase(ReadonlyConfig config) {
         this.entityName = config.get(SensorsDataOptions.ENTITY_NAME);
@@ -61,5 +66,6 @@ public class SensorsDataConfigBase implements Serializable {
         this.itemIdColumn = config.get(SensorsDataOptions.ITEM_ID_COLUMN);
         this.itemTypeColumn = config.get(SensorsDataOptions.ITEM_TYPE_COLUMN);
         this.distinctIdByIdentities = config.get(SensorsDataOptions.DISTINCT_ID_BY_IDENTITIES);
+        this.nullAsProfileUnset = config.get(SensorsDataOptions.NULL_AS_PROFILE_UNSET);
     }
 }

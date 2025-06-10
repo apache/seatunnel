@@ -49,6 +49,10 @@ public abstract class UserRecordBase implements SensorsDataRecord {
 
     private String schema;
 
+    public String getType() {
+        return type;
+    }
+
     protected UserRecordBase(
             Integer trackId,
             String distinctId,

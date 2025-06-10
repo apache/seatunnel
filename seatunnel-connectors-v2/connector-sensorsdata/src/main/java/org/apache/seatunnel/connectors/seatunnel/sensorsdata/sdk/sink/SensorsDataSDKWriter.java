@@ -28,16 +28,19 @@ import org.apache.seatunnel.connectors.seatunnel.sensorsdata.sdk.exception.Senso
 import org.apache.seatunnel.connectors.seatunnel.sensorsdata.sdk.exception.SensorsDataConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.sensorsdata.sdk.state.SensorsDataCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.sensorsdata.sdk.state.SensorsDataSinkState;
+import org.apache.seatunnel.format.sensorsdata.config.TargetColumnConfig;
 import org.apache.seatunnel.format.sensorsdata.record.RowAccessor;
 import org.apache.seatunnel.format.sensorsdata.record.SensorsDataRecordBuilder;
 import org.apache.seatunnel.format.sensorsdata.record.SpecialItemRecord;
 import org.apache.seatunnel.format.sensorsdata.record.UserDetailRecord;
 import org.apache.seatunnel.format.sensorsdata.record.UserEventRecord;
 import org.apache.seatunnel.format.sensorsdata.record.UserRecord;
+import org.apache.seatunnel.format.sensorsdata.utils.UserSchemaUtil;
 
 import org.apache.commons.lang3.StringUtils;
 
 import com.sensorsdata.analytics.javasdk.SensorsAnalytics;
+import com.sensorsdata.analytics.javasdk.bean.schema.UserSchema;
 import com.sensorsdata.analytics.javasdk.consumer.BatchConsumer;
 import com.sensorsdata.analytics.javasdk.consumer.ConsoleConsumer;
 import lombok.NonNull;
@@ -49,6 +52,8 @@ import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class SensorsDataSDKWriter
@@ -59,6 +64,8 @@ public class SensorsDataSDKWriter
     private final RowAccessor rowAccessor;
     private final SeaTunnelRowType seaTunnelRowType;
     private final boolean isSkipErrorRecord;
+    private final boolean nullAsProfileUnset;
+    private final Set<String> allProperties;
 
     /** for convenient testing */
     private static final String CONSUMER_TYPE_CONSOLE = "console";
@@ -85,7 +92,12 @@ public class SensorsDataSDKWriter
         rowAccessor = new RowAccessor(sinkConfig, seaTunnelRowType);
         this.seaTunnelRowType = seaTunnelRowType;
         isSkipErrorRecord = sinkConfig.isSkipErrorRecord();
+        nullAsProfileUnset = sinkConfig.isNullAsProfileUnset();
         recordBuilder = SensorsDataRecordBuilder.newBuilder(sinkConfig, rowAccessor);
+        this.allProperties =
+                sinkConfig.getPropertyFields().stream()
+                        .map(TargetColumnConfig::getTarget)
+                        .collect(Collectors.toSet());
     }
 
     @Override
@@ -93,7 +105,16 @@ public class SensorsDataSDKWriter
         try {
             switch (recordBuilder.getRecordType()) {
                 case USER:
-                    sa.profileSet(((UserRecord) recordBuilder.build(row)).getUserSchema());
+                    UserSchema userSchema = ((UserRecord) recordBuilder.build(row)).getUserSchema();
+                    sa.profileSet(userSchema);
+                    if (nullAsProfileUnset) {
+                        UserSchema unsetUserSchema =
+                                UserSchemaUtil.buildUnsetUserSchema(userSchema, allProperties);
+                        if (unsetUserSchema != null) {
+                            // 不为 null 时才需要发送 profile unset
+                            sa.profileUnset(unsetUserSchema);
+                        }
+                    }
                     break;
                 case USER_EVENT:
                     sa.track(((UserEventRecord) recordBuilder.build(row)).getUserEventSchema());
