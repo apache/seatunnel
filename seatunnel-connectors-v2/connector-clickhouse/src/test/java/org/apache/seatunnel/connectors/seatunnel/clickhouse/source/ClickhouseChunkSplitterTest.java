@@ -17,15 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
-import org.apache.seatunnel.api.table.catalog.*;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceConfig;
 
 import org.apache.commons.lang3.tuple.Pair;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import com.google.common.collect.ImmutableList;
@@ -55,10 +59,10 @@ public class ClickhouseChunkSplitterTest {
 
         Collection<ClickHouseSourceSplit> splits =
                 splitter.generateSplits(sourceConfig, catalogTable);
-        Assert.assertEquals(1, splits.size());
+        Assertions.assertEquals(1, splits.size());
 
         ClickHouseSourceSplit split = splits.iterator().next();
-        Assert.assertEquals("select * from student", split.getSplitQuery());
+        Assertions.assertEquals("select * from student", split.getSplitQuery());
     }
 
     @Test
@@ -67,18 +71,18 @@ public class ClickhouseChunkSplitterTest {
         ClickhouseSourceConfig sourceConfig = getSourceConfig("id", "1", "30", 1);
 
         List<ClickHouseSourceSplit> splits = splitter.generateSplits(sourceConfig, catalogTable);
-        Assert.assertEquals(1, splits.size());
+        Assertions.assertEquals(1, splits.size());
         String expectedQuery =
                 String.format(
                         "SELECT * FROM (%s) st_clickhouse_splitter WHERE id BETWEEN %s and %s",
                         QUERY_SQL, 1, 30);
-        Assert.assertEquals(expectedQuery, splits.get(0).getSplitQuery());
+        Assertions.assertEquals(expectedQuery, splits.get(0).getSplitQuery());
 
         // 3 partitions test
         sourceConfig = getSourceConfig("id", "1", "30", 3);
 
         splits = splitter.generateSplits(sourceConfig, catalogTable);
-        Assert.assertEquals(3, splits.size());
+        Assertions.assertEquals(3, splits.size());
 
         List<Pair<Integer, Integer>> boundValues =
                 ImmutableList.of(Pair.of(1, 10), Pair.of(11, 20), Pair.of(21, 30));
@@ -89,7 +93,7 @@ public class ClickhouseChunkSplitterTest {
                             "SELECT * FROM (%s) st_clickhouse_splitter WHERE id BETWEEN %s and %s",
                             QUERY_SQL, boundValue.getLeft(), boundValue.getRight());
             String splitQuery = splits.get(i).getSplitQuery();
-            Assert.assertEquals(expectedQuery, splitQuery);
+            Assertions.assertEquals(expectedQuery, splitQuery);
         }
     }
 
@@ -100,7 +104,7 @@ public class ClickhouseChunkSplitterTest {
                 getSourceConfig("enrollment_date", "2025-05-01", "2025-06-08", 1);
 
         List<ClickHouseSourceSplit> splits = splitter.generateSplits(sourceConfig, catalogTable);
-        Assert.assertEquals(1, splits.size());
+        Assertions.assertEquals(1, splits.size());
 
         LocalDate baseDate = LocalDate.of(1970, 1, 1);
         LocalDate lowerBoundDate = LocalDate.of(2025, 5, 1);
@@ -111,12 +115,12 @@ public class ClickhouseChunkSplitterTest {
                         QUERY_SQL,
                         ChronoUnit.DAYS.between(baseDate, lowerBoundDate),
                         ChronoUnit.DAYS.between(baseDate, upperBoundDate));
-        Assert.assertEquals(expectedQuery, splits.get(0).getSplitQuery());
+        Assertions.assertEquals(expectedQuery, splits.get(0).getSplitQuery());
 
         // 3 partition test
         sourceConfig = getSourceConfig("enrollment_date", "2025-05-01", "2025-06-06", 3);
         splits = splitter.generateSplits(sourceConfig, catalogTable);
-        Assert.assertEquals(3, splits.size());
+        Assertions.assertEquals(3, splits.size());
 
         List<Pair<LocalDate, LocalDate>> boundValues =
                 ImmutableList.of(
@@ -132,7 +136,7 @@ public class ClickhouseChunkSplitterTest {
                             ChronoUnit.DAYS.between(baseDate, boundValue.getLeft()),
                             ChronoUnit.DAYS.between(baseDate, boundValue.getRight()));
             String splitQuery = splits.get(i).getSplitQuery();
-            Assert.assertEquals(expectedQuery, splitQuery);
+            Assertions.assertEquals(expectedQuery, splitQuery);
         }
     }
 
@@ -143,7 +147,7 @@ public class ClickhouseChunkSplitterTest {
                 getSourceConfig("created_at", "2025-05-01 12:30:00", "2025-06-06 15:30:00", 1);
 
         List<ClickHouseSourceSplit> splits = splitter.generateSplits(sourceConfig, catalogTable);
-        Assert.assertEquals(1, splits.size());
+        Assertions.assertEquals(1, splits.size());
 
         LocalDateTime lowerBoundDateTime = LocalDateTime.of(2025, 5, 1, 12, 30, 0);
         LocalDateTime upperBoundDateTime = LocalDateTime.of(2025, 6, 6, 15, 30, 0);
@@ -153,13 +157,13 @@ public class ClickhouseChunkSplitterTest {
                         QUERY_SQL,
                         lowerBoundDateTime.atZone(ZoneId.systemDefault()).toEpochSecond(),
                         upperBoundDateTime.atZone(ZoneId.systemDefault()).toEpochSecond());
-        Assert.assertEquals(expectedQuery, splits.get(0).getSplitQuery());
+        Assertions.assertEquals(expectedQuery, splits.get(0).getSplitQuery());
 
         // 3 partition test
         sourceConfig =
                 getSourceConfig("created_at", "2025-05-01 12:30:00", "2025-06-06 15:30:00", 3);
         splits = splitter.generateSplits(sourceConfig, catalogTable);
-        Assert.assertEquals(3, splits.size());
+        Assertions.assertEquals(3, splits.size());
 
         List<Pair<LocalDateTime, LocalDateTime>> boundValues =
                 ImmutableList.of(
@@ -181,7 +185,7 @@ public class ClickhouseChunkSplitterTest {
                             boundValue.getLeft().atZone(ZoneId.systemDefault()).toEpochSecond(),
                             boundValue.getRight().atZone(ZoneId.systemDefault()).toEpochSecond());
             String splitQuery = splits.get(i).getSplitQuery();
-            Assert.assertEquals(expectedQuery, splitQuery);
+            Assertions.assertEquals(expectedQuery, splitQuery);
         }
     }
 
@@ -191,19 +195,19 @@ public class ClickhouseChunkSplitterTest {
         ClickhouseSourceConfig sourceConfig = getSourceConfig("name", null, null, 1);
 
         List<ClickHouseSourceSplit> splits = splitter.generateSplits(sourceConfig, catalogTable);
-        Assert.assertEquals(1, splits.size());
+        Assertions.assertEquals(1, splits.size());
 
         String expectedQuery =
                 String.format(
                         "SELECT * FROM (%s) st_clickhouse_splitter WHERE xxHash32(coalesce(`name`, '')) %% 1 = 0",
                         QUERY_SQL);
-        Assert.assertEquals(expectedQuery, splits.get(0).getSplitQuery());
+        Assertions.assertEquals(expectedQuery, splits.get(0).getSplitQuery());
 
         // 3 partition test
         sourceConfig = getSourceConfig("name", null, null, 3);
 
         splits = splitter.generateSplits(sourceConfig, catalogTable);
-        Assert.assertEquals(3, splits.size());
+        Assertions.assertEquals(3, splits.size());
 
         List<Integer> boundValues = ImmutableList.of(0, 1, 2);
         for (int i = 0; i < splits.size(); i++) {
@@ -212,7 +216,7 @@ public class ClickhouseChunkSplitterTest {
                             "SELECT * FROM (%s) st_clickhouse_splitter WHERE xxHash32(coalesce(`name`, '')) %% 3 = %s",
                             QUERY_SQL, boundValues.get(i));
             String splitQuery = splits.get(i).getSplitQuery();
-            Assert.assertEquals(expectedQuery, splitQuery);
+            Assertions.assertEquals(expectedQuery, splitQuery);
         }
     }
 
@@ -230,7 +234,7 @@ public class ClickhouseChunkSplitterTest {
         Mockito.doReturn(queryBoundValues).when(spySplitter).queryMinMax(sourceConfig, "id");
 
         List<ClickHouseSourceSplit> splits = spySplitter.generateSplits(sourceConfig, catalogTable);
-        Assert.assertEquals(3, splits.size());
+        Assertions.assertEquals(3, splits.size());
 
         List<Pair<Integer, Integer>> boundValues =
                 ImmutableList.of(Pair.of(-3, 8), Pair.of(9, 20), Pair.of(21, 31));
@@ -241,7 +245,7 @@ public class ClickhouseChunkSplitterTest {
                             "SELECT * FROM (%s) st_clickhouse_splitter WHERE id BETWEEN %s and %s",
                             QUERY_SQL, boundValue.getLeft(), boundValue.getRight());
             String splitQuery = splits.get(i).getSplitQuery();
-            Assert.assertEquals(expectedQuery, splitQuery);
+            Assertions.assertEquals(expectedQuery, splitQuery);
         }
     }
 

@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
-import com.clickhouse.client.*;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -32,6 +31,12 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.Clickhouse
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import com.clickhouse.client.ClickHouseClient;
+import com.clickhouse.client.ClickHouseException;
+import com.clickhouse.client.ClickHouseFormat;
+import com.clickhouse.client.ClickHouseNode;
+import com.clickhouse.client.ClickHouseRecord;
+import com.clickhouse.client.ClickHouseResponse;
 import com.clickhouse.client.data.ClickHouseDateTimeValue;
 import com.clickhouse.client.data.ClickHouseDateValue;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +44,13 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.TimeZone;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -201,7 +212,7 @@ public class ClickhouseChunkSplitter {
         List<ClickHouseNode> nodes = sourceConfig.getNodes();
         ClickHouseNode currentServer = nodes.get(ThreadLocalRandom.current().nextInt(nodes.size()));
         try (ClickHouseClient client = ClickHouseClient.newInstance(currentServer.getProtocol());
-             ClickHouseResponse response =
+                ClickHouseResponse response =
                         client.connect(currentServer)
                                 .format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
                                 .query(sqlQuery)
