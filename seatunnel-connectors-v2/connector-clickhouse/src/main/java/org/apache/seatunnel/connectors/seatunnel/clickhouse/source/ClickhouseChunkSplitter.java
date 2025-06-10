@@ -18,10 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
 import com.clickhouse.client.*;
-import com.clickhouse.client.data.ClickHouseDateTimeValue;
-import com.clickhouse.client.data.ClickHouseDateValue;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -34,6 +30,12 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 
+import org.apache.commons.lang3.tuple.Pair;
+
+import com.clickhouse.client.data.ClickHouseDateTimeValue;
+import com.clickhouse.client.data.ClickHouseDateValue;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -42,30 +44,34 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-
 /**
- * Parallel reading shard splitting strategy, mainly divided into two categories according to the type of partition field:
+ * Parallel reading shard splitting strategy, mainly divided into two categories according to the
+ * type of partition field:
  *
  * <p>1. Numeric types
  *
  * <p>Numeric types include pure numeric types and date types:
  *
  * <p>(1) Pure numeric types
- * <p>Calculate the partition size based on the lower and upper bounds, and split according to the number of partitions
- * (the last partition may be smaller than the partition size).
+ *
+ * <p>Calculate the partition size based on the lower and upper bounds, and split according to the
+ * number of partitions (the last partition may be smaller than the partition size).
  *
  * <p>(2) Time types
- * <p>Time types mainly include two categories: Date and DateTime. Regardless of the category, they will first be
- * converted to their numerical values, and then the splitting algorithm is the same as that for pure numeric types.
- * After splitting into partitions, if the field is of type Date, ClickHouse's toDate() function will be used to
- * convert the partition values. If it is of type DateTime, the toDateTime64() function will be used instead.
  *
- * <p>Regardless of whether it is a pure numeric type or a time type, if the lower or upper bound is not specified,
- * the database will be requested to obtain the maximum and minimum values.
+ * <p>Time types mainly include two categories: Date and DateTime. Regardless of the category, they
+ * will first be converted to their numerical values, and then the splitting algorithm is the same
+ * as that for pure numeric types. After splitting into partitions, if the field is of type Date,
+ * ClickHouse's toDate() function will be used to convert the partition values. If it is of type
+ * DateTime, the toDateTime64() function will be used instead.
+ *
+ * <p>Regardless of whether it is a pure numeric type or a time type, if the lower or upper bound is
+ * not specified, the database will be requested to obtain the maximum and minimum values.
  *
  * <p>2. String types
- * <p>For strings, specifying upper and lower bounds is invalid. The splitting algorithm will take the modulus of
- * the partition field according to the number of partitions to split the data.
+ *
+ * <p>For strings, specifying upper and lower bounds is invalid. The splitting algorithm will take
+ * the modulus of the partition field according to the number of partitions to split the data.
  */
 @Slf4j
 public class ClickhouseChunkSplitter {
@@ -215,14 +221,21 @@ public class ClickhouseChunkSplitter {
     private Pair<BigDecimal, BigDecimal> getPartitionBoundValue(
             ClickhouseSourceConfig sourceConfig, SeaTunnelDataType<?> splitKeyType) {
         Function<String, BigDecimal> dateTimeTranslator =
-                value -> ClickHouseDateTimeValue.of(value, 3,
-                        TimeZone.getTimeZone(sourceConfig.getServerTimeZone())).asBigDecimal();
+                value ->
+                        ClickHouseDateTimeValue.of(
+                                        value,
+                                        3,
+                                        TimeZone.getTimeZone(sourceConfig.getServerTimeZone()))
+                                .asBigDecimal();
         Map<SqlType, Function<String, BigDecimal>> timeTranslatorMap =
                 new HashMap<SqlType, Function<String, BigDecimal>>() {
                     {
                         // Clickhouse Type: Date
-                        put(SqlType.DATE, value ->
-                                ClickHouseDateValue.of(LocalDate.parse(value)).asBigDecimal());
+                        put(
+                                SqlType.DATE,
+                                value ->
+                                        ClickHouseDateValue.of(LocalDate.parse(value))
+                                                .asBigDecimal());
                         // Clickhouse Type: DateTime
                         put(SqlType.TIME, dateTimeTranslator);
                         put(SqlType.TIMESTAMP, dateTimeTranslator);
@@ -248,7 +261,8 @@ public class ClickhouseChunkSplitter {
         } catch (Exception e) {
             throw new ClickhouseConnectorException(
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                    "Translate partition bound value failed.", e);
+                    "Translate partition bound value failed.",
+                    e);
         }
 
         return Pair.of(partitionStart, partitionEnd);

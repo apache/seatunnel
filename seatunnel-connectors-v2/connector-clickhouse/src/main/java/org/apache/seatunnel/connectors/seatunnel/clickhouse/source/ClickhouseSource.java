@@ -36,7 +36,7 @@ import java.util.List;
 
 public class ClickhouseSource
         implements SeaTunnelSource<SeaTunnelRow, ClickHouseSourceSplit, ClickhouseSourceState>,
-        SupportParallelism {
+                SupportParallelism {
 
     private final ClickhouseSourceConfig sourceConfig;
     private final List<ClickHouseNode> servers;

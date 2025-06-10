@@ -17,10 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+
 import com.clickhouse.client.ClickHouseNode;
 import lombok.Builder;
 import lombok.Data;
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import java.io.Serializable;
 import java.util.List;

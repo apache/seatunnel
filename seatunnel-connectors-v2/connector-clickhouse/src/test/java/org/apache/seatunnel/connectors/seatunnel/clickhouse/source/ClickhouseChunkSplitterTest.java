@@ -17,15 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
-import com.google.common.collect.ImmutableList;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.seatunnel.api.table.catalog.*;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceConfig;
+
+import org.apache.commons.lang3.tuple.Pair;
+
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito;
+
+import com.google.common.collect.ImmutableList;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -93,11 +96,8 @@ public class ClickhouseChunkSplitterTest {
     @Test
     public void testSplitWithPartitionColumnAndWithBoundDateColumn() throws Exception {
         // 1 partition test
-        ClickhouseSourceConfig sourceConfig = getSourceConfig(
-                "enrollment_date",
-                "2025-05-01",
-                "2025-06-08",
-                1);
+        ClickhouseSourceConfig sourceConfig =
+                getSourceConfig("enrollment_date", "2025-05-01", "2025-06-08", 1);
 
         List<ClickHouseSourceSplit> splits = splitter.generateSplits(sourceConfig, catalogTable);
         Assert.assertEquals(1, splits.size());
@@ -114,18 +114,15 @@ public class ClickhouseChunkSplitterTest {
         Assert.assertEquals(expectedQuery, splits.get(0).getSplitQuery());
 
         // 3 partition test
-        sourceConfig = getSourceConfig(
-                "enrollment_date",
-                "2025-05-01",
-                "2025-06-06",
-                3);
+        sourceConfig = getSourceConfig("enrollment_date", "2025-05-01", "2025-06-06", 3);
         splits = splitter.generateSplits(sourceConfig, catalogTable);
         Assert.assertEquals(3, splits.size());
 
-        List<Pair<LocalDate, LocalDate>> boundValues = ImmutableList.of(
-                Pair.of(LocalDate.of(2025, 5, 1), LocalDate.of(2025, 5, 13)),
-                Pair.of(LocalDate.of(2025, 5, 14), LocalDate.of(2025, 5, 26)),
-                Pair.of(LocalDate.of(2025, 5, 27), LocalDate.of(2025, 6, 6)));
+        List<Pair<LocalDate, LocalDate>> boundValues =
+                ImmutableList.of(
+                        Pair.of(LocalDate.of(2025, 5, 1), LocalDate.of(2025, 5, 13)),
+                        Pair.of(LocalDate.of(2025, 5, 14), LocalDate.of(2025, 5, 26)),
+                        Pair.of(LocalDate.of(2025, 5, 27), LocalDate.of(2025, 6, 6)));
         for (int i = 0; i < splits.size(); i++) {
             Pair<LocalDate, LocalDate> boundValue = boundValues.get(i);
             expectedQuery =
@@ -142,11 +139,8 @@ public class ClickhouseChunkSplitterTest {
     @Test
     public void testSplitWithPartitionColumnAndWithBoundDateTimeColumn() throws Exception {
         // 1 partition test
-        ClickhouseSourceConfig sourceConfig = getSourceConfig(
-                "created_at",
-                "2025-05-01 12:30:00",
-                "2025-06-06 15:30:00",
-                1);
+        ClickhouseSourceConfig sourceConfig =
+                getSourceConfig("created_at", "2025-05-01 12:30:00", "2025-06-06 15:30:00", 1);
 
         List<ClickHouseSourceSplit> splits = splitter.generateSplits(sourceConfig, catalogTable);
         Assert.assertEquals(1, splits.size());
@@ -162,24 +156,22 @@ public class ClickhouseChunkSplitterTest {
         Assert.assertEquals(expectedQuery, splits.get(0).getSplitQuery());
 
         // 3 partition test
-        sourceConfig = getSourceConfig(
-                "created_at",
-                "2025-05-01 12:30:00",
-                "2025-06-06 15:30:00",
-                3);
+        sourceConfig =
+                getSourceConfig("created_at", "2025-05-01 12:30:00", "2025-06-06 15:30:00", 3);
         splits = splitter.generateSplits(sourceConfig, catalogTable);
         Assert.assertEquals(3, splits.size());
 
-        List<Pair<LocalDateTime, LocalDateTime>> boundValues = ImmutableList.of(
-                Pair.of(
-                        LocalDateTime.of(2025, 5, 1, 12, 30, 0),
-                        LocalDateTime.of(2025, 5, 13, 13, 30, 0)),
-                Pair.of(
-                        LocalDateTime.of(2025, 5, 13, 13, 30, 1),
-                        LocalDateTime.of(2025, 5, 25, 14, 30, 1)),
-                Pair.of(
-                        LocalDateTime.of(2025, 5, 25, 14, 30, 2),
-                        LocalDateTime.of(2025, 6, 6, 15, 30, 0)));
+        List<Pair<LocalDateTime, LocalDateTime>> boundValues =
+                ImmutableList.of(
+                        Pair.of(
+                                LocalDateTime.of(2025, 5, 1, 12, 30, 0),
+                                LocalDateTime.of(2025, 5, 13, 13, 30, 0)),
+                        Pair.of(
+                                LocalDateTime.of(2025, 5, 13, 13, 30, 1),
+                                LocalDateTime.of(2025, 5, 25, 14, 30, 1)),
+                        Pair.of(
+                                LocalDateTime.of(2025, 5, 25, 14, 30, 2),
+                                LocalDateTime.of(2025, 6, 6, 15, 30, 0)));
         for (int i = 0; i < splits.size(); i++) {
             Pair<LocalDateTime, LocalDateTime> boundValue = boundValues.get(i);
             expectedQuery =
@@ -196,30 +188,29 @@ public class ClickhouseChunkSplitterTest {
     @Test
     public void testSplitWithPartitionColumnAndWithBoundStringColumn() throws Exception {
         // 1 partition test
-        ClickhouseSourceConfig sourceConfig = getSourceConfig(
-                "name", null, null, 1);
+        ClickhouseSourceConfig sourceConfig = getSourceConfig("name", null, null, 1);
 
         List<ClickHouseSourceSplit> splits = splitter.generateSplits(sourceConfig, catalogTable);
         Assert.assertEquals(1, splits.size());
 
-        String expectedQuery = String.format(
-                "SELECT * FROM (%s) st_clickhouse_splitter WHERE xxHash32(coalesce(`name`, '')) %% 1 = 0",
-                QUERY_SQL);
+        String expectedQuery =
+                String.format(
+                        "SELECT * FROM (%s) st_clickhouse_splitter WHERE xxHash32(coalesce(`name`, '')) %% 1 = 0",
+                        QUERY_SQL);
         Assert.assertEquals(expectedQuery, splits.get(0).getSplitQuery());
 
         // 3 partition test
-        sourceConfig = getSourceConfig(
-                "name", null, null, 3);
+        sourceConfig = getSourceConfig("name", null, null, 3);
 
         splits = splitter.generateSplits(sourceConfig, catalogTable);
         Assert.assertEquals(3, splits.size());
 
         List<Integer> boundValues = ImmutableList.of(0, 1, 2);
         for (int i = 0; i < splits.size(); i++) {
-            expectedQuery = String.format(
-                    "SELECT * FROM (%s) st_clickhouse_splitter WHERE xxHash32(coalesce(`name`, '')) %% 3 = %s",
-                    QUERY_SQL,
-                    boundValues.get(i));
+            expectedQuery =
+                    String.format(
+                            "SELECT * FROM (%s) st_clickhouse_splitter WHERE xxHash32(coalesce(`name`, '')) %% 3 = %s",
+                            QUERY_SQL, boundValues.get(i));
             String splitQuery = splits.get(i).getSplitQuery();
             Assert.assertEquals(expectedQuery, splitQuery);
         }
@@ -234,9 +225,8 @@ public class ClickhouseChunkSplitterTest {
         ClickhouseChunkSplitter spySplitter = Mockito.spy(splitter);
         ClickhouseSourceConfig sourceConfig = getSourceConfig("id", null, null, 3);
         // mock the queryMinMax method
-        Pair<BigDecimal, BigDecimal> queryBoundValues = Pair.of(
-                new BigDecimal(-3),
-                new BigDecimal(31));
+        Pair<BigDecimal, BigDecimal> queryBoundValues =
+                Pair.of(new BigDecimal(-3), new BigDecimal(31));
         Mockito.doReturn(queryBoundValues).when(spySplitter).queryMinMax(sourceConfig, "id");
 
         List<ClickHouseSourceSplit> splits = spySplitter.generateSplits(sourceConfig, catalogTable);

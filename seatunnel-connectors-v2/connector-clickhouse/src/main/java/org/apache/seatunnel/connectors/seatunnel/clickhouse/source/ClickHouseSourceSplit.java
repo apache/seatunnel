@@ -17,11 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.ToString;
-import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 
 @Data
 @ToString

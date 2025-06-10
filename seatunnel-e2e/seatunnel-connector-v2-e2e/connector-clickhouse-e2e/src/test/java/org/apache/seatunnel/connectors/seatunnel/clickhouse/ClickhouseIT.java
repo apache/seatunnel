@@ -218,35 +218,40 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         // testClickHouseWithParallelReadNumberCol
         assertParallelTableSetupStatus();
         Container.ExecResult execResult =
-                container.executeJob("/parallel_read/clickhouse_to_clickhouse_with_parallel_read_number.conf");
+                container.executeJob(
+                        "/parallel_read/clickhouse_to_clickhouse_with_parallel_read_number.conf");
         assertParallelTableSinkStatus(execResult);
         clearTable("parallel_sink_table");
 
         // testClickHouseWithParallelReadDateCol(Intentionally remove bound value in config file)
         assertParallelTableSetupStatus();
         execResult =
-                container.executeJob("/parallel_read/clickhouse_to_clickhouse_with_parallel_read_date.conf");
+                container.executeJob(
+                        "/parallel_read/clickhouse_to_clickhouse_with_parallel_read_date.conf");
         assertParallelTableSinkStatus(execResult);
         clearTable("parallel_sink_table");
 
         // testClickHouseWithParallelReadDateTimeCol
         assertParallelTableSetupStatus();
         execResult =
-                container.executeJob("/parallel_read/clickhouse_to_clickhouse_with_parallel_read_date.conf");
+                container.executeJob(
+                        "/parallel_read/clickhouse_to_clickhouse_with_parallel_read_date.conf");
         assertParallelTableSinkStatus(execResult);
         clearTable("parallel_sink_table");
 
         // testClickHouseWithParallelReadStringCol
         assertParallelTableSetupStatus();
         execResult =
-                container.executeJob("/parallel_read/clickhouse_to_clickhouse_with_parallel_read_string.conf");
+                container.executeJob(
+                        "/parallel_read/clickhouse_to_clickhouse_with_parallel_read_string.conf");
         assertParallelTableSinkStatus(execResult);
         clearTable("parallel_sink_table");
 
         // other necessary test
         assertParallelTableSetupStatus();
         execResult =
-                container.executeJob("/parallel_read/clickhouse_to_clickhouse_with_parallel_read_single.conf");
+                container.executeJob(
+                        "/parallel_read/clickhouse_to_clickhouse_with_parallel_read_single.conf");
         assertParallelTableSinkStatus(execResult);
         clearTable("parallel_sink_table");
     }
@@ -288,9 +293,9 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
             statement.execute(CONFIG.getString(SOURCE_TABLE));
             statement.execute(CONFIG.getString(SINK_TABLE));
             // for other usage tables
-            List<String> tables = Stream
-                    .concat(MULTI_SINK_TABLES.stream(), PARALLEL_TABLES.stream())
-                    .collect(Collectors.toList());
+            List<String> tables =
+                    Stream.concat(MULTI_SINK_TABLES.stream(), PARALLEL_TABLES.stream())
+                            .collect(Collectors.toList());
             for (String tableName : tables) {
                 statement.execute(CONFIG.getString(tableName));
             }
@@ -377,6 +382,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("Drop table failed!", e);
         }
     }
+
     private void batchInsertData() {
         this.batchInsertCommonUsageData();
         this.batchInsertParallelReadUsageData();
@@ -384,7 +390,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
 
     private void batchInsertParallelReadUsageData() {
         String sql = CONFIG.getString("insert_sql_for_parallel_table");
-        try(Statement statement = connection.createStatement();) {
+        try (Statement statement = connection.createStatement(); ) {
             statement.execute(sql);
         } catch (SQLException e) {
             throw new RuntimeException("Batch insert data failed!", e);
