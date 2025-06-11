@@ -68,6 +68,8 @@ public class ZetaSQLType {
     public static final String DECIMAL = "DECIMAL";
     public static final String VARCHAR = "VARCHAR";
     public static final String STRING = "STRING";
+    public static final String TINYINT = "TINYINT";
+    public static final String SMALLINT = "SMALLINT";
     public static final String INT = "INT";
     public static final String INTEGER = "INTEGER";
     public static final String BIGINT = "BIGINT";
@@ -81,6 +83,7 @@ public class ZetaSQLType {
     public static final String DATETIME = "DATETIME";
     public static final String DATE = "DATE";
     public static final String TIME = "TIME";
+    public static final String BOOLEAN = "BOOLEAN";
 
     private final SeaTunnelRowType inputRowType;
 
@@ -121,7 +124,11 @@ public class ZetaSQLType {
                 columnName = columnName.substring(1, columnName.length() - 1);
                 index = inputRowType.indexOf(columnName, false);
             }
-
+            if (index == -1
+                    && ("true".equalsIgnoreCase(columnName)
+                            || "false".equalsIgnoreCase(columnName))) {
+                return BasicType.BOOLEAN_TYPE;
+            }
             if (index != -1) {
                 return inputRowType.getFieldType(index);
             } else {
@@ -330,6 +337,10 @@ public class ZetaSQLType {
             case VARCHAR:
             case STRING:
                 return BasicType.STRING_TYPE;
+            case TINYINT:
+                return BasicType.BYTE_TYPE;
+            case SMALLINT:
+                return BasicType.SHORT_TYPE;
             case INT:
             case INTEGER:
                 return BasicType.INT_TYPE;
@@ -352,6 +363,8 @@ public class ZetaSQLType {
                 return LocalTimeType.LOCAL_DATE_TYPE;
             case TIME:
                 return LocalTimeType.LOCAL_TIME_TYPE;
+            case BOOLEAN:
+                return BasicType.BOOLEAN_TYPE;
             default:
                 throw new TransformException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,

@@ -67,7 +67,6 @@ public class SeaTunnelConnectorTest extends TestSuiteBase implements TestResourc
     private static final Set<String> EXCLUDE_CONNECTOR =
             new HashSet() {
                 {
-                    add("TDengine");
                     add("SelectDBCloud");
                 }
             };

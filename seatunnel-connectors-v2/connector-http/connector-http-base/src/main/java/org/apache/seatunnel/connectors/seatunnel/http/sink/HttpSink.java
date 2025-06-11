@@ -47,6 +47,16 @@ public class HttpSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         if (pluginConfig.getOptional(HttpSinkOptions.PARAMS).isPresent()) {
             httpParameter.setHeaders(pluginConfig.get(HttpSinkOptions.PARAMS));
         }
+        if (pluginConfig.getOptional(HttpSinkOptions.ARRAY_MODE).isPresent()) {
+            httpParameter.setArrayMode(pluginConfig.get(HttpSinkOptions.ARRAY_MODE));
+        }
+        if (pluginConfig.getOptional(HttpSinkOptions.BATCH_SIZE).isPresent()) {
+            httpParameter.setBatchSize(pluginConfig.get(HttpSinkOptions.BATCH_SIZE));
+        }
+        if (pluginConfig.getOptional(HttpSinkOptions.REQUEST_INTERVAL_MS).isPresent()) {
+            httpParameter.setRequestIntervalMs(
+                    pluginConfig.get(HttpSinkOptions.REQUEST_INTERVAL_MS));
+        }
         this.catalogTable = catalogTable;
         this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
     }

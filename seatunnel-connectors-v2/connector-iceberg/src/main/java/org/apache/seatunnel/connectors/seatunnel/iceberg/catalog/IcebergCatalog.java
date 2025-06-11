@@ -34,9 +34,12 @@ import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergCatalogLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.ExpressionUtils;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.SchemaUtils;
 
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
@@ -46,6 +49,7 @@ import org.apache.iceberg.catalog.SupportsNamespaces;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.expressions.Expression;
+import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.types.Types;
 
 import lombok.extern.slf4j.Slf4j;
@@ -57,6 +61,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -261,7 +266,7 @@ public class IcebergCatalog implements Catalog {
         TableIdentifier icebergTableIdentifier = toIcebergTableIdentifier(tablePath);
         catalog.loadTable(icebergTableIdentifier)
                 .newDelete()
-                .deleteFromRowFilter(org.apache.iceberg.expressions.Expressions.alwaysTrue())
+                .deleteFromRowFilter(Expressions.alwaysTrue())
                 .commit();
         log.info("Truncated table at path: {}", tablePath);
     }
@@ -269,22 +274,34 @@ public class IcebergCatalog implements Catalog {
     public CatalogTable toCatalogTable(Table icebergTable, TablePath tablePath) {
         Schema schema = icebergTable.schema();
         List<Types.NestedField> columns = schema.columns();
+        List<String> selectColumns = getSelectColumns(tablePath);
         TableSchema.Builder builder = TableSchema.builder();
-        columns.forEach(
-                nestedField -> {
-                    String name = nestedField.name();
-                    SeaTunnelDataType<?> seaTunnelType =
-                            SchemaUtils.toSeaTunnelType(name, nestedField.type());
-                    PhysicalColumn physicalColumn =
-                            PhysicalColumn.of(
-                                    name,
-                                    seaTunnelType,
-                                    (Long) null,
-                                    nestedField.isOptional(),
-                                    null,
-                                    nestedField.doc());
-                    builder.column(physicalColumn);
-                });
+        columns.stream()
+                .filter(
+                        col -> {
+                            if (CollectionUtils.isNotEmpty(selectColumns)) {
+                                if ("*".equals(selectColumns.get(0))) {
+                                    return true;
+                                }
+                                return selectColumns.contains(col.name());
+                            }
+                            return true;
+                        })
+                .forEach(
+                        nestedField -> {
+                            String name = nestedField.name();
+                            SeaTunnelDataType<?> seaTunnelType =
+                                    SchemaUtils.toSeaTunnelType(name, nestedField.type());
+                            PhysicalColumn physicalColumn =
+                                    PhysicalColumn.of(
+                                            name,
+                                            seaTunnelType,
+                                            (Long) null,
+                                            nestedField.isOptional(),
+                                            null,
+                                            nestedField.doc());
+                            builder.column(physicalColumn);
+                        });
         Optional.ofNullable(schema.identifierFieldNames())
                 .filter(names -> !names.isEmpty())
                 .map(
@@ -310,6 +327,24 @@ public class IcebergCatalog implements Catalog {
                 partitionKeys,
                 comment,
                 catalogName);
+    }
+
+    private List<String> getSelectColumns(TablePath tablePath) {
+        if (Objects.nonNull(readonlyConfig.get(IcebergSourceOptions.KEY_TABLE))) {
+            return ExpressionUtils.parseSelectColumns(
+                    readonlyConfig.get(IcebergSourceOptions.QUERY));
+        } else {
+            List<SourceTableConfig> tableConfigs =
+                    readonlyConfig.get(IcebergSourceOptions.KEY_TABLE_LIST);
+            if (Objects.nonNull(tableConfigs)) {
+                for (SourceTableConfig config : tableConfigs) {
+                    if (config.getTable().equals(tablePath.getTableName())) {
+                        return ExpressionUtils.parseSelectColumns(config.getQuery());
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     @Override

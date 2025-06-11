@@ -20,4 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.easysearch.state;
 import java.io.Serializable;
 
 /** Todo: we need to add a default */
-public class EasysearchAggregatedCommitInfo implements Serializable {}
+public class EasysearchAggregatedCommitInfo implements Serializable {
+    private static final long serialVersionUID = 7704793431405281055L;
+}

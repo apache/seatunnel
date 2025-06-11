@@ -76,4 +76,7 @@ public class IcebergSourceOptions extends IcebergCommonOptions {
                     .longType()
                     .defaultValue(2000L)
                     .withDescription(" the interval of increment scan(mills)");
+
+    public static final Option<String> QUERY =
+            Options.key("query").stringType().noDefaultValue().withDescription("the select sql");
 }

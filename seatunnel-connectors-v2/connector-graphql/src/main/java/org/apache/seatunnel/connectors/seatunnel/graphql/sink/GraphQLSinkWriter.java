@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.graphql.sink;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.graphql.config.GraphQLSinkParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
@@ -49,10 +50,12 @@ public class GraphQLSinkWriter extends HttpSinkWriter {
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        String query = httpParameter.getBody().get("query").toString();
+        Map<String, Object> bodymap =
+                JsonUtils.toMap(JsonUtils.stringToJsonNode(httpParameter.getBody()));
 
-        Map<String, Object> variablesTemplate =
-                (Map<String, Object>) httpParameter.getBody().get("variables");
+        String query = bodymap.get("query").toString();
+
+        Map<String, Object> variablesTemplate = (Map<String, Object>) bodymap.get("variables");
 
         if (variablesTemplate != null) {
             Set<String> vars =

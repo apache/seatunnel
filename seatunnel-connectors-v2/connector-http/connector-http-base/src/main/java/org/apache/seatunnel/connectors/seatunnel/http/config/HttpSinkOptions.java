@@ -17,4 +17,27 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.config;
 
-public class HttpSinkOptions extends HttpCommonOptions {}
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+
+public class HttpSinkOptions extends HttpCommonOptions {
+    public static final Option<Boolean> ARRAY_MODE =
+            Options.key("array_mode")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Send data as a JSON array when true, or as a single JSON object when false (default)");
+
+    public static final Option<Integer> BATCH_SIZE =
+            Options.key("batch_size")
+                    .intType()
+                    .defaultValue(1)
+                    .withDescription(
+                            "The batch size of records to send in one HTTP request. Only works when array_mode is true");
+
+    public static final Option<Integer> REQUEST_INTERVAL_MS =
+            Options.key("request_interval_ms")
+                    .intType()
+                    .defaultValue(0)
+                    .withDescription("The interval milliseconds between two HTTP requests");
+}

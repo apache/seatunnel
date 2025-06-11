@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.common.source;
 import org.apache.seatunnel.api.source.SourceSplit;
 
 public class SingleSplit implements SourceSplit {
+    private static final long serialVersionUID = -8280083360971974402L;
     private final byte[] state;
 
     public SingleSplit(byte[] state) {

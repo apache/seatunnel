@@ -18,12 +18,14 @@
 package org.apache.seatunnel.connectors.seatunnel.graphql.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.graphql.util.GraphQLUtil;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
 
 import java.io.Serializable;
 import java.util.HashMap;
+import java.util.Map;
 
 public class GraphQLSourceParameter implements Serializable {
     private final HttpParameter httpParameter;
@@ -44,18 +46,18 @@ public class GraphQLSourceParameter implements Serializable {
 
         GraphQLUtil.validateUrlProtocol(this.httpParameter.getUrl(), enableSubscription);
 
-        this.httpParameter.setBody(new HashMap<>());
+        Map<String, Object> bodymap = new HashMap<>();
 
         if (pluginConfig.getOptional(GraphQLSourceOptions.VARIABLES).isPresent()) {
-            this.httpParameter
-                    .getBody()
-                    .put(
-                            GraphQLSourceOptions.VARIABLES.key(),
-                            pluginConfig.get(GraphQLSourceOptions.VARIABLES));
+            bodymap.put(
+                    GraphQLSourceOptions.VARIABLES.key(),
+                    pluginConfig.get(GraphQLSourceOptions.VARIABLES));
+
         } else {
-            this.httpParameter.getBody().put(GraphQLSourceOptions.VARIABLES.key(), "{}");
+            bodymap.put(GraphQLSourceOptions.VARIABLES.key(), "{}");
         }
-        this.httpParameter.getBody().put(GraphQLSourceOptions.QUERY.key(), query);
+        bodymap.put(GraphQLSourceOptions.QUERY.key(), query);
+        this.httpParameter.setBody(JsonUtils.toJsonString(bodymap));
 
         this.httpParameter.setParams(
                 this.httpParameter.getParams() == null

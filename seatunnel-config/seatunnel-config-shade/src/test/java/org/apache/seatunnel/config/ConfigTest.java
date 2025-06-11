@@ -55,7 +55,9 @@ public class ConfigTest {
 
         Assertions.assertEquals("\\\"", config.getObject("object").toConfig().getString("\""));
         Assertions.assertEquals(
-                "\\\"\\\"", config.getObject("object").toConfig().getString("\"\""));
+                "\\\"", config.getObject("object").toConfig().getString("\"\\\"\""));
+        Assertions.assertEquals(
+                "\\\"\\\"", config.getObject("object").toConfig().getString("\"\\\"\\\"\""));
         Assertions.assertEquals(
                 "\\\\\\\"", config.getObject("object").toConfig().getString("\\\""));
     }

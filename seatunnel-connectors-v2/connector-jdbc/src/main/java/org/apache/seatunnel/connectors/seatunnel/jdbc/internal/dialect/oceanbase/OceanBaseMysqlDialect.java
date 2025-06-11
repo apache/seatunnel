@@ -65,7 +65,7 @@ public class OceanBaseMysqlDialect implements JdbcDialect {
 
     @Override
     public String dialectName() {
-        return DatabaseIdentifier.OCENABASE;
+        return DatabaseIdentifier.OCEANBASE;
     }
 
     @Override
@@ -137,6 +137,7 @@ public class OceanBaseMysqlDialect implements JdbcDialect {
     public Map<String, String> defaultParameter() {
         HashMap<String, String> map = new HashMap<>();
         map.put("rewriteBatchedStatements", "true");
+        map.put("allowMultiQueries", "true");
         return map;
     }
 

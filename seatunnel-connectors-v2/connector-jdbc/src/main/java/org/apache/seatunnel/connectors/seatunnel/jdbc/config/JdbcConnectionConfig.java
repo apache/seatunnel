@@ -47,6 +47,7 @@ public class JdbcConnectionConfig implements Serializable {
     private String xaDataSourceClassName;
 
     private boolean decimalTypeNarrowing = JdbcOptions.DECIMAL_TYPE_NARROWING.defaultValue();
+    private boolean intTypeNarrowing = JdbcOptions.INT_TYPE_NARROWING.defaultValue();
 
     private int maxCommitAttempts = JdbcOptions.MAX_COMMIT_ATTEMPTS.defaultValue();
 
@@ -64,6 +65,8 @@ public class JdbcConnectionConfig implements Serializable {
 
     private Map<String, String> properties;
 
+    private boolean handleBlobAsString = JdbcOptions.HANDLE_BLOB_AS_STRING.defaultValue();
+
     public static JdbcConnectionConfig of(ReadonlyConfig config) {
         JdbcConnectionConfig.Builder builder = JdbcConnectionConfig.builder();
         builder.url(config.get(JdbcOptions.URL));
@@ -73,6 +76,7 @@ public class JdbcConnectionConfig implements Serializable {
         builder.maxRetries(config.get(JdbcOptions.MAX_RETRIES));
         builder.connectionCheckTimeoutSeconds(config.get(JdbcOptions.CONNECTION_CHECK_TIMEOUT_SEC));
         builder.batchSize(config.get(JdbcOptions.BATCH_SIZE));
+        builder.handleBlobAsString(config.get(JdbcOptions.HANDLE_BLOB_AS_STRING));
         if (config.get(JdbcOptions.IS_EXACTLY_ONCE)) {
             builder.xaDataSourceClassName(config.get(JdbcOptions.XA_DATA_SOURCE_CLASS_NAME));
             builder.maxCommitAttempts(config.get(JdbcOptions.MAX_COMMIT_ATTEMPTS));
@@ -90,6 +94,7 @@ public class JdbcConnectionConfig implements Serializable {
         config.getOptional(JdbcOptions.PROPERTIES).ifPresent(builder::properties);
         config.getOptional(JdbcOptions.DECIMAL_TYPE_NARROWING)
                 .ifPresent(builder::decimalTypeNarrowing);
+        config.getOptional(JdbcOptions.INT_TYPE_NARROWING).ifPresent(builder::intTypeNarrowing);
         config.getOptional(JdbcOptions.DIALECT).ifPresent(builder::dialect);
         return builder.build();
     }
@@ -124,6 +129,8 @@ public class JdbcConnectionConfig implements Serializable {
         private int batchSize = JdbcOptions.BATCH_SIZE.defaultValue();
         private String xaDataSourceClassName;
         private boolean decimalTypeNarrowing = JdbcOptions.DECIMAL_TYPE_NARROWING.defaultValue();
+        private boolean intTypeNarrowing = JdbcOptions.INT_TYPE_NARROWING.defaultValue();
+        private boolean handleBlobAsString = JdbcOptions.HANDLE_BLOB_AS_STRING.defaultValue();
         private int maxCommitAttempts = JdbcOptions.MAX_COMMIT_ATTEMPTS.defaultValue();
         private int transactionTimeoutSec = JdbcOptions.TRANSACTION_TIMEOUT_SEC.defaultValue();
         private Map<String, String> properties;
@@ -157,6 +164,11 @@ public class JdbcConnectionConfig implements Serializable {
 
         public Builder decimalTypeNarrowing(boolean decimalTypeNarrowing) {
             this.decimalTypeNarrowing = decimalTypeNarrowing;
+            return this;
+        }
+
+        public Builder intTypeNarrowing(boolean intTypeNarrowing) {
+            this.intTypeNarrowing = intTypeNarrowing;
             return this;
         }
 
@@ -235,6 +247,11 @@ public class JdbcConnectionConfig implements Serializable {
             return this;
         }
 
+        public Builder handleBlobAsString(boolean handleBlobAsString) {
+            this.handleBlobAsString = handleBlobAsString;
+            return this;
+        }
+
         public JdbcConnectionConfig build() {
             JdbcConnectionConfig jdbcConnectionConfig = new JdbcConnectionConfig();
             jdbcConnectionConfig.batchSize = this.batchSize;
@@ -250,6 +267,8 @@ public class JdbcConnectionConfig implements Serializable {
             jdbcConnectionConfig.maxCommitAttempts = this.maxCommitAttempts;
             jdbcConnectionConfig.xaDataSourceClassName = this.xaDataSourceClassName;
             jdbcConnectionConfig.decimalTypeNarrowing = this.decimalTypeNarrowing;
+            jdbcConnectionConfig.intTypeNarrowing = this.intTypeNarrowing;
+            jdbcConnectionConfig.handleBlobAsString = this.handleBlobAsString;
             jdbcConnectionConfig.useKerberos = this.useKerberos;
             jdbcConnectionConfig.kerberosPrincipal = this.kerberosPrincipal;
             jdbcConnectionConfig.kerberosKeytabPath = this.kerberosKeytabPath;
@@ -259,5 +278,13 @@ public class JdbcConnectionConfig implements Serializable {
                     this.properties == null ? new HashMap<>() : this.properties;
             return jdbcConnectionConfig;
         }
+    }
+
+    public boolean isHandleBlobAsString() {
+        return handleBlobAsString;
+    }
+
+    public void setHandleBlobAsString(boolean handleBlobAsString) {
+        this.handleBlobAsString = handleBlobAsString;
     }
 }

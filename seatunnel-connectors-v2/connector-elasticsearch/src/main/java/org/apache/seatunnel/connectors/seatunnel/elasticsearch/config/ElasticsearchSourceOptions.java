@@ -29,6 +29,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @Getter
 @Setter
@@ -65,7 +66,14 @@ public class ElasticsearchSourceOptions extends ElasticsearchBaseOptions {
             Options.key("search_type")
                     .enumType(SearchTypeEnum.class)
                     .defaultValue(SearchTypeEnum.DSL)
-                    .withDescription("Choose dsl syntax or x-pack sql.");
+                    .withDescription("Choose query type: DSL (Domain Specific Language) or SQL.");
+
+    public static final Option<SearchApiTypeEnum> SEARCH_API_TYPE =
+            Options.key("search_api_type")
+                    .enumType(SearchApiTypeEnum.class)
+                    .defaultValue(SearchApiTypeEnum.SCROLL)
+                    .withDescription(
+                            "Choose API type for pagination: SCROLL or PIT (Point in Time).");
 
     public static final Option<String> SQL_QUERY =
             Options.key("sql_query")
@@ -87,4 +95,18 @@ public class ElasticsearchSourceOptions extends ElasticsearchBaseOptions {
                             Collections.singletonMap("match_all", new HashMap<String, String>()))
                     .withDescription(
                             "Elasticsearch query language. You can control the range of data read");
+
+    public static final Option<Long> PIT_KEEP_ALIVE =
+            Options.key("pit_keep_alive")
+                    .longType()
+                    .defaultValue(TimeUnit.MINUTES.toMillis(1)) // 1 minute in milliseconds
+                    .withDescription(
+                            "The amount of time (in milliseconds) for which the PIT should be kept alive. Default is 1 minute.");
+
+    public static final Option<Integer> PIT_BATCH_SIZE =
+            Options.key("pit_batch_size")
+                    .intType()
+                    .defaultValue(100)
+                    .withDescription(
+                            "Maximum number of hits to be returned with each PIT search request. Similar to scroll_size but for PIT API.");
 }

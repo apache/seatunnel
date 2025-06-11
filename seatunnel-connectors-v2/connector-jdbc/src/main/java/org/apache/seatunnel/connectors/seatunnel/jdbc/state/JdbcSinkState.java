@@ -27,5 +27,6 @@ import java.io.Serializable;
 @Data
 @AllArgsConstructor
 public class JdbcSinkState implements Serializable {
+    private static final long serialVersionUID = 4602940529569595559L;
     private final Xid xid;
 }

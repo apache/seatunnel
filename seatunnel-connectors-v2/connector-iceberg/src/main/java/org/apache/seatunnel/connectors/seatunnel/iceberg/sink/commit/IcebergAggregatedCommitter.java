@@ -33,10 +33,18 @@ import java.util.List;
 public class IcebergAggregatedCommitter
         implements SinkAggregatedCommitter<IcebergCommitInfo, IcebergAggregatedCommitInfo> {
 
-    private final IcebergTableLoader tableLoader;
-    private final IcebergFilesCommitter filesCommitter;
+    private IcebergTableLoader tableLoader;
+    private IcebergFilesCommitter filesCommitter;
+    private final IcebergSinkConfig config;
+    private final CatalogTable catalogTable;
 
     public IcebergAggregatedCommitter(IcebergSinkConfig config, CatalogTable catalogTable) {
+        this.config = config;
+        this.catalogTable = catalogTable;
+    }
+
+    @Override
+    public void init() {
         this.tableLoader = IcebergTableLoader.create(config, catalogTable);
         this.filesCommitter = IcebergFilesCommitter.of(config, tableLoader);
     }

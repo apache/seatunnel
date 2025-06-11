@@ -102,7 +102,7 @@ If write to `csv`, `text`, `json` file type, All column will be string.
 | file_format_type                      | string  | no       | "csv"                                      |                                                                                                                                                                        |
 | filename_extension                    | string  | no       | -                                          | Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`                                                 |
 | field_delimiter                       | string  | no       | '\001'                                     | Only used when file_format_type is text                                                                                                                                |
-| row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format_type is `text`, `csv` and `json`                                                                                                             |
+| row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format_type is `text`, `csv` and `json`                                                                                                            |
 | have_partition                        | boolean | no       | false                                      | Whether you need processing partitions.                                                                                                                                |
 | partition_by                          | array   | no       | -                                          | Only used then have_partition is true                                                                                                                                  |
 | partition_dir_expression              | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                                                                                                                                  |
@@ -124,6 +124,8 @@ If write to `csv`, `text`, `json` file type, All column will be string.
 | parquet_avro_write_fixed_as_int96     | array   | no       | -                                          | Only used when file_format is parquet.                                                                                                                                 |
 | enable_header_write                   | boolean | no       | false                                      | Only used when file_format_type is text,csv.<br/> false:don't write header,true:write header.                                                                          |
 | encoding                              | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                                                                                  |
+| schema_save_mode                      | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST               | Before turning on the synchronous task, do different treatment of the target path                                                                                      |
+| data_save_mode                        | Enum    | no       | APPEND_DATA                                | Before opening the synchronous task, the data file in the target path is differently processed                                                                         |
 
 ### path [string]
 
@@ -289,6 +291,23 @@ Support writing Parquet INT96 from a 12-byte field, only valid for parquet files
 Only used when file_format_type is json,text,csv,xml.
 The encoding of the file to write. This param will be parsed by `Charset.forName(encoding)`.
 
+### schema_save_mode[Enum]
+
+Before turning on the synchronous task, do different treatment of the target path.  
+Option introduction：  
+`RECREATE_SCHEMA` ：Will be created when the path does not exist. If the path already exists, delete the path and recreate it.         
+`CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the path does not exist, use the path when the path is existed.        
+`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the path does not exist  
+`IGNORE` ：Ignore the treatment of the table
+
+### data_save_mode[Enum]
+
+Before opening the synchronous task, the data file in the target path is differently processed.
+Option introduction：  
+`DROP_DATA`： use the path but delete data files in the path.
+`APPEND_DATA`：use the path, and add new files in the path for write data.   
+`ERROR_WHEN_DATA_EXISTS`：When there are some data files in the path, an error will is reported.
+
 ## How to Create an Oss Data Synchronization Jobs
 
 The following example demonstrates how to create a data synchronization job that reads data from Fake Source and writes
@@ -335,6 +354,8 @@ sink {
     filename_time_format = "yyyy.MM.dd"
     sink_columns = ["name","age"]
     is_enable_transaction = true
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    data_save_mode="APPEND_DATA"
   }
 }
 ```
@@ -374,6 +395,8 @@ sink {
     is_partition_field_write_in_file = true
     file_format_type = "parquet"
     sink_columns = ["name","age"]
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    data_save_mode="APPEND_DATA"
   }
 }
 ```
@@ -408,6 +431,8 @@ sink {
     access_secret = "xxxxxxxxxxx"
     endpoint = "oss-cn-beijing.aliyuncs.com"
     file_format_type = "orc"
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    data_save_mode="APPEND_DATA"
   }
 }
 ```
@@ -529,6 +554,8 @@ sink {
     filename_time_format = "yyyy.MM.dd"
     is_enable_transaction = true
     compress_codec = "lzo"
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    data_save_mode="APPEND_DATA"
   }
 }
 ```

@@ -4,6 +4,27 @@ sidebar_position: 16
 
 # Security
 
+## Basic 认证
+
+您可以通过开启 Basic 认证来保护您的 Web UI。这将要求用户在访问 Web 界面时输入用户名和密码。
+
+| 参数名称 | 是否必填 | 参数描述 |
+|--------|---------|--------|
+| `enable-basic-auth` | 否 | 是否开启Basic 认证，默认为 `false` |
+| `basic-auth-username` | 否 | Basic 认证的用户名，默认为 `admin` |
+| `basic-auth-password` | 否 | Basic 认证的密码，默认为 `admin` |
+
+```yaml
+seatunnel:
+  engine:
+    http:
+      enable-http: true
+      port: 8080
+      enable-basic-auth: true
+      basic-auth-username: "your_username"
+      basic-auth-password: "your_password"
+```
+
 ## HTTPS 配置
 
 您可以通过开启 HTTPS 来保护您的 API 服务。HTTP 和 HTTPS 可同时开启，也可以只开启其中一个。

@@ -69,7 +69,10 @@ public class MaxcomputeTypeMapper implements Serializable {
     }
 
     public static Record getMaxcomputeRowData(
-            SeaTunnelRow seaTunnelRow, TableSchema tableSchema, SeaTunnelRowType rowType) {
+            SeaTunnelRow seaTunnelRow,
+            TableSchema tableSchema,
+            SeaTunnelRowType rowType,
+            FormatterContext formatterContext) {
         ArrayRecord arrayRecord = new ArrayRecord(tableSchema);
         for (int i = 0; i < seaTunnelRow.getFields().length; i++) {
             String fieldName = rowType.getFieldName(i);
@@ -84,7 +87,8 @@ public class MaxcomputeTypeMapper implements Serializable {
 
             arrayRecord.set(
                     tableSchema.getColumnIndex(fieldName),
-                    resolveObject2Maxcompute(seaTunnelRow.getField(i), column.getTypeInfo()));
+                    resolveObject2Maxcompute(
+                            seaTunnelRow.getField(i), column.getTypeInfo(), formatterContext));
         }
         return arrayRecord;
     }
@@ -212,7 +216,8 @@ public class MaxcomputeTypeMapper implements Serializable {
         }
     }
 
-    private static Object resolveObject2Maxcompute(Object field, TypeInfo typeInfo) {
+    private static Object resolveObject2Maxcompute(
+            Object field, TypeInfo typeInfo, FormatterContext formatterContext) {
         if (field == null) {
             return null;
         }
@@ -243,15 +248,19 @@ public class MaxcomputeTypeMapper implements Serializable {
                 origDataMap.forEach(
                         (key, value) ->
                                 dataMap.put(
-                                        resolveObject2Maxcompute(key, keyTypeInfo),
-                                        resolveObject2Maxcompute(value, valueTypeInfo)));
+                                        resolveObject2Maxcompute(
+                                                key, keyTypeInfo, formatterContext),
+                                        resolveObject2Maxcompute(
+                                                value, valueTypeInfo, formatterContext)));
                 return origDataMap;
             case STRUCT:
                 Object[] fields = ((SeaTunnelRow) field).getFields();
                 List<TypeInfo> typeInfos = ((StructTypeInfo) typeInfo).getFieldTypeInfos();
                 ArrayList<Object> origStruct = new ArrayList<>();
                 for (int i = 0; i < fields.length; i++) {
-                    origStruct.add(resolveObject2Maxcompute(fields[i], typeInfos.get(i)));
+                    origStruct.add(
+                            resolveObject2Maxcompute(
+                                    fields[i], typeInfos.get(i), formatterContext));
                 }
                 return new SimpleStruct((StructTypeInfo) typeInfo, origStruct);
             case TINYINT:
@@ -272,6 +281,9 @@ public class MaxcomputeTypeMapper implements Serializable {
             case CHAR:
                 return new Char((String) field);
             case STRING:
+                if (formatterContext.isDateTimeType(field)) {
+                    return formatterContext.formatDateTime(field);
+                }
             case JSON:
                 if (field instanceof byte[]) {
                     return new String((byte[]) field);

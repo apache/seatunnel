@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+
 /**
  * A factory to create a specific {@link JdbcDialect}
  *
@@ -48,9 +50,24 @@ public interface JdbcDialectFactory {
      * Create a {@link JdbcDialect} instance based on the driver type and compatible mode.
      *
      * @param compatibleMode The compatible mode
+     * @param fieldId The field identifier enumeration value
      * @return a new instance of {@link JdbcDialect}
      */
     default JdbcDialect create(String compatibleMode, String fieldId) {
         return create();
+    }
+
+    /**
+     * Create a {@link JdbcDialect} instance based on the driver type, compatible mode, and JDBC
+     * connection config.
+     *
+     * @param compatibleMode The compatible mode
+     * @param fieldId The field identifier enumeration value
+     * @param jdbcConnectionConfig The JDBC connection configuration
+     * @return a new instance of {@link JdbcDialect}
+     */
+    default JdbcDialect create(
+            String compatibleMode, String fieldId, JdbcConnectionConfig jdbcConnectionConfig) {
+        return create(compatibleMode, fieldId);
     }
 }

@@ -1,5 +1,26 @@
 # Security
 
+## Basic Authentication
+
+You can secure your Web UI by enabling basic authentication. This will require users to enter a username and password when accessing the web interface.
+
+| Parameter Name | Required | Description |
+|----------------|----------|-------------|
+| `enable-basic-auth` | No | Whether to enable basic authentication, default is `false` |
+| `basic-auth-username` | No | The username for basic authentication, default is `admin` |
+| `basic-auth-password` | No | The password for basic authentication, default is `admin` |
+
+```yaml
+seatunnel:
+  engine:
+    http:
+      enable-http: true
+      port: 8080
+      enable-basic-auth: true
+      basic-auth-username: "your_username"
+      basic-auth-password: "your_password"
+```
+
 ## HTTPS Configuration
 
 You can secure your REST-API-V2 service by enabling HTTPS. Both HTTP and HTTPS can be enabled simultaneously, or only one of them can be enabled.

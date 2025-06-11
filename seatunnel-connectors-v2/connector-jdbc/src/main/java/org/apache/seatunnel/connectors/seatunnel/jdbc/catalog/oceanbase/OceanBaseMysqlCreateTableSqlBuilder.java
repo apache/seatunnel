@@ -184,7 +184,9 @@ public class OceanBaseMysqlCreateTableSqlBuilder {
         final List<String> columnSqls = new ArrayList<>();
         columnSqls.add(CatalogUtils.quoteIdentifier(column.getName(), fieldIde, "`"));
         String type;
-        if ((SqlType.TIME.equals(column.getDataType().getSqlType())
+        if (column.getSinkType() != null) {
+            type = column.getSinkType();
+        } else if ((SqlType.TIME.equals(column.getDataType().getSqlType())
                         || SqlType.TIMESTAMP.equals(column.getDataType().getSqlType()))
                 && column.getScale() != null) {
             BasicTypeDefine<OceanBaseMysqlType> typeDefine = typeConverter.reconvert(column);

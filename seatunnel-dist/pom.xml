@@ -111,6 +111,8 @@
                 <aliyun.sdk.oss.version>3.4.1</aliyun.sdk.oss.version>
                 <jdom.version>1.1</jdom.version>
                 <tidb.version>3.3.5</tidb.version>
+                <presto.version>0.279</presto.version>
+                <trino.version>460</trino.version>
             </properties>
             <dependencies>
                 <!-- starters -->
@@ -980,6 +982,18 @@
                     <artifactId>seatunnel-hadoop-aws</artifactId>
                     <version>${project.version}</version>
                     <classifier>optional</classifier>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>com.facebook.presto</groupId>
+                    <artifactId>presto-jdbc</artifactId>
+                    <version>${presto.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>io.trino</groupId>
+                    <artifactId>trino-jdbc</artifactId>
+                    <version>${trino.version}</version>
                     <scope>provided</scope>
                 </dependency>
             </dependencies>

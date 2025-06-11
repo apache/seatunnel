@@ -76,6 +76,19 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
         long count = numAndAvgSize.getLeft();
         long avgSize = numAndAvgSize.getRight();
 
+        // Handle the case when avgSize is 0 to prevent division by zero
+        if (avgSize <= 0) {
+            // If there are documents in the collection, return a single split
+            if (count > 0) {
+                return Lists.newArrayList(
+                        MongoSplitUtils.createMongoSplit(
+                                0, matchQuery, projection, splitKey, null, null));
+            } else {
+                // If there are no documents, return an empty list
+                return Lists.newArrayList();
+            }
+        }
+
         long numDocumentsPerSplit = sizePerSplit / avgSize;
         int numSplits = (int) Math.ceil((double) count / numDocumentsPerSplit);
         int numSamples = (int) Math.floor(samplesPerSplit * numSplits);

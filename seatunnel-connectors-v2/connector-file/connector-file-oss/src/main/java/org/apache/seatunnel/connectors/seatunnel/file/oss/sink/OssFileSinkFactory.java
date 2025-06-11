@@ -57,6 +57,8 @@ public class OssFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .required(OssFileSinkOptions.ACCESS_KEY)
                 .required(OssFileSinkOptions.ACCESS_SECRET)
                 .required(OssFileSinkOptions.ENDPOINT)
+                .optional(FileBaseSinkOptions.SCHEMA_SAVE_MODE)
+                .optional(FileBaseSinkOptions.DATA_SAVE_MODE)
                 .optional(FileBaseSinkOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         FileBaseSinkOptions.FILE_FORMAT_TYPE,
@@ -112,9 +114,9 @@ public class OssFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                         FileBaseSinkOptions.ENCODING)
                 .optional(FileBaseSinkOptions.SINK_COLUMNS)
                 .optional(FileBaseSinkOptions.IS_ENABLE_TRANSACTION)
-                .optional(FileBaseSinkOptions.DATE_FORMAT)
-                .optional(FileBaseSinkOptions.DATETIME_FORMAT)
-                .optional(FileBaseSinkOptions.TIME_FORMAT)
+                .optional(FileBaseSinkOptions.DATE_FORMAT_LEGACY)
+                .optional(FileBaseSinkOptions.DATETIME_FORMAT_LEGACY)
+                .optional(FileBaseSinkOptions.TIME_FORMAT_LEGACY)
                 .optional(FileBaseSinkOptions.SINGLE_FILE_MODE)
                 .optional(FileBaseSinkOptions.BATCH_SIZE)
                 .optional(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA)

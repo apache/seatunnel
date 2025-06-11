@@ -30,7 +30,7 @@ import javax.annotation.Nonnull;
 public class OceanBaseDialectFactory implements JdbcDialectFactory {
     @Override
     public String dialectFactoryName() {
-        return DatabaseIdentifier.OCENABASE;
+        return DatabaseIdentifier.OCEANBASE;
     }
 
     @Override

@@ -40,34 +40,37 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 ## Options
 
-| name                      | type    | required | default value       |
-|---------------------------|---------|----------|---------------------|
-| host                      | string  | yes      | -                   |
-| port                      | int     | yes      | -                   |
-| user                      | string  | yes      | -                   |
-| password                  | string  | yes      | -                   |
-| path                      | string  | yes      | -                   |
-| file_format_type          | string  | yes      | -                   |
-| connection_mode           | string  | no       | active_local        |
-| delimiter/field_delimiter | string  | no       | \001                |
-| read_columns              | list    | no       | -                   |
-| parse_partition_from_path | boolean | no       | true                |
-| date_format               | string  | no       | yyyy-MM-dd          |
-| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
-| time_format               | string  | no       | HH:mm:ss            |
-| skip_header_row_number    | long    | no       | 0                   |
-| schema                    | config  | no       | -                   |
-| sheet_name                | string  | no       | -                   |
-| xml_row_tag               | string  | no       | -                   |
-| xml_use_attr_format       | boolean | no       | -                   |
-| csv_use_header_line       | boolean | no       | -                   |
-| file_filter_pattern       | string  | no       | -                   |
-| filename_extension        | string  | no       | -                   |
-| compress_codec            | string  | no       | none                |
-| archive_compress_codec    | string  | no       | none                |
-| encoding                  | string  | no       | UTF-8               |
-| null_format               | string  | no       | -                   |
-| common-options            |         | no       | -                   |
+| name                        | type    | required | default value       |
+|-----------------------------|---------|----------|---------------------|
+| host                        | string  | yes      | -                   |
+| port                        | int     | yes      | -                   |
+| user                        | string  | yes      | -                   |
+| password                    | string  | yes      | -                   |
+| path                        | string  | yes      | -                   |
+| file_format_type            | string  | yes      | -                   |
+| connection_mode             | string  | no       | active_local        |
+| remote_verification_enabled | boolean | no       | true                |
+| delimiter/field_delimiter   | string  | no       | \001                |
+| read_columns                | list    | no       | -                   |
+| parse_partition_from_path   | boolean | no       | true                |
+| date_format                 | string  | no       | yyyy-MM-dd          |
+| datetime_format             | string  | no       | yyyy-MM-dd HH:mm:ss |
+| time_format                 | string  | no       | HH:mm:ss            |
+| skip_header_row_number      | long    | no       | 0                   |
+| schema                      | config  | no       | -                   |
+| sheet_name                  | string  | no       | -                   |
+| xml_row_tag                 | string  | no       | -                   |
+| xml_use_attr_format         | boolean | no       | -                   |
+| csv_use_header_line         | boolean | no       | -                   |
+| file_filter_pattern         | string  | no       | -                   |
+| filename_extension          | string  | no       | -                   |
+| compress_codec              | string  | no       | none                |
+| archive_compress_codec      | string  | no       | none                |
+| encoding                    | string  | no       | UTF-8               |
+| null_format                 | string  | no       | -                   |
+| binary_chunk_size           | int     | no       | 1024                |
+| binary_complete_file_mode   | boolean | no       | false               |
+| common-options              |         | no       | -                   |
 
 ### host [string]
 
@@ -89,6 +92,10 @@ The target ftp password is required
 
 The source file path.
 
+### remote_verification_enabled [boolean]
+
+Whether to enable remote host verification for FTP data channels, default is `true`.
+
 ### file_filter_pattern [string]
 
 Filter pattern, which used for filtering files.
@@ -97,6 +104,7 @@ The pattern follows standard regular expressions. For details, please refer to h
 There are some examples.
 
 File Structure Example:
+
 ```
 /data/seatunnel/20241001/report.txt
 /data/seatunnel/20241007/abch202410.csv
@@ -104,38 +112,54 @@ File Structure Example:
 /data/seatunnel/20241005/old_data.csv
 /data/seatunnel/20241012/logo.png
 ```
+
 Matching Rules Example:
 
 **Example 1**: *Match all .txt files*，Regular Expression:
+
 ```
 /data/seatunnel/20241001/.*\.txt
 ```
+
 The result of this example matching is:
+
 ```
 /data/seatunnel/20241001/report.txt
 ```
+
 **Example 2**: *Match all file starting with abc*，Regular Expression:
+
 ```
 /data/seatunnel/20241002/abc.*
 ```
+
 The result of this example matching is:
+
 ```
 /data/seatunnel/20241007/abch202410.csv
 /data/seatunnel/20241002/abcg202410.csv
 ```
+
 **Example 3**: *Match all file starting with abc，And the fourth character is either h or g*, the Regular Expression:
+
 ```
 /data/seatunnel/20241007/abc[h,g].*
 ```
+
 The result of this example matching is:
+
 ```
 /data/seatunnel/20241007/abch202410.csv
 ```
+
 **Example 4**: *Match third level folders starting with 202410 and files ending with .csv*, the Regular Expression:
+
 ```
 /data/seatunnel/202410\d*/.*\.csv
 ```
+
 The result of this example matching is:
+
 ```
 /data/seatunnel/20241007/abch202410.csv
 /data/seatunnel/20241002/abcg202410.csv
@@ -180,7 +204,7 @@ schema {
 
 connector will generate data as the following:
 
-| code |    data     | success |
+| code | data        | success |
 |------|-------------|---------|
 | 200  | get success | true    |
 
@@ -196,7 +220,7 @@ tyrantlucifer#26#male
 
 If you do not assign data schema connector will treat the upstream data as the following:
 
-|        content        |
+| content               |
 |-----------------------|
 | tyrantlucifer#26#male |
 
@@ -219,7 +243,7 @@ schema {
 
 connector will generate data as the following:
 
-|     name      | age | gender |
+| name          | age | gender |
 |---------------|-----|--------|
 | tyrantlucifer | 26  | male   |
 
@@ -252,7 +276,7 @@ For example if you read a file from path `ftp://hadoop-cluster/tmp/seatunnel/par
 
 Every record data from file will be added these two fields:
 
-|     name      | age |
+| name          | age |
 |---------------|-----|
 | tyrantlucifer | 26  |
 
@@ -358,6 +382,18 @@ null_format to define which strings can be represented as null.
 
 e.g: `\N`
 
+### binary_chunk_size [int]
+
+Only used when file_format_type is binary.
+
+The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory.
+
+### binary_complete_file_mode [boolean]
+
+Only used when file_format_type is binary.
+
+Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.
+
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.
@@ -460,6 +496,8 @@ source {
     password = tianchao
     path = "/seatunnel/read/binary/"
     file_format_type = "binary"
+    binary_chunk_size = 2048
+    binary_complete_file_mode = false
   }
 }
 sink {

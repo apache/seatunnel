@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.table.FormatOptions;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -25,6 +26,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.FormatterContext;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeUtil;
 
@@ -45,6 +47,7 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     private final TableTunnel.UploadSession session;
     private final TableSchema tableSchema;
     private final SeaTunnelRowType rowType;
+    private final FormatterContext formatterContext;
 
     public MaxcomputeWriter(ReadonlyConfig readonlyConfig, SeaTunnelRowType rowType) {
         try {
@@ -66,6 +69,10 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                                 readonlyConfig.get(MaxcomputeSinkOptions.PROJECT),
                                 readonlyConfig.get(MaxcomputeSinkOptions.TABLE_NAME));
             }
+
+            this.formatterContext =
+                    new FormatterContext(readonlyConfig.get(FormatOptions.DATETIME_FORMAT));
+
             this.recordWriter = session.openBufferedWriter();
             log.info("open record writer success");
         } catch (Exception e) {
@@ -78,7 +85,7 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     public void write(SeaTunnelRow seaTunnelRow) throws IOException {
         Record record =
                 MaxcomputeTypeMapper.getMaxcomputeRowData(
-                        seaTunnelRow, this.tableSchema, this.rowType);
+                        seaTunnelRow, this.tableSchema, this.rowType, formatterContext);
         recordWriter.write(record);
     }
 

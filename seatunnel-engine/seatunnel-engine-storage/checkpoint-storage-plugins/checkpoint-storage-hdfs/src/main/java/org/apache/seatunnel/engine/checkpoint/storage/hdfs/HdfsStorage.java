@@ -77,7 +77,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                 config.getOrDefault(STORAGE_TYPE_KEY, FileConfiguration.LOCAL.toString());
         config.remove(STORAGE_TYPE_KEY);
         AbstractConfiguration configuration =
-                FileConfiguration.valueOf(storageType.toUpperCase()).getConfiguration(storageType);
+                FileConfiguration.valueOf(storageType.toUpperCase()).getConfiguration();
         return configuration.buildConfiguration(config);
     }
 
@@ -179,7 +179,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                 });
 
         if (latestPipelineStates.isEmpty()) {
-            log.info("No checkpoint found for this job,  the job id:{} " + jobId);
+            log.info("No checkpoint found for this job, the job id:{} ", jobId);
         }
         return latestPipelineStates;
     }

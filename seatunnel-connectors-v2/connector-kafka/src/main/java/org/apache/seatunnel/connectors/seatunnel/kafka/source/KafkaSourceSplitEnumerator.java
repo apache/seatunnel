@@ -68,6 +68,7 @@ public class KafkaSourceSplitEnumerator
     private final Map<TopicPartition, KafkaSourceSplit> assignedSplit;
     private ScheduledExecutorService executor;
     private ScheduledFuture<?> scheduledFuture;
+    private volatile boolean initialized;
 
     private final Map<String, TablePath> topicMappingTablePathMap = new HashMap<>();
 
@@ -128,7 +129,9 @@ public class KafkaSourceSplitEnumerator
                     executor.scheduleWithFixedDelay(
                             () -> {
                                 try {
-                                    discoverySplits();
+                                    if (initialized) {
+                                        discoverySplits();
+                                    }
                                 } catch (Exception e) {
                                     log.error("Dynamic discovery failure:", e);
                                 }
@@ -144,11 +147,15 @@ public class KafkaSourceSplitEnumerator
         fetchPendingPartitionSplit();
         setPartitionStartOffset();
         assignSplit();
+        if (!initialized) {
+            initialized = true;
+        }
     }
 
     private void setPartitionStartOffset() throws ExecutionException, InterruptedException {
         Set<TopicPartition> pendingTopicPartitions = pendingSplit.keySet();
         Map<TopicPartition, Long> topicPartitionOffsets = new HashMap<>();
+        Map<TopicPartition, Long> topicPartitionEndOffsets = new HashMap<>();
         // Set kafka TopicPartition based on the topicPath granularity
         Map<TablePath, Set<TopicPartition>> tablePathPartitionMap =
                 pendingTopicPartitions.stream()
@@ -176,6 +183,13 @@ public class KafkaSourceSplitEnumerator
                             listOffsets(
                                     topicPartitions,
                                     OffsetSpec.forTimestamp(metadata.getStartOffsetsTimestamp())));
+                    if (Objects.nonNull(metadata.getEndOffsetsTimestamp())) {
+                        topicPartitionEndOffsets.putAll(
+                                listOffsets(
+                                        topicPartitions,
+                                        OffsetSpec.forTimestamp(
+                                                metadata.getEndOffsetsTimestamp())));
+                    }
                     break;
                 case SPECIFIC_OFFSETS:
                     topicPartitionOffsets.putAll(metadata.getSpecificStartOffsets());
@@ -190,7 +204,19 @@ public class KafkaSourceSplitEnumerator
                     if (pendingSplit.containsKey(key)) {
                         pendingSplit.get(key).setStartOffset(value);
                     }
+                    if (!isStreamingMode && value < 0) {
+                        log.info("Skipping partition {} due to offset being -1", key);
+                        pendingSplit.remove(key);
+                    }
                 });
+        if (!isStreamingMode && !topicPartitionEndOffsets.isEmpty()) {
+            topicPartitionEndOffsets.forEach(
+                    (key, value) -> {
+                        if (pendingSplit.containsKey(key)) {
+                            pendingSplit.get(key).setEndOffset(value);
+                        }
+                    });
+        }
     }
 
     @Override
@@ -254,7 +280,7 @@ public class KafkaSourceSplitEnumerator
 
     @Override
     public void registerReader(int subtaskId) {
-        if (!pendingSplit.isEmpty()) {
+        if (!pendingSplit.isEmpty() && initialized) {
             assignSplit();
         }
     }

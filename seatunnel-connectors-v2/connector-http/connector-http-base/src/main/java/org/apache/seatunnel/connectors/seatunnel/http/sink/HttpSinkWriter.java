@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.sink;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -30,7 +34,10 @@ import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 @Slf4j
 public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
@@ -40,6 +47,13 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     protected final HttpParameter httpParameter;
     protected final SerializationSchema serializationSchema;
 
+    // Batch related fields
+    private final boolean arrayMode;
+    private final int batchSize;
+    private final int requestIntervalMs;
+    private final List<SeaTunnelRow> batchBuffer;
+    private long lastRequestTime;
+
     public HttpSinkWriter(SeaTunnelRowType seaTunnelRowType, HttpParameter httpParameter) {
         this(seaTunnelRowType, httpParameter, new JsonSerializationSchema(seaTunnelRowType));
     }
@@ -48,18 +62,81 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             SeaTunnelRowType seaTunnelRowType,
             HttpParameter httpParameter,
             SerializationSchema serializationSchema) {
+        this(
+                seaTunnelRowType,
+                httpParameter,
+                serializationSchema,
+                httpParameter.isArrayMode(),
+                httpParameter.getBatchSize(),
+                httpParameter.getRequestIntervalMs());
+    }
+
+    public HttpSinkWriter(
+            SeaTunnelRowType seaTunnelRowType,
+            HttpParameter httpParameter,
+            SerializationSchema serializationSchema,
+            boolean arrayMode,
+            int batchSize,
+            int requestIntervalMs) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.httpParameter = httpParameter;
-        this.httpClient = new HttpClientProvider(httpParameter);
+        this.httpClient = createHttpClient(httpParameter);
         this.serializationSchema = serializationSchema;
+        this.arrayMode = arrayMode;
+        this.batchSize = batchSize;
+        this.requestIntervalMs = requestIntervalMs;
+        this.batchBuffer = new ArrayList<>(batchSize);
+        this.lastRequestTime = System.currentTimeMillis();
     }
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
+        if (!arrayMode) {
+            writeSingleRecord(element);
+        } else {
+            batchBuffer.add(element);
+            if (batchBuffer.size() >= batchSize) {
+                flush();
+            }
+        }
+    }
+
+    private void writeSingleRecord(SeaTunnelRow element) throws IOException {
         byte[] serialize = serializationSchema.serialize(element);
         String body = new String(serialize);
+        doHttpRequest(body);
+    }
+
+    private void flush() throws IOException {
+        if (batchBuffer.isEmpty()) {
+            return;
+        }
+        long currentTime = System.currentTimeMillis();
+        long timeSinceLastRequest = currentTime - lastRequestTime;
+        if (requestIntervalMs > 0 && timeSinceLastRequest < requestIntervalMs) {
+            try {
+                Thread.sleep(requestIntervalMs - timeSinceLastRequest);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        // Array mode: serialize batch data as JSON
+        ObjectMapper mapper = new ObjectMapper();
+        ArrayNode arrayNode = mapper.createArrayNode();
+        for (SeaTunnelRow row : batchBuffer) {
+            byte[] serialize = serializationSchema.serialize(row);
+            arrayNode.add(new String(serialize));
+        }
+        String body = mapper.writeValueAsString(arrayNode);
+        doHttpRequest(body);
+
+        batchBuffer.clear();
+        lastRequestTime = System.currentTimeMillis();
+    }
+
+    private void doHttpRequest(String body) {
         try {
-            // only support post web hook
             HttpResponse response =
                     httpClient.doPost(httpParameter.getUrl(), httpParameter.getHeaders(), body);
             if (HttpResponse.STATUS_OK == response.getCode()) {
@@ -76,8 +153,28 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
     @Override
     public void close() throws IOException {
+        if (arrayMode) {
+            flush();
+        }
         if (Objects.nonNull(httpClient)) {
             httpClient.close();
         }
+    }
+
+    @Override
+    public Optional<Void> prepareCommit() {
+        if (arrayMode) {
+            try {
+                flush();
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to flush data in prepareCommit", e);
+            }
+        }
+        return Optional.empty();
+    }
+
+    @VisibleForTesting
+    protected HttpClientProvider createHttpClient(HttpParameter httpParameter) {
+        return new HttpClientProvider(httpParameter);
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
@@ -37,7 +38,15 @@ public final class JdbcDialectLoader {
     private JdbcDialectLoader() {}
 
     public static JdbcDialect load(String url, String dialect, String compatibleMode) {
-        return load(url, compatibleMode, dialect, "");
+        return load(url, compatibleMode, dialect, "", null);
+    }
+
+    public static JdbcDialect load(
+            String url,
+            String dialect,
+            String compatibleMode,
+            JdbcConnectionConfig jdbcConnectionConfig) {
+        return load(url, compatibleMode, dialect, "", jdbcConnectionConfig);
     }
 
     /**
@@ -51,6 +60,24 @@ public final class JdbcDialectLoader {
      */
     public static JdbcDialect load(
             String url, String compatibleMode, String dialect, String fieldIde) {
+        return load(url, compatibleMode, dialect, fieldIde, null);
+    }
+
+    /**
+     * Loads the unique JDBC Dialect that can handle the given database url.
+     *
+     * @param url A database URL.
+     * @param compatibleMode The compatible mode.
+     * @return The loaded dialect.
+     * @throws IllegalStateException if the loader cannot find exactly one dialect that can
+     *     unambiguously process the given database URL.
+     */
+    public static JdbcDialect load(
+            String url,
+            String compatibleMode,
+            String dialect,
+            String fieldIde,
+            JdbcConnectionConfig jdbcConnectionConfig) {
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
         List<JdbcDialectFactory> foundFactories = discoverFactories(cl);
 
@@ -97,7 +124,7 @@ public final class JdbcDialectLoader {
                                     .collect(Collectors.joining("\n"))));
         }
 
-        return matchingFactories.get(0).create(compatibleMode, fieldIde);
+        return matchingFactories.get(0).create(compatibleMode, fieldIde, jdbcConnectionConfig);
     }
 
     private static List<JdbcDialectFactory> discoverFactories(ClassLoader classLoader) {

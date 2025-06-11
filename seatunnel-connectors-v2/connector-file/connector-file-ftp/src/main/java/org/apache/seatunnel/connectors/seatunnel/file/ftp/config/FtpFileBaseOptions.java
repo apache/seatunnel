@@ -44,4 +44,10 @@ public class FtpFileBaseOptions extends FileBaseOptions {
                     .enumType(FtpConnectionMode.class)
                     .defaultValue(ACTIVE_LOCAL)
                     .withDescription("FTP server connection mode ");
+    public static final Option<Boolean> FTP_REMOTE_VERIFICATION_ENABLED =
+            Options.key("remote_verification_enabled")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "Whether to enable remote host verification for FTP data channels (enabled by default)");
 }
