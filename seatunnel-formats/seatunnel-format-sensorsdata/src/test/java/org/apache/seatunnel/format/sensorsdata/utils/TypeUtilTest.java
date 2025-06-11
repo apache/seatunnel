@@ -9,13 +9,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 
-/**
- * TODO
- *
- * @author chwang
- * @version 1.0.0
- * @since 2024/03/16 16:08
- */
+
 class TypeUtilTest {
 
     @Test

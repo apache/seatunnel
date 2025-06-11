@@ -21,13 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
 
-/**
- * TODO
- *
- * @author chwang
- * @version 1.0.0
- * @since 2024/03/25 22:59
- */
+
 @Slf4j
 class SensorsDataUserRecordTest {
 

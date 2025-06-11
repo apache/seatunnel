@@ -1,12 +1,6 @@
 package org.apache.seatunnel.format.sensorsdata.record;
 
-/**
- * TODO
- *
- * @author xinglu
- * @version 1.0.0
- * @since 2024/06/12 16:39
- */
+
 public class SensorsDataJsonKeys {
 
     public static final String TRACK_ID = "_track_id";

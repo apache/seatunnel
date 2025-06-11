@@ -20,13 +20,6 @@ import java.util.Map;
 import static com.sensorsdata.analytics.javasdk.SensorsConst.ITEM_SET_ACTION_TYPE;
 import static org.apache.seatunnel.format.sensorsdata.record.UserRecordBase.OBJECT_MAPPER;
 
-/**
- * TODO
- *
- * @author xinglu
- * @version 1.0.0
- * @since 2024/06/06 15:19
- */
 public class SpecialItemRecord implements SensorsDataRecord {
 
     @Getter private ItemRecord itemRecord;

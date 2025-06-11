@@ -21,10 +21,7 @@ import java.util.Map;
 
 import static com.sensorsdata.analytics.javasdk.SensorsConst.TRACK_ACTION_TYPE;
 
-/**
- * @author chwang
- * @version 1.0.0
- */
+
 public abstract class UserRecordBase implements SensorsDataRecord {
 
     protected static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();

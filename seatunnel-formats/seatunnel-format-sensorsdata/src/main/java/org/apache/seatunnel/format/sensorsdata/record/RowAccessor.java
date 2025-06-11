@@ -23,13 +23,6 @@ import java.util.regex.Pattern;
 
 import static java.util.stream.Collectors.toList;
 
-/**
- * SeaTunnelRow 对象访问器<br>
- * 该对象的访问方式 & 逻辑繁杂，封装起来
- *
- * @author lichengzhen@sensorsdata.cn
- * @since 2024/3/18
- */
 public class RowAccessor implements Serializable {
     private static final Pattern EVENT_NAME_CONFIG_PATTERN =
             Pattern.compile("\\$\\{(.*?)\\}", Pattern.DOTALL);

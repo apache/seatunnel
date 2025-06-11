@@ -8,10 +8,6 @@ import java.util.Map;
 
 import static com.sensorsdata.analytics.javasdk.SensorsConst.PROFILE_SET_ACTION_TYPE;
 
-/**
- * @author chwang
- * @version 1.0.0
- */
 public class UserRecord extends UserRecordBase {
 
     @Getter private final UserSchema userSchema;

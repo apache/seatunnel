@@ -1,12 +1,5 @@
 package org.apache.seatunnel.format.sensorsdata.record;
 
-/**
- * TODO
- *
- * @author xinglu
- * @version 1.0.0
- * @since 2024/06/06 15:19
- */
 public enum SensorsDataRecordType {
     // 用户主表数据
     USER,

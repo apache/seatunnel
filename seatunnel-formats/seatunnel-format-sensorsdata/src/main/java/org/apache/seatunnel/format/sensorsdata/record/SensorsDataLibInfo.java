@@ -12,13 +12,6 @@ import static com.sensorsdata.analytics.javasdk.SensorsConst.LIB_SYSTEM_ATTR;
 import static com.sensorsdata.analytics.javasdk.SensorsConst.LIB_VERSION_SYSTEM_ATTR;
 import static com.sensorsdata.analytics.javasdk.SensorsConst.SDK_VERSION;
 
-/**
- * TODO
- *
- * @author xinglu
- * @version 1.0.0
- * @since 2024/06/12 16:31
- */
 public class SensorsDataLibInfo {
 
     public static final Map<String, String> LIB_INFO =

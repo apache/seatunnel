@@ -3,13 +3,7 @@ package org.apache.seatunnel.format.sensorsdata;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-/**
- * TODO
- *
- * @author chwang
- * @version 1.0.0
- * @since 2024/03/25 22:55
- */
+
 class SensorsDataTypesTest {
 
     @Test

@@ -7,13 +7,6 @@ import org.apache.seatunnel.format.sensorsdata.exception.SensorsDataException;
 
 import lombok.Getter;
 
-/**
- * TODO
- *
- * @author xinglu
- * @version 1.0.0
- * @since 2024/06/06 11:01
- */
 public class SensorsDataRecordBuilder {
 
     // Entity Name

@@ -7,10 +7,7 @@ import java.util.Map;
 
 import static com.sensorsdata.analytics.javasdk.SensorsConst.DETAIL_SET_ACTION_TYPE;
 
-/**
- * @author chwang
- * @version 1.0.0
- */
+
 public class UserDetailRecord extends UserRecordBase {
 
     @Getter private final DetailSchema userDetailSchema;

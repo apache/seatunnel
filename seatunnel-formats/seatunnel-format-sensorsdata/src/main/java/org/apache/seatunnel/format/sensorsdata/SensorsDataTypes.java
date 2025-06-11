@@ -4,13 +4,6 @@ import org.apache.commons.lang3.StringUtils;
 
 import lombok.Getter;
 
-/**
- * TODO
- *
- * @author chwang
- * @version 1.0.0
- * @since 2024/03/25 15:00
- */
 public class SensorsDataTypes {
     public enum DataTypes {
         UNKNOWN,

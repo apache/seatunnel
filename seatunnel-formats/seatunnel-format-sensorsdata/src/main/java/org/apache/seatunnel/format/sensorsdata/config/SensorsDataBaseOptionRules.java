@@ -2,13 +2,6 @@ package org.apache.seatunnel.format.sensorsdata.config;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 
-/**
- * TODO
- *
- * @author xinglu
- * @version 1.0.0
- * @since 2024/06/12 15:21
- */
 public class SensorsDataBaseOptionRules {
     public static OptionRule.Builder getBaseOptionRuleBuilder() {
         return OptionRule.builder()

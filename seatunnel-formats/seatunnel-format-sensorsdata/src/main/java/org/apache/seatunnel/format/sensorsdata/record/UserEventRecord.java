@@ -8,10 +8,7 @@ import java.util.Map;
 
 import static com.sensorsdata.analytics.javasdk.SensorsConst.TRACK_ACTION_TYPE;
 
-/**
- * @author chwang
- * @version 1.0.0
- */
+
 public class UserEventRecord extends UserRecordBase {
 
     private String eventName;

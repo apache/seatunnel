@@ -24,13 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * TODO
- *
- * @author chwang
- * @version 1.0.0
- * @since 2024/03/15 11:10
- */
+
 @Slf4j
 public class TypeUtil {
 
