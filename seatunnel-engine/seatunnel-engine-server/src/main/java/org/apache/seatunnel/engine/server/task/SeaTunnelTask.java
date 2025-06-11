@@ -298,7 +298,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
     @Override
     public void close() throws IOException {
         super.close();
-        MDCTracer.tracing(allCycles.parallelStream())
+        MDCTracer.tracing(allCycles.stream())
                 .forEach(
                         flowLifeCycle -> {
                             try {
