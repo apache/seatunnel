@@ -19,7 +19,7 @@
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-connector-v2-e2e</artifactId>
-        <version>2.3.9-sensorsdata</version>
+        <version>${revision}</version>
     </parent>
 
     <artifactId>connector-sensorsdata-e2e</artifactId>
@@ -55,41 +55,6 @@
             <artifactId>junit-jupiter</artifactId>
             <version>${testcontainer.version}</version>
             <scope>test</scope>
-        </dependency>
-
-        <!-- Drivers -->
-        <dependency>
-            <groupId>org.apache.hive</groupId>
-            <artifactId>hive-jdbc</artifactId>
-            <version>3.1.3</version>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.glassfish.jersey.bundles.repackaged</groupId>
-                    <artifactId>jersey-guava</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.google.guava</groupId>
-                    <artifactId>guava</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>com.sensorsdata.armada</groupId>
-            <artifactId>hyperion-client</artifactId>
-            <version>0.2.7</version>
-        </dependency>
-        <dependency>
-            <groupId>com.sensorsdata.infinity</groupId>
-            <artifactId>infinity-client</artifactId>
-            <version>1.1.11</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.google.guava</groupId>
-                    <artifactId>guava</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
     </dependencies>
 </project>

@@ -94,3 +94,4 @@ connector-sls
 connector-qdrant
 connector-typesense
 connector-cdc-opengauss
+connector-sensorsdata

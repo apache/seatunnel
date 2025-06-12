@@ -34,7 +34,6 @@
         <module>seatunnel-format-avro</module>
         <module>seatunnel-format-protobuf</module>
         <module>seatunnel-format-csv</module>
-        <module>seatunnel-format-sensorsdata</module>
     </modules>
 
 </project>

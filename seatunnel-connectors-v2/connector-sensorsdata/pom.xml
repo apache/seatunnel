@@ -34,11 +34,6 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-format-sensorsdata</artifactId>
-            <version>${project.version}</version>
-        </dependency>
 
         <!-- SeaTunnel Libs -->
         <dependency>
@@ -52,5 +47,10 @@
             <version>${project.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.sensorsdata.analytics.javasdk</groupId>
+            <artifactId>SensorsAnalyticsSDK</artifactId>
+            <version>3.6.9</version>
+        </dependency>
     </dependencies>
 </project>
