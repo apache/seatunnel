@@ -18,6 +18,8 @@
 
 package org.apache.seatunnel.format.compatible.debezium.json;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
@@ -27,8 +29,6 @@ import org.apache.kafka.connect.source.SourceRecord;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import com.google.common.collect.Lists;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
