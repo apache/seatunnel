@@ -634,6 +634,7 @@ public class DateTimeFunction {
             return null;
         }
         String format = (String) args.get(1);
+        format = getUnquotedValue(format);
         if (format.contains("yy") && format.contains("mm")) {
             DateTimeFormatter df = DateTimeFormatter.ofPattern(format);
             return LocalDateTime.parse(str, df);
@@ -714,5 +715,12 @@ public class DateTimeFunction {
         DateTimeFormatter df = DateTimeFormatter.ofPattern(format);
         LocalDateTime datetime = Instant.ofEpochSecond(unixTime).atZone(zoneId).toLocalDateTime();
         return df.format(datetime);
+    }
+
+    private static String getUnquotedValue(String format) {
+        if (format.contains("''")) {
+            return format.replace("''", "'");
+        }
+        return format;
     }
 }

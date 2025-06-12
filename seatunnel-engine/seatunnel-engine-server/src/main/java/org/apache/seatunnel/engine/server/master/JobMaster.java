@@ -777,6 +777,10 @@ public class JobMaster {
         return jobImmutableInformation;
     }
 
+    public Long getStateTimestamp(@NonNull JobStatus jobStatus) {
+        return physicalPlan.getStateTimestamp(jobStatus);
+    }
+
     public JobStatus getJobStatus() {
         return physicalPlan.getJobStatus();
     }

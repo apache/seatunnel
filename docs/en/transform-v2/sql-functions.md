@@ -884,6 +884,8 @@ Parses a string and returns a TIMESTAMP WITH TIME ZONE value. The most important
 Example:
 
 CALL PARSEDATETIME('2021-04-08 13:34:45','yyyy-MM-dd HH:mm:ss')
+CALL TO_DATE('2021-04-08'T'13:34:45','yyyy-MM-dd''T''HH:mm:ss')
+Note that when filling in `'` in SQL functions, it needs to be escaped to `''`.
 
 ### QUARTER
 

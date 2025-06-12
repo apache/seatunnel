@@ -2,6 +2,9 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Connector-V2] Support multi-table sink feature for TDengine (#9215)|https://github.com/apache/seatunnel/commit/98b593f095|2.3.11|
+|[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
+|[Fix][Connector-V2]  Fix NullPointerException when column or tag contains null value in TDengine sink (#9158)|https://github.com/apache/seatunnel/commit/a047cab546|2.3.11|
 |[Fix][Connector][TDEngine] TDEngine support NCHAR type (#8411)|https://github.com/apache/seatunnel/commit/88c92ae1b1|2.3.9|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|2.3.9|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|2.3.9|

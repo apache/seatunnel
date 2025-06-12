@@ -877,6 +877,8 @@ MONTHNAME(CREATED)
 示例:
 
 CALL PARSEDATETIME('2021-04-08 13:34:45','yyyy-MM-dd HH:mm:ss')
+CALL TO_DATE('2021-04-08T13:34:45','yyyy-MM-dd''T''HH:mm:ss')
+注意SQL函数中的`'`填写时需要转义为`''`。
 
 ### QUARTER
 

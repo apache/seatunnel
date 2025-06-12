@@ -84,7 +84,7 @@ public class SeaTunnelClientTest {
     public static void beforeClass() throws Exception {
         SEATUNNEL_CONFIG
                 .getHazelcastConfig()
-                .setClusterName(TestUtils.getClusterName("SeaTunnelClientTest"));
+                .setClusterName(ContentFormatUtilTest.getClusterName("SeaTunnelClientTest"));
         INSTANCE =
                 HazelcastInstanceFactory.newHazelcastInstance(
                         SEATUNNEL_CONFIG.getHazelcastConfig(),
@@ -94,7 +94,7 @@ public class SeaTunnelClientTest {
 
     private SeaTunnelClient createSeaTunnelClient() {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        clientConfig.setClusterName(TestUtils.getClusterName("SeaTunnelClientTest"));
+        clientConfig.setClusterName(ContentFormatUtilTest.getClusterName("SeaTunnelClientTest"));
         return new SeaTunnelClient(clientConfig);
     }
 
@@ -110,7 +110,7 @@ public class SeaTunnelClientTest {
     @Test
     public void testExecuteJob() {
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/client_test.conf");
+        String filePath = ContentFormatUtilTest.getResource("/client_test.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("testExecuteJob");
 
@@ -144,7 +144,7 @@ public class SeaTunnelClientTest {
     @Test
     public void testGetJobState() {
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/client_test.conf");
+        String filePath = ContentFormatUtilTest.getResource("/client_test.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("testGetJobState");
 
@@ -190,7 +190,7 @@ public class SeaTunnelClientTest {
     @Test
     public void testGetJobMetrics() {
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/client_test.conf");
+        String filePath = ContentFormatUtilTest.getResource("/client_test.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("testGetJobMetrics");
 
@@ -237,7 +237,7 @@ public class SeaTunnelClientTest {
     @Test
     public void testGetRunningJobMetrics() throws ExecutionException, InterruptedException {
         Common.setDeployMode(DeployMode.CLUSTER);
-        String filePath = TestUtils.getResource("/batch_fake_to_console.conf");
+        String filePath = ContentFormatUtilTest.getResource("/batch_fake_to_console.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("fake_to_console1");
 
@@ -252,7 +252,7 @@ public class SeaTunnelClientTest {
 
             execute1.waitForJobComplete();
 
-            filePath = TestUtils.getResource("streaming_fake_to_console.conf");
+            filePath = ContentFormatUtilTest.getResource("streaming_fake_to_console.conf");
             jobConfig = new JobConfig();
             jobConfig.setName("fake_to_console2");
             ClientJobProxy execute2 =
@@ -298,7 +298,7 @@ public class SeaTunnelClientTest {
     @Test
     public void testCancelJob() throws ExecutionException, InterruptedException {
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/streaming_fake_to_console.conf");
+        String filePath = ContentFormatUtilTest.getResource("/streaming_fake_to_console.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("testCancelJob");
 
@@ -335,7 +335,7 @@ public class SeaTunnelClientTest {
     @Test
     public void testSetJobId() throws ExecutionException, InterruptedException {
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/streaming_fake_to_console.conf");
+        String filePath = ContentFormatUtilTest.getResource("/streaming_fake_to_console.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("testSetJobId");
         long jobId = 12345;
@@ -373,7 +373,7 @@ public class SeaTunnelClientTest {
     @Test
     public void testSetJobIdDuplicate() {
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/streaming_fake_to_console.conf");
+        String filePath = ContentFormatUtilTest.getResource("/streaming_fake_to_console.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("testSetJobId");
         long jobId = System.currentTimeMillis();
@@ -425,7 +425,7 @@ public class SeaTunnelClientTest {
     @Test
     public void testGetJobInfo() {
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/client_test.conf");
+        String filePath = ContentFormatUtilTest.getResource("/client_test.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("fake_to_console");
 
@@ -453,7 +453,7 @@ public class SeaTunnelClientTest {
                                         "======================job status:"
                                                 + jobClient.getJobDetailStatus(jobId));
                                 log.info(
-                                        "======================list job status:"
+                                        "======================list job status:\n"
                                                 + jobClient.listJobStatus(true));
                                 Assertions.assertTrue(
                                         jobClient.getJobDetailStatus(jobId).contains("FINISHED")
@@ -476,7 +476,7 @@ public class SeaTunnelClientTest {
     @Test
     public void testJarsInEnvAddedToCommonJars() {
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/client_test_with_jars.conf");
+        String filePath = ContentFormatUtilTest.getResource("/client_test_with_jars.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("client_test_with_jars");
         try (SeaTunnelClient seaTunnelClient = createSeaTunnelClient()) {
@@ -496,7 +496,7 @@ public class SeaTunnelClientTest {
     @Test
     public void testSavePointAndRestoreWithSavePoint() throws Exception {
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/streaming_fake_to_console.conf");
+        String filePath = ContentFormatUtilTest.getResource("/streaming_fake_to_console.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("streaming_fake_to_console.conf");
 
@@ -569,7 +569,8 @@ public class SeaTunnelClientTest {
     @Test
     public void testGetMultiTableJobMetrics() {
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/batch_fake_multi_table_to_console.conf");
+        String filePath =
+                ContentFormatUtilTest.getResource("/batch_fake_multi_table_to_console.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("testGetMultiTableJobMetrics");
 
