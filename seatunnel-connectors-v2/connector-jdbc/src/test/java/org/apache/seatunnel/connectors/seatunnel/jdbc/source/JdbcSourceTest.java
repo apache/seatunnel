@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 
 import org.junit.jupiter.api.Assertions;
@@ -55,27 +54,43 @@ public class JdbcSourceTest {
     private static final String PGSQL_PASSWORD = "password";
 
     @Test
-    public void testExactTableMatch() {
-        // Create source config with exact table path
+    public void testMysqlExactTableMatch() {
+        // Test case: Match exact table path with explicit use_regex = false for MySQL
+        testMysqlExactTablePattern("test.table1", "table1");
+    }
+
+    /**
+     * Helper method to test MySQL exact table pattern
+     *
+     * @param pattern The exact table path
+     * @param expectedTable Expected table name
+     */
+    private void testMysqlExactTablePattern(String pattern, String expectedTable) {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put("driver", MYSQL_DRIVER_CLASS);
         configMap.put("url", MYSQL_URL);
         configMap.put("user", MYSQL_USERNAME);
         configMap.put("password", MYSQL_PASSWORD);
-        configMap.put("table_path", "test.table1");
+        configMap.put("table_path", pattern);
+        configMap.put("use_regex", false);
+        configMap.put("dialect", "mysql");
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
-        TableSourceFactoryContext context =
-                new TableSourceFactoryContext(
-                        config, Thread.currentThread().getContextClassLoader());
-
-        // Create source
         JdbcSource jdbcSource = new JdbcSource(JdbcSourceConfig.of(config));
-
-        // Verify table configuration
         List<CatalogTable> catalogTables = jdbcSource.getProducedCatalogTables();
-        Assertions.assertEquals(1, catalogTables.size());
-        Assertions.assertEquals("table1", catalogTables.get(0).getTableId().getTableName());
+
+        // Verify number of tables
+        Assertions.assertEquals(
+                1,
+                catalogTables.size(),
+                "Expected exactly one table for exact pattern: " + pattern);
+
+        // Verify table name
+        String actualTableName = catalogTables.get(0).getTableId().getTableName();
+        Assertions.assertEquals(
+                expectedTable,
+                actualTableName,
+                "Expected table name " + expectedTable + " for exact pattern: " + pattern);
     }
 
     @Test
@@ -139,6 +154,46 @@ public class JdbcSourceTest {
                         "Expected table " + expectedTable + " not found for pattern: " + pattern);
             }
         }
+    }
+
+    @Test
+    public void testOracleExactTableMatch() {
+        // Test case: Match exact table path with explicit use_regex = false for Oracle
+        testOracleExactTablePattern("default.TEST1.TEST_DB_2", "TEST_DB_2");
+    }
+
+    /**
+     * Helper method to test Oracle exact table pattern
+     *
+     * @param pattern The exact table path
+     * @param expectedTable Expected table name
+     */
+    private void testOracleExactTablePattern(String pattern, String expectedTable) {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("driver", ORACLE_DRIVER_CLASS);
+        configMap.put("url", ORACLE_URL);
+        configMap.put("user", ORACLE_USERNAME);
+        configMap.put("password", ORACLE_PASSWORD);
+        configMap.put("table_path", pattern);
+        configMap.put("use_regex", false);
+        configMap.put("dialect", "oracle");
+
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+        JdbcSource jdbcSource = new JdbcSource(JdbcSourceConfig.of(config));
+        List<CatalogTable> catalogTables = jdbcSource.getProducedCatalogTables();
+
+        // Verify number of tables
+        Assertions.assertEquals(
+                1,
+                catalogTables.size(),
+                "Expected exactly one Oracle table for exact pattern: " + pattern);
+
+        // Verify table name
+        String actualTableName = catalogTables.get(0).getTableId().getTableName();
+        Assertions.assertEquals(
+                expectedTable,
+                actualTableName,
+                "Expected Oracle table name " + expectedTable + " for exact pattern: " + pattern);
     }
 
     @Test
@@ -214,6 +269,49 @@ public class JdbcSourceTest {
     }
 
     @Test
+    public void testPostgreSQLExactTableMatch() {
+        // Test case: Match exact table path with explicit use_regex = false for PostgreSQL
+        testPostgreSQLExactTablePattern("postgres.public.test_db_10", "test_db_10");
+    }
+
+    /**
+     * Helper method to test PostgreSQL exact table pattern
+     *
+     * @param pattern The exact table path
+     * @param expectedTable Expected table name
+     */
+    private void testPostgreSQLExactTablePattern(String pattern, String expectedTable) {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("driver", PGSQL_DRIVER_CLASS);
+        configMap.put("url", PGSQL_URL);
+        configMap.put("user", PGSQL_USERNAME);
+        configMap.put("password", PGSQL_PASSWORD);
+        configMap.put("table_path", pattern);
+        configMap.put("use_regex", false);
+        configMap.put("dialect", "postgres");
+
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+        JdbcSource jdbcSource = new JdbcSource(JdbcSourceConfig.of(config));
+        List<CatalogTable> catalogTables = jdbcSource.getProducedCatalogTables();
+
+        // Verify number of tables
+        Assertions.assertEquals(
+                1,
+                catalogTables.size(),
+                "Expected exactly one PostgreSQL table for exact pattern: " + pattern);
+
+        // Verify table name
+        String actualTableName = catalogTables.get(0).getTableId().getTableName();
+        Assertions.assertEquals(
+                expectedTable,
+                actualTableName,
+                "Expected PostgreSQL table name "
+                        + expectedTable
+                        + " for exact pattern: "
+                        + pattern);
+    }
+
+    @Test
     public void testPostgreSQLRegexTableMatch() {
         // Test case 1: Match tables in public schema with names starting with "test_" followed by
         // word characters
@@ -253,7 +351,7 @@ public class JdbcSourceTest {
         configMap.put("user", PGSQL_USERNAME);
         configMap.put("password", PGSQL_PASSWORD);
         configMap.put("table_path", pattern);
-        configMap.put("use_regex", false);
+        configMap.put("use_regex", true);
         configMap.put("dialect", "postgres");
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);

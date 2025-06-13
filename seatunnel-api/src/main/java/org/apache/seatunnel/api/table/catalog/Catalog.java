@@ -164,10 +164,6 @@ public interface Catalog extends AutoCloseable {
         Pattern databasePattern =
                 Pattern.compile(config.get(ConnectorCommonOptions.DATABASE_PATTERN));
         Pattern tablePattern = Pattern.compile(config.get(ConnectorCommonOptions.TABLE_PATTERN));
-        Pattern schemaPattern = Pattern.compile(config.get(ConnectorCommonOptions.SCHEMA_PATTERN));
-
-        // Check if schema matching is needed
-        boolean needSchemaMatch = !".*".equals(config.get(ConnectorCommonOptions.SCHEMA_PATTERN));
 
         List<String> allDatabase = this.listDatabases();
         allDatabase.removeIf(s -> !databasePattern.matcher(s).matches());
@@ -189,12 +185,6 @@ public interface Catalog extends AutoCloseable {
                             }
                         }
 
-                        // Only check schema match when needed
-                        boolean schemaMatches = true;
-                        if (needSchemaMatch && schemaName != null) {
-                            schemaMatches = schemaPattern.matcher(schemaName).matches();
-                        }
-
                         // Build full table name for matching
                         String fullTableName = databaseName;
                         if (schemaName != null) {
@@ -203,7 +193,7 @@ public interface Catalog extends AutoCloseable {
                         fullTableName += "." + actualTableName;
 
                         // Use the processed table pattern for matching
-                        if (schemaMatches && tablePattern.matcher(fullTableName).matches()) {
+                        if (tablePattern.matcher(fullTableName).matches()) {
                             if (schemaName != null) {
                                 tablePaths.add(
                                         TablePath.of(databaseName, schemaName, actualTableName));

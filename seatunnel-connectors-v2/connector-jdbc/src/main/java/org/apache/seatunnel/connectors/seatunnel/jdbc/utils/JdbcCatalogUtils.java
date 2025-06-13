@@ -87,9 +87,7 @@ public class JdbcCatalogUtils {
                     try {
                         // Check if table path should be treated as regex
                         boolean isRegexPath =
-                                (tableConfig.getUseRegex() != null && tableConfig.getUseRegex())
-                                        && (StringUtils.isNotEmpty(tableConfig.getTablePath())
-                                                && shouldTreatAsRegex(tableConfig.getTablePath()));
+                                (tableConfig.getUseRegex() != null && tableConfig.getUseRegex());
 
                         // Process table path with regex if needed
                         if (StringUtils.isNotEmpty(tableConfig.getTablePath())
@@ -431,27 +429,6 @@ public class JdbcCatalogUtils {
         return ReadonlyConfig.fromMap(catalogConfig);
     }
 
-    /**
-     * Check if the string should be treated as a regex pattern. This method provides accurate
-     * detection by checking for common regex patterns.
-     */
-    private static boolean shouldTreatAsRegex(String str) {
-        if (str == null) {
-            return false;
-        }
-
-        // Check for common regex patterns that are unlikely to be part of a literal table name
-        return str.contains("*")
-                || str.contains("+")
-                || (str.contains("[") && str.contains("]"))
-                || str.contains("\\d")
-                || str.contains("\\w")
-                || str.contains("^")
-                || str.contains("$")
-                || (str.contains("(") && str.contains(")"))
-                || (str.contains("{") && str.contains("}"));
-    }
-
     /** Process table path with regex pattern and add matched tables to the result. */
     private static void processRegexTablePath(
             AbstractJdbcCatalog jdbcCatalog,
@@ -465,7 +442,6 @@ public class JdbcCatalogUtils {
 
         // Parse table path to extract database, schema and table patterns
         String databasePattern = ".*";
-        String schemaPattern = ".*";
         String tableNamePattern = ".*"; // This is just the table name part
 
         // Convert the table path to a format suitable for regex matching
@@ -477,38 +453,41 @@ public class JdbcCatalogUtils {
         // Step 2: Split by unescaped dots
         String[] parts = processedTablePath.split("\\.");
 
+        String fullTablePattern;
+
         if (parts.length == 1) {
             // Only table pattern
             tableNamePattern = parts[0];
+            fullTablePattern = String.format("%s", tableNamePattern);
         } else if (parts.length == 2) {
-            // database.table format
+            // database.table or schema.table format
             databasePattern = parts[0];
             tableNamePattern = parts[1];
+            fullTablePattern = String.format("%s.%s", databasePattern, tableNamePattern);
         } else if (parts.length >= 3) {
             // database.schema.table format
             databasePattern = parts[0];
-            schemaPattern = parts[1];
+            String schemaPattern = parts[1];
             tableNamePattern = parts[2];
+            fullTablePattern =
+                    String.format(
+                            "%s.%s.%s",
+                            databasePattern.replace(DOT_PLACEHOLDER, "."),
+                            schemaPattern.replace(DOT_PLACEHOLDER, "."),
+                            tableNamePattern.replace(DOT_PLACEHOLDER, "."));
+        } else {
+            fullTablePattern = ".*..*..*";
         }
 
-        // Step 3: Restore placeholders to normal regex dots
-        databasePattern = databasePattern.replace(DOT_PLACEHOLDER, ".");
-        schemaPattern = schemaPattern.replace(DOT_PLACEHOLDER, ".");
-        tableNamePattern = tableNamePattern.replace(DOT_PLACEHOLDER, ".");
-
         log.info(
-                "Parsed patterns - database: {}, schema: {}, table name: {}",
+                "Parsed patterns - database: {}, full table pattern: {}",
                 databasePattern,
-                schemaPattern,
-                tableNamePattern);
-        String tablePattern =
-                String.format("%s.%s.%s", databasePattern, schemaPattern, tableNamePattern);
+                fullTablePattern);
 
         // Build config for Catalog.getTables
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(ConnectorCommonOptions.DATABASE_PATTERN.key(), databasePattern);
-        configMap.put(ConnectorCommonOptions.SCHEMA_PATTERN.key(), schemaPattern);
-        configMap.put(ConnectorCommonOptions.TABLE_PATTERN.key(), tablePattern);
+        configMap.put(ConnectorCommonOptions.TABLE_PATTERN.key(), fullTablePattern);
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
