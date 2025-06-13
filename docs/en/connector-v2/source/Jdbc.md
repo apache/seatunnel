@@ -63,7 +63,7 @@ supports query SQL and can achieve projection effect.
 | fetch_size                                 | Int     | No       | 0               | For queries that return a large number of objects, you can configure the row fetch size used in the query to improve performance by reducing the number database hits required to satisfy the selection criteria. Zero means use jdbc default value.                                                                                                                                                                                                                                                                                                                                                                                               |
 | properties                                 | Map     | No       | -               | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.                                                                                                                                                                                                                                                                                                                                                                                                     |
 | table_path                                 | String  | No       | -               | The path to the full path of table, you can use this configuration instead of `query`. <br/>examples: <br/>`- mysql: "testdb.table1" `<br/>`- oracle: "test_schema.table1" `<br/>`- sqlserver: "testdb.test_schema.table1"` <br/>`- postgresql: "testdb.test_schema.table1"`  <br/>`- iris: "test_schema.table1"`                                                                                                                                                                                                                                                                                                                                  |
-| table_list                                 | Array   | No       | -               | The list of tables to be read, you can use this configuration instead of `table_path`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| table_list                                 | Array   | No       | -               |  The list of tables to be read, you can use this configuration instead of `table_path` example: ```[{ table_path = "testdb.table1"}, {table_path = "testdb.table2", query = "select * id, name from testdb.table2"}]```<br/>，and supports using regular expressions in `table_path`, for example: ```[{ table_path = "testdb.table\\d+", "use_regex" = "true"}]``` will match all tables that start with "table" followed by numbers.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | where_condition                            | String  | No       | -               | Common row filter conditions for all tables/queries, must start with `where`. for example `where id > 100`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | split.size                                 | Int     | No       | 8096            | How many rows in one split, captured tables are split into multiple splits when read of table. **Note**: This parameter takes effect only when using the `table_path` parameter. It does not take effect when using the `query` parameter.                                                                                                                                                                                                                                                                                                                                                                                                         |
 | split.even-distribution.factor.lower-bound | Double  | No       | 0.05            | Not recommended for use.<br/> The lower bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be greater than or equal to this lower bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is less, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 0.05.  |
@@ -93,28 +93,28 @@ The JDBC Source connector supports two ways to specify tables:
 
 The JDBC connector supports using regular expressions to match multiple tables. This feature allows you to process multiple tables with a single source configuration.
 
-### Configuration
+#### Configuration
 
 To use regular expression matching for table paths:
 
 1. Set `use_regex = true` to enable regex matching
 2. If `use_regex` is not set or set to `false`, the connector will treat the table_path as an exact path (no regex matching)
 
-### Parameters
+#### Parameters
 
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
 | use_regex | Boolean | No | false | Control regular expression matching for table_path. When set to `true`, the table_path will be treated as a regular expression pattern. When set to `false` or not specified, the table_path will be treated as an exact path (no regex matching). |
 
-### Regular Expression Syntax Notes
+#### Regular Expression Syntax Notes
 
 - **Path Separator**: The dot (`.`) is treated as a separator between database, schema, and table names.
 - **Escaped Dots**: If you need to use a dot (`.`) as a wildcard character in your regular expression to match any character, you must escape it with a backslash (`\.`).
 - **Path Format**: For paths like `database.table` or `database.schema.table`, the last unescaped dot separates the table pattern from the database/schema pattern.
 - **Pattern Examples**:
   - `test.table\\d+` - Matches tables like `table1`, `table2`, etc. in the `test` database
-  - `test\\.table\\d+` - Matches tables with literal dots in names like `test.table1`, `test.table2`
-  - `.*\\.user_.*` - Matches any database with tables starting with `user_`
+  - `test.*` - Matches all tables in the `test` database (for whole database synchronization)
+  - `postgres.public.test_db_\.*` - Matches all tables that start with `test_db_` in the `public` schema of the `postgres` database
 
 ### Example
 
@@ -146,15 +146,6 @@ source {
   }
 }
 ```
-
-### Notes
-
-- **Path Parsing**: For database paths with multiple parts (e.g., `db.schema.table`), the last unescaped dot separates the table pattern from the database/schema pattern.
-- **Performance**: For performance reasons, a maximum of 1000 tables can be matched by a single regular expression pattern.
-- **Explicit Control**: When `use_regex` is explicitly set to `true` or `false`, it overrides auto-detection. When `use_regex = false`, the table_path is treated as an exact path even if it contains regex-like characters.
-- **Auto-detection**: If `use_regex` is not specified (null), the connector will automatically detect regex patterns by looking for common regex metacharacters like `*`, `+`, `\\d`, `[...]`, `^`, `$`, `()`, `{}`.
-- **Error Handling**: Invalid regex patterns will cause the connector to throw an `IllegalArgumentException` with details about the error.
-- **Case Sensitivity**: Regular expression matching is case-sensitive by default.
 
 #### Multi-table Synchronization
 
