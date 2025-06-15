@@ -117,7 +117,7 @@ public class ConnectorPackageClientTest {
         SEATUNNEL_CONFIG = ConfigProvider.locateAndGetSeaTunnelConfigFromString(yaml);
         SEATUNNEL_CONFIG
                 .getHazelcastConfig()
-                .setClusterName(TestUtils.getClusterName(testClusterName));
+                .setClusterName(ContentFormatUtilTest.getClusterName(testClusterName));
         INSTANCE = SeaTunnelServerStarter.createHazelcastInstance(SEATUNNEL_CONFIG);
         JOB_ID = INSTANCE.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
     }
@@ -126,11 +126,11 @@ public class ConnectorPackageClientTest {
     @Test
     public void testUploadCommonPluginJars() throws MalformedURLException {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+        clientConfig.setClusterName(ContentFormatUtilTest.getClusterName(testClusterName));
         SeaTunnelHazelcastClient seaTunnelHazelcastClient =
                 new SeaTunnelHazelcastClient(clientConfig);
 
-        String filePath = TestUtils.getResource("/client_test.conf");
+        String filePath = ContentFormatUtilTest.getResource("/client_test.conf");
         Config seaTunnelJobConfig = ConfigBuilder.of(Paths.get(filePath));
         Common.setDeployMode(DeployMode.CLIENT);
         ReadonlyConfig envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
@@ -186,12 +186,13 @@ public class ConnectorPackageClientTest {
     @Test
     public void testUploadConnectorPluginJars() throws MalformedURLException {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        clientConfig.setClusterName(TestUtils.getClusterName("ConnectorPackageClientTest"));
+        clientConfig.setClusterName(
+                ContentFormatUtilTest.getClusterName("ConnectorPackageClientTest"));
         SeaTunnelHazelcastClient seaTunnelHazelcastClient =
                 new SeaTunnelHazelcastClient(clientConfig);
 
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/client_test.conf");
+        String filePath = ContentFormatUtilTest.getResource("/client_test.conf");
         Config seaTunnelJobConfig = ConfigBuilder.of(Paths.get(filePath));
         ReadonlyConfig envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         JobConfig jobConfig = new JobConfig();
@@ -240,7 +241,7 @@ public class ConnectorPackageClientTest {
     @Test
     public void testExecuteJob() {
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("batch_fakesource_to_file.conf");
+        String filePath = ContentFormatUtilTest.getResource("batch_fakesource_to_file.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("fake_to_file");
 
@@ -273,7 +274,7 @@ public class ConnectorPackageClientTest {
     @Test
     public void cancelJobTest() throws Exception {
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("batch_fakesource_to_file.conf");
+        String filePath = ContentFormatUtilTest.getResource("batch_fakesource_to_file.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("fake_to_file");
 
@@ -332,7 +333,7 @@ public class ConnectorPackageClientTest {
 
     private SeaTunnelClient createSeaTunnelClient() {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+        clientConfig.setClusterName(ContentFormatUtilTest.getClusterName(testClusterName));
         return new SeaTunnelClient(clientConfig);
     }
 

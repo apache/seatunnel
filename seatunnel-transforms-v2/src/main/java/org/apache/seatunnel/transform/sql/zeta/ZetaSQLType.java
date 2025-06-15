@@ -499,6 +499,35 @@ public class ZetaSQLType {
             case ZetaSQLFunction.IFNULL:
                 // Result has the same type as first argument
                 return getExpressionType(function.getParameters().getExpressions().get(0));
+            case ZetaSQLFunction.MULTI_IF:
+                ExpressionList multiIfExpressionList = function.getParameters();
+                if (multiIfExpressionList == null) {
+                    throw new TransformException(
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                            "MULTI_IF function requires parameters");
+                }
+
+                List<Expression> multiIfExpressions = multiIfExpressionList.getExpressions();
+                if (multiIfExpressions == null || multiIfExpressions.isEmpty()) {
+                    throw new TransformException(
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                            "MULTI_IF function requires parameters");
+                }
+
+                if (multiIfExpressions.size() < 3 || multiIfExpressions.size() % 2 == 0) {
+                    throw new TransformException(
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                            String.format(
+                                    "MULTI_IF function requires at least 3 arguments and an odd number of arguments"));
+                }
+
+                List<SeaTunnelDataType<?>> resultTypes = new ArrayList<>();
+                for (int i = 1; i < multiIfExpressions.size() - 1; i += 2) {
+                    resultTypes.add(getExpressionType(multiIfExpressions.get(i)));
+                }
+                resultTypes.add(
+                        getExpressionType(multiIfExpressions.get(multiIfExpressions.size() - 1)));
+                return getMaxType(resultTypes);
             case ZetaSQLFunction.MOD:
                 // Result has the same type as second argument
                 return getExpressionType(function.getParameters().getExpressions().get(1));

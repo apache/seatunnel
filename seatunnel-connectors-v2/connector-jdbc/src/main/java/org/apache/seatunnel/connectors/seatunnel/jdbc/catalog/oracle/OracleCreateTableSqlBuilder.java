@@ -36,13 +36,15 @@ public class OracleCreateTableSqlBuilder {
 
     private List<Column> columns;
     private PrimaryKey primaryKey;
-    private String sourceCatalogName;
+    private String comment;
+    protected String sourceCatalogName;
     private String fieldIde;
     private boolean createIndex;
 
     public OracleCreateTableSqlBuilder(CatalogTable catalogTable, boolean createIndex) {
         this.columns = catalogTable.getTableSchema().getColumns();
         this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
+        this.comment = catalogTable.getComment();
         this.sourceCatalogName = catalogTable.getCatalogName();
         this.fieldIde = catalogTable.getOptions().get("fieldIde");
         this.createIndex = createIndex;
@@ -72,6 +74,15 @@ public class OracleCreateTableSqlBuilder {
         createTableSql.append(String.join(",\n", columnSqls));
         createTableSql.append("\n)");
         sqls.add(createTableSql.toString());
+        if (comment != null) {
+            String commentSql =
+                    "COMMENT ON TABLE "
+                            + tablePath.getSchemaAndTableName("\"")
+                            + " IS '"
+                            + comment
+                            + "'";
+            sqls.add(commentSql);
+        }
         List<String> commentSqls =
                 columns.stream()
                         .filter(column -> StringUtils.isNotBlank(column.getComment()))
@@ -84,7 +95,7 @@ public class OracleCreateTableSqlBuilder {
         return sqls;
     }
 
-    String buildColumnSql(Column column) {
+    protected String buildColumnSql(Column column) {
         StringBuilder columnSql = new StringBuilder();
         columnSql.append("\"").append(column.getName()).append("\" ");
 

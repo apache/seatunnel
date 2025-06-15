@@ -2,7 +2,12 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Fix][Connector-V2] Fix maxcompute sink write date less than actual date (#8999)|https://github.com/apache/seatunnel/commit/fc942a599b| dev |
+|[Improve][Connector-V2] Support maxcompute sink writer with timestamp field type (#9234)|https://github.com/apache/seatunnel/commit/a513c495e3| dev |
+|[Feature][Transform] Support define sink column type (#9114)|https://github.com/apache/seatunnel/commit/ab7119e507|2.3.11|
+|[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
+|[Improve] maxcompute options (#9163)|https://github.com/apache/seatunnel/commit/fdacbae1af|2.3.11|
+|[Fix][Connector-V2] Fix maxcompute write with multi parallelism (#9089)|https://github.com/apache/seatunnel/commit/9426b7ba2c|2.3.11|
+|[Fix][Connector-V2] Fix maxcompute sink write date less than actual date (#8999)|https://github.com/apache/seatunnel/commit/fc942a599b|2.3.11|
 |[Fix][Connector-V2] Fix maxcompute read with partition spec (#8896)|https://github.com/apache/seatunnel/commit/e62bf6c65c|2.3.10|
 |[Fix][Connector-V2] Fix MaxCompute cannot get project and tableName when use schema (#8865)|https://github.com/apache/seatunnel/commit/a24fa8fef6|2.3.10|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|

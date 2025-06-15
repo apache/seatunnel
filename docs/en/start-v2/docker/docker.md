@@ -40,7 +40,7 @@ You can download the source code from the [download page](https://seatunnel.apac
 ```shell
 cd seatunnel
 # Use already sett maven profile
-sh ./mvnw -B clean install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Dlicense.skipAddThirdParty=true -D"docker.build.skip"=false -D"docker.verify.skip"=false -D"docker.push.skip"=true -D"docker.tag"=2.3.11 -Dmaven.deploy.skip -D"skip.spotless"=true --no-snapshot-updates -Pdocker,seatunnel
+sh ./mvnw -B clean install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Dlicense.skipAddThirdParty=true -D"docker.build.skip"=false -D"docker.verify.skip"=false -D"docker.push.skip"=true -D"docker.tag"=2.3.12 -Dmaven.deploy.skip -D"skip.spotless"=true --no-snapshot-updates -Pdocker,seatunnel
 
 # Check the docker image
 docker images | grep apache/seatunnel
@@ -53,10 +53,10 @@ sh ./mvnw clean package -DskipTests -Dskip.spotless=true
 
 # Build docker image
 cd seatunnel-dist
-docker build -f src/main/docker/Dockerfile --build-arg VERSION=2.3.11 -t apache/seatunnel:2.3.11 .
+docker build -f src/main/docker/Dockerfile --build-arg VERSION=2.3.12 -t apache/seatunnel:2.3.12 .
 
 # If you build from dev branch, you should add SNAPSHOT suffix to the version
-docker build -f src/main/docker/Dockerfile --build-arg VERSION=2.3.11-SNAPSHOT -t apache/seatunnel:2.3.11-SNAPSHOT .
+docker build -f src/main/docker/Dockerfile --build-arg VERSION=2.3.12-SNAPSHOT -t apache/seatunnel:2.3.12-SNAPSHOT .
 
 # Check the docker image
 docker images | grep apache/seatunnel

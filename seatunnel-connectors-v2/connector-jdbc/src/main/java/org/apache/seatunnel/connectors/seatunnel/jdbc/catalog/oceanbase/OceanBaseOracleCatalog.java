@@ -99,4 +99,10 @@ public class OceanBaseOracleCatalog extends OracleCatalog {
 
         createTableInternal(tablePath, table, createIndex);
     }
+
+    @Override
+    protected List<String> getCreateTableSqls(
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
+        return new OceanBaseOracleCreateTableSqlBuilder(table, createIndex).build(tablePath);
+    }
 }
