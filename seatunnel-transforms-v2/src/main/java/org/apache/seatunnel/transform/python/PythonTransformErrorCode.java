@@ -20,10 +20,12 @@ package org.apache.seatunnel.transform.python;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum PythonTransformErrorCode implements SeaTunnelErrorCode {
+
     SOURCE_CODE_MISS_ERROR("PythonTransformErrorCode-01","source_code and source_code_path Please configure at least one"),
     LOAD_SOURCE_CODE_FROM_PATH_ERROR("PythonTransformErrorCode-02","an error occurred while loading source_code from a file"),
     DEST_FIELD_MUST_NOT_EMPTY(
             "PythonTransformErrorCode-03", "PythonTransform dest_field must not empty"),
+    START_PYTHON_PROCESS_ERROR("PythonTransformErrorCode-04","An error occurred when starting the python process"),
     ;
     private final String code;
     private final String description;

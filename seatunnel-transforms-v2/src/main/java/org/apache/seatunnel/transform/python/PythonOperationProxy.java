@@ -21,18 +21,32 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowAccessor;
 import org.apache.seatunnel.transform.common.ErrorHandleWay;
 import org.apache.seatunnel.transform.exception.ErrorDataTransformException;
+import org.apache.seatunnel.transform.exception.TransformException;
 import py4j.GatewayServer;
 import py4j.Py4JException;
+import sun.misc.IOUtils;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Scanner;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import static org.apache.seatunnel.transform.exception.JsonPathTransformErrorCode.JSON_PATH_COMPILE_ERROR;
+import static org.apache.seatunnel.transform.python.PythonTransformErrorCode.START_PYTHON_PROCESS_ERROR;
 
 @Slf4j
 public class PythonOperationProxy implements RowOperation {
@@ -79,10 +93,38 @@ public class PythonOperationProxy implements RowOperation {
                     Integer javaServerPort = transformConfig.getJavaServerPort();
                     PythonOperationProxy operationProxy = new PythonOperationProxy(transformConfig);
                     operationProxy.javaServer = new GatewayServer(operationProxy, javaServerPort);
+                    //Start the java process and then start python
+                    startPythonProcess(transformConfig);
                 }
             }
         }
         return INSTANCE;
+    }
+
+    private static void startPythonProcess(PythonTransformConfig transformConfig) {
+        //python_transform/code_template.txt
+        try {
+            InputStream is = PythonOperationProxy.class.getClassLoader()
+                    .getResourceAsStream("python_transform/code_template.txt");
+            if (is == null) {
+                throw new FileNotFoundException("找不到资源文件");
+            }
+            String scriptContent;
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
+                scriptContent = reader.lines().reduce("", (a, b) -> a + b + "\n");
+            }
+            File tempFile = File.createTempFile("script-seatunnel-python-transform", ".py");
+            tempFile.deleteOnExit();
+            try (BufferedWriter writer = new BufferedWriter(
+                    new OutputStreamWriter(new FileOutputStream(tempFile), "UTF-8"))) {
+                writer.write(scriptContent);
+            }
+            ProcessBuilder pb = new ProcessBuilder("python", tempFile.getAbsolutePath());
+            pb.redirectErrorStream(true);
+            pb.start();
+        }catch (Exception e){
+            throw new TransformException(START_PYTHON_PROCESS_ERROR,e.getMessage());
+        }
     }
 
     public void shutdown() {
