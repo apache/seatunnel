@@ -17,31 +17,47 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
-import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
-import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.split.ClickhouseSourceSplit;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.split.ClickhouseSourceSplitEnumerator;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSourceState;
 
 import com.clickhouse.client.ClickHouseNode;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
-public class ClickhouseSource extends AbstractSingleSplitSource<SeaTunnelRow> {
+public class ClickhouseSource
+        implements SeaTunnelSource<SeaTunnelRow, ClickhouseSourceSplit, ClickhouseSourceState> {
 
     private final List<ClickHouseNode> servers;
     private final CatalogTable catalogTable;
     private final String sql;
     private final SeaTunnelRowType rowTypeInfo;
+    private final ReadonlyConfig readonlyConfig;
+    private final Map<TablePath, ClickhouseSourceTable> clickhouseSourceTables;
 
-    public ClickhouseSource(List<ClickHouseNode> servers, CatalogTable catalogTable, String sql) {
+    public ClickhouseSource(
+            List<ClickHouseNode> servers,
+            CatalogTable catalogTable,
+            String sql,
+            Map<TablePath, ClickhouseSourceTable> clickhouseSourceTables,
+            ReadonlyConfig readonlyConfig) {
         this.servers = servers;
         this.catalogTable = catalogTable;
         this.sql = sql;
         this.rowTypeInfo = catalogTable.getSeaTunnelRowType();
+        this.clickhouseSourceTables = clickhouseSourceTables;
+        this.readonlyConfig = readonlyConfig;
     }
 
     @Override
@@ -60,8 +76,24 @@ public class ClickhouseSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     }
 
     @Override
-    public AbstractSingleSplitReader<SeaTunnelRow> createReader(
-            SingleSplitReaderContext readerContext) {
-        return new ClickhouseSourceReader(servers, readerContext, sql, rowTypeInfo);
+    public SourceReader<SeaTunnelRow, ClickhouseSourceSplit> createReader(
+            SourceReader.Context readerContext) {
+        return new ClickhouseSourceReader(
+                servers, readerContext, sql, rowTypeInfo, clickhouseSourceTables);
+    }
+
+    @Override
+    public SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> createEnumerator(
+            SourceSplitEnumerator.Context<ClickhouseSourceSplit> enumeratorContext) {
+        return new ClickhouseSourceSplitEnumerator(
+                enumeratorContext, readonlyConfig, clickhouseSourceTables);
+    }
+
+    @Override
+    public SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> restoreEnumerator(
+            SourceSplitEnumerator.Context<ClickhouseSourceSplit> enumeratorContext,
+            ClickhouseSourceState checkpointState) {
+        return new ClickhouseSourceSplitEnumerator(
+                enumeratorContext, readonlyConfig, clickhouseSourceTables, checkpointState);
     }
 }

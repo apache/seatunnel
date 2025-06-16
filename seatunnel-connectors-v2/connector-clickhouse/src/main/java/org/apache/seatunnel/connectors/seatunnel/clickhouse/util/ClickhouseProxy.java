@@ -21,12 +21,18 @@ import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseTable;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhousePart;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhouseSourceTable;
+
+import org.apache.commons.lang3.StringUtils;
 
 import com.clickhouse.client.ClickHouseClient;
 import com.clickhouse.client.ClickHouseColumn;
@@ -45,6 +51,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.StringJoiner;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -52,10 +59,11 @@ import java.util.stream.StreamSupport;
 
 @Slf4j
 @SuppressWarnings("magicnumber")
-public class ClickhouseProxy {
+public class ClickhouseProxy implements AutoCloseable {
 
     private final ClickHouseRequest<?> clickhouseRequest;
     private final ClickHouseClient client;
+    private final ClickHouseNode node;
 
     private final Map<Shard, ClickHouseClient> shardToDataSource = new ConcurrentHashMap<>(16);
 
@@ -63,6 +71,7 @@ public class ClickhouseProxy {
         this.client = ClickHouseClient.newInstance(node.getProtocol());
         this.clickhouseRequest =
                 client.connect(node).format(ClickHouseFormat.RowBinaryWithNamesAndTypes);
+        this.node = node;
     }
 
     public ClickHouseRequest<?> getClickhouseConnection() {
@@ -427,6 +436,100 @@ public class ClickhouseProxy {
 
     public void dropDatabase(String database, boolean ignoreIfNotExists) {
         executeSql(ClickhouseCatalogUtil.INSTANCE.getDropDatabaseSql(database, ignoreIfNotExists));
+    }
+
+    public List<ClickhousePart> getPartList(
+            String database, String table, Shard shard, List<String> partitionList) {
+
+        String sql =
+                String.format(
+                        "select name from system.parts where database = '%s' and table = '%s'",
+                        database, table);
+
+        if (partitionList != null && !partitionList.isEmpty()) {
+            StringJoiner joiner = new StringJoiner("', '", "('", "')");
+            partitionList.forEach(joiner::add);
+
+            sql += " and partition in " + joiner.toString();
+        }
+
+        sql += " group by name";
+
+        log.debug("get part sql: {}", sql);
+
+        try (ClickHouseResponse response = clickhouseRequest.query(sql).executeAndWait()) {
+            Iterable<ClickHouseRecord> records = response.records();
+            return StreamSupport.stream(records.spliterator(), false)
+                    .map(r -> new ClickhousePart(r.getValue(0).asString(), database, table, shard))
+                    .collect(Collectors.toList());
+        } catch (ClickHouseException e) {
+            throw new ClickhouseConnectorException(
+                    ClickhouseConnectorErrorCode.GET_PART_ERROR,
+                    "Cannot get part name from system.parts",
+                    e);
+        }
+    }
+
+    public List<SeaTunnelRow> getDataFromSplit(
+            ClickhousePart part,
+            SeaTunnelRowType seaTunnelRowType,
+            ClickhouseSourceTable clickhouseSourceTable,
+            int offset) {
+
+        long st = System.currentTimeMillis();
+        List<SeaTunnelRow> seaTunnelRowList = new ArrayList<>();
+        TablePath tablePath = TablePath.of(part.getDatabase(), part.getTable());
+
+        String whereClause = String.format("_part = '%s'", part.getName());
+        if (StringUtils.isNotEmpty(clickhouseSourceTable.getFilterQuery())) {
+            whereClause += " AND (" + clickhouseSourceTable.getFilterQuery() + ")";
+        }
+
+        String sql =
+                String.format(
+                        "select * from %s.%s where %s limit %d, %d",
+                        tablePath.getDatabaseName(),
+                        tablePath.getTableName(),
+                        whereClause,
+                        offset,
+                        clickhouseSourceTable.getBatchSize());
+
+        log.debug("query data part sql: {}. shard: {}", sql, node.getHost());
+
+        try (ClickHouseResponse response = clickhouseRequest.query(sql).executeAndWait()) {
+            response.stream()
+                    .forEach(
+                            record -> {
+                                Object[] values =
+                                        new Object[seaTunnelRowType.getFieldNames().length];
+                                for (int i = 0; i < record.size(); i++) {
+                                    if (record.getValue(i) == null
+                                            || record.getValue(i).isNullOrEmpty()) {
+                                        values[i] = null;
+                                    } else {
+                                        values[i] =
+                                                TypeConvertUtil.valueUnwrap(
+                                                        seaTunnelRowType.getFieldType(i),
+                                                        record.getValue(i));
+                                    }
+                                }
+                                SeaTunnelRow seaTunnelRow = new SeaTunnelRow(values);
+                                seaTunnelRow.setTableId(tablePath.getFullName());
+                                seaTunnelRowList.add(seaTunnelRow);
+                            });
+        } catch (ClickHouseException e) {
+            throw new ClickhouseConnectorException(
+                    ClickhouseConnectorErrorCode.QUERY_WITH_PART_ERROR,
+                    "Query data with part error. sql: " + sql,
+                    e);
+        }
+
+        log.debug(
+                "query data count {} from clickhouse source split {}. cost time: {} ms",
+                seaTunnelRowList.size(),
+                part.getName(),
+                System.currentTimeMillis() - st);
+        return seaTunnelRowList;
     }
 
     public void close() {

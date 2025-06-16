@@ -40,6 +40,13 @@ public class ClickhouseBaseOptions {
                     .noDefaultValue()
                     .withDescription("Clickhouse database name");
 
+    /** Clickhouse database name */
+    public static final Option<String> TABLE =
+            Options.key("table")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Clickhouse table name");
+
     /** Clickhouse server username */
     public static final Option<String> USERNAME =
             Options.key("username")

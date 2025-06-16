@@ -15,21 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.state;
+package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.split.ClickhouseSourceSplit;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseTable;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+import lombok.Builder;
+import lombok.Data;
 
 import java.io.Serializable;
 import java.util.List;
-import java.util.Map;
 
-@AllArgsConstructor
-@Getter
-public class ClickhouseSourceState implements Serializable {
-    private static final long serialVersionUID = 286679054882099834L;
-    private boolean shouldEnumerate;
-    private Map<Integer, List<ClickhouseSourceSplit>> pendingSplit;
+@Data
+@Builder
+public class ClickhouseSourceTable implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    private TablePath tablePath;
+    private String originQuery;
+    private String filterQuery;
+    private Integer partSize;
+    private Integer batchSize;
+    private Long execMemLimit;
+    private List<String> partitionList;
+    private List<Shard> clusterShardList;
+    private ClickhouseTable clickhouseTable;
 }
