@@ -87,7 +87,7 @@ cp mysql-connector-java-xxx.jar ${SEATUNNEL_HOME}/lib/
 
 ### 简单示例
 
-```bash
+```
 env {
   parallelism = 1
   job.mode = "STREAMING"
