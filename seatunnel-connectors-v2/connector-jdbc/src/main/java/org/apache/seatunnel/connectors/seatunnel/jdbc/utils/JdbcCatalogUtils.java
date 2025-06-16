@@ -64,7 +64,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class JdbcCatalogUtils {
     private static final String DEFAULT_CATALOG_NAME = "jdbc_catalog";
-    private static final String DOT_PLACEHOLDER = "$DOT$";
+    private static final String DOT_PLACEHOLDER = "__$DOT$__";
 
     public static Map<TablePath, JdbcSourceTable> getTables(
             JdbcConnectionConfig jdbcConnectionConfig, List<JdbcSourceTableConfig> tablesConfig)
@@ -448,7 +448,7 @@ public class JdbcCatalogUtils {
 
         // Step 1: Replace escaped dots (\.) with a placeholder
         String processedTablePath = tablePath.replace("\\.", DOT_PLACEHOLDER);
-        log.info("After replacing escaped dots with placeholder: {}", processedTablePath);
+        log.debug("After replacing escaped dots with placeholder: {}", processedTablePath);
 
         // Step 2: Split by unescaped dots
         String[] parts = processedTablePath.split("\\.");
@@ -458,7 +458,7 @@ public class JdbcCatalogUtils {
         if (parts.length == 1) {
             // Only table pattern
             tableNamePattern = parts[0];
-            fullTablePattern = String.format("%s", tableNamePattern);
+            fullTablePattern = tableNamePattern;
         } else if (parts.length == 2) {
             // database.table or schema.table format
             databasePattern = parts[0];
@@ -476,7 +476,7 @@ public class JdbcCatalogUtils {
                             schemaPattern.replace(DOT_PLACEHOLDER, "."),
                             tableNamePattern.replace(DOT_PLACEHOLDER, "."));
         } else {
-            fullTablePattern = ".*..*..*";
+            fullTablePattern = ".*";
         }
 
         log.info(
