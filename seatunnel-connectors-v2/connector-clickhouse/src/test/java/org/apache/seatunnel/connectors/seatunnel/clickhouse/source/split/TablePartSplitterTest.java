@@ -92,7 +92,6 @@ public class TablePartSplitterTest {
 
     @Test
     public void testPartMapToSplits() {
-        // 创建测试数据
         ClickHouseNode node = ClickHouseNode.builder().host("localhost").port(8123).build();
 
         Shard shard = new Shard(1, 1, node);

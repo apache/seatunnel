@@ -91,7 +91,6 @@ public class ClickhouseValueReader implements Serializable {
                                 clickhouseSourceTable,
                                 currentPart.getOffset());
 
-                // 设置表ID
                 for (SeaTunnelRow row : rowBatch) {
                     row.setTableId(clickhouseSourceTable.getTablePath().toString());
                 }
