@@ -51,7 +51,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 ## Source Options
 
-| Name              | Type   | Required | Default                | Description                                                                                                                                                                                                                                                                                                 |
+|       Name        |  Type  | Required |        Default         |                                                                                                                                                 Description                                                                                                                                                 |
 |-------------------|--------|----------|------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | host              | String | Yes      | -                      | `ClickHouse` cluster address, the format is `host:port` , allowing multiple `hosts` to be specified. Such as `"host1:8123,host2:8123"` .                                                                                                                                                                    |
 | username          | String | Yes      | -                      | `ClickHouse` user username.                                                                                                                                                                                                                                                                                 |
@@ -67,7 +67,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | common-options    |        | No       | -                      | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                                                          |
 
 ## Parallel Reader
-The Clickhouse source connector supports parallel reading of data. For query table mode, For query table mode, the parallel reading is implemented based on the part file of table, which is obtained from the `system.parts` table.
+The Clickhouse source connector supports parallel reading of data. For query table mode, the parallel reading is implemented based on the part file of table, which is obtained from the `system.parts` table.
 
 ## Tips
 If you don't want to read the entire table, you can specify the `partition_list` or `filter_query` parameter. 
