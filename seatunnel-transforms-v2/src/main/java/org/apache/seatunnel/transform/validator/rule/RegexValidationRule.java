@@ -17,11 +17,12 @@
 
 package org.apache.seatunnel.transform.validator.rule;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonAlias;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.transform.validator.ValidationContext;
 import org.apache.seatunnel.transform.validator.ValidationResult;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 

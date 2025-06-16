@@ -70,13 +70,10 @@ public class DataValidatorTransformConfig implements Serializable {
                     .noDefaultValue()
                     .withDescription("Field validation rules");
 
-    // 异常处理方式
     private ValidationErrorHandleWay errorHandleWay = ValidationErrorHandleWay.FAIL;
 
-    // 错误数据路由的目标表（当 errorHandleWay 为 ROUTE_TO_TABLE 时使用）
     private String errorTable;
 
-    // 字段验证规则
     private List<FieldValidationRule> fieldRules = new ArrayList<>();
 
     @Data

@@ -23,40 +23,6 @@ import org.apache.seatunnel.transform.validator.ValidationResult;
 
 import java.io.Serializable;
 
-/**
- * User-defined function interface for DataValidator transform. This interface allows users to
- * implement custom validation logic for individual field values, complementing the built-in
- * field-level validation rules.
- *
- * <p>Similar to ZetaUDF, DataValidatorUDF processes single field values but is specifically
- * designed for validation purposes, returning ValidationResult instead of computed values.
- *
- * <p>Example usage:
- *
- * <pre>{@code
- * @AutoService(DataValidatorUDF.class)
- * public class CustomEmailValidator implements DataValidatorUDF {
- *     @Override
- *     public String functionName() {
- *         return "CUSTOM_EMAIL_CHECK";
- *     }
- *
- *     @Override
- *     public ValidationResult validate(Object value, SeaTunnelDataType<?> dataType, ValidationContext context) {
- *         if (value == null) {
- *             return ValidationResult.success();
- *         }
- *
- *         String email = value.toString();
- *         if (email.endsWith("@company.com")) {
- *             return ValidationResult.success();
- *         } else {
- *             return ValidationResult.failure("Email must be from company domain");
- *         }
- *     }
- * }
- * }</pre>
- */
 public interface DataValidatorUDF extends Serializable {
 
     /**
