@@ -17,20 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.util;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.MapType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.catalog.MaxComputeDataTypeConvertor;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
-
 import com.aliyun.odps.Column;
 import com.aliyun.odps.Table;
 import com.aliyun.odps.TableSchema;
-import com.aliyun.odps.data.ArrayRecord;
 import com.aliyun.odps.data.Binary;
 import com.aliyun.odps.data.Char;
 import com.aliyun.odps.data.Record;
@@ -41,6 +30,15 @@ import com.aliyun.odps.type.MapTypeInfo;
 import com.aliyun.odps.type.StructTypeInfo;
 import com.aliyun.odps.type.TypeInfo;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.catalog.MaxComputeDataTypeConvertor;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
 
 import java.io.Serializable;
 import java.sql.Date;
@@ -69,11 +67,11 @@ public class MaxcomputeTypeMapper implements Serializable {
     }
 
     public static Record getMaxcomputeRowData(
+            Record record,
             SeaTunnelRow seaTunnelRow,
             TableSchema tableSchema,
             SeaTunnelRowType rowType,
             FormatterContext formatterContext) {
-        ArrayRecord arrayRecord = new ArrayRecord(tableSchema);
         for (int i = 0; i < seaTunnelRow.getFields().length; i++) {
             String fieldName = rowType.getFieldName(i);
             if (!tableSchema.containsColumn(fieldName)) {
@@ -85,12 +83,12 @@ public class MaxcomputeTypeMapper implements Serializable {
             }
             Column column = tableSchema.getColumn(fieldName);
 
-            arrayRecord.set(
+           record.set(
                     tableSchema.getColumnIndex(fieldName),
                     resolveObject2Maxcompute(
                             seaTunnelRow.getField(i), column.getTypeInfo(), formatterContext));
         }
-        return arrayRecord;
+        return record;
     }
 
     public static SeaTunnelRowType getSeaTunnelRowType(ReadonlyConfig config) {

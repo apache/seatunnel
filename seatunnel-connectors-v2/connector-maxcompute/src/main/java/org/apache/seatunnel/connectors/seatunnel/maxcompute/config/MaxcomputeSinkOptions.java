@@ -61,4 +61,9 @@ public class MaxcomputeSinkOptions extends MaxcomputeBaseOptions {
                                     + "' ;")
                     .withDescription(
                             "Create table statement template, used to create MaxCompute table");
+
+    public static final Option<Integer> UPSERT_LOCK_COUNT =
+            Options.key("upsert_lock_count").intType().defaultValue(512)
+                    .withDescription("Number of locks used for upsert operations. "
+                            + "Increase this value to reduce contention and improve upsert performance.");
 }

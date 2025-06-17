@@ -17,6 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute;
 
+import com.aliyun.odps.Column;
+import com.aliyun.odps.OdpsType;
+import com.aliyun.odps.TableSchema;
+import com.aliyun.odps.data.ArrayRecord;
+import com.aliyun.odps.data.Record;
+import lombok.SneakyThrows;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -24,16 +30,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.FormatterContext;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeMapper;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import com.aliyun.odps.Column;
-import com.aliyun.odps.OdpsType;
-import com.aliyun.odps.TableSchema;
-import com.aliyun.odps.data.ArrayRecord;
-import com.aliyun.odps.data.Record;
-import lombok.SneakyThrows;
 
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -65,7 +63,7 @@ public class BasicTypeToOdpsTypeTest {
         SeaTunnelRow seaTunnelRow = MaxcomputeTypeMapper.getSeaTunnelRowData(record, typeInfo);
         Record tRecord =
                 MaxcomputeTypeMapper.getMaxcomputeRowData(
-                        seaTunnelRow, tableSchema, typeInfo, defaultFormatterContext);
+                        new ArrayRecord(tableSchema), seaTunnelRow, tableSchema, typeInfo, defaultFormatterContext);
 
         for (int i = 0; i < tRecord.getColumns().length; i++) {
             Assertions.assertEquals(record.get(i), tRecord.get(i));
@@ -166,7 +164,7 @@ public class BasicTypeToOdpsTypeTest {
 
         Record finalOutputRecord =
                 MaxcomputeTypeMapper.getMaxcomputeRowData(
-                        seaTunnelRow, outputSchema, typeInfo, formatterContext);
+                        new ArrayRecord(outputSchema), seaTunnelRow, outputSchema, typeInfo, formatterContext);
 
         Assertions.assertEquals(expectedObject, finalOutputRecord.get(fieldName));
     }
