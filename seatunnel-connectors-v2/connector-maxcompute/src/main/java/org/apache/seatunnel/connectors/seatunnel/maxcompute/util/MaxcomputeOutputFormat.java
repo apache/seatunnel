@@ -17,18 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.util;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.seatunnel.shade.com.google.common.util.concurrent.Striped;
-
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.options.table.FormatOptions;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSinkOptions;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
-
 import com.aliyun.odps.PartitionSpec;
 import com.aliyun.odps.Table;
 import com.aliyun.odps.TableSchema;
@@ -39,9 +27,19 @@ import com.aliyun.odps.tunnel.TableTunnel;
 import com.aliyun.odps.tunnel.TunnelException;
 import com.aliyun.odps.tunnel.streams.UpsertStream;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.table.FormatOptions;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.google.common.util.concurrent.Striped;
 
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.Lock;
@@ -51,6 +49,7 @@ public class MaxcomputeOutputFormat {
     private static final int MIN_LOCK_COUNT = 16;
     private static final int MAX_LOCK_COUNT = 2048;
     private final Striped<Lock> stripedLocks;
+    private final PrimaryKey primaryKey;
 
     private final ReadonlyConfig readonlyConfig;
 
@@ -63,7 +62,7 @@ public class MaxcomputeOutputFormat {
     private TableTunnel.UploadSession uploadSession;
     private TableTunnel.UpsertSession upsertSession;
 
-    public MaxcomputeOutputFormat(ReadonlyConfig readonlyConfig, SeaTunnelRowType rowType) {
+    public MaxcomputeOutputFormat(ReadonlyConfig readonlyConfig, SeaTunnelRowType rowType, PrimaryKey primaryKey) {
         this.readonlyConfig = readonlyConfig;
 
         this.rowType = rowType;
@@ -75,6 +74,7 @@ public class MaxcomputeOutputFormat {
         int stripes =
                 validateLockCount(readonlyConfig.get(MaxcomputeSinkOptions.UPSERT_LOCK_COUNT));
         this.stripedLocks = Striped.lock(stripes);
+        this.primaryKey = primaryKey;
     }
 
     public void write(SeaTunnelRow seaTunnelRow) throws IOException, TunnelException {
@@ -138,14 +138,8 @@ public class MaxcomputeOutputFormat {
                         this.tableSchema,
                         this.rowType,
                         formatterContext);
-        for (int i = 0; i < seaTunnelRow.getFields().length; i++) {
-            String fieldName = rowType.getFieldName(i);
-            upsertRecord.get(tableSchema.getColumnIndex(fieldName));
-        }
 
-        String pkKey = buildPrimaryKey(seaTunnelRow);
-
-        Lock lock = stripedLocks.get(pkKey);
+        Lock lock = getLockByPrimaryKey(seaTunnelRow);
         lock.lock();
         try {
             upsertStream.upsert(upsertRecord);
@@ -154,15 +148,19 @@ public class MaxcomputeOutputFormat {
         }
     }
 
-    private String buildPrimaryKey(SeaTunnelRow seaTunnelRow) throws JsonProcessingException {
-        List<String> hashKeys = extractHashKeys();
+    private Lock getLockByPrimaryKey(SeaTunnelRow seaTunnelRow) throws JsonProcessingException {
+        String pkKey = buildPrimaryKey(seaTunnelRow);
+        Lock lock = stripedLocks.get(pkKey);
+        return lock;
+    }
 
+    private String buildPrimaryKey(SeaTunnelRow seaTunnelRow) throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
         List<Object> pkValues = new ArrayList<>();
 
         for (int i = 0; i < seaTunnelRow.getFields().length; i++) {
             String fieldName = rowType.getFieldName(i);
-            if (hashKeys.contains(fieldName)) {
+            if(PrimaryKey.isPrimaryKeyField(primaryKey, fieldName)) {
                 Object value = seaTunnelRow.getField(i);
                 if (value == null)
                     throw new IllegalArgumentException(
@@ -171,21 +169,6 @@ public class MaxcomputeOutputFormat {
             }
         }
         return mapper.writeValueAsString(pkValues);
-    }
-
-    private List<String> extractHashKeys() {
-        List<String> hashKeys;
-        try {
-            Field field = upsertSession.getClass().getDeclaredField("hashKeys");
-            field.setAccessible(true);
-            hashKeys = (List<String>) field.get(upsertSession);
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            throw new MaxcomputeConnectorException(
-                    CommonErrorCode.ILLEGAL_ARGUMENT,
-                    "Failed to extract hashKeys via reflection",
-                    e);
-        }
-        return hashKeys;
     }
 
     private void deleteRecord(SeaTunnelRow seaTunnelRow) throws TunnelException, IOException {
