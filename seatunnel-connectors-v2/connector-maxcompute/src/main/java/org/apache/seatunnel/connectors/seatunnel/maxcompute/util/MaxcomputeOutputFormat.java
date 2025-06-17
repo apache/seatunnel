@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.util;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.google.common.util.concurrent.Striped;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.table.FormatOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -34,9 +38,6 @@ import com.aliyun.odps.data.RecordWriter;
 import com.aliyun.odps.tunnel.TableTunnel;
 import com.aliyun.odps.tunnel.TunnelException;
 import com.aliyun.odps.tunnel.streams.UpsertStream;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.util.concurrent.Striped;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
