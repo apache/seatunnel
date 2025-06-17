@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -27,8 +29,6 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeOutputFormat;
 
-import lombok.extern.slf4j.Slf4j;
-
 import java.io.IOException;
 
 @Slf4j
@@ -36,9 +36,9 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         implements SupportMultiTableSinkWriter<Void> {
     private MaxcomputeOutputFormat writer;
 
-    public MaxcomputeWriter(ReadonlyConfig readonlyConfig, SeaTunnelRowType rowType) {
+    public MaxcomputeWriter(ReadonlyConfig readonlyConfig, SeaTunnelRowType rowType, PrimaryKey primaryKey) {
         try {
-            writer = new MaxcomputeOutputFormat(readonlyConfig, rowType);
+            writer = new MaxcomputeOutputFormat(readonlyConfig, rowType, primaryKey);
         } catch (Exception e) {
             throw new MaxcomputeConnectorException(
                     CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, e);
@@ -51,7 +51,11 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             writer.write(seaTunnelRow);
         } catch (IOException e1) {
             throw e1;
-        } catch (Exception e2) {
+        }catch(RuntimeException e){
+            log.info("c = {}, m = {}", e.getCause(), e.getMessage());
+            throw e;
+        }catch (Exception e2) {
+            log.info("c = {}, m = {}", e2.getCause(), e2.getMessage());
             throw new MaxcomputeConnectorException(CommonErrorCode.WRITE_SEATUNNEL_ROW_ERROR, e2);
         }
     }
