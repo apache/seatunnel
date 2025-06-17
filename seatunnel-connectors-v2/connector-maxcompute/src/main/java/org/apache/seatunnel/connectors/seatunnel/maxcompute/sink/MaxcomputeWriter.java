@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -27,6 +26,8 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeOutputFormat;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 
@@ -50,21 +51,19 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             writer.write(seaTunnelRow);
         } catch (IOException e1) {
             throw e1;
-        } catch(Exception e2){
-            throw new MaxcomputeConnectorException(
-                    CommonErrorCode.WRITE_SEATUNNEL_ROW_ERROR, e2);
+        } catch (Exception e2) {
+            throw new MaxcomputeConnectorException(CommonErrorCode.WRITE_SEATUNNEL_ROW_ERROR, e2);
         }
     }
 
     @Override
     public void close() throws IOException {
-        try{
+        try {
             writer.close();
         } catch (IOException e1) {
             throw e1;
-        } catch(Exception e2){
-            throw new MaxcomputeConnectorException(
-                    CommonErrorCode.WRITE_SEATUNNEL_ROW_ERROR, e2);
+        } catch (Exception e2) {
+            throw new MaxcomputeConnectorException(CommonErrorCode.WRITE_SEATUNNEL_ROW_ERROR, e2);
         }
     }
 }
