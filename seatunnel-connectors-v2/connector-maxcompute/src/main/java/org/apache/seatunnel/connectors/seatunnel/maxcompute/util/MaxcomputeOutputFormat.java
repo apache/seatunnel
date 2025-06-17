@@ -86,6 +86,16 @@ public class MaxcomputeOutputFormat {
         }
     }
 
+    private int validateLockCount(int inputCount) {
+        if (inputCount < MIN_LOCK_COUNT) {
+            return MIN_LOCK_COUNT;
+        }
+        if (inputCount > MAX_LOCK_COUNT) {
+            return MAX_LOCK_COUNT;
+        }
+        return inputCount;
+    }
+
     private void insertRecord(SeaTunnelRow seaTunnelRow) throws TunnelException, IOException {
         ensureInsertSessionAndWriter();
         Record arrayRecord =
@@ -222,15 +232,5 @@ public class MaxcomputeOutputFormat {
                     tunnel.buildUpsertSession(readonlyConfig.get(MaxcomputeSinkOptions.PROJECT),
                             readonlyConfig.get(MaxcomputeSinkOptions.TABLE_NAME)).build();
         }
-    }
-
-    private int validateLockCount(int inputCount) {
-        if (inputCount < MIN_LOCK_COUNT) {
-            return MIN_LOCK_COUNT;
-        }
-        if (inputCount > MAX_LOCK_COUNT) {
-            return MAX_LOCK_COUNT;
-        }
-        return inputCount;
     }
 }
