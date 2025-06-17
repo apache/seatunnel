@@ -21,12 +21,13 @@ import org.apache.seatunnel.api.source.SourceSplit;
 
 import lombok.Getter;
 
+@Data
 public class HiveSourceSplit implements SourceSplit {
 
     private static final long serialVersionUID = 1L;
 
-    @Getter private final String tableId;
-    @Getter private final String filePath;
+    private final String tableId;
+    private final String filePath;
 
     public HiveSourceSplit(String tableId, String filePath) {
         this.tableId = tableId;
