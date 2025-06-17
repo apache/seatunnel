@@ -180,6 +180,7 @@ public class ConnectorPackageClientTest {
                                         });
                     });
         }
+        seaTunnelHazelcastClient.shutdown();
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
