@@ -124,6 +124,17 @@ public class MultipleTableHiveSourceReader implements SourceReader<SeaTunnelRow,
     @Override
     public void close() throws IOException {
         // do nothing
-        log.info("Closed the MultipleTableHiveSourceReader");
+        log.info("Close the MultipleTableHiveSourceReader and ReadStrategy(FileSystem and HiveConf)");
+        readStrategyMap.forEach(
+            (tablePath, readStrategy) -> {
+                try {
+                    readStrategy.close();
+                } catch (IOException e) {
+                    log.error(
+                            "Closed the ReadStrategy failed, may cause memory leak. file:{}",
+                            tablePath,
+                            e);
+                }
+            });
     }
 }
