@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.util;
 
 import com.aliyun.odps.TableSchema;
@@ -42,25 +59,25 @@ class MaxcomputeOutputFormatTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
 
-        SeaTunnelRowType rowType = new SeaTunnelRowType(new String[]{"id1", "id2", "name"}, new SeaTunnelDataType[]{BasicType.INT_TYPE,BasicType.INT_TYPE, BasicType.STRING_TYPE});
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id1", "id2", "name"},
+                        new SeaTunnelDataType[] {
+                            BasicType.INT_TYPE, BasicType.INT_TYPE, BasicType.STRING_TYPE
+                        });
         TableSchema tableSchema = mock(TableSchema.class);
         ReadonlyConfig config = mock(ReadonlyConfig.class);
 
         List<String> columnNames = new ArrayList<>();
         columnNames.add("id1");
         columnNames.add("id2");
-        PrimaryKey pk = new PrimaryKey("dummy",columnNames);
+        PrimaryKey pk = new PrimaryKey("dummy", columnNames);
 
         when(config.get(any())).thenReturn(1);
 
-        outputFormat = new MaxcomputeOutputFormat(
-                rowType,
-                config,
-                tableSchema,
-                defaultFormatterContext,
-                pk,
-                128
-        );
+        outputFormat =
+                new MaxcomputeOutputFormat(
+                        rowType, config, tableSchema, defaultFormatterContext, pk, 128);
     }
 
     @Test
@@ -76,27 +93,31 @@ class MaxcomputeOutputFormatTest {
 
     @Test
     void testBuildPrimaryKey() {
-        SeaTunnelRow row = new SeaTunnelRow(new Object[]{1,1,"A"});
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, 1, "A"});
         int primaryKey = outputFormat.buildPrimaryKey(row);
-        int hashKey = 31 * (31 +Integer.hashCode((int)row.getField(0))) + Integer.hashCode((int)row.getField(1));
+        int hashKey =
+                31 * (31 + Integer.hashCode((int) row.getField(0)))
+                        + Integer.hashCode((int) row.getField(1));
         assertEquals(hashKey, primaryKey);
     }
 
     @Test
     void testBuildPrimaryKeyThrowsWhenNull() {
         SeaTunnelRow row = mock(SeaTunnelRow.class);
-        when(row.getFields()).thenReturn(new Object[]{null});
+        when(row.getFields()).thenReturn(new Object[] {null});
         when(row.getField(0)).thenReturn(null);
 
-        assertThrows(IllegalArgumentException.class, () -> {
-            outputFormat.buildPrimaryKey(row);
-        });
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> {
+                    outputFormat.buildPrimaryKey(row);
+                });
     }
 
     @Test
     void testSameIdsUseSameLock() {
-        SeaTunnelRow rowA = new SeaTunnelRow(new Object[]{1, 1, "A1"});
-        SeaTunnelRow rowB = new SeaTunnelRow(new Object[]{1, 1, "A2"});
+        SeaTunnelRow rowA = new SeaTunnelRow(new Object[] {1, 1, "A1"});
+        SeaTunnelRow rowB = new SeaTunnelRow(new Object[] {1, 1, "A2"});
 
         Lock lockA = outputFormat.getLockByPrimaryKey(rowA);
         Lock lockB = outputFormat.getLockByPrimaryKey(rowB);
@@ -106,8 +127,8 @@ class MaxcomputeOutputFormatTest {
 
     @Test
     void testDifferentIdsUseDifferentLocks() {
-        SeaTunnelRow rowA =new SeaTunnelRow(new Object[]{1,1,"A"});
-        SeaTunnelRow rowB = new SeaTunnelRow(new Object[]{1,2,"B"});
+        SeaTunnelRow rowA = new SeaTunnelRow(new Object[] {1, 1, "A"});
+        SeaTunnelRow rowB = new SeaTunnelRow(new Object[] {1, 2, "B"});
 
         Lock lockA = outputFormat.getLockByPrimaryKey(rowA);
         Lock lockB = outputFormat.getLockByPrimaryKey(rowB);
@@ -117,9 +138,10 @@ class MaxcomputeOutputFormatTest {
 
     @Test
     void testUpsertLockProcess() throws Exception {
-        SeaTunnelRow row = new SeaTunnelRow(new Object[]{1,1,"A"});
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, 1, "A"});
         Lock lock = mock(Lock.class);
-        MaxcomputeOutputFormat.CheckedRunnable runnable = mock(MaxcomputeOutputFormat.CheckedRunnable.class);
+        MaxcomputeOutputFormat.CheckedRunnable runnable =
+                mock(MaxcomputeOutputFormat.CheckedRunnable.class);
 
         MaxcomputeOutputFormat spy = spy(outputFormat);
         doReturn(lock).when(spy).getLockByPrimaryKey(row);
@@ -133,7 +155,7 @@ class MaxcomputeOutputFormatTest {
 
     @Test
     void testLockProcessWithSameId_MultiThreaded() throws Exception {
-        SeaTunnelRow row = new SeaTunnelRow(new Object[]{1,1,"A"});
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, 1, "A"});
 
         int numThreads = 10;
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
@@ -144,22 +166,25 @@ class MaxcomputeOutputFormatTest {
         AtomicInteger counter = new AtomicInteger(0);
 
         for (int i = 0; i < numThreads; i++) {
-            executor.submit(() -> {
-                try {
-                    ready.countDown();
-                    start.await();
+            executor.submit(
+                    () -> {
+                        try {
+                            ready.countDown();
+                            start.await();
 
-                    outputFormat.lockProcess(row, () -> {
-                        int value = counter.get();
-                        counter.set(value + 1);
+                            outputFormat.lockProcess(
+                                    row,
+                                    () -> {
+                                        int value = counter.get();
+                                        counter.set(value + 1);
+                                    });
+
+                        } catch (Exception e) {
+                            fail(e);
+                        } finally {
+                            done.countDown();
+                        }
                     });
-
-                } catch (Exception e) {
-                    fail(e);
-                } finally {
-                    done.countDown();
-                }
-            });
         }
 
         ready.await();
@@ -185,21 +210,24 @@ class MaxcomputeOutputFormatTest {
         CountDownLatch done = new CountDownLatch(numThreads);
 
         for (int i = 0; i < numThreads; i++) {
-            executor.submit(() -> {
-                try {
-                    ready.countDown();
-                    start.await();
+            executor.submit(
+                    () -> {
+                        try {
+                            ready.countDown();
+                            start.await();
 
-                    spy.lockProcess(row, () -> {
-                        // do nothing
+                            spy.lockProcess(
+                                    row,
+                                    () -> {
+                                        // do nothing
+                                    });
+
+                        } catch (Exception e) {
+                            fail(e);
+                        } finally {
+                            done.countDown();
+                        }
                     });
-
-                } catch (Exception e) {
-                    fail(e);
-                } finally {
-                    done.countDown();
-                }
-            });
         }
 
         ready.await();

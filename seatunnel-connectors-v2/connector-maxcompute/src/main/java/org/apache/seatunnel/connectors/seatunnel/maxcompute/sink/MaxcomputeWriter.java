@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 
-import com.aliyun.odps.TableSchema;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.table.FormatOptions;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
@@ -35,6 +33,9 @@ import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.FormatterContex
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeOutputFormat;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeUtil;
 
+import com.aliyun.odps.TableSchema;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 
 @Slf4j
@@ -46,15 +47,17 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             ReadonlyConfig readonlyConfig, SeaTunnelRowType rowType, PrimaryKey primaryKey) {
         try {
             TableSchema schema = MaxcomputeUtil.getTable(readonlyConfig).getSchema();
-            FormatterContext formatterContext = new FormatterContext(readonlyConfig.get(FormatOptions.DATETIME_FORMAT));
+            FormatterContext formatterContext =
+                    new FormatterContext(readonlyConfig.get(FormatOptions.DATETIME_FORMAT));
             int lockCount = readonlyConfig.get(MaxcomputeSinkOptions.UPSERT_LOCK_COUNT);
-            writer = new MaxcomputeOutputFormat(
-                    rowType,
-                    readonlyConfig,
-                    schema,
-                    formatterContext,
-                    primaryKey,
-                    lockCount);
+            writer =
+                    new MaxcomputeOutputFormat(
+                            rowType,
+                            readonlyConfig,
+                            schema,
+                            formatterContext,
+                            primaryKey,
+                            lockCount);
         } catch (Exception e) {
             throw new MaxcomputeConnectorException(
                     CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, e);
