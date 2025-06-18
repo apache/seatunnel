@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Interface for reading and writing table metadata from SeaTunnel. Each connector need to contain
@@ -170,40 +171,36 @@ public interface Catalog extends AutoCloseable {
         List<TablePath> tablePaths = new ArrayList<>();
 
         for (String databaseName : allDatabase) {
-            tableNames = this.listTables(databaseName);
-            tableNames.forEach(
-                    tableName -> {
-                        // Parse table name to get schema (if any)
-                        String schemaName = null;
-                        String actualTableName = tableName;
-
-                        if (tableName.contains(".")) {
-                            String[] parts = tableName.split("\\.");
-                            if (parts.length == 2) {
-                                schemaName = parts[0];
-                                actualTableName = parts[1];
-                            }
-                        }
-
-                        // Build full table name for matching
-                        String fullTableName = databaseName;
-                        if (schemaName != null) {
-                            fullTableName += "." + schemaName;
-                        }
-                        fullTableName += "." + actualTableName;
-
-                        // Use the processed table pattern for matching
-                        if (tablePattern.matcher(fullTableName).matches()) {
-                            if (schemaName != null) {
-                                tablePaths.add(
-                                        TablePath.of(databaseName, schemaName, actualTableName));
-                            } else {
-                                tablePaths.add(TablePath.of(databaseName, actualTableName));
-                            }
-                        }
-                    });
+            List<TablePath> paths = this.listTablePaths(databaseName);
+            tablePaths.addAll(
+                    paths.stream()
+                            .filter(
+                                    path ->
+                                            tablePattern
+                                                    .matcher(
+                                                            path.getDatabaseName()
+                                                                    + "."
+                                                                    + path.getSchemaAndTableName())
+                                                    .matches())
+                            .collect(Collectors.toList()));
         }
         return buildCatalogTablesWithErrorCheck(tablePaths.iterator());
+    }
+
+    default List<TablePath> listTablePaths(String databaseName)
+            throws CatalogException, DatabaseNotExistException {
+        List<String> tableNames = listTables(databaseName);
+        return tableNames.stream()
+                .map(
+                        tableName -> {
+                            String[] parts = tableName.split("\\.");
+                            if (parts.length > 1) {
+                                return TablePath.of(databaseName, parts[0], parts[1]);
+                            } else {
+                                return TablePath.of(databaseName, null, tableName);
+                            }
+                        })
+                .collect(Collectors.toList());
     }
 
     default List<CatalogTable> buildCatalogTablesWithErrorCheck(Iterator<TablePath> tablePaths) {

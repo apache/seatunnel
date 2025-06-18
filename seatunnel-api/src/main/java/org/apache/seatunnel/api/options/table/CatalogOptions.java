@@ -56,9 +56,8 @@ public interface CatalogOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "The table names RegEx of the database to capture. "
-                                    + "The pattern can include database, schema and table components, for example: "
-                                    + "database_.*\\.schema_.*\\.table_.* or database_.*\\.table_.*");
+                            "The table names RegEx of the database to capture."
+                                    + "The table name needs to include the database name, for example: database_.*\\.table_.*");
 
     Option<List<Map<String, Object>>> TABLE_LIST =
             Options.key("table_list")

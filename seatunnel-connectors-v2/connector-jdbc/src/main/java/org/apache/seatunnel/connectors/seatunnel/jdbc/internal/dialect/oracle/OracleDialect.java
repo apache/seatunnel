@@ -211,12 +211,6 @@ public class OracleDialect implements JdbcDialect {
 
         String query = table.getQuery();
 
-        // Add null value judgment
-        if (table.getTablePath() == null) {
-            Long count = SQLUtils.countForSubquery(connection, query);
-            return count;
-        }
-
         boolean useTableStats =
                 StringUtils.isBlank(query)
                         || (!query.toLowerCase().contains("where")
@@ -225,9 +219,7 @@ public class OracleDialect implements JdbcDialect {
                                         .getFullName()
                                         .equals(table.getTablePath().getFullName()));
 
-        // Add null value judgment
-        Boolean useSelectCount = table.getUseSelectCount();
-        if (useSelectCount != null && useSelectCount) {
+        if (table.getUseSelectCount()) {
             useTableStats = false;
             if (StringUtils.isBlank(query)) {
                 query = "SELECT * FROM " + tableIdentifier(table.getTablePath());
@@ -245,9 +237,7 @@ public class OracleDialect implements JdbcDialect {
                         String.format(
                                 "analyze table %s compute statistics for table",
                                 tableIdentifier(tablePath));
-                // Add null value judgment
-                Boolean skipAnalyze = table.getSkipAnalyze();
-                if (skipAnalyze == null || !skipAnalyze) {
+                if (!table.getSkipAnalyze()) {
                     log.info("Split Chunk, approximateRowCntStatement: {}", analyzeTable);
                     stmt.execute(analyzeTable);
                 } else {

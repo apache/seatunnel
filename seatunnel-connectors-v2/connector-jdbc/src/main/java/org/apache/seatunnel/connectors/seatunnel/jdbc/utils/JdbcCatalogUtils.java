@@ -85,19 +85,14 @@ public class JdbcCatalogUtils {
                 Map<String, Map<String, String>> unsupportedTable = new LinkedHashMap<>();
                 for (JdbcSourceTableConfig tableConfig : tablesConfig) {
                     try {
-                        // Check if table path should be treated as regex
-                        boolean isRegexPath =
-                                (tableConfig.getUseRegex() != null && tableConfig.getUseRegex());
+                        boolean isRegexPath = tableConfig.getUseRegex();
 
-                        // Process table path with regex if needed
                         if (StringUtils.isNotEmpty(tableConfig.getTablePath())
                                 && StringUtils.isEmpty(tableConfig.getQuery())
                                 && isRegexPath) {
 
-                            // Process table path with regex pattern
                             processRegexTablePath(jdbcCatalog, jdbcDialect, tableConfig, tables);
                         } else {
-                            // Original logic for single table
                             CatalogTable catalogTable =
                                     getCatalogTable(tableConfig, jdbcCatalog, jdbcDialect);
                             TablePath tablePath = catalogTable.getTableId().toTablePath();
@@ -440,32 +435,24 @@ public class JdbcCatalogUtils {
         String tablePath = tableConfig.getTablePath();
         log.info("Processing table path with regex: {}", tablePath);
 
-        // Parse table path to extract database, schema and table patterns
         String databasePattern = ".*";
-        String tableNamePattern = ".*"; // This is just the table name part
+        String tableNamePattern = ".*";
 
-        // Convert the table path to a format suitable for regex matching
-
-        // Step 1: Replace escaped dots (\.) with a placeholder
         String processedTablePath = tablePath.replace("\\.", DOT_PLACEHOLDER);
         log.debug("After replacing escaped dots with placeholder: {}", processedTablePath);
 
-        // Step 2: Split by unescaped dots
         String[] parts = processedTablePath.split("\\.");
 
         String fullTablePattern;
 
         if (parts.length == 1) {
-            // Only table pattern
             tableNamePattern = parts[0];
             fullTablePattern = tableNamePattern;
         } else if (parts.length == 2) {
-            // database.table or schema.table format
             databasePattern = parts[0];
             tableNamePattern = parts[1];
             fullTablePattern = String.format("%s.%s", databasePattern, tableNamePattern);
         } else if (parts.length >= 3) {
-            // database.schema.table format
             databasePattern = parts[0];
             String schemaPattern = parts[1];
             tableNamePattern = parts[2];
@@ -484,7 +471,6 @@ public class JdbcCatalogUtils {
                 databasePattern,
                 fullTablePattern);
 
-        // Build config for Catalog.getTables
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(ConnectorCommonOptions.DATABASE_PATTERN.key(), databasePattern);
         configMap.put(ConnectorCommonOptions.TABLE_PATTERN.key(), fullTablePattern);
@@ -492,7 +478,6 @@ public class JdbcCatalogUtils {
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
         try {
-            // Get tables matching the pattern
             List<CatalogTable> catalogTables = jdbcCatalog.getTables(config);
 
             if (catalogTables.isEmpty()) {
@@ -500,7 +485,6 @@ public class JdbcCatalogUtils {
                 return;
             }
 
-            // Convert to JdbcSourceTable and add to result
             for (CatalogTable catalogTable : catalogTables) {
                 TablePath path = catalogTable.getTableId().toTablePath();
 
