@@ -113,6 +113,13 @@ doris:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-doris/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(doris)/**'
+
+blackhole:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-blackhole/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(blackhole)/**'
+
 druid:
   - all:
       - changed-files:
