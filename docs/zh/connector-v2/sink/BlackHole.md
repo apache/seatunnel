@@ -48,3 +48,7 @@ sink {
   BlackHole {}
 }
 ```
+
+## Changelog
+
+<ChangeLog />
