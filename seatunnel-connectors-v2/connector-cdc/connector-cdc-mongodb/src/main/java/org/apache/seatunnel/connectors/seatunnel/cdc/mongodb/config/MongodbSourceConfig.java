@@ -117,6 +117,6 @@ public class MongodbSourceConfig implements SourceConfig {
 
     @Override
     public boolean isExactlyOnce() {
-        return true;
+        return false;
     }
 }
