@@ -38,8 +38,9 @@ public class OceanBaseOracleCatalog extends OracleCatalog {
             String username,
             String pwd,
             JdbcUrlUtil.UrlInfo urlInfo,
-            String defaultSchema) {
-        super(catalogName, username, pwd, urlInfo, defaultSchema);
+            String defaultSchema,
+            String driverClass) {
+        super(catalogName, username, pwd, urlInfo, defaultSchema, driverClass);
     }
 
     @Override
@@ -97,5 +98,11 @@ public class OceanBaseOracleCatalog extends OracleCatalog {
         }
 
         createTableInternal(tablePath, table, createIndex);
+    }
+
+    @Override
+    protected List<String> getCreateTableSqls(
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
+        return new OceanBaseOracleCreateTableSqlBuilder(table, createIndex).build(tablePath);
     }
 }

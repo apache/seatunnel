@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-amazondynamodb.md';
+
 # AmazonDynamoDB
 
 > Amazon DynamoDB sink connector
@@ -60,7 +62,6 @@ Amazondynamodb {
 
 ## Changelog
 
-### next version
+<ChangeLog />
 
-- Add Amazon DynamoDB Sink Connector
 

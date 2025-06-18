@@ -39,6 +39,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -88,7 +89,9 @@ public class ConfigShadeTest {
         Config config = ConfigBuilder.of(Paths.get(resource.toURI()), Lists.newArrayList());
         config =
                 ConfigFactory.parseMap(
-                                ConfigBuilder.configDesensitization(config.root().unwrapped()))
+                                ConfigBuilder.configDesensitization(
+                                        config.root().unwrapped(),
+                                        ConfigShadeUtils.getSensitiveOptions(config)))
                         .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
                         .resolveWith(
                                 ConfigFactory.systemProperties(),
@@ -101,6 +104,12 @@ public class ConfigShadeTest {
                 config.getConfigList("source").get(0).getString("access_key"), "******");
         Assertions.assertEquals(
                 config.getConfigList("source").get(0).getString("secret_key"), "******");
+        Assertions.assertEquals(config.getConfigList("source").get(0).getString("f1"), "******");
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getString("config1.f1"), "******");
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getStringList("config2.list"),
+                Arrays.asList("******", "******", "******"));
         String conf = ConfigBuilder.mapToString(config.root().unwrapped());
         Assertions.assertTrue(conf.contains("\"password\" : \"******\""));
     }
@@ -112,7 +121,9 @@ public class ConfigShadeTest {
         Config config = ConfigBuilder.of(Paths.get(resource.toURI()), Lists.newArrayList());
         config =
                 ConfigFactory.parseMap(
-                                ConfigBuilder.configDesensitization(config.root().unwrapped()))
+                                ConfigBuilder.configDesensitization(
+                                        config.root().unwrapped(),
+                                        ConfigShadeUtils.getSensitiveOptions(config)))
                         .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
                         .resolveWith(
                                 ConfigFactory.systemProperties(),
@@ -121,6 +132,13 @@ public class ConfigShadeTest {
                 config.getConfigList("source").get(0).getString("username"), "******");
         Assertions.assertEquals(
                 config.getConfigList("source").get(0).getString("password"), "******");
+        Assertions.assertEquals(config.getConfigList("source").get(0).getString("f1"), "******");
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getString("config1.f1"), "******");
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getStringList("config2.list"),
+                Arrays.asList("******", "******", "******"));
+        String conf = ConfigBuilder.mapToString(config.root().unwrapped());
         String json = ConfigBuilder.mapToString(config.root().unwrapped());
         Assertions.assertTrue(json.contains("\"password\" : \"******\""));
     }
@@ -132,7 +150,9 @@ public class ConfigShadeTest {
         Config config = ConfigBuilder.of(Paths.get(resource.toURI()), Lists.newArrayList());
         config =
                 ConfigFactory.parseMap(
-                                ConfigBuilder.configDesensitization(config.root().unwrapped()))
+                                ConfigBuilder.configDesensitization(
+                                        config.root().unwrapped(),
+                                        ConfigShadeUtils.getSensitiveOptions(config)))
                         .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
                         .resolveWith(
                                 ConfigFactory.systemProperties(),

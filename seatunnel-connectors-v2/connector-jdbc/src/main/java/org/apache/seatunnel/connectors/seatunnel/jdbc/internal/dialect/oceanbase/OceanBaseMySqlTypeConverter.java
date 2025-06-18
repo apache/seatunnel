@@ -102,14 +102,13 @@ public class OceanBaseMySqlTypeConverter
     public static final long POWER_2_32 = (long) Math.pow(2, 32);
     public static final long MAX_VARBINARY_LENGTH = POWER_2_16 - 4;
 
-    private static final String VECTOR_TYPE_NAME = "";
     private static final String VECTOR_NAME = "VECTOR";
 
     public static final OceanBaseMySqlTypeConverter INSTANCE = new OceanBaseMySqlTypeConverter();
 
     @Override
     public String identifier() {
-        return DatabaseIdentifier.OCENABASE;
+        return DatabaseIdentifier.OCEANBASE;
     }
 
     @Override
@@ -296,9 +295,9 @@ public class OceanBaseMySqlTypeConverter
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
                 builder.scale(typeDefine.getScale());
                 break;
-            case VECTOR_TYPE_NAME:
-                String columnType = typeDefine.getColumnType();
-                if (columnType.startsWith("vector(") && columnType.endsWith(")")) {
+            case VECTOR_NAME:
+                String columnType = typeDefine.getColumnType().toUpperCase();
+                if (columnType.startsWith("VECTOR(") && columnType.endsWith(")")) {
                     Integer number =
                             Integer.parseInt(
                                     columnType.substring(
@@ -309,7 +308,7 @@ public class OceanBaseMySqlTypeConverter
                 break;
             default:
                 throw CommonError.convertToSeaTunnelTypeError(
-                        DatabaseIdentifier.OCENABASE, mysqlDataType, typeDefine.getName());
+                        DatabaseIdentifier.OCEANBASE, mysqlDataType, typeDefine.getName());
         }
         return builder.build();
     }
@@ -526,7 +525,7 @@ public class OceanBaseMySqlTypeConverter
                 break;
             default:
                 throw CommonError.convertToConnectorTypeError(
-                        DatabaseIdentifier.OCENABASE,
+                        DatabaseIdentifier.OCEANBASE,
                         column.getDataType().getSqlType().name(),
                         column.getName());
         }

@@ -42,23 +42,23 @@ public abstract class AbstractModel implements Model {
     public List<ByteBuffer> vectorization(Object[] fields) throws IOException {
         List<ByteBuffer> result = new ArrayList<>();
 
-        List<List<Float>> vectors = batchProcess(fields, singleVectorizedInputNumber);
-        for (List<Float> vector : vectors) {
-            result.add(BufferUtils.toByteBuffer(vector.toArray(new Float[0])));
+        List<List<Double>> vectors = batchProcess(fields, singleVectorizedInputNumber);
+        for (List<Double> vector : vectors) {
+            result.add(BufferUtils.toByteBuffer(vector.toArray(new Double[0])));
         }
         return result;
     }
 
-    protected abstract List<List<Float>> vector(Object[] fields) throws IOException;
+    protected abstract List<List<Double>> vector(Object[] fields) throws IOException;
 
-    public List<List<Float>> batchProcess(Object[] array, int batchSize) throws IOException {
-        List<List<Float>> merged = new ArrayList<>();
+    public List<List<Double>> batchProcess(Object[] array, int batchSize) throws IOException {
+        List<List<Double>> merged = new ArrayList<>();
         if (array == null || array.length == 0) {
             return merged;
         }
         for (int i = 0; i < array.length; i += batchSize) {
             Object[] batch = ArrayUtils.subarray(array, i, i + batchSize);
-            List<List<Float>> vector = vector(batch);
+            List<List<Double>> vector = vector(batch);
             merged.addAll(vector);
         }
         if (array.length != merged.size()) {

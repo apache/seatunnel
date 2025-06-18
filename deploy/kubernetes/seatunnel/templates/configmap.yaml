@@ -22,14 +22,8 @@ metadata:
     app.kubernetes.io/name: {{ include "seatunnel.fullname" . }}-configs
     {{- include "seatunnel.master.labels" . | nindent 4 }}
 data:
-  hazelcast-master.yaml: |-
-  {{ tpl (.Files.Get "conf/hazelcast-master.yaml") $ | nindent 4 }}
-  hazelcast-worker.yaml: |-
-  {{ tpl (.Files.Get "conf/hazelcast-worker.yaml") $ | nindent 4 }}
-  hazelcast-client.yaml: |-
-  {{ tpl (.Files.Get "conf/hazelcast-client.yaml") $ | nindent 4 }}
-  seatunnel.yaml: |-
-  {{ tpl (.Files.Get "conf/seatunnel.yaml") $ | nindent 4 }}
-  log4j2.properties: |-
-  {{ tpl (.Files.Get "conf/log4j2.properties") $ | nindent 4 }}
+  {{- range $path, $_ := .Files.Glob "conf/*" }}
+    {{- base $path | nindent 2 }}: |-
+      {{- tpl ($.Files.Get $path) $ | nindent 4 -}}
+  {{- end }}
 

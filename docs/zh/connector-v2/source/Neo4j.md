@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-neo4j.md';
+
 # Neo4j
 
 > Neo4j 源连接器器
@@ -96,5 +98,6 @@ source {
 }
 ```
 
+## 变更日志
 
-
+<ChangeLog />

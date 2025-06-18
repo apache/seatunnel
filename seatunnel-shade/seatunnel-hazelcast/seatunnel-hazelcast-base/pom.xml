@@ -23,6 +23,7 @@
     </parent>
 
     <artifactId>seatunnel-hazelcast-base</artifactId>
+    <name>SeaTunnel : Shade : Hazelcast : Base</name>
 
     <properties>
         <!--  SeaTunnel Engine use     -->

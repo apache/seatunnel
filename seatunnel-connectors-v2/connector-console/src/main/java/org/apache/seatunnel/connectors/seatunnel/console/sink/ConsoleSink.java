@@ -31,9 +31,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkFactory.LOG_PRINT_DATA;
-import static org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkFactory.LOG_PRINT_DELAY;
-
 public class ConsoleSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         implements SupportMultiTableSink, SupportSchemaEvolutionSink {
     private final SeaTunnelRowType seaTunnelRowType;
@@ -43,8 +40,8 @@ public class ConsoleSink extends AbstractSimpleSink<SeaTunnelRow, Void>
 
     public ConsoleSink(CatalogTable catalogTable, ReadonlyConfig options) {
         this.catalogTable = catalogTable;
-        this.isPrintData = options.get(LOG_PRINT_DATA);
-        this.delayMs = options.get(LOG_PRINT_DELAY);
+        this.isPrintData = options.get(ConsoleSinkOptions.LOG_PRINT_DATA);
+        this.delayMs = options.get(ConsoleSinkOptions.LOG_PRINT_DELAY);
         this.seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
     }
 

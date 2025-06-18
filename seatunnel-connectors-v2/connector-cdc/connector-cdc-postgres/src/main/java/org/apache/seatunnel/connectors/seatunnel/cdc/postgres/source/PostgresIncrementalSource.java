@@ -32,6 +32,8 @@ import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
+import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
+import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffsetFactory;
@@ -93,11 +95,21 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
     @Override
     public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(
             ReadonlyConfig config) {
+        Map<TableId, Struct> tableIdTableChangeMap = tableChanges();
+        if (DeserializeFormat.COMPATIBLE_DEBEZIUM_JSON.equals(
+                config.get(JdbcSourceOptions.FORMAT))) {
+            return (DebeziumDeserializationSchema<T>)
+                    new DebeziumJsonDeserializeSchema(
+                            config.get(JdbcSourceOptions.DEBEZIUM_PROPERTIES),
+                            tableIdTableChangeMap);
+        }
+
         String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
         return (DebeziumDeserializationSchema<T>)
                 SeaTunnelRowDebeziumDeserializeSchema.builder()
                         .setTables(catalogTables)
                         .setServerTimeZone(ZoneId.of(zoneId))
+                        .setTableIdTableChangeMap(tableIdTableChangeMap)
                         .build();
     }
 

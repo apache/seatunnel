@@ -17,12 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -30,11 +26,7 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
@@ -43,23 +35,23 @@ import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplitEnumeratorState;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
-import com.google.auto.service.AutoService;
+import java.util.Collections;
+import java.util.List;
 
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PORT;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.QUEUE_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.VIRTUAL_HOST;
-
-@AutoService(SeaTunnelSource.class)
 public class RabbitmqSource
         implements SeaTunnelSource<SeaTunnelRow, RabbitmqSplit, RabbitmqSplitEnumeratorState>,
                 SupportParallelism {
 
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private JobContext jobContext;
-    private RabbitmqConfig rabbitMQConfig;
+    private final RabbitmqConfig rabbitMQConfig;
+    private final CatalogTable catalogTable;
+
+    public RabbitmqSource(RabbitmqConfig rabbitMQConfig, CatalogTable catalogTable) {
+        this.rabbitMQConfig = rabbitMQConfig;
+        this.catalogTable = catalogTable;
+        this.deserializationSchema = new JsonDeserializationSchema(catalogTable, false, false);
+    }
 
     @Override
     public Boundedness getBoundedness() {
@@ -79,31 +71,8 @@ public class RabbitmqSource
     }
 
     @Override
-    public void prepare(Config config) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        config,
-                        HOST.key(),
-                        PORT.key(),
-                        VIRTUAL_HOST.key(),
-                        USERNAME.key(),
-                        PASSWORD.key(),
-                        QUEUE_NAME.key(),
-                        ConnectorCommonOptions.SCHEMA.key());
-        if (!result.isSuccess()) {
-            throw new RabbitmqConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
-        this.rabbitMQConfig = new RabbitmqConfig(config);
-        setDeserialization(config);
-    }
-
-    @Override
-    public SeaTunnelDataType getProducedType() {
-        return deserializationSchema.getProducedType();
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(catalogTable);
     }
 
     @Override
@@ -129,12 +98,5 @@ public class RabbitmqSource
     @Override
     public void setJobContext(JobContext jobContext) {
         this.jobContext = jobContext;
-    }
-
-    private void setDeserialization(Config config) {
-        // TODO: format SPI
-        // only support json deserializationSchema
-        CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(config);
-        this.deserializationSchema = new JsonDeserializationSchema(catalogTable, false, false);
     }
 }

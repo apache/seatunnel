@@ -17,11 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.config;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-
-import org.apache.kudu.client.AsyncKuduClient;
 
 import lombok.Getter;
 import lombok.ToString;
@@ -31,63 +27,6 @@ import java.io.Serializable;
 @Getter
 @ToString
 public class CommonConfig implements Serializable {
-
-    public static final Option<String> MASTER =
-            Options.key("kudu_masters")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Kudu master address. Separated by ','");
-
-    public static final Option<String> TABLE_NAME =
-            Options.key("table_name")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Kudu table name");
-
-    public static final Option<Integer> WORKER_COUNT =
-            Options.key("client_worker_count")
-                    .intType()
-                    .defaultValue(2 * Runtime.getRuntime().availableProcessors())
-                    .withDescription(
-                            "Kudu worker count. Default value is twice the current number of cpu cores");
-
-    public static final Option<Long> OPERATION_TIMEOUT =
-            Options.key("client_default_operation_timeout_ms")
-                    .longType()
-                    .defaultValue(AsyncKuduClient.DEFAULT_OPERATION_TIMEOUT_MS)
-                    .withDescription("Kudu normal operation time out");
-
-    public static final Option<Long> ADMIN_OPERATION_TIMEOUT =
-            Options.key("client_default_admin_operation_timeout_ms")
-                    .longType()
-                    .defaultValue(AsyncKuduClient.DEFAULT_OPERATION_TIMEOUT_MS)
-                    .withDescription("Kudu admin operation time out");
-
-    public static final Option<Boolean> ENABLE_KERBEROS =
-            Options.key("enable_kerberos")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription("Kerberos principal enable.");
-    public static final Option<String> KERBEROS_PRINCIPAL =
-            Options.key("kerberos_principal")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Kerberos principal. Note that all zeta nodes require have this file.");
-
-    public static final Option<String> KERBEROS_KEYTAB =
-            Options.key("kerberos_keytab")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Kerberos keytab. Note that all zeta nodes require have this file.");
-
-    public static final Option<String> KERBEROS_KRB5_CONF =
-            Options.key("kerberos_krb5conf")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Kerberos krb5 conf. Note that all zeta nodes require have this file.");
 
     protected String masters;
     protected Integer workerCount;
@@ -102,13 +41,13 @@ public class CommonConfig implements Serializable {
     protected String krb5conf;
 
     public CommonConfig(ReadonlyConfig config) {
-        this.masters = config.get(MASTER);
-        this.workerCount = config.get(WORKER_COUNT);
-        this.operationTimeout = config.get(OPERATION_TIMEOUT);
-        this.adminOperationTimeout = config.get(ADMIN_OPERATION_TIMEOUT);
-        this.enableKerberos = config.get(ENABLE_KERBEROS);
-        this.principal = config.get(KERBEROS_PRINCIPAL);
-        this.keytab = config.get(KERBEROS_KEYTAB);
-        this.krb5conf = config.get(KERBEROS_KRB5_CONF);
+        this.masters = config.get(KuduBaseOptions.MASTER);
+        this.workerCount = config.get(KuduBaseOptions.WORKER_COUNT);
+        this.operationTimeout = config.get(KuduBaseOptions.OPERATION_TIMEOUT);
+        this.adminOperationTimeout = config.get(KuduBaseOptions.ADMIN_OPERATION_TIMEOUT);
+        this.enableKerberos = config.get(KuduBaseOptions.ENABLE_KERBEROS);
+        this.principal = config.get(KuduBaseOptions.KERBEROS_PRINCIPAL);
+        this.keytab = config.get(KuduBaseOptions.KERBEROS_KEYTAB);
+        this.krb5conf = config.get(KuduBaseOptions.KERBEROS_KRB5_CONF);
     }
 }

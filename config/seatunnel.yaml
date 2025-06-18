@@ -38,9 +38,13 @@ seatunnel:
     telemetry:
       metric:
         enabled: false
-      log:
+      logs:
         scheduled-deletion-enable: true
     http:
       enable-http: true
       port: 8080
       enable-dynamic-port: false
+      # Uncomment the following lines to enable basic authentication for web UI
+      # enable-basic-auth: true
+      # basic-auth-username: admin
+      # basic-auth-password: admin

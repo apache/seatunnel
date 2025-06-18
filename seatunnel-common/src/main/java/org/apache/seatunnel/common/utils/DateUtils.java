@@ -57,7 +57,7 @@ public class DateUtils {
                 Pattern.compile("\\d{4}/\\d{2}/\\d{2}"),
                 Pattern.compile("\\d{4}\\.\\d{2}\\.\\d{2}"),
                 Pattern.compile("\\d{8}"),
-                Pattern.compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z"),
+                Pattern.compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z?"),
                 Pattern.compile("\\d{2}:\\d{2}:\\d{2}\\+\\d{2}:\\d{2}"),
                 Pattern.compile("\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?"),
                 Pattern.compile("\\d{4}/\\d{1,2}/\\d{1,2}")

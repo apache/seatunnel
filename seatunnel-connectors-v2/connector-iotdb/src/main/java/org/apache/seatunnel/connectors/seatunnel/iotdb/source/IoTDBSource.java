@@ -17,70 +17,36 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.options.ConnectorCommonOptions;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.state.IoTDBSourceState;
 
-import com.google.auto.service.AutoService;
+import java.util.Collections;
+import java.util.List;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.NODE_URLS;
-
-@AutoService(SeaTunnelSource.class)
 public class IoTDBSource
         implements SeaTunnelSource<SeaTunnelRow, IoTDBSourceSplit, IoTDBSourceState>,
                 SupportParallelism,
                 SupportColumnProjection {
 
-    private JobContext jobContext;
+    private CatalogTable catalogTable;
+    private ReadonlyConfig pluginConfig;
 
-    private SeaTunnelRowType typeInfo;
-
-    private final Map<String, Object> configParams = new HashMap<>();
+    public IoTDBSource(CatalogTable catalogTable, ReadonlyConfig pluginConfig) {
+        this.catalogTable = catalogTable;
+        this.pluginConfig = pluginConfig;
+    }
 
     @Override
     public String getPluginName() {
         return "IoTDB";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult urlCheckResult = CheckConfigUtil.checkAllExists(pluginConfig, NODE_URLS.key());
-        CheckResult schemaCheckResult =
-                CheckConfigUtil.checkAllExists(pluginConfig, ConnectorCommonOptions.SCHEMA.key());
-        CheckResult mergedConfigCheck =
-                CheckConfigUtil.mergeCheckResults(urlCheckResult, schemaCheckResult);
-        if (!mergedConfigCheck.isSuccess()) {
-            throw new IotdbConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, mergedConfigCheck.getMsg()));
-        }
-        this.typeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
-        pluginConfig
-                .entrySet()
-                .forEach(entry -> configParams.put(entry.getKey(), entry.getValue().unwrapped()));
     }
 
     @Override
@@ -89,20 +55,16 @@ public class IoTDBSource
     }
 
     @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return this.typeInfo;
-    }
-
-    @Override
     public SourceReader<SeaTunnelRow, IoTDBSourceSplit> createReader(
             SourceReader.Context readerContext) {
-        return new IoTDBSourceReader(configParams, readerContext, typeInfo);
+        return new IoTDBSourceReader(
+                pluginConfig, readerContext, catalogTable.getSeaTunnelRowType());
     }
 
     @Override
     public SourceSplitEnumerator<IoTDBSourceSplit, IoTDBSourceState> createEnumerator(
             SourceSplitEnumerator.Context<IoTDBSourceSplit> enumeratorContext) throws Exception {
-        return new IoTDBSourceSplitEnumerator(enumeratorContext, configParams);
+        return new IoTDBSourceSplitEnumerator(enumeratorContext, pluginConfig);
     }
 
     @Override
@@ -110,6 +72,11 @@ public class IoTDBSource
             SourceSplitEnumerator.Context<IoTDBSourceSplit> enumeratorContext,
             IoTDBSourceState checkpointState)
             throws Exception {
-        return new IoTDBSourceSplitEnumerator(enumeratorContext, configParams, checkpointState);
+        return new IoTDBSourceSplitEnumerator(enumeratorContext, pluginConfig, checkpointState);
+    }
+
+    @Override
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(catalogTable);
     }
 }

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-cdc-opengauss.md';
+
 # Opengauss CDC
 
 > Opengauss CDC源连接器
@@ -167,3 +169,6 @@ source {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />

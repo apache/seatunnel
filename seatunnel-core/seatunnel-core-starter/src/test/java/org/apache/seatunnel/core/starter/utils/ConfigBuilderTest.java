@@ -38,7 +38,9 @@ public class ConfigBuilderTest {
         config.put("e", "1");
         config.put("f", "1");
 
-        Map<String, Object> desensitizationConfig = ConfigBuilder.configDesensitization(config);
+        Map<String, Object> desensitizationConfig =
+                ConfigBuilder.configDesensitization(
+                        config, ConfigShadeUtils.getSensitiveOptions(null));
         List<String> keys = new ArrayList<>(desensitizationConfig.keySet());
         Assertions.assertIterableEquals(Arrays.asList("a", "b", "c", "d", "e", "f"), keys);
     }

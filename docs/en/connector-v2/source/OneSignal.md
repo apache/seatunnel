@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http-onesignal.md';
+
 # OneSignal
 
 > OneSignal source connector
@@ -320,8 +322,5 @@ OneSignal {
 
 ## Changelog
 
-### next version
-
-- Add OneSignal Source Connector
-- [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/seatunnel/pull/3510))
+<ChangeLog />
 

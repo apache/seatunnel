@@ -33,18 +33,27 @@ import java.util.Arrays;
 public class OracleTypeMapper implements JdbcDialectTypeMapper {
 
     private final boolean decimalTypeNarrowing;
+    private final boolean handleBlobAsString;
 
     public OracleTypeMapper() {
-        this(JdbcOptions.DECIMAL_TYPE_NARROWING.defaultValue());
+        this(
+                JdbcOptions.DECIMAL_TYPE_NARROWING.defaultValue(),
+                JdbcOptions.HANDLE_BLOB_AS_STRING.defaultValue());
     }
 
     public OracleTypeMapper(boolean decimalTypeNarrowing) {
+        this(decimalTypeNarrowing, JdbcOptions.HANDLE_BLOB_AS_STRING.defaultValue());
+    }
+
+    public OracleTypeMapper(boolean decimalTypeNarrowing, boolean handleBlobAsString) {
         this.decimalTypeNarrowing = decimalTypeNarrowing;
+        this.handleBlobAsString = handleBlobAsString;
     }
 
     @Override
     public Column mappingColumn(BasicTypeDefine typeDefine) {
-        return new OracleTypeConverter(decimalTypeNarrowing).convert(typeDefine);
+        return new OracleTypeConverter(decimalTypeNarrowing, handleBlobAsString)
+                .convert(typeDefine);
     }
 
     @Override

@@ -169,7 +169,7 @@ public class TypesenseSourceSplitEnumerator
 
     @Override
     public void registerReader(int subtaskId) {
-        log.debug("Register reader {} to IoTDBSourceSplitEnumerator.", subtaskId);
+        log.debug("Register reader {} to TypesenseSourceSplitEnumerator.", subtaskId);
         if (!pendingSplit.isEmpty()) {
             assignSplit(Collections.singletonList(subtaskId));
         }

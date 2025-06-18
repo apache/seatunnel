@@ -37,16 +37,21 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
     private long taskID;
     private int index;
 
+    private static final long SUB_PIPELINE_ID_FACTORY = 10000L * 10000L * 10000L;
+    private static final long GROUP_ID_FACTOR = 10000L * 10000L;
+    private static final long TASK_GROUP_FACTOR = 10000L;
+
     public TaskLocation() {}
 
-    public TaskLocation(TaskGroupLocation taskGroupLocation, long idPrefix, int index) {
+    public TaskLocation(
+            TaskGroupLocation taskGroupLocation, long taskInGroupIndex, int taskParallelismIndex) {
         this.taskGroupLocation = taskGroupLocation;
-        this.taskID = mixIDPrefixAndIndex(idPrefix, index);
-        this.index = index;
-    }
-
-    private long mixIDPrefixAndIndex(long idPrefix, int index) {
-        return idPrefix * 10000 + index;
+        this.taskID =
+                taskGroupLocation.getPipelineId() * SUB_PIPELINE_ID_FACTORY
+                        + taskGroupLocation.getTaskGroupId() * GROUP_ID_FACTOR
+                        + taskInGroupIndex * TASK_GROUP_FACTOR
+                        + taskParallelismIndex;
+        this.index = taskParallelismIndex;
     }
 
     public TaskGroupLocation getTaskGroupLocation() {
@@ -66,7 +71,7 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
     }
 
     public long getTaskVertexId() {
-        return taskID / 10000;
+        return taskID;
     }
 
     public int getTaskIndex() {

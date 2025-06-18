@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-druid.md';
+
 # Druid
 
 > Druid sink connector
@@ -77,7 +79,5 @@ sink {
 
 ## Changelog
 
-### next version
-
-- Add Druid sink connector
+<ChangeLog />
 

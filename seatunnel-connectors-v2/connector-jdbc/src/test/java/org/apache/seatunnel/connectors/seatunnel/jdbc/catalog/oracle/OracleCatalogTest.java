@@ -40,6 +40,7 @@ class OracleCatalogTest {
                         "test",
                         "oracle",
                         OracleURLParser.parse("jdbc:oracle:thin:@127.0.0.1:1521:xe"),
+                        null,
                         null);
 
         catalog.open();

@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.klaviyo.source.config.KlaviyoSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.klaviyo.source.config.KlaviyoSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -40,16 +40,14 @@ public class KlaviyoSourceFactory extends HttpSourceFactory {
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
-        return () ->
-                (SeaTunnelSource<T, SplitT, StateT>)
-                        new KlaviyoSource(context.getOptions().toConfig());
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new KlaviyoSource(context.getOptions());
     }
 
     @Override
     public OptionRule optionRule() {
         return getHttpBuilder()
-                .required(KlaviyoSourceConfig.PRIVATE_KEY)
-                .required(KlaviyoSourceConfig.REVISION)
+                .required(KlaviyoSourceOptions.PRIVATE_KEY)
+                .required(KlaviyoSourceOptions.REVISION)
                 .build();
     }
 }

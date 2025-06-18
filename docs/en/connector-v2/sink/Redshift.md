@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # Redshift
 
 > JDBC Redshift sink Connector
@@ -58,7 +60,7 @@ semantics (using XA transaction guarantee).
 
 ## Task Example
 
-### Simple:
+### Simple
 
 ```
 sink {
@@ -97,3 +99,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

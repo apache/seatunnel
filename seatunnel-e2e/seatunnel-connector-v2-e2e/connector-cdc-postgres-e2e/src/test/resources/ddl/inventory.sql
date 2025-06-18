@@ -47,6 +47,7 @@ CREATE TABLE postgres_cdc_table_1
     f_date              DATE,
     f_time              TIME(0),
     f_default_numeric   NUMERIC,
+    f_numeric_no_scale  NUMERIC(24),
     f_inet              INET,
     PRIMARY KEY (id)
 );
@@ -72,6 +73,7 @@ CREATE TABLE postgres_cdc_table_2
     f_date              DATE,
     f_time              TIME(0),
     f_default_numeric   NUMERIC,
+    f_numeric_no_scale  NUMERIC(24),
     f_inet              INET,
     PRIMARY KEY (id)
 );
@@ -97,6 +99,7 @@ CREATE TABLE sink_postgres_cdc_table_1
     f_date              DATE,
     f_time              TIME(0),
     f_default_numeric   NUMERIC,
+    f_numeric_no_scale  NUMERIC(24),
     f_inet              INET,
     PRIMARY KEY (id)
 );
@@ -122,6 +125,7 @@ CREATE TABLE sink_postgres_cdc_table_2
     f_date              DATE,
     f_time              TIME(0),
     f_default_numeric   NUMERIC,
+    f_numeric_no_scale  NUMERIC(24),
     f_inet              INET,
     PRIMARY KEY (id)
 );
@@ -147,6 +151,32 @@ CREATE TABLE full_types_no_primary_key
     f_date              DATE,
     f_time              TIME(0),
     f_default_numeric   NUMERIC,
+    f_numeric_no_scale  NUMERIC(24),
+    f_inet              INET
+);
+
+CREATE TABLE full_types_no_primary_key_with_debezium
+(
+    id                  INTEGER NOT NULL,
+    f_bytea             BYTEA,
+    f_small             SMALLINT,
+    f_int               INTEGER,
+    f_big               BIGINT,
+    f_real              REAL,
+    f_double_precision  DOUBLE PRECISION,
+    f_numeric           NUMERIC(10, 5),
+    f_decimal           DECIMAL(10, 1),
+    f_boolean           BOOLEAN,
+    f_text              TEXT,
+    f_char              CHAR,
+    f_character         CHARACTER(3),
+    f_character_varying CHARACTER VARYING(20),
+    f_timestamp3        TIMESTAMP(3),
+    f_timestamp6        TIMESTAMP(6),
+    f_date              DATE,
+    f_time              TIME(0),
+    f_default_numeric   NUMERIC,
+    f_numeric_no_scale  NUMERIC(24),
     f_inet              INET
 );
 
@@ -186,15 +216,18 @@ ALTER TABLE sink_postgres_cdc_table_2
 ALTER TABLE full_types_no_primary_key
     REPLICA IDENTITY FULL;
 
+ALTER TABLE full_types_no_primary_key_with_debezium
+    REPLICA IDENTITY FULL;
+
 INSERT INTO postgres_cdc_table_1
 VALUES (1, '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,
         'Hello World', 'a', 'abc', 'abcd..xyz', '2020-07-17 18:00:22.123', '2020-07-17 18:00:22.123456',
-        '2020-07-17', '18:00:22', 500,'192.168.1.1');
+        '2020-07-17', '18:00:22', 500,88,'192.168.1.1');
 
 INSERT INTO postgres_cdc_table_2
 VALUES (1, '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,
         'Hello World', 'a', 'abc', 'abcd..xyz', '2020-07-17 18:00:22.123', '2020-07-17 18:00:22.123456',
-        '2020-07-17', '18:00:22', 500,'192.168.1.1');
+        '2020-07-17', '18:00:22', 500,88,'192.168.1.1');
 
 INSERT INTO postgres_cdc_table_3
 VALUES (1, '2', 32767, 65535);
@@ -202,4 +235,9 @@ VALUES (1, '2', 32767, 65535);
 INSERT INTO full_types_no_primary_key
 VALUES (1, '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,
         'Hello World', 'a', 'abc', 'abcd..xyz', '2020-07-17 18:00:22.123', '2020-07-17 18:00:22.123456',
-        '2020-07-17', '18:00:22', 500,'192.168.1.1');
+        '2020-07-17', '18:00:22', 500, 88,'192.168.1.1');
+
+INSERT INTO full_types_no_primary_key_with_debezium
+VALUES (1, '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,
+        'Hello World', 'a', 'abc', 'abcd..xyz', '2020-07-17 18:00:22.123', '2020-07-17 18:00:22.123456',
+        '2020-07-17', '18:00:22', 500, 88,'192.168.1.1');

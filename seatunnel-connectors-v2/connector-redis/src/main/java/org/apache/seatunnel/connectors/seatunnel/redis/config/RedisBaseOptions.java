@@ -38,7 +38,7 @@ public class RedisBaseOptions {
                     .withDescription("redis hostname or ip");
 
     public static final Option<Integer> PORT =
-            Options.key("port").intType().noDefaultValue().withDescription("redis port");
+            Options.key("port").intType().defaultValue(6379).withDescription("redis port");
 
     public static final Option<String> AUTH =
             Options.key("auth")

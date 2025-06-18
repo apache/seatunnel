@@ -19,9 +19,7 @@
 package org.apache.seatunnel.connectors.seatunnel.hbase.source;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -29,48 +27,27 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
 import org.apache.seatunnel.connectors.seatunnel.hbase.constant.HbaseIdentifier;
-import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorException;
 
 import java.util.List;
-
-import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ZOOKEEPER_QUORUM;
 
 public class HbaseSource
         implements SeaTunnelSource<SeaTunnelRow, HbaseSourceSplit, HbaseSourceState>,
                 SupportParallelism,
                 SupportColumnProjection {
-    private SeaTunnelRowType seaTunnelRowType;
-    private HbaseParameters hbaseParameters;
-
-    private CatalogTable catalogTable;
+    private final CatalogTable catalogTable;
+    private final HbaseParameters hbaseParameters;
 
     @Override
     public String getPluginName() {
         return HbaseIdentifier.IDENTIFIER_NAME;
     }
 
-    HbaseSource(Config pluginConfig) {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(pluginConfig, ZOOKEEPER_QUORUM.key(), TABLE.key());
-        if (!result.isSuccess()) {
-            throw new HbaseConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
-        this.hbaseParameters = HbaseParameters.buildWithSourceConfig(pluginConfig);
-        this.catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
-        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
+    HbaseSource(HbaseParameters hbaseParameters, CatalogTable catalogTable) {
+        this.hbaseParameters = hbaseParameters;
+        this.catalogTable = catalogTable;
     }
 
     @Override
@@ -86,7 +63,8 @@ public class HbaseSource
     @Override
     public SourceReader<SeaTunnelRow, HbaseSourceSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
-        return new HbaseSourceReader(hbaseParameters, readerContext, seaTunnelRowType);
+        return new HbaseSourceReader(
+                hbaseParameters, readerContext, catalogTable.getSeaTunnelRowType());
     }
 
     @Override

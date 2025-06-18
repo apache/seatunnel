@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.config;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
@@ -28,7 +26,6 @@ import org.apache.paimon.CoreOptions;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -36,40 +33,6 @@ import java.util.stream.Stream;
 @Getter
 @Slf4j
 public class PaimonSinkConfig extends PaimonConfig {
-
-    public static final String CHANGELOG_TMP_PATH = "changelog-tmp-path";
-
-    public static final Option<SchemaSaveMode> SCHEMA_SAVE_MODE =
-            Options.key("schema_save_mode")
-                    .enumType(SchemaSaveMode.class)
-                    .defaultValue(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST)
-                    .withDescription("schema_save_mode");
-
-    public static final Option<DataSaveMode> DATA_SAVE_MODE =
-            Options.key("data_save_mode")
-                    .enumType(DataSaveMode.class)
-                    .defaultValue(DataSaveMode.APPEND_DATA)
-                    .withDescription("data_save_mode");
-    public static final Option<String> PRIMARY_KEYS =
-            Options.key("paimon.table.primary-keys")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Default comma-separated list of columns that identify a row in tables (primary key)");
-
-    public static final Option<String> PARTITION_KEYS =
-            Options.key("paimon.table.partition-keys")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Default comma-separated list of partition fields to use when creating tables.");
-
-    public static final Option<Map<String, String>> WRITE_PROPS =
-            Options.key("paimon.table.write-props")
-                    .mapType()
-                    .defaultValue(new HashMap<>())
-                    .withDescription(
-                            "Properties passed through to paimon table initialization, such as 'file.format', 'bucket'(org.apache.paimon.CoreOptions)");
 
     private final SchemaSaveMode schemaSaveMode;
     private final DataSaveMode dataSaveMode;
@@ -81,11 +44,12 @@ public class PaimonSinkConfig extends PaimonConfig {
 
     public PaimonSinkConfig(ReadonlyConfig readonlyConfig) {
         super(readonlyConfig);
-        this.schemaSaveMode = readonlyConfig.get(SCHEMA_SAVE_MODE);
-        this.dataSaveMode = readonlyConfig.get(DATA_SAVE_MODE);
-        this.primaryKeys = stringToList(readonlyConfig.get(PRIMARY_KEYS), ",");
-        this.partitionKeys = stringToList(readonlyConfig.get(PARTITION_KEYS), ",");
-        this.writeProps = readonlyConfig.get(WRITE_PROPS);
+        this.schemaSaveMode = readonlyConfig.get(PaimonSinkOptions.SCHEMA_SAVE_MODE);
+        this.dataSaveMode = readonlyConfig.get(PaimonSinkOptions.DATA_SAVE_MODE);
+        this.primaryKeys = stringToList(readonlyConfig.get(PaimonSinkOptions.PRIMARY_KEYS), ",");
+        this.partitionKeys =
+                stringToList(readonlyConfig.get(PaimonSinkOptions.PARTITION_KEYS), ",");
+        this.writeProps = readonlyConfig.get(PaimonSinkOptions.WRITE_PROPS);
         this.changelogProducer =
                 Stream.of(CoreOptions.ChangelogProducer.values())
                         .filter(
@@ -99,7 +63,8 @@ public class PaimonSinkConfig extends PaimonConfig {
                         .findFirst()
                         .orElse(null);
         this.changelogTmpPath =
-                writeProps.getOrDefault(CHANGELOG_TMP_PATH, System.getProperty("java.io.tmpdir"));
+                writeProps.getOrDefault(
+                        PaimonSinkOptions.CHANGELOG_TMP_PATH, System.getProperty("java.io.tmpdir"));
         checkConfig();
     }
 

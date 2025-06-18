@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 
@@ -27,6 +28,11 @@ import javax.annotation.Nonnull;
 /** Factory for {@link SqlServerDialect}. */
 @AutoService(JdbcDialectFactory.class)
 public class SqlServerDialectFactory implements JdbcDialectFactory {
+    @Override
+    public String dialectFactoryName() {
+        return DatabaseIdentifier.SQLSERVER;
+    }
+
     @Override
     public boolean acceptsURL(String url) {
         return url.startsWith("jdbc:sqlserver:");

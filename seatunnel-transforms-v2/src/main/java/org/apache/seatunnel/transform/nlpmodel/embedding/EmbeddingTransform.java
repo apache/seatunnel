@@ -29,16 +29,19 @@ import org.apache.seatunnel.transform.exception.TransformCommonError;
 import org.apache.seatunnel.transform.nlpmodel.ModelProvider;
 import org.apache.seatunnel.transform.nlpmodel.ModelTransformConfig;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.Model;
+import org.apache.seatunnel.transform.nlpmodel.embedding.remote.amazon.BedrockModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.custom.CustomModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.doubao.DoubaoModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.openai.OpenAIModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.qianfan.QianfanModel;
+import org.apache.seatunnel.transform.nlpmodel.embedding.remote.zhipu.ZhipuModel;
 import org.apache.seatunnel.transform.nlpmodel.llm.LLMTransformConfig;
 
 import lombok.NonNull;
 import lombok.SneakyThrows;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -135,6 +138,32 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                                     config.get(
                                             EmbeddingTransformConfig
                                                     .SINGLE_VECTORIZED_INPUT_NUMBER));
+
+                    break;
+                case ZHIPU:
+                    model =
+                            new ZhipuModel(
+                                    config.get(ModelTransformConfig.API_KEY),
+                                    config.get(ModelTransformConfig.MODEL),
+                                    provider.usedEmbeddingPath(
+                                            config.get(ModelTransformConfig.API_PATH)),
+                                    config.get(ModelTransformConfig.DIMENSION),
+                                    config.get(
+                                            EmbeddingTransformConfig
+                                                    .SINGLE_VECTORIZED_INPUT_NUMBER));
+                    break;
+                case AMAZON:
+                    model =
+                            new BedrockModel(
+                                    config.get(ModelTransformConfig.API_KEY),
+                                    config.get(ModelTransformConfig.SECRET_KEY),
+                                    config.get(ModelTransformConfig.AWS_REGION),
+                                    config.get(ModelTransformConfig.API_PATH),
+                                    config.get(ModelTransformConfig.MODEL),
+                                    config.get(ModelTransformConfig.DIMENSION),
+                                    config.get(
+                                            EmbeddingTransformConfig
+                                                    .SINGLE_VECTORIZED_INPUT_NUMBER));
                     break;
                 case LOCAL:
                 default:
@@ -144,6 +173,8 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
             dimension = model.dimension();
         } catch (IOException e) {
             throw new RuntimeException("Failed to initialize model", e);
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
         }
     }
 

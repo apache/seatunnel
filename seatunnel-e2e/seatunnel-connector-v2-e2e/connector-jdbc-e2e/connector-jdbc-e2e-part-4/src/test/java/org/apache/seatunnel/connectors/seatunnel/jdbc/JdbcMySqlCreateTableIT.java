@@ -270,10 +270,10 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
         TablePath tablePathPG = TablePath.of("pg", "public", "mysql_auto_create_pg");
 
         SqlServerCatalog sqlServerCatalog =
-                new SqlServerCatalog("sqlserver", "sa", PASSWORD, sqlParse, "dbo");
-        MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", PASSWORD, MysqlUrlInfo);
+                new SqlServerCatalog("sqlserver", "sa", PASSWORD, sqlParse, "dbo", null);
+        MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", PASSWORD, MysqlUrlInfo, null);
         PostgresCatalog postgresCatalog =
-                new PostgresCatalog("postgres", "testUser", PASSWORD, pg, "public");
+                new PostgresCatalog("postgres", "testUser", PASSWORD, pg, "public", null);
 
         mySqlCatalog.open();
         sqlServerCatalog.open();

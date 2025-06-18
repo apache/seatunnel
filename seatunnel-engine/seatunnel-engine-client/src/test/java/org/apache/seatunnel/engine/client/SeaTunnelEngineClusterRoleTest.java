@@ -64,7 +64,7 @@ public class SeaTunnelEngineClusterRoleTest {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig
                 .getHazelcastConfig()
-                .setClusterName(TestUtils.getClusterName(testClusterName));
+                .setClusterName(ContentFormatUtilTest.getClusterName(testClusterName));
 
         try {
             // master node must start first in ci
@@ -126,11 +126,11 @@ public class SeaTunnelEngineClusterRoleTest {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig
                 .getHazelcastConfig()
-                .setClusterName(TestUtils.getClusterName(testClusterName));
+                .setClusterName(ContentFormatUtilTest.getClusterName(testClusterName));
 
         // submit job
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/client_test.conf");
+        String filePath = ContentFormatUtilTest.getResource("/client_test.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("Test_canNotSubmitJobWhenHaveNoWorkerNode");
 
@@ -151,18 +151,17 @@ public class SeaTunnelEngineClusterRoleTest {
             ClientJobExecutionEnvironment jobExecutionEnv =
                     seaTunnelClient.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            await().atMost(60000, TimeUnit.MILLISECONDS)
-                    .until(
+            PassiveCompletableFuture<JobResult> jobResultPassiveCompletableFuture =
+                    clientJobProxy.doWaitForJobComplete();
+            await().pollDelay(30, TimeUnit.SECONDS)
+                    .atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
                             () -> {
-                                try {
-                                    PassiveCompletableFuture<JobResult>
-                                            jobResultPassiveCompletableFuture =
-                                                    clientJobProxy.doWaitForJobComplete();
-                                    String mes = jobResultPassiveCompletableFuture.get().getError();
-                                    return mes.contains("NoEnoughResourceException");
-                                } catch (Exception e) {
-                                    return false;
+                                String mes = "";
+                                if (jobResultPassiveCompletableFuture.isDone()) {
+                                    mes = jobResultPassiveCompletableFuture.get().getError();
                                 }
+                                Assertions.assertTrue(mes.contains("NoEnoughResourceException"));
                             });
 
         } catch (ExecutionException | InterruptedException e) {
@@ -192,11 +191,11 @@ public class SeaTunnelEngineClusterRoleTest {
         engineConfig.getSlotServiceConfig().setSlotNum(3);
         seaTunnelConfig
                 .getHazelcastConfig()
-                .setClusterName(TestUtils.getClusterName(testClusterName));
+                .setClusterName(ContentFormatUtilTest.getClusterName(testClusterName));
 
         // submit job
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/client_test.conf");
+        String filePath = ContentFormatUtilTest.getResource("/client_test.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("Test_enterPendingWhenResourcesNotEnough");
 
@@ -262,11 +261,11 @@ public class SeaTunnelEngineClusterRoleTest {
 
         seaTunnelConfig
                 .getHazelcastConfig()
-                .setClusterName(TestUtils.getClusterName(clusterAndJobName));
+                .setClusterName(ContentFormatUtilTest.getClusterName(clusterAndJobName));
 
         // submit job
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/client_test.conf");
+        String filePath = ContentFormatUtilTest.getResource("/client_test.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName(clusterAndJobName);
 
@@ -365,7 +364,7 @@ public class SeaTunnelEngineClusterRoleTest {
 
     private SeaTunnelClient createSeaTunnelClient(String clusterName) {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        clientConfig.setClusterName(TestUtils.getClusterName(clusterName));
+        clientConfig.setClusterName(ContentFormatUtilTest.getClusterName(clusterName));
         return new SeaTunnelClient(clientConfig);
     }
 }

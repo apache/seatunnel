@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-clickhouse.md';
+
 # Clickhouse
 
 > Clickhouse source connector
@@ -67,7 +69,6 @@ The following example demonstrates how to create a data synchronization job that
 ```bash
 # Set the basic configuration of the task to be performed
 env {
-  parallelism = 10
   job.mode = "BATCH"
 }
 
@@ -99,3 +100,6 @@ sink {
 
 > 1.[SeaTunnel Deployment Document](../../start-v2/locally/deployment.md).
 
+## Changelog
+
+<ChangeLog />

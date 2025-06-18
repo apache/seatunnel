@@ -28,7 +28,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.BaseHdfsFileSink;
-import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3ConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3FileBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
@@ -53,8 +53,8 @@ public class S3RedshiftSink extends BaseHdfsFileSink {
         CheckResult checkResult =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
-                        S3ConfigOptions.S3_BUCKET.key(),
-                        S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(),
+                        S3FileBaseOptions.S3_BUCKET.key(),
+                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(),
                         S3RedshiftConfigOptions.JDBC_URL.key(),
                         S3RedshiftConfigOptions.JDBC_USER.key(),
                         S3RedshiftConfigOptions.JDBC_PASSWORD.key(),

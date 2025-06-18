@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-amazondynamodb.md';
+
 # AmazonDynamoDB
 
 > AmazonDynamoDB 源连接器
@@ -113,8 +115,4 @@ Amazondynamodb {
 
 ## 变更日志
 
-### 下一个版本
-
-- 添加Amazon DynamoDB源连接器
-- 将源代码拆分添加到Amazondynamodb连接器
-
+<ChangeLog />

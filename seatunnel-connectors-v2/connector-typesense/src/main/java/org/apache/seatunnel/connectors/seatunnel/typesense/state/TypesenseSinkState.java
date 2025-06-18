@@ -19,4 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.typesense.state;
 
 import java.io.Serializable;
 
-public class TypesenseSinkState implements Serializable {}
+public class TypesenseSinkState implements Serializable {
+    private static final long serialVersionUID = -1105735724432131277L;
+}

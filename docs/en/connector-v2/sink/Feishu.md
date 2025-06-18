@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http-feishu.md';
+
 # Feishu
 
 > Feishu sink connector
@@ -50,7 +52,7 @@ Used to launch Feishu web hooks using data.
 
 ## Task Example
 
-### Simple:
+### Simple
 
 ```hocon
 Feishu {
@@ -60,7 +62,6 @@ Feishu {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
+<ChangeLog />
 
-- Add Feishu Sink Connector
 

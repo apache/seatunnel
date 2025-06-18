@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.options.table.CatalogOptions;
 import org.apache.seatunnel.api.options.table.ColumnOptions;
 import org.apache.seatunnel.api.options.table.ConstraintKeyOptions;
 import org.apache.seatunnel.api.options.table.FieldOptions;
+import org.apache.seatunnel.api.options.table.FormatOptions;
 import org.apache.seatunnel.api.options.table.PrimaryKeyOptions;
 import org.apache.seatunnel.api.options.table.TableIdentifierOptions;
 import org.apache.seatunnel.api.options.table.TableSchemaOptions;
@@ -38,6 +39,7 @@ public class ConnectorCommonOptions
                 ColumnOptions,
                 PrimaryKeyOptions,
                 ConstraintKeyOptions,
+                FormatOptions,
                 Serializable {
 
     public static Option<String> PLUGIN_NAME =

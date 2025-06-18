@@ -28,6 +28,7 @@ import java.io.Serializable;
 @AllArgsConstructor
 public class XidInfo implements Serializable {
 
+    private static final long serialVersionUID = 5013137011761048462L;
     final Xid xid;
     final int attempts;
 

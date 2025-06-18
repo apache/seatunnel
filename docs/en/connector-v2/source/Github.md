@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http-github.md';
+
 # Github
 
 > Github source connector
@@ -293,4 +295,6 @@ Github {
 ```
 
 ## Changelog
+
+<ChangeLog />
 

@@ -35,10 +35,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.Set;
 import java.util.function.BiFunction;
 
 /** Config shade utilities */
@@ -47,6 +49,7 @@ public final class ConfigShadeUtils {
 
     private static final String SHADE_IDENTIFIER_OPTION = "shade.identifier";
     private static final String SHADE_PROPS_OPTION = "shade.properties";
+    private static final String SHADE_OPTIONS_OPTION = "shade.options";
 
     public static final String[] DEFAULT_SENSITIVE_KEYWORDS =
             new String[] {"password", "username", "auth", "token", "access_key", "secret_key"};
@@ -147,14 +150,24 @@ public final class ConfigShadeUtils {
         // call open method before the encrypt/decrypt
         configShade.open(props);
 
-        List<String> sensitiveOptions = new ArrayList<>(Arrays.asList(DEFAULT_SENSITIVE_KEYWORDS));
+        Set<String> sensitiveOptions = new HashSet<>(getSensitiveOptions(config));
         sensitiveOptions.addAll(Arrays.asList(configShade.sensitiveOptions()));
-        BiFunction<String, Object, String> processFunction =
+        BiFunction<String, Object, Object> processFunction =
                 (key, value) -> {
-                    if (isDecrypted) {
-                        return configShade.decrypt(value.toString());
+                    if (value instanceof List) {
+                        List<String> list = (List<String>) value;
+                        List<String> processedList = new ArrayList<>();
+                        for (String element : list) {
+                            processedList.add(
+                                    isDecrypted
+                                            ? configShade.decrypt(element)
+                                            : configShade.encrypt(element));
+                        }
+                        return processedList;
                     } else {
-                        return configShade.encrypt(value.toString());
+                        return isDecrypted
+                                ? configShade.decrypt((String) value)
+                                : configShade.encrypt((String) value);
                     }
                 };
         String jsonString = config.root().render(ConfigRenderOptions.concise());
@@ -183,6 +196,19 @@ public final class ConfigShadeUtils {
         configMap.put(Constants.SOURCE, sources);
         configMap.put(Constants.SINK, sinks);
         return ConfigFactory.parseMap(configMap);
+    }
+
+    public static Set<String> getSensitiveOptions(Config config) {
+        Set<String> sensitiveOptions =
+                new HashSet<>(
+                        TypesafeConfigUtils.getConfig(
+                                config != null && config.hasPath(Constants.ENV)
+                                        ? config.getConfig(Constants.ENV)
+                                        : ConfigFactory.empty(),
+                                SHADE_OPTIONS_OPTION,
+                                new ArrayList<>()));
+        sensitiveOptions.addAll(Arrays.asList(DEFAULT_SENSITIVE_KEYWORDS));
+        return sensitiveOptions;
     }
 
     public static class Base64ConfigShade implements ConfigShade {

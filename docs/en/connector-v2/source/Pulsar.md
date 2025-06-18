@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-pulsar.md';
+
 # Apache Pulsar
 
 > Apache Pulsar source connector
@@ -154,11 +156,4 @@ source {
 
 ## Changelog
 
-### 2.3.0-beta 2022-10-20
-
-- Add Pulsar Source Connector
-
-### next version
-
-- [Feature] Add Pulsar canal-format and e2e ([4111](https://github.com/apache/seatunnel/pull/4111))
-
+<ChangeLog />

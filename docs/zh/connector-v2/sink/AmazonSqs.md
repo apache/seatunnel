@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-amazonsqs.md';
+
 # AmazonSqs
 
 > Amazon SQS 接收器连接器
@@ -85,3 +87,6 @@ sink {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />

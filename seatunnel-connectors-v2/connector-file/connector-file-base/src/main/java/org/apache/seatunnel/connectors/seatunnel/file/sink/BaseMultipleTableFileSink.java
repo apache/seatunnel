@@ -34,7 +34,7 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
@@ -74,7 +74,7 @@ public abstract class BaseMultipleTableFileSink
     }
 
     public void preCheckConfig() {
-        if (readonlyConfig.get(BaseSinkConfig.SINGLE_FILE_MODE)
+        if (readonlyConfig.get(FileBaseSinkOptions.SINGLE_FILE_MODE)
                 && jobContext.isEnableCheckpoint()) {
             throw new IllegalArgumentException(
                     "Single file mode is not supported when checkpoint is enabled or in streaming mode.");
@@ -140,8 +140,8 @@ public abstract class BaseMultipleTableFileSink
             return Optional.empty();
         }
         final Catalog catalog = catalogFactory.createCatalog(getPluginName(), readonlyConfig);
-        SchemaSaveMode schemaSaveMode = readonlyConfig.get(BaseSinkConfig.SCHEMA_SAVE_MODE);
-        DataSaveMode dataSaveMode = readonlyConfig.get(BaseSinkConfig.DATA_SAVE_MODE);
+        SchemaSaveMode schemaSaveMode = readonlyConfig.get(FileBaseSinkOptions.SCHEMA_SAVE_MODE);
+        DataSaveMode dataSaveMode = readonlyConfig.get(FileBaseSinkOptions.DATA_SAVE_MODE);
         return Optional.of(
                 new DefaultSaveModeHandler(
                         schemaSaveMode, dataSaveMode, catalog, catalogTable, null));

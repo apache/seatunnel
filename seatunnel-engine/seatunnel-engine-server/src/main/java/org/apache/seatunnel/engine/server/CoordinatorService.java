@@ -156,7 +156,7 @@ public class CoordinatorService {
      * key: job id; <br>
      * value: job master;
      */
-    private final Map<Long, Tuple2<PendingSourceState, JobMaster>> pendingJobMasterMap =
+    protected final Map<Long, Tuple2<PendingSourceState, JobMaster>> pendingJobMasterMap =
             new ConcurrentHashMap<>();
 
     /**
@@ -248,11 +248,18 @@ public class CoordinatorService {
             Thread.sleep(3000);
             return;
         }
+
+        Long jobId = jobMaster.getJobId();
+
+        if (!pendingJobMasterMap.containsKey(jobId)) {
+            logger.fine(String.format("Job ID : %s already cancelled", jobId));
+            queueRemove(jobMaster);
+            return;
+        }
+
         logger.fine(
                 String.format(
                         "Start pending job schedule, pendingJob Size : %s", pendingJob.size()));
-
-        Long jobId = jobMaster.getJobId();
 
         logger.fine(
                 String.format(
@@ -744,6 +751,11 @@ public class CoordinatorService {
             future.complete(null);
             return new PassiveCompletableFuture<>(future);
         } else {
+            // Cancel pending tasks
+            if (pendingJobMasterMap.containsKey(jobId)) {
+                pendingJobMasterMap.remove(jobId);
+                logger.fine(String.format("Cancel pending tasks : %s", jobId));
+            }
             return new PassiveCompletableFuture<>(
                     CompletableFuture.supplyAsync(
                             () -> {

@@ -29,7 +29,7 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
-import static org.apache.seatunnel.connectors.seatunnel.config.Web3jConfig.URL;
+import static org.apache.seatunnel.connectors.seatunnel.config.Web3jSourceOptions.URL;
 
 @AutoService(Factory.class)
 public class Web3jSourceFactory implements TableSourceFactory {

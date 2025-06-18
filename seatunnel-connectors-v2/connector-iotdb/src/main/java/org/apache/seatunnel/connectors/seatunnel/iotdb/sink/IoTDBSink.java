@@ -17,36 +17,24 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
-
-import com.google.auto.service.AutoService;
 
 import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.KEY_DEVICE;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.NODE_URLS;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.USERNAME;
-
-@AutoService(SeaTunnelSink.class)
 public class IoTDBSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
-    private Config pluginConfig;
-    private SeaTunnelRowType seaTunnelRowType;
+    private final ReadonlyConfig pluginConfig;
+    private final CatalogTable catalogTable;
+
+    public IoTDBSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
+        this.pluginConfig = pluginConfig;
+        this.catalogTable = catalogTable;
+    }
 
     @Override
     public String getPluginName() {
@@ -54,36 +42,12 @@ public class IoTDBSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        NODE_URLS.key(),
-                        USERNAME.key(),
-                        PASSWORD.key(),
-                        KEY_DEVICE.key());
-        if (!result.isSuccess()) {
-            throw new IotdbConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, result.getMsg()));
-        }
-        this.pluginConfig = pluginConfig;
-    }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
-    }
-
-    @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
-        return new IoTDBSinkWriter(pluginConfig, seaTunnelRowType);
+        return new IoTDBSinkWriter(pluginConfig, catalogTable.getSeaTunnelRowType());
     }
 
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
-        return super.getWriteCatalogTable();
+        return Optional.of(catalogTable);
     }
 }

@@ -38,6 +38,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -51,7 +52,9 @@ import org.apache.seatunnel.format.protobuf.ProtobufDeserializationSchema;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsOptions;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -62,6 +65,9 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.IsolationLevel;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.header.Header;
+import org.apache.kafka.common.header.Headers;
+import org.apache.kafka.common.header.internals.RecordHeader;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -86,6 +92,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -119,6 +126,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     private KafkaContainer kafkaContainer;
 
+    private List<ConsumerRecord<String, String>> nativeData;
+
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -137,6 +146,34 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .atMost(180, TimeUnit.SECONDS)
                 .untilAsserted(this::initKafkaProducer);
 
+        Properties adminProps = new Properties();
+        adminProps.put(
+                AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaContainer.getBootstrapServers());
+        // Set the retention time to -1 to read data older than 7 days.
+        try (AdminClient adminClient = AdminClient.create(adminProps)) {
+            NewTopic testTopicSource = new NewTopic("test_topic_source", 1, (short) 1);
+            testTopicSource.configs(Collections.singletonMap("retention.ms", "-1"));
+
+            NewTopic testTopicNativeSource = new NewTopic("test_topic_native_source", 1, (short) 1);
+            testTopicNativeSource.configs(Collections.singletonMap("retention.ms", "-1"));
+
+            NewTopic testTopicSourceWithTimestamp =
+                    new NewTopic("test_topic_source_timestamp", 1, (short) 1);
+            testTopicSourceWithTimestamp.configs(Collections.singletonMap("retention.ms", "-1"));
+
+            NewTopic testTopicSourceSkipPartition =
+                    new NewTopic("test_topic_source_skip_partition", 2, (short) 1);
+            testTopicSourceSkipPartition.configs(Collections.singletonMap("retention.ms", "-1"));
+
+            List<NewTopic> topics =
+                    Arrays.asList(
+                            testTopicSource,
+                            testTopicNativeSource,
+                            testTopicSourceWithTimestamp,
+                            testTopicSourceSkipPartition);
+            adminClient.createTopics(topics);
+        }
+
         log.info("Write 100 records to topic test_topic_source");
         DefaultSeaTunnelRowSerializer serializer =
                 DefaultSeaTunnelRowSerializer.create(
@@ -146,6 +183,41 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         DEFAULT_FIELD_DELIMITER,
                         null);
         generateTestData(serializer::serializeRow, 0, 100);
+
+        DefaultSeaTunnelRowSerializer rowSerializer =
+                DefaultSeaTunnelRowSerializer.createWithPartitionAndTimestampFields(
+                        "test_topic_source_timestamp",
+                        DEFAULT_FORMAT,
+                        new SeaTunnelRowType(
+                                new String[] {"id", "timestamp", KafkaBaseConstants.PARTITION},
+                                new SeaTunnelDataType[] {
+                                    BasicType.LONG_TYPE, BasicType.LONG_TYPE, BasicType.INT_TYPE
+                                }),
+                        "",
+                        null);
+
+        DefaultSeaTunnelRowSerializer topicSourceSkipPartition =
+                DefaultSeaTunnelRowSerializer.createWithPartitionAndTimestampFields(
+                        "test_topic_source_skip_partition",
+                        DEFAULT_FORMAT,
+                        new SeaTunnelRowType(
+                                new String[] {"id", "timestamp", KafkaBaseConstants.PARTITION},
+                                new SeaTunnelDataType[] {
+                                    BasicType.LONG_TYPE, BasicType.LONG_TYPE, BasicType.INT_TYPE
+                                }),
+                        "",
+                        null);
+
+        generateWithTimestampTestData(rowSerializer::serializeRow, 0, 100, 1738395840000L, 0);
+
+        generateWithTimestampTestData(
+                topicSourceSkipPartition::serializeRow, 0, 100, 1738395840000L, 0);
+        generateWithTimestampTestData(
+                topicSourceSkipPartition::serializeRow, 100, 200, 1738396200000L, 1);
+
+        String topicName = "test_topic_native_source";
+        generateNativeTestData("test_topic_native_source", 0, 100);
+        nativeData = getKafkaRecordData(topicName);
     }
 
     @AfterAll
@@ -172,6 +244,39 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(objectNode.has("c_map"));
         Assertions.assertTrue(objectNode.has("c_string"));
         Assertions.assertEquals(10, data.size());
+    }
+
+    @TestTemplate
+    public void testNativeSinkKafka(TestContainer container)
+            throws IOException, InterruptedException {
+        String topicNativeName = "test_topic_native_sink";
+
+        Container.ExecResult execResultNative = container.executeJob("/kafka_native_to_kafka.conf");
+        Assertions.assertEquals(0, execResultNative.getExitCode(), execResultNative.getStderr());
+
+        List<ConsumerRecord<String, String>> dataNative = getKafkaRecordData(topicNativeName);
+
+        Assertions.assertEquals(dataNative.size(), nativeData.size());
+
+        for (int i = 0; i < nativeData.size(); i++) {
+            ConsumerRecord<String, String> oldRecord = nativeData.get(i);
+            ConsumerRecord<String, String> newRecord = dataNative.get(i);
+            Assertions.assertEquals(oldRecord.key(), newRecord.key());
+            Assertions.assertEquals(
+                    convertHeadersToMap(oldRecord.headers()),
+                    convertHeadersToMap(newRecord.headers()));
+            Assertions.assertEquals(oldRecord.partition(), newRecord.partition());
+            Assertions.assertEquals(oldRecord.timestamp(), newRecord.timestamp());
+            Assertions.assertEquals(oldRecord.value(), newRecord.value());
+        }
+    }
+
+    private Map<String, String> convertHeadersToMap(Headers headers) {
+        Map<String, String> map = new HashMap<>();
+        for (Header header : headers) {
+            map.put(header.key(), new String(header.value(), StandardCharsets.UTF_8));
+        }
+        return map;
     }
 
     @TestTemplate
@@ -228,6 +333,26 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 100);
         Container.ExecResult execResult =
                 container.executeJob("/textFormatIT/kafka_source_text_to_console.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testTextFormatWithNoSchema(TestContainer container)
+            throws IOException, InterruptedException {
+        try {
+            for (int i = 0; i < 100; i++) {
+                ProducerRecord<byte[], byte[]> producerRecord =
+                        new ProducerRecord<>(
+                                "test_topic_text_no_schema", null, "abcdef".getBytes());
+                producer.send(producerRecord).get();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            producer.flush();
+        }
+        Container.ExecResult execResult =
+                container.executeJob("/textFormatIT/kafka_source_text_with_no_schema.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
@@ -348,6 +473,21 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testSourceKafkaWithEndTimestamp(TestContainer container)
+            throws IOException, InterruptedException {
+
+        testKafkaWithEndTimestampToConsole(container);
+    }
+
+    @TestTemplate
+    public void testSourceKafkaSkipPartition(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/kafka/kafkasource_timestamp_to_console_skip_partition.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
     public void testSourceKafkaStartConfig(TestContainer container)
             throws IOException, InterruptedException {
         DefaultSeaTunnelRowSerializer serializer =
@@ -357,8 +497,32 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         DEFAULT_FORMAT,
                         DEFAULT_FIELD_DELIMITER,
                         null);
+        generateTestData(row -> serializer.serializeRow(row), 0, 10);
+        commitOffset("test_topic_group", "SeaTunnel-Consumer-Group-Offset");
         generateTestData(row -> serializer.serializeRow(row), 100, 150);
         testKafkaGroupOffsetsToConsole(container);
+    }
+
+    public void commitOffset(String topic, String groupId) {
+        Properties props = new Properties();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaContainer.getBootstrapServers());
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        props.put(
+                ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+                ByteArrayDeserializer.class.getName());
+        props.put(
+                ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+                ByteArrayDeserializer.class.getName());
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+        KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
+        consumer.subscribe(Collections.singletonList(topic));
+        try {
+            consumer.poll(Duration.ofSeconds(60));
+            consumer.commitSync();
+        } finally {
+            consumer.close();
+        }
     }
 
     @DisabledOnContainer(
@@ -1022,6 +1186,13 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
+    public void testKafkaWithEndTimestampToConsole(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/kafka/kafkasource_endTimestamp_to_console.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
     private AdminClient createKafkaAdmin() {
         Properties props = new Properties();
         String bootstrapServers = kafkaContainer.getBootstrapServers();
@@ -1101,6 +1272,51 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         producer.flush();
     }
 
+    private void generateWithTimestampTestData(
+            ProducerRecordConverter converter,
+            int start,
+            int end,
+            long startTimestamp,
+            int partition) {
+        try {
+            for (int i = start; i < end; i++) {
+                SeaTunnelRow row =
+                        new SeaTunnelRow(
+                                new Object[] {
+                                    Long.valueOf(i), startTimestamp + i * 1000, partition
+                                });
+                ProducerRecord<byte[], byte[]> producerRecord = converter.convert(row);
+                producer.send(producerRecord).get();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        producer.flush();
+    }
+
+    private void generateNativeTestData(String topic, int start, int end) {
+        try {
+            for (int i = start; i < end; i++) {
+                Integer partition = 0;
+                Long timestamp = System.currentTimeMillis();
+                byte[] key = ("native-key" + i).getBytes(StandardCharsets.UTF_8);
+                byte[] value = ("native-value" + i).getBytes(StandardCharsets.UTF_8);
+
+                Header header1 =
+                        new RecordHeader("header1", "value1".getBytes(StandardCharsets.UTF_8));
+                Header header2 =
+                        new RecordHeader("header2", "value2".getBytes(StandardCharsets.UTF_8));
+                List<Header> headers = Arrays.asList(header1, header2);
+                ProducerRecord<byte[], byte[]> record =
+                        new ProducerRecord<>(topic, partition, timestamp, key, value, headers);
+                producer.send(record).get();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        producer.flush();
+    }
+
     private static final SeaTunnelRowType SEATUNNEL_ROW_TYPE =
             new SeaTunnelRowType(
                     new String[] {
@@ -1152,6 +1368,28 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 for (ConsumerRecord<String, String> record : records) {
                     if (lastProcessedOffset < record.offset()) {
                         data.put(record.key(), record.value());
+                    }
+                    lastProcessedOffset = record.offset();
+                }
+            } while (lastProcessedOffset < endOffset - 1);
+        }
+        return data;
+    }
+
+    private List<ConsumerRecord<String, String>> getKafkaRecordData(String topicName) {
+        List<ConsumerRecord<String, String>> data = new ArrayList<>();
+        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
+            consumer.subscribe(Arrays.asList(topicName));
+            Map<TopicPartition, Long> offsets =
+                    consumer.endOffsets(Arrays.asList(new TopicPartition(topicName, 0)));
+            Long endOffset = offsets.entrySet().iterator().next().getValue();
+            Long lastProcessedOffset = -1L;
+
+            do {
+                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+                for (ConsumerRecord<String, String> record : records) {
+                    if (lastProcessedOffset < record.offset()) {
+                        data.add(record);
                     }
                     lastProcessedOffset = record.offset();
                 }

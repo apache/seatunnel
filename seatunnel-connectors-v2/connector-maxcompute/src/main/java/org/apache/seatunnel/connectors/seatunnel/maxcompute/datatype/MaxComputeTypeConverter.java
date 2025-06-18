@@ -31,6 +31,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeBaseOptions;
 
 import com.aliyun.odps.OdpsType;
 import com.aliyun.odps.type.AbstractCharTypeInfo;
@@ -46,8 +47,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PLUGIN_NAME;
 
 /** Refer https://help.aliyun.com/zh/maxcompute/user-guide/maxcompute-v2-0-data-type-edition */
 @Slf4j
@@ -104,7 +103,7 @@ public class MaxComputeTypeConverter implements TypeConverter<BasicTypeDefine<Ty
 
     @Override
     public String identifier() {
-        return PLUGIN_NAME;
+        return MaxcomputeBaseOptions.PLUGIN_NAME;
     }
 
     @Override
@@ -161,7 +160,7 @@ public class MaxComputeTypeConverter implements TypeConverter<BasicTypeDefine<Ty
                     break;
                 default:
                     throw CommonError.unsupportedDataType(
-                            PLUGIN_NAME,
+                            MaxcomputeBaseOptions.PLUGIN_NAME,
                             arrayColumn.getDataType().getSqlType().toString(),
                             typeDefine.getName());
             }
@@ -306,7 +305,7 @@ public class MaxComputeTypeConverter implements TypeConverter<BasicTypeDefine<Ty
                 case INTERVAL:
                 default:
                     throw CommonError.convertToSeaTunnelTypeError(
-                            PLUGIN_NAME, dataType, typeDefine.getName());
+                            MaxcomputeBaseOptions.PLUGIN_NAME, dataType, typeDefine.getName());
             }
         }
         return builder.build();
@@ -534,7 +533,9 @@ public class MaxComputeTypeConverter implements TypeConverter<BasicTypeDefine<Ty
             case TIME:
             default:
                 throw CommonError.convertToConnectorTypeError(
-                        PLUGIN_NAME, column.getDataType().getSqlType().name(), column.getName());
+                        MaxcomputeBaseOptions.PLUGIN_NAME,
+                        column.getDataType().getSqlType().name(),
+                        column.getName());
         }
 
         return builder.build();

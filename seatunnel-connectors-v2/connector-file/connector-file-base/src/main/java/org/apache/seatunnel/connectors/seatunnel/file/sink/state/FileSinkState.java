@@ -27,6 +27,7 @@ import java.util.List;
 @Data
 @AllArgsConstructor
 public class FileSinkState implements Serializable {
+    private static final long serialVersionUID = -8757454855081836294L;
     private final String transactionId;
     private final String uuidPrefix;
     private final Long checkpointId;

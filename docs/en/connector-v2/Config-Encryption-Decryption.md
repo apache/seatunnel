@@ -8,7 +8,7 @@ In most production environments, sensitive configuration items such as passwords
 
 SeaTunnel comes with the function of base64 encryption and decryption, but it is not recommended for production use, it is recommended that users implement custom encryption and decryption logic. You can refer to this chapter [How to implement user-defined encryption and decryption](#How to implement user-defined encryption and decryption) get more details about it.
 
-Base64 encryption support encrypt the following parameters:
+Base64 encryption support encrypt the following parameters by default:
 - username
 - password
 - auth
@@ -16,9 +16,11 @@ Base64 encryption support encrypt the following parameters:
 - access_key
 - secret_key
 
+And users can add custom parameters to `shade.options` for encryption and decryption.
+
 Next, I'll show how to quickly use SeaTunnel's own `base64` encryption:
 
-1. And a new option `shade.identifier` in env block of config file, this option indicate what the encryption method that you want to use, in this example, we should add `shade.identifier = base64` in config as the following shown:
+1. And new option `shade.identifier` and `shade.options` in env block of config file, `shade.identifier` indicate what the encryption method that you want to use, while `shade.options` specifies which parameters should be encrypted/decrypted. In this example, we should add `shade.identifier = base64` in config as the following shown:
 
    ```hocon
    #
@@ -41,6 +43,7 @@ Next, I'll show how to quickly use SeaTunnel's own `base64` encryption:
    env {
      parallelism = 1
      shade.identifier = "base64"
+     shade.options = ["username", "password", "f1", "config1.f1",  "config2.list"]
    }
 
    source {
@@ -55,6 +58,10 @@ Next, I'll show how to quickly use SeaTunnel's own `base64` encryption:
        database-name = "inventory_vwyw0n"
        table-name = "products"
        base-url = "jdbc:mysql://localhost:56725"
+       f1 = "seatunnel"
+       # custom shade options
+       config1.f1 = "seatunnel"
+       config2.list = ["seatunnel", "seatunnel", "seatunnel"]
      }
    }
 
@@ -103,7 +110,10 @@ Next, I'll show how to quickly use SeaTunnel's own `base64` encryption:
                "table-name" : "products",
                "plugin_name" : "MySQL-CDC",
                "server-id" : 5656,
-               "username" : "c2VhdHVubmVs"
+               "username" : "c2VhdHVubmVs",
+               "f1" : "c2VhdHVubmVs",
+               "config1.f1" : "c2VhdHVubmVs",
+               "config2.list" : ["c2VhdHVubmVs","c2VhdHVubmVs","c2VhdHVubmVs"]
            }
        ],
        "transform" : [],

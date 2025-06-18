@@ -237,7 +237,9 @@ export default defineComponent({
               />
             </NTabPane>
             <NTabPane name="Exception" tab="Exception">
-              {job.errorMsg}
+              <pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f5f5f5; padding: 12px; border-radius: 4px; overflow: auto; max-height: 600px; font-family: monospace; line-height: 1.5;">
+                {job.errorMsg}
+              </pre>
             </NTabPane>
             <NTabPane name="Configuration" tab="Configuration">
               <Configuration data={job.envOptions || job.jobDag.envOptions}></Configuration>

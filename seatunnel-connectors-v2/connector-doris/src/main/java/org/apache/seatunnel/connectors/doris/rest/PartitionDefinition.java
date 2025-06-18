@@ -129,7 +129,7 @@ public class PartitionDefinition implements Serializable, Comparable<PartitionDe
     @Override
     public String toString() {
         return "PartitionDefinition{"
-                + ", database='"
+                + "database='"
                 + database
                 + '\''
                 + ", table='"

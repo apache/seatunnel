@@ -67,7 +67,7 @@ public class CustomModel extends AbstractModel {
     }
 
     @Override
-    protected List<List<Float>> vector(Object[] fields) throws IOException {
+    protected List<List<Double>> vector(Object[] fields) throws IOException {
         return vectorGeneration(fields);
     }
 
@@ -76,7 +76,7 @@ public class CustomModel extends AbstractModel {
         return vectorGeneration(new Object[] {DIMENSION_EXAMPLE}).size();
     }
 
-    private List<List<Float>> vectorGeneration(Object[] fields) throws IOException {
+    private List<List<Double>> vectorGeneration(Object[] fields) throws IOException {
         HttpPost post = new HttpPost(apiPath);
         // Construct a request with custom parameters
         for (Map.Entry<String, String> entry : header.entrySet()) {
@@ -96,7 +96,7 @@ public class CustomModel extends AbstractModel {
         }
 
         return OBJECT_MAPPER.convertValue(
-                parseResponse(responseStr), new TypeReference<List<List<Float>>>() {});
+                parseResponse(responseStr), new TypeReference<List<List<Double>>>() {});
     }
 
     @VisibleForTesting

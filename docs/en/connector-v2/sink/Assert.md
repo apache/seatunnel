@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-assert.md';
+
 # Assert
 
 > Assert sink connector
@@ -607,3 +609,6 @@ sink {
 
 ```
 
+## Changelog
+
+<ChangeLog />

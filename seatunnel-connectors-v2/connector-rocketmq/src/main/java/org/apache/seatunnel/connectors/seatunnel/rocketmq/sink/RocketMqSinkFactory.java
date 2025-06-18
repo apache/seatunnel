@@ -18,10 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.rocketmq.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.rocketmq.config.Config;
-import org.apache.seatunnel.connectors.seatunnel.rocketmq.config.ProducerConfig;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.rocketmq.config.RocketMqSinkOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -29,20 +30,25 @@ import com.google.auto.service.AutoService;
 public class RocketMqSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return Config.CONNECTOR_IDENTITY;
+        return RocketMqSinkOptions.CONNECTOR_IDENTITY;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(ProducerConfig.TOPIC, Config.NAME_SRV_ADDR)
+                .required(RocketMqSinkOptions.TOPIC, RocketMqSinkOptions.NAME_SRV_ADDR)
                 .optional(
-                        ProducerConfig.PRODUCER_GROUP,
-                        ProducerConfig.PARTITION_KEY_FIELDS,
-                        ProducerConfig.EXACTLY_ONCE,
-                        ProducerConfig.SEND_SYNC,
-                        ProducerConfig.MAX_MESSAGE_SIZE,
-                        ProducerConfig.SEND_MESSAGE_TIMEOUT_MILLIS)
+                        RocketMqSinkOptions.PRODUCER_GROUP,
+                        RocketMqSinkOptions.PARTITION_KEY_FIELDS,
+                        RocketMqSinkOptions.EXACTLY_ONCE,
+                        RocketMqSinkOptions.SEND_SYNC,
+                        RocketMqSinkOptions.MAX_MESSAGE_SIZE,
+                        RocketMqSinkOptions.SEND_MESSAGE_TIMEOUT_MILLIS)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        return () -> new RocketMqSink(context.getOptions(), context.getCatalogTable());
     }
 }

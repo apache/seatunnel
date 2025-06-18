@@ -20,6 +20,7 @@ package org.apache.seatunnel.transform.nlpmodel;
 import org.apache.commons.lang3.StringUtils;
 
 public enum ModelProvider {
+    AMAZON("https://aws.amazon.com/bedrock", "https://aws.amazon.com/bedrock/amazon-models"),
     OPENAI("https://api.openai.com/v1/chat/completions", "https://api.openai.com/v1/embeddings"),
     DOUBAO(
             "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
@@ -28,6 +29,9 @@ public enum ModelProvider {
     KIMIAI("https://api.moonshot.cn/v1/chat/completions", ""),
     DEEPSEEK("https://api.deepseek.com/chat/completions", ""),
     MICROSOFT("", ""),
+    ZHIPU(
+            "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+            "https://open.bigmodel.cn/api/paas/v4/embeddings"),
     CUSTOM("", ""),
     LOCAL("", "");
 

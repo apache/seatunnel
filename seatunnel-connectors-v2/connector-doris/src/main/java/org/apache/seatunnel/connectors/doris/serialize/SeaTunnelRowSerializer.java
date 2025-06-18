@@ -45,27 +45,45 @@ public class SeaTunnelRowSerializer implements DorisSerializer {
     private final String fieldDelimiter;
     private final boolean enableDelete;
     private final SerializationSchema serialize;
+    private final boolean caseSensitive;
 
     public SeaTunnelRowSerializer(
             String type,
             SeaTunnelRowType seaTunnelRowType,
             String fieldDelimiter,
             boolean enableDelete) {
+        this(type, seaTunnelRowType, fieldDelimiter, enableDelete, true);
+    }
+
+    public SeaTunnelRowSerializer(
+            String type,
+            SeaTunnelRowType seaTunnelRowType,
+            String fieldDelimiter,
+            boolean enableDelete,
+            boolean caseSensitive) {
         this.type = type;
         this.fieldDelimiter = fieldDelimiter;
         this.enableDelete = enableDelete;
-        List<Object> fieldNames = new ArrayList<>(Arrays.asList(seaTunnelRowType.getFieldNames()));
+        this.caseSensitive = caseSensitive;
+
+        String[] fieldNames = seaTunnelRowType.getFieldNames();
+        String[] processedFieldNames = new String[fieldNames.length];
+        for (int i = 0; i < fieldNames.length; i++) {
+            processedFieldNames[i] = caseSensitive ? fieldNames[i] : fieldNames[i].toLowerCase();
+        }
+
+        List<Object> fieldNamesList = new ArrayList<>(Arrays.asList(processedFieldNames));
         List<SeaTunnelDataType<?>> fieldTypes =
                 new ArrayList<>(Arrays.asList(seaTunnelRowType.getFieldTypes()));
 
         if (enableDelete) {
-            fieldNames.add(LoadConstants.DORIS_DELETE_SIGN);
+            fieldNamesList.add(LoadConstants.DORIS_DELETE_SIGN);
             fieldTypes.add(STRING_TYPE);
         }
 
         this.seaTunnelRowType =
                 new SeaTunnelRowType(
-                        fieldNames.toArray(new String[0]),
+                        fieldNamesList.toArray(new String[0]),
                         fieldTypes.toArray(new SeaTunnelDataType<?>[0]));
 
         if (JSON.equals(type)) {

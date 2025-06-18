@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.maxcompute.util;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
 
 import org.apache.commons.lang3.StringUtils;
@@ -32,18 +33,11 @@ import com.aliyun.odps.account.AliyunAccount;
 import com.aliyun.odps.tunnel.TableTunnel;
 import lombok.extern.slf4j.Slf4j;
 
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ACCESS_ID;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ACCESS_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ENDPOINT;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PARTITION_SPEC;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PROJECT;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.TABLE_NAME;
-
 @Slf4j
 public class MaxcomputeUtil {
     public static Table getTable(ReadonlyConfig readonlyConfig) {
         Odps odps = getOdps(readonlyConfig);
-        return odps.tables().get(readonlyConfig.get(TABLE_NAME));
+        return odps.tables().get(readonlyConfig.get(MaxcomputeBaseOptions.TABLE_NAME));
     }
 
     public static TableTunnel getTableTunnel(ReadonlyConfig readonlyConfig) {
@@ -53,10 +47,12 @@ public class MaxcomputeUtil {
 
     public static Odps getOdps(ReadonlyConfig readonlyConfig) {
         Account account =
-                new AliyunAccount(readonlyConfig.get(ACCESS_ID), readonlyConfig.get(ACCESS_KEY));
+                new AliyunAccount(
+                        readonlyConfig.get(MaxcomputeBaseOptions.ACCESS_ID),
+                        readonlyConfig.get(MaxcomputeBaseOptions.ACCESS_KEY));
         Odps odps = new Odps(account);
-        odps.setEndpoint(readonlyConfig.get(ENDPOINT));
-        odps.setDefaultProject(readonlyConfig.get(PROJECT));
+        odps.setEndpoint(readonlyConfig.get(MaxcomputeBaseOptions.ENDPOINT));
+        odps.setDefaultProject(readonlyConfig.get(MaxcomputeBaseOptions.PROJECT));
         return odps;
     }
 
@@ -64,17 +60,19 @@ public class MaxcomputeUtil {
         TableTunnel tunnel = getTableTunnel(readonlyConfig);
         TableTunnel.DownloadSession session;
         try {
-            if (readonlyConfig.getOptional(PARTITION_SPEC).isPresent()) {
-                PartitionSpec partitionSpec = new PartitionSpec(readonlyConfig.get(PARTITION_SPEC));
+            if (readonlyConfig.getOptional(MaxcomputeBaseOptions.PARTITION_SPEC).isPresent()) {
+                PartitionSpec partitionSpec =
+                        new PartitionSpec(readonlyConfig.get(MaxcomputeBaseOptions.PARTITION_SPEC));
                 session =
                         tunnel.createDownloadSession(
-                                readonlyConfig.get(PROJECT),
-                                readonlyConfig.get(TABLE_NAME),
+                                readonlyConfig.get(MaxcomputeBaseOptions.PROJECT),
+                                readonlyConfig.get(MaxcomputeBaseOptions.TABLE_NAME),
                                 partitionSpec);
             } else {
                 session =
                         tunnel.createDownloadSession(
-                                readonlyConfig.get(PROJECT), readonlyConfig.get(TABLE_NAME));
+                                readonlyConfig.get(MaxcomputeBaseOptions.PROJECT),
+                                readonlyConfig.get(MaxcomputeBaseOptions.TABLE_NAME));
             }
         } catch (Exception e) {
             throw new MaxcomputeConnectorException(

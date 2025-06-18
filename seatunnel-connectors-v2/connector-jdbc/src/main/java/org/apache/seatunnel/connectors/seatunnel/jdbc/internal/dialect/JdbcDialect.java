@@ -814,4 +814,44 @@ public interface JdbcDialect extends Serializable {
     default String quotesDefaultValue(Object defaultValue) {
         return "'" + defaultValue + "'";
     }
+
+    default String getCollationSequence(Connection connection, String collate) {
+        StringBuilder sb = new StringBuilder();
+        String getDual = dualTable();
+        String baseQuery = "SELECT char_val FROM (";
+        StringBuilder unionQuery = new StringBuilder();
+        for (int i = 32; i <= 126; i++) {
+            if (i > 32) unionQuery.append(" UNION ALL ");
+            unionQuery.append("SELECT ? AS char_val ").append(getDual);
+        }
+        String sortedQuery =
+                baseQuery + unionQuery + ")  ndi_tmp_chars ORDER BY " + getCollateSql(collate);
+        log.info("sortedCollationQuery is " + sortedQuery);
+        PreparedStatement preparedStatement;
+        try {
+            preparedStatement = connection.prepareStatement(sortedQuery);
+            for (int i = 32; i <= 126; i++) {
+                log.debug("setString " + (i - 32) + " => " + (char) i);
+                preparedStatement.setString(i - 32 + 1, String.valueOf((char) i));
+            }
+
+            ResultSet resultSet = preparedStatement.executeQuery();
+            while (resultSet.next()) {
+                sb.append(resultSet.getString("char_val"));
+            }
+            return sb.toString();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    default String getCollateSql(String collate) {
+        String getCollate =
+                StringUtils.isNotBlank(collate) ? "char_val COLLATE " + collate : "char_val";
+        return getCollate;
+    }
+
+    default String dualTable() {
+        return "";
+    }
 }

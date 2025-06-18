@@ -18,12 +18,14 @@
 package org.apache.seatunnel.connectors.seatunnel.easysearch.catalog;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigUtil;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.InfoPreviewResult;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.PreviewResult;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -39,6 +41,8 @@ import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.source.IndexDocs
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -51,18 +55,20 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
  *
  * <p>In Easysearch, we use the index as the database and table.
  */
+@Slf4j
 public class EasysearchCatalog implements Catalog {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(EasysearchCatalog.class);
 
     private final String catalogName;
     private final String defaultDatabase;
-    private final Config pluginConfig;
+    private final ReadonlyConfig pluginConfig;
 
     private EasysearchClient ezsClient;
 
     // todo: do we need default database?
-    public EasysearchCatalog(String catalogName, String defaultDatabase, Config easySearchConfig) {
+    public EasysearchCatalog(
+            String catalogName, String defaultDatabase, ReadonlyConfig easySearchConfig) {
         this.catalogName = checkNotNull(catalogName, "catalogName cannot be null");
         this.defaultDatabase = defaultDatabase;
         this.pluginConfig = checkNotNull(easySearchConfig, "easySearchConfig cannot be null");
@@ -103,14 +109,14 @@ public class EasysearchCatalog implements Catalog {
     public boolean databaseExists(String databaseName) throws CatalogException {
         // check if the index exist
         try {
-            List<IndexDocsCount> indexDocsCount = ezsClient.getIndexDocsCount(databaseName);
-            return true;
+            return ezsClient.checkIndexExist(databaseName);
         } catch (Exception e) {
-            throw new CatalogException(
+            log.error(
                     String.format(
                             "Failed to check if catalog %s database %s exists",
                             catalogName, databaseName),
                     e);
+            return false;
         }
     }
 
@@ -220,6 +226,59 @@ public class EasysearchCatalog implements Catalog {
             dropTable(tablePath, ignoreIfNotExists);
         } catch (TableNotExistException ex) {
             throw new DatabaseNotExistException(catalogName, tablePath.getDatabaseName());
+        }
+    }
+
+    @Override
+    public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists) {
+        // Delete and recreate the index
+        try {
+            dropTable(tablePath, ignoreIfNotExists);
+            createTable(tablePath, null, false);
+        } catch (Exception e) {
+            throw new CatalogException(
+                    String.format(
+                            "Failed to truncate table %s in catalog %s",
+                            tablePath.getTableName(), catalogName),
+                    e);
+        }
+    }
+
+    @Override
+    public boolean isExistsData(TablePath tablePath) {
+        try {
+            // First check if the index exists
+            if (!ezsClient.checkIndexExist(tablePath.getTableName())) {
+                return false;
+            }
+
+            // Then check if it has documents
+            final List<IndexDocsCount> indexDocsCount =
+                    ezsClient.getIndexDocsCount(tablePath.getTableName());
+            return !indexDocsCount.isEmpty() && indexDocsCount.get(0).getDocsCount() > 0;
+        } catch (Exception e) {
+            // If any error occurs, return false
+            return false;
+        }
+    }
+
+    @Override
+    public PreviewResult previewAction(
+            ActionType actionType,
+            TablePath tablePath,
+            java.util.Optional<CatalogTable> catalogTable) {
+        if (actionType == ActionType.CREATE_TABLE) {
+            return new InfoPreviewResult("create index " + tablePath.getTableName());
+        } else if (actionType == ActionType.DROP_TABLE) {
+            return new InfoPreviewResult("delete index " + tablePath.getTableName());
+        } else if (actionType == ActionType.TRUNCATE_TABLE) {
+            return new InfoPreviewResult("delete and create index " + tablePath.getTableName());
+        } else if (actionType == ActionType.CREATE_DATABASE) {
+            return new InfoPreviewResult("create index " + tablePath.getTableName());
+        } else if (actionType == ActionType.DROP_DATABASE) {
+            return new InfoPreviewResult("delete index " + tablePath.getTableName());
+        } else {
+            throw new UnsupportedOperationException("Unsupported action type: " + actionType);
         }
     }
 

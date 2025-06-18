@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-sentry.md';
+
 # Sentry
 
 ## 描述
@@ -72,7 +74,4 @@ DSN告诉SDK将事件发送到何处.
 
 ## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 添加 Sentry 接收器连接器
-
+<ChangeLog />

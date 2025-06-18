@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -44,10 +44,10 @@ public class ClickhouseCatalogFactory implements CatalogFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(ClickhouseConfig.HOST)
-                .required(ClickhouseConfig.DATABASE)
-                .required(ClickhouseConfig.USERNAME)
-                .required(ClickhouseConfig.PASSWORD)
+                .required(ClickhouseBaseOptions.HOST)
+                .required(ClickhouseBaseOptions.DATABASE)
+                .required(ClickhouseBaseOptions.USERNAME)
+                .required(ClickhouseBaseOptions.PASSWORD)
                 .build();
     }
 }

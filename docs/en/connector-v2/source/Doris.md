@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-doris.md';
+
 # Doris
 
 > Doris source connector
@@ -220,3 +222,7 @@ sink{
   }
 }
 ```
+
+## Changelog
+
+<ChangeLog />

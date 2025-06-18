@@ -58,6 +58,10 @@ public class MongodbSourceOptions extends SourceOptions {
 
     public static final String ID_FIELD = "_id";
 
+    public static final String HEARTBEAT_KEY_FIELD = "HEARTBEAT";
+
+    public static final String COPY_KEY_FIELD = "copy";
+
     public static final String DOCUMENT_KEY = "documentKey";
 
     public static final String NS_FIELD = "ns";

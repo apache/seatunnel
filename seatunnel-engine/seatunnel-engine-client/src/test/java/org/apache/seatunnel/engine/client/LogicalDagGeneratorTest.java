@@ -42,7 +42,8 @@ public class LogicalDagGeneratorTest {
     @Test
     public void testLogicalGenerator() {
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/batch_fakesource_to_file_complex.conf");
+        String filePath =
+                ContentFormatUtilTest.getResource("/batch_fakesource_to_file_complex.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("fake_to_file");
         jobConfig.setJobContext(new JobContext());

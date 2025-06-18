@@ -27,7 +27,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.IDENTIFIER;
+import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.IDENTIFIER;
 
 /** Doris type converter for version 1.2.x */
 @Slf4j
@@ -48,7 +48,12 @@ public class DorisTypeConverterV1 extends AbstractDorisTypeConverter {
 
     @Override
     public Column convert(BasicTypeDefine typeDefine) {
-        PhysicalColumn.PhysicalColumnBuilder builder = getPhysicalColumnBuilder(typeDefine);
+        return convert(typeDefine, true);
+    }
+
+    public Column convert(BasicTypeDefine typeDefine, boolean caseSensitive) {
+        PhysicalColumn.PhysicalColumnBuilder builder =
+                getPhysicalColumnBuilder(typeDefine, caseSensitive);
         String dorisColumnType = getDorisColumnName(typeDefine);
 
         switch (dorisColumnType) {

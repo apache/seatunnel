@@ -36,6 +36,7 @@ import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -44,7 +45,6 @@ import org.apache.commons.lang3.tuple.ImmutableTriple;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
-import java.io.FileFilter;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -55,13 +55,11 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.ServiceLoader;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
@@ -90,6 +88,9 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
     private final BiConsumer<ClassLoader, URL> addURLToClassLoaderConsumer;
     protected final ConcurrentHashMap<PluginIdentifier, Optional<URL>> pluginJarPath =
             new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
+    protected final Map<PluginIdentifier, String> sourcePluginInstance;
+    protected final Map<PluginIdentifier, String> sinkPluginInstance;
+    protected final Map<PluginIdentifier, String> transformPluginInstance;
 
     public AbstractPluginDiscovery(BiConsumer<ClassLoader, URL> addURLToClassloader) {
         this(Common.connectorDir(), loadConnectorPluginConfig(), addURLToClassloader);
@@ -114,6 +115,9 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         this.pluginDir = pluginDir;
         this.pluginMappingConfig = pluginMappingConfig;
         this.addURLToClassLoaderConsumer = addURLToClassLoaderConsumer;
+        this.sourcePluginInstance = getAllSupportedPlugins(PluginType.SOURCE);
+        this.sinkPluginInstance = getAllSupportedPlugins(PluginType.SINK);
+        this.transformPluginInstance = getAllSupportedPlugins(PluginType.TRANSFORM);
         log.info("Load {} Plugin from {}", getPluginBaseClass().getSimpleName(), pluginDir);
     }
 
@@ -423,14 +427,10 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                 pluginDir
                         .toFile()
                         .listFiles(
-                                new FileFilter() {
-                                    @Override
-                                    public boolean accept(File pathname) {
-                                        return pathname.getName().endsWith(".jar")
+                                pathname ->
+                                        pathname.getName().endsWith(".jar")
                                                 && StringUtils.startsWithIgnoreCase(
-                                                        pathname.getName(), pluginJarPrefix);
-                                    }
-                                });
+                                                        pathname.getName(), pluginJarPrefix));
         if (ArrayUtils.isEmpty(targetPluginFiles)) {
             return Optional.empty();
         }
@@ -439,10 +439,9 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
             if (targetPluginFiles.length == 1) {
                 pluginJarPath = targetPluginFiles[0].toURI().toURL();
             } else {
+                PluginType type = PluginType.valueOf(pluginType.toUpperCase());
                 pluginJarPath =
-                        findMostSimlarPluginJarFile(targetPluginFiles, pluginJarPrefix)
-                                .toURI()
-                                .toURL();
+                        selectPluginJar(targetPluginFiles, pluginJarPrefix, pluginName, type).get();
             }
             log.info("Discovery plugin jar for: {} at: {}", pluginIdentifier, pluginJarPath);
             return Optional.of(pluginJarPath);
@@ -455,104 +454,59 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         }
     }
 
-    private static File findMostSimlarPluginJarFile(
-            File[] targetPluginFiles, String pluginJarPrefix) {
-        String splitRegex = "\\-|\\_|\\.";
-        double maxSimlarity = -Integer.MAX_VALUE;
-        int mostSimlarPluginJarFileIndex = -1;
-        for (int i = 0; i < targetPluginFiles.length; i++) {
-            File file = targetPluginFiles[i];
-            String fileName = file.getName();
-            double similarity =
-                    CosineSimilarityUtil.cosineSimilarity(pluginJarPrefix, fileName, splitRegex);
-            if (similarity > maxSimlarity) {
-                maxSimlarity = similarity;
-                mostSimlarPluginJarFileIndex = i;
-            }
+    private Optional<URL> selectPluginJar(
+            File[] targetPluginFiles, String pluginJarPrefix, String pluginName, PluginType type) {
+        List<URL> resMatchedUrls = new ArrayList<>();
+        for (File file : targetPluginFiles) {
+            Optional<URL> matchedUrl = findMatchingUrl(file, type);
+            matchedUrl.ifPresent(resMatchedUrls::add);
         }
-        return targetPluginFiles[mostSimlarPluginJarFileIndex];
+        if (resMatchedUrls.size() != 1) {
+            throw new SeaTunnelException(
+                    String.format(
+                            "Cannot find unique plugin jar for pluginIdentifier: %s -> %s. Possible impact jar: %s",
+                            pluginName, pluginJarPrefix, Arrays.asList(targetPluginFiles)));
+        } else {
+            return Optional.of(resMatchedUrls.get(0));
+        }
     }
 
-    static class CosineSimilarityUtil {
-        public static double cosineSimilarity(String textA, String textB, String splitRegrex) {
-            Set<String> words1 =
-                    new HashSet<>(Arrays.asList(textA.toLowerCase().split(splitRegrex)));
-            Set<String> words2 =
-                    new HashSet<>(Arrays.asList(textB.toLowerCase().split(splitRegrex)));
-            int[] termFrequency1 = calculateTermFrequencyVector(textA, words1, splitRegrex);
-            int[] termFrequency2 = calculateTermFrequencyVector(textB, words2, splitRegrex);
-            return calculateCosineSimilarity(termFrequency1, termFrequency2);
+    private Optional<URL> findMatchingUrl(File file, PluginType type) {
+        Map<PluginIdentifier, String> pluginInstanceMap = null;
+        switch (type) {
+            case SINK:
+                pluginInstanceMap = sinkPluginInstance;
+                break;
+            case SOURCE:
+                pluginInstanceMap = sourcePluginInstance;
+                break;
+            case TRANSFORM:
+                pluginInstanceMap = transformPluginInstance;
+                break;
+        }
+        if (pluginInstanceMap == null) {
+            return Optional.empty();
+        }
+        List<PluginIdentifier> matchedIdentifier = new ArrayList<>();
+        for (Map.Entry<PluginIdentifier, String> entry : pluginInstanceMap.entrySet()) {
+            if (file.getName().startsWith(entry.getValue())) {
+                matchedIdentifier.add(entry.getKey());
+            }
         }
 
-        private static int[] calculateTermFrequencyVector(
-                String text, Set<String> words, String splitRegrex) {
-            int[] termFrequencyVector = new int[words.size()];
-            String[] textArray = text.toLowerCase().split(splitRegrex);
-            List<String> orderedWords = new ArrayList<String>();
-            words.clear();
-            for (String word : textArray) {
-                if (!words.contains(word)) {
-                    orderedWords.add(word);
-                    words.add(word);
-                }
-            }
-            for (String word : textArray) {
-                if (words.contains(word)) {
-                    int index = 0;
-                    for (String w : orderedWords) {
-                        if (w.equals(word)) {
-                            termFrequencyVector[index]++;
-                            break;
-                        }
-                        index++;
-                    }
-                }
-            }
-            return termFrequencyVector;
-        }
-
-        private static double calculateCosineSimilarity(int[] vectorA, int[] vectorB) {
-            double dotProduct = 0.0;
-            double magnitudeA = 0.0;
-            double magnitudeB = 0.0;
-            int vectorALength = vectorA.length;
-            int vectorBLength = vectorB.length;
-            if (vectorALength < vectorBLength) {
-                int[] vectorTemp = new int[vectorBLength];
-                for (int i = 0; i < vectorB.length; i++) {
-                    if (i <= vectorALength - 1) {
-                        vectorTemp[i] = vectorA[i];
-                    } else {
-                        vectorTemp[i] = 0;
-                    }
-                }
-                vectorA = vectorTemp;
-            }
-            if (vectorALength > vectorBLength) {
-                int[] vectorTemp = new int[vectorALength];
-                for (int i = 0; i < vectorA.length; i++) {
-                    if (i <= vectorBLength - 1) {
-                        vectorTemp[i] = vectorB[i];
-                    } else {
-                        vectorTemp[i] = 0;
-                    }
-                }
-                vectorB = vectorTemp;
-            }
-            for (int i = 0; i < vectorA.length; i++) {
-                dotProduct += vectorA[i] * vectorB[i];
-                magnitudeA += Math.pow(vectorA[i], 2);
-                magnitudeB += Math.pow(vectorB[i], 2);
-            }
-
-            magnitudeA = Math.sqrt(magnitudeA);
-            magnitudeB = Math.sqrt(magnitudeB);
-
-            if (magnitudeA == 0 || magnitudeB == 0) {
-                return 0.0; // Avoid dividing by 0
-            } else {
-                return dotProduct / (magnitudeA * magnitudeB);
+        if (matchedIdentifier.size() == 1) {
+            try {
+                return Optional.of(file.toURI().toURL());
+            } catch (MalformedURLException e) {
+                log.warn("Cannot get plugin URL for pluginIdentifier: {}", file, e);
             }
         }
+        if (log.isDebugEnabled()) {
+            log.debug(
+                    "File found: {}, matches more than one PluginIdentifier: {}",
+                    file.getName(),
+                    matchedIdentifier);
+        }
+        return Optional.empty();
     }
 }
